@@ -17,9 +17,9 @@
       <li>
         <a href="<%= studio.path %>/backlinks">Backlinks</a>
       </li>
-      <li>
+      <!-- <li>
         <a href="<%= studio.path %>/views">Views</a>
-      </li>
+      </li> -->
     </ul>
   <% end %>
   <%= render 'shared/collapseable_section', title: 'Pinned', header_level: 4, octicon: 'pin', hidden: !expanded, lazy_load: expanded ? nil : "#{studio.path}/pinned.html" do %>
