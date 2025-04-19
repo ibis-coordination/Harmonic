@@ -123,6 +123,7 @@ class Note < ApplicationRecord
   end
 
   def creator_can_skip_confirm?(user)
-    user == created_by && created_at == updated_at || user == updated_by
+    # This is a reversed design choice to allow the creator to confirm their own note
+    false
   end
 end
