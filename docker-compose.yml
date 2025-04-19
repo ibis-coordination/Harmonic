@@ -34,6 +34,9 @@ services:
     image: redis:6.2-alpine
     volumes:
       - redis_data:/data
+  # Use either Caddy or Ngrok but not both at the same time.
+  # Set HOST_MODE to "caddy" or "ngrok" in the .env file.
+  # Uncomment the Caddy service and comment out the Ngrok service to use Caddy, and vice versa.
   caddy:
     image: caddy:2-alpine
     command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
@@ -50,6 +53,15 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - ./Caddyfile:/etc/caddy/Caddyfile
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - web
+  #   command: http web:3000
+  #   env_file:
+  #     # Make sure your NGROK_AUTHTOKEN is set in the .env file, and HOST_MODE is set to "ngrok".
+  #     - .env
 
 volumes:
   pg_data:
