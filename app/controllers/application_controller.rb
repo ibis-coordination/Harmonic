@@ -155,7 +155,7 @@ class ApplicationController < ActionController::Base
     su = current_studio.studio_users.find_by(user: @current_user)
     if su.nil?
       if current_studio == current_tenant.main_studio
-        if controller_name == 'sessions' || @current_user.trustee?
+        if controller_name.ends_with?('sessions' || @current_user.trustee?)
           # Do nothing
         else
           current_studio.add_user!(@current_user)
@@ -176,7 +176,7 @@ class ApplicationController < ActionController::Base
   end
 
   def validate_unauthenticated_access
-    return if @current_user || !@current_tenant.require_login? || controller_name == 'sessions'
+    return if @current_user || !@current_tenant.require_login? || controller_name.ends_with?('sessions')
     if current_resource
       path = current_resource.path
       query_string = "?redirect_to_resource=#{path}"
@@ -240,7 +240,7 @@ class ApplicationController < ActionController::Base
 
   def current_resource_model
     return @current_resource_model if defined?(@current_resource_model)
-    if controller_name == 'home' || controller_name == 'sessions'
+    if controller_name == 'home' || controller_name.end_with?('_sessions')
       @current_resource_model = nil
     else
       @current_resource_model = controller_name.classify.constantize

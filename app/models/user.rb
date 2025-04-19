@@ -14,6 +14,8 @@ class User < ApplicationRecord
   has_many :simulated_users, class_name: 'User', foreign_key: 'parent_id'
 
   validates :user_type, inclusion: { in: %w(person simulated trustee) }
+  validates :email, presence: true
+  validates :name, presence: true
   validate :simulated_user_must_have_parent
 
   def api_json

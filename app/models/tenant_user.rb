@@ -8,7 +8,7 @@ class TenantUser < ApplicationRecord
   before_create :set_defaults
 
   def set_defaults
-    self.handle ||= user.email
+    self.handle = self.handle.presence || user.name.parameterize
     self.display_name ||= user.name
     self.settings ||= {}
     self.settings['pinned'] ||= {}

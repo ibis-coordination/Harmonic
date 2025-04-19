@@ -1,0 +1,20 @@
+<h1>Login via Honor System</h1>
+<p>
+  To log in, please enter your email address and name (optional).
+  This host is configured to use the honor system, and therefore no password is required.
+</p>
+<p>
+  <strong>Note:</strong> Honor system login is not secure and should not be used in production environments.
+  It is intended for high trust and low stakes environments only.
+</p>
+<%= form_with do |form| %>
+  <div>
+    <%= form.email_field :email, placeholder: 'email address' %>
+  </div>
+  <div>
+    <%= form.text_field :name, placeholder: 'name (optional)' %>
+  </div>
+  <div>
+    <%= form.submit 'Login' %>
+  </div>
+<% end %>

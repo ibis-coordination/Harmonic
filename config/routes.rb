@@ -1,12 +1,25 @@
 Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
 
-  get 'login' => 'sessions#new'
-  get 'auth/:provider/callback' => 'sessions#oauth_callback'
-  get 'login/return' => 'sessions#return'
-  get 'login/callback' => 'sessions#internal_callback'
-  delete '/logout' => 'sessions#destroy'
-  get 'logout-success' => 'sessions#logout_success'
+  if ENV['AUTH_MODE'] == 'honor_system'
+    get 'login' => 'honor_system_sessions#new'
+    post 'login' => 'honor_system_sessions#create'
+    delete 'logout' => 'honor_system_sessions#destroy'
+    get 'logout-success' => 'honor_system_sessions#logout_success'
+  elsif ENV['AUTH_MODE'] == 'oauth'
+    get 'login' => 'sessions#new'
+    get 'auth/:provider/callback' => 'sessions#oauth_callback'
+    get 'login/return' => 'sessions#return'
+    get 'login/callback' => 'sessions#internal_callback'
+    delete '/logout' => 'sessions#destroy'
+    get 'logout-success' => 'sessions#logout_success'
+  elsif ENV['AUTH_MODE'] == 'magic_link'
+    # TODO - implement magic link auth
+    # get 'login' => 'magic_link_sessions#new'
+    # post 'login' => 'magic_link_sessions#create'
+  else
+    raise 'Invalid AUTH_MODE'
+  end
 
   namespace :api do
     namespace :v1 do
