@@ -125,6 +125,53 @@ class CommitmentsController < ApplicationController
     render partial: 'participants_list_items'
   end
 
+  def settings
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
+    @page_title = "Commitment Settings"
+    @page_description = "Change settings for this commitment"
+    @scratchpad_links = current_user.scratchpad_links(tenant: current_tenant, studio: current_studio)
+  end
+
+  def update_settings
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
+    @commitment.title = model_params[:title] if model_params[:title].present?
+    @commitment.description = model_params[:description] if model_params[:description].present?
+    if model_params[:critical_mass].present?
+      cm_is_lower = model_params[:critical_mass].to_i < @commitment.critical_mass.to_i
+    else
+      cm_is_lower = false
+    end
+    if cm_is_lower && @commitment.participant_count > 0
+      flash[:alert] = "You cannot lower the critical mass after participants have joined."
+    else
+      @commitment.critical_mass = model_params[:critical_mass] if model_params[:critical_mass].present?
+    end
+    # The datetime select is in the studio timezone, so we need to convert it to UTC
+    # @commitment.deadline = Time.zone.parse("#{params[:deadline]} #{params[:deadline_time]}").utc
+    ActiveRecord::Base.transaction do
+      @commitment.save!
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'update',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Commitment',
+              id: @commitment.id,
+              truncated_id: @commitment.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+      end
+    end
+    redirect_to @commitment.path
+  end
+
   private
 
   def current_app

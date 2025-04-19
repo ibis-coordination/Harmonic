@@ -161,6 +161,8 @@ Rails.application.routes.draw do
       post '/join.html' => 'commitments#join_and_return_partial'
       put '/pin' => 'commitments#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
+      get '/settings' => 'commitments#settings'
+      post '/settings' => 'commitments#update_settings'
     end
 
     get "#{prefix}/sequence" => 'sequences#new'

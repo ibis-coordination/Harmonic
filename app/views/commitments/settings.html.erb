@@ -1,0 +1,36 @@
+<h4 style="display:inline-block;">
+  <%= link_to @current_studio.name, @current_studio.path || '/' %> / <i class="commitment-icon"></i> Commitment <code><%= @commitment.truncated_id %></code>
+</h4>
+<%= render 'shared/scratchpad_links' %>
+<%= form_with url: "#{@commitment.path}/settings" do |form| %>
+  <div>
+    <%= form.text_field :title, placeholder: 'Action that this commitment will initiate', value: @commitment.title %>
+  </div>
+  <div style="margin-top:8px;">
+    <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @commitment.description %>
+  </div>
+  <%= render 'shared/multi_file_select', form: form %>
+  <h2>Critical Mass</h2>
+  <div class="notice">
+    <p>
+      <% if @commitment.participant_count > 0 %>
+        <strong>Lowering</strong> critical mass is no longer allowed because the current participant count (<%= @commitment.participant_count %>) is greater than zero.
+      <% else %>
+        <strong>Lowering</strong> critical mass below <%= @commitment.critical_mass %> is only allowed if the current participant count is zero.
+      <% end %>
+    </p>
+    <p style="margin-bottom:0;">
+      <strong>Raising</strong> critical mass is always allowed but <strong>cannot be undone</strong> if the participant count is above zero.
+    </p>
+  </div>
+  <p>
+    At least <%= form.number_field :critical_mass, value: @commitment.critical_mass, style: 'width:48px;' %> participant(s) required for this commitment to take effect.
+  </p>
+  <!-- <h3>Deadline</h3>
+  <p>
+    Critical mass must be reached by
+    <%= form.datetime_select :deadline, value: @commitment.deadline %> <%= @current_studio.timezone %>
+  </p> -->
+  <hr style="height:1px;" />
+  <%= form.submit 'Save' %>
+<% end %>
