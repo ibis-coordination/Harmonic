@@ -7,10 +7,11 @@
 3. Commitments (group action)
 
 ## Development
-Docker and Docker Compose are the only dependencies you need to have installed to run the app. For initial setup, first create a `.env` file for your environment variables.
+Docker and Docker Compose are the only dependencies you need to have installed to run the app. For initial setup, first create a `.env` file for your environment variables, and a `Caddyfile`.
 
 ```bash
 cp .env.example .env
+cp Caddyfile.example ./Caddyfile
 ```
 
 For development, you probably won't need to change any variables from `.env.example`, unless you are using a remote dev environment like GitHub Codespaces, in which case you will need to set `HOSTNAME` to the correct domain. For production, you will need to change other variables also.

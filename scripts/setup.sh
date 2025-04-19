@@ -37,7 +37,7 @@ wait_for_db
 
 # Ensure the database is created and has the correct schema
 echo -e "${GREEN}Setting up the database...${NC}"
-docker-compose exec web bundle exec rails db:create db:migrate db:seed
+docker-compose exec web bundle exec rails db:create db:schema:load db:migrate db:seed
 
 echo -e "${GREEN}Setup completed. Removing containers...${NC}"
 docker-compose down

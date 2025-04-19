@@ -56,6 +56,7 @@ class Tenant < ApplicationRecord
   end
 
   def set_defaults
+    return unless self.respond_to?(:settings)
     self.settings = ({
       timezone: 'UTC',
       require_login: true,
