@@ -82,11 +82,9 @@ class Decision < ApplicationRecord
   end
 
   def can_add_options?(participant)
-    return false if closed?
-    return false if !participant.authenticated?
-    return true if options_open?
-    return true if participant == created_by
-    return false if participant.nil?
+    return false if closed? || !participant.authenticated?
+    return true if options_open? || participant.user_id == created_by_id
+    return false
   end
 
   def can_update_options?(participant)
