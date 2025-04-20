@@ -30,6 +30,7 @@ class StudiosController < ApplicationController
       @studio = Studio.create!(
         name: params[:name],
         handle: params[:handle],
+        description: params[:description],
         created_by: @current_user,
         timezone: params[:timezone],
         tempo: params[:tempo],
@@ -55,6 +56,7 @@ class StudiosController < ApplicationController
     end
     @current_studio.name = params[:name]
     # @current_studio.handle = params[:handle] if params[:handle]
+    @current_studio.description = params[:description]
     @current_studio.timezone = params[:timezone]
     @current_studio.tempo = params[:tempo]
     @current_studio.synchronization_mode = params[:synchronization_mode]

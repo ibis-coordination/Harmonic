@@ -13,6 +13,11 @@
     <%= form.text_field :name, placeholder: 'Studio Name', value: @current_studio.name %>
   </p>
 
+  <h2>Studio Description</h2>
+  <p>
+    <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_studio.description %>
+  </p>
+
   <h2>Time Zone</h2>
   <p>
     The studio time zone determines when cycles begin and end.

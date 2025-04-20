@@ -27,6 +27,10 @@
   <%= render 'shared/scratchpad_links_list', studio: @current_studio %>
 <% end %>
 
+<% if @current_studio.description.present? %>
+  <%= markdown(@current_studio.description) %>
+<% end %>
+
 <h2>
   <%= octicon 'telescope', height: 24 %>
   Explore

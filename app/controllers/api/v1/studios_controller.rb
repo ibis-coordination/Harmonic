@@ -18,8 +18,11 @@ module Api::V1
         studio = Studio.create!(
           name: params[:name],
           handle: params[:handle],
+          description: params[:description],
           created_by: current_user,
           timezone: params[:timezone],
+          tempo: params[:tempo],
+          synchronization_mode: params[:synchronization_mode],
         )
         studio.add_user!(current_user, roles: ['admin', 'representative'])
         studio.create_welcome_note!
@@ -35,6 +38,10 @@ module Api::V1
       studio ||= current_user.studios.find_by(handle: params[:id])
       return render json: { error: 'Studio not found' }, status: 404 unless note
       studio.name = params[:name] if params.has_key?(:name)
+      studio.description = params[:description] if params.has_key?(:description)
+      studio.timezone = params[:timezone] if params.has_key?(:timezone)
+      studio.tempo = params[:tempo] if params.has_key?(:tempo)
+      studio.synchronization_mode = params[:synchronization_mode] if params.has_key?(:synchronization_mode)
       if params.has_key?(:handle) && params[:handle] != studio.handle
         if params[:force_update] == true
           studio.handle = params[:handle]

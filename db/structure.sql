@@ -693,7 +693,8 @@ CREATE TABLE public.studios (
     updated_at timestamp(6) without time zone NOT NULL,
     created_by_id uuid NOT NULL,
     updated_by_id uuid NOT NULL,
-    trustee_user_id uuid
+    trustee_user_id uuid,
+    description text
 );
 
 
@@ -1989,23 +1990,31 @@ CREATE INDEX index_users_on_parent_id ON public.users USING btree (parent_id);
 
 
 --
--- Name: decision_results _RETURN; Type: RULE; Schema: public; Owner: -
+-- Name: cycle_data_commitments _RETURN; Type: RULE; Schema: public; Owner: -
 --
 
-CREATE OR REPLACE VIEW public.decision_results AS
- SELECT o.tenant_id,
-    o.decision_id,
-    o.id AS option_id,
-    o.title AS option_title,
-    COALESCE(sum(a.value), (0)::bigint) AS approved_yes,
-    (count(a.value) - COALESCE(sum(a.value), (0)::bigint)) AS approved_no,
-    count(a.value) AS approval_count,
-    COALESCE(sum(a.stars), (0)::bigint) AS stars,
-    o.random_id
-   FROM (public.options o
-     LEFT JOIN public.approvals a ON ((a.option_id = o.id)))
-  GROUP BY o.tenant_id, o.decision_id, o.id
-  ORDER BY COALESCE(sum(a.value), (0)::bigint) DESC, COALESCE(sum(a.stars), (0)::bigint) DESC, o.random_id DESC;
+CREATE OR REPLACE VIEW public.cycle_data_commitments AS
+ SELECT c.tenant_id,
+    c.studio_id,
+    'Commitment'::text AS item_type,
+    c.id AS item_id,
+    c.title,
+    c.created_at,
+    c.updated_at,
+    c.created_by_id,
+    c.updated_by_id,
+    c.deadline,
+    (count(DISTINCT cl.id))::integer AS link_count,
+    (count(DISTINCT cbl.id))::integer AS backlink_count,
+    (count(DISTINCT p.user_id))::integer AS participant_count,
+    NULL::integer AS voter_count,
+    NULL::integer AS option_count
+   FROM (((public.commitments c
+     LEFT JOIN public.commitment_participants p ON ((c.id = p.commitment_id)))
+     LEFT JOIN public.links cl ON (((c.id = cl.from_linkable_id) AND ((cl.from_linkable_type)::text = 'Commitment'::text))))
+     LEFT JOIN public.links cbl ON (((c.id = cbl.to_linkable_id) AND ((cbl.to_linkable_type)::text = 'Commitment'::text))))
+  GROUP BY c.tenant_id, c.studio_id, c.id
+  ORDER BY c.tenant_id, c.studio_id, c.created_at DESC;
 
 
 --
@@ -2038,34 +2047,6 @@ CREATE OR REPLACE VIEW public.cycle_data_decisions AS
 
 
 --
--- Name: cycle_data_commitments _RETURN; Type: RULE; Schema: public; Owner: -
---
-
-CREATE OR REPLACE VIEW public.cycle_data_commitments AS
- SELECT c.tenant_id,
-    c.studio_id,
-    'Commitment'::text AS item_type,
-    c.id AS item_id,
-    c.title,
-    c.created_at,
-    c.updated_at,
-    c.created_by_id,
-    c.updated_by_id,
-    c.deadline,
-    (count(DISTINCT cl.id))::integer AS link_count,
-    (count(DISTINCT cbl.id))::integer AS backlink_count,
-    (count(DISTINCT p.user_id))::integer AS participant_count,
-    NULL::integer AS voter_count,
-    NULL::integer AS option_count
-   FROM (((public.commitments c
-     LEFT JOIN public.commitment_participants p ON ((c.id = p.commitment_id)))
-     LEFT JOIN public.links cl ON (((c.id = cl.from_linkable_id) AND ((cl.from_linkable_type)::text = 'Commitment'::text))))
-     LEFT JOIN public.links cbl ON (((c.id = cbl.to_linkable_id) AND ((cbl.to_linkable_type)::text = 'Commitment'::text))))
-  GROUP BY c.tenant_id, c.studio_id, c.id
-  ORDER BY c.tenant_id, c.studio_id, c.created_at DESC;
-
-
---
 -- Name: cycle_data_notes _RETURN; Type: RULE; Schema: public; Owner: -
 --
 
@@ -2091,6 +2072,26 @@ CREATE OR REPLACE VIEW public.cycle_data_notes AS
      LEFT JOIN public.links nbl ON (((n.id = nbl.to_linkable_id) AND ((nbl.to_linkable_type)::text = 'Note'::text))))
   GROUP BY n.tenant_id, n.studio_id, n.id
   ORDER BY n.tenant_id, n.studio_id, n.created_at DESC;
+
+
+--
+-- Name: decision_results _RETURN; Type: RULE; Schema: public; Owner: -
+--
+
+CREATE OR REPLACE VIEW public.decision_results AS
+ SELECT o.tenant_id,
+    o.decision_id,
+    o.id AS option_id,
+    o.title AS option_title,
+    COALESCE(sum(a.value), (0)::bigint) AS approved_yes,
+    (count(a.value) - COALESCE(sum(a.value), (0)::bigint)) AS approved_no,
+    count(a.value) AS approval_count,
+    COALESCE(sum(a.stars), (0)::bigint) AS stars,
+    o.random_id
+   FROM (public.options o
+     LEFT JOIN public.approvals a ON ((a.option_id = o.id)))
+  GROUP BY o.tenant_id, o.decision_id, o.id
+  ORDER BY COALESCE(sum(a.value), (0)::bigint) DESC, COALESCE(sum(a.stars), (0)::bigint) DESC, o.random_id DESC;
 
 
 --
@@ -2962,6 +2963,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20241209163149'),
 ('20241212161322'),
 ('20241212193700'),
-('20241214222145');
+('20241214222145'),
+('20250420173702');
 
 

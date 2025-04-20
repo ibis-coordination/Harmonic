@@ -9,6 +9,9 @@
       <h3 style="padding-top:4px;padding-left:46px;"><%= studio.name %></h3>
     </a>
   </div>
+  <% if studio.description.present? %>
+    <%= markdown(studio.description) %>
+  <% end %>
   <%= render 'shared/collapseable_section', title: 'Explore', header_level: 4, octicon: 'telescope', hidden: !expanded do %>
     <ul>
       <li>
