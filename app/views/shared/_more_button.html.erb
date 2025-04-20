@@ -1,3 +1,4 @@
+<% studio ||= @current_studio %>
 <span data-controller="more-button" class="more-button">
   <div
     data-more-button-target="plus"
@@ -10,23 +11,23 @@
     <ul>
       <li>
         <i class="note-icon" style="height:1.5em;float:left;margin-right:12px"></i>
-        <a href="<%= @current_studio.path %>/note">New Note</a>
+        <a href="<%= studio.path %>/note">New Note</a>
       </li>
       <li>
         <i class="decision-icon" style="height:1.5em;float:left;margin-right:12px"></i>
-        <a href="<%= @current_studio.path %>/decide">New Decision</a>
+        <a href="<%= studio.path %>/decide">New Decision</a>
       </li>
       <li>
         <i class="commitment-icon" style="height:1.5em;float:left;margin-right:12px"></i>
-        <a href="<%= @current_studio.path %>/commit">New Commitment</a>
+        <a href="<%= studio.path %>/commit">New Commitment</a>
       </li>
-      <% if @current_studio.sequences_enabled? %>
+      <% if studio.sequences_enabled? %>
         <li>
           <hr style="margin:0;"/>
         </li>
         <li>
           <%= octicon 'iterations', style:'margin-right:8px;' %>
-          <a href="<%= @current_studio.path %>/sequence">New Sequence</a>
+          <a href="<%= studio.path %>/sequence">New Sequence</a>
         </li>
       <% end %>
     </ul>
@@ -68,7 +69,7 @@
             </span>
           </li>
         <% elsif option == 'pin' %>
-          <% option = { action: 'pin', icon: 'pin', url: "#{resource.path}/pin", label: "#{@is_pinned ? 'Unpin from' : 'Pin to'} #{@current_studio == @current_tenant.main_studio ? 'your profile' : 'studio homepage' }" } %>
+          <% option = { action: 'pin', icon: 'pin', url: "#{resource.path}/pin", label: "#{@is_pinned ? 'Unpin from' : 'Pin to'} #{studio == @current_tenant.main_studio ? 'your profile' : 'studio homepage' }" } %>
           <li>
             <%= octicon option[:icon] %>
             <span  data-action="click->more-button#pin" data-url="<%= option[:url] %>">
@@ -113,13 +114,13 @@
             <%= link_to option[:label], option[:link_to] %>
           </li>
         <% elsif option == 'new_page' %>
-          <% option = { link_to: "#{@current_studio.path}/pages/new", icon: 'note', label: 'New Page' } %>
+          <% option = { link_to: "#{studio.path}/pages/new", icon: 'note', label: 'New Page' } %>
           <li>
             <%= octicon option[:icon] %>
             <%= link_to option[:label], option[:link_to] %>
           </li>
         <% elsif option == 'new_randomness' %>
-          <% option = { link_to: "#{@current_studio.path}/random/new", icon: 'light-bulb', label: 'New Randomness' } %>
+          <% option = { link_to: "#{studio.path}/random/new", icon: 'light-bulb', label: 'New Randomness' } %>
           <li>
             <%= octicon option[:icon] %>
             <%= link_to option[:label], option[:link_to] %>

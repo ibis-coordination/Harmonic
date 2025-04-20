@@ -1,0 +1,15 @@
+<% options = [] %>
+<% studio_user = @current_user.studio_users.find_by(studio: studio) %>
+<% new_page = studio.pages_enabled? ? 'new_page' : nil %>
+<% new_randomness = studio.random_enabled? ? 'new_randomness' : nil %>
+<% invite = studio_user.can_invite? ? 'invite' : nil %>
+<% representation = 'representation' %>
+<% options << new_page if new_page %>
+<% options << new_randomness if new_randomness %>
+<% options << invite if invite %>
+<% options << representation if representation %>
+<% settings = studio_user.is_admin? ? 'settings' : nil %>
+<% options << '---' if settings %>
+<% options << settings if settings %>
+<% options << 'manage_team' if studio_user.is_admin? %>
+<%= render 'shared/more_button', studio: studio, resource: studio, options: options %>

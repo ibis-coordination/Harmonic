@@ -20,8 +20,11 @@ export default class extends Controller {
 
   toggleMenu() {
     // get the computed x and y position of the button and then set the menu position, right aligned with the button
+    // and account for the scroll position
     const rect = this.buttonTarget.getBoundingClientRect()
-    this.menuTarget.style.top = `${rect.bottom}px`
+    const scrollTop = window.scrollY || document.documentElement.scrollTop
+    this.menuTarget.style.position = 'absolute'
+    this.menuTarget.style.top = `${rect.bottom + scrollTop}px`
     this.menuTarget.style.right = `${window.innerWidth - rect.right}px`
 
     this.menuTarget.style.display = this.menuTarget.style.display === 'none' ? 'block' : 'none'
@@ -30,8 +33,11 @@ export default class extends Controller {
 
   togglePlusMenu() {
     // get the computed x and y position of the button and then set the menu position, right aligned with the button
+    // and account for the scroll position
     const rect = this.plusTarget.getBoundingClientRect()
-    this.plusMenuTarget.style.top = `${rect.bottom}px`
+    const scrollTop = window.scrollY || document.documentElement.scrollTop
+    this.plusMenuTarget.style.position = 'absolute'
+    this.plusMenuTarget.style.top = `${rect.bottom + scrollTop}px`
     this.plusMenuTarget.style.right = `${window.innerWidth - rect.right}px`
 
     this.plusMenuTarget.style.display = this.plusMenuTarget.style.display === 'none' ? 'block' : 'none'

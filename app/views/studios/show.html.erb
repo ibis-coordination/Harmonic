@@ -1,17 +1,4 @@
-<% options = [] %>
-<% new_page = @current_studio.pages_enabled? ? 'new_page' : nil %>
-<% new_randomness = @current_studio.random_enabled? ? 'new_randomness' : nil %>
-<% invite = @current_user.studio_user.can_invite? ? 'invite' : nil %>
-<% representation = 'representation' %>
-<% options << new_page if new_page %>
-<% options << new_randomness if new_randomness %>
-<% options << invite if invite %>
-<% options << representation if representation %>
-<% settings = @current_user.studio_user.is_admin? ? 'settings' : nil %>
-<% options << '---' if settings %>
-<% options << settings if settings %>
-<% options << 'manage_team' if @current_user.studio_user.is_admin? %>
-<%= render 'shared/more_button', resource: @current_studio, options: options %>
+<%= render 'shared/more_button_studio', studio: @current_studio %>
 
 <div>
   <img src="<%= @current_studio.image_path %>" id="studio-image" style="margin-top:3px; height:83px; min-width:50px; border-radius:10%;float:left;"/>

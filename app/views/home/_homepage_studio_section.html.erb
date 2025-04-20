@@ -3,6 +3,7 @@
   <% Studio.scope_thread_to_studio(subdomain: @current_tenant.subdomain, handle: studio.handle) %>
 <% end %>
 <div class="homepage-studio-section">
+  <%= render 'shared/more_button_studio', studio: studio %>
   <div>
     <a href="<%= studio.path %>">
       <img src="<%= studio.image_path %>" id="studio-image" style="height:33px; border-radius:10%;float:left;border:1px solid var(--color-border-default);"/>
