@@ -4,7 +4,7 @@
 <%= render 'shared/scratchpad_links' %>
 <%= form_with do |form| %>
   <div style="margin-bottom:8px;">
-    <%= form.text_field :title, placeholder: 'Fact that this note will communicate', value: @note.title %>
+    <%= form.text_field :title, placeholder: 'Title', value: @note.title %>
   </div>
   <div>
     <%= form.text_area :text, placeholder: 'Text (markdown supported)', style: 'height:300px;', value: @note.text %>

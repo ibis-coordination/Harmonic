@@ -1,0 +1,11 @@
+# Action Success: `<%= action_name %>`
+
+<% if resource %>
+## Resource
+
+<%= resource.class.to_s %> [<%= resource.truncated_id %>](<%= resource.path %>)
+<% end %>
+
+## Result
+
+<%= result %>

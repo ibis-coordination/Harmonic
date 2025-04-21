@@ -63,6 +63,47 @@ class NotesController < ApplicationController
     end
   end
 
+  def create_note
+    begin
+      note = api_helper.create_note
+      render_action_success({
+        action_name: 'create_note',
+        resource: note,
+        result: "Note created.",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'create_note',
+        resource: current_note,
+        error: e.message,
+      })
+    end
+  end
+
+  def describe_create_note
+    render_action_description({
+      action_name: 'create_note',
+      description: "Create a new note",
+      params: [
+        {
+          name: 'title',
+          description: 'The title of the note',
+          type: 'string',
+        },
+        {
+          name: 'text',
+          description: 'The text of the note',
+          type: 'string',
+        },
+        {
+          name: 'deadline',
+          description: 'The deadline of the note',
+          type: 'datetime',
+        }
+      ]
+    })
+  end
+
   def show
     @note = current_note
     return render '404', status: 404 unless @note
@@ -81,44 +122,51 @@ class NotesController < ApplicationController
   end
 
   def update
-    @note = current_note
-    return render '404', status: 404 unless @note
-    @note.title = model_params[:title]
-    @note.text = model_params[:text]
-    # Add files to note, but don't remove existing files
-    if model_params[:files]
-      model_params[:files].each do |file|
-        @note.files.attach(file)
-      end
-    end
-    # @note.deadline = Cycle.new_from_end_of_cycle_option(
-    #   end_of_cycle: params[:end_of_cycle],
-    #   tenant: current_tenant,
-    #   studio: current_studio,
-    # ).end_date
-    if @note.changed? || @note.files_changed?
-      @note.updated_by = current_user
-      ActiveRecord::Base.transaction do
-        @note.save!
-        if current_representation_session
-          current_representation_session.record_activity!(
-            request: request,
-            semantic_event: {
-              timestamp: Time.current,
-              event_type: 'update',
-              studio_id: current_studio.id,
-              main_resource: {
-                type: 'Note',
-                id: @note.id,
-                truncated_id: @note.truncated_id,
-              },
-              sub_resources: [],
-            }
-          )
-        end
-      end
-    end
+    return render '404', status: 404 unless current_note
+    @note = api_helper.update_note
     redirect_to @note.path
+  end
+
+  def update_note
+    begin
+      note = api_helper.update_note
+      render_action_success({
+        action_name: 'update_note',
+        resource: note,
+        result: "Note updated.",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'update_note',
+        resource: current_note,
+        error: e.message,
+      })
+    end
+  end
+
+  def describe_update_note
+    render_action_description({
+      action_name: 'update_note',
+      resource: current_note,
+      description: "Update this note.",
+      params: [
+        {
+          name: 'title',
+          description: 'The updated title of the note',
+          type: 'string',
+        },
+        {
+          name: 'text',
+          description: 'The updated text of the note',
+          type: 'string',
+        },
+        {
+          name: 'deadline',
+          description: 'The updated deadline of the note',
+          type: 'datetime',
+        }
+      ]
+    })
   end
 
   def confirm_and_return_partial
@@ -153,10 +201,64 @@ class NotesController < ApplicationController
     render partial: 'confirm'
   end
 
+  def confirm_read
+    begin
+      api_helper.confirm_read
+      render_action_success({
+        action_name: 'confirm_read',
+        resource: current_note,
+        params: [],
+        result: "Note confirmed.",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'confirm_read',
+        resource: current_note,
+        error: e.message,
+      })
+    end
+  end
+
+  def describe_confirm_read
+    render_action_description({
+      action_name: 'confirm_read',
+      resource: current_note,
+      description: "Confirm that you have read this note.",
+      params: []
+    })
+  end
+
   def history_log_partial
     @note = current_note
     return render '404', status: 404 unless @note
     render partial: 'history_log'
+  end
+
+  def actions_index_new
+    render_actions_index({
+      actions: [{
+        name: 'create_note',
+        params_string: '(title, text, deadline)',
+      }]
+    })
+  end
+
+  def actions_index_edit
+    render_actions_index({
+      actions: [{
+        name: 'update_note',
+        params_string: '(title, text, deadline)',
+      }]
+    })
+  end
+
+  def actions_index_show
+    render_actions_index({
+      actions: [{
+        name: 'confirm_read',
+        params_string: '()',
+      }]
+    })
   end
 
 end

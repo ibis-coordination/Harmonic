@@ -1,4 +1,4 @@
-# Note: [<%= @note.title %>](<%= @note.path %>)
+# Note: <%= @note.title %>
 
 | created_at | <%= @note.created_at %> |
 | updated_at | <%= @note.updated_at %> |
@@ -19,15 +19,12 @@
 <%= render 'shared/backlinks', resource: @note %>
 ## Actions
 
-### Confirm
+<% if @note_reader.confirmed_read_but_note_updated? %>
+_Note updated since you last confirmed reading. Reconfirm to acknowledge the changes._
 
-Make the following API call to confirm that you have read this note.
-
-`POST <%= @current_studio.path %>/api/v1/notes/<%= @note.id %>/confirm`
-
-Data:
-```json
-{
-  "confirm_read": true
-}
-```
+* `confirm_read()` to reconfirm that you have read this note.
+<% elsif @note_reader.confirmed_read? %>
+You have confirmed that you have read this note. No action is needed.
+<% else %>
+* `confirm_read()` to confirm that you have read this note.
+<% end %>

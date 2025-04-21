@@ -2,6 +2,8 @@ class ApplicationController < ActionController::Base
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_studio,
                 :current_path, :current_user, :current_resource, :current_representation_session
 
+  skip_before_action :verify_authenticity_token, if: :api_token_present?
+
   def check_auth_subdomain
     if request.subdomain == auth_subdomain && controller_name != 'sessions'
       redirect_to '/login'
@@ -74,6 +76,7 @@ class ApplicationController < ActionController::Base
     api_enabled = current_tenant.api_enabled? && current_studio.api_enabled?
     return render json: { error: 'API not enabled' }, status: 403 unless api_enabled
     return render json: { error: 'API only supports JSON or Markdown formats' }, status: 401 unless json_or_markdown_request?
+    request.format = :md unless request.format == :json
     current_token || render(json: { error: 'Unauthorized' }, status: 401)
   end
 
@@ -457,5 +460,52 @@ class ApplicationController < ActionController::Base
     pin_destination = current_studio == current_tenant.main_studio ? 'your profile' : 'the studio homepage'
     @is_pinned = current_resource.is_pinned?(tenant: @current_tenant, studio: @current_studio, user: @current_user)
     @pin_click_title = 'Click to ' + (@is_pinned ? 'unpin from ' : 'pin to ') + pin_destination
+  end
+
+  def api_helper
+    @api_helper ||= ApiHelper.new(
+      current_user: current_user,
+      current_studio: current_studio,
+      current_tenant: current_tenant,
+      current_representation_session: current_representation_session,
+      current_resource_model: current_resource_model,
+      current_resource: current_resource,
+      model_params: model_params,
+      params: params,
+      request: request
+    )
+  end
+
+  def render_actions_index(locals)
+    base_path = request.path.split('/actions')[0]
+    render 'shared/actions_index', locals: {
+      base_path: base_path,
+      actions: locals[:actions],
+    }
+  end
+
+  def render_action_description(locals)
+    render 'shared/action_description', locals: {
+      action_name: locals[:action_name],
+      resource: locals[:resource],
+      description: locals[:description],
+      params: locals[:params],
+    }
+  end
+
+  def render_action_success(locals)
+    render 'shared/action_success', locals: {
+      action_name: locals[:action_name],
+      resource: locals[:resource],
+      result: locals[:result],
+    }
+  end
+
+  def render_action_error(locals)
+    render 'shared/action_error', locals: {
+      action_name: locals[:action_name],
+      resource: locals[:resource],
+      error: locals[:error],
+    }
   end
 end

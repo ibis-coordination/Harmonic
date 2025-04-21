@@ -1,0 +1,13 @@
+<h1>Action Success: <code><%= action_name %></code></h1>
+
+<% if resource %>
+<h2>Resource</h2>
+<p>
+  <%= resource.class.to_s %> <a href="<%= resource.path %>"><%= resource.truncated_id %></a>
+</p>
+<% end %>
+
+<h2>Result</h2>
+<p>
+  <%= result %>
+</p>

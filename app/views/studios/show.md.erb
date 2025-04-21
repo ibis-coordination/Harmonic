@@ -1,4 +1,9 @@
-# Studio: [<%= @current_studio.name %>](<%= @current_studio.path %>)
+# Studio: <%= @current_studio.name %>
+
+## Explore
+
+* [Cycles](<%= @current_studio.path %>/cycles)
+* [Backlinks](<%= @current_studio.path %>/backlinks)
 
 ## Pinned
 
@@ -10,26 +15,15 @@
 No pinned items yet.
 <% end %>
 
-## Cycles
-
-<%= render 'shared/cycle_count_table', cycles: @current_cycles %>
-
-[View all cycles](<%= @current_studio.path %>/cycles)
-
-## Backlinks
-
-<% if @backlinks.empty? %>
-No backlinks yet.
-<% else %>
-| | Title | Count |
-|---|---|---|
-<% @backlinks.each.with_index do |bl, i| %>
-| <%= i + 1 %> | <%= bl['type'] %>: [<%= bl['title'] %>](<%= @current_studio.path %>/<%= bl['type'].downcase[0] %>/<%= bl['id'][0..7] %>) | <%= bl['count'] %> |
-<% end %>
-<% end %>
-
 ## Team
 
+<% if @current_studio.users.length > 0 %>
+<% @current_studio.users.each do |user| %>
+* [<%= user.display_name %>](<%= user.path %>)
+<% end %>
+<% else %>
+No team members yet.
+<% end %>
 
 ## Actions
 

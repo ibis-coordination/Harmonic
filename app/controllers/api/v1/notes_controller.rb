@@ -67,29 +67,7 @@ module Api::V1
     end
 
     def confirm
-      note = current_note
-      ActiveRecord::Base.transaction do
-        history_event = note.confirm_read!(current_user)
-        if current_representation_session
-          current_representation_session.record_activity!(
-            request: request,
-            semantic_event: {
-              timestamp: Time.current,
-              event_type: 'confirm',
-              studio_id: current_studio.id,
-              main_resource: {
-                type: 'Note',
-                id: note.id,
-                truncated_id: note.truncated_id,
-              },
-              sub_resources: [{
-                type: 'NoteHistoryEvent',
-                id: history_event.id,
-              }],
-            }
-          )
-        end
-      end
+      history_event = api_helper.confirm_read
       render json: history_event.api_json
     end
 

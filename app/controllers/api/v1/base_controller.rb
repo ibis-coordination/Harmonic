@@ -1,5 +1,4 @@
 class Api::V1::BaseController < ApplicationController
-  skip_before_action :verify_authenticity_token, if: :api_token_present?
   before_action :api_authorize!, if: :api_token_present?
   before_action :validate_scope, :validate_api_enabled
 

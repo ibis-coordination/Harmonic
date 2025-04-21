@@ -140,7 +140,16 @@ Rails.application.routes.draw do
   ['', 's/:studio_handle'].each do |prefix|
     get "#{prefix}/note" => 'notes#new'
     post "#{prefix}/note" => 'notes#create'
+    get "#{prefix}/note/actions" => 'notes#actions_index_new'
+    get "#{prefix}/note/actions/create_note" => 'notes#describe_create_note'
+    post "#{prefix}/note/actions/create_note" => 'notes#create_note'
     resources :notes, only: [:show], path: "#{prefix}/n" do
+      get '/actions' => 'notes#actions_index_show'
+      get '/actions/confirm_read' => 'notes#describe_confirm_read'
+      post '/actions/confirm_read' => 'notes#confirm_read'
+      get '/edit/actions' => 'notes#actions_index_edit'
+      get '/edit/actions/update_note' => 'notes#describe_update_note'
+      post '/edit/actions/update_note' => 'notes#update_note'
       get '/metric' => 'notes#metric'
       get '/edit' => 'notes#edit'
       post '/edit' => 'notes#update'

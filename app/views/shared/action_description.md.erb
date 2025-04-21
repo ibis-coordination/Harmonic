@@ -1,0 +1,22 @@
+# Action: `<%= action_name %>`
+
+<% if resource %>
+## Resource
+
+<%= resource.class.to_s %> [<%= resource.truncated_id %>](<%= resource.path %>)
+<% end %>
+
+## Description
+
+<%= description %>
+
+## Parameters
+
+<% if params.length > 0 %>
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+<% params.each do |param| %>| <%= param[:name] %> | <%= param[:type] %> | <%= param[:description] %> |
+<% end %>
+<% else %>
+No parameters required.
+<% end %>

@@ -1,0 +1,53 @@
+<h1>Action: <code><%= action_name %></code></h1>
+
+<% if resource %>
+<h2>Resource</h2>
+<p>
+  <%= resource.class.to_s %> <a href="<%= resource.path %>"><%= resource.truncated_id %></a>
+</p>
+<% end %>
+
+<h2>Description</h2>
+<p>
+  <%= description %>
+</p>
+
+<h2>Parameters</h2>
+<% if params.length > 0 %>
+<table>
+  <thead>
+    <tr>
+      <th>Param</th>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% params.each do |param| %>
+      <tr>
+        <td><%= param[:name] %></td>
+        <td><%= param[:type] %></td>
+        <td><%= param[:description] %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+<% else %>
+No parameters required.
+<% end %>
+
+<%= form_with do |form| %>
+  <% params.each do |param| %>
+    <h3><%= param[:name] %></h3>
+    <p>
+      <%= param[:description] %>
+    </p>
+    <p>
+      <%= form.text_field param[:name], placeholder: param[:name] %>
+    </p>
+  <% end %>
+  <h3>Execute</h3>
+  <p>
+    <%= form.submit action_name %>
+  </p>
+<% end %>

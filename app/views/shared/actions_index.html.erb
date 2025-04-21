@@ -1,0 +1,15 @@
+<h1>Actions for path <code><%= base_path %></code></h1>
+
+<% if actions.length > 0 %>
+  <ul>
+    <% actions.each do |action| %>
+      <li>
+        <a href="<%= base_path %>/actions/<%= action[:name] %>"><%= action[:name] %><%= action[:params_string] %></a>
+      </li>
+    <% end %>
+  </ul>
+<% else %>
+  <p>
+    No actions available.
+  </p>
+<% end %>

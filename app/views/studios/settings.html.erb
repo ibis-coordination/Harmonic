@@ -93,6 +93,14 @@
     </p>
   <% end %>
 
+  <% if @current_tenant.api_enabled? %>
+    <h2>API Access</h2>
+    <p>
+      <%= form.check_box :api_enabled, checked: @current_studio.api_enabled? %>
+      Allow API access to this studio
+    </p>
+  <% end %>
+
   <hr style="height:1px;" />
   <%= form.submit 'Save' %>
 <% end %>

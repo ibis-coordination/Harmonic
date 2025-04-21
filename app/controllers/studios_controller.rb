@@ -63,6 +63,7 @@ class StudiosController < ApplicationController
     @current_studio.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
     @current_studio.settings['any_member_can_represent'] = params[:representation] == 'any_member'
     @current_studio.settings['allow_file_uploads'] = params[:allow_file_uploads] == 'true' || params[:allow_file_uploads] == '1'
+    @current_studio.settings['api_enabled'] = params[:api_enabled] == 'true' || params[:api_enabled] == '1'
     unless ENV['SAAS_MODE'] == 'true'
       @current_studio.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
     end

@@ -1,0 +1,17 @@
+# Edit Note <%= @note.truncated_id %>
+
+## Current Note
+
+### Title: <%= @note.title %>
+
+### Text
+
+```markdown
+<%= @note.text.gsub(/```/, '\\\`\\\`\\\`').html_safe %>
+```
+
+### Deadline: <%= @note.deadline %>
+
+## Actions
+
+* `update_note(title="...", text="...", deadline="YYYY-MM-DD")` to update this note.
