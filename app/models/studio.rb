@@ -73,9 +73,6 @@ class Studio < ApplicationRecord
       pinned: {},
       feature_flags: {
         api: false,
-        sequences: false,
-        pages: false,
-        random: false,
       },
     }.merge(
       self.tenant.default_studio_settings || {}
@@ -170,14 +167,6 @@ class Studio < ApplicationRecord
 
   def orchestra?
     self.synchronization_mode == 'orchestra'
-  end
-
-  def pages_enabled?
-    feature_enabled?('pages')
-  end
-
-  def random_enabled?
-    feature_enabled?('random')
   end
 
   def enable_feature!(feature)

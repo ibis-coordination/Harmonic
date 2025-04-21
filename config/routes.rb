@@ -48,14 +48,6 @@ Rails.application.routes.draw do
       resources :users do
         resources :api_tokens, path: 'tokens'
       end
-      # resources :webhooks
-      get 'custom/data', to: 'custom_data#info'
-      get 'custom/config', to: 'custom_data#configuration'
-      get 'custom/data/:table_name/:id/history', to: 'custom_data#history'
-      resources :custom_data, path: 'custom/data/:parent_table_name/:parent_id/:table_name' do
-        get 'history', to: 'custom_data#history'
-      end
-      resources :custom_data, path: 'custom/data/:table_name'
     end
   end
   # Defines the root path route ("/")
@@ -73,14 +65,6 @@ Rails.application.routes.draw do
   get 'learn/acceptance-voting' => 'learn#acceptance_voting'
   get 'learn/reciprocal-commitment' => 'learn#reciprocal_commitment'
 
-  get 'games' => 'games#index'
-  post 'games/chess' => 'games#create_chess_match'
-  get 'games/chess/:id' => 'games#show_chess_match'
-  post 'games/chess/:id/join' => 'games#join_chess_match'
-  post 'games/chess/:id/vote' => 'games#vote_on_chess_move'
-  post 'games/chess/:id/commit' => 'games#commit_to_chess_move'
-  get 'games/chess/:id/poll' => 'games#poll_chess_match'
-
   get 'admin' => 'admin#admin'
   get 'admin/settings' => 'admin#tenant_settings'
   post 'admin/settings' => 'admin#update_tenant_settings'
@@ -93,7 +77,6 @@ Rails.application.routes.draw do
   get 'admin/sidekiq/queues/:name' => 'admin#sidekiq_show_queue'
   get 'admin/sidekiq/jobs/:jid' => 'admin#sidekiq_show_job'
   post 'admin/sidekiq/jobs/:jid/retry' => 'admin#sidekiq_retry_job'
-
 
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'scratchpad' => 'users#scratchpad', on: :member
@@ -187,14 +170,6 @@ Rails.application.routes.draw do
       post '/settings' => 'commitments#update_settings'
     end
 
-    get "#{prefix}/sequence" => 'sequences#new'
-    post "#{prefix}/sequence" => 'sequences#create'
-    resources :sequences, only: [:show], path: "#{prefix}/sq" do
-      get '/edit' => 'sequences#edit'
-      post '/edit' => 'sequences#update'
-      put '/pin' => 'sequences#pin'
-    end
-
     namespace :api, path: "#{prefix}/api" do
       namespace :v1 do
         get '/', to: 'info#index'
@@ -222,39 +197,7 @@ Rails.application.routes.draw do
           # Studios must not be scoped to a studio (doesn't make sense)
           resources :studios
         end
-        # resources :webhooks
-        get 'custom/data', to: 'custom_data#info'
-        get 'custom/config', to: 'custom_data#configuration'
-        get 'custom/data/:table_name/:id/history', to: 'custom_data#history'
-        resources :custom_data, path: 'custom/data/:parent_table_name/:parent_id/:table_name' do
-          get 'history', to: 'custom_data#history'
-        end
-        resources :custom_data, path: 'custom/data/:table_name'
       end
     end
-
-    namespace :readybase, path: "#{prefix}/readybase" do
-      get '' => 'main#index'
-      get 'main' => 'main#index'
-    end
-
-    namespace :pages, path: "#{prefix}/pages" do
-      get '' => 'main#index'
-      get 'new' => 'main#new'
-      post 'publish' => 'main#publish'
-      get ':path/edit' => 'main#edit'
-      put ':path/edit' => 'main#update'
-      get ':path' => 'main#show'
-    end
-
-    namespace :random, path: "#{prefix}/random" do
-      get '' => 'main#index'
-      get 'new' => 'main#new'
-      get 'beacon' => 'main#beacon'
-      get 'cointoss' => 'main#cointoss'
-      get 'shuffle' => 'main#shuffle_items'
-      post 'shuffle' => 'main#shuffle_items'
-    end
-
   end
 end

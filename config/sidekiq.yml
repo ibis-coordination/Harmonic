@@ -2,5 +2,3 @@
 :concurrency: 5
 :queues:
   - default
-  - webhooks
-  - sequences

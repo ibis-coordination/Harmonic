@@ -72,7 +72,4 @@ Rails.application.configure do
   config.web_console.allowed_ips = ['127.0.0.0/8', '::1', '172.16.0.0/12']
 
   config.hosts << Regexp.new(".*\.#{ENV['HOSTNAME']}")
-  config.hosts << Regexp.new(".*\.#{ENV['READYBASE_DOMAIN']}")
-  config.hosts << Regexp.new(".*\.#{ENV['PAGES_DOMAIN']}")
-  config.hosts << Regexp.new(".*\.#{ENV['RANDOM_DOMAIN']}")
 end

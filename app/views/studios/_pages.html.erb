@@ -1,9 +1,0 @@
-<ul>
-<% if @current_studio.pages.empty? %>
-  <li>No pages published yet.</li>
-<% else %>
-  <% @current_studio.pages.each do |page| %>
-    <li><a href='<%= page.full_studio_path %>'><%= page.title %></a></li>
-  <% end %>
-<% end %>
-</ul>

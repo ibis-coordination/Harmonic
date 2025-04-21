@@ -113,18 +113,6 @@
             <%= octicon option[:icon] %>
             <%= link_to option[:label], option[:link_to] %>
           </li>
-        <% elsif option == 'new_page' %>
-          <% option = { link_to: "#{studio.path}/pages/new", icon: 'note', label: 'New Page' } %>
-          <li>
-            <%= octicon option[:icon] %>
-            <%= link_to option[:label], option[:link_to] %>
-          </li>
-        <% elsif option == 'new_randomness' %>
-          <% option = { link_to: "#{studio.path}/random/new", icon: 'light-bulb', label: 'New Randomness' } %>
-          <li>
-            <%= octicon option[:icon] %>
-            <%= link_to option[:label], option[:link_to] %>
-          </li>
         <% elsif option == '---' %>
           <li>
             <hr style="height:1px;margin:0;" />

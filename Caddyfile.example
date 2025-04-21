@@ -1,42 +1,10 @@
 {$PRIMARY_SUBDOMAIN}.{$HOSTNAME} {
-	# handle_path /[readybase|pages|random]/* {
-	#    rewrite * /404
-	#    reverse_proxy web:3000
-	# }
 	reverse_proxy web:3000
 }
 {$AUTH_SUBDOMAIN}.{$HOSTNAME} {
-	# Reverse proxy to the web service
 	reverse_proxy web:3000
 }
-## Optional: Uncomment the following block to enable other domains
-# {$PRIMARY_SUBDOMAIN}.{$READYBASE_DOMAIN} {
-#     handle_path /assets/* {
-#         rewrite * /assets{path}
-#         reverse_proxy web:3000
-#     }
-#     handle_path /* {
-#         rewrite * /readybase{path}
-#         reverse_proxy web:3000
-#     }
-# }
-# {$PRIMARY_SUBDOMAIN}.{$PAGES_DOMAIN} {
-#     handle_path /assets/* {
-#         rewrite * /assets{path}
-#         reverse_proxy web:3000
-#     }
-#     handle_path /* {
-#         rewrite * /pages{path}
-#         reverse_proxy web:3000
-#     }
-# }
-# {$PRIMARY_SUBDOMAIN}.{$RANDOM_DOMAIN} {
-#    handle_path /assets/* {
-#        rewrite * /assets{path}
-#        reverse_proxy web:3000
-#    }
-#    handle_path /* {
-#        rewrite * /random{path}
-#        reverse_proxy web:3000
-#    }
+# Each tenant has its own subdomain
+# tenant-example.{$HOSTNAME} {
+# 	reverse_proxy web:3000
 # }
