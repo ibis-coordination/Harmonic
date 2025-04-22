@@ -1,15 +1,8 @@
 <span style="display:inline-block;height:20px;">
   <% verb ||= 'Created' %>
   <%= verb %> <strong><%= timeago(resource.created_at) %></strong>
-  <% if resource.respond_to?('sequence_id') && resource.sequence_id %>
-    by <span style="white-space:nowrap;">
-      <%= octicon 'iterations', height: 16 %>
-      <%= link_to resource.sequence.title, resource.sequence.path %>
-    </span>
-  <% else %>
-    by <%= profile_pic(resource.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
-    <%= link_to resource.created_by.display_name, resource.created_by.path %>
-  <% end %>
+  by <%= profile_pic(resource.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
+  <%= link_to resource.created_by.display_name, resource.created_by.path %>
   <br/>
   <% if resource.updated_at > resource.created_at %>
     Updated <strong><%= timeago(resource.updated_at) %></strong>

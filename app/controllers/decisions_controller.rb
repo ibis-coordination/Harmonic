@@ -61,6 +61,23 @@ class DecisionsController < ApplicationController
     end
   end
 
+  def create_decision
+    begin
+      @decision = api_helper.create_decision
+      render_action_success({
+        action_name: 'create_decision',
+        resource: @decision,
+        result: 'You have successfully created a decision',
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'create_decision',
+        resource: @decision,
+        error: e.message,
+      })
+    end
+  end
+
   def duplicate
     @decision = current_decision
     return render '404', status: 404 unless @decision
@@ -215,6 +232,43 @@ class DecisionsController < ApplicationController
     render partial: 'voters'
   end
 
+  def actions_index_new
+    @page_title = 'Actions'
+    render_actions_index(ActionsHelper.actions_for_route('/s/:studio_handle/decide'))
+  end
+
+  def actions_index_show
+    @page_title = 'Actions'
+    render_actions_index(ActionsHelper.actions_for_route('/s/:studio_handle/d/:decision_id'))
+  end
+
+  def describe_create_decision
+    @page_title = 'Create Decision'
+    @page_description = 'Create a new decision'
+    render_action_description({
+      action_name: 'create_decision',
+      resource: current_decision,
+      description: 'Create a new decision',
+      params: [{
+        name: 'question',
+        description: 'The question to be decided',
+        type: 'string',
+      }, {
+        name: 'description',
+        description: 'A description of the decision',
+        type: 'string',
+      }, {
+        name: 'options_open',
+        description: 'Whether to allow adding options',
+        type: 'boolean',
+      }, {
+        name: 'deadline',
+        description: 'The deadline for the decision',
+        type: 'datetime',
+      }]
+    })
+  end
+
   private
 
   def decision_params
@@ -225,6 +279,7 @@ class DecisionsController < ApplicationController
   end
 
   def set_results_view_vars
+    @voter_count = @decision.voter_count
     @results_header = @decision.closed? ? 'Final Results' : 'Current Results'
   end
 

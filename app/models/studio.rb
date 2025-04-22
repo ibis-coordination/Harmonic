@@ -46,6 +46,11 @@ class Studio < ApplicationRecord
     studio
   end
 
+  def self.clear_thread_scope
+    Thread.current[:studio_id] = nil
+    Thread.current[:studio_handle] = nil
+  end
+
   def self.current_handle
     Thread.current[:studio_handle]
   end
@@ -97,7 +102,7 @@ class Studio < ApplicationRecord
   end
 
   def api_enabled?
-    feature_enabled?('api')
+    is_main_studio? || feature_enabled?('api')
   end
 
   def enable_api!
@@ -108,10 +113,6 @@ class Studio < ApplicationRecord
   def feature_enabled?(feature)
     feature_flags = self.settings['feature_flags'] || {}
     feature_flags[feature].to_s == 'true' || self.settings["#{feature}_enabled"].to_s == 'true'
-  end
-
-  def sequences_enabled?
-    feature_enabled?('sequences')
   end
 
   def timezone=(value)

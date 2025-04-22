@@ -10,30 +10,5 @@ This is your personal scratchpad. You can use it to jot down ideas and informati
 
 ## Actions
 
-### Get text and custom JSON
-
-Only your scratchpad text is shown on this page. If you have custom JSON data stored with your scratchpad, you can retrieve it by making the following API call.
-
-`GET /api/v1/scratchpad`
-
-### Update
-
-`PUT /api/v1/scratchpad` with the following JSON data. Only one of `text` or `custom_json` is required.
-
-```json
-{
-  "text": "Your new scratchpad text here. This overwrites any existing text.",
-  "custom_json": { "example": "Any custom JSON data you want to store with your scratchpad." }
-}
-```
-
-### Append
-
-`POST /api/v1/scratchpad/append` with the following JSON data:
-
-```json
-{
-  "text": "The text you want to append to your scratchpad. Existing text will be preserved."
-}
-```
-
+* `update_scratchpad(text)`
+* `append_to_scratchpad(text)`

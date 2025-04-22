@@ -2,6 +2,7 @@
   <%= link_to @current_user.display_name, @current_user.path || '/' %>
   /
   <%= link_to 'Settings', "#{@current_user.path}/settings" %>
+  / API Token <code><%= @token.name || 'Unnamed' %></code>
 </h4>
 <h1 style="margin-top:0;">API Token</h1>
 <% if @current_user != @showing_user %>

@@ -1,100 +1,81 @@
 require "test_helper"
 
 class DecisionTest < ActiveSupport::TestCase
-  def create_tenant(subdomain: "test", name: "Test Tenant")
-    Tenant.create!(subdomain: subdomain, name: name)
+  def setup
+    @tenant = @global_tenant
+    @studio = @global_studio
+    @user = @global_user
   end
 
-  def create_user(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
-    User.create!(email: email, name: name, user_type: user_type)
-  end
-
-  def create_studio(tenant:, created_by:, name: "Test Studio", handle: "test-studio")
-    Studio.create!(tenant: tenant, created_by: created_by, name: name, handle: handle)
+  def create_decision
+    Decision.create!(
+      tenant: @tenant,
+      studio: @studio,
+      created_by: @user,
+      updated_by: @user,
+      question: "Test Decision",
+      description: "This is a test decision.",
+      options_open: true,
+      deadline: Time.now + 1.day
+    )
   end
 
   test "Decision.create works" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
-    decision = Decision.create!(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      question: "Test Decision",
-      description: "This is a test decision.",
-      options_open: true
-    )
+    decision = create_decision
 
     assert decision.persisted?
     assert_equal "Test Decision", decision.question
     assert_equal "This is a test decision.", decision.description
-    assert_equal tenant, decision.tenant
-    assert_equal studio, decision.studio
-    assert_equal user, decision.created_by
-    assert_equal user, decision.updated_by
+    assert_equal @tenant, decision.tenant
+    assert_equal @studio, decision.studio
+    assert_equal @user, decision.created_by
+    assert_equal @user, decision.updated_by
     assert decision.options_open
   end
 
   test "Decision requires a question" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
     decision = Decision.new(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      description: "This is a test decision without a question."
+      tenant: @tenant,
+      studio: @studio,
+      created_by: @user,
+      updated_by: @user,
+      description: "This is a test decision without a question.",
+      deadline: Time.now + 1.day
     )
 
     assert_not decision.valid?
     assert_includes decision.errors[:question], "can't be blank"
   end
 
-  test "Decision.voter_count returns the correct count" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
-    decision = Decision.create!(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      question: "Test Decision",
-      description: "This is a test decision.",
-      options_open: true
+  test "Decision requires a deadline" do
+    decision = Decision.new(
+      tenant: @tenant,
+      studio: @studio,
+      created_by: @user,
+      updated_by: @user,
+      question: 'No deadline?',
+      description: "This is a test decision without a deadline."
     )
 
-    participant = DecisionParticipant.create!(decision: decision, user: user)
+    assert_not decision.valid?
+    assert_includes decision.errors[:deadline], "can't be blank"
+  end
+
+  test "Decision.voter_count returns the correct count" do
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
     option = Option.create!(decision: decision, title: "Test Option", decision_participant: participant)
     [1, 2, 3].each do |i|
       user = create_user(email: "u#{i}@example.com")
-      participant = DecisionParticipant.create!(decision: decision, user: user, participant_uid: "u#{i}")
+      participant = DecisionParticipant.create!(decision: decision, user: @user, participant_uid: "u#{i}")
       Approval.create!(decision: decision, decision_participant: participant, option: option, value: true, stars: 0)
       assert_equal i, decision.voter_count
     end
   end
 
   test "Decision.results returns the correct results" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
-    decision = Decision.create!(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      question: "Test Decision",
-      description: "This is a test decision.",
-      options_open: true
-    )
-    participant = DecisionParticipant.create!(decision: decision, user: user)
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
     options = [
       Option.create!(decision: decision, title: "Option 1", decision_participant: participant),
       Option.create!(decision: decision, title: "Option 2", decision_participant: participant)
@@ -114,79 +95,29 @@ class DecisionTest < ActiveSupport::TestCase
   end
 
   test "Decision.can_add_options? returns true for creator" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
-    decision = Decision.create!(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      question: "Test Decision",
-      description: "This is a test decision.",
-      options_open: false
-    )
-
-    participant = DecisionParticipant.create!(decision: decision, user: user)
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
     assert decision.can_add_options?(participant)
   end
 
   test "Decision.can_add_options? returns false for non-creator when options are closed" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
-    decision = Decision.create!(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      question: "Test Decision",
-      description: "This is a test decision.",
-      options_open: false
-    )
-
+    decision = create_decision
+    decision.options_open = false
+    decision.save!
     non_creator = create_user(email: "non_creator@example.com", name: "Non-Creator")
     participant = DecisionParticipant.create!(decision: decision, user: non_creator)
     assert_not decision.can_add_options?(participant)
   end
 
   test "Decision.can_add_options? returns true for non-creator when options are open" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
-    decision = Decision.create!(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      question: "Test Decision",
-      description: "This is a test decision.",
-      options_open: true
-    )
-
+    decision = create_decision
     non_creator = create_user(email: "non_creator@example.com", name: "Non-Creator")
     participant = DecisionParticipant.create!(decision: decision, user: non_creator)
     assert decision.can_add_options?(participant)
   end
 
   test "Decision.api_json includes expected fields" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
-    decision = Decision.create!(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      question: "Test Decision",
-      description: "This is a test decision.",
-      options_open: true
-    )
-
+    decision = create_decision
     json = decision.api_json
     assert_equal decision.id, json[:id]
     assert_equal decision.question, json[:question]

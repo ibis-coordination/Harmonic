@@ -1,0 +1,10 @@
+# Actions
+
+This is a list of actions for different pages in the app.
+
+<% @routes_and_actions.each do |route_actions| %>## `<%= route_actions[:route] %>`
+
+<% if route_actions[:actions].empty? %>No actions
+<% else %><% route_actions[:actions].each do |action| %>* `<%= action[:name] %><%= action[:params_string] %>` - <%= action[:description] %>
+<% end %><% end %>
+<% end %>

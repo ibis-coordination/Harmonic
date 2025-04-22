@@ -39,6 +39,11 @@ class Tenant < ApplicationRecord
     tenant
   end
 
+  def self.clear_thread_scope
+    Thread.current[:tenant_id] = nil
+    Thread.current[:tenant_handle] = nil
+  end
+
   def self.current_subdomain
     Thread.current[:tenant_subdomain]
   end

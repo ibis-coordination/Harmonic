@@ -21,15 +21,6 @@
         <i class="commitment-icon" style="height:1.5em;float:left;margin-right:12px"></i>
         <a href="<%= studio.path %>/commit">New Commitment</a>
       </li>
-      <% if studio.sequences_enabled? %>
-        <li>
-          <hr style="margin:0;"/>
-        </li>
-        <li>
-          <%= octicon 'iterations', style:'margin-right:8px;' %>
-          <a href="<%= studio.path %>/sequence">New Sequence</a>
-        </li>
-      <% end %>
     </ul>
   </div>
 

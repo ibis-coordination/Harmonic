@@ -5,12 +5,9 @@
 | deadline | <%= @decision.deadline %> |
 | time remaining | <%= @decision.deadline > Time.now ? distance_of_time_in_words(Time.now, @decision.deadline) : 'Deadline passed' %> |
 
-<% if @decision.description.present? %>
-## Description
+<% if @decision.description.present? %>## Description
 
-<%= @decision.description %>
-<% end %>
-
+<%= @decision.description %><% end %><% unless @decision.closed? %>
 ## Options
 
 <% if @decision.options.empty? %>
@@ -21,9 +18,7 @@ Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 <% @decision.options.order(:created_at).each do |option| %>
 <% approval = @approvals.where(option: option).first || Approval.new(value: 0) %>
 * [<%= approval.value == 1 ? '✅' : ' ' %>] [<%= approval.stars == 1 ? '⭐️' : ' ' %>] <%= option.title %>
-<% end %>
-<% end %>
-
+<% end %><% end %><% end %>
 ## <%= @decision.closed? ? "Final" : "Current" %> Results
 
 Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
@@ -37,16 +32,12 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 | <%= index + 1 %> | <%= result.option_title %> | <%= (result.approved_yes || 0) %> | <%= (result.stars || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
 <% end %>
 
-## Participants
+## Voters (<%= @decision.voters.count %>)
 
-<%= @decision.option_contributor_count %> option contributor<%= @decision.option_contributor_count == 1 ? "" : "s" %>,
-<%= @voter_count %> voter<%= @voter_count == 1 ? "" : "s" %>
-
+<% if @decision.voters.empty? %>No voters yet.<% else %><% @decision.voters.each do |voter| %>* [<%= voter.display_name %>](<%= voter.path %>)
+<% end %><% end %>
 <%= render 'shared/backlinks', resource: @decision %>
-
 ## Actions
 
-Add options
-
-Vote
-
+<% if @decision.closed? %>This decision is closed. No actions available.<% else %>* `add_option(text)` - Add an option to the decision
+* `vote(option, accept, prefer)` - Vote on an option<% end %>

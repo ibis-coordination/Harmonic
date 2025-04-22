@@ -3,6 +3,6 @@ title: <%= @page_title %>
 path: <%= @current_path %>
 timestamp: <%= Time.now.utc %>
 ---
-nav: | [Home](/) <% if @current_studio && @current_studio != @current_tenant.main_studio %>| Studio: [<%= @current_studio.name %>](<%= @current_studio.path %>)<% end %><% if @current_user %>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>) | [Scratchpad](/scratchpad)<% end %> | [Help](/help) |
+nav: | [Home](/) <% if @current_studio && @current_studio != @current_tenant.main_studio %>| Studio: [<%= @current_studio.name %>](<%= @current_studio.path %>)<% end %><% if @current_user %>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>) | [Scratchpad](/scratchpad)<% end %> |
 
 <%= yield %>

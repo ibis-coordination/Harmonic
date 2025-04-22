@@ -5,30 +5,8 @@ module Api::V1
     end
 
     def create
-      ActiveRecord::Base.transaction do
-        decision = Decision.create!(
-          question: params[:question],
-          description: params[:description],
-          options_open: params[:options_open] || true,
-          deadline: params[:deadline],
-          created_by: current_user,
-        )
-        if current_representation_session
-          current_representation_session.record_activity!(
-            request: request,
-            semantic_event: {
-              timestamp: Time.current,
-              event_type: 'create',
-              studio_id: current_studio.id,
-              main_resource: {
-                type: 'Decision',
-                id: decision.id,
-                truncated_id: decision.truncated_id,
-              },
-              sub_resources: [],
-            }
-          )
-        end
+      begin
+        decision = api_helper.create_decision
         render json: decision
       rescue ActiveRecord::RecordInvalid => e
         # TODO - Detect specific validation errors and return helpful error messages

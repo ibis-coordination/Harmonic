@@ -36,15 +36,4 @@ No participants yet.
 <%= render 'shared/backlinks', resource: @commitment %>
 ## Actions
 
-### Join
-
-Make the following API call to join this commitment.
-
-`POST <%= @current_studio.path %>/api/v1/commitments/<%= @commitment.id %>/join`
-
-Data:
-```json
-{
-  "committed": true
-}
-```
+* `join_commitment()` - Join the commitment

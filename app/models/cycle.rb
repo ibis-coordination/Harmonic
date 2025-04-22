@@ -295,9 +295,6 @@ class Cycle
     current_cycle = start_date <= now && end_date >= now
     [
       ["None", 'none'],
-      # Sequence
-      ["In a sequence", 'in_sequence'],
-      ["Not in a sequence", 'no_sequence'],
       # Created
       ["Created by me", 'mine'],
       ["Not created by me", 'not_mine'],
@@ -335,10 +332,6 @@ class Cycle
           ["#{key} > ?", gt]
         elsif lt
           ["#{key} < ?", lt]
-        elsif key == 'in_sequence'
-          ['sequence_id IS NOT NULL']
-        elsif key == 'no_sequence'
-          ['sequence_id IS NULL']
         elsif key == 'not_mine'
           ['created_by_id != ?', @current_user.id]
         elsif key == 'mine'

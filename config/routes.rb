@@ -53,8 +53,14 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   root 'home#index'
   get 'home' => 'home#index'
+  get 'actions' => 'home#actions_index'
   get 'settings' => 'home#settings'
   get 'scratchpad' => 'home#scratchpad'
+  get 'scratchpad/actions' => 'home#actions_index_scratchpad'
+  get 'scratchpad/actions/update_scratchpad' => 'home#describe_update_scratchpad'
+  post 'scratchpad/actions/update_scratchpad' => 'home#update_scratchpad'
+  get 'scratchpad/actions/append_to_scratchpad' => 'home#describe_append_to_scratchpad'
+  post 'scratchpad/actions/append_to_scratchpad' => 'home#append_to_scratchpad'
 
   get 'about' => 'home#about'
   get 'help' => 'home#help'
@@ -144,7 +150,15 @@ Rails.application.routes.draw do
 
     get "#{prefix}/decide" => 'decisions#new'
     post "#{prefix}/decide" => 'decisions#create'
+    get "#{prefix}/decide/actions" => 'decisions#actions_index_new'
+    get "#{prefix}/decide/actions/create_decision" => 'decisions#describe_create_decision'
+    post "#{prefix}/decide/actions/create_decision" => 'decisions#create_decision'
     resources :decisions, only: [:show], path: "#{prefix}/d" do
+      get '/actions' => 'decisions#actions_index_show'
+      get '/actions/add_option' => 'decisions#describe_add_option'
+      post '/actions/add_option' => 'decisions#add_option'
+      get '/actions/vote' => 'decisions#describe_vote'
+      post '/actions/vote' => 'decisions#vote'
       get '/metric' => 'decisions#metric'
       get '/results.html' => 'decisions#results_partial'
       get '/options.html' => 'decisions#options_partial'

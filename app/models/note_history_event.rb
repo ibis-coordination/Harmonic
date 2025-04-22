@@ -43,10 +43,6 @@ class NoteHistoryEvent < ApplicationRecord
   end
 
   def creator
-    if event_type == 'create' && note.sequence_id && user.trustee?
-      note.sequence
-    else
-      user
-    end
+    user
   end
 end

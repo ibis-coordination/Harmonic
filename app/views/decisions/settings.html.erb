@@ -1,5 +1,8 @@
 <h4 style="display:inline-block;">
-  <%= link_to @current_studio.name, @current_studio.path || '/' %> / <i class="decision-icon"></i> Decision
+  <%= link_to @current_studio.name, @current_studio.path || '/' %> /
+  <span style="white-space:nowrap;">
+    <i class="decision-icon"></i> Decision <code><%= @decision.truncated_id %></code>
+  </span>
 </h4>
 <%= render 'shared/scratchpad_links' %>
 <%= form_with url: "#{@decision.path}/settings" do |form| %>

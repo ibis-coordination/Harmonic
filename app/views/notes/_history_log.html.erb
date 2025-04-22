@@ -2,11 +2,7 @@
 <ul>
 <% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
   <li>
-    <% if event.creator.is_a?(User) %>
-      <a href="<%= event.user.path %>" class="user-profile-link"><%= profile_pic(event.user, size: 25) %> <%= event.user.display_name %></a>
-    <% elsif event.creator.is_a?(Sequence) %>
-      <%= octicon 'iterations', height: 16 %> <a href="<%= event.creator.path %>"><%= event.creator.title %></a>
-    <% end %>
+    <a href="<%= event.user.path %>" class="user-profile-link"><%= profile_pic(event.user, size: 25) %> <%= event.user.display_name %></a>
     <%= event.description %> <strong><%= timeago(event.happened_at) %></strong>
   </li>
 <% end %>

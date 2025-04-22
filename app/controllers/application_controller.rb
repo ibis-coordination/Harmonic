@@ -267,17 +267,6 @@ class ApplicationController < ActionController::Base
     @current_resource
   end
 
-  def current_sequence
-    return @current_sequence if defined?(@current_sequence)
-    if current_resource_model == Sequence
-      sequence_id = params[:id] || params[:sequence_id]
-    else
-      sequence_id = params[:sequence_id]
-    end
-    return @current_sequence = nil unless sequence_id
-    @current_sequence = Sequence.find(sequence_id)
-  end
-
   def current_decision
     return @current_decision if defined?(@current_decision)
     if current_resource_model == Decision
@@ -480,7 +469,7 @@ class ApplicationController < ActionController::Base
     base_path = request.path.split('/actions')[0]
     render 'shared/actions_index', locals: {
       base_path: base_path,
-      actions: locals[:actions],
+      actions: locals[:actions], # { name: 'action_name', params_string: '(param1, param2)', description: 'description' }
     }
   end
 

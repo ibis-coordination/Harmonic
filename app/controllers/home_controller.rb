@@ -3,7 +3,7 @@ class HomeController < ApplicationController
   before_action :redirect_representing
 
   def index
-    @page_title = @current_tenant.name
+    @page_title = 'Home'
     @studios = @current_user.studios.where.not(id: @current_tenant.main_studio_id)
   end
 
@@ -29,6 +29,17 @@ class HomeController < ApplicationController
       flash[:notice] = 'This is your personal scratchpad. What you write here is only visible to you. You can use your scratchpad for bookmarking links, keeping track of ideas, or anything else you want to jot down. It is always available through the top right menu.'
       @current_user.tenant_user.dismiss_notice!('scratchpad')
     end
+  end
+
+  def actions_index_scratchpad
+    @page_title = 'Scratchpad Actions'
+    render_actions_index(ActionsHelper.actions_for_route('/scratchpad'))
+  end
+
+  def actions_index
+    @page_title = 'Actions'
+    @routes_and_actions = ActionsHelper.routes_and_actions
+    render 'actions'
   end
 
   private

@@ -12,7 +12,8 @@ class ApiHelper
     @current_tenant = current_tenant
     @current_representation_session = current_representation_session
     @current_resource_model = current_resource_model
-    @model_params = model_params
+    @model_params = model_params || params
+    @params = params || model_params
     @current_resource = current_resource
     @request = request
   end
@@ -28,12 +29,41 @@ class ApiHelper
   end
 
   def create_note
+    raise NotImplementedError
   end
 
   def create_decision
+    decision = nil
+    ActiveRecord::Base.transaction do
+      decision = Decision.create!(
+        question: params[:question],
+        description: params[:description],
+        options_open: params[:options_open] || true,
+        deadline: params[:deadline],
+        created_by: current_user,
+      )
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'create',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Decision',
+              id: decision.id,
+              truncated_id: decision.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+      end
+    end
+    decision
   end
 
   def create_commitment
+    raise NotImplementedError
   end
 
   def update_note
@@ -79,6 +109,7 @@ class ApiHelper
   def confirm_read
     note = current_resource
     raise "Expected resource model Note, not #{note.class}" unless note.is_a?(Note)
+    history_event = nil
     ActiveRecord::Base.transaction do
       history_event = note.confirm_read!(current_user)
       if current_representation_session
@@ -100,8 +131,8 @@ class ApiHelper
           }
         )
       end
-      return history_event
     end
+    history_event
   end
 
   def current_note

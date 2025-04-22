@@ -11,30 +11,15 @@ class Decision < ApplicationRecord
   before_validation :set_studio_id
   belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
   belongs_to :updated_by, class_name: 'User', foreign_key: 'updated_by_id'
-  belongs_to :sequence, optional: true
   has_many :decision_participants, dependent: :destroy
   has_many :options, dependent: :destroy
   has_many :approvals # dependent: :destroy through options
 
   validates :question, presence: true
+  validates :deadline, presence: true
 
   def self.api_json
     map { |decision| decision.api_json }
-  end
-
-  def self.create_from_sequence!(sequence, position)
-    Decision.create!(
-      tenant_id: sequence.tenant_id,
-      studio_id: sequence.studio_id,
-      created_by_id: sequence.studio.trustee_user_id,
-      updated_by_id: sequence.studio.trustee_user_id,
-      question: sequence.title + ' #' + position.to_s,
-      description: sequence.description,
-      options_open: sequence.options_open,
-      deadline: sequence.deadline_for_position(position),
-      sequence: sequence,
-      sequence_position: position
-    )
   end
 
   def api_json(include: [])

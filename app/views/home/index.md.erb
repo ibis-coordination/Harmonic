@@ -1,4 +1,4 @@
-# <%= @current_tenant.name %>
+# `<%= @current_tenant.domain %>`
 
 ## Your Studios
 
@@ -8,7 +8,7 @@
 
 ## Actions
 
-* [Create a Note](/note)
-* [Create a Decision](/decide)
-* [Create a Commitment](/commit)
-* [Create a Studio](/studios/new)
+<% if @current_tenant.allow_main_studio_items? %>* [New Note](/note)
+* [New Decision](/decide)
+* [New Commitment](/commit)<% end %>
+* [New Studio](/studios/new)
