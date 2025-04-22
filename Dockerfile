@@ -1,5 +1,5 @@
 # Use the official Ruby image as a base
-FROM ruby:3.0.3
+FROM ruby:3.1.7
 
 ENV BUNDLE_PATH /gems
 
