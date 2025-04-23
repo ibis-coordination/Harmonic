@@ -35,17 +35,17 @@ jobs:
       - name: Install dependencies
         run: bundle install
 
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      # - name: Install PostgreSQL client
+      #   run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          for i in {1..20}; do
-            pg_isready -h db -p 5432 && echo "PostgreSQL is ready" && exit 0
-            echo "Waiting for PostgreSQL..."
-            sleep 5
-          done
-          echo "PostgreSQL did not become ready in time" && exit 1
+      # - name: Wait for PostgreSQL to be ready
+      #   run: |
+      #     for i in {1..20}; do
+      #       pg_isready -h db -p 5432 && echo "PostgreSQL is ready" && exit 0
+      #       echo "Waiting for PostgreSQL..."
+      #       sleep 5
+      #     done
+      #     echo "PostgreSQL did not become ready in time" && exit 1
 
       - name: Set up database
         env:
