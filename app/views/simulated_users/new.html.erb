@@ -1,0 +1,13 @@
+<h1>Simulated User</h1>
+<%= form_with url: "#{@current_user.path}/settings/simulated_users" do |form| %>
+  <h2>Name</h2>
+  <div style="margin-bottom:8px;">
+    <%= form.text_field :name, placeholder: 'Name' %>
+  </div>
+  <div>
+    <%= form.check_box :generate_token, checked: true %>
+    generate an API token for this user
+  </div>
+  <hr style="height:1px;" />
+  <%= form.submit 'Create Simulated User' %>
+<% end %>

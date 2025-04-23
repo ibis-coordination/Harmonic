@@ -19,10 +19,12 @@ class StudiosController < ApplicationController
   end
 
   def new
+    @page_title = 'New Studio'
+    @page_description = 'Create a new studio'
   end
 
   def actions_index_new
-    @page_title = 'Actions'
+    @page_title = 'Actions | New Studio'
     render_actions_index(ActionsHelper.actions_for_route('/studios/new'))
   end
 

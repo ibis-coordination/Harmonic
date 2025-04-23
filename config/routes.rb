@@ -89,9 +89,13 @@ Rails.application.routes.draw do
     put 'scratchpad' => 'users#scratchpad', on: :member
     post 'scratchpad/append' => 'users#append_to_scratchpad', on: :member
     get 'settings', on: :member
+    post 'settings/profile' => 'users#update_profile', on: :member
     patch 'image' => 'users#update_image', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
+              only: [:new, :create, :show, :destroy]
+    resources :simulated_users,
+              path: 'settings/simulated_users',
               only: [:new, :create, :show, :destroy]
     post 'impersonate' => 'users#impersonate', on: :member
     delete 'impersonate' => 'users#stop_impersonating', on: :member
@@ -105,9 +109,11 @@ Rails.application.routes.draw do
   get 'studios/available' => 'studios#handle_available'
   post 'studios' => 'studios#create'
   get 's/:studio_handle' => 'studios#show'
+  get 's/:studio_handle/actions' => 'studios#actions_index_default'
   get 's/:studio_handle/pinned.html' => 'studios#pinned_items_partial'
   get 's/:studio_handle/team.html' => 'studios#team_partial'
   get "s/:studio_handle/cycles" => 'cycles#index'
+  get "s/:studio_handle/cycles/actions" => 'cycles#actions_index_default'
   get "s/:studio_handle/cycles/:cycle" => 'cycles#show'
   get "s/:studio_handle/cycle/:cycle" => 'cycles#redirect_to_show'
   get "s/:studio_handle/views" => 'studios#views'
@@ -128,6 +134,7 @@ Rails.application.routes.draw do
   get 's/:studio_handle/r/:id' => 'representation_sessions#show'
   get 's/:studio_handle/u/:handle' => 'users#show'
   get 's/:studio_handle/backlinks' => 'studios#backlinks'
+  get "s/:studio_handle/backlinks/actions" => 'studios#actions_index_default'
 
   ['', 's/:studio_handle'].each do |prefix|
     get "#{prefix}/note" => 'notes#new'

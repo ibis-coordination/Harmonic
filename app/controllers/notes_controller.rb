@@ -235,6 +235,7 @@ class NotesController < ApplicationController
   end
 
   def actions_index_new
+    @page_title = "Actions | Note"
     render_actions_index({
       actions: [{
         name: 'create_note',
@@ -244,6 +245,7 @@ class NotesController < ApplicationController
   end
 
   def actions_index_edit
+    @page_title = "Actions | Edit Note"
     render_actions_index({
       actions: [{
         name: 'update_note',
@@ -253,6 +255,7 @@ class NotesController < ApplicationController
   end
 
   def actions_index_show
+    @page_title = "Actions | #{@note.title}"
     render_actions_index({
       actions: [{
         name: 'confirm_read',

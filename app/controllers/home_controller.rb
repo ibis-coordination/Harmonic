@@ -32,12 +32,12 @@ class HomeController < ApplicationController
   end
 
   def actions_index_scratchpad
-    @page_title = 'Scratchpad Actions'
+    @page_title = 'Actions | Scratchpad'
     render_actions_index(ActionsHelper.actions_for_route('/scratchpad'))
   end
 
   def actions_index
-    @page_title = 'Actions'
+    @page_title = 'Actions | Home'
     @routes_and_actions = ActionsHelper.routes_and_actions
     render 'actions'
   end

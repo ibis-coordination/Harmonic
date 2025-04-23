@@ -32,6 +32,20 @@ class UsersController < ApplicationController
     @simulated_users = @current_user.simulated_users.includes(:tenant_users).where(tenant_users: {tenant_id: @current_tenant.id})
   end
 
+  def update_profile
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render '404' if tu.nil?
+    return render plain: '403 Unauthorized' unless tu.user == current_user
+    if params[:name].present?
+      current_user.name = params[:name]
+      current_user.save!
+      tu.user.name = params[:name]
+      tu.user.save!
+    end
+    flash[:notice] = 'Profile updated successfully'
+    redirect_to "#{current_user.path}/settings"
+  end
+
   def scratchpad
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404' if tu.nil?

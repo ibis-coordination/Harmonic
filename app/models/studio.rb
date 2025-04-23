@@ -32,7 +32,12 @@ class Studio < ApplicationRecord
   def self.scope_thread_to_studio(subdomain:, handle:)
     tenant = Tenant.scope_thread_to_tenant(subdomain: subdomain)
     studio = handle ? tenant.studios.find_by!(handle: handle) : tenant.main_studio
-    if studio.nil? && subdomain == ENV['AUTH_SUBDOMAIN']
+    if studio.nil? && tenant.main_studio.nil?
+      raise ActiveRecord::RecordNotFound, "Tenant with subdomain '#{subdomain}' is missing a main studio"
+    elsif studio.nil? && subdomain == ENV['AUTH_SUBDOMAIN']
+      # This is a special case for the auth subdomain.
+      # We only need a temporary studio object to set the thread scope.
+      # It will not be persisted to the database.
       studio = Studio.new(
         id: SecureRandom.uuid,
         name: 'Harmonic Team',
@@ -40,6 +45,8 @@ class Studio < ApplicationRecord
         tenant: tenant,
       )
       tenant.main_studio = studio
+    elsif studio.nil?
+      raise ActiveRecord::RecordNotFound, "Studio with handle '#{handle}' not found"
     end
     Thread.current[:studio_id] = studio.id
     Thread.current[:studio_handle] = studio.handle
@@ -258,7 +265,7 @@ class Studio < ApplicationRecord
   end
 
   def is_main_studio?
-    (Tenant.current_main_studio_id || self.tenant.main_studio_id) == self.id
+    self.tenant.main_studio_id == self.id
   end
 
   def path_prefix

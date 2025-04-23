@@ -130,7 +130,6 @@ class DecisionsController < ApplicationController
     redirect_to @new_decision.path
   end
 
-
   def show
     @decision = current_decision
     return render '404', status: 404 unless @decision
@@ -233,12 +232,12 @@ class DecisionsController < ApplicationController
   end
 
   def actions_index_new
-    @page_title = 'Actions'
+    @page_title = 'Actions | Decide'
     render_actions_index(ActionsHelper.actions_for_route('/s/:studio_handle/decide'))
   end
 
   def actions_index_show
-    @page_title = 'Actions'
+    @page_title = "Actions | #{@decision.question}"
     render_actions_index(ActionsHelper.actions_for_route('/s/:studio_handle/d/:decision_id'))
   end
 

@@ -12,27 +12,14 @@ module Api::V1
 
     def create
       # Only simulated users can be created via the API
-      ActiveRecord::Base.transaction do
-        user = User.create!(
-          name: params[:name],
-          email: SecureRandom.uuid + '@not-a-real-email.com',
-          user_type: 'simulated',
-          parent_id: current_user.id,
-        )
-        tenant_user = TenantUser.create!(
-          user: user,
-          tenant: current_tenant,
-          display_name: params[:name],
-          handle: params[:handle],
-        )
-        user.tenant_user = tenant_user
+      begin
+        user = api_helper.create_simulated_user
         token = generate_token(user) if params[:generate_token]
         response = user.api_json
         response[:token] = token.token if token
         render json: response
       rescue ActiveRecord::RecordInvalid => e
-        # TODO - Detect specific validation errors and return helpful error messages
-        render json: { error: 'There was an error creating the user. Please try again.' }, status: 400
+        render json: { error: e.message }, status: 400
       end
     end
 
@@ -75,15 +62,6 @@ module Api::V1
     def updatable_attributes
       # Cannot update email because we derive from oauth provider
       [:display_name, :handle] # How to update pins?
-    end
-
-    def generate_token(user)
-      ApiToken.create!(
-        name: "#{user.display_name}'s API Token",
-        user: user,
-        expires_at: 1.year.from_now,
-        scopes: ApiToken.read_scopes + ApiToken.write_scopes,
-      )
     end
   end
 end

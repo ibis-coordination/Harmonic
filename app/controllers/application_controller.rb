@@ -473,6 +473,18 @@ class ApplicationController < ActionController::Base
     }
   end
 
+  def actions_index_default
+    if current_studio.is_main_studio?
+      # This should be overridden in child classes.
+      raise NotImplementedError, "actions index must be implemented in child classes"
+    else
+      @page_title = "Actions | #{current_studio.name}"
+      render 'shared/actions_index_studio', locals: {
+        base_path: request.path.split('/actions')[0]
+      }
+    end
+  end
+
   def render_action_description(locals)
     render 'shared/action_description', locals: {
       action_name: locals[:action_name],

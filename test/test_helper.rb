@@ -15,6 +15,7 @@ class ActiveSupport::TestCase
     @global_tenant = Tenant.create!(subdomain: "global", name: "Global Tenant")
     @global_user = User.create!(email: "global_user@example.com", name: "Global User", user_type: "person")
     @global_tenant.add_user!(@global_user)
+    @global_tenant.create_main_studio!(created_by: @global_user)
     @global_studio = Studio.create!(tenant: @global_tenant, created_by: @global_user, name: "Global Studio", handle: "global-studio")
     @global_studio.add_user!(@global_user)
   end

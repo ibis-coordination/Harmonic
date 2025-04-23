@@ -182,4 +182,29 @@ class ApiHelper
     return nil unless @current_resource_model == Note && @current_resource.is_a?(Note)
     @current_resource
   end
+
+  def create_simulated_user
+    # Only simulated users can be created via the API
+    user = nil
+    ActiveRecord::Base.transaction do
+      user = User.create!(
+        name: params[:name],
+        email: SecureRandom.uuid + '@not-a-real-email.com',
+        user_type: 'simulated',
+        parent_id: current_user.id,
+      )
+      tenant_user = current_tenant.add_user!(user)
+      user.tenant_user = tenant_user
+    end
+    user
+  end
+
+  def generate_token(user)
+    ApiToken.create!(
+      name: "#{user.display_name}'s API Token",
+      user: user,
+      expires_at: 1.year.from_now,
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+    )
+  end
 end
