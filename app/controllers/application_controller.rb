@@ -11,10 +11,10 @@ class ApplicationController < ActionController::Base
   end
 
   def current_app
-    # TODO Remove this method.
+    # TODO Remove this method. Logic is not longer needed.
     # This method should be overridden in the app-specific controllers.
     return @current_app if defined?(@current_app)
-    @current_app = ENV['APPS_ENABLED'].split(',')[0]
+    @current_app = 'decisive'
     @current_app_title = 'Harmonic Team'
     @current_app_description = 'fast group coordination'
     @current_app
