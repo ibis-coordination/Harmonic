@@ -38,6 +38,10 @@ jobs:
       - name: Set up database
         env:
           RAILS_ENV: test
+          AUTH_MODE: oauth
+          HOSTNAME: harmonic.localhost
+          PRIMARY_SUBDOMAIN: app
+          AUTH_SUBDOMAIN: auth
         run: |
           bin/rails db:create
           bin/rails db:schema:load
@@ -45,4 +49,8 @@ jobs:
       - name: Run tests
         env:
           RAILS_ENV: test
+          AUTH_MODE: oauth
+          HOSTNAME: harmonic.localhost
+          PRIMARY_SUBDOMAIN: app
+          AUTH_SUBDOMAIN: auth
         run: bundle exec rails test
