@@ -12,6 +12,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      db:
+        image: postgres:13
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: decisiveteam
+          POSTGRES_PASSWORD: decisiveteam
+          POSTGRES_DB: decisive_team_test
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,5 +35,14 @@ jobs:
       - name: Install dependencies
         run: bundle install
 
+      - name: Set up database
+        env:
+          RAILS_ENV: test
+        run: |
+          bin/rails db:create
+          bin/rails db:schema:load
+
       - name: Run tests
+        env:
+          RAILS_ENV: test
         run: bundle exec rails test
