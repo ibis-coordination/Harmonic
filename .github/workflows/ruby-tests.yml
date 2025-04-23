@@ -50,6 +50,7 @@ jobs:
       - name: Set up database
         env:
           RAILS_ENV: test
+          DB_HOST: localhost
           AUTH_MODE: oauth
           HOSTNAME: harmonic.localhost
           PRIMARY_SUBDOMAIN: app
@@ -61,6 +62,7 @@ jobs:
       - name: Run tests
         env:
           RAILS_ENV: test
+          DB_HOST: localhost
           AUTH_MODE: oauth
           HOSTNAME: harmonic.localhost
           PRIMARY_SUBDOMAIN: app

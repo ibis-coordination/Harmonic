@@ -12,6 +12,7 @@ development:
 
 test:
   <<: *default
+  host: <%= ENV.fetch('DB_HOST') { 'db' } %>
   database: decisive_team_test
 
 production:
