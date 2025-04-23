@@ -1,0 +1,18 @@
+# New Studio
+
+Studios are private by default. Once created, you can invite others to join your studio.
+
+Studios require the following:
+
+* Studio name
+* Studio handle that determines the URL of the studio (i.e. https://app.harmonic.local/s/studio-handle-example)
+* Studio description (optional) that appears on the studio homepage
+* Timezone, which determines when daily cycles begin and end
+* Tempo ("daily", "weekly", or "monthly"), which determines how frequently other studio members should check in
+* Synchronization mode ("improv" or "orchestra"), which determines default permissions for new members
+  * "improv" (default) is for groups with no formal leadership roles
+  * "orchestra" is for groups with formal leadership roles
+
+## Actions
+
+* `create_studio(name, handle, description, timezone, tempo, synch_mode)`

@@ -28,8 +28,51 @@ class ApiHelper
     end
   end
 
+  def create_studio
+    studio = nil
+    ActiveRecord::Base.transaction do
+      studio = Studio.create!(
+        name: params[:name],
+        handle: params[:handle],
+        description: params[:description],
+        created_by: current_user,
+        timezone: params[:timezone],
+        tempo: params[:tempo],
+        synchronization_mode: params[:synchronization_mode],
+      )
+      studio.add_user!(current_user, roles: ['admin', 'representative'])
+      studio.create_welcome_note!
+    end
+    studio
+  end
+
   def create_note
-    raise NotImplementedError
+    note = nil
+    ActiveRecord::Base.transaction do
+      note = Note.create!(
+        title: params[:title],
+        text: params[:text],
+        deadline: params[:deadline],
+        created_by: current_user,
+      )
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'create',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Note',
+              id: note.id,
+              truncated_id: note.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+      end
+    end
+    note
   end
 
   def create_decision

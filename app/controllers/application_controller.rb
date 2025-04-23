@@ -478,7 +478,7 @@ class ApplicationController < ActionController::Base
       action_name: locals[:action_name],
       resource: locals[:resource],
       description: locals[:description],
-      params: locals[:params],
+      params: locals[:params], # { name: 'param_name', type: 'string', description: 'description' }
     }
   end
 

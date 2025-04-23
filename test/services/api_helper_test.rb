@@ -13,7 +13,43 @@ class ApiHelperTest < ActiveSupport::TestCase
     )
   end
 
-  test "ApiHelper.create_note raises error when not implemented" do
+  test "ApiHelper.create_studio creates a studio" do
+    params = {
+      name: "Studio Name",
+      handle: "studio-handle",
+      description: "This is a test studio.",
+      timezone: "Pacific Time (US & Canada)",
+      tempo: "daily",
+      synchronization_mode: "improv"
+    }
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_studio: @studio,
+      current_tenant: @tenant,
+      current_representation_session: nil,
+      current_resource_model: Studio,
+      current_resource: nil,
+      params: params,
+      request: {}
+    )
+    studio = api_helper.create_studio
+    assert studio.persisted?
+    assert_equal params[:name], studio.name
+    assert_equal params[:handle], studio.handle
+    assert_equal params[:description], studio.description
+    assert_equal params[:timezone], studio.timezone.name
+    assert_equal params[:tempo], studio.tempo
+    assert_equal params[:synchronization_mode], studio.synchronization_mode
+    assert_equal @tenant, studio.tenant
+    assert_equal @user, studio.created_by
+  end
+
+  test "ApiHelper.create_note creates a note" do
+    params = {
+      title: "Note Title",
+      text: "This is a test note.",
+      deadline: Time.current + 1.week
+    }
     api_helper = ApiHelper.new(
       current_user: @user,
       current_studio: @studio,
@@ -21,10 +57,14 @@ class ApiHelperTest < ActiveSupport::TestCase
       current_representation_session: nil,
       current_resource_model: Note,
       current_resource: nil,
-      params: {},
+      params: params,
       request: {}
     )
-    assert_raises(NotImplementedError) { api_helper.create_note }
+    note = api_helper.create_note
+    assert note.persisted?
+    assert_equal params[:title], note.title
+    assert_equal params[:text], note.text
+    assert_equal @user, note.created_by
   end
 
   test "ApiHelper.create_decision creates a decision" do

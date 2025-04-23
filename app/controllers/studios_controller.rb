@@ -21,6 +21,63 @@ class StudiosController < ApplicationController
   def new
   end
 
+  def actions_index_new
+    @page_title = 'Actions'
+    render_actions_index(ActionsHelper.actions_for_route('/studios/new'))
+  end
+
+  def describe_create_studio
+    @page_title = 'Create Studio'
+    @page_description = 'Create a new studio'
+    render_action_description({
+      action_name: 'create_studio',
+      resource: nil,
+      description: 'Create a new studio',
+      params: [{
+        name: 'name',
+        description: 'The name of the studio',
+        type: 'string',
+      }, {
+        name: 'handle',
+        description: 'The handle of the studio (used in the URL)',
+        type: 'string',
+      }, {
+        name: 'description',
+        description: 'A description of the studio that will appear on the studio homepage',
+        type: 'string',
+      }, {
+        name: 'timezone',
+        description: 'The timezone of the studio',
+        type: 'string',
+      }, {
+        name: 'tempo',
+        description: 'The tempo of the studio. "daily", "weekly", or "monthly"',
+        type: 'string',
+      }, {
+        name: 'synchronization_mode',
+        description: 'The synchronization mode of the studio. "improv" or "orchestra"',
+        type: 'string',
+      }]
+    })
+  end
+
+  def create_studio
+    begin
+      studio = api_helper.create_studio
+      render_action_success({
+        action_name: 'create_studio',
+        resource: studio,
+        result: 'Studio created successfully.',
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'create_studio',
+        resource: nil,
+        error: e.message,
+      })
+    end
+  end
+
   def handle_available
     render json: { available: Studio.handle_available?(params[:handle]) }
   end

@@ -281,6 +281,10 @@ class Studio < ApplicationRecord
     end
   end
 
+  def truncated_id
+    handle
+  end
+
   def add_user!(user, roles: [])
     su = studio_users.create!(
       tenant: tenant,

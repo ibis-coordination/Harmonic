@@ -99,6 +99,9 @@ Rails.application.routes.draw do
 
   get 'studios' => 'studios#index'
   get 'studios/new' => 'studios#new'
+  get 'studios/new/actions' => 'studios#actions_index_new'
+  get 'studios/new/actions/create_studio' => 'studios#describe_create_studio'
+  post 'studios/new/actions/create_studio' => 'studios#create_studio'
   get 'studios/available' => 'studios#handle_available'
   post 'studios' => 'studios#create'
   get 's/:studio_handle' => 'studios#show'

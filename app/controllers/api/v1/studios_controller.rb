@@ -14,22 +14,11 @@ module Api::V1
     def create
       handle_available = Studio.where(handle: params[:handle]).empty?
       return render json: { error: 'Handle already in use' }, status: 400 unless handle_available
-      ActiveRecord::Base.transaction do
-        studio = Studio.create!(
-          name: params[:name],
-          handle: params[:handle],
-          description: params[:description],
-          created_by: current_user,
-          timezone: params[:timezone],
-          tempo: params[:tempo],
-          synchronization_mode: params[:synchronization_mode],
-        )
-        studio.add_user!(current_user, roles: ['admin', 'representative'])
-        studio.create_welcome_note!
+      begin
+        studio = api_helper.create_studio
         render json: studio.api_json
       rescue ActiveRecord::RecordInvalid => e
-        # TODO - Detect specific validation errors and return helpful error messages
-        render json: { error: 'There was an error creating the studio. Please try again.' }, status: 400
+        render json: { error: e.message }, status: 400
       end
     end
 

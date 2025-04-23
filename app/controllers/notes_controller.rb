@@ -208,7 +208,7 @@ class NotesController < ApplicationController
         action_name: 'confirm_read',
         resource: current_note,
         params: [],
-        result: "Note confirmed.",
+        result: "You have successfully confirmed that you have read this note.",
       })
     rescue ActiveRecord::RecordInvalid => e
       render_action_error({
