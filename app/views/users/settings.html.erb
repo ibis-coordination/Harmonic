@@ -41,7 +41,10 @@ Click image to upload a new image.<br/>
       <% @current_user.api_tokens.each do |token| %>
         <tr>
           <td><%= token.name || 'Unnamed' %></td>
-          <td><%= token.obfuscated_token %></td>
+          <td>
+            <code><%= token.obfuscated_token %></code>
+            <%= render 'shared/copy_button', text: token.token %>
+          </td>
           <td><%= timeago(token.created_at) %></td>
           <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
           <td><%= timeago(token.expires_at) %></td>
@@ -100,7 +103,10 @@ Click image to upload a new image.<br/>
             <% simulated_user.api_tokens.each do |token| %>
               <tr>
                 <td><%= token.name || 'Unnamed' %></td>
-                <td><%= token.obfuscated_token %></td>
+                <td>
+                  <code><%= token.obfuscated_token %></code>
+                  <%= render 'shared/copy_button', text: token.token %>
+                </td>
                 <td><%= timeago(token.created_at) %></td>
                 <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
                 <td><%= timeago(token.expires_at) %></td>
