@@ -73,9 +73,11 @@ class ApplicationController < ActionController::Base
   end
 
   def api_authorize!
-    api_enabled = current_tenant.api_enabled? && current_studio.api_enabled?
-    return render json: { error: 'API not enabled' }, status: 403 unless api_enabled
-    return render json: { error: 'API only supports JSON or Markdown formats' }, status: 401 unless json_or_markdown_request?
+    unless current_studio.api_enabled? && current_tenant.api_enabled?
+      studio_or_tenant = current_tenant.api_enabled? ? 'studio' : 'tenant'
+      return render json: { error: "API not enabled for this #{studio_or_tenant}" }, status: 403
+    end
+    return render json: { error: 'API only supports JSON or Markdown formats' }, status: 403 unless json_or_markdown_request?
     request.format = :md unless request.format == :json
     current_token || render(json: { error: 'Unauthorized' }, status: 401)
   end
@@ -93,8 +95,12 @@ class ApplicationController < ActionController::Base
     return @current_user if defined?(@current_user)
     if api_token_present?
       api_authorize!
+      # Note: must set @current_user before calling validate_scope to avoid infinite loop
+      @current_user = @current_token&.user
+      return nil if @current_user.nil?
+      validate_scope
       # How do we handle representation through the API?
-      return @current_user = @current_token&.user
+      return @current_user
     end
     @current_person_user = User.find_by(id: session[:user_id], user_type: 'person') if session[:user_id].present?
     @current_simulated_user = User.find_by(id: session[:simulated_user_id], user_type: 'simulated') if session[:simulated_user_id].present?
@@ -180,6 +186,7 @@ class ApplicationController < ActionController::Base
 
   def validate_unauthenticated_access
     return if @current_user || !@current_tenant.require_login? || controller_name.ends_with?('sessions')
+    return render status: 401, json: { error: 'Unauthorized' } if request.path.include?('/api/') || request.headers['Accept'] == 'application/json'
     if current_resource
       path = current_resource.path
       query_string = "?redirect_to_resource=#{path}"
@@ -188,6 +195,13 @@ class ApplicationController < ActionController::Base
       query_string = "?code=#{params[:code]}"
     end
     redirect_to '/login' + (query_string || '')
+  end
+
+  def validate_scope
+    return true if current_user && !current_token # Allow all actions for logged in users
+    unless current_token.can?(request.method, current_resource_model)
+      render json: { error: 'You do not have permission to perform that action' }, status: 403
+    end
   end
 
   def clear_impersonations_and_representations!

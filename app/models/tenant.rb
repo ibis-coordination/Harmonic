@@ -136,6 +136,9 @@ class Tenant < ApplicationRecord
       handle: SecureRandom.hex(16),
       created_by: created_by,
     )
+    # Always enable API for the main studio
+    # Both tenant and studio must have API enabled for it to be accessible
+    self.main_studio.enable_api!
     save!
   end
 

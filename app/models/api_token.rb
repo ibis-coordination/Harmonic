@@ -13,6 +13,10 @@ class ApiToken < ApplicationRecord
     ['create', 'read', 'update', 'delete']
   end
 
+  def valid_actions
+    self.class.valid_actions
+  end
+
   def self.valid_resources
     ['all', 'notes', 'confirmations',
      'decisions', 'options', 'approvals', 'decision_participants',
@@ -20,9 +24,17 @@ class ApiToken < ApplicationRecord
      'cycles', 'users', 'api_tokens']
   end
 
+  def valid_resources
+    self.class.valid_resources
+  end
+
   # TODO - remove the invalid scopes, e.g. 'create:cycles', 'update:results', etc.
   def self.valid_scopes
     valid_actions.product(valid_resources).map { |a, r| "#{a}:#{r}" }
+  end
+
+  def valid_scopes
+    self.class.valid_scopes
   end
 
   def self.read_scopes
@@ -99,14 +111,14 @@ class ApiToken < ApplicationRecord
     unless valid_actions.include?(action)
       raise "Invalid action: #{action}"
     end
+    return true if scopes.include?('all') || scopes.include?("#{action}:all")
     resource_name = resource_model.to_s.pluralize.downcase
     unless valid_resources.include?(resource_name)
       raise "Invalid resource: #{resource_name}"
     end
-    unless resource_model.respond_to?(:api_json)
+    unless resource_model.method_defined?(:api_json)
       raise "Resource model #{resource_model} does not respond to api_json"
     end
-    return true if scopes.include?('all') || scopes.include?("#{action}:all")
     scopes.include?("#{action}:#{resource_name}")
   end
 

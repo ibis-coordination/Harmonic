@@ -93,6 +93,10 @@ class Studio < ApplicationRecord
     )
   end
 
+  def is_main_studio?
+    self.tenant.main_studio_id == self.id
+  end
+
   def creator_is_not_trustee
     errors.add(:created_by, "cannot be a trustee") if created_by.trustee?
   end
@@ -109,7 +113,7 @@ class Studio < ApplicationRecord
   end
 
   def api_enabled?
-    is_main_studio? || feature_enabled?('api')
+    feature_enabled?('api') || is_main_studio?
   end
 
   def enable_api!
@@ -125,8 +129,7 @@ class Studio < ApplicationRecord
   def timezone=(value)
     if value.present?
       @timezone = ActiveSupport::TimeZone[value]
-      set_defaults
-      self.settings = self.settings.merge('timezone' => @timezone.name)
+      self.settings = (self.settings || {}).merge('timezone' => @timezone.name)
     end
   end
 
@@ -262,10 +265,6 @@ class Studio < ApplicationRecord
     closed_decisions = decisions.where('deadline < ?', Time.current).where('deadline > ?', time_window.ago)
     closed_commitments = commitments.where('deadline < ?', Time.current).where('deadline > ?', time_window.ago)
     (closed_decisions + closed_commitments).sort_by(&:deadline).reverse
-  end
-
-  def is_main_studio?
-    self.tenant.main_studio_id == self.id
   end
 
   def path_prefix
