@@ -197,13 +197,7 @@ class StudiosController < ApplicationController
   end
 
   def backlinks
-    # @cycle = Cycle.new(
-    #   name: params[:cycle],
-    #   tenant: @current_tenant,
-    #   studio: @current_studio,
-    #   current_user: @current_user,
-    # )
-
+    @page_title = 'Backlinks'
     # TODO - make this more efficient
     @backlinks = Link.where(
       tenant_id: @current_tenant.id,

@@ -1,0 +1,17 @@
+# Cycles
+
+Items are counted in a cycle if their time window (creation date to deadline) has any overlap with the cycle. Items can span multiple cycles.
+
+Click on the cycle names to view the counted items.
+
+## Daily
+
+<%= render 'shared/cycle_count_table', cycles: @daily_cycles %>
+
+## Weekly
+
+<%= render 'shared/cycle_count_table', cycles: @weekly_cycles %>
+
+## Monthly
+
+<%= render 'shared/cycle_count_table', cycles: @monthly_cycles %>

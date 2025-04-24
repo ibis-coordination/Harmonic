@@ -1,6 +1,7 @@
 class CyclesController < ApplicationController
 
   def index
+    @page_title = 'Cycles'
     @daily_cycles = ['yesterday', 'today', 'tomorrow'].map do |name|
       Cycle.new(name: name, tenant: @current_tenant, studio: @current_studio)
     end
@@ -19,6 +20,7 @@ class CyclesController < ApplicationController
       studio: @current_studio,
       current_user: @current_user,
     )
+    @page_title = @cycle.display_window
     @current_resource = @cycle
     @notes = @cycle.notes
     @decisions = @cycle.decisions

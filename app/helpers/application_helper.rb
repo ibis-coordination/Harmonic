@@ -8,6 +8,12 @@ module ApplicationHelper
     >#{time_ago_in_words(datetime)} #{ago_or_from_now}</time>".html_safe
   end
 
+  def time_ago_or_from_now(datetime)
+    return "" unless datetime
+    ago_or_from_now = datetime < Time.now ? 'ago' : 'from now'
+    time_ago_in_words(datetime) + " " + ago_or_from_now
+  end
+
   def duration_in_words(duration)
     seconds = duration.to_i
     minutes = seconds / 60
