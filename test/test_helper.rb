@@ -52,7 +52,15 @@ class ActiveSupport::TestCase
   end
 
   def create_note(tenant: @tenant, studio: @studio, created_by: @user, title: "Test Note", text: "This is a test note.")
-    Note.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, text: text)
+    Note.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week)
+  end
+
+  def create_decision(tenant: @tenant, studio: @studio, created_by: @user, question: "Test Decision?", description: "This is a test decision.")
+    Decision.create!(tenant: tenant, studio: studio, created_by: created_by, question: question, description: description, deadline: Time.current + 1.week, options_open: true)
+  end
+
+  def create_commitment(tenant: @tenant, studio: @studio, created_by: @user, title: "Test Commitment", description: "This is a test commitment.")
+    Commitment.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, description: description, critical_mass: 1, deadline: Time.current + 1.week)
   end
 
   def create_tenant_studio_user

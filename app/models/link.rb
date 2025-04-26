@@ -8,6 +8,9 @@ class Link < ApplicationRecord
   belongs_to :from_linkable, polymorphic: true
   belongs_to :to_linkable, polymorphic: true
 
+  validate :validate_tenant_and_studio_id
+  validate :validate_linkables_are_different
+
   def set_tenant_id
     return unless self.tenant_id.nil?
     from_tenant_id = from_linkable.tenant_id
@@ -26,6 +29,31 @@ class Link < ApplicationRecord
       errors.add(:base, "Cannot link objects from different studios")
     end
     self.studio_id = from_studio_id
+  end
+
+  def validate_tenant_and_studio_id
+    if from_linkable.tenant_id != tenant_id
+      errors.add(:tenant_id, "must match the tenant of the from_linkable")
+    end
+    if from_linkable.studio_id != studio_id
+      errors.add(:studio_id, "must match the studio of the from_linkable")
+    end
+    if to_linkable.tenant_id != tenant_id
+      errors.add(:tenant_id, "must match the tenant of the to_linkable")
+    end
+    if to_linkable.studio_id != studio_id
+      errors.add(:studio_id, "must match the studio of the to_linkable")
+    end
+  end
+
+  def validate_linkables_are_different
+    if from_linkable.nil? || to_linkable.nil?
+      errors.add(:base, "Cannot link nil objects")
+      return
+    end
+    if from_linkable == to_linkable
+      errors.add(:base, "Cannot link an object to itself")
+    end
   end
 
   def self.backlink_leaderboard(start_date: nil, end_date: nil, tenant_id: nil, studio_id: nil, limit: 10)

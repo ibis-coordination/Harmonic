@@ -8,6 +8,7 @@ class NoteHistoryEvent < ApplicationRecord
   belongs_to :user
   validates :event_type, presence: true, inclusion: { in: %w(create update read_confirmation) }
   validates :happened_at, presence: true
+  validate :validate_tenant_and_studio_id
 
   def set_tenant_id
     self.tenant_id ||= note.tenant_id
@@ -15,6 +16,15 @@ class NoteHistoryEvent < ApplicationRecord
 
   def set_studio_id
     self.studio_id ||= note.studio_id
+  end
+
+  def validate_tenant_and_studio_id
+    if note.tenant_id != tenant_id
+      errors.add(:tenant_id, "must match the tenant of the note")
+    end
+    if note.studio_id != studio_id
+      errors.add(:studio_id, "must match the studio of the note")
+    end
   end
 
   def api_json

@@ -70,7 +70,10 @@ class NoteTest < ActiveSupport::TestCase
     history_event = note.note_history_events.first
     assert history_event.present?
     assert_equal "create", history_event.event_type
+    assert_equal note, history_event.note
+    assert_equal studio, history_event.studio
     assert_equal user, history_event.user
+    assert_equal note.created_at, history_event.happened_at
   end
 
   test "Note creates a history event on update" do
@@ -92,7 +95,10 @@ class NoteTest < ActiveSupport::TestCase
     history_event = note.note_history_events.last
     assert history_event.present?
     assert_equal "update", history_event.event_type
+    assert_equal note, history_event.note
+    assert_equal studio, history_event.studio
     assert_equal user, history_event.user
+    assert_equal note.updated_at, history_event.happened_at
   end
 
   test "Note.confirm_read! creates a read confirmation event" do
@@ -112,6 +118,8 @@ class NoteTest < ActiveSupport::TestCase
     confirmation_event = note.confirm_read!(user)
     assert confirmation_event.present?
     assert_equal "read_confirmation", confirmation_event.event_type
+    assert_equal note, confirmation_event.note
+    assert_equal studio, confirmation_event.studio
     assert_equal user, confirmation_event.user
   end
 
