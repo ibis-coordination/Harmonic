@@ -485,6 +485,7 @@ class ApplicationController < ActionController::Base
   end
 
   def render_actions_index(locals)
+    @page_title ||= "Actions"
     base_path = request.path.split('/actions')[0]
     render 'shared/actions_index', locals: {
       base_path: base_path,
@@ -505,6 +506,7 @@ class ApplicationController < ActionController::Base
   end
 
   def render_action_description(locals)
+    @page_title ||= "Action: #{locals[:action_name]}"
     render 'shared/action_description', locals: {
       action_name: locals[:action_name],
       resource: locals[:resource],
@@ -514,6 +516,7 @@ class ApplicationController < ActionController::Base
   end
 
   def render_action_success(locals)
+    @page_title ||= "Action Success: #{locals[:action_name]}"
     render 'shared/action_success', locals: {
       action_name: locals[:action_name],
       resource: locals[:resource],
@@ -522,6 +525,7 @@ class ApplicationController < ActionController::Base
   end
 
   def render_action_error(locals)
+    @page_title ||= "Action Error: #{locals[:action_name]}"
     render 'shared/action_error', locals: {
       action_name: locals[:action_name],
       resource: locals[:resource],

@@ -1,4 +1,4 @@
-# Decision: [<%= @decision.question %>](<%= @decision.path %>)
+# Decision: <%= @decision.question %>
 
 | created_at | <%= @decision.created_at %> |
 | updated_at | <%= @decision.updated_at %> |
@@ -8,6 +8,7 @@
 <% if @decision.description.present? %>## Description
 
 <%= @decision.description %><% end %><% unless @decision.closed? %>
+
 ## Options
 
 <% if @decision.options.empty? %>

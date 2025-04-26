@@ -7,11 +7,12 @@ class ApiHelper
               :model_params, :params, :request
 
   def initialize(
-    current_user:, current_studio:, current_tenant:, current_representation_session:,
-    current_resource_model:, current_resource: nil, current_note: nil,
+    current_user:, current_studio:, current_tenant:,
+    current_resource_model: nil,  current_resource: nil, current_note: nil,
     current_decision: nil, current_commitment: nil,
     current_decision_participant: nil, current_commitment_participant: nil,
-    model_params: nil, params: nil, request: nil
+    model_params: nil, params: nil, request: nil,
+    current_representation_session: nil
   )
     @current_user = current_user
     @current_studio = current_studio
@@ -236,6 +237,50 @@ class ApiHelper
     option
   end
 
+  def vote
+    associations = {
+      tenant: current_tenant,
+      studio: current_studio,
+      decision: current_decision,
+      option: current_option,
+      decision_participant: current_decision_participant,
+    }
+    # If the approval already exists, update it. Otherwise, create a new one.
+    # There should only be one approval record per decision + option + participant.
+    approval = Approval.find_by(associations) || Approval.new(associations)
+    approval.value = params[:value] || params[:accept]
+    approval.stars = params[:stars] || params[:prefer]
+    ActiveRecord::Base.transaction do
+      approval.save!
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'vote',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Decision',
+              id: current_decision.id,
+              truncated_id: current_decision.truncated_id,
+            },
+            sub_resources: [
+              {
+                type: 'Option',
+                id: current_option.id,
+              },
+              {
+                type: 'Approval',
+                id: approval.id,
+              },
+            ],
+          }
+        )
+      end
+    end
+    approval
+  end
+
   def create_simulated_user
     # Only simulated users can be created via the API
     user = nil
@@ -289,12 +334,26 @@ class ApiHelper
         user: current_user,
       ).find_or_create_participant
     end
+    @current_decision_participant
   end
 
   def current_commitment_participant
     return @current_commitment_participant if @current_commitment_participant
     return nil unless @current_resource_model == CommitmentParticipant && @current_resource.is_a?(CommitmentParticipant)
     @current_resource
+  end
+
+  def current_option
+    return @current_option if @current_option
+    if params[:option_id]
+      @current_option = current_decision.options.find_by(id: params[:option_id])
+    elsif params[:option_title]
+      # Option title is unique per decision, so we can use it to find the option.
+      @current_option = current_decision.options.find_by(title: params[:option_title])
+    elsif @current_resource_model == Option && @current_resource.is_a?(Option)
+      @current_option = @current_resource
+    end
+    @current_option
   end
 
 end

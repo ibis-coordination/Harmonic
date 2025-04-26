@@ -1,38 +1,12 @@
 module Api::V1
   class ApprovalsController < BaseController
     def create
-      approval = Approval.find_by(associations) || Approval.new(associations)
-      approval.value = params[:value]
-      approval.stars = params[:stars]
-      ActiveRecord::Base.transaction do
-        approval.save!
-        if current_representation_session
-          current_representation_session.record_activity!(
-            request: request,
-            semantic_event: {
-              timestamp: Time.current,
-              event_type: 'vote',
-              studio_id: current_studio.id,
-              main_resource: {
-                type: 'Decision',
-                id: current_decision.id,
-                truncated_id: current_decision.truncated_id,
-              },
-              sub_resources: [
-                {
-                  type: 'Option',
-                  id: current_option.id,
-                },
-                {
-                  type: 'Approval',
-                  id: approval.id,
-                },
-              ],
-            }
-          )
-        end
+      begin
+        approval = api_helper.vote
+        render json: approval
+      rescue ActiveRecord::RecordInvalid => e
+        render json: { error: e.message }, status: 400
       end
-      render json: approval
     end
 
     def update

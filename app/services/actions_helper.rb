@@ -85,11 +85,11 @@ class ActionsHelper
       actions: [
         {
           name: 'add_option',
-          params_string: '(text)',
+          params_string: '(title)',
           description: 'Add an option to the options list',
         }, {
           name: 'vote',
-          params_string: '(option_id, accept, prefer)',
+          params_string: '(option_title, accept, prefer)',
           description: 'Vote on an option',
         }
       ]

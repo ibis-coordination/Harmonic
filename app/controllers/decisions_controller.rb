@@ -220,6 +220,40 @@ class DecisionsController < ApplicationController
     options_partial
   end
 
+  def add_option
+    begin
+      @option = api_helper.create_decision_option
+      render_action_success({
+        action_name: 'add_option',
+        resource: @option.decision,
+        result: "You have successfully added the option '#{@option.title}' to decision '#{@option.decision.truncated_id}'",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'add_option',
+        resource: current_decision,
+        error: e.message,
+      })
+    end
+  end
+
+  def vote
+    begin
+      @approval = api_helper.vote
+      render_action_success({
+        action_name: 'vote',
+        resource: @approval.decision,
+        result: "You have successfully voted on option '#{@approval.option.title}'",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'vote',
+        resource: current_decision,
+        error: e.message,
+      })
+    end
+  end
+
   def results_partial
     @decision = current_decision
     set_results_view_vars
@@ -237,7 +271,7 @@ class DecisionsController < ApplicationController
   end
 
   def actions_index_show
-    @page_title = "Actions | #{@decision.question}"
+    @page_title = "Actions | #{current_decision.question}"
     render_actions_index(ActionsHelper.actions_for_route('/s/:studio_handle/d/:decision_id'))
   end
 
@@ -264,6 +298,40 @@ class DecisionsController < ApplicationController
         name: 'deadline',
         description: 'The deadline for the decision',
         type: 'datetime',
+      }]
+    })
+  end
+
+  def describe_add_option
+    render_action_description({
+      action_name: 'add_option',
+      resource: current_decision,
+      description: 'Add an option to the decision',
+      params: [{
+        name: 'title',
+        description: 'The title of the option (must be unique)',
+        type: 'string',
+      }]
+    })
+  end
+
+  def describe_vote
+    render_action_description({
+      action_name: 'vote',
+      resource: current_decision,
+      description: 'Vote on an option',
+      params: [{
+        name: 'option_title',
+        description: 'The title of the option you are voting on',
+        type: 'string',
+      }, {
+        name: 'accept',
+        description: 'Whether you accept the option',
+        type: 'boolean',
+      }, {
+        name: 'prefer',
+        description: 'Whether you prefer the option',
+        type: 'boolean',
       }]
     })
   end

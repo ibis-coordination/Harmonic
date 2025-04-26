@@ -63,6 +63,11 @@ class ActiveSupport::TestCase
     Commitment.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, description: description, critical_mass: 1, deadline: Time.current + 1.week)
   end
 
+  def create_option(tenant: @tenant, studio: @studio, created_by: @user, decision:, title: "Test Option")
+    decision_participant = DecisionParticipantManager.new(decision: decision, user: created_by).find_or_create_participant
+    Option.create!(tenant: tenant, studio: studio, decision_participant: decision_participant, decision: decision, title: title)
+  end
+
   def create_tenant_studio_user
     tenant = create_tenant
     user = create_user
