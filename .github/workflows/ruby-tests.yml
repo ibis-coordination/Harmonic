@@ -21,6 +21,10 @@ jobs:
           POSTGRES_USER: decisiveteam
           POSTGRES_PASSWORD: decisiveteam
           POSTGRES_DB: decisive_team_test
+      redis:
+        image: redis:6.2-alpine
+        ports:
+          - 6379:6379
 
     steps:
       - name: Checkout code
@@ -35,18 +39,6 @@ jobs:
       - name: Install dependencies
         run: bundle install
 
-      # - name: Install PostgreSQL client
-      #   run: sudo apt-get update && sudo apt-get install -y postgresql-client
-
-      # - name: Wait for PostgreSQL to be ready
-      #   run: |
-      #     for i in {1..20}; do
-      #       pg_isready -h db -p 5432 && echo "PostgreSQL is ready" && exit 0
-      #       echo "Waiting for PostgreSQL..."
-      #       sleep 5
-      #     done
-      #     echo "PostgreSQL did not become ready in time" && exit 1
-
       - name: Set up database
         env:
           RAILS_ENV: test
@@ -55,6 +47,7 @@ jobs:
           HOSTNAME: harmonic.localhost
           PRIMARY_SUBDOMAIN: app
           AUTH_SUBDOMAIN: auth
+          REDIS_URL: redis://localhost:6379/0
         run: |
           bin/rails db:create
           bin/rails db:schema:load
@@ -67,4 +60,5 @@ jobs:
           HOSTNAME: harmonic.localhost
           PRIMARY_SUBDOMAIN: app
           AUTH_SUBDOMAIN: auth
+          REDIS_URL: redis://localhost:6379/0
         run: bundle exec rails test
