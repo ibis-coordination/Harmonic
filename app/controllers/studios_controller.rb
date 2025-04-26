@@ -85,19 +85,7 @@ class StudiosController < ApplicationController
   end
 
   def create
-    ActiveRecord::Base.transaction do
-      @studio = Studio.create!(
-        name: params[:name],
-        handle: params[:handle],
-        description: params[:description],
-        created_by: @current_user,
-        timezone: params[:timezone],
-        tempo: params[:tempo],
-        synchronization_mode: params[:synchronization_mode],
-      )
-      @studio.add_user!(@current_user, roles: ['admin', 'representative'])
-      @studio.create_welcome_note!
-    end
+    @studio = api_helper.create_studio
     redirect_to @studio.path
   end
 

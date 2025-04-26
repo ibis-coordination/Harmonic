@@ -2,35 +2,7 @@ module Api::V1
   class OptionsController < BaseController
     def create
       if current_decision.can_add_options?(current_decision_participant)
-        ActiveRecord::Base.transaction do
-          option = Option.create!(
-            decision: current_decision,
-            decision_participant: current_decision_participant,
-            title: params[:title],
-            description: params[:description],
-          )
-          if current_representation_session
-            current_representation_session.record_activity!(
-              request: request,
-              semantic_event: {
-                timestamp: Time.current,
-                event_type: 'add_option',
-                studio_id: current_studio.id,
-                main_resource: {
-                  type: 'Decision',
-                  id: current_decision.id,
-                  truncated_id: current_decision.truncated_id,
-                },
-                sub_resources: [
-                  {
-                    type: 'Option',
-                    id: option.id,
-                  },
-                ],
-              }
-            )
-          end
-        end
+        option = api_helper.create_decision_option
         render json: option
       else
         render json: { error: 'Cannot add options' }, status: 403

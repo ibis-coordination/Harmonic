@@ -1,20 +1,31 @@
 class ApiHelper
   attr_reader :current_user, :current_studio, :current_tenant,
               :current_representation_session, :current_resource_model,
-              :current_resource, :model_params, :params, :request
+              :current_resource, :current_note, :current_decision,
+              :current_commitment, :current_decision_participant,
+              :current_commitment_participant,
+              :model_params, :params, :request
 
   def initialize(
     current_user:, current_studio:, current_tenant:, current_representation_session:,
-    current_resource_model:, current_resource: nil, model_params: nil, params: nil, request: nil
+    current_resource_model:, current_resource: nil, current_note: nil,
+    current_decision: nil, current_commitment: nil,
+    current_decision_participant: nil, current_commitment_participant: nil,
+    model_params: nil, params: nil, request: nil
   )
     @current_user = current_user
     @current_studio = current_studio
     @current_tenant = current_tenant
     @current_representation_session = current_representation_session
     @current_resource_model = current_resource_model
+    @current_resource = current_resource
+    @current_note = current_note
+    @current_decision = current_decision
+    @current_commitment = current_commitment
+    @current_decision_participant = current_decision_participant
+    @current_commitment_participant = current_commitment_participant
     @model_params = model_params || params
     @params = params || model_params
-    @current_resource = current_resource
     @request = request
   end
 
@@ -30,6 +41,7 @@ class ApiHelper
 
   def create_studio
     studio = nil
+    note = nil
     ActiveRecord::Base.transaction do
       studio = Studio.create!(
         name: params[:name],
@@ -40,8 +52,13 @@ class ApiHelper
         tempo: params[:tempo],
         synchronization_mode: params[:synchronization_mode],
       )
+      # This is needed to ensure that all the models created in this transaction
+      # are associated with the correct tenant and studio
+      Studio.scope_thread_to_studio(handle: studio.handle, subdomain: studio.tenant.subdomain)
       studio.add_user!(current_user, roles: ['admin', 'representative'])
-      studio.create_welcome_note!
+      decision = studio.create_welcome_decision!
+      commitment = studio.create_welcome_commitment!
+      note = studio.create_welcome_note!(decision: decision, commitment: commitment)
     end
     studio
   end
@@ -178,9 +195,45 @@ class ApiHelper
     history_event
   end
 
-  def current_note
-    return nil unless @current_resource_model == Note && @current_resource.is_a?(Note)
-    @current_resource
+  def create_decision_option
+    option = nil
+    ActiveRecord::Base.transaction do
+      current_decision_participant = DecisionParticipantManager.new(
+        decision: current_decision,
+        user: current_user,
+      ).find_or_create_participant
+      unless current_decision.can_add_options?(current_decision_participant)
+        raise "Cannot add options to decision #{decision.id} for user #{current_user.id}"
+      end
+      option = Option.create!(
+        decision: current_decision,
+        decision_participant: current_decision_participant,
+        title: params[:title],
+        description: params[:description],
+      )
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'add_option',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Decision',
+              id: current_decision.id,
+              truncated_id: current_decision.truncated_id,
+            },
+            sub_resources: [
+              {
+                type: 'Option',
+                id: option.id,
+              },
+            ],
+          }
+        )
+      end
+    end
+    option
   end
 
   def create_simulated_user
@@ -207,4 +260,41 @@ class ApiHelper
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
     )
   end
+
+  def current_note
+    return @current_note if @current_note
+    return nil unless @current_resource_model == Note && @current_resource.is_a?(Note)
+    @current_resource
+  end
+
+  def current_decision
+    return @current_decision if @current_decision
+    return nil unless @current_resource_model == Decision && @current_resource.is_a?(Decision)
+    @current_resource
+  end
+
+  def current_commitment
+    return @current_commitment if @current_commitment
+    return nil unless @current_resource_model == Commitment && @current_resource.is_a?(Commitment)
+    @current_resource
+  end
+
+  def current_decision_participant
+    return @current_decision_participant if @current_decision_participant
+    if @current_resource_model == DecisionParticipant && @current_resource.is_a?(DecisionParticipant)
+      @current_resource
+    else
+      @current_decision_participant = DecisionParticipantManager.new(
+        decision: current_decision,
+        user: current_user,
+      ).find_or_create_participant
+    end
+  end
+
+  def current_commitment_participant
+    return @current_commitment_participant if @current_commitment_participant
+    return nil unless @current_resource_model == CommitmentParticipant && @current_resource.is_a?(CommitmentParticipant)
+    @current_resource
+  end
+
 end

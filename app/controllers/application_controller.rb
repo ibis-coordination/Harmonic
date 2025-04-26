@@ -473,6 +473,11 @@ class ApplicationController < ActionController::Base
       current_representation_session: current_representation_session,
       current_resource_model: current_resource_model,
       current_resource: current_resource,
+      current_note: current_note,
+      current_decision: current_decision,
+      current_decision_participant: current_decision_participant,
+      current_commitment: current_commitment,
+      current_commitment_participant: current_commitment_participant,
       model_params: model_params,
       params: params,
       request: request

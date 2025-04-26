@@ -243,16 +243,48 @@ class Studio < ApplicationRecord
     save!
   end
 
-  def create_welcome_note!
+  def create_welcome_decision!
+    decision = Decision.create!(
+      tenant: tenant,
+      studio: self,
+      question: 'What is the main purpose of this studio?',
+      description: '',
+      options_open: true,
+      deadline: Time.current + 1.week,
+      created_by: trustee_user,
+    )
+    pin_item!(decision)
+    decision
+  end
+
+  def create_welcome_commitment!
+    commitment = Commitment.create!(
+      tenant: tenant,
+      studio: self,
+      title: 'Invite others to this studio',
+      description: '',
+      critical_mass: 1,
+      deadline: Time.current + 1.week,
+      created_by: trustee_user,
+    )
+    pin_item!(commitment)
+    commitment
+  end
+
+  def create_welcome_note!(decision:, commitment:)
+    erb_template = File.read(Rails.root.join('app', 'views', 'shared', '_welcome_note.md.erb'))
+    studio = self
+    note_text = ERB.new(erb_template).result(binding)
     note = Note.create!(
       tenant: tenant,
       studio: self,
       title: 'Welcome to Harmonic Team',
-      text: 'This is a system generated note.',
+      text: note_text,
       created_by: trustee_user,
       deadline: Time.current + 1.week,
     )
     pin_item!(note)
+    note
   end
 
   def open_items

@@ -73,9 +73,7 @@ class MarkdownRenderer
     doc.to_html
   end
 
-  def self.shift_headers(html, shift_by: 2)
-    # We want to shift the headers down by two because on the decision page
-    # h1 is used for the decision question and h2 for the description, options, and results
+  def self.shift_headers(html, shift_by: 1)
     doc = Nokogiri::HTML.fragment(html)
     (1..6).reverse_each do |i|
       doc.search("h#{i}").each do |header|
