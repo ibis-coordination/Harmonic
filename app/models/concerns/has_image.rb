@@ -1,3 +1,5 @@
+require 'open-uri'
+
 module HasImage
   extend ActiveSupport::Concern
 
@@ -26,7 +28,7 @@ module HasImage
       self.image.purge
       return
     end
-    downloaded_image = URI.open(url)
+    downloaded_image = URI.parse(url).open
     if downloaded_image.content_type.start_with?('image/')
       filename = File.basename(URI.parse(url).path)
       self.image.attach(io: downloaded_image, filename: filename)

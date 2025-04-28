@@ -13,7 +13,7 @@ digitalocean:
   region: <%= ENV['DO_SPACES_REGION'] %>
   bucket: <%= ENV['DO_SPACES_BUCKET'] %>
   endpoint: <%= ENV['DO_SPACES_ENDPOINT'] %>
-  force_path_style: false
+  force_path_style: true
 
 # Use bin/rails credentials:edit to set the AWS secrets (as aws:access_key_id|secret_access_key)
 # amazon:
