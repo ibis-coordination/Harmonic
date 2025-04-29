@@ -248,8 +248,8 @@ class ApiHelper
     # If the approval already exists, update it. Otherwise, create a new one.
     # There should only be one approval record per decision + option + participant.
     approval = Approval.find_by(associations) || Approval.new(associations)
-    approval.value = params[:value] || params[:accept]
-    approval.stars = params[:stars] || params[:prefer]
+    approval.value = params.has_key?(:value) ? params[:value] : params[:accept]
+    approval.stars = params.has_key?(:stars) ? params[:stars] : params[:prefer]
     ActiveRecord::Base.transaction do
       approval.save!
       if current_representation_session
