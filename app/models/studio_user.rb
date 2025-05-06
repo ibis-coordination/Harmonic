@@ -84,7 +84,8 @@ class StudioUser < ApplicationRecord
       tenant_id: tenant_id,
       studio_id: studio_id,
       user_id: user_id,
-    ).includes(:commitment)
+    ).where.not(committed_at: nil)
+    .includes(:commitment)
     .order(created_at: :desc)
     .limit(limit)
     .map do |cp|
