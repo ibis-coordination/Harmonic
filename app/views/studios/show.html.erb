@@ -22,7 +22,7 @@
   <%= octicon 'telescope', height: 24 %>
   Explore
 </h2>
-<%= render 'explore' %>
+<%= render 'shared/explore', studio: @current_studio %>
 
 <h2><%= octicon 'pin', height: 24 %> Pinned</h2>
 <%= render 'shared/pinned', pinned_items: @pinned_items %>

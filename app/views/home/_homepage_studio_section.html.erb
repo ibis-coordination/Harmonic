@@ -14,17 +14,7 @@
     <%= markdown(studio.description) %>
   <% end %>
   <%= render 'shared/collapseable_section', title: 'Explore', header_level: 4, octicon: 'telescope', hidden: !expanded do %>
-    <ul>
-      <li>
-        <a href="<%= studio.path %>/cycles">Cycles</a>
-      </li>
-      <li>
-        <a href="<%= studio.path %>/backlinks">Backlinks</a>
-      </li>
-      <!-- <li>
-        <a href="<%= studio.path %>/views">Views</a>
-      </li> -->
-    </ul>
+    <%= render 'shared/explore', studio: studio %>
   <% end %>
   <%= render 'shared/collapseable_section', title: 'Pinned', header_level: 4, octicon: 'pin', hidden: !expanded, lazy_load: expanded ? nil : "#{studio.path}/pinned.html" do %>
     <% if expanded %>

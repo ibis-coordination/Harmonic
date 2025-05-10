@@ -161,6 +161,40 @@ class Studio < ApplicationRecord
     end
   end
 
+  def current_cycle_name
+    case tempo
+    when 'daily'
+      'today'
+    when 'weekly'
+      'this-week'
+    when 'monthly'
+      'this-month'
+    when 'yearly'
+      'this-year'
+    end
+  end
+
+  def current_cycle_path
+    "#{self.path}/cycles/#{current_cycle_name}"
+  end
+
+  def previous_cycle_name
+    case tempo
+    when 'daily'
+      'yesterday'
+    when 'weekly'
+      'last-week'
+    when 'monthly'
+      'last-month'
+    when 'yearly'
+      'last-year'
+    end
+  end
+
+  def previous_cycle_path
+    "#{self.path}/cycles/#{previous_cycle_name}"
+  end
+
   def synchronization_mode=(value)
     if ['improv', 'orchestra'].include?(value)
       set_defaults
