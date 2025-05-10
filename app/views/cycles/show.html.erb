@@ -1,3 +1,4 @@
+<%= render 'shared/more_button', studio: @current_studio, options: [] %>
 <h4 style="margin-top:0px;margin-bottom:0;"><a href="<%= @current_studio.path || '/' %>"><%= @current_studio.name %></a> / <a href="<%= @current_studio.path || '/' %>/cycles">Cycles</a> / <%= @cycle.display_name %></h4>
 <h1 style="margin-top:0;"><%= @cycle.display_window %></h1>
 

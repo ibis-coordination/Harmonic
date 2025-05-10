@@ -28,7 +28,9 @@
     data-more-button-target="button"
     data-action="click->more-button#toggleMenu"
     >
-    <%= octicon 'kebab-horizontal' %>
+    <% if options.any? %>
+      <%= octicon 'kebab-horizontal' %>
+    <% end %>
   </button>
   <div data-more-button-target="menu" class="more-button-menu">
     <ul>
