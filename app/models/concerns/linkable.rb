@@ -17,6 +17,10 @@ module Linkable
     Link.where(to_linkable: self).order(updated_at: :desc).map(&:from_linkable)
   end
 
+  def backlink_count
+    Link.where(to_linkable: self).count
+  end
+
   class_methods do
     def is_linkable?
       true

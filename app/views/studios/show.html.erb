@@ -18,6 +18,11 @@
   <%= markdown(@current_studio.description) %>
 <% end %>
 
+<% @current_studio.notes.order(created_at: :desc).limit(20).each do |note| %>
+  <%= render 'shared/timeline_note', note: note %>
+  <hr/>
+<% end %>
+
 <h2>
   <%= octicon 'telescope', height: 24 %>
   Explore

@@ -3,27 +3,10 @@
 </h4>
 <%= render 'shared/scratchpad_links' %>
 <%= form_with do |form| %>
-  <div style="margin-bottom:8px;">
-    <%= form.text_field :title, placeholder: 'Title', value: @note.title %>
-  </div>
   <div>
-    <%= form.text_area :text, placeholder: 'Text (markdown supported)', style: 'height:300px;', value: @note.text %>
+    <%= form.text_area :text, placeholder: "What's up?", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', value: @note.text %>
   </div>
   <%= render 'shared/multi_file_select', form: form %>
-  <h2>Relevance Duration</h2>
-  <p>
-    This note will be considered relevant until
-    <%= form.select :end_of_cycle, options_for_select(@end_of_cycle_options, selected: @end_of_cycle_options[0]) %>
-  </p>
   <hr style="height:1px;" />
-  <%= form.check_box :pinned, checked: true %>
-  <%= form.label :pinned do %>
-    <%= octicon 'pin' %>
-    Pin to studio homepage
-  <% end %>
-  <hr style="height:1px;" />
-  <%= form.submit 'Save note' %>
-  <% if @current_studio == @current_tenant.main_studio %>
-    <p>Items created outside of a studio context do not display backlinks and do not show up in any cycle views.</p>
-  <% end %>
+  <%= form.submit 'Post' %>
 <% end %>

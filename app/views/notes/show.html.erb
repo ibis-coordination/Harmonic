@@ -20,11 +20,15 @@
   <% end %>
 </div>
 <% unless @note.creator_can_skip_confirm?(@current_user) %>
-  <h2>Confirm</h2>
+  <hr/>
   <div data-note-target="confirmSection">
     <%= render 'confirm' %>
   </div>
 <% end %>
-<%= render 'history' %>
-<%= backlinks(@note) %>
+<span data-note-target="readersOnlySection">
+<% if @note_reader.confirmed_read? %>
+  <%= render 'history' %>
+  <%= backlinks(@note) %>
+<% end %>
+</span>
 </span>

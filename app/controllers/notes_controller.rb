@@ -14,11 +14,12 @@ class NotesController < ApplicationController
     @note = Note.new(
       title: model_params[:title],
       text: model_params[:text],
-      deadline: Cycle.new_from_end_of_cycle_option(
-        end_of_cycle: params[:end_of_cycle],
-        tenant: current_tenant,
-        studio: current_studio,
-      ).end_date,
+      deadline: Time.now,
+      # deadline: Cycle.new_from_end_of_cycle_option(
+      #   end_of_cycle: params[:end_of_cycle],
+      #   tenant: current_tenant,
+      #   studio: current_studio,
+      # ).end_date,
       created_by: current_user,
     )
     begin

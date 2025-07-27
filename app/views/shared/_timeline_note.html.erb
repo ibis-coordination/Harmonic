@@ -1,0 +1,39 @@
+<div class="timeline-note">
+  <%= profile_pic(note.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
+  <strong><%= note.created_by.display_name %></strong>
+  <%= link_to "@#{note.created_by.handle}", note.created_by.path %>
+  <span style="opacity:0.6;">- <%= timeago(note.created_at) %></span>
+  <div style="white-space:pre-line;"><a href="<%= note.path %>" class="a-tag-sans-link-style"><%= note.text.truncate(512) %></a></div>
+  <div style="margin-top:16px;opacity:0.6;">
+    <span
+      title="<%= note.metric_title %>"
+      style="white-space:nowrap;margin-right:36px;"
+      >
+      <%= octicon note.octicon_metric_icon_name %>
+      <span style="display:inline-block;width:30px;">
+        <% n = note.metric_value %>
+        <%= n == 0 ? "" : n %>
+      </span>
+    </span>
+    <span
+      title="comments"
+      style="white-space:nowrap;margin-right:36px;"
+      >
+      <%= octicon 'comment' %>
+      <span style="display:inline-block;width:30px;">
+        <% n = note.comment_count %>
+        <%= n == 0 ? "" : n %>
+      </span>
+    </span>
+    <span
+      title="backlinks"
+      style="white-space:nowrap;margin-right:36px;"
+      >
+      <%= octicon 'link' %>
+      <span style="display:inline-block;width:30px;">
+        <% n = note.backlink_count %>
+        <%= n == 0 ? "" : n %>
+      </span>
+    </span>
+  </div>
+</div>

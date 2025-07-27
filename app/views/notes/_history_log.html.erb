@@ -1,9 +1,21 @@
-<h2>Readers <%= octicon 'book', height: 24 %> <%= @note.confirmed_reads %></h2>
-<ul>
-<% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
-  <li>
-    <a href="<%= event.user.path %>" class="user-profile-link"><%= profile_pic(event.user, size: 25) %> <%= event.user.display_name %></a>
-    <%= event.description %> <strong><%= timeago(event.happened_at) %></strong>
-  </li>
+<% readers_title = "Readers #{octicon('book', height: 24)} #{@note.confirmed_reads}".html_safe %>
+<%= render 'shared/collapseable_section', title: readers_title, header_level: 2, hidden: true do %>
+  <ul>
+  <% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
+    <li>
+      <a href="<%= event.user.path %>" class="user-profile-link"><%= profile_pic(event.user, size: 25) %> <%= event.user.display_name %></a>
+      <%= event.description %> <strong><%= timeago(event.happened_at) %></strong>
+    </li>
+  <% end %>
+  </ul>
 <% end %>
-</ul>
+
+<% comments_title = "Comments #{octicon('comment', height: 24)} #{@note.comment_count}".html_safe %>
+<%= render 'shared/collapseable_section', title: comments_title, header_level: 2, hidden: true do %>
+  <ul>
+    <% @note.comments.each do |comment| %>
+      <li><%= comment.text %></li>
+    <% end %>
+  </ul>
+  <div>Comment</div>
+<% end %>
