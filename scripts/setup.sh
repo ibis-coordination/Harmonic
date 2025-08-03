@@ -18,28 +18,27 @@ function check_dependency() {
 
 function wait_for_db() {
   echo "Waiting for the database to become available..."
-  until docker-compose exec db pg_isready &> /dev/null; do
+  until docker compose exec db pg_isready &> /dev/null; do
     sleep 1
   done
 }
 
 # Check dependencies
 check_dependency docker
-check_dependency docker-compose
 
 # Build Docker images and start containers
 echo -e "${GREEN}Building Docker images and starting containers...${NC}"
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 
 # Wait for the database to become available
 wait_for_db
 
 # Ensure the database is created and has the correct schema
 echo -e "${GREEN}Setting up the database...${NC}"
-docker-compose exec web bundle exec rails db:create db:schema:load db:migrate db:seed
+docker compose exec web bundle exec rails db:create db:schema:load db:migrate db:seed
 
 echo -e "${GREEN}Setup completed. Removing containers...${NC}"
-docker-compose down
+docker compose down
 
 echo -e "${GREEN}Setup completed. You can now start the app with ./scripts/start.sh${NC}"
