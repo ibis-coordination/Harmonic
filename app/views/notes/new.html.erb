@@ -1,10 +1,9 @@
 <h4 style="display:inline-block;margin-top:0;">
   <%= link_to @current_studio.name, @current_studio.path || '/' %> / <i class="note-icon"></i> Note
 </h4>
-<%= render 'shared/scratchpad_links' %>
 <%= form_with do |form| %>
   <div>
-    <%= form.text_area :text, placeholder: "What's up?", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', value: @note.text %>
+    <%= form.text_area :text, placeholder: "Note", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', value: @note.text %>
   </div>
   <%= render 'shared/multi_file_select', form: form %>
   <hr style="height:1px;" />

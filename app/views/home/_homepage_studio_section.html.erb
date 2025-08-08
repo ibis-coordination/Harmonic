@@ -1,7 +1,3 @@
-<% expanded ||= false %>
-<% if expanded %>
-  <% Studio.scope_thread_to_studio(subdomain: @current_tenant.subdomain, handle: studio.handle) %>
-<% end %>
 <div class="homepage-studio-section">
   <%= render 'shared/more_button_studio', studio: studio %>
   <div>
@@ -13,20 +9,4 @@
   <% if studio.description.present? %>
     <%= markdown(studio.description) %>
   <% end %>
-  <%= render 'shared/collapseable_section', title: 'Explore', header_level: 4, octicon: 'telescope', hidden: !expanded do %>
-    <%= render 'shared/explore', studio: studio %>
-  <% end %>
-  <%= render 'shared/collapseable_section', title: 'Pinned', header_level: 4, octicon: 'pin', hidden: !expanded, lazy_load: expanded ? nil : "#{studio.path}/pinned.html" do %>
-    <% if expanded %>
-      <%= render 'shared/pinned', pinned_items: studio.pinned_items %>
-    <% end %>
-  <% end %>
-  <%= render 'shared/collapseable_section', title: 'Team', header_level: 4, octicon: 'people', hidden: !expanded, lazy_load: expanded ? nil : "#{studio.path}/team.html" do %>
-    <% if expanded %>
-      <%= render 'shared/team', team: studio.team %>
-    <% end %>
-  <% end %>
 </div>
-<% if expanded %>
-  <% Studio.scope_thread_to_studio(subdomain: @current_tenant.subdomain, handle: @current_studio.handle) %>
-<% end %>
