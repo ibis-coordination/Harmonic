@@ -5,7 +5,6 @@
   <span style="white-space:nowrap;">
     <i class="note-icon"></i> Note <code><%= @note.truncated_id %></code>
   </span>
-  <%= render 'shared/main_metric_display', resource: @note %>
 </h4>
 <h1 style="margin-top:0;"><%= @note.title %></h1>
 <p style="font-size:0.8em;">
@@ -19,16 +18,11 @@
     <p style="opacity:0.6;"><em>empty note</em></p>
   <% end %>
 </div>
+<%= render 'shared/note_metrics', note: @note, metric_url: "#{@note.path}/metric" %>
 <% unless @note.creator_can_skip_confirm?(@current_user) %>
   <hr/>
   <div data-note-target="confirmSection">
     <%= render 'confirm' %>
   </div>
 <% end %>
-<span data-note-target="readersOnlySection">
-<% if @note_reader.confirmed_read? %>
-  <%= render 'history' %>
-  <%= backlinks(@note) %>
-<% end %>
-</span>
 </span>

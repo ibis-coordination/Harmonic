@@ -14,26 +14,28 @@
   <%= render 'shared/scratchpad_links_list', studio: @current_studio %>
 <% end %>
 
-<% if @current_studio.description.present? %>
+<% if false && @current_studio.description.present? %>
   <%= markdown(@current_studio.description) %>
 <% end %>
+
+<% if false %>
+  <h2>
+    <%= octicon 'people', height: 24 %>
+    Studio Members (<%= @team.count %>)
+  </h2>
+  <%= render 'shared/team', team: @team %>
+<% end %>
+
+<!-- <h2>
+  <i class="note-icon"></i>
+  Notes
+</h2> -->
+
+<%= render 'shared/new_note' %>
+
+<hr style="height:1px;" />
 
 <% @current_studio.notes.order(created_at: :desc).limit(20).each do |note| %>
   <%= render 'shared/timeline_note', note: note %>
   <hr/>
 <% end %>
-
-<h2>
-  <%= octicon 'telescope', height: 24 %>
-  Explore
-</h2>
-<%= render 'shared/explore', studio: @current_studio %>
-
-<h2><%= octicon 'pin', height: 24 %> Pinned</h2>
-<%= render 'shared/pinned', pinned_items: @pinned_items %>
-
-<h2>
-  <%= octicon 'people', height: 24 %>
-  Team
-</h2>
-<%= render 'shared/team', team: @team %>

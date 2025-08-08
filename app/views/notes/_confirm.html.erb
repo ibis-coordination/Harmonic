@@ -16,16 +16,16 @@
         data-note-target="confirmButtonMessage"
         >Confirm that you have read the updated note.
       </span>
-      <%= render 'awareness_indicators_tooltip' %>
     </p>
   <% elsif @note_reader.confirmed_read? %>
-    <p>
+    <!-- <p>
       <button style="background:#dfdfdf;color:#9f9f9f;cursor:default;">
         <%= octicon 'book', height: 16 %> Confirmed
       </button>
       <span>You have confirmed reading this note.</span>
-      <%= render 'awareness_indicators_tooltip' %>
-    </p>
+    </p> -->
+    <%= render 'history' %>
+    <%= backlinks(@note) %>
   <% else %>
     <p>
       <button
@@ -39,7 +39,6 @@
         data-note-target="confirmButtonMessage"
         >Confirm that you have read this note to access comments and backlinks.
       </span>
-      <%= render 'awareness_indicators_tooltip' %>
     </p>
   <% end %>
 <% else %>

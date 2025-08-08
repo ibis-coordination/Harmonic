@@ -1,8 +1,9 @@
 <span style="display:inline-block;height:20px;">
-  <% verb ||= 'Created' %>
-  <%= verb %> <strong><%= timeago(resource.created_at) %></strong>
-  by <%= profile_pic(resource.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
-  <%= link_to resource.created_by.display_name, resource.created_by.path %>
+  <% verb ||= '' %>
+  <%= profile_pic(resource.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
+  <strong><%= resource.created_by.display_name %></strong>
+  <%= link_to "@#{resource.created_by.handle}", resource.created_by.path %>
+  <%= verb %> <%= timeago(resource.created_at) %>
   <br/>
   <% if resource.updated_at > resource.created_at %>
     Updated <strong><%= timeago(resource.updated_at) %></strong>

@@ -1,0 +1,42 @@
+<% metric_url ||= nil %>
+<div style="margin:16px 0 0 2px;opacity:0.6;">
+  <span
+    <% if metric_url %>
+      data-controller="metric"
+      data-metric-url-value="<%= metric_url %>"
+    <% end %>
+    title="<%= note.metric_title %>"
+    style="white-space:nowrap;margin-right:36px;"
+    >
+    <%= octicon note.octicon_metric_icon_name %>
+    <span
+      <% if metric_url %>
+        data-metric-target="valueDisplay"
+      <% end %>
+      style="display:inline-block;width:30px;"
+      >
+      <% n = note.metric_value %>
+      <%= n == 0 ? "" : n %>
+    </span>
+  </span>
+  <span
+    title="comments"
+    style="white-space:nowrap;margin-right:36px;"
+    >
+    <%= octicon 'comment' %>
+    <span style="display:inline-block;width:30px;">
+      <% n = note.comment_count %>
+      <%= n == 0 ? "" : n %>
+    </span>
+  </span>
+  <span
+    title="backlinks"
+    style="white-space:nowrap;margin-right:36px;"
+    >
+    <%= octicon 'link' %>
+    <span style="display:inline-block;width:30px;">
+      <% n = note.backlink_count %>
+      <%= n == 0 ? "" : n %>
+    </span>
+  </span>
+</div>
