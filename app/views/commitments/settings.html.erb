@@ -1,7 +1,6 @@
 <h4 style="display:inline-block;">
   <%= link_to @current_studio.name, @current_studio.path || '/' %> / <i class="commitment-icon"></i> Commitment <code><%= @commitment.truncated_id %></code>
 </h4>
-<%= render 'shared/scratchpad_links' %>
 <%= form_with url: "#{@commitment.path}/settings" do |form| %>
   <div>
     <%= form.text_field :title, placeholder: 'Action that this commitment will initiate', value: @commitment.title %>

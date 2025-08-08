@@ -4,15 +4,13 @@
   Note <code><%= @note.truncated_id %></code>
   / Edit
 </h4>
-<%= render 'shared/scratchpad_links' %>
 <%= form_with do |form| %>
   <div style="margin-bottom:8px;">
-    <%= form.text_field :title, placeholder: 'Title', value: @note.title %>
+    <%= form.text_field :title, placeholder: 'Title (optional)', value: @note.title %>
   </div>
   <div>
-    <%= form.text_area :text, placeholder: 'Text (markdown supported)', style: 'height:300px;', value: @note.text %>
+    <%= form.text_area :text, placeholder: 'Note', style: 'height:300px;', value: @note.text %>
   </div>
-  <% # <h2>Relevance Duration</h2> %>
   <hr style="height:1px;" />
   <p>
     Update events will appear in note history.
