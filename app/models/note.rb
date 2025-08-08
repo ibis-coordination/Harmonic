@@ -12,7 +12,7 @@ class Note < ApplicationRecord
   belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
   belongs_to :updated_by, class_name: 'User', foreign_key: 'updated_by_id'
   has_many :note_history_events, dependent: :destroy
-  validates :title, presence: true
+  # validates :title, presence: true
 
   after_create do
     NoteHistoryEvent.create!(
@@ -34,6 +34,14 @@ class Note < ApplicationRecord
 
   def confirmed_reads
     @confirmed_reads ||= note_history_events.where(event_type: 'read_confirmation').select(:user_id).distinct.count
+  end
+
+  def comments
+    [] # TODO
+  end
+
+  def comment_count
+    comments.count
   end
 
   def metric_name

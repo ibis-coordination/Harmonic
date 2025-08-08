@@ -91,7 +91,7 @@ class MarkdownRenderer
         if a.content == a['href']
           model_name = resource.class.name.downcase
           # a['class'] = "resource-link-#{model_name}"
-          a.inner_html = "<i class='#{model_name}-icon'></i> #{resource.title}"
+          a.inner_html = "<i class='#{model_name}-icon'></i> <code>#{model_name[0]}/#{resource.truncated_id}</code>"
         end
       end
     end

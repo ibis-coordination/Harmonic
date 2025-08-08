@@ -10,5 +10,5 @@ fi
 
 backup_file=$1
 
-docker-compose exec web bundle exec rails db:restore[$backup_file]
+docker compose exec web bundle exec rails db:restore[$backup_file]
 echo -e "Database restored from $backup_file"

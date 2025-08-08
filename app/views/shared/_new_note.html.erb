@@ -1,0 +1,7 @@
+<%= form_with url: "#{@current_studio.path}/note" do |form| %>
+  <div>
+    <%= form.text_area :text, placeholder: "Note", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;' %>
+  </div>
+  <%= render 'shared/multi_file_select', form: form %>
+  <%= form.submit 'Post' %>
+<% end %>

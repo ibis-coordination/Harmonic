@@ -14,11 +14,12 @@ class NotesController < ApplicationController
     @note = Note.new(
       title: model_params[:title],
       text: model_params[:text],
-      deadline: Cycle.new_from_end_of_cycle_option(
-        end_of_cycle: params[:end_of_cycle],
-        tenant: current_tenant,
-        studio: current_studio,
-      ).end_date,
+      deadline: Time.now,
+      # deadline: Cycle.new_from_end_of_cycle_option(
+      #   end_of_cycle: params[:end_of_cycle],
+      #   tenant: current_tenant,
+      #   studio: current_studio,
+      # ).end_date,
       created_by: current_user,
     )
     begin
@@ -107,7 +108,7 @@ class NotesController < ApplicationController
   def show
     @note = current_note
     return render '404', status: 404 unless @note
-    @page_title = @note.title
+    @page_title = @note.title.present? ? @note.title : "Note #{@note.truncated_id}"
     @page_description = "Note page"
     set_pin_vars
     @note_reader = NoteReader.new(note: @note, user: current_user)

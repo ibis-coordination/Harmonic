@@ -1,23 +1,13 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title><%= @page_title || 'Harmonic Team' %></title>
+    <title><%= @page_title || 'Harmonic' %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link rel="icon" type="image/png" href="/<%= @current_app %>-favicon-32x32.png" sizes="32x32">
     <link rel="icon" type="image/png" href="/<%= @current_app %>-favicon-16x16.png" sizes="16x16">
     <link rel="icon" href="/<%= @current_app %>-favicon.ico" type="image/x-icon">
     <meta name="description" content="<%= @page_description || @current_app_description %>">
 
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="<%= @page_title || @current_app_title %>" />
-    <meta name="twitter:description" content="<%= @page_description || @current_app_description %>" />
-    <meta name="twitter:image" content="https://<%= @current_app %>.team/<%= @current_app %>-logo-white-bg.png" />
-
-    <meta property="og:type" content="article" />
-    <meta property="og:title" content="<%= @page_title || @current_app_title %>" />
-    <meta property="og:description" content="<%= @page_description || @current_app_description %>" />
-    <meta property="og:url" content="https://<%= @current_app %>.team/" />
-    <meta property="og:image" content="https://<%= @current_app %>.team/<%= @current_app %>-logo-white-bg.png" />
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 

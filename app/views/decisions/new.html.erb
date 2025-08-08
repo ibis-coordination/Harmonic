@@ -1,7 +1,6 @@
 <h4 style="display:inline-block;">
   <%= link_to @current_studio.name, @current_studio.path || '/' %> / <i class="decision-icon"></i> Decision
 </h4>
-<%= render 'shared/scratchpad_links' %>
 <%= form_with do |form| %>
   <div>
     <%= form.text_field :question, placeholder: 'Question that this decision will answer', value: @decision.question %>
@@ -21,14 +20,5 @@
     <%= form.select :end_of_cycle, options_for_select(@end_of_cycle_options, selected: @end_of_cycle_options[1]) %>
   </p>
   <hr style="height:1px;" />
-  <%= form.check_box :pinned, checked: true %>
-  <%= form.label :pinned do %>
-    <%= octicon 'pin' %>
-    Pin to studio homepage
-  <% end %>
-  <hr style="height:1px;" />
   <%= form.submit 'Start Decision' %>
-  <% if @current_studio == @current_tenant.main_studio %>
-    <p>Items created outside of a studio context do not display backlinks and do not show up in any cycle views.</p>
-  <% end %>
 <% end %>

@@ -187,21 +187,15 @@ table.results-table thead tr th:first-of-type, table.results-table thead tr th:n
   border: none;
 }
 
-@keyframes magic8ball-blur-animation {
-	0% {
-    /* font-size: 0.5em; */
-    opacity: 0;
-    filter: blur(10px);
-  };
-  100% {
-    /* font-size: 1em; */
-    opacity: 1;
-    filter: blur(0);
-  };
+a.a-tag-sans-link-style {
+  color: inherit;
+  text-decoration: none;
+  /* cursor: default; */
 }
 
-.magic8ball-answer {
-  animation: magic8ball-blur-animation 1s ease-out;
+a.a-tag-sans-link-style:hover, a.a-tag-sans-link-style:active, a.a-tag-sans-link-style:visited {
+  color: inherit;
+  text-decoration: none;
 }
 
 /* Buttons */

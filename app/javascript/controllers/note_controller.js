@@ -35,7 +35,7 @@ export default class extends Controller {
       const html = await response.text();
       this.confirmButtonTarget.remove();
       this.confirmSectionTarget.innerHTML = html;
-      this.refreshHistoryLog(event);
+      // this.refreshHistoryLog(event);
       const mc = new Event('metricChange');
       document.dispatchEvent(mc);
     } catch (error) {
@@ -53,17 +53,17 @@ export default class extends Controller {
     this.confirmButtonMessageTarget.style.textDecoration = null;
   }
 
-  async refreshHistoryLog(event) {
-    event.preventDefault();
-    const url = this.historyLogTarget.dataset.url;
-    try {
-      const response = await fetch(url);
-      const html = await response.text();
-      this.historyLogTarget.innerHTML = html;
-    } catch (error) {
-      console.error("Error showing more history:", error);
-    }
-  }
+  // async refreshHistoryLog(event) {
+  //   event.preventDefault();
+  //   const url = this.historyLogTarget.dataset.url;
+  //   try {
+  //     const response = await fetch(url);
+  //     const html = await response.text();
+  //     this.historyLogTarget.innerHTML = html;
+  //   } catch (error) {
+  //     console.error("Error showing more history:", error);
+  //   }
+  // }
 
   async refreshDisplay(event) {
     event.preventDefault()
