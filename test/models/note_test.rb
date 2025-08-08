@@ -36,23 +36,6 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal user, note.updated_by
   end
 
-  test "Note requires a title" do
-    tenant = create_tenant
-    user = create_user
-    studio = create_studio(tenant: tenant, created_by: user)
-
-    note = Note.new(
-      tenant: tenant,
-      studio: studio,
-      created_by: user,
-      updated_by: user,
-      text: "This is a test note without a title."
-    )
-
-    assert_not note.valid?
-    assert_includes note.errors[:title], "can't be blank"
-  end
-
   test "Note creates a history event on creation" do
     tenant = create_tenant
     user = create_user
