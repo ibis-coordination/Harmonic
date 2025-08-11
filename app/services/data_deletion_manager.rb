@@ -86,7 +86,6 @@ class DataDeletionManager
           display_name: "Deleted User",
           handle: "#{SecureRandom.hex(10)}-deleted",
           settings: tenant_user.settings.merge(
-            scratchpad: { text: "deleted user", json: {} },
             pinned: {},
           ),
           archived_at: Time.current,

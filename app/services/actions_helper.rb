@@ -1,18 +1,5 @@
 class ActionsHelper
   @@actions_by_route = {
-    '/scratchpad' => {
-      actions: [
-        {
-          name: 'append_to_scratchpad',
-          params_string: '(text)',
-          description: 'Append text to your scratchpad',
-        }, {
-          name: 'update_scratchpad',
-          params_string: '(text)',
-          description: 'Update your scratchpad with text',
-        }
-      ]
-    },
     '/studios' => { actions: [] },
     '/studios/new' => {
       actions: [

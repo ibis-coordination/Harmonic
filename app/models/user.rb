@@ -212,14 +212,6 @@ class User < ApplicationRecord
     ApiToken.where(user_id: id, tenant_id: tenant_user.tenant_id, deleted_at: nil)
   end
 
-  def scratchpad
-    tenant_user.scratchpad
-  end
-
-  def scratchpad_links(tenant:, studio:)
-    tenant_user.scratchpad_links(tenant: tenant, studio: studio)
-  end
-
   def accept_invite!(studio_invite)
     if studio_invite.invited_user_id == self.id || studio_invite.invited_user_id.nil?
       StudioUser.find_or_create_by!(studio_id: studio_invite.studio_id, user_id: self.id)

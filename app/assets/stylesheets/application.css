@@ -107,6 +107,8 @@ pre, code, .markdown-body {
 .user-generated-markdown {
   border: 1px solid var(--color-border-default);
   padding: 8px 12px;
+  background-color: var(--color-canvas-default);
+  /* box-shadow: 0 2px 6px var(--color-border-muted); */
 }
 
 .user-generated-markdown > * {
@@ -281,24 +283,6 @@ select:focus {
   border-radius: 50%;
 }
 
-#scratchpad {
-  position: absolute;
-  top: 50px;
-  right: 12px;
-  min-width: 200px;
-  width: 20%;
-  max-width: 400px; /* ??? */
-}
-
-#scratchpad.default-theme {
-  color: var(--color-fg-default);
-  background-color: var(--color-canvas-default);
-  border: 1px solid var(--color-border-default);
-  padding: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  /* font-family: 'Courier New', Courier, monospace; */
-}
-
 .more-button, .top-menu-button {
   float: right;
   cursor: pointer;
@@ -451,14 +435,6 @@ select:focus {
   margin-right: 8px;
   background-color: var(--color-border-default);
   text-align: center;
-}
-
-.more-button-menu .scratchpad-link-menu-a-tag {
-  color: var(--color-accent-fg);
-}
-
-.more-button-menu .scratchpad-link-menu-a-tag:hover {
-  text-decoration: underline;
 }
 
 .active-sessions {

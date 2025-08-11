@@ -1,0 +1,100 @@
+<% if @showing_user != @current_user && @current_studio.id == @current_tenant.main_studio_id %>
+  <h2>Common Studios</h2>
+  <% if @common_studios.empty? %>
+    <p><em>You and <%= @showing_user.display_name %> do not have any studios in common.</em></p>
+  <% else %>
+    <p>
+      You and <%= @showing_user.display_name %> have <%= @common_studios.count %> studio<%= 's' if @common_studios.count != 1 %> in common.
+    </p>
+  <% end %>
+<% elsif @current_studio.id == @current_tenant.main_studio_id %>
+  Others can also see your activity here, but only for the studios that you both have in common.
+  <h2>Your Studios</h2>
+<% end %>
+<% if @additional_common_studio_count > 0 && @showing_user != @current_user %>
+  <p>
+    You and <%= @showing_user.display_name %> also have
+    <a href="<%= @showing_user.path %>">
+      <%= @additional_common_studio_count %> other studio<%= 's' if @additional_common_studio_count != 1 %>
+    </a>
+    in common.
+  </p>
+<% end %>
+<% @common_studios.each do |studio| %>
+  <% next if studio == @current_tenant.main_studio %>
+  <% Studio.scope_thread_to_studio(subdomain: @current_tenant.subdomain, handle: studio.handle) %>
+  <% if @current_studio.id == @current_tenant.main_studio_id %>
+    <div class="homepage-studio-section">
+    <h2><a href="<%= studio.path %>"><%= studio.name %></a></h2>
+  <% end %>
+  <% su = @showing_user.studio_users.find_by(studio: studio) %>
+  <h3>
+    <%= octicon 'book' %>
+    Read Notes
+  </h3>
+  <ul>
+    <% lnr = su.latest_note_reads %>
+    <% lnr.each do |note_read| %>
+      <li>
+        <%= render 'shared/inline_resource_item', resource: note_read[:note] %>
+        <span>
+          read
+          <%= timeago(note_read[:read_at]) %>
+        </span>
+      </li>
+    <% end %>
+    <% if lnr.empty? %>
+      <li>
+        <em>No confirmed reads yet.</em>
+      </li>
+    <% end %>
+  </ul>
+
+  <h3>
+    <%= octicon 'check-circle' %>
+    Voted On Decisions
+  </h3>
+  <ul>
+    <% lv = su.latest_votes %>
+    <% lv.each do |vote| %>
+      <li>
+        <%= render 'shared/inline_resource_item', resource: vote[:decision] %>
+        <span>
+          voted
+          <%= timeago(vote[:voted_at]) %>
+        </span>
+      </li>
+    <% end %>
+    <% if lv.empty? %>
+      <li>
+        <em>No votes yet.</em>
+      </li>
+    <% end %>
+  </ul>
+
+  <h3>
+    <%= octicon 'person' %>
+    Joined Commitments
+  </h3>
+  <ul>
+    <% lcj = su.latest_commitment_joins %>
+    <% lcj.each do |commitment| %>
+      <li>
+        <%= render 'shared/inline_resource_item', resource: commitment[:commitment] %>
+        <span>
+          joined
+          <%= timeago(commitment[:joined_at]) %>
+        </span>
+      </li>
+    <% end %>
+    <% if lcj.empty? %>
+      <li>
+        <em>No commitments yet.</em>
+      </li>
+    <% end %>
+  </ul>
+  <% if @current_studio.id == @current_tenant.main_studio_id %>
+    </div>
+  <% end %>
+<% end %>
+<% Studio.scope_thread_to_studio(subdomain: @current_tenant.subdomain, handle: @current_studio.handle) %>

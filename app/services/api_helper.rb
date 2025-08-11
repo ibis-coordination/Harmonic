@@ -57,9 +57,6 @@ class ApiHelper
       # are associated with the correct tenant and studio
       Studio.scope_thread_to_studio(handle: studio.handle, subdomain: studio.tenant.subdomain)
       studio.add_user!(current_user, roles: ['admin', 'representative'])
-      decision = studio.create_welcome_decision!
-      commitment = studio.create_welcome_commitment!
-      note = studio.create_welcome_note!(decision: decision, commitment: commitment)
     end
     studio
   end

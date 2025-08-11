@@ -1,4 +1,4 @@
-<%= render 'shared/more_button', resource: @representation_session, options: ['copy', 'appendLink'] %>
+<%= render 'shared/more_button', resource: @representation_session, options: ['copy'] %>
 <h4 style="margin:0;">
   <%= link_to @current_studio.name, @current_studio.path || '/' %> / <%= link_to 'Representation', "#{@current_studio.path}/representation" %> / Session <code><%= @representation_session.truncated_id %></code>
 </h4>

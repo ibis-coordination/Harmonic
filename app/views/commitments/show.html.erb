@@ -1,5 +1,5 @@
 <span data-controller="commitment" data-commitment-id="<%= @commitment.id %>">
-<%= render 'shared/more_button', resource: @commitment, options: ['copy', 'appendLink', 'pin', 'settings'] %>
+<%= render 'shared/more_button', resource: @commitment, options: ['copy', 'pin', 'settings'] %>
 <h4 style="margin-top:0px;margin-bottom:0;">
   <a href="<%= @current_studio.path || '/' %>"><%= @current_studio.name %></a> /
   <span style="white-space:nowrap;">
