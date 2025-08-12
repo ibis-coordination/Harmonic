@@ -174,7 +174,7 @@ class User < ApplicationRecord
 
   def handle
     if trustee?
-      's/' + Studio.where(trustee_user: self).first.handle
+      'studios/' + Studio.where(trustee_user: self).first.handle
     else
       tenant_user&.handle
     end

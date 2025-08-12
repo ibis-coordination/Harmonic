@@ -10,8 +10,8 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle' => { actions: [] },
-    '/s/:studio_handle/join' => {
+    '/studios/:studio_handle' => { actions: [] },
+    '/studios/:studio_handle/join' => {
       actions: [
         {
           name: 'join_studio',
@@ -20,7 +20,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/settings' => {
+    '/studios/:studio_handle/settings' => {
       actions: [
         {
           name: 'update_studio_settings',
@@ -29,10 +29,10 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/cycles' => { actions: [] },
-    '/s/:studio_handle/backlinks' => { actions: [] },
-    '/s/:studio_handle/team' => { actions: [] },
-    '/s/:studio_handle/note' => {
+    '/studios/:studio_handle/cycles' => { actions: [] },
+    '/studios/:studio_handle/backlinks' => { actions: [] },
+    '/studios/:studio_handle/team' => { actions: [] },
+    '/studios/:studio_handle/note' => {
       actions: [
         {
           name: 'create_note',
@@ -41,7 +41,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/n/:note_id' => {
+    '/studios/:studio_handle/n/:note_id' => {
       actions: [
         {
           name: 'confirm_read',
@@ -50,7 +50,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/n/:note_id/edit' => {
+    '/studios/:studio_handle/n/:note_id/edit' => {
       actions: [
         {
           name: 'update_note',
@@ -59,7 +59,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/decide' => {
+    '/studios/:studio_handle/decide' => {
       actions: [
         {
           name: 'create_decision',
@@ -68,7 +68,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/d/:decision_id' => {
+    '/studios/:studio_handle/d/:decision_id' => {
       actions: [
         {
           name: 'add_option',
@@ -81,7 +81,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/d/:decision_id/settings' => {
+    '/studios/:studio_handle/d/:decision_id/settings' => {
       actions: [
         {
           name: 'update_decision_settings',
@@ -90,7 +90,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/commit' => {
+    '/studios/:studio_handle/commit' => {
       actions: [
         {
           name: 'create_commitment',
@@ -99,7 +99,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/c/:commitment_id' => {
+    '/studios/:studio_handle/c/:commitment_id' => {
       actions: [
         {
           name: 'join_commitment',
@@ -108,7 +108,7 @@ class ActionsHelper
         }
       ]
     },
-    '/s/:studio_handle/c/:commitment_id/settings' => {
+    '/studios/:studio_handle/c/:commitment_id/settings' => {
       actions: [
         {
           name: 'update_commitment_settings',

@@ -306,7 +306,7 @@ class Studio < ApplicationRecord
   end
 
   def path_prefix
-    's'
+    'studios'
   end
 
   def path

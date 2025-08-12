@@ -239,7 +239,7 @@ class ApplicationController < ActionController::Base
       elsif @current_representation_session.expired?
         clear_impersonations_and_representations!
         flash[:alert] = 'Representation session expired.'
-      elsif !request.path.starts_with?('/representing') && !request.path.starts_with?('/s/')
+      elsif !request.path.starts_with?('/representing') && !request.path.starts_with?('/studios/')
         # Representation session should always be scoped to a studio or the /representing page.
         # The one edge case exception is when a person user is impersonating a simulated user and
         # is ending the impersonation before ending the representation session.

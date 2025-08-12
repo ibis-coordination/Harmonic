@@ -1,0 +1,7 @@
+<%= render 'shared/collapseable_section', title: 'Scenes', header_level: 1, hidden: false do %>
+  <ul>
+    <% @current_user.scenes.each do |scene| %>
+      <li><a href="<%= scene.path %>"><%= scene.name %></a></li>
+    <% end %>
+  </ul>
+<% end %>

@@ -144,7 +144,7 @@ class RepresentationSession < ApplicationRecord
   end
 
   def path
-    "/s/#{studio.handle}/r/#{truncated_id}"
+    "/studios/#{studio.handle}/r/#{truncated_id}"
   end
 
   def url
