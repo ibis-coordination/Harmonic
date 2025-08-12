@@ -260,6 +260,14 @@ select:focus {
   text-decoration: underline;
 } */
 
+.header-superscript {
+  font-size: 16px;
+  vertical-align: super;
+  font-weight: normal;
+  color: var(--color-fg-muted);
+  background: var(--color-attention-subtle);
+}
+
 .auth-required-message {
   border: 1px solid #aaa;
   height: auto;
@@ -389,6 +397,17 @@ select:focus {
 .decision-icon {
   height: 15px;
 }
+
+.note-icon.medium-icon, .decision-icon.medium-icon, .commitment-icon.medium-icon {
+  background-size: 24px;
+  height: 22px;
+  width: 24px;
+}
+
+.decision-icon.medium-icon {
+  height: 22px;
+}
+
 
 .note-icon.large-icon, .decision-icon.large-icon, .commitment-icon.large-icon {
   background-size: 36px;

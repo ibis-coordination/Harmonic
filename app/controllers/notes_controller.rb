@@ -253,6 +253,7 @@ class NotesController < ApplicationController
   end
 
   def actions_index_show
+    @note = current_note
     @page_title = "Actions | #{@note.title}"
     render_actions_index({
       actions: [{

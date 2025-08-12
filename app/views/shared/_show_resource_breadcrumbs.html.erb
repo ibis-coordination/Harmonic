@@ -1,0 +1,19 @@
+<h4 style="margin-top:0px;margin-bottom:0;">
+  <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
+  <a href="<%= @current_studio.path || '/' %>">
+    <img src="<%= @current_studio.image_path %>" style="height:1em;border-radius:4px;margin-bottom:-2px;">
+    <%= @current_studio.name %>
+  </a> /
+  <% if resource.is_a?(String) %>
+    <%= resource %>
+  <% elsif resource.class == RepresentationSession %>
+    <a href="<%= @current_studio.path %>/representation">Representation</a> /
+    <span style="white-space:nowrap;">
+      <%= octicon 'feed-person' %> Session <code><%= resource.truncated_id %></code>
+    </span>
+  <% else %>
+    <span style="white-space:nowrap;">
+      <i class="<%= resource.class.to_s.downcase %>-icon"></i> <%= resource.class.to_s %> <code><%= resource.truncated_id %></code>
+    </span>
+  <% end %>
+</h4>

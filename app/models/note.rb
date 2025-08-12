@@ -32,6 +32,10 @@ class Note < ApplicationRecord
     )
   end
 
+  def title
+    super.nil? || super.empty? ? text.split("\n").first.truncate(256) : super
+  end
+
   def confirmed_reads
     @confirmed_reads ||= note_history_events.where(event_type: 'read_confirmation').select(:user_id).distinct.count
   end

@@ -1,6 +1,5 @@
-<h4 style="display:inline-block;margin-top:0;">
-  <%= link_to @current_studio.name, @current_studio.path || '/' %> / <i class="note-icon"></i> Note
-</h4>
+<%= render 'shared/show_resource_breadcrumbs', resource: "<i class='note-icon'></i> Note".html_safe %>
+<div style="height:16px"></div>
 <%= form_with do |form| %>
   <div>
     <%= form.text_area :text, placeholder: "Note", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', value: @note.text %>

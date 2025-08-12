@@ -1,7 +1,4 @@
-<h4 style="margin-bottom:0;">
-  <%= link_to @current_studio.name, @current_studio.path || '/' %>
-  / Settings
-</h4>
+<%= render 'shared/show_resource_breadcrumbs', resource: 'Settings' %>
 <h1 style="margin-top:0;">Settings</h1>
 
 <h2>Studio Image</h2>

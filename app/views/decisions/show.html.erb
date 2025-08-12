@@ -1,12 +1,6 @@
 <span data-controller="decision" data-decision-id="<%= @decision.id %>">
 <%= render 'shared/more_button', resource: @decision, options: ['copy', 'pin', 'duplicate', 'settings'] %>
-<h4 style="margin-top:0px;margin-bottom:0;">
-  <a href="<%= @current_studio.path || '/' %>"><%= @current_studio.name %></a> /
-  <span style="white-space:nowrap;">
-    <i class="decision-icon"></i> Decision <code><%= @decision.truncated_id %></code>
-  </span>
-  <%= render 'shared/main_metric_display', resource: @decision %>
-</h4>
+<%= render 'shared/show_resource_breadcrumbs', resource: @decision %>
 <h1 style="margin-top:0;"><%= @decision.question %></h1>
 <p style="font-size:0.8em;">
   <%= render 'shared/created_by', resource: @decision %>

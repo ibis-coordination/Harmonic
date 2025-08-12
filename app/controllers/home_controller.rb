@@ -4,7 +4,7 @@ class HomeController < ApplicationController
 
   def index
     @page_title = 'Home'
-    @studios = @current_user.studios.where.not(id: @current_tenant.main_studio_id)
+    @studios = @current_user.studios.where.not(id: @current_tenant.main_studio_id).order(:name)
   end
 
   def settings

@@ -118,6 +118,7 @@ Rails.application.routes.draw do
   get '/representing' => 'representation_sessions#representing'
   delete 's/:studio_handle/represent' => 'representation_sessions#stop_representing'
   delete 's/:studio_handle/r/:representation_session_id' => 'representation_sessions#stop_representing'
+  get 's/:studio_handle/representation.html' => 'representation_sessions#index_partial'
   get 's/:studio_handle/representation' => 'representation_sessions#index'
   get 's/:studio_handle/r/:id' => 'representation_sessions#show'
   get 's/:studio_handle/u/:handle' => 'users#show'

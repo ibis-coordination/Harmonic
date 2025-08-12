@@ -277,16 +277,32 @@ class Studio < ApplicationRecord
     save!
   end
 
-  def open_items
-    open_decisions = decisions.where('deadline > ?', Time.current)
-    open_commitments = commitments.where('deadline > ?', Time.current)
-    (open_decisions + open_commitments).sort_by(&:deadline)
+  def recent_notes(time_window: 1.week)
+    notes.where('created_at > ?', time_window.ago)
   end
 
-  def recently_closed_items(time_window: 1.week)
-    closed_decisions = decisions.where('deadline < ?', Time.current).where('deadline > ?', time_window.ago)
-    closed_commitments = commitments.where('deadline < ?', Time.current).where('deadline > ?', time_window.ago)
-    (closed_decisions + closed_commitments).sort_by(&:deadline).reverse
+  def open_decisions
+    decisions.where('deadline > ?', Time.current)
+  end
+
+  def closed_decisions
+    decisions.where('deadline < ?', Time.current)
+  end
+
+  def recently_closed_decisions(time_window: 1.week)
+    closed_commitments.where('deadline > ?', time_window.ago)
+  end
+
+  def open_commitments
+    commitments.where('deadline > ?', Time.current)
+  end
+
+  def closed_commitments
+    commitments.where('deadline < ?', Time.current)
+  end
+
+  def recently_closed_commitments(time_window: 1.week)
+    closed_commitments.where('deadline > ?', time_window.ago)
   end
 
   def path_prefix
