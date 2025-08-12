@@ -7,6 +7,11 @@ class RepresentationSessionsController < ApplicationController
     @active_sessions = current_tenant.representation_sessions.where(ended_at: nil).order(began_at: :desc).limit(100)
   end
 
+  def index_partial
+    index
+    render '_index_partial', layout: false
+  end
+
   def show
     @page_title = 'Representation Session'
     column = params[:id].length == 8 ? 'truncated_id' : 'id'

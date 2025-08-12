@@ -4,7 +4,6 @@
     <i class="decision-icon"></i> Decision <code><%= @decision.truncated_id %></code>
   </span>
 </h4>
-<%= render 'shared/scratchpad_links' %>
 <%= form_with url: "#{@decision.path}/settings" do |form| %>
   <div>
     <%= form.text_field :question, placeholder: 'Question that this decision will answer', value: @decision.question %>

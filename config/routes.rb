@@ -24,9 +24,6 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       get '/', to: 'info#index'
-      get 'scratchpad', to: 'scratchpad#show'
-      put 'scratchpad', to: 'scratchpad#update'
-      post 'scratchpad/append', to: 'scratchpad#append'
       resources :notes do
         post :confirm, to: 'note#confirm'
       end
@@ -55,12 +52,6 @@ Rails.application.routes.draw do
   get 'home' => 'home#index'
   get 'actions' => 'home#actions_index'
   get 'settings' => 'home#settings'
-  get 'scratchpad' => 'home#scratchpad'
-  get 'scratchpad/actions' => 'home#actions_index_scratchpad'
-  get 'scratchpad/actions/update_scratchpad' => 'home#describe_update_scratchpad'
-  post 'scratchpad/actions/update_scratchpad' => 'home#update_scratchpad'
-  get 'scratchpad/actions/append_to_scratchpad' => 'home#describe_append_to_scratchpad'
-  post 'scratchpad/actions/append_to_scratchpad' => 'home#append_to_scratchpad'
 
   get 'about' => 'home#about'
   get 'help' => 'home#help'
@@ -85,9 +76,6 @@ Rails.application.routes.draw do
   post 'admin/sidekiq/jobs/:jid/retry' => 'admin#sidekiq_retry_job'
 
   resources :users, path: 'u', param: :handle, only: [:show] do
-    get 'scratchpad' => 'users#scratchpad', on: :member
-    put 'scratchpad' => 'users#scratchpad', on: :member
-    post 'scratchpad/append' => 'users#append_to_scratchpad', on: :member
     get 'settings', on: :member
     post 'settings/profile' => 'users#update_profile', on: :member
     patch 'image' => 'users#update_image', on: :member
@@ -130,6 +118,7 @@ Rails.application.routes.draw do
   get '/representing' => 'representation_sessions#representing'
   delete 's/:studio_handle/represent' => 'representation_sessions#stop_representing'
   delete 's/:studio_handle/r/:representation_session_id' => 'representation_sessions#stop_representing'
+  get 's/:studio_handle/representation.html' => 'representation_sessions#index_partial'
   get 's/:studio_handle/representation' => 'representation_sessions#index'
   get 's/:studio_handle/r/:id' => 'representation_sessions#show'
   get 's/:studio_handle/u/:handle' => 'users#show'

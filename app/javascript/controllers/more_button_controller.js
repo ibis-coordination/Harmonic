@@ -73,36 +73,6 @@ export default class extends Controller {
     })
   }
 
-  appendLink(event) {
-    const originalText = event.target.textContent
-    event.target.textContent = "Appending..."
-    this.appendText(event).then(() => {
-      event.target.textContent = "Appended!"
-      setTimeout(() => {
-        event.target.textContent = originalText
-      }, 2000)
-    })
-  }
-
-  appendText(event) {
-    const text = event.target.dataset.link
-    const url = event.target.dataset.url
-    return fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": this.csrfToken,
-      },
-      body: JSON.stringify({ text: text }),
-    }).then(response => {
-      if (response.ok) {
-        return response.json()
-      } else {
-        console.error("Error appending text:", response)
-      }
-    })
-  }
-
   pin(event) {
     this.togglePin(event)
   }

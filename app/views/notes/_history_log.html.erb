@@ -19,3 +19,17 @@
   </ul>
   <div>Comment</div>
 <% end %>
+
+<% backlinks_title = "Backlinks #{octicon('link', height: 24)} #{@note.backlinks.count}".html_safe %>
+<%= render 'shared/collapseable_section', title: backlinks_title, header_level: 2, hidden: true do %>
+  <ul>
+    <% @note.backlinks.each do |r| %>
+      <% model_name = r.class.name.downcase %>
+      <li>
+        <a href="<%= r.path %>">
+          <i class='<%= model_name %>-icon'></i>
+          <code><%= r.path_prefix %>/<%= r.truncated_id %></code>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

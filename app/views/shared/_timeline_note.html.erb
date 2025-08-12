@@ -1,8 +1,10 @@
 <div class="timeline-note">
-  <%= profile_pic(note.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
-  <strong><%= note.created_by.display_name %></strong>
-  <%= link_to "@#{note.created_by.handle}", note.created_by.path %>
-  <span style="opacity:0.6;">- <%= timeago(note.created_at) %></span>
-  <div style="white-space:pre-line;"><a href="<%= note.path %>" class="a-tag-sans-link-style"><%= note.text.truncate(512) %></a></div>
+  <div class="timeline-note-created-by">
+    <%= profile_pic(note.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
+    <strong><%= note.created_by.display_name %></strong>
+    <%= link_to "@#{note.created_by.handle}", note.created_by.path %>
+    <span style="opacity:0.6;">- <%= timeago(note.created_at) %></span>
+  </div>
+  <div class="timeline-note-text" style="white-space:pre-line;"><a href="<%= note.path %>" class="a-tag-sans-link-style"><%= note.text.truncate(512) %></a></div>
   <%= render 'shared/note_metrics', note: note %>
 </div>

@@ -1,11 +1,6 @@
 <span data-controller="note" data-note-id="<%= @note.id %>">
-<%= render 'shared/more_button', resource: @note, options: ['copy', 'appendLink', 'pin', 'edit'] %>
-<h4 style="margin-top:0px;margin-bottom:0;">
-  <a href="<%= @current_studio.path || '/' %>"><%= @current_studio.name %></a> /
-  <span style="white-space:nowrap;">
-    <i class="note-icon"></i> Note <code><%= @note.truncated_id %></code>
-  </span>
-</h4>
+<%= render 'shared/more_button', resource: @note, options: ['copy', 'pin', 'edit'] %>
+<%= render 'shared/show_resource_breadcrumbs', resource: @note %>
 <h1 style="margin-top:0;"><%= @note.title %></h1>
 <p style="font-size:0.8em;">
   <%= render 'shared/created_by', resource: @note %>
@@ -19,10 +14,8 @@
   <% end %>
 </div>
 <%= render 'shared/note_metrics', note: @note, metric_url: "#{@note.path}/metric" %>
-<% unless @note.creator_can_skip_confirm?(@current_user) %>
-  <hr/>
-  <div data-note-target="confirmSection">
-    <%= render 'confirm' %>
-  </div>
-<% end %>
+<hr/>
+<div data-note-target="confirmSection">
+  <%= render 'confirm' %>
+</div>
 </span>

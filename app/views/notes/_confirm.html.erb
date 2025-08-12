@@ -18,14 +18,7 @@
       </span>
     </p>
   <% elsif @note_reader.confirmed_read? %>
-    <!-- <p>
-      <button style="background:#dfdfdf;color:#9f9f9f;cursor:default;">
-        <%= octicon 'book', height: 16 %> Confirmed
-      </button>
-      <span>You have confirmed reading this note.</span>
-    </p> -->
     <%= render 'history' %>
-    <%= backlinks(@note) %>
   <% else %>
     <p>
       <button

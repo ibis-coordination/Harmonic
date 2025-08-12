@@ -1,6 +1,6 @@
 <% if resource.is_a?(Hash) %>
   <span>
-    <i class="<%= resource[:type].downcase %>-icon"></i>
+    <i class="<%= resource[:type]&.downcase %>-icon"></i>
     <a href="<%= resource[:path] %>"><%= resource[:title] %></a>
     <span title="<%= resource[:metric_value] %> <%= resource[:metric_name] %>" style="white-space:nowrap;opacity:0.6;">
       <%= octicon resource[:octicon_metric_icon_name] %> <%= resource[:metric_value] %>

@@ -1,15 +1,19 @@
 <% if @current_user %>
-  <h2>Notes</h2>
-  <%= render 'shared/new_note' %>
-  <hr style="height:1px;" />
   <% unless @current_representation_session %>
     <a href="/studios/new"><button style="float:right;margin-top:8px;">New Studio</button></a>
   <% end %>
   <h2>Your Studios</h2>
   <% if @studios.any? %>
-    <% @studios.each.with_index do |studio, index| %>
-      <%= render 'homepage_studio_section', studio: studio %>
-    <% end %>
+    <ul>
+      <% @studios.each.with_index do |studio, index| %>
+        <li>
+          <a href="<%= studio.path %>">
+            <img src="<%= studio.image_path %>" style="height:1em;border-radius:4px;margin-bottom:-2px;">
+            <%= studio.name %>
+          </a>
+        </li>
+      <% end %>
+    </ul>
   <% else %>
     <p>No studios yet.</p>
   <% end %>

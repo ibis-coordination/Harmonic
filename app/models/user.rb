@@ -153,7 +153,7 @@ class User < ApplicationRecord
   end
 
   def studios
-    @studios ||= Studio.joins(:studio_users).where(studio_users: {user_id: id}).order('studio_users.updated_at' => :desc)
+    @studios ||= Studio.joins(:studio_users).where(studio_users: {user_id: id})
   end
 
   def display_name=(name)
@@ -173,7 +173,11 @@ class User < ApplicationRecord
   end
 
   def handle
-    tenant_user.handle
+    if trustee?
+      's/' + Studio.where(trustee_user: self).first.handle
+    else
+      tenant_user&.handle
+    end
   end
 
   def path
@@ -210,14 +214,6 @@ class User < ApplicationRecord
 
   def api_tokens
     ApiToken.where(user_id: id, tenant_id: tenant_user.tenant_id, deleted_at: nil)
-  end
-
-  def scratchpad
-    tenant_user.scratchpad
-  end
-
-  def scratchpad_links(tenant:, studio:)
-    tenant_user.scratchpad_links(tenant: tenant, studio: studio)
   end
 
   def accept_invite!(studio_invite)

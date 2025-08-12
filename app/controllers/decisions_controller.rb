@@ -4,7 +4,6 @@ class DecisionsController < ApplicationController
     @page_title = "Decide"
     @page_description = "Make a group decision with Harmonic Team"
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_studio.tempo)
-    @scratchpad_links = current_user.scratchpad_links(tenant: current_tenant, studio: current_studio)
     @decision = Decision.new(
       question: params[:question],
     )
@@ -148,7 +147,6 @@ class DecisionsController < ApplicationController
     return render '404', status: 404 unless @decision
     @page_title = "Decision Settings"
     @page_description = "Change settings for this decision"
-    @scratchpad_links = current_user.scratchpad_links(tenant: current_tenant, studio: current_studio)
   end
 
   def update_settings

@@ -35,7 +35,7 @@
   <div data-more-button-target="menu" class="more-button-menu">
     <ul>
       <% options.each do |option| %>
-        <% # Options are 'copy', 'appendLink', 'pin', 'edit', 'settings', 'invite' %>
+        <% # Options are 'copy', 'pin', 'edit', 'settings', 'invite' %>
         <% if option == 'copy' %>
           <% option = { icon: 'copy', label: 'Copy link to clipboard', clipboard_text: resource.shareable_link } %>
           <li data-controller="clipboard">
@@ -47,18 +47,6 @@
             <span data-clipboard-target="successMessage" style="display:none;">
               <%= octicon option[:icon] %>
               Copied!
-            </span>
-          </li>
-        <% elsif option == 'appendLink' %>
-          <% option = { action: 'appendLink', icon: 'file-moved', label: 'Append link to scratchpad', resource: resource } %>
-          <li>
-            <%= octicon option[:icon] %>
-            <span
-              data-action="click->more-button#appendLink"
-              data-link="* [<%= option[:resource].title %>](<%= option[:resource].shareable_link %>)"
-              data-url="<%= @current_user.path %>/scratchpad/append"
-              >
-              <%= option[:label] %>
             </span>
           </li>
         <% elsif option == 'pin' %>

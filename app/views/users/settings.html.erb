@@ -4,12 +4,16 @@
 <h3>Image</h3>
 Click image to upload a new image.<br/>
 <%= render 'shared/profile_image_upload', resource: @current_user, size: 64 %>
-<h3>Name</h3>
 <%= form_with url: "#{@current_user.path}/settings/profile" do |form| %>
+  <h3>Name</h3>
   <div style="margin-bottom:8px;">
     <%= form.text_field :name, value: @current_user.name, placeholder: 'Name' %>
   </div>
-  <%= form.submit 'Update Name' %>
+  <h3>Handle</h3>
+  <div style="margin-bottom:8px;">
+    <%= form.text_field :new_handle, value: @current_user.handle, placeholder: 'handle' %>
+  </div>
+  <%= form.submit 'Update' %>
 <% end %>
 
 <% if @current_user.oauth_identities.any? %>

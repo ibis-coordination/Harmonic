@@ -1,12 +1,6 @@
 <span data-controller="commitment" data-commitment-id="<%= @commitment.id %>">
-<%= render 'shared/more_button', resource: @commitment, options: ['copy', 'appendLink', 'pin', 'settings'] %>
-<h4 style="margin-top:0px;margin-bottom:0;">
-  <a href="<%= @current_studio.path || '/' %>"><%= @current_studio.name %></a> /
-  <span style="white-space:nowrap;">
-    <i class="commitment-icon"></i> Commitment <code><%= @commitment.truncated_id %></code>
-  </span>
-  <%= render 'shared/main_metric_display', resource: @commitment %>
-</h4>
+<%= render 'shared/more_button', resource: @commitment, options: ['copy', 'pin', 'settings'] %>
+<%= render 'shared/show_resource_breadcrumbs', resource: @commitment %>
 <h1 style="margin-top:0;"><%= @commitment.title %></h1>
 <p style="font-size:0.8em;">
   <%= render 'shared/created_by', resource: @commitment %>

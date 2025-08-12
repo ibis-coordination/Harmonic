@@ -1,10 +1,6 @@
-# Harmonic Team
+# Harmonic
 
-[Harmonic Team](https://harmonic.team) is group coordination software based on 3 main data types:
-
-1. Notes (group knowledge)
-2. Decisions (group decisions)
-3. Commitments (group action)
+[Harmonic](https://about.harmonic.social) is an open-source social media app that puts social agency before engagement metrics.
 
 ## Development
 Docker and Docker Compose are the only dependencies you need to have installed to run the app. For initial setup, first create a `.env` file for your environment variables, and a `Caddyfile`.

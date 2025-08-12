@@ -4,7 +4,6 @@ class CommitmentsController < ApplicationController
     @page_title = "Commit"
     @page_description = "Start a group commitment"
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_studio.tempo)
-    @scratchpad_links = current_user.scratchpad_links(tenant: current_tenant, studio: current_studio)
     @commitment = Commitment.new(
       title: params[:title],
     )
@@ -130,7 +129,6 @@ class CommitmentsController < ApplicationController
     return render '404', status: 404 unless @commitment
     @page_title = "Commitment Settings"
     @page_description = "Change settings for this commitment"
-    @scratchpad_links = current_user.scratchpad_links(tenant: current_tenant, studio: current_studio)
   end
 
   def update_settings

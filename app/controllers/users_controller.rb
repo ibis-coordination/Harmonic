@@ -42,38 +42,14 @@ class UsersController < ApplicationController
       tu.user.name = params[:name]
       tu.user.save!
     end
+    if params[:new_handle].present?
+      current_user.handle = params[:new_handle]
+      current_user.save!
+      tu.handle = params[:new_handle]
+      tu.save!
+    end
     flash[:notice] = 'Profile updated successfully'
     redirect_to "#{current_user.path}/settings"
-  end
-
-  def scratchpad
-    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404' if tu.nil?
-    return render plain: '403 Unauthorized' unless tu.user == current_user
-    if request.method == 'GET'
-      html = MarkdownRenderer.render(tu.scratchpad['text'], shift_headers: false)
-      render json: { text: tu.scratchpad['text'], html: html }
-    elsif params[:text].present?
-      tu.settings['scratchpad']['text'] = params[:text]
-      tu.save!
-      html = MarkdownRenderer.render(tu.scratchpad['text'], shift_headers: false)
-      render json: { text: tu.scratchpad['text'], html: html }
-    else
-      render status: 400, json: { error: 'Text is required' }
-    end
-  end
-
-  def append_to_scratchpad
-    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404' if tu.nil?
-    return render plain: '403 Unauthorized' unless tu.user == current_user
-    if params[:text].present?
-      tu.settings['scratchpad']['text'] += "\n" + params[:text]
-      tu.save!
-      render json: { text: tu.settings['scratchpad']['text'] }
-    else
-      render status: 400, json: { error: 'Text is required' }
-    end
   end
 
   def impersonate

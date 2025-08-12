@@ -1,6 +1,4 @@
-<h4 style="margin:0;">
-  <%= link_to @current_studio.name, @current_studio.path || '/' %> / Invite
-</h4>
+<%= render 'shared/show_resource_breadcrumbs', resource: "Invite" %>
 <h1 style="margin-top:0;">Invite to Studio</h1>
 <p>
   Share this link with your team to invite them to studio <strong><%= @current_studio.name %></strong>.

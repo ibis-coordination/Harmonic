@@ -3,11 +3,13 @@ class StudiosController < ApplicationController
   def show
     @page_title = @current_studio.name
     @pinned_items = @current_studio.pinned_items
-    # @open_items = @current_studio.open_items
-    # @recently_closed_items = @current_studio.recently_closed_items
-    @backlinks = @current_studio.backlink_leaderboard
+    @recent_notes = @current_studio.recent_notes
+    @open_decisions = @current_studio.open_decisions
+    @recently_closed_decisions = @current_studio.recently_closed_decisions
+    @open_commitments = @current_studio.open_commitments
+    @recently_closed_commitments = @current_studio.recently_closed_commitments
     @team = @current_studio.team
-    @cycle = current_cycle
+    # @cycle = current_cycle
     unless @current_user.studio_user.dismissed_notices.include?('studio-welcome')
       @current_user.studio_user.dismiss_notice!('studio-welcome')
       if @current_studio.created_by == @current_user

@@ -1,4 +1,5 @@
 <% header_level ||= 1 %>
+<% title_superscript ||= nil %>
 <% hidden ||= false %>
 <% lazy_load ||= nil %>
 <% octicon ||= nil %>
@@ -12,6 +13,9 @@
     <% end %>
     <span <%= target ? target.map { |k, v| "data-#{k}-target='#{v}'" }.join(' ').html_safe : '' %>>
       <%= title %>
+      <% if title_superscript %>
+        <span class="header-superscript"><%= title_superscript %></span>
+      <% end %>
     </span>
     <span data-collapseable-section-target="triangleRight" style="display:<%= hidden ? 'inline' : 'none' %>;">
       <%= octicon 'triangle-right', height: 20 %>
@@ -20,6 +24,7 @@
       <%= octicon 'triangle-down', height: 20 %>
     </span>
   </h<%= header_level %>>
+  <% # border-left:1px solid var(--color-border-default); padding-left: 16px; %>
   <div data-collapseable-section-target="body" style="display:<%= hidden ? 'none' : 'block' %>;">
     <%= yield %>
     <div data-collapseable-section-target="lazyLoad" data-url="<%= lazy_load %>"></div>

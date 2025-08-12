@@ -4,7 +4,7 @@ class HomeController < ApplicationController
 
   def index
     @page_title = 'Home'
-    @studios = @current_user.studios.where.not(id: @current_tenant.main_studio_id)
+    @studios = @current_user.studios.where.not(id: @current_tenant.main_studio_id).order(:name)
   end
 
   def settings
@@ -20,20 +20,6 @@ class HomeController < ApplicationController
   end
 
   def contact
-  end
-
-  def scratchpad
-    @page_title = 'Scratchpad'
-    @hide_scratchpad_menu_options = true
-    unless @current_user.tenant_user.dismissed_notices.include?('scratchpad')
-      flash[:notice] = 'This is your personal scratchpad. What you write here is only visible to you. You can use your scratchpad for bookmarking links, keeping track of ideas, or anything else you want to jot down. It is always available through the top right menu.'
-      @current_user.tenant_user.dismiss_notice!('scratchpad')
-    end
-  end
-
-  def actions_index_scratchpad
-    @page_title = 'Actions | Scratchpad'
-    render_actions_index(ActionsHelper.actions_for_route('/scratchpad'))
   end
 
   def actions_index
