@@ -13,76 +13,175 @@
   </div>
 </div>
 
-<%= render 'shared/collapseable_section', title: "Pinned", title_superscript: "#{@pinned_items.count}", octicon: 'pin', header_level: 4, hidden: true do %>
-  <ul>
-    <% @pinned_items.each do |item| %>
-      <li><%= render 'shared/inline_resource_item', resource: item[:item] %></li>
+<strong>tempo:</strong> <code><%= @current_studio.tempo %></code>
+<%= render 'shared/tooltip' do %>
+  <p>Every studio has a tempo (daily, weekly, or monthly) that defines how frequently members of the studio should check in to keep everyone in sync.</p>
+  <p>Note, Decisions, and Commitments are grouped below in time units matching the tempo.</p>
+  <p style="margin-bottom:0;">See the <a href="<%= @current_studio.path %>/cycles">cycles page</a> for other time units.</p>
+<% end %>
+
+<%= render 'shared/collapseable_section', title: @cycle.display_window, title_superscript: @cycle.display_name, octicon: 'iterations', header_level: 2, hidden: false, indent: true do %>
+  <p>
+    <span style="font-size: 0.8em;" title="<%= @current_studio.timezone.name %>">
+      <%= @cycle.display_duration %>,
+      <% if @cycle.start_date > @cycle.now %>
+        starting <%= timeago(@cycle.start_date) %>
+      <% elsif @cycle.end_date < @cycle.now %>
+        ended <%= timeago(@cycle.end_date) %>
+      <% else %>
+        ending in <strong><%= countdown(@cycle.end_date) %></strong>
+      <% end %>
+    </span>
+    <br/>
+    <span id="last-sync-display" style="font-size: 0.8em;display:inline;">
+      <span style="opacity:0.6;">Last sync <%= timeago(Time.current) %></span>
+      <a href="<%= @current_studio.path %>"><%= octicon 'sync' %></a>
+    </span>
+    <script>
+      setTimeout(function() {
+        document.getElementById('last-sync-display').style.display = 'inline';
+      }, 10 * 60 * 1000); // Show sync display after 10 minutes
+    </script>
+  </p>
+
+  <% notes_title = "<i class='note-icon medium-icon'></i> Notes".html_safe %>
+  <% notes_title_superscript = "#{@unread_notes.count} unread, #{@read_notes.count} read" %>
+  <%= render 'shared/collapseable_section', title: notes_title, title_superscript: notes_title_superscript, header_level: 3, hidden: true, indent: true do %>
+    <a href="<%= @current_studio.path %>/note">
+      <button>New Note</button>
+    </a>
+
+    <%= render 'shared/collapseable_section', title: 'Unread Notes', title_superscript: @unread_notes.count, header_level: 4, hidden: false, indent: true do %>
+      <% @unread_notes.order(created_at: :desc).limit(100).each do |note| %>
+        <%= render 'shared/timeline_note', note: note %>
+        <hr/>
+      <% end %>
     <% end %>
-  </ul>
-<% end %>
+    <%= render 'shared/collapseable_section', title: 'Read Notes', title_superscript: @read_notes.count, header_level: 4, hidden: false, indent: true do %>
+      <% @read_notes.order(created_at: :desc).limit(100).each do |note| %>
+        <%= render 'shared/timeline_note', note: note %>
+        <hr/>
+      <% end %>
+    <% end %>
+  <% end %>
 
-<% notes_title = "<i class='note-icon medium-icon'></i> Notes".html_safe %>
-<%= render 'shared/collapseable_section', title: notes_title, header_level: 2, hidden: true do %>
-  <%= render 'shared/new_note' %>
+  <% decisions_title = "<i class='decision-icon medium-icon'></i> Decisions".html_safe %>
+  <% decisions_title_superscript = "#{@open_decisions.count} open, #{@closed_decisions.count} closed" %>
+  <%= render 'shared/collapseable_section', title: decisions_title, title_superscript: decisions_title_superscript, header_level: 3, hidden: true, indent: true do %>
+    <a href="<%= @current_studio.path %>/decide">
+      <button>New Decision</button>
+    </a>
+    <%= render 'shared/collapseable_section', title: "Open Decisions", title_superscript: "#{@open_decisions.count}", header_level: 4, hidden: false do %>
+      <ul>
+        <% @open_decisions.order(deadline: :asc).limit(100).each do |decision| %>
+          <li><%= render 'shared/inline_resource_item', resource: decision %></li>
+        <% end %>
+      </ul>
+    <% end %>
+    <%= render 'shared/collapseable_section', title: "Closed Decisions", title_superscript: "#{@closed_decisions.count}", header_level: 4, hidden: false do %>
+      <ul>
+        <% @closed_decisions.order(deadline: :desc).limit(100).each do |decision| %>
+          <li><%= render 'shared/inline_resource_item', resource: decision %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
 
-  <hr style="height:1px;" />
-
-  <% @current_studio.notes.order(created_at: :desc).limit(20).each do |note| %>
-    <%= render 'shared/timeline_note', note: note %>
-    <hr/>
+  <% commitments_title = "<i class='commitment-icon medium-icon'></i> Commitments".html_safe %>
+  <% commitments_title_superscript = "#{@open_commitments.count} open, #{@closed_commitments.count} closed" %>
+  <%= render 'shared/collapseable_section', title: commitments_title, title_superscript: commitments_title_superscript, header_level: 3, hidden: true, indent: true do %>
+    <a href="<%= @current_studio.path %>/commit">
+      <button>New Commitment</button>
+    </a>
+    <%= render 'shared/collapseable_section', title: "Open Commitments", title_superscript: "#{@open_commitments.count}", header_level: 4, hidden: false do %>
+      <ul>
+        <% @open_commitments.order(deadline: :asc).limit(100).each do |commitment| %>
+          <li><%= render 'shared/inline_resource_item', resource: commitment %></li>
+        <% end %>
+      </ul>
+    <% end %>
+    <%= render 'shared/collapseable_section', title: 'Closed Commitments', title_superscript: "#{@closed_commitments.count}", header_level: 4, hidden: false do %>
+      <ul>
+        <% @closed_commitments.order(deadline: :desc).limit(100).each do |commitment| %>
+          <li><%= render 'shared/inline_resource_item', resource: commitment %></li>
+        <% end %>
+      </ul>
+    <% end %>
   <% end %>
 <% end %>
 
-<% decisions_title = "<i class='decision-icon medium-icon'></i> Decisions".html_safe %>
-<% decisions_title_superscript = "#{@open_decisions.count} open, #{@recently_closed_decisions.count} recently closed" %>
-<%= render 'shared/collapseable_section', title: decisions_title, title_superscript: decisions_title_superscript, header_level: 2, hidden: true do %>
-  <a href="<%= @current_studio.path %>/decide">
-    <button>New Decision</button>
-  </a>
-  <%= render 'shared/collapseable_section', title: "Open Decisions", title_superscript: "#{@open_decisions.count}", header_level: 3, hidden: false do %>
+<%= render 'shared/collapseable_section', title: @previous_cycle.display_window, title_superscript: @previous_cycle.display_name, octicon: 'iterations', header_level: 2, hidden: false, indent: true do %>
+  <% notes_title = "<i class='note-icon medium-icon'></i> Notes".html_safe %>
+  <% notes_title_superscript = "#{@prev_unread_notes.count} unread, #{@prev_read_notes.count} read" %>
+  <%= render 'shared/collapseable_section', title: notes_title, title_superscript: notes_title_superscript, header_level: 3, hidden: true, indent: true do %>
+    <%= render 'shared/collapseable_section', title: 'Unread Notes', title_superscript: @prev_unread_notes.count, header_level: 4, hidden: false, indent: true do %>
+      <% @prev_unread_notes.order(created_at: :desc).limit(100).each do |note| %>
+        <%= render 'shared/timeline_note', note: note %>
+        <hr/>
+      <% end %>
+    <% end %>
+    <%= render 'shared/collapseable_section', title: 'Read Notes', title_superscript: @prev_read_notes.count, header_level: 4, hidden: false, indent: true do %>
+      <% @prev_read_notes.order(created_at: :desc).limit(100).each do |note| %>
+        <%= render 'shared/timeline_note', note: note %>
+        <hr/>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <% decisions_title = "<i class='decision-icon medium-icon'></i> Decisions".html_safe %>
+  <% decisions_title_superscript = "#{@prev_decisions.count} closed" %>
+  <%= render 'shared/collapseable_section', title: decisions_title, title_superscript: decisions_title_superscript, header_level: 3, hidden: true, indent: true do %>
+    <%= render 'shared/collapseable_section', title: "Closed Decisions", title_superscript: "#{@prev_decisions.count}", header_level: 4, hidden: false do %>
+      <ul>
+        <% @prev_decisions.order(deadline: :desc).limit(100).each do |decision| %>
+          <li><%= render 'shared/inline_resource_item', resource: decision %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+
+  <% commitments_title = "<i class='commitment-icon medium-icon'></i> Commitments".html_safe %>
+  <% commitments_title_superscript = "#{@prev_commitments.count} closed" %>
+  <%= render 'shared/collapseable_section', title: commitments_title, title_superscript: commitments_title_superscript, header_level: 3, hidden: true, indent: true do %>
+    <%= render 'shared/collapseable_section', title: 'Closed Commitments', title_superscript: "#{@prev_commitments.count}", header_level: 4, hidden: false do %>
+      <ul>
+        <% @prev_commitments.order(deadline: :desc).limit(100).each do |commitment| %>
+          <li><%= render 'shared/inline_resource_item', resource: commitment %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+<% end %>
+
+<%= render 'shared/collapseable_section', title: 'More', octicon: 'ellipsis', header_level: 2, hidden: false, indent: true do %>
+  <%= render 'shared/collapseable_section', title: "Pinned", title_superscript: "#{@pinned_items.count}", octicon: 'pin', header_level: 4, hidden: false, indent: true do %>
     <ul>
-      <% @open_decisions.each do |decision| %>
-        <li><%= render 'shared/inline_resource_item', resource: decision %></li>
+      <% @pinned_items.each do |item| %>
+        <li><%= render 'shared/inline_resource_item', resource: item[:item] %></li>
       <% end %>
     </ul>
   <% end %>
-  <%= render 'shared/collapseable_section', title: "Recently Closed Decisions", title_superscript: "#{@recently_closed_decisions.count}", header_level: 3, hidden: false do %>
+
+  <%= render 'shared/collapseable_section', title: "Explore", octicon: 'telescope', header_level: 4, hidden: false, indent: true do %>
     <ul>
-      <% @recently_closed_decisions.each do |decision| %>
-        <li><%= render 'shared/inline_resource_item', resource: decision %></li>
-      <% end %>
+      <li><a href="<%= @current_studio.path %>/cycles">Cycles</a></li>
+      <li><a href="<%= @current_studio.path %>/backlinks">Backlinks</a></li>
+      <!--
+        <li>Activity</li>
+        <li>Notes</li>
+        <li>Decisions</li>
+        <li>Commitments</li>
+      -->
     </ul>
   <% end %>
-<% end %>
 
-<% commitments_title = "<i class='commitment-icon medium-icon'></i> Commitments".html_safe %>
-<% commitments_title_superscript = "#{@open_commitments.count} open, #{@recently_closed_commitments.count} recently closed" %>
-<%= render 'shared/collapseable_section', title: commitments_title, title_superscript: commitments_title_superscript, header_level: 2, hidden: true do %>
-  <a href="<%= @current_studio.path %>/commit">
-    <button>New Commitment</button>
-  </a>
-  <%= render 'shared/collapseable_section', title: "Open Commitments", title_superscript: "#{@open_commitments.count}", header_level: 3, hidden: false do %>
-    <ul>
-      <% @open_commitments.each do |commitment| %>
-        <li><%= render 'shared/inline_resource_item', resource: commitment %></li>
-      <% end %>
-    </ul>
+  <%= render 'shared/collapseable_section', title: "Studio Members", title_superscript: "#{@team.count}", octicon: 'people', header_level: 4, hidden: true, indent: true do %>
+    <a href="<%= @current_studio.path %>/invite">
+      <button>Invite New Member</button>
+    </a>
+    <%= render 'shared/team', team: @team %>
   <% end %>
-  <%= render 'shared/collapseable_section', title: 'Recently Closed Commitments', title_superscript: "#{@recently_closed_commitments.count}", header_level: 3, hidden: false do %>
-    <ul>
-      <% @recently_closed_commitments.each do |commitment| %>
-        <li><%= render 'shared/inline_resource_item', resource: commitment %></li>
-      <% end %>
-    </ul>
+
+  <%= render 'shared/collapseable_section', title: 'Representation', octicon: 'feed-person', header_level: 4, hidden: true, indent: true, lazy_load: "#{@current_studio.path}/representation.html" do %>
   <% end %>
-<% end %>
-
-<%= render 'shared/collapseable_section', title: "Studio Members", title_superscript: "#{@team.count}", octicon: 'people', header_level: 2, hidden: true do %>
-  <a href="<%= @current_studio.path %>/invite">
-    <button>Invite New Member</button>
-  </a>
-  <%= render 'shared/team', team: @team %>
-<% end %>
-
-<%= render 'shared/collapseable_section', title: 'Representation', octicon: 'feed-person', header_level: 2, hidden: true, lazy_load: "#{@current_studio.path}/representation.html" do %>
 <% end %>

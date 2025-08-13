@@ -380,6 +380,11 @@ class ApplicationController < ActionController::Base
     @current_cycle = Cycle.new_from_tempo(tenant: current_tenant, studio: current_studio)
   end
 
+  def previous_cycle
+    return @previous_cycle if defined?(@previous_cycle)
+    @previous_cycle = Cycle.new(name: current_cycle.previous_cycle, tenant: current_tenant, studio: current_studio)
+  end
+
   def metric
     render json: {
       metric_title: current_resource.metric_title,

@@ -1,8 +1,7 @@
-<h4 style="margin-bottom:0;">
-  <%= link_to @current_studio.name, @current_studio.path || '/' %> / Cycles
-</h4>
+<%= render 'shared/show_resource_breadcrumbs', resource: 'Cycles' %>
 <h1 style="margin-top:0;">Cycles</h1>
-<p>Items are counted in a cycle if their time window (creation date to deadline) has any overlap with the cycle. Items can span multiple cycles.</p>
+<p>Notes are counted in the cycle that they were created in.</p>
+<p>Decisions and Commitments are counted in cycles where their time window (creation date to deadline) has any overlap with the cycle. Decisions and commitments can span multiple cycles.</p>
 <p>Click on the cycle names to view the counted items.</p>
 
 <h2>Daily</h2>

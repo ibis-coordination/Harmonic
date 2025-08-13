@@ -115,12 +115,14 @@ class NotesController < ApplicationController
   def edit
     @note = current_note
     return render '404', status: 404 unless @note
+    return render 'shared/403', status: 403 unless @note.user_can_edit?(@current_user)
     @page_title = "Edit Note"
     # Which cycle end date is this note deadline associated with?
   end
 
   def update
     return render '404', status: 404 unless current_note
+    return render 'shared/403', status: 403 unless current_note.user_can_edit?(@current_user)
     @note = api_helper.update_note
     redirect_to @note.path
   end

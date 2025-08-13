@@ -1,10 +1,13 @@
+<% resource ||= nil %>
 <h4 style="margin-top:0px;margin-bottom:0;">
   <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
   <a href="<%= @current_studio.path || '/' %>">
-    <img src="<%= @current_studio.image_path %>" style="height:1em;border-radius:4px;margin-bottom:-2px;">
+    <img src="<%= @current_studio.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
     <%= @current_studio.name %>
   </a> /
-  <% if resource.is_a?(String) %>
+  <% if resource.nil? %>
+    <%= yield %>
+  <% elsif resource.is_a?(String) %>
     <%= resource %>
   <% elsif resource.class == RepresentationSession %>
     <a href="<%= @current_studio.path %>/representation">Representation</a> /

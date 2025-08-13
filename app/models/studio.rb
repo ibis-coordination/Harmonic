@@ -290,7 +290,7 @@ class Studio < ApplicationRecord
   end
 
   def recently_closed_decisions(time_window: 1.week)
-    closed_commitments.where('deadline > ?', time_window.ago)
+    closed_decisions.where('deadline > ?', time_window.ago)
   end
 
   def open_commitments

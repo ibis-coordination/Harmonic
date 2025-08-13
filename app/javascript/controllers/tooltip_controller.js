@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
-  static targets = ["info"];
+  static targets = ["info", "x"];
 
   connect() {
     this.element.addEventListener("mouseenter", this.show.bind(this));
@@ -16,8 +16,9 @@ export default class extends Controller {
   }
 
   connectMobile() {
-    // for mobile, we want to show the tooltip on click
+    // for mobile, we want to show the tooltip on click and show the x icon
     this.element.addEventListener("click", this.toggle.bind(this));
+    this.xTarget.style.display = 'inline-block';
     // prevent the tooltip from hiding when clicking on it
     this.infoTarget.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -28,6 +29,10 @@ export default class extends Controller {
         this.hideImmediately();
       }
     });
+    // hide on click on x icon
+    this.xTarget.addEventListener("click", () => {
+      this.hideImmediately();
+    })
   }
 
   show() {

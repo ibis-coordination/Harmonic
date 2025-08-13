@@ -1,5 +1,5 @@
-<% readers_title = "Readers #{octicon('book', height: 24)} #{@note.confirmed_reads}".html_safe %>
-<%= render 'shared/collapseable_section', title: readers_title, header_level: 2, hidden: true do %>
+<% readers_title = "Readers #{octicon('book', height: 24)}".html_safe %>
+<%= render 'shared/collapseable_section', title: readers_title, title_superscript: "#{@note.confirmed_reads}", header_level: 2, hidden: true do %>
   <ul>
   <% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
     <li>
@@ -10,8 +10,8 @@
   </ul>
 <% end %>
 
-<% comments_title = "Comments #{octicon('comment', height: 24)} #{@note.comment_count}".html_safe %>
-<%= render 'shared/collapseable_section', title: comments_title, header_level: 2, hidden: true do %>
+<% comments_title = "Comments #{octicon('comment', height: 24)}".html_safe %>
+<%= render 'shared/collapseable_section', title: comments_title, title_superscript: "#{@note.comment_count}", header_level: 2, hidden: true do %>
   <ul>
     <% @note.comments.each do |comment| %>
       <li><%= comment.text %></li>
@@ -20,8 +20,8 @@
   <div>Comment</div>
 <% end %>
 
-<% backlinks_title = "Backlinks #{octicon('link', height: 24)} #{@note.backlinks.count}".html_safe %>
-<%= render 'shared/collapseable_section', title: backlinks_title, header_level: 2, hidden: true do %>
+<% backlinks_title = "Backlinks #{octicon('link', height: 24)}".html_safe %>
+<%= render 'shared/collapseable_section', title: backlinks_title, title_superscript: "#{@note.backlinks.count}", header_level: 2, hidden: true do %>
   <ul>
     <% @note.backlinks.each do |r| %>
       <% model_name = r.class.name.downcase %>
