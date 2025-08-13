@@ -71,15 +71,15 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_200_markdown_page_with_actions("New Studio", "/studios/new")
   end
 
-  test "GET /s/:studio_handle returns 200 markdown with actions" do
-    assert_200_markdown_page_with_actions(@studio.name, "/s/#{@studio.handle}")
+  test "GET /studios/:studio_handle returns 200 markdown with actions" do
+    assert_200_markdown_page_with_actions(@studio.name, "/studios/#{@studio.handle}")
   end
 
-  test "GET /s/:studio_handle/note returns 200 markdown with actions" do
-    assert_200_markdown_page_with_actions("Note", "/s/#{@studio.handle}/note")
+  test "GET /studios/:studio_handle/note returns 200 markdown with actions" do
+    assert_200_markdown_page_with_actions("Note", "/studios/#{@studio.handle}/note")
   end
 
-  test "GET /s/:studio_handle/decide returns 200 markdown with actions" do
-    assert_200_markdown_page_with_actions("Decide", "/s/#{@studio.handle}/decide")
+  test "GET /studios/:studio_handle/decide returns 200 markdown with actions" do
+    assert_200_markdown_page_with_actions("Decide", "/studios/#{@studio.handle}/decide")
   end
 end

@@ -36,6 +36,10 @@ class Note < ApplicationRecord
     super.nil? || super.empty? ? text.split("\n").first.truncate(256) : super
   end
 
+  def persisted_title
+    attributes['title']
+  end
+
   def confirmed_reads
     @confirmed_reads ||= note_history_events.where(event_type: 'read_confirmation').select(:user_id).distinct.count
   end
@@ -112,6 +116,13 @@ class Note < ApplicationRecord
     end
   end
 
+  def self.where_user_has_read(user:)
+    self.joins(:note_history_events).where(note_history_events: {
+      user: user,
+      event_type: 'read_confirmation'
+    })
+  end
+
   def user_has_read?(user)
     note_history_events.where(
       user: user,
@@ -122,5 +133,9 @@ class Note < ApplicationRecord
   def creator_can_skip_confirm?(user)
     # This is a reversed design choice to allow the creator to confirm their own note
     false
+  end
+
+  def user_can_edit?(user)
+    user.id == created_by.id
   end
 end

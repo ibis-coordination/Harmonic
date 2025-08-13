@@ -5,9 +5,6 @@
   / Edit
 </h4>
 <%= form_with do |form| %>
-  <div style="margin-bottom:8px;">
-    <%= form.text_field :title, placeholder: 'Title (optional)', value: @note.title %>
-  </div>
   <div>
     <%= form.text_area :text, placeholder: 'Note', style: 'height:300px;', value: @note.text %>
   </div>

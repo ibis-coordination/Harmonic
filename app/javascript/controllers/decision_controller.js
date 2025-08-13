@@ -69,8 +69,8 @@ export default class extends Controller {
   }
 
   async toggleApprovalValues(event) {
-    const studioHandle = window.location.pathname.startsWith('/s/') ? window.location.pathname.split('/')[2] : null;
-    const urlPrefix = studioHandle ? `/s/${studioHandle}` : '';
+    const studioHandle = window.location.pathname.startsWith('/studios/') ? window.location.pathname.split('/')[2] : null;
+    const urlPrefix = studioHandle ? `/studios/${studioHandle}` : '';
     const decisionId = this.inputTarget.dataset.decisionId;
     const optionItem = event.target.closest('.option-item');
     const checkbox = optionItem.querySelector('input.approval-button');

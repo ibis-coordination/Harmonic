@@ -265,12 +265,12 @@ class DecisionsController < ApplicationController
 
   def actions_index_new
     @page_title = 'Actions | Decide'
-    render_actions_index(ActionsHelper.actions_for_route('/s/:studio_handle/decide'))
+    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/decide'))
   end
 
   def actions_index_show
     @page_title = "Actions | #{current_decision.question}"
-    render_actions_index(ActionsHelper.actions_for_route('/s/:studio_handle/d/:decision_id'))
+    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/d/:decision_id'))
   end
 
   def describe_create_decision

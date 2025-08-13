@@ -48,6 +48,16 @@ class Cycle
     raise "Invalid studio" if @studio.nil?
   end
 
+  def previous_cycle
+    case @name
+    when 'today' then 'yesterday'
+    when 'this-week' then 'last-week'
+    when 'this-month' then 'last-month'
+    else
+      raise "Not implemented"
+    end
+  end
+
   def api_json(include: [])
     response = {
       name: name,
@@ -214,8 +224,8 @@ class Cycle
   def resources(model)
     # What if updated_at is after deadline?
     rs = model.where(tenant_id: @tenant.id, studio_id: @studio.id)
-              .where('created_at < ?', end_date)
-              .where('deadline > ?', start_date)
+              .where("#{model.table_name}.created_at < ?", end_date)
+              .where("#{model.table_name}.deadline > ?", start_date)
     if filters.present?
       filters.each do |filter|
         rs = rs.where(filter)
@@ -373,12 +383,44 @@ class Cycle
     @notes ||= resources(Note)
   end
 
+  def read_notes(user)
+    @read_notes ||= notes.where_user_has_read(user: user)
+  end
+
+  def unread_notes(user)
+    @unread_notes ||= notes.where.not(id: read_notes(user).pluck(:id))
+  end
+
   def decisions
     @decisions ||= resources(Decision)
   end
 
+  def open_decisions
+    @open_decisions ||= decisions.where('deadline > ?', Time.current)
+  end
+
+  def closed_decisions
+    @closed_decisions ||= decisions.where('deadline < ?', Time.current)
+  end
+
+  def decisions_closed_within_cycle
+    @decisions_closed_within_cycle ||= decisions.where('deadline > ? and deadline < ?', self.start_date, self.end_date)
+  end
+
   def commitments
     @commitments ||= resources(Commitment)
+  end
+
+  def open_commitments
+    @open_commitments ||= commitments.where('deadline > ?', Time.current)
+  end
+
+  def closed_commitments
+    @closed_commitments ||= commitments.where('deadline < ?', Time.current)
+  end
+
+  def commitments_closed_within_cycle
+    @commitments_closed_within_cycle ||= commitments.where('deadline > ? and deadline < ?', self.start_date, self.end_date)
   end
 
   def counts

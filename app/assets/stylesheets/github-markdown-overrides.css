@@ -1,0 +1,8 @@
+.markdown-body h1 .octicon.octicon-link,
+.markdown-body h2 .octicon.octicon-link,
+.markdown-body h3 .octicon.octicon-link,
+.markdown-body h4 .octicon.octicon-link,
+.markdown-body h5 .octicon.octicon-link,
+.markdown-body h6 .octicon.octicon-link {
+  visibility: visible;
+}

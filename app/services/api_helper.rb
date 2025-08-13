@@ -126,6 +126,7 @@ class ApiHelper
 
   def update_note
     note = current_note
+    raise 'Unauthorized' unless note.user_can_edit?(current_user)
     note.title = model_params[:title]
     note.text = model_params[:text]
     # Add files to note, but don't remove existing files
