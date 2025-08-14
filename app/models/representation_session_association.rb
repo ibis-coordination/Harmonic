@@ -8,7 +8,7 @@ class RepresentationSessionAssociation < ApplicationRecord
   belongs_to :resource_studio, class_name: 'Studio'
 
   validate :resource_studio_matches_resource
-  validates :resource_type, inclusion: { in: %w[Note Decision Commitment NoteHistoryEvent Option Approval CommitmentParticipant] }
+  validates :resource_type, inclusion: { in: %w[Heartbeat Note Decision Commitment NoteHistoryEvent Option Approval CommitmentParticipant] }
 
   def set_tenant_id
     self.tenant_id = representation_session.tenant_id

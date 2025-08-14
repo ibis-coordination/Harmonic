@@ -12,7 +12,7 @@ class HomeController < ApplicationController
       )
       .select("studios.*, heartbeats.id IS NOT NULL AS has_heartbeat")
       .where.not(id: @current_tenant.main_studio_id)
-      .order(Arel.sql('heartbeats.id IS NOT NULL, studios.name'))
+      .order(:has_heartbeat, :name)
   end
 
   def settings
