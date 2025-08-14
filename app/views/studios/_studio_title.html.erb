@@ -1,0 +1,12 @@
+<div>
+  <img src="<%= @current_studio.image_path %>" id="studio-image" style="margin-top:3px; height:83px; min-width:50px; border-radius:10%;float:left;"/>
+  <div style="padding-top:30px;">
+    <h4 style="padding-left:92px;margin-top:0px;margin-bottom:0;">
+      <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
+      Studio <code><%= @current_studio.handle %></code>
+    </h4>
+    <h1 style="padding-left:92px;margin-top:0;">
+      <%= @current_studio.name %>
+    </h1>
+  </div>
+</div>

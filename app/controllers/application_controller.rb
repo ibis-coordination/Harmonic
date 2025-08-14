@@ -1,6 +1,6 @@
 class ApplicationController < ActionController::Base
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_studio,
-                :current_path, :current_user, :current_resource, :current_representation_session
+                :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
@@ -255,6 +255,21 @@ class ApplicationController < ActionController::Base
     @current_representation_session ||= nil
   end
 
+  def current_heartbeat
+    return @current_heartbeat if defined?(@current_heartbeat)
+    if current_user && !current_studio.is_main_studio?
+      @current_heartbeat = Heartbeat.where(
+        tenant: current_tenant,
+        studio: current_studio,
+        user: current_user
+      ).where(
+        'created_at > ? and expires_at > ?', current_cycle.start_date, Time.current
+      ).first
+    else
+      @current_heartbeat = nil
+    end
+  end
+
   def current_resource_model
     return @current_resource_model if defined?(@current_resource_model)
     if controller_name == 'home' || controller_name.end_with?('sessions')
@@ -476,6 +491,8 @@ class ApplicationController < ActionController::Base
       current_studio: current_studio,
       current_tenant: current_tenant,
       current_representation_session: current_representation_session,
+      current_cycle: current_cycle,
+      current_heartbeat: current_heartbeat,
       current_resource_model: current_resource_model,
       current_resource: current_resource,
       current_note: current_note,

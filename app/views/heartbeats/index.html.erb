@@ -1,0 +1,3 @@
+<%= render 'shared/show_resource_breadcrumbs', resource: 'Heartbeats' %>
+<h1>Heartbeats</h1>
+<%= @current_heartbeat.nil? ? 'no heartbeat' : @current_heartbeat.created_at %>

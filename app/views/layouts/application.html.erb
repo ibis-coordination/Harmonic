@@ -14,8 +14,10 @@
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-
   <body <%= @current_studio.id == @current_tenant.main_studio_id ? 'class="homepage"'.html_safe : '' %>>
+    <div id="expanding-heart">
+      <%= octicon 'heart' %>
+    </div>
     <% if controller_name != 'sessions' %>
       <nav style="display:block;min-height:16px;">
         <% if false # %>

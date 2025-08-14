@@ -1,5 +1,5 @@
-<h4 style="margin-top:0px;margin-bottom:0;">Studio</h4>
-<h1 style="margin-top:0;"><%= @current_studio.name %></h1>
+<%= render 'studio_title' %>
+
 <h2>Join</h2>
 <% if @invite %>
   <p>
@@ -10,7 +10,7 @@
   </p>
 <% elsif @current_user_is_member %>
   <p>
-    You are already a member of this studio.
+    You are already a member of this studio. <a href="<%= @current_studio.path %>">View studio homepage</a>.
   </p>
 <% else %>
   <p>

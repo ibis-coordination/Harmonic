@@ -4,7 +4,15 @@ class HomeController < ApplicationController
 
   def index
     @page_title = 'Home'
-    @studios = @current_user.studios.where.not(id: @current_tenant.main_studio_id).order(:name)
+    @studios = @current_user.studios
+      .joins(
+        "LEFT JOIN heartbeats ON heartbeats.studio_id = studios.id AND " +
+        "heartbeats.user_id = '#{@current_user.id}' AND " +
+        "heartbeats.expires_at > '#{Time.current}'"
+      )
+      .select("studios.*, heartbeats.id IS NOT NULL AS has_heartbeat")
+      .where.not(id: @current_tenant.main_studio_id)
+      .order(:has_heartbeat, :name)
   end
 
   def settings

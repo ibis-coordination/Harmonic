@@ -1,0 +1,48 @@
+
+<span
+  data-controller="heartbeat"
+  >
+  <% if @current_heartbeat.nil? %>
+    <button
+      data-heartbeat-target="sendButton"
+      data-url="<%= @current_studio.path %>/heartbeats"
+      >
+      <%= octicon 'heart' %>
+      <span
+        data-heartbeat-target="sendButtonText"
+        >
+        Send a Heartbeat
+      </span>
+    </button>
+    <span data-heartbeat-target="fullHeart" style="display:none;">
+      <%= octicon 'heart-fill' %>
+    </span>
+    <span data-heartbeat-target="heartbeatMessage">
+      to access <strong><%= @current_studio.name %></strong> <%= @cycle.display_name.downcase %>.
+    </span>
+  <% else %>
+    <button
+      data-heartbeat-target="sendButton"
+      data-url="<%= @current_studio.path %>/heartbeats"
+      style="display:none;"
+      >
+      <span data-heartbeat-target="sendButtonText">
+      </span>
+    </button>
+    <span data-heartbeat-target="fullHeart">
+      <%= octicon 'heart-fill' %>
+    </span>
+    <span data-heartbeat-target="heartbeatMessage">
+      You <%= @heartbeats.count > 0 ? "+ #{@heartbeats.count} other#{@heartbeats.count == 1 ? '' : 's'}" : '' %>
+      sent <%= @heartbeats.count == 0 ? 'a ' : '' %>heartbeat<%= @heartbeats.count > 0 ? 's' : '' %> <%= @cycle.display_name.downcase %>.
+    </span>
+  <% end %>
+  <%= render 'shared/tooltip' do %>
+    <p>Every studio has a tempo (daily, weekly, or monthly) that defines how frequently members of the studio should check in to keep everyone in sync.</p>
+    <p><strong><%= @current_studio.name %></strong>'s tempo is set to <code><%= @current_studio.tempo %></code>.</p>
+    <p style="margin-bottom:0;">Sending a heartbeat each <%= @cycle.unit %> signals your continuing presence to the group.</p>
+  <% end %>
+  <span data-heartbeat-target="heartbeatsIndexLink" style="<%= @current_heartbeat ? 'display:none;' : 'display:none;' %>">
+    <a href="<%= @current_studio.path %>/heartbeats">View all heartbeats</a>.
+  </span>
+</span>
