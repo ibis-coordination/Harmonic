@@ -12,12 +12,14 @@ class ApiHelper
     current_decision: nil, current_commitment: nil,
     current_decision_participant: nil, current_commitment_participant: nil,
     model_params: nil, params: nil, request: nil,
-    current_representation_session: nil
+    current_representation_session: nil, current_cycle: nil, current_heartbeat: nil
   )
     @current_user = current_user
     @current_studio = current_studio
     @current_tenant = current_tenant
     @current_representation_session = current_representation_session
+    @current_cycle = current_cycle
+    @current_heartbeat = current_heartbeat
     @current_resource_model = current_resource_model
     @current_resource = current_resource
     @current_note = current_note
@@ -59,6 +61,43 @@ class ApiHelper
       studio.add_user!(current_user, roles: ['admin', 'representative'])
     end
     studio
+  end
+
+  def create_heartbeat
+    heartbeat = nil
+    ActiveRecord::Base.transaction do
+      association_params = {
+        tenant: current_tenant,
+        studio: current_studio,
+        user: current_user
+      }
+      existing_heartbeat = Heartbeat.where(
+        association_params
+      ).where(
+        'created_at > ? and expires_at > ?', @current_cycle.start_date, Time.current
+      ).first
+      raise 'Heartbeat already exists' if existing_heartbeat
+      heartbeat = Heartbeat.create!(
+        association_params.merge(expires_at: @current_cycle.end_date)
+      )
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'create',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Heartbeat',
+              id: heartbeat.id,
+              truncated_id: heartbeat.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+      end
+    end
+    heartbeat
   end
 
   def create_note

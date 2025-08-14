@@ -124,6 +124,10 @@ Rails.application.routes.draw do
   get 'studios/:studio_handle/u/:handle' => 'users#show'
   get 'studios/:studio_handle/backlinks' => 'studios#backlinks'
   get "studios/:studio_handle/backlinks/actions" => 'studios#actions_index_default'
+  get "studios/:studio_handle/heartbeats" => 'heartbeats#index'
+  post "studios/:studio_handle/heartbeats" => 'heartbeats#create'
+  get "studios/:studio_handle/heartbeats/actions" => 'heartbeats#actions_index_default'
+  post "studios/:studio_handle/heartbeats/actions/create_heartbeat" => 'heartbeats#create_heartbeat'
 
   ['', 'studios/:studio_handle'].each do |prefix|
     get "#{prefix}/note" => 'notes#new'

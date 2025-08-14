@@ -501,6 +501,42 @@ ul.attachments-list {
   display: inline-block;
 }
 
+.blur-if-no-heartbeat.no-heartbeat {
+  filter: blur(4px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+#expanding-heart {
+  display: none; /* hidden until heart button is clicked */
+  position: absolute;
+  width: 100px;
+  height: 100px;
+}
+
+#expanding-heart svg {
+  display: block;
+  position: relative;
+  top: -30px;
+  left: -30px;
+  margin: 0 auto;
+  height: 100px;
+  width: 12px;
+  opacity: 1;
+  filter: blur(0px);
+  fill: var(--color-fg-subtle);
+}
+
+.blur-if-no-heartbeat, #expanding-heart svg {
+  transition: all 0.8s ease-out;
+}
+
+#expanding-heart.expanded svg {
+  width: 100px;
+  opacity: 0;
+  filter: blur(4px);
+}
+
 /* Mobile-only styles */
 @media only screen and (max-width: 768px) {
   .option-item {

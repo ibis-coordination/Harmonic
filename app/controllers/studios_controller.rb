@@ -16,6 +16,7 @@ class StudiosController < ApplicationController
     @closed_commitments = @cycle.closed_commitments
     @prev_commitments = @previous_cycle.commitments_closed_within_cycle
     @team = @current_studio.team
+    @heartbeats = Heartbeat.where_in_cycle(@cycle) - [current_heartbeat]
     unless @current_user.studio_user.dismissed_notices.include?('studio-welcome')
       @current_user.studio_user.dismiss_notice!('studio-welcome')
       if @current_studio.created_by == @current_user

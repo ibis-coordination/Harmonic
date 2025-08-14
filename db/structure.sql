@@ -365,6 +365,23 @@ CREATE TABLE public.decisions (
 
 
 --
+-- Name: heartbeats; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.heartbeats (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    studio_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    expires_at timestamp(6) without time zone NOT NULL,
+    activity_log jsonb DEFAULT '{}'::jsonb NOT NULL,
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: links; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -705,6 +722,14 @@ ALTER TABLE ONLY public.decision_participants
 
 ALTER TABLE ONLY public.decisions
     ADD CONSTRAINT decisions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: heartbeats heartbeats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.heartbeats
+    ADD CONSTRAINT heartbeats_pkey PRIMARY KEY (id);
 
 
 --
@@ -1105,6 +1130,41 @@ CREATE UNIQUE INDEX index_decisions_on_truncated_id ON public.decisions USING bt
 --
 
 CREATE INDEX index_decisions_on_updated_by_id ON public.decisions USING btree (updated_by_id);
+
+
+--
+-- Name: index_heartbeats_on_studio_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_heartbeats_on_studio_id ON public.heartbeats USING btree (studio_id);
+
+
+--
+-- Name: index_heartbeats_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_heartbeats_on_tenant_id ON public.heartbeats USING btree (tenant_id);
+
+
+--
+-- Name: index_heartbeats_on_tenant_studio_user_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_heartbeats_on_tenant_studio_user_expires_at ON public.heartbeats USING btree (tenant_id, studio_id, user_id, expires_at);
+
+
+--
+-- Name: index_heartbeats_on_truncated_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_heartbeats_on_truncated_id ON public.heartbeats USING btree (truncated_id);
+
+
+--
+-- Name: index_heartbeats_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_heartbeats_on_user_id ON public.heartbeats USING btree (user_id);
 
 
 --
@@ -1814,6 +1874,14 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
+-- Name: heartbeats fk_rails_65aa64ba75; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.heartbeats
+    ADD CONSTRAINT fk_rails_65aa64ba75 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: links fk_rails_6888b30c51; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1966,6 +2034,14 @@ ALTER TABLE ONLY public.active_storage_attachments
 
 
 --
+-- Name: heartbeats fk_rails_c4c1ea3d5d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.heartbeats
+    ADD CONSTRAINT fk_rails_c4c1ea3d5d FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: commitment_participants fk_rails_ca2dcc834c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2083,6 +2159,14 @@ ALTER TABLE ONLY public.commitments
 
 ALTER TABLE ONLY public.representation_sessions
     ADD CONSTRAINT fk_rails_ee2c2c283c FOREIGN KEY (trustee_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: heartbeats fk_rails_ef017bd5f0; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.heartbeats
+    ADD CONSTRAINT fk_rails_ef017bd5f0 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
 
 
 --
@@ -2230,6 +2314,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250420173702'),
 ('20250421210507'),
 ('20250421210906'),
-('20250421211106');
+('20250421211106'),
+('20250813231547');
 
 
