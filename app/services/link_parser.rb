@@ -23,6 +23,7 @@ class LinkParser
     path_pieces = path.split('/')
     prefix = path_pieces[-2]
     id = path_pieces[-1]
+    return nil if id.nil?
     studio_handle = path_pieces[-3]
     studio_ids = Studio.where(handle: studio_handle).pluck(:id)
     model = models[prefix]

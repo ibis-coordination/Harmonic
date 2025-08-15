@@ -1,7 +1,11 @@
 <%= render 'studio_title' %>
 
 <h2>Join</h2>
-<% if @invite %>
+<% if @current_studio.is_scene? %>
+  <p>
+    <%= button_to 'Join Studio', "#{@current_studio.path}/join", method: :post %>
+  </p>
+<% elsif @invite %>
   <p>
     Click the button below to join studio <strong><%= @current_studio.name %></strong>.
   </p>

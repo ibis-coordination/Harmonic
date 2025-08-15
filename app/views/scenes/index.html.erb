@@ -1,0 +1,7 @@
+<%= render 'shared/show_resource_breadcrumbs', hide_studio_path: true, resource: 'Scenes' %>
+<h1><%= octicon 'eye', height: 24 %> Scenes</h1>
+<ul>
+  <% @scenes.each do |scene| %>
+    <li><a href="<%= scene.path %>"><%= scene.name %></a></li>
+  <% end %>
+</ul>

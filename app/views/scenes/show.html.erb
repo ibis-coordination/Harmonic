@@ -1,0 +1,7 @@
+<%= render 'studios/studio_title' %>
+<%= render 'shared/new_note' %>
+<hr style="height:1px;"/>
+<% @notes.each do |note| %>
+  <%= render 'shared/timeline_note', note: note %>
+  <hr style="height:1px;"/>
+<% end %>

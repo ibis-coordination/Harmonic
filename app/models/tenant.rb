@@ -56,6 +56,15 @@ class Tenant < ApplicationRecord
     Thread.current[:main_studio_id]
   end
 
+  def self.all_public_tenants
+    unscoped.where(
+      subdomain: [
+        [ENV['PRIMARY_SUBDOMAIN']],
+        ENV.fetch('OTHER_PUBLIC_TENANTS', nil)&.split(',')
+      ].compact.flatten
+    )
+  end
+
   def path
     "/"
   end

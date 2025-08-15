@@ -1,5 +1,5 @@
 <span data-controller="note" data-note-id="<%= @note.id %>">
-<%= render 'shared/more_button', resource: @note, options: ['copy', 'pin', @note.user_can_edit?(@current_user) ? 'edit' : nil].compact %>
+<%= render 'shared/more_button', resource: @note, options: ['copy', (@current_studio.is_scene? ? nil : 'pin'), (@note.user_can_edit?(@current_user) ? 'edit' : nil)].compact %>
 <%= render 'shared/show_resource_breadcrumbs', resource: @note %>
 <h1 style="margin-top:0;"><%= @note.persisted_title %></h1>
 <p style="font-size:0.8em;">

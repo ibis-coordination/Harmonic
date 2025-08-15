@@ -565,7 +565,8 @@ CREATE TABLE public.studios (
     created_by_id uuid NOT NULL,
     updated_by_id uuid NOT NULL,
     trustee_user_id uuid,
-    description text
+    description text,
+    studio_type character varying DEFAULT 'studio'::character varying NOT NULL
 );
 
 
@@ -2315,6 +2316,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250421210507'),
 ('20250421210906'),
 ('20250421211106'),
-('20250813231547');
+('20250813231547'),
+('20250815005326');
 
 

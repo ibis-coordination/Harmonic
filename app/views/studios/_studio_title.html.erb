@@ -3,7 +3,16 @@
   <div style="padding-top:30px;">
     <h4 style="padding-left:92px;margin-top:0px;margin-bottom:0;">
       <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
-      Studio <code><%= @current_studio.handle %></code>
+      <%= @current_studio.studio_type.titleize %> <code><%= @current_studio.handle %></code>
+      <% if @current_studio.is_scene? %>
+        <span title="Scenes are publicly visible.">
+          <%= octicon 'eye' %>
+        </span>
+      <% else %>
+        <span title="Studios are private. Only other members can see your activity within this studio.">
+          <%= octicon 'lock' %>
+        </span>
+      <% end %>
     </h4>
     <h1 style="padding-left:92px;margin-top:0;">
       <%= @current_studio.name %>

@@ -90,7 +90,7 @@ class SessionsController < ApplicationController
   def redirect_to_auth_domain
     raise 'Unexpected error. Wrong subdomain.' if request.subdomain == auth_subdomain
     set_shared_domain_cookie(:redirect_to_subdomain, request.subdomain)
-    if params[:redirect_to_resource]
+    if params[:redirect_to_resource] && params[:redirect_to_resource].length > 0
       resource = LinkParser.parse_path(params[:redirect_to_resource])
       set_shared_domain_cookie(:redirect_to_resource, resource.path) if resource && resource.tenant_id == current_tenant.id
     elsif params[:code]

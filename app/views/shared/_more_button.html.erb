@@ -3,7 +3,7 @@
   <div
     data-more-button-target="plus"
     data-action="click->more-button#togglePlusMenu"
-    style="display:inline-block;float:none;width:36px;text-align:center;margin-right:12px;background-color:var(--color-fg-default);color:var(--color-canvas-default);border-radius:3px;padding:3px;"
+    style="display:<%= studio.is_scene? ? 'none' : 'inline-block' %>;float:none;width:36px;text-align:center;margin-right:12px;background-color:var(--color-fg-default);color:var(--color-canvas-default);border-radius:3px;padding:3px;"
     >
     <%= octicon 'plus' %><%= octicon 'triangle-down' %>
     </div>

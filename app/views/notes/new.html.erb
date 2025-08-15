@@ -7,4 +7,15 @@
   <%= render 'shared/multi_file_select', form: form %>
   <hr style="height:1px;" />
   <%= form.submit 'Post' %>
+  <% if @current_studio.is_scene? %>
+    <span>
+      <%= octicon 'eye' %>
+      Notes posted in scenes are publicly visible.
+    </span>
+  <% else %>
+    <span>
+      <%= octicon 'lock' %>
+      Notes posted in this studio are only visible to members of the studio.
+    </span>
+  <% end %>
 <% end %>

@@ -1,6 +1,7 @@
 class StudiosController < ApplicationController
 
   def show
+    return render 'shared/404' unless @current_studio.studio_type == 'studio'
     @page_title = @current_studio.name
     @pinned_items = @current_studio.pinned_items
     @cycle = current_cycle
@@ -162,6 +163,9 @@ class StudiosController < ApplicationController
   def accept_invite
     if current_user && current_user.studios.include?(@current_studio)
       return render status: 400, text: 'You are already a member of this studio'
+    elsif current_user && @current_studio.is_scene? && !params[:code]
+      @current_studio.add_user!(current_user)
+      return redirect_to @current_studio.path
     end
     invite = StudioInvite.find_by(code: params[:code]) if params[:code]
     invite ||= StudioInvite.find_by(invited_user: current_user, studio: @current_studio)
