@@ -1,9 +1,31 @@
 <% if @current_user %>
+  <h1>
+    <i class="note-icon large-icon"></i>
+    <i class="decision-icon large-icon"></i>
+    <i class="commitment-icon large-icon"></i>
+    <span style="display:inline-block;width:5px;"></span>
+    <%= @current_tenant.subdomain %><span style="opacity:0.6;font-weight:normal;">.<%= ENV['HOSTNAME'] %></span>
+  </h1>
+  <% unless @current_representation_session %>
+    <a href="/studios/new"><button style="float:right;margin-top:8px;">New Scene</button></a>
+  <% end %>
+  <h2><%= octicon 'eye', height: 24 %> Your Scenes</h2>
+  <p>Scenes are public groups that may or may not require invitation to join.</p>
+  <ul>
+    <% @scenes.each do |scene| %>
+      <li>
+        <a href="<%= scene.path %>">
+          <%= scene.name %>
+        </a>
+      </li>
+    <% end %>
+    <li><%= octicon 'telescope' %> Explore <a href="/scenes">other scenes</a> on <code><%= @current_tenant.subdomain %></code>
+  </ul>
   <% unless @current_representation_session %>
     <a href="/studios/new"><button style="float:right;margin-top:8px;">New Studio</button></a>
   <% end %>
   <h2>
-    <% if @studios.first.has_heartbeat %>
+    <% if @studios.first&.has_heartbeat %>
       <span title="heartbeats sent for all studios!">
         <%= octicon 'heart-fill', height: 24 %>
       </span>
@@ -14,6 +36,7 @@
     <% end %>
     Your Studios
   </h2>
+  <p>Studios are private groups that require invitation to join.</p>
   <% if @studios.any? %>
     <ul>
       <% @studios.each.with_index do |studio, index| %>
@@ -38,21 +61,21 @@
     <p>No studios yet.</p>
   <% end %>
 
-  <% if @current_tenant.allow_main_studio_items? %>
-    <h2>Create</h2>
-    <p>
-      <i class="note-icon large-icon" style="height:2em;float:left;margin-right:12px"></i>
-      <a href="/note"><button>New Note</button></a>
-    </p>
-    <p>
-      <i class="decision-icon large-icon" style="height:2em;float:left;margin-right:12px"></i>
-      <a href="/decide"><button>New Decision</button></a>
-    </p>
-    <p>
-      <i class="commitment-icon large-icon" style="height:2em;float:left;margin-right:12px"></i>
-      <a href="/commit"><button>New Commitment</button></a>
-    </p>
-  <% end %>
+  <h2>
+    <%= octicon 'globe', height: 24 %>
+    Other Subdomains on <span style="opacity:0.6;font-weight:normal;"><%= ENV['HOSTNAME'] %></span>
+  </h2>
+  <p>Each subdomain contains a separate set of scenes and studios.</p>
+  <ul>
+    <li><code><%= @current_tenant.subdomain %></code> (current)</li>
+    <% @other_tenants.each do |t| %>
+      <li>
+        <a href="https://<%= t.subdomain %>.<%= ENV['HOSTNAME'] %>">
+          <code><%= t.subdomain %></code>
+        </a>
+      </li>
+    <% end %>
+  </ul>
 <% else %>
   <p><a href="/login">Log in</a></p>
 <% end %>

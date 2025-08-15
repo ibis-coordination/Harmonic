@@ -164,7 +164,8 @@ class RepresentationSession < ApplicationRecord
       semantic_event = activity['semantic_event']
       verb_phrase = event_type_to_verb_phrase(semantic_event['event_type'])
       resource_model = semantic_event['main_resource']['type'].constantize
-      main_resource = resource_model.unscoped.find(semantic_event['main_resource']['id'])
+      main_resource = resource_model.unscoped.find_by(id: semantic_event['main_resource']['id'])
+      main_resource ||= DeletedRecordProxy.new
       studio = main_resource.studio
       {
         happened_at: happened_at,

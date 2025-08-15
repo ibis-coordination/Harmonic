@@ -28,8 +28,8 @@ body {
 }
 
 .homepage .markdown-body {
-  background-color: unset;
-  border: none;
+  /* background-color: unset;
+  border: none; */
 }
 
 .homepage .homepage-studio-section {
@@ -419,6 +419,10 @@ select:focus {
   height: 33px;
 }
 
+h1 .large-icon {
+  vertical-align: middle;
+}
+
 .note-icon {
   background-image: url(/resource-icons/note-icon.svg);
 }
@@ -431,8 +435,8 @@ select:focus {
   background-image: url(/resource-icons/commitment-icon.svg);
 }
 
-.pin-icon {
-  background-image: url(/pin-fill-icon-black.svg);
+.tri-logo-icon {
+  background-image: url(/tri-logo.svg);
   background-size: 16px;
   background-repeat: no-repeat;
   height: 16px;
@@ -517,14 +521,14 @@ ul.attachments-list {
 #expanding-heart svg {
   display: block;
   position: relative;
-  top: -30px;
-  left: -30px;
+  top: -33px;
+  left: -33px;
   margin: 0 auto;
   height: 100px;
   width: 12px;
   opacity: 1;
   filter: blur(0px);
-  fill: var(--color-fg-subtle);
+  fill: red;
 }
 
 .blur-if-no-heartbeat, #expanding-heart svg {

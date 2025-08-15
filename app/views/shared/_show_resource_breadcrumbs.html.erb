@@ -1,10 +1,13 @@
 <% resource ||= nil %>
+<% hide_studio_path ||= false %>
 <h4 style="margin-top:0px;margin-bottom:0;">
   <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
-  <a href="<%= @current_studio.path || '/' %>">
-    <img src="<%= @current_studio.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
-    <%= @current_studio.name %>
-  </a> /
+  <% unless hide_studio_path %>
+    <a href="<%= @current_studio.path || '/' %>">
+      <img src="<%= @current_studio.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
+      <%= @current_studio.name %>
+    </a> /
+  <% end %>
   <% if resource.nil? %>
     <%= yield %>
   <% elsif resource.is_a?(String) %>
@@ -17,6 +20,15 @@
   <% else %>
     <span style="white-space:nowrap;">
       <i class="<%= resource.class.to_s.downcase %>-icon"></i> <%= resource.class.to_s %> <code><%= resource.truncated_id %></code>
+      <% if @current_studio.is_scene? %>
+        <span title="This <%= resource.class.to_s.downcase %> is publicly visible.">
+          <%= octicon 'eye' %>
+        </span>
+      <% else %>
+        <span title="Only members of <%= @current_studio.name %> can see this <%= resource.class.to_s.downcase %>.">
+          <%= octicon 'lock' %>
+        </span>
+      <% end %>
     </span>
   <% end %>
 </h4>

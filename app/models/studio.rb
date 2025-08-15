@@ -20,6 +20,7 @@ class Studio < ApplicationRecord
     has_many table.to_sym
   end
   has_many :users, through: :studio_users
+  validates :studio_type, inclusion: { in: %w[studio scene] }
   validate :handle_is_valid
   validate :creator_is_not_trustee, on: :create
 
@@ -95,6 +96,10 @@ class Studio < ApplicationRecord
 
   def is_main_studio?
     self.tenant.main_studio_id == self.id
+  end
+
+  def is_scene?
+    studio_type == 'scene'
   end
 
   def creator_is_not_trustee
@@ -306,7 +311,7 @@ class Studio < ApplicationRecord
   end
 
   def path_prefix
-    'studios'
+    "#{studio_type}s"
   end
 
   def path

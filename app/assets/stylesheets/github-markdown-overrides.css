@@ -6,3 +6,7 @@
 .markdown-body h6 .octicon.octicon-link {
   visibility: visible;
 }
+
+.markdown-body .octicon.octicon-heart-fill {
+  fill: red;
+}

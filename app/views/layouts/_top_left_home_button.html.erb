@@ -1,3 +1,7 @@
 <a href="/" style="text-decoration:none;font-weight:bold;color:var(--color-fg-default);">
-  <%= @current_tenant.subdomain %><span style="opacity:0.3;font-weight:normal;">.<%= ENV['HOSTNAME'] %></span>
+  <i class="note-icon"></i>
+  <i class="decision-icon"></i>
+  <i class="commitment-icon"></i>
+  <span style="display:inline-block;width:5px;"></span>
+  <%= @current_tenant.subdomain %><span style="opacity:0.6;font-weight:normal;">.<%= ENV['HOSTNAME'] %></span>
 </a>

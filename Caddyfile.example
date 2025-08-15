@@ -1,3 +1,6 @@
+{$HOSTNAME} {
+	redir https://{$PRIMARY_SUBDOMAIN}.{$HOSTNAME}{uri} permanent
+}
 {$PRIMARY_SUBDOMAIN}.{$HOSTNAME} {
 	reverse_proxy web:3000
 }
