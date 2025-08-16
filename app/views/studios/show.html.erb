@@ -1,10 +1,22 @@
-<%= render 'shared/more_button_studio', studio: @current_studio %>
+<span class="blur-if-no-heartbeat <%= @current_heartbeat.nil? ? 'no-heartbeat' : 'has-heartbeat' %>">
+  <%= render 'shared/more_button_studio', studio: @current_studio %>
+</span>
 
 <%= render 'studio_title' %>
 
 <%= render 'heartbeat_section' %>
 
 <div class="blur-if-no-heartbeat <%= @current_heartbeat.nil? ? 'no-heartbeat' : 'has-heartbeat' %>">
+  <% if @pinned_items.length > 0 %>
+    <%= render 'shared/collapseable_section', title: "Pinned", octicon: 'pin', header_level: 4, hidden: false, indent: true do %>
+      <ul>
+        <% @pinned_items.each do |item| %>
+          <li><%= render 'shared/inline_resource_item', resource: item[:item] %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+
   <%= render 'shared/collapseable_section', title: @cycle.display_window, title_superscript: @cycle.display_name, octicon: 'iterations', header_level: 2, hidden: false, indent: true do %>
     <p>
       <span style="font-size: 0.8em;" title="<%= @current_studio.timezone.name %>">
@@ -30,13 +42,13 @@
     </p>
 
     <% notes_title = "<i class='note-icon medium-icon'></i> Notes".html_safe %>
-    <% notes_title_superscript = "#{@unread_notes.count} unread, #{@read_notes.count} read" %>
+    <% notes_title_superscript = { unread: @unread_notes.count, read: @read_notes.count.to_s } %>
     <%= render 'shared/collapseable_section', title: notes_title, title_superscript: notes_title_superscript, header_level: 3, hidden: true, indent: true do %>
       <a href="<%= @current_studio.path %>/note">
         <button>New Note</button>
       </a>
 
-      <%= render 'shared/collapseable_section', title: 'Unread Notes', title_superscript: @unread_notes.count, header_level: 4, hidden: false, indent: true do %>
+      <%= render 'shared/collapseable_section', title: 'Unread Notes', title_superscript: { '' => @unread_notes.count }, header_level: 4, hidden: false, indent: true do %>
         <% @unread_notes.order(created_at: :desc).limit(100).each do |note| %>
           <%= render 'shared/timeline_note', note: note %>
           <hr/>
@@ -51,12 +63,12 @@
     <% end %>
 
     <% decisions_title = "<i class='decision-icon medium-icon'></i> Decisions".html_safe %>
-    <% decisions_title_superscript = "#{@open_decisions.count} open, #{@closed_decisions.count} closed" %>
+    <% decisions_title_superscript = { open: @open_decisions.count, closed: @closed_decisions.count } %>
     <%= render 'shared/collapseable_section', title: decisions_title, title_superscript: decisions_title_superscript, header_level: 3, hidden: true, indent: true do %>
       <a href="<%= @current_studio.path %>/decide">
         <button>New Decision</button>
       </a>
-      <%= render 'shared/collapseable_section', title: "Open Decisions", title_superscript: "#{@open_decisions.count}", header_level: 4, hidden: false do %>
+      <%= render 'shared/collapseable_section', title: "Open Decisions", title_superscript: { '' => @open_decisions.count }, header_level: 4, hidden: false do %>
         <ul>
           <% @open_decisions.order(deadline: :asc).limit(100).each do |decision| %>
             <li><%= render 'shared/inline_resource_item', resource: decision %></li>
@@ -73,12 +85,12 @@
     <% end %>
 
     <% commitments_title = "<i class='commitment-icon medium-icon'></i> Commitments".html_safe %>
-    <% commitments_title_superscript = "#{@open_commitments.count} open, #{@closed_commitments.count} closed" %>
+    <% commitments_title_superscript = { open: @open_commitments.count, closed: @closed_commitments.count } %>
     <%= render 'shared/collapseable_section', title: commitments_title, title_superscript: commitments_title_superscript, header_level: 3, hidden: true, indent: true do %>
       <a href="<%= @current_studio.path %>/commit">
         <button>New Commitment</button>
       </a>
-      <%= render 'shared/collapseable_section', title: "Open Commitments", title_superscript: "#{@open_commitments.count}", header_level: 4, hidden: false do %>
+      <%= render 'shared/collapseable_section', title: "Open Commitments", title_superscript: { '' => @open_commitments.count }, header_level: 4, hidden: false do %>
         <ul>
           <% @open_commitments.order(deadline: :asc).limit(100).each do |commitment| %>
             <li><%= render 'shared/inline_resource_item', resource: commitment %></li>
@@ -139,13 +151,6 @@
   <% end %>
 
   <%= render 'shared/collapseable_section', title: 'More', octicon: 'ellipsis', header_level: 2, hidden: false, indent: true do %>
-    <%= render 'shared/collapseable_section', title: "Pinned", title_superscript: "#{@pinned_items.count}", octicon: 'pin', header_level: 4, hidden: false, indent: true do %>
-      <ul>
-        <% @pinned_items.each do |item| %>
-          <li><%= render 'shared/inline_resource_item', resource: item[:item] %></li>
-        <% end %>
-      </ul>
-    <% end %>
 
     <%= render 'shared/collapseable_section', title: "Explore", octicon: 'telescope', header_level: 4, hidden: false, indent: true do %>
       <ul>
@@ -161,13 +166,21 @@
     <% end %>
 
     <%= render 'shared/collapseable_section', title: "Studio Members", title_superscript: "#{@team.count}", octicon: 'people', header_level: 4, hidden: true, indent: true do %>
-      <a href="<%= @current_studio.path %>/invite">
-        <button>Invite New Member</button>
-      </a>
+      <% if @current_user.studio_user.can_invite? %>
+        <a href="<%= @current_studio.path %>/invite">
+          <button>Invite New Member</button>
+        </a>
+      <% end %>
       <%= render 'shared/team', team: @team %>
     <% end %>
 
     <%= render 'shared/collapseable_section', title: 'Representation', octicon: 'feed-person', header_level: 4, hidden: true, indent: true, lazy_load: "#{@current_studio.path}/representation.html" do %>
+    <% end %>
+
+    <% if @current_user.studio_user.can_edit_settings? %>
+      <a href="<%= @current_studio.path %>/settings" style="color:var(--color-fg-default);">
+        <%= octicon 'gear' %> Studio Settings
+      </a>
     <% end %>
   <% end %>
 </div>

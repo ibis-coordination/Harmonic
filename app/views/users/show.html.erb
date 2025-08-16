@@ -1,8 +1,4 @@
-<% if @current_studio != @current_tenant.main_studio %>
-  <h4 style="display:inline-block;margin:0;">
-    <%= link_to @current_studio.name, @current_studio.path || '/' %> / Team / <%= @showing_user.display_name %>
-  </h4>
-<% end %>
+<%= render 'shared/show_resource_breadcrumbs', resource: @showing_user %>
 <img src="<%= @showing_user.image_url %>" style="height:64px;float:left;margin-right:12px;border-radius:50%;" />
 <h1><%= @showing_user.display_name %><%= @showing_user.archived? ? ' (Archived)' : '' %></h1>
 <p>
@@ -11,11 +7,7 @@
   </a>
 </p>
 
-<% @current_studio.notes.where(created_by: @showing_user).order(created_at: :desc).limit(20).each do |note| %>
-  <%= render 'shared/timeline_note', note: note %>
-  <hr style="height:1px;"/>
-<% end %>
-
-<% if false %>
-  <%= render 'common_studios_activity' %>
+<% if @current_user != @showing_user %>
+  <% if @common_studios.count > 0 %>
+  <% end %>
 <% end %>

@@ -15,7 +15,19 @@
     <span <%= target ? target.map { |k, v| "data-#{k}-target='#{v}'" }.join(' ').html_safe : '' %>>
       <%= title %>
       <% if title_superscript %>
-        <span class="header-superscript"><%= title_superscript %></span>
+        <span class="header-superscript">
+          <% if title_superscript.is_a?(Hash) %>
+            <% title_superscript.each do |key, val| %>
+              <% if val.is_a?(Integer) && val > 0 %>
+                <strong><%= val %> <%= key %></strong>
+              <% else %>
+                <%= val %> <%= key %>
+              <% end %>
+            <% end %>
+          <% else %>
+            <%= title_superscript %>
+          <% end %>
+        </span>
       <% end %>
     </span>
     <span data-collapseable-section-target="triangleRight" style="display:<%= hidden ? 'inline' : 'none' %>;">

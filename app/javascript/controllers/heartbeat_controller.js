@@ -60,7 +60,7 @@ export default class extends Controller {
   }
 
   showBlurred() {
-    const b = document.querySelector('.blur-if-no-heartbeat.no-heartbeat');
-    b.classList.remove('no-heartbeat');
+    const blurs = document.querySelectorAll('.blur-if-no-heartbeat.no-heartbeat');
+    blurs.forEach((b) => b.classList.remove('no-heartbeat'));
   }
 }
