@@ -265,6 +265,8 @@ select:focus {
   vertical-align: super;
   font-weight: normal;
   color: var(--color-fg-muted);
+}
+.header-superscript strong {
   background: var(--color-attention-subtle);
 }
 

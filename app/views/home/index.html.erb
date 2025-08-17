@@ -9,12 +9,13 @@
   <% unless @current_representation_session %>
     <a href="/studios/new"><button style="float:right;margin-top:8px;">New Scene</button></a>
   <% end %>
-  <h2><%= octicon 'eye', height: 24 %> Your Scenes</h2>
+  <h2><%= octicon 'eye', height: 24 %> Your <code><%= @current_tenant.subdomain %></code> Scenes</h2>
   <p>Scenes are public groups that may or may not require invitation to join.</p>
   <ul>
     <% @scenes.each do |scene| %>
       <li>
         <a href="<%= scene.path %>">
+          <img src="<%= scene.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
           <%= scene.name %>
         </a>
       </li>
@@ -34,7 +35,7 @@
         <%= octicon 'heart', height: 24 %>
       </span>
     <% end %>
-    Your Studios
+    Your <code><%= @current_tenant.subdomain %></code> Studios
   </h2>
   <p>Studios are private groups that require invitation to join.</p>
   <% if @studios.any? %>
@@ -63,7 +64,7 @@
 
   <h2>
     <%= octicon 'globe', height: 24 %>
-    Other Subdomains on <span style="opacity:0.6;font-weight:normal;"><%= ENV['HOSTNAME'] %></span>
+    Other Subdomains
   </h2>
   <p>Each subdomain contains a separate set of scenes and studios.</p>
   <ul>

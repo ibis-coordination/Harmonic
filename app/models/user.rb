@@ -34,6 +34,10 @@ class User < ApplicationRecord
     }
   end
 
+  def truncated_id
+    handle
+  end
+
   def image_url
     if trustee?
       Studio.where(trustee_user: self).first.image_path

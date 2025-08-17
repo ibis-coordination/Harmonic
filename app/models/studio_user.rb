@@ -97,11 +97,15 @@ class StudioUser < ApplicationRecord
   end
 
   def can_invite?
-    has_role?('admin') || studio.allow_invites?
+    archived_at.nil? && (has_role?('admin') || studio.allow_invites?)
+  end
+
+  def can_edit_settings?
+    archived_at.nil? && has_role?('admin')
   end
 
   def can_represent?
-    has_role?('representative') || studio.any_member_can_represent?
+    archived_at.nil? && (has_role?('representative') || studio.any_member_can_represent?)
   end
 
   def path

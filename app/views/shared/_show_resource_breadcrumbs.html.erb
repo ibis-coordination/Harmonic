@@ -2,7 +2,7 @@
 <% hide_studio_path ||= false %>
 <h4 style="margin-top:0px;margin-bottom:0;">
   <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
-  <% unless hide_studio_path %>
+  <% unless hide_studio_path || @current_studio.is_main_studio? %>
     <a href="<%= @current_studio.path || '/' %>">
       <img src="<%= @current_studio.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
       <%= @current_studio.name %>
@@ -24,7 +24,7 @@
         <span title="This <%= resource.class.to_s.downcase %> is publicly visible.">
           <%= octicon 'eye' %>
         </span>
-      <% else %>
+      <% elsif !@current_studio.is_main_studio? %>
         <span title="Only members of <%= @current_studio.name %> can see this <%= resource.class.to_s.downcase %>.">
           <%= octicon 'lock' %>
         </span>
