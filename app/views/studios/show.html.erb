@@ -63,7 +63,7 @@
     <% end %>
 
     <% decisions_title = "<i class='decision-icon medium-icon'></i> Decisions".html_safe %>
-    <% decisions_title_superscript = { open: @open_decisions.count, closed: @closed_decisions.count } %>
+    <% decisions_title_superscript = { open: @open_decisions.count, closed: @closed_decisions.count.to_s } %>
     <%= render 'shared/collapseable_section', title: decisions_title, title_superscript: decisions_title_superscript, header_level: 3, hidden: true, indent: true do %>
       <a href="<%= @current_studio.path %>/decide">
         <button>New Decision</button>
@@ -85,7 +85,7 @@
     <% end %>
 
     <% commitments_title = "<i class='commitment-icon medium-icon'></i> Commitments".html_safe %>
-    <% commitments_title_superscript = { open: @open_commitments.count, closed: @closed_commitments.count } %>
+    <% commitments_title_superscript = { open: @open_commitments.count, closed: @closed_commitments.count.to_s } %>
     <%= render 'shared/collapseable_section', title: commitments_title, title_superscript: commitments_title_superscript, header_level: 3, hidden: true, indent: true do %>
       <a href="<%= @current_studio.path %>/commit">
         <button>New Commitment</button>
@@ -165,7 +165,7 @@
       </ul>
     <% end %>
 
-    <%= render 'shared/collapseable_section', title: "Studio Members", title_superscript: "#{@team.count}", octicon: 'people', header_level: 4, hidden: true, indent: true do %>
+    <%= render 'shared/collapseable_section', title: "Studio Members", title_superscript: "#{@team.count}", octicon: 'people', header_level: 4, hidden: false, indent: true do %>
       <% if @current_user.studio_user.can_invite? %>
         <a href="<%= @current_studio.path %>/invite">
           <button>Invite New Member</button>
