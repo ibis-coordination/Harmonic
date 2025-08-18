@@ -598,7 +598,8 @@ CREATE TABLE public.tenants (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     settings jsonb DEFAULT '{}'::jsonb,
-    main_studio_id uuid
+    main_studio_id uuid,
+    archived_at timestamp(6) without time zone
 );
 
 
@@ -2317,6 +2318,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250421210906'),
 ('20250421211106'),
 ('20250813231547'),
-('20250815005326');
+('20250815005326'),
+('20250818184030');
 
 

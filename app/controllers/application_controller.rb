@@ -15,8 +15,8 @@ class ApplicationController < ActionController::Base
     # This method should be overridden in the app-specific controllers.
     return @current_app if defined?(@current_app)
     @current_app = 'decisive'
-    @current_app_title = 'Harmonic Team'
-    @current_app_description = 'fast group coordination'
+    @current_app_title = 'Harmonic'
+    @current_app_description = 'social agency platform'
     @current_app
   end
 
@@ -24,6 +24,8 @@ class ApplicationController < ActionController::Base
     return @current_tenant if defined?(@current_tenant)
     current_studio
     @current_tenant ||= @current_studio.tenant
+    redirect_to '/404' if @current_tenant.archived?
+    @current_tenant
   end
 
   def current_studio

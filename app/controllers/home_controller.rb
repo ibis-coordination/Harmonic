@@ -20,6 +20,7 @@ class HomeController < ApplicationController
       .where(user: @current_user)
       .where.not(tenant_id: [@current_tenant.id] + @public_tenants.pluck(:id))
       .includes(:tenant)
+      .where(tenant: { archived_at: nil })
       .map(&:tenant)
     @other_tenants = (
       (@other_tenants + @public_tenants) - [@current_tenant]
@@ -45,6 +46,10 @@ class HomeController < ApplicationController
     @page_title = 'Actions | Home'
     @routes_and_actions = ActionsHelper.routes_and_actions
     render 'actions'
+  end
+
+  def page_not_found
+    render 'shared/404', layout: 'application', status: 404
   end
 
   private

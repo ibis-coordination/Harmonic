@@ -199,6 +199,15 @@ class Tenant < ApplicationRecord
     "https://#{domain}"
   end
 
+  def archived?
+    archived_at.present?
+  end
+
+  def archive!
+    self.archived_at = Time.current
+    save!
+  end
+
   private
 
   def self.current_subdomain=(subdomain)

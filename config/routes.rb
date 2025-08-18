@@ -49,6 +49,7 @@ Rails.application.routes.draw do
   end
   # Defines the root path route ("/")
   root 'home#index'
+  get '404' => 'home#page_not_found'
   get 'home' => 'home#index'
   get 'actions' => 'home#actions_index'
   get 'settings' => 'home#settings'
