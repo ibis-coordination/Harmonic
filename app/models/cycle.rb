@@ -225,7 +225,7 @@ class Cycle
     # What if updated_at is after deadline?
     rs = model.where(tenant_id: @tenant.id, studio_id: @studio.id)
               .where("#{model.table_name}.created_at < ?", end_date)
-              .where("#{model.table_name}.deadline > ?", start_date)
+              .where("#{model.table_name}.deadline >= ?", start_date)
     if filters.present?
       filters.each do |filter|
         rs = rs.where(filter)
@@ -353,7 +353,7 @@ class Cycle
         elsif key == 'closing_soon'
           ['deadline > ? and deadline < ?', Time.current, self.end_date]
         elsif key == 'deadline_within_cycle'
-          ['deadline > ? and deadline < ?', self.start_date, self.end_date]
+          ['deadline >= ? and deadline < ?', self.start_date, self.end_date]
         elsif key == 'deadline_after_cycle'
           ['deadline > ?', self.end_date]
         elsif key == 'new'
@@ -404,7 +404,7 @@ class Cycle
   end
 
   def decisions_closed_within_cycle
-    @decisions_closed_within_cycle ||= decisions.where('deadline > ? and deadline < ?', self.start_date, self.end_date)
+    @decisions_closed_within_cycle ||= decisions.where('deadline >= ? and deadline < ?', self.start_date, self.end_date)
   end
 
   def commitments
@@ -420,7 +420,7 @@ class Cycle
   end
 
   def commitments_closed_within_cycle
-    @commitments_closed_within_cycle ||= commitments.where('deadline > ? and deadline < ?', self.start_date, self.end_date)
+    @commitments_closed_within_cycle ||= commitments.where('deadline >= ? and deadline < ?', self.start_date, self.end_date)
   end
 
   def counts
@@ -447,7 +447,7 @@ class Cycle
   def data_rows
     rows =  CycleDataRow.where(tenant_id: @tenant.id, studio_id: @studio.id)
                         .where('created_at < ?', end_date)
-                        .where('deadline > ?', start_date)
+                        .where('deadline >= ?', start_date)
     if filters.present?
       filters.each do |filter|
         rows = rows.where(filter)
