@@ -92,6 +92,10 @@ class Decision < ApplicationRecord
     can_edit_settings?(participant_or_user)
   end
 
+  def close_at_critical_mass?
+    false # This method is only required for parity with Commitment
+  end
+
   def public?
     false
   end
