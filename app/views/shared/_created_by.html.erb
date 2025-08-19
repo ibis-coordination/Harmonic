@@ -8,6 +8,7 @@
   <% if resource.updated_at > resource.created_at %>
     Updated <strong><%= timeago(resource.updated_at) %></strong>
     by <%= profile_pic(resource.updated_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
-    <%= link_to resource.updated_by.display_name, resource.updated_by.path %>
+    <strong><%= resource.updated_by.display_name %></strong>
+    <%= link_to "@#{resource.updated_by.handle}", resource.updated_by.path %>
   <% end %>
 </span>

@@ -5,11 +5,7 @@
 <p style="font-size:0.8em;">
   <%= render 'shared/created_by', resource: @decision %>
   <br/>
-  <% if @decision.closed? %>
-    Closed <strong><%= timeago(@decision.deadline) %></strong><br/>
-  <% else %>
-    Closing in <strong><%= countdown(@decision.deadline) %></strong><br/>
-  <% end %>
+  <%= render 'shared/deadline_display', resource: @decision %>
   <br/>
 </p>
 <%= render 'shared/attachments_section', resource: @decision %>

@@ -64,6 +64,15 @@ class ApplicationRecord < ActiveRecord::Base
     deadline && deadline < Time.now
   end
 
+  def user_can_close?(user)
+    user.id == created_by.id
+  end
+
+  def requires_manual_close?
+    # Deadline decades in the future represents intention to manually close in the future
+    (deadline - Time.current) > 50.years
+  end
+
   def path
     "#{studio.path}/#{path_prefix}/#{self.truncated_id}"
   end

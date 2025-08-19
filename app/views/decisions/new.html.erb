@@ -16,7 +16,9 @@
   <h3>Deadline</h3>
   <p>
     Voting will close at
-    <%= form.select :end_of_cycle, options_for_select(@end_of_cycle_options, selected: @end_of_cycle_options[1]) %>
+  </p>
+  <p>
+    <%= render 'shared/deadline_input_fields', form: form, deadline: Time.current + 1.week %>
   </p>
   <hr style="height:1px;" />
   <%= form.submit 'Start Decision' %>

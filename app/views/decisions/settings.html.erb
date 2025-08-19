@@ -1,9 +1,5 @@
-<h4 style="display:inline-block;">
-  <%= link_to @current_studio.name, @current_studio.path || '/' %> /
-  <span style="white-space:nowrap;">
-    <i class="decision-icon"></i> Decision <code><%= @decision.truncated_id %></code>
-  </span>
-</h4>
+<%= render 'shared/show_resource_breadcrumbs', resource: @decision %>
+<br/>
 <%= form_with url: "#{@decision.path}/settings" do |form| %>
   <div>
     <%= form.text_field :question, placeholder: 'Question that this decision will answer', value: @decision.question %>
@@ -16,11 +12,8 @@
     <%= form.select :options_open, options_for_select([['Everyone', true], ['Just you', false]], selected: 'Everyone') %>
     can add options.
   </p>
-  <!-- <h3>Deadline</h3>
-  <p>
-    Voting closes at
-    <%= form.datetime_select :deadline, value: @decision.deadline %> <%= @current_studio.timezone %>
-  </p> -->
+  <h3>Deadline</h3>
+  <%= render 'shared/deadline_input_fields', form: form, resource: @decision, close_now_option: true %>
   <hr style="height:1px;" />
   <%= form.submit 'Save' %>
 <% end %>

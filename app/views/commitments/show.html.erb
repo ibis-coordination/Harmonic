@@ -5,11 +5,7 @@
 <p style="font-size:0.8em;">
   <%= render 'shared/created_by', resource: @commitment %>
   <br/>
-  <% if @commitment.deadline && !@commitment.closed? %>
-    Closing in <strong><%= countdown(@commitment.deadline) %></strong><br/>
-  <% elsif @commitment.deadline && @commitment.closed? %>
-    Closed <strong><%= timeago(@commitment.deadline) %></strong><br/>
-  <% end %>
+  <%= render 'shared/deadline_display', resource: @commitment %>
   <br/>
 </p>
 <span data-commitment-target="statusSection" data-url="<%= @commitment.path + '/status.html' %>">

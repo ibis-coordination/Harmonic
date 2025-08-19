@@ -14,11 +14,7 @@ class CommitmentsController < ApplicationController
       title: model_params[:title],
       description: model_params[:description],
       critical_mass: model_params[:critical_mass],
-      deadline: params[:end_of_cycle] == '1 hour from now' ? 1.hour.from_now : Cycle.new_from_end_of_cycle_option(
-        end_of_cycle: params[:end_of_cycle],
-        tenant: current_tenant,
-        studio: current_studio,
-      ).end_date,
+      deadline: deadline_from_params,
       created_by: current_user,
     )
     begin
@@ -146,8 +142,8 @@ class CommitmentsController < ApplicationController
     else
       @commitment.critical_mass = model_params[:critical_mass] if model_params[:critical_mass].present?
     end
-    # The datetime select is in the studio timezone, so we need to convert it to UTC
-    # @commitment.deadline = Time.zone.parse("#{params[:deadline]} #{params[:deadline_time]}").utc
+    deadline = deadline_from_params
+    @commitment.deadline = deadline unless deadline.nil?
     ActiveRecord::Base.transaction do
       @commitment.save!
       if current_representation_session

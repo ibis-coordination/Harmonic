@@ -1,0 +1,10 @@
+<% if resource.closed? %>
+  Closed <strong><%= timeago(resource.deadline) %></strong><br/>
+<% elsif resource.requires_manual_close? %>
+  No deadline set
+  <% if resource.user_can_close?(@current_user) %>
+    <!-- TODO close button -->
+  <% end %>
+<% else %>
+  Closing in <strong><%= countdown(resource.deadline) %></strong><br/>
+<% end %>

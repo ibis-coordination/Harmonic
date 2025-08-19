@@ -142,6 +142,10 @@ class Studio < ApplicationRecord
     @timezone ||= self.settings['timezone'] ? ActiveSupport::TimeZone[self.settings['timezone']] : ActiveSupport::TimeZone['UTC']
   end
 
+  def time_in_zone(time)
+    time.in_time_zone(timezone.name)
+  end
+
   def tempo=(value)
     if ['daily', 'weekly', 'monthly'].include?(value)
       set_defaults
@@ -198,6 +202,10 @@ class Studio < ApplicationRecord
 
   def previous_cycle_path
     "#{self.path}/cycles/#{previous_cycle_name}"
+  end
+
+  def n_cycles_ago(n)
+    n.send(tempo_unit).ago
   end
 
   def synchronization_mode=(value)

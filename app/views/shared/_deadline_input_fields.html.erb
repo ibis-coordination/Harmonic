@@ -1,0 +1,28 @@
+<% form ||= nil # required %>
+<% resource ||= nil %>
+<% current_time_in_zone = @current_studio.time_in_zone(Time.current) %>
+<% deadline = deadline ? deadline : (resource ? resource.deadline : current_time_in_zone) %>
+<% deadline = @current_studio.time_in_zone(deadline) %>
+<% requires_manual_close = resource ? resource.requires_manual_close? : false %>
+<% close_now_option ||= false %>
+
+<div data-controller="deadline-options">
+  <div class="deadline-option">
+    <%= form.radio_button :deadline_option, 'no_deadline', checked: requires_manual_close %>
+    <%= form.label :deadline_option, 'No deadline (must be closed manually)' %>
+  </div>
+  <div class="deadline-option">
+    <%= form.radio_button :deadline_option, 'datetime', checked: !requires_manual_close %>
+    <% deadline_val = requires_manual_close ? current_time_in_zone : deadline %>
+    <%= form.datetime_local_field :deadline, value: deadline_val.strftime('%Y-%m-%dT%H:%M'), min: [deadline_val, current_time_in_zone].min.strftime('%Y-%m-%dT%H:%M') %>
+    <span style="font-size:0.8em;">
+      <%= @current_studio.timezone %>
+    </span>
+  </div>
+  <% if close_now_option && !resource.closed? %>
+    <div class="deadline-option">
+      <%= form.radio_button :deadline_option, 'close_now' %>
+      <%= form.label :deadline_option, 'Close now' %>
+    </div>
+  <% end %>
+</div>

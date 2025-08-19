@@ -434,6 +434,20 @@ class ApplicationController < ActionController::Base
     params[current_resource_model.name.underscore.to_sym] || params
   end
 
+  def deadline_from_params
+    deadline_option = params[:deadline_option]
+    if deadline_option == 'no_deadline'
+      return Time.current + 100.years
+    elsif deadline_option == 'datetime' && params[:deadline]
+      utc_deadline_param = @current_studio.timezone.parse(params[:deadline]).utc
+      return [utc_deadline_param, Time.current].max
+    elsif deadline_option == 'close_now'
+      return Time.current
+    else
+      return nil
+    end
+  end
+
   def reset_session
     clear_participant_uid_cookie
     super

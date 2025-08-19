@@ -16,11 +16,7 @@ class DecisionsController < ApplicationController
           question: decision_params[:question],
           description: decision_params[:description],
           options_open: decision_params[:options_open],
-          deadline: params[:end_of_cycle] == '1 hour from now' ? 1.hour.from_now : Cycle.new_from_end_of_cycle_option(
-            end_of_cycle: params[:end_of_cycle],
-            tenant: current_tenant,
-            studio: current_studio,
-          ).end_date,
+          deadline: deadline_from_params,
           created_by: current_user,
         )
         if params[:files] && @current_tenant.allow_file_uploads? && @current_studio.allow_file_uploads?
@@ -155,8 +151,8 @@ class DecisionsController < ApplicationController
     @decision.question = decision_params[:question] if decision_params[:question].present?
     @decision.description = decision_params[:description] if decision_params[:description].present?
     @decision.options_open = decision_params[:options_open] if decision_params[:options_open].present?
-    # The datetime select is in the studio timezone, so we need to convert it to UTC
-    # @decision.deadline = Time.zone.parse("#{params[:deadline]} #{params[:deadline_time]}").utc
+    deadline = deadline_from_params
+    @decision.deadline = deadline unless deadline.nil?
     ActiveRecord::Base.transaction do
       @decision.save!
       if current_representation_session

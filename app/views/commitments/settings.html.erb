@@ -1,6 +1,5 @@
-<h4 style="display:inline-block;">
-  <%= link_to @current_studio.name, @current_studio.path || '/' %> / <i class="commitment-icon"></i> Commitment <code><%= @commitment.truncated_id %></code>
-</h4>
+<%= render 'shared/show_resource_breadcrumbs', resource: @commitment %>
+<br/>
 <%= form_with url: "#{@commitment.path}/settings" do |form| %>
   <div>
     <%= form.text_field :title, placeholder: 'Action that this commitment will initiate', value: @commitment.title %>
@@ -25,11 +24,8 @@
   <p>
     At least <%= form.number_field :critical_mass, value: @commitment.critical_mass, style: 'width:48px;' %> participant(s) required for this commitment to take effect.
   </p>
-  <!-- <h3>Deadline</h3>
-  <p>
-    Critical mass must be reached by
-    <%= form.datetime_select :deadline, value: @commitment.deadline %> <%= @current_studio.timezone %>
-  </p> -->
+  <h2>Deadline</h2>
+  <%= render 'shared/deadline_input_fields', form: form, resource: @commitment, close_now_option: true %>
   <hr style="height:1px;" />
   <%= form.submit 'Save' %>
 <% end %>

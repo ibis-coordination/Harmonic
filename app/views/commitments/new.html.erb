@@ -14,7 +14,10 @@
   </p>
   <h2>Deadline</h2>
   <p>
-    Critical mass must be reached by <%= form.select :end_of_cycle, options_for_select(@end_of_cycle_options, selected: @end_of_cycle_options[1]) %>
+    Critical mass must be reached by
+  </p>
+  <p>
+    <%= render 'shared/deadline_input_fields', form: form, deadline: Time.current + 1.week %>
   </p>
   <hr style="height:1px;" />
   <%= form.submit 'Start Commitment' %>
