@@ -125,6 +125,7 @@ class CommitmentsController < ApplicationController
   def settings
     @commitment = current_commitment
     return render '404', status: 404 unless @commitment
+    return render 'shared/403', status: 403 unless @commitment.can_edit_settings?(@current_user)
     @page_title = "Commitment Settings"
     @page_description = "Change settings for this commitment"
   end
@@ -132,6 +133,7 @@ class CommitmentsController < ApplicationController
   def update_settings
     @commitment = current_commitment
     return render '404', status: 404 unless @commitment
+    return render 'shared/403', status: 403 unless @commitment.can_edit_settings?(@current_user)
     @commitment.title = model_params[:title] if model_params[:title].present?
     @commitment.description = model_params[:description] if model_params[:description].present?
     if model_params[:critical_mass].present?

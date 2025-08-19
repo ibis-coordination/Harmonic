@@ -141,6 +141,7 @@ class DecisionsController < ApplicationController
   def settings
     @decision = current_decision
     return render '404', status: 404 unless @decision
+    return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
     @page_title = "Decision Settings"
     @page_description = "Change settings for this decision"
   end
@@ -148,6 +149,7 @@ class DecisionsController < ApplicationController
   def update_settings
     @decision = current_decision
     return render '404', status: 404 unless @decision
+    return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
     @decision.question = decision_params[:question] if decision_params[:question].present?
     @decision.description = decision_params[:description] if decision_params[:description].present?
     @decision.options_open = decision_params[:options_open] if decision_params[:options_open].present?

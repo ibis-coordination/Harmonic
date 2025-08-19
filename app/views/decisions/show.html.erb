@@ -1,5 +1,5 @@
 <span data-controller="decision" data-decision-id="<%= @decision.id %>">
-<%= render 'shared/more_button', resource: @decision, options: ['copy', 'pin', 'duplicate', 'settings'] %>
+<%= render 'shared/more_button', resource: @decision, options: ['copy', 'pin', 'duplicate', @decision.can_edit_settings?(@current_user) ? 'settings' : nil].compact %>
 <%= render 'shared/show_resource_breadcrumbs', resource: @decision %>
 <h1 style="margin-top:0;"><%= @decision.question %></h1>
 <p style="font-size:0.8em;">

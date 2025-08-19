@@ -1,5 +1,5 @@
 <span data-controller="commitment" data-commitment-id="<%= @commitment.id %>">
-<%= render 'shared/more_button', resource: @commitment, options: ['copy', 'pin', 'settings'] %>
+<%= render 'shared/more_button', resource: @commitment, options: ['copy', 'pin', @commitment.can_edit_settings?(@current_user) ? 'settings' : nil].compact %>
 <%= render 'shared/show_resource_breadcrumbs', resource: @commitment %>
 <h1 style="margin-top:0;"><%= @commitment.title %></h1>
 <p style="font-size:0.8em;">

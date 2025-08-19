@@ -92,6 +92,18 @@ class Commitment < ApplicationRecord
     super && !close_at_critical_mass?
   end
 
+  def can_edit_settings?(participant_or_user)
+    if participant_or_user.is_a?(CommitmentParticipant)
+      participant_or_user.user_id == created_by_id
+    else
+      participant_or_user.id == created_by_id
+    end
+  end
+
+  def can_close?(participant_or_user)
+    can_edit_settings?(participant_or_user)
+  end
+
   def close_if_limit_reached
     return if limit.nil?
     @committed_participants = nil # clear cached collection in case a new participant was just added

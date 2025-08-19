@@ -39,6 +39,7 @@ module Api::V1
     def update
       commitment = current_commitment
       return render json: { error: 'Commitment not found' }, status: 404 unless commitment
+      return render json: { error: 'Unauthorized' }, status: 403 unless commitment.can_edit_settings?(@current_user)
       updatable_attributes.each do |attribute|
         commitment[attribute] = params[attribute] if params.has_key?(attribute)
       end

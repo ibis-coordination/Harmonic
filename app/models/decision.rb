@@ -80,6 +80,18 @@ class Decision < ApplicationRecord
     can_add_options?(participant)
   end
 
+  def can_edit_settings?(participant_or_user)
+    if participant_or_user.is_a?(DecisionParticipant)
+      participant_or_user.user_id == created_by_id
+    else
+      participant_or_user.id == created_by_id
+    end
+  end
+
+  def can_close?(participant_or_user)
+    can_edit_settings?(participant_or_user)
+  end
+
   def public?
     false
   end

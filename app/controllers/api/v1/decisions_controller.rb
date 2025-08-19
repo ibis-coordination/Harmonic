@@ -17,6 +17,7 @@ module Api::V1
     def update
       decision = current_decision
       return render json: { error: 'Decision not found' }, status: 404 unless decision
+      return render json: { error: 'Unauthorized' }, status: 403 unless decision.can_edit_settings?(@current_user)
       updatable_attributes.each do |attribute|
         decision[attribute] = params[attribute] if params.has_key?(attribute)
       end
