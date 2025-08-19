@@ -42,6 +42,7 @@ module Api::V1
       updatable_attributes.each do |attribute|
         commitment[attribute] = params[attribute] if params.has_key?(attribute)
       end
+      commitment.close_if_limit_reached
       if commitment.changed?
         commitment.updated_by = current_user
         ActiveRecord::Base.transaction do
@@ -77,6 +78,7 @@ module Api::V1
       commitment_participant.committed = true if params[:committed].to_s == 'true'
       ActiveRecord::Base.transaction do
         commitment_participant.save!
+        commitment.close_if_limit_reached!
         if current_representation_session
           current_representation_session.record_activity!(
             request: request,

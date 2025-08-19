@@ -4,15 +4,23 @@
 <% deadline = deadline ? deadline : (resource ? resource.deadline : current_time_in_zone) %>
 <% deadline = @current_studio.time_in_zone(deadline) %>
 <% requires_manual_close = resource ? resource.requires_manual_close? : false %>
+<% closing_at_critical_mass = resource && !requires_manual_close ? resource.close_at_critical_mass? : false %>
 <% close_now_option ||= false %>
+<% close_at_critical_mass_option ||= false %>
 
 <div data-controller="deadline-options">
   <div class="deadline-option">
     <%= form.radio_button :deadline_option, 'no_deadline', checked: requires_manual_close %>
     <%= form.label :deadline_option, 'No deadline (must be closed manually)' %>
   </div>
+  <% if close_at_critical_mass_option %>
+    <div class="deadline-option">
+      <%= form.radio_button :deadline_option, 'close_at_critical_mass', checked: closing_at_critical_mass %>
+      <%= form.label :deadline_option, 'Close when critical mass is reached' %>
+    </div>
+  <% end %>
   <div class="deadline-option">
-    <%= form.radio_button :deadline_option, 'datetime', checked: !requires_manual_close %>
+    <%= form.radio_button :deadline_option, 'datetime', checked: !requires_manual_close && !closing_at_critical_mass %>
     <% deadline_val = requires_manual_close ? current_time_in_zone : deadline %>
     <%= form.datetime_local_field :deadline, value: deadline_val.strftime('%Y-%m-%dT%H:%M'), min: [deadline_val, current_time_in_zone].min.strftime('%Y-%m-%dT%H:%M') %>
     <span style="font-size:0.8em;">

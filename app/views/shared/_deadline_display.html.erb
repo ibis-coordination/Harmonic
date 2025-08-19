@@ -1,5 +1,7 @@
 <% if resource.closed? %>
   Closed <strong><%= timeago(resource.deadline) %></strong><br/>
+<% elsif resource.is_a?(Commitment) && resource.close_at_critical_mass? %>
+  Closes when critical mass is reached
 <% elsif resource.requires_manual_close? %>
   No deadline set
   <% if resource.user_can_close?(@current_user) %>

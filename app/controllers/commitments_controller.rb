@@ -17,6 +17,7 @@ class CommitmentsController < ApplicationController
       deadline: deadline_from_params,
       created_by: current_user,
     )
+    @commitment.limit = @commitment.critical_mass if params[:deadline_option] == 'close_at_critical_mass'
     begin
       ActiveRecord::Base.transaction do
         @commitment.save!
@@ -87,6 +88,7 @@ class CommitmentsController < ApplicationController
     @commitment_participant.name = @commitment_participant_name
     ActiveRecord::Base.transaction do
       @commitment_participant.save!
+      @commitment.close_if_limit_reached!
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -144,6 +146,8 @@ class CommitmentsController < ApplicationController
     end
     deadline = deadline_from_params
     @commitment.deadline = deadline unless deadline.nil?
+    @commitment.limit = @commitment.critical_mass if params[:deadline_option] == 'close_at_critical_mass'
+    @commitment.close_if_limit_reached
     ActiveRecord::Base.transaction do
       @commitment.save!
       if current_representation_session

@@ -179,7 +179,8 @@ CREATE TABLE public.commitments (
     tenant_id uuid NOT NULL,
     created_by_id uuid,
     updated_by_id uuid,
-    studio_id uuid
+    studio_id uuid,
+    "limit" integer
 );
 
 
@@ -2319,6 +2320,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250421211106'),
 ('20250813231547'),
 ('20250815005326'),
-('20250818184030');
+('20250818184030'),
+('20250819213059');
 
 

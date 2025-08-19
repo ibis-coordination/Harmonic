@@ -436,7 +436,7 @@ class ApplicationController < ActionController::Base
 
   def deadline_from_params
     deadline_option = params[:deadline_option]
-    if deadline_option == 'no_deadline'
+    if deadline_option == 'no_deadline' || deadline_option == 'close_at_critical_mass'
       return Time.current + 100.years
     elsif deadline_option == 'datetime' && params[:deadline]
       utc_deadline_param = @current_studio.timezone.parse(params[:deadline]).utc

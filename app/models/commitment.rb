@@ -80,6 +80,31 @@ class Commitment < ApplicationRecord
     participant_count >= critical_mass
   end
 
+  def limit_reached?
+    limit && participant_count >= limit
+  end
+
+  def close_at_critical_mass?
+    limit == critical_mass
+  end
+
+  def requires_manual_close?
+    super && !close_at_critical_mass?
+  end
+
+  def close_if_limit_reached
+    return if limit.nil?
+    @committed_participants = nil # clear cached collection in case a new participant was just added
+    if limit_reached? && !closed?
+      self.deadline = Time.current
+    end
+  end
+
+  def close_if_limit_reached!
+    close_if_limit_reached
+    save!
+  end
+
   def progress_percentage
     return 100 if critical_mass_achieved?
     [(participant_count.to_f / critical_mass.to_f * 100).round, 100].min
@@ -89,5 +114,7 @@ class Commitment < ApplicationRecord
     participant = CommitmentParticipantManager.new(commitment: self, user: user).find_or_create_participant
     participant.committed = true
     participant.save!
+    close_if_limit_reached!
+    participant
   end
 end

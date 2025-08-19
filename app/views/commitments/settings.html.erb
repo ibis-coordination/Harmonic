@@ -25,7 +25,7 @@
     At least <%= form.number_field :critical_mass, value: @commitment.critical_mass, style: 'width:48px;' %> participant(s) required for this commitment to take effect.
   </p>
   <h2>Deadline</h2>
-  <%= render 'shared/deadline_input_fields', form: form, resource: @commitment, close_now_option: true %>
+  <%= render 'shared/deadline_input_fields', form: form, resource: @commitment, close_now_option: true, close_at_critical_mass_option: true %>
   <hr style="height:1px;" />
   <%= form.submit 'Save' %>
 <% end %>

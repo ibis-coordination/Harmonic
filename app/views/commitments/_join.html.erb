@@ -1,4 +1,17 @@
-<% if @commitment.closed? %>
+<% if @commitment.closed? && @current_user %>
+  <% if @commitment_participant.committed? %>
+    <p>
+      <button style="background:#dfdfdf;color:#9f9f9f;cursor:default;">
+        Committed
+      </button>
+      <span style="font-style:italic;">Your commitment has been recorded.</span>
+    </p>
+  <% else %>
+    <p>
+      This commitment is closed.
+    </p>
+  <% end %>
+<% elsif @commitment.closed? %>
   <p>
     This commitment is closed.
   </p>

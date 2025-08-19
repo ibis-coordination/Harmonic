@@ -17,7 +17,7 @@
     Critical mass must be reached by
   </p>
   <p>
-    <%= render 'shared/deadline_input_fields', form: form, deadline: Time.current + 1.week %>
+    <%= render 'shared/deadline_input_fields', form: form, deadline: Time.current + 1.week, close_at_critical_mass_option: true %>
   </p>
   <hr style="height:1px;" />
   <%= form.submit 'Start Commitment' %>
