@@ -92,12 +92,12 @@ Rails.application.routes.draw do
 
   ['studios','scenes'].each do |studios_or_scenes|
     get "#{studios_or_scenes}" => "#{studios_or_scenes}#index"
-    get "#{studios_or_scenes}/new" => 'studios#new'
+    get "#{studios_or_scenes}/new" => "#{studios_or_scenes}#new"
     get "#{studios_or_scenes}/new/actions" => 'studios#actions_index_new'
     get "#{studios_or_scenes}/new/actions/create_studio" => 'studios#describe_create_studio'
     post "#{studios_or_scenes}/new/actions/create_studio" => 'studios#create_studio'
     get "#{studios_or_scenes}/available" => 'studios#handle_available'
-    post "#{studios_or_scenes}" => 'studios#create'
+    post "#{studios_or_scenes}" => "#{studios_or_scenes}#create"
     get "#{studios_or_scenes}/:studio_handle" => "#{studios_or_scenes}#show"
     get "#{studios_or_scenes}/:studio_handle/actions" => 'studios#actions_index_default'
     get "#{studios_or_scenes}/:studio_handle/pinned.html" => 'studios#pinned_items_partial'

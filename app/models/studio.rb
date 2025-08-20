@@ -102,6 +102,23 @@ class Studio < ApplicationRecord
     studio_type == 'scene'
   end
 
+  def open_scene=(value)
+    if value == true || value == false
+      self.settings = (self.settings || {}).merge('open_scene' => value)
+    else
+      errors.add(:settings, "'open_scene' must be a boolean")
+    end
+  end
+
+  def scene_is_open?
+    # An open scene is a scene that does not require an invite to join
+    is_scene? && settings['open_scene'] == true
+  end
+
+  def scene_is_invite_only?
+    is_scene? && !scene_is_open?
+  end
+
   def creator_is_not_trustee
     errors.add(:created_by, "cannot be a trustee") if created_by.trustee?
   end

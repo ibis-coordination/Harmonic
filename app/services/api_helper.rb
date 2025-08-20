@@ -63,6 +63,29 @@ class ApiHelper
     studio
   end
 
+  def create_scene
+    scene = nil
+    note = nil
+    ActiveRecord::Base.transaction do
+      scene = Studio.create!(
+        studio_type: 'scene',
+        name: params[:name],
+        handle: params[:handle],
+        description: params[:description],
+        created_by: current_user,
+        open_scene: (params[:open_scene].to_s == 'true') || (params[:invitation_mode] == 'open'),
+        # timezone: params[:timezone],
+        # tempo: params[:tempo],
+        # synchronization_mode: params[:synchronization_mode],
+      )
+      # This is needed to ensure that all the models created in this transaction
+      # are associated with the correct tenant and scene
+      Studio.scope_thread_to_studio(handle: scene.handle, subdomain: scene.tenant.subdomain)
+      scene.add_user!(current_user, roles: ['admin', 'representative'])
+    end
+    scene
+  end
+
   def create_heartbeat
     heartbeat = nil
     ActiveRecord::Base.transaction do

@@ -7,7 +7,7 @@
     <%= @current_tenant.subdomain %><span style="opacity:0.6;font-weight:normal;">.<%= ENV['HOSTNAME'] %></span>
   </h1>
   <% unless @current_representation_session %>
-    <a href="/studios/new"><button style="float:right;margin-top:8px;">New Scene</button></a>
+    <a href="/scenes/new"><button style="float:right;margin-top:8px;">New Scene</button></a>
   <% end %>
   <h2><%= octicon 'eye', height: 24 %> Your <code><%= @current_tenant.subdomain %></code> Scenes</h2>
   <p>Scenes are public groups that may or may not require invitation to join.</p>

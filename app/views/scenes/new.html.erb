@@ -1,20 +1,17 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: 'Studio' %>
-<h2><%= octicon 'heart', height: 24 %> New <code><%= @current_tenant.subdomain %></code> Studio</h2>
+<%= render 'shared/show_resource_breadcrumbs', resource: 'Scene' %>
+<h2><%= octicon 'eye', height: 24 %> New <code><%= @current_tenant.subdomain %></code> Scene</h2>
 <p>
-  Studios are private groups. Once created, you can invite others to join your studio.
+  Scenes are public groups.
 </p>
-<%= form_with(url: '/studios') do |form| %>
-  <h3>Studio Name</h3>
+<%= form_with(url: '/scenes') do |form| %>
+  <h3>Scene Name</h3>
   <p>
-    The studio name is displayed at the top of the studio homepage.
-  </p>
-  <p>
-    <%= form.text_field :name, placeholder: 'Studio Name' %>
+    <%= form.text_field :name, placeholder: 'Scene Name' %>
   </p>
 
-  <h3>Studio Handle</h3>
+  <h3>Scene Handle</h3>
   <p style="margin-bottom:0;">
-    The studio handle determines the studio's URL path: <code><%= request.protocol %><%= request.host %>/studios/<strong id="handle-example">handle</strong></code>
+    The scene handle determines the scene's URL path: <code><%= request.protocol %><%= request.host %>/scenes/<strong id="handle-example">handle</strong></code>
     <br/>
     Only lowercase letters, numbers, and hyphens are allowed.
   </p>
@@ -30,7 +27,7 @@
       return /^[a-z0-9-]+$/.test(handle);
     };
     const checkIfAvailable = function(handle) {
-      return fetch('/studios/available?handle=' + handle)
+      return fetch('/scenes/available?handle=' + handle)
         .then(response => response.json())
         .then(data => {
           if (data.available && handleInput.value === handle) {
@@ -58,56 +55,28 @@
     });
   </script>
 
-  <h3>Studio Description</h3>
-  <p>
-    The studio description is displayed on the studio homepage.
-  </p>
-  <p>
-    <%= form.text_field :description, placeholder: 'Studio Description (optional)' %>
-  </p>
-
-  <h3>Time Zone</h3>
-  <p>
-    The studio time zone determines when cycles begin and end.
-  </p>
-  <p>
-    <%= form.time_zone_select :timezone %>
-  </p>
-
-  <h3>Tempo</h3>
+  <h3>Who can join?</h3>
 
   <p>
-    How frequently should studio members check in (approximately)?
+    Scenes are always publicly visible, but only individuals who have joined can post notes.
   </p>
   <p>
-    This determines the primary cycle duration.
-  </p>
-  <p>
-    <%= form.select :tempo, [['Daily', 'daily'], ['Weekly', 'weekly'], ['Monthly', 'monthly']], selected: 'weekly' %>
-  </p>
 
-  <h3>Synchronization Mode</h3>
-
-  <p>
-    Which metaphor best describes how your studio will be organized?
-  </p>
-  <p>
-    This determines default permissions for new members. You can always change these settings later.
   </p>
   <p>
     <fieldset>
       <label>
-        <%= form.radio_button :synchronization_mode, 'improv', checked: true %>
-        <strong>Improv</strong> (no formal leadership roles)
+        <%= form.radio_button :invitation_mode, 'open', checked: true %>
+        Open to anyone. No invite required.
       </label>
       <br/>
       <label>
-        <%= form.radio_button :synchronization_mode, 'orchestra', checked: false %>
-        <strong>Orchestra</strong> (has formal leadership roles)
+        <%= form.radio_button :invitation_mode, 'invite_only', checked: false %>
+        Invite from existing scene member is required to join.
       </label>
     </fieldset>
   </p>
 
   <hr style="height:1px;" />
-  <%= form.submit 'Create Studio' %>
+  <%= form.submit 'Start Scene' %>
 <% end %>

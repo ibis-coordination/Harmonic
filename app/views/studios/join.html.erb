@@ -1,23 +1,23 @@
 <%= render 'studio_title' %>
-
+<% scene_or_studio = @current_studio.studio_type %>
 <h2>Join</h2>
-<% if @current_studio.is_scene? %>
+<% if @current_studio.is_scene? && @current_studio.scene_is_open? && !@current_user_is_member %>
   <p>
-    <%= button_to 'Join Studio', "#{@current_studio.path}/join", method: :post %>
+    <%= button_to 'Join Scene', "#{@current_studio.path}/join", method: :post %>
   </p>
 <% elsif @invite %>
   <p>
-    Click the button below to join studio <strong><%= @current_studio.name %></strong>.
+    Click the button below to join <%= scene_or_studio %> <strong><%= @current_studio.name %></strong>.
   </p>
   <p>
-    <%= button_to 'Join Studio', "#{@current_studio.path}/join", method: :post, params: { code: @invite.code } %>
+    <%= button_to "Join #{scene_or_studio.titleize}", "#{@current_studio.path}/join", method: :post, params: { code: @invite.code } %>
   </p>
 <% elsif @current_user_is_member %>
   <p>
-    You are already a member of this studio. <a href="<%= @current_studio.path %>">View studio homepage</a>.
+    You are already a member of this <%= scene_or_studio %>. <a href="<%= @current_studio.path %>">View <%= scene_or_studio %> homepage</a>.
   </p>
 <% else %>
   <p>
-    You need an invitation code to join this studio.
+    You need an invitation to join this <%= scene_or_studio %>.
   </p>
 <% end %>
