@@ -10,6 +10,15 @@
   <% end %>
   <% if resource.nil? %>
     <%= yield %>
+    <% if @current_studio.is_scene? %>
+      <span title="publicly visible">
+        <%= octicon 'eye' %>
+      </span>
+    <% elsif !@current_studio.is_main_studio? %>
+      <span title="only visible to members of <%= @current_studio.name %>">
+        <%= octicon 'lock' %>
+      </span>
+    <% end %>
   <% elsif resource.is_a?(String) %>
     <%= resource %>
   <% elsif resource.class == RepresentationSession %>

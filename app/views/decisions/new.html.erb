@@ -1,4 +1,6 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: "<i class='decision-icon'></i> Decision".html_safe %>
+<%= render 'shared/show_resource_breadcrumbs', resource: nil do %>
+  <i class='decision-icon'></i> Decision
+<% end %>
 <div style="height:16px"></div>
 <%= form_with do |form| %>
   <div>
@@ -22,4 +24,15 @@
   </p>
   <hr style="height:1px;" />
   <%= form.submit 'Start Decision' %>
+  <% if @current_studio.is_scene? %>
+    <span>
+      <%= octicon 'eye' %>
+      Decisions posted in scenes are publicly visible.
+    </span>
+  <% else %>
+    <span>
+      <%= octicon 'lock' %>
+      Only members of this studio can access this decision.
+    </span>
+  <% end %>
 <% end %>

@@ -1,4 +1,6 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: "<i class='note-icon'></i> Note".html_safe %>
+<%= render 'shared/show_resource_breadcrumbs', resource: nil do %>
+  <i class='note-icon'></i> Note
+<% end %>
 <div style="height:16px"></div>
 <%= form_with do |form| %>
   <div>
@@ -15,7 +17,7 @@
   <% else %>
     <span>
       <%= octicon 'lock' %>
-      Notes posted in this studio are only visible to members of the studio.
+      Only members of this studio will see this note.
     </span>
   <% end %>
 <% end %>

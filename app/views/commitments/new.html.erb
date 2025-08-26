@@ -1,4 +1,6 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: "<i class='commitment-icon'></i> Commitment".html_safe %>
+<%= render 'shared/show_resource_breadcrumbs', resource: nil do %>
+  <i class='commitment-icon'></i> Commitment
+<% end %>
 <div style="height:16px"></div>
 <%= form_with do |form| %>
   <div>
@@ -21,4 +23,15 @@
   </p>
   <hr style="height:1px;" />
   <%= form.submit 'Start Commitment' %>
+  <% if @current_studio.is_scene? %>
+    <span>
+      <%= octicon 'eye' %>
+      Commitments posted in scenes are publicly visible.
+    </span>
+  <% else %>
+    <span>
+      <%= octicon 'lock' %>
+      Only members of this studio can access this commitment.
+    </span>
+  <% end %>
 <% end %>
