@@ -1,0 +1,24 @@
+<h1>Create account</h1>
+<p>
+  <%= render 'shared/three_icon_row', large: true %>
+</p>
+<p>Create an account on <code><%= ENV['HOSTNAME'] %></code></p>
+<%= form_with url: "/auth/identity/register", method: :post, data: { turbo: false } do |form| %>
+  <p>
+    <%= form.email_field :email, placeholder: 'Email' %>
+  </p>
+  <p>
+    <%= form.text_field :name, placeholder: 'Name' %>
+  </p>
+  <p>
+    <%= form.password_field :password, placeholder: 'Password' %>
+  </p>
+  <p>
+    <%= form.password_field :password_confirmation, placeholder: 'Confirm password' %>
+  </p>
+  <%= submit_tag "Create account" %>
+  <br/>
+  or
+  <br/>
+  <%= link_to 'Log in with an existing account', '/login' %>
+<% end %>

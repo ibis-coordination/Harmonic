@@ -3,6 +3,7 @@
 # then all tenants redirect to that one auth subdomain to authenticate, and once authenticated, the user is
 # redirected back to the original tenant subdomain with a token cookie that can be used to log in with the tenant.
 class SessionsController < ApplicationController
+  skip_forgery_protection only: :oauth_callback
 
   # <login>
   # Step 1: direct user to auth domain login page where they can authenticate with OAuth provider
@@ -17,7 +18,7 @@ class SessionsController < ApplicationController
     elsif request.subdomain == auth_subdomain
       # user is not logged in and is currently on the auth domain
       # so we show the login page and display the original tenant subdomain
-      @page_title = 'Login | Harmonic Team'
+      @page_title = 'Login | Harmonic'
       cookies[:redirect_to_subdomain] ||= ENV['PRIMARY_SUBDOMAIN']
       @original_tenant = Tenant.find_by(subdomain: cookies[:redirect_to_subdomain])
       @original_tenant ||= Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN'])
@@ -37,6 +38,11 @@ class SessionsController < ApplicationController
     identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'])
     session[:user_id] = identity.user.id
     redirect_to '/login/return'
+  end
+
+  # If the callback is to /auth/failure
+  def oauth_failure
+    redirect_to '/login', alert: params[:message]
   end
 
   # Step 3: redirect back to original tenant subdomain with a token cookie
@@ -87,6 +93,10 @@ class SessionsController < ApplicationController
 
   private
 
+  def is_auth_controller?
+    true
+  end
+
   def redirect_to_auth_domain
     raise 'Unexpected error. Wrong subdomain.' if request.subdomain == auth_subdomain
     set_shared_domain_cookie(:redirect_to_subdomain, request.subdomain)
@@ -106,7 +116,7 @@ class SessionsController < ApplicationController
 
   def redirect_to_original_tenant
     raise 'Unexpected error. Wrong subdomain.' if request.subdomain != auth_subdomain
-    subdomain = cookies[:redirect_to_subdomain]
+    subdomain = cookies[:redirect_to_subdomain] || ENV['PRIMARY_SUBDOMAIN']
     raise 'Unexpected error. Subdomain required.' unless subdomain
     delete_redirect_to_subdomain_cookie
     tenant = Tenant.find_by(subdomain: subdomain)

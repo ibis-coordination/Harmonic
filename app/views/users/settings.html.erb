@@ -16,10 +16,10 @@ Click image to upload a new image.<br/>
   <%= form.submit 'Update' %>
 <% end %>
 
-<% if @current_user.oauth_identities.any? %>
+<% if @current_user.external_oauth_identities.any? %>
   <h2>Connected Accounts</h2>
   <ul>
-  <% @current_user.oauth_identities.each do |identity| %>
+  <% @current_user.external_oauth_identities.each do |identity| %>
     <li>
       <%= identity.provider.titleize %> (<a href="<%= identity.url %>"><%= identity.username %></a>)
       Connected <%= time_ago_in_words(identity.created_at) %> ago

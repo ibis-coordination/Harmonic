@@ -233,4 +233,8 @@ class User < ApplicationRecord
     studios.includes(:tenant).where('tenants.main_studio_id != studios.id')
   end
 
+  def external_oauth_identities
+    oauth_identities.where.not(provider: 'identity')
+  end
+
 end
