@@ -2,30 +2,28 @@
 <p>
   <%= render 'shared/three_icon_row', large: true %>
 </p>
-<p>Create an account on <code><%= ENV['HOSTNAME'] %></code></p>
+<p>
+  Create an account on <code><%= ENV['HOSTNAME'] %></code>
+</p>
 <%= form_with url: "/auth/identity/register", method: :post, data: { turbo: false }, id: "registration-form" do |form| %>
-  <p>
-    <div class="password-feedback"></div>
-    <%= form.email_field :email, placeholder: 'Email', required: true %>
-  </p>
-  <p>
-    <div class="password-feedback"></div>
-    <%= form.text_field :name, placeholder: 'Name', required: true %>
-  </p>
-  <p>
-    <div id="password-feedback" class="password-feedback"></div>
-    <%= form.password_field :password, placeholder: 'Password (minimum 14 characters)',
-        id: 'password-field',
-        minlength: 14,
-        required: true %>
-  </p>
-  <p>
-    <div id="password-confirmation-feedback" class="password-feedback"></div>
-    <%= form.password_field :password_confirmation, placeholder: 'Confirm password',
-        id: 'password-confirmation-field',
-        minlength: 14,
-        required: true %>
-  </p>
+  <%= form.email_field :email, placeholder: 'Email', required: true %>
+
+  <div class="spacer"></div>
+  <%= form.text_field :name, placeholder: 'Name', required: true %>
+
+  <div id="password-feedback" class="password-feedback"></div>
+  <%= form.password_field :password, placeholder: 'Password (minimum 14 characters)',
+      id: 'password-field',
+      minlength: 14,
+      required: true %>
+
+  <div id="password-confirmation-feedback" class="password-feedback"></div>
+  <%= form.password_field :password_confirmation, placeholder: 'Confirm password',
+      id: 'password-confirmation-field',
+      minlength: 14,
+      required: true %>
+
+  <div class="spacer"></div>
   <%= submit_tag "Create account", id: "submit-button", disabled: true %>
   <br/>
   or
@@ -34,11 +32,11 @@
 <% end %>
 
 <style>
-  .password-feedback {
+  .password-feedback, .spacer {
     font-size: 0.85em;
     margin-top: 0;
-    margin-bottom: 5px;
-    min-height: 16px; /* Reduced height for feedback messages */
+    margin-bottom: 2px;
+    height: 16px;
     display: flex;
     align-items: center;
   }
@@ -57,8 +55,9 @@
   }
 
   .password-constraint {
-    margin: 2px 0;
-    line-height: 1.2;
+    margin: 0;
+    margin-left: 10px;
+    line-height: 1;
   }
 
   .password-constraint.met {
