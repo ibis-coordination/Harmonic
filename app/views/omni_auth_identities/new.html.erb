@@ -3,22 +3,139 @@
   <%= render 'shared/three_icon_row', large: true %>
 </p>
 <p>Create an account on <code><%= ENV['HOSTNAME'] %></code></p>
-<%= form_with url: "/auth/identity/register", method: :post, data: { turbo: false } do |form| %>
+<%= form_with url: "/auth/identity/register", method: :post, data: { turbo: false }, id: "registration-form" do |form| %>
   <p>
-    <%= form.email_field :email, placeholder: 'Email' %>
+    <div class="password-feedback"></div>
+    <%= form.email_field :email, placeholder: 'Email', required: true %>
   </p>
   <p>
-    <%= form.text_field :name, placeholder: 'Name' %>
+    <div class="password-feedback"></div>
+    <%= form.text_field :name, placeholder: 'Name', required: true %>
   </p>
   <p>
-    <%= form.password_field :password, placeholder: 'Password' %>
+    <div id="password-feedback" class="password-feedback"></div>
+    <%= form.password_field :password, placeholder: 'Password (minimum 14 characters)',
+        id: 'password-field',
+        minlength: 14,
+        required: true %>
   </p>
   <p>
-    <%= form.password_field :password_confirmation, placeholder: 'Confirm password' %>
+    <div id="password-confirmation-feedback" class="password-feedback"></div>
+    <%= form.password_field :password_confirmation, placeholder: 'Confirm password',
+        id: 'password-confirmation-field',
+        minlength: 14,
+        required: true %>
   </p>
-  <%= submit_tag "Create account" %>
+  <%= submit_tag "Create account", id: "submit-button", disabled: true %>
   <br/>
   or
   <br/>
   <%= link_to 'Log in with an existing account', '/login' %>
 <% end %>
+
+<style>
+  .password-feedback {
+    font-size: 0.85em;
+    margin-top: 0;
+    margin-bottom: 5px;
+    min-height: 16px; /* Reduced height for feedback messages */
+    display: flex;
+    align-items: center;
+  }
+
+  .password-feedback.valid {
+    color: #28a745;
+  }
+
+  .password-feedback.invalid {
+    color: #dc3545;
+  }
+
+  #submit-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .password-constraint {
+    margin: 2px 0;
+    line-height: 1.2;
+  }
+
+  .password-constraint.met {
+    color: #28a745;
+  }
+
+  .password-constraint.unmet {
+    color: #dc3545;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const passwordField = document.getElementById('password-field');
+    const passwordConfirmationField = document.getElementById('password-confirmation-field');
+    const passwordFeedback = document.getElementById('password-feedback');
+    const passwordConfirmationFeedback = document.getElementById('password-confirmation-feedback');
+    const submitButton = document.getElementById('submit-button');
+
+    function validatePassword() {
+      const password = passwordField.value;
+      const isLengthValid = password.length >= 14;
+
+      if (password.length === 0 || isLengthValid) {
+        passwordFeedback.innerHTML = '';
+        passwordFeedback.className = 'password-feedback';
+      } else {
+        passwordFeedback.innerHTML = `<div class="password-constraint unmet">Minimum 14 characters required</div>`;
+        passwordFeedback.className = `password-feedback invalid`;
+      }
+
+      return isLengthValid;
+    }
+
+    function validatePasswordConfirmation() {
+      const password = passwordField.value;
+      const confirmation = passwordConfirmationField.value;
+      const passwordsMatch = password === confirmation && confirmation.length > 0;
+
+      if (confirmation.length === 0 || passwordsMatch) {
+        passwordConfirmationFeedback.innerHTML = '';
+        passwordConfirmationFeedback.className = 'password-feedback';
+      } else {
+        passwordConfirmationFeedback.innerHTML = `<div class="password-constraint unmet">Passwords must match</div>`;
+        passwordConfirmationFeedback.className = `password-feedback invalid`;
+      }
+
+      return passwordsMatch;
+    }
+
+    function updateSubmitButton() {
+      const isPasswordValid = validatePassword();
+      const isConfirmationValid = validatePasswordConfirmation();
+      const email = document.querySelector('input[name="email"]').value;
+      const name = document.querySelector('input[name="name"]').value;
+
+      const allFieldsValid = isPasswordValid && isConfirmationValid && email.length > 0 && name.length > 0;
+      submitButton.disabled = !allFieldsValid;
+    }
+
+    // Add event listeners
+    passwordField.addEventListener('input', function() {
+      validatePassword();
+      validatePasswordConfirmation(); // Re-validate confirmation when password changes
+      updateSubmitButton();
+    });
+
+    passwordConfirmationField.addEventListener('input', function() {
+      validatePasswordConfirmation();
+      updateSubmitButton();
+    });
+
+    // Also listen to email and name fields
+    document.querySelector('input[name="email"]').addEventListener('input', updateSubmitButton);
+    document.querySelector('input[name="name"]').addEventListener('input', updateSubmitButton);
+
+    // Initial validation
+    updateSubmitButton();
+  });
+</script>
