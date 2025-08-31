@@ -1,0 +1,41 @@
+.password-feedback, .spacer {
+  font-size: 0.85em;
+  margin-top: 0;
+  margin-bottom: 2px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.password-feedback.valid {
+  color: #28a745;
+}
+
+.password-feedback.invalid {
+  color: #dc3545;
+}
+
+#submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.password-constraint {
+  margin: 0;
+  margin-left: 10px;
+  line-height: 1;
+}
+
+.password-constraint.met {
+  color: #28a745;
+}
+
+.password-constraint.unmet {
+  color: #dc3545;
+}
+
+.char-count {
+  display: inline-block;
+  width: 2ch;
+  text-align: right;
+}
