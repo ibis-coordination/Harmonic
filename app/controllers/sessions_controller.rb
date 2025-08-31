@@ -20,8 +20,7 @@ class SessionsController < ApplicationController
       # so we show the login page and display the original tenant subdomain
       @page_title = 'Login | Harmonic'
       cookies[:redirect_to_subdomain] ||= ENV['PRIMARY_SUBDOMAIN']
-      @original_tenant = Tenant.find_by(subdomain: cookies[:redirect_to_subdomain])
-      @original_tenant ||= Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN'])
+      @original_tenant = original_tenant
       @redirect_to_resource = cookies[:redirect_to_resource]
       @studio_invite_code = cookies[:studio_invite_code]
     else
@@ -35,9 +34,14 @@ class SessionsController < ApplicationController
   def oauth_callback
     # This is the callback from the OAuth provider to the auth domain.
     return redirect_to root_path if request.subdomain != auth_subdomain
-    identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'])
-    session[:user_id] = identity.user.id
-    redirect_to '/login/return'
+    if original_tenant.valid_auth_provider?(request.env['omniauth.auth'].provider)
+      identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'])
+      session[:user_id] = identity.user.id
+      redirect_to '/login/return'
+    else
+      # This scenario is unlikely but we must check in order to guarantee that tenant settings are properly enforced
+      render status: 403, layout: 'application', html: "OAuth provider <code>#{request.env['omniauth.auth'].provider}</code> is not enabled for subdomain <code>#{original_tenant.subdomain}</code>".html_safe
+    end
   end
 
   # If the callback is to /auth/failure
@@ -114,12 +118,18 @@ class SessionsController < ApplicationController
     "https://#{tenant.subdomain}.#{ENV['HOSTNAME']}/login/callback"
   end
 
+  def original_tenant
+    return @original_tenant if defined?(@original_tenant)
+    @original_tenant = Tenant.find_by(subdomain: cookies[:redirect_to_subdomain])
+    @original_tenant ||= Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN'])
+  end
+
   def redirect_to_original_tenant
     raise 'Unexpected error. Wrong subdomain.' if request.subdomain != auth_subdomain
     subdomain = cookies[:redirect_to_subdomain] || ENV['PRIMARY_SUBDOMAIN']
     raise 'Unexpected error. Subdomain required.' unless subdomain
     delete_redirect_to_subdomain_cookie
-    tenant = Tenant.find_by(subdomain: subdomain)
+    tenant = original_tenant
     # TODO check if user is allowed to access this tenant
     return redirect_to root_path unless tenant && current_user
     token = encrypt_token(tenant.id, current_user.id)

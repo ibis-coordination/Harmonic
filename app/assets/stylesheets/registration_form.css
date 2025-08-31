@@ -12,7 +12,7 @@
 }
 
 .password-feedback.invalid {
-  color: #dc3545;
+  color: var(--color-danger-fg);
 }
 
 #submit-button:disabled {
@@ -31,7 +31,7 @@
 }
 
 .password-constraint.unmet {
-  color: #dc3545;
+  color: var(--color-danger-fg);
 }
 
 .char-count {

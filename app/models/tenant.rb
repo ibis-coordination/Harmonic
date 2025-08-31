@@ -108,6 +108,10 @@ class Tenant < ApplicationRecord
     save!
   end
 
+  def valid_auth_provider?(provider)
+    self.settings['auth_providers'].include?(provider)
+  end
+
   def timezone=(value)
     if value.present?
       @timezone = ActiveSupport::TimeZone[value]

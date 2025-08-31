@@ -10,9 +10,11 @@
     to accept this invite.
   <% end %>
 </p>
-<% if @original_tenant.auth_providers.include?('internal') %>
+<% if @original_tenant.auth_providers.include?('identity') %>
   <%= render 'omni_auth_identities/email_password_form' %>
-  <hr/>
+  <% if @original_tenant.auth_providers.length > 1 %>
+    <hr/>
+  <% end %>
 <% end %>
 <% @original_tenant.auth_providers.each do |provider| %>
   <% provider = provider.downcase %>
