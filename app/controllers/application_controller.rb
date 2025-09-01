@@ -187,8 +187,7 @@ class ApplicationController < ActionController::Base
   end
 
   def validate_unauthenticated_access
-    # return if @current_user || !@current_tenant.require_login? || is_auth_controller?
-    return if @current_user || is_auth_controller?
+    return if @current_user || !@current_tenant.require_login? || is_auth_controller?
     return render status: 401, json: { error: 'Unauthorized' } if request.path.include?('/api/') || request.headers['Accept'] == 'application/json'
     if current_resource
       path = current_resource.path

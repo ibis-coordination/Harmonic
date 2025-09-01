@@ -1,6 +1,6 @@
 class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   auth_key :email
-  validates :password, length: { minimum: 14, maximum: 128 }
+  validate :password_valid?
 
   # Password reset functionality
   def generate_reset_password_token!
@@ -28,5 +28,11 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     self.password_confirmation = new_password
     clear_reset_password_token!
     save!
+  end
+
+  def password_valid?
+    # Passwords themselves are not persisted in the database, only the digest.
+    # If password is nil and password_digest is not nil, that means the record has already been saved in the db.
+    (self.password.nil? && !self.password_digest.nil?) || self.password.length >= 14
   end
 end
