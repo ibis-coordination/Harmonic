@@ -1,5 +1,6 @@
 class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   auth_key :email
+  validates :password, length: { minimum: 14, maximum: 128 }
 
   # Password reset functionality
   def generate_reset_password_token!
