@@ -1,0 +1,31 @@
+<link rel="stylesheet" href="<%= asset_path 'registration_form.css' %>">
+<script type="module" src="<%= asset_path 'password_reset_form.js' %>"></script>
+
+<h1>Set new password</h1>
+<p>
+  <%= render 'shared/three_icon_row', large: true %>
+</p>
+<p>
+  Enter your new password for <strong><%= @identity.email %></strong>
+</p>
+
+<%= form_with url: password_reset_path(@identity.reset_password_token), method: :patch, data: { turbo: false }, id: "password-reset-form" do |form| %>
+  <div id="password-feedback" class="password-feedback"></div>
+  <%= form.password_field :password, placeholder: 'New password (minimum 14 characters)',
+      id: 'password-field',
+      minlength: 14,
+      required: true %>
+
+  <div id="password-confirmation-feedback" class="password-feedback"></div>
+  <%= form.password_field :password_confirmation, placeholder: 'Confirm new password',
+      id: 'password-confirmation-field',
+      minlength: 14,
+      required: true %>
+
+  <div class="spacer"></div>
+  <%= submit_tag "Update password", id: "submit-button", disabled: true %>
+  <br/>
+  or
+  <br/>
+  <%= link_to 'Request a new reset link', new_password_reset_path %>
+<% end %>

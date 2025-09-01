@@ -14,6 +14,11 @@ Rails.application.routes.draw do
     get 'login/callback' => 'sessions#internal_callback'
     delete '/logout' => 'sessions#destroy'
     get 'logout-success' => 'sessions#logout_success'
+
+    # Password reset routes
+    resources :password_resets, only: [:new, :create], path: 'password'
+    get 'password/reset/:token', to: 'password_resets#show', as: 'password_reset'
+    patch 'password/reset/:token', to: 'password_resets#update'
   else
     raise 'Invalid AUTH_MODE'
   end
