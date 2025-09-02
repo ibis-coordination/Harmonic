@@ -8,15 +8,17 @@ Rails.application.routes.draw do
     get 'logout-success' => 'honor_system_sessions#logout_success'
   elsif ENV['AUTH_MODE'] == 'oauth'
     get 'login' => 'sessions#new'
-    get 'auth/:provider/callback' => 'sessions#oauth_callback'
+    post 'auth/:provider/callback' => 'sessions#oauth_callback'
+    get  'auth/failure' => 'sessions#oauth_failure'
     get 'login/return' => 'sessions#return'
     get 'login/callback' => 'sessions#internal_callback'
     delete '/logout' => 'sessions#destroy'
     get 'logout-success' => 'sessions#logout_success'
-  elsif ENV['AUTH_MODE'] == 'magic_link'
-    # TODO - implement magic link auth
-    # get 'login' => 'magic_link_sessions#new'
-    # post 'login' => 'magic_link_sessions#create'
+
+    # Password reset routes
+    resources :password_resets, only: [:new, :create], path: 'password'
+    get 'password/reset/:token', to: 'password_resets#show', as: 'password_reset'
+    patch 'password/reset/:token', to: 'password_resets#update'
   else
     raise 'Invalid AUTH_MODE'
   end

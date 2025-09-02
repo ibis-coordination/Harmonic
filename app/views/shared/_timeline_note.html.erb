@@ -1,4 +1,4 @@
-<div class="timeline-note">
+<div class="timeline-note" onclick="location.href='<%= note.path %>'">
   <div class="timeline-note-created-by">
     <%= profile_pic(note.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
     <strong><%= note.created_by.display_name %></strong>

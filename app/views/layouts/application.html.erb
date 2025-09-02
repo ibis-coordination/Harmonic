@@ -18,7 +18,7 @@
     <div id="expanding-heart">
       <%= octicon 'heart' %>
     </div>
-    <% if controller_name != 'sessions' %>
+    <% unless request.subdomain == ENV['AUTH_SUBDOMAIN'] || controller_name == 'sessions' %>
       <nav style="display:block;min-height:16px;">
         <% if false # %>
           <%= render 'layouts/top_left_menu' %>
@@ -30,7 +30,7 @@
         <% end %>
       </nav>
     <% end %>
-    <div class="markdown-body">
+    <div class="markdown-body<%= request.subdomain == ENV['AUTH_SUBDOMAIN'] ? ' login-form' : '' %>">
       <% if notice || alert %>
         <% if notice %>
           <div class="notice" style="display:<%= notice ? 'block' : 'none' %>;">

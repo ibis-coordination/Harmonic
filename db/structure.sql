@@ -455,6 +455,22 @@ CREATE TABLE public.oauth_identities (
 
 
 --
+-- Name: omni_auth_identities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.omni_auth_identities (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    email character varying NOT NULL,
+    name character varying,
+    password_digest character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    reset_password_token character varying,
+    reset_password_sent_at timestamp(6) without time zone
+);
+
+
+--
 -- Name: options; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -765,6 +781,14 @@ ALTER TABLE ONLY public.notes
 
 ALTER TABLE ONLY public.oauth_identities
     ADD CONSTRAINT oauth_identities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: omni_auth_identities omni_auth_identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.omni_auth_identities
+    ADD CONSTRAINT omni_auth_identities_pkey PRIMARY KEY (id);
 
 
 --
@@ -1273,6 +1297,20 @@ CREATE UNIQUE INDEX index_oauth_identities_on_provider_and_uid ON public.oauth_i
 --
 
 CREATE INDEX index_oauth_identities_on_user_id ON public.oauth_identities USING btree (user_id);
+
+
+--
+-- Name: index_omni_auth_identities_on_email; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_omni_auth_identities_on_email ON public.omni_auth_identities USING btree (email);
+
+
+--
+-- Name: index_omni_auth_identities_on_reset_password_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_omni_auth_identities_on_reset_password_token ON public.omni_auth_identities USING btree (reset_password_token);
 
 
 --
@@ -2321,6 +2359,8 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250813231547'),
 ('20250815005326'),
 ('20250818184030'),
-('20250819213059');
+('20250819213059'),
+('20250826214040'),
+('20250831231336');
 
 

@@ -5,7 +5,7 @@ class ApplicationController < ActionController::Base
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
   def check_auth_subdomain
-    if request.subdomain == auth_subdomain && controller_name != 'sessions'
+    if request.subdomain == auth_subdomain && !is_auth_controller?
       redirect_to '/login'
     end
   end
@@ -187,7 +187,7 @@ class ApplicationController < ActionController::Base
   end
 
   def validate_unauthenticated_access
-    return if @current_user || !@current_tenant.require_login? || controller_name.ends_with?('sessions')
+    return if @current_user || !@current_tenant.require_login? || is_auth_controller?
     return render status: 401, json: { error: 'Unauthorized' } if request.path.include?('/api/') || request.headers['Accept'] == 'application/json'
     if current_resource
       path = current_resource.path
@@ -569,5 +569,9 @@ class ApplicationController < ActionController::Base
       resource: locals[:resource],
       error: locals[:error],
     }
+  end
+
+  def is_auth_controller?
+    false
   end
 end

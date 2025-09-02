@@ -32,6 +32,21 @@ body {
   border: none; */
 }
 
+.homepage .markdown-body.login-form {
+  text-align: center;
+  max-width: 300px;
+}
+
+.homepage .markdown-body.login-form input, .homepage .markdown-body.login-form button {
+  width: 280px;
+}
+
+.homepage .markdown-body.login-form input[type="email"],
+.homepage .markdown-body.login-form input[type="password"],
+.homepage .markdown-body.login-form input[type="text"] {
+  width: 270px;
+}
+
 .homepage .homepage-studio-section {
   background-color: var(--color-canvas-default);
   border: 1px solid var(--color-border-default);
@@ -444,6 +459,10 @@ h1 .large-icon {
   height: 16px;
   width: 16px;
   display: inline-block;
+}
+
+.timeline-note {
+  cursor: pointer;
 }
 
 .role-badge {

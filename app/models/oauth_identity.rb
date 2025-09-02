@@ -8,8 +8,8 @@ class OauthIdentity < ApplicationRecord
       uid: auth.uid
     )
 
-    # If identity exists but isn't linked, link it to existing user with same email
-    if identity.new_record? && auth.info.email
+    # If identity isn't linked to a user, check for an existing user with the same email
+    if identity.user_id.nil? && auth.info.email
       user = User.find_by(email: auth.info.email)
     end
 
@@ -19,6 +19,11 @@ class OauthIdentity < ApplicationRecord
       name: auth.info.name,
       image_url: auth.info.image,
     )
+
+    # We want to make sure that every user has an oaid record even if
+    # they use an oauth provider like github. This ensures that the email address
+    # cannot be claimed by a different user signing up for the first time.
+    user.find_or_create_omni_auth_identity!
 
     # Link identity to user
     identity.update!(

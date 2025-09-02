@@ -1,4 +1,7 @@
-<h1>Login</h1>
+<h1>Log in to Harmonic</h1>
+<p>
+  <%= render 'shared/three_icon_row', large: true %>
+</p>
 <p>
   Log in to <code><%= "#{@original_tenant.subdomain}.#{ENV['HOSTNAME']}" %></code>
   <% if @redirect_to_resource %>
@@ -7,10 +10,19 @@
     to accept this invite.
   <% end %>
 </p>
+<% if @original_tenant.auth_providers.include?('identity') %>
+  <%= render 'omni_auth_identities/email_password_form' %>
+  <% if @original_tenant.auth_providers.length > 1 %>
+    <hr/>
+  <% end %>
+<% end %>
 <% @original_tenant.auth_providers.each do |provider| %>
   <% provider = provider.downcase %>
   <% if provider == "github" %>
-    <%= button_to "Log in with GitHub", "/auth/github", method: :post %>
+    <%= button_to "/auth/github", method: :post do %>
+      Log in with GitHub
+      <%= octicon 'mark-github' %>
+    <% end %>
   <% elsif provider == "google" %>
     <%= button_to "Log in with Google", "/auth/google_oauth2", method: :post %>
   <% elsif provider == "twitter" %>

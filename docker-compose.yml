@@ -60,6 +60,13 @@ services:
   #   env_file:
   #     # Make sure your NGROK_AUTHTOKEN is set in the .env file, and HOST_MODE is set to "ngrok".
   #     - .env
+  # # For development only
+  mailcatcher:
+    image: sj26/mailcatcher
+    ports: ["1080:1080"]
+    environment:
+      MAILCATCHER_SMTP_PORT: 1025
+      MAILCATCHER_HTTP_PORT: 1080
 
 volumes:
   pg_data:

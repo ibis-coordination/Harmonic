@@ -45,8 +45,9 @@ class UsersController < ApplicationController
     if params[:new_handle].present?
       current_user.handle = params[:new_handle]
       current_user.save!
-      tu.handle = params[:new_handle]
-      tu.save!
+      TenantUser.unscoped.where(user: current_user).update_all(
+        handle: params[:new_handle]
+      )
     end
     flash[:notice] = 'Profile updated successfully'
     redirect_to "#{current_user.path}/settings"

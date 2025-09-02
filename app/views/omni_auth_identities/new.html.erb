@@ -1,0 +1,35 @@
+<link rel="stylesheet" href="<%= asset_path 'registration_form.css' %>">
+<script type="module" src="<%= asset_path 'registration_form.js' %>"></script>
+<h1>Create account</h1>
+<p>
+  <%= render 'shared/three_icon_row', large: true %>
+</p>
+<p>
+  Create an account on <code><%= ENV['HOSTNAME'] %></code>
+</p>
+<%= form_with url: "/auth/identity/register", method: :post, data: { turbo: false }, id: "registration-form" do |form| %>
+  <div id="email-feedback" class="password-feedback"></div>
+  <%= form.email_field :email, placeholder: 'Email', required: true, id: 'email-field' %>
+
+  <div id="name-feedback" class="password-feedback"></div>
+  <%= form.text_field :name, placeholder: 'Name', required: true, id: 'name-field' %>
+
+  <div id="password-feedback" class="password-feedback"></div>
+  <%= form.password_field :password, placeholder: 'Password (minimum 14 characters)',
+      id: 'password-field',
+      minlength: 14,
+      required: true %>
+
+  <div id="password-confirmation-feedback" class="password-feedback"></div>
+  <%= form.password_field :password_confirmation, placeholder: 'Confirm password',
+      id: 'password-confirmation-field',
+      minlength: 14,
+      required: true %>
+
+  <div class="spacer"></div>
+  <%= submit_tag "Create account", id: "submit-button", disabled: true %>
+  <br/>
+  or
+  <br/>
+  <%= link_to 'Log in with an existing account', '/login' %>
+<% end %>

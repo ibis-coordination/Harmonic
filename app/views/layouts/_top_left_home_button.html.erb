@@ -1,7 +1,5 @@
 <a href="/" style="text-decoration:none;font-weight:bold;color:var(--color-fg-default);">
-  <i class="note-icon"></i>
-  <i class="decision-icon"></i>
-  <i class="commitment-icon"></i>
+  <%= render 'shared/three_icon_row' %>
   <span style="display:inline-block;width:5px;"></span>
   <%= @current_tenant.subdomain %><span style="opacity:0.6;font-weight:normal;">.<%= ENV['HOSTNAME'] %></span>
 </a>

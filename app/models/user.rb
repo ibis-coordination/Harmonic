@@ -233,4 +233,24 @@ class User < ApplicationRecord
     studios.includes(:tenant).where('tenants.main_studio_id != studios.id')
   end
 
+  def external_oauth_identities
+    oauth_identities.where.not(provider: 'identity')
+  end
+
+  def omni_auth_identity
+    OmniAuthIdentity.find_by(email: self.email)
+  end
+
+  def find_or_create_omni_auth_identity!
+    oaid = omni_auth_identity
+    if oaid.nil?
+      oaid = OmniAuthIdentity.create!(
+        email: self.email,
+        name: self.name,
+        password: SecureRandom.alphanumeric(32)
+      )
+    end
+    oaid
+  end
+
 end
