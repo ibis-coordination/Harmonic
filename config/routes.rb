@@ -144,6 +144,7 @@ Rails.application.routes.draw do
       get '/actions' => 'notes#actions_index_show'
       get '/actions/confirm_read' => 'notes#describe_confirm_read'
       post '/actions/confirm_read' => 'notes#confirm_read'
+      post '/comments' => 'notes#create_comment'
       get '/edit/actions' => 'notes#actions_index_edit'
       get '/edit/actions/update_note' => 'notes#describe_update_note'
       post '/edit/actions/update_note' => 'notes#update_note'

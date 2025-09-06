@@ -39,8 +39,9 @@ class UsersController < ApplicationController
     if params[:name].present?
       current_user.name = params[:name]
       current_user.save!
-      tu.user.name = params[:name]
-      tu.user.save!
+      TenantUser.unscoped.where(user: current_user).update_all(
+        display_name: params[:name]
+      )
     end
     if params[:new_handle].present?
       current_user.handle = params[:new_handle]

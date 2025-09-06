@@ -2,6 +2,15 @@
 <%= render 'shared/more_button', resource: @note, options: ['copy', (@current_studio.is_scene? ? nil : 'pin'), (@note.user_can_edit?(@current_user) ? 'edit' : nil)].compact %>
 <%= render 'shared/show_resource_breadcrumbs', resource: @note %>
 <h1 style="margin-top:0;"><%= @note.persisted_title %></h1>
+<% if @note.is_comment? %>
+  <p>
+    <%= octicon 'reply' %>
+    Replying to
+    <i class="<%= @note.commentable.class.to_s.downcase %>-icon"></i>
+    <strong><%= @note.commentable.class.to_s %></strong>
+    <code><a href="<%= @note.commentable.path %>"><%= @note.commentable.truncated_id %></a></code>
+  </p>
+<% end %>
 <p style="font-size:0.8em;">
   <%= render 'shared/created_by', resource: @note %>
 </p>

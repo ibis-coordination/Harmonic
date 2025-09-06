@@ -431,7 +431,9 @@ CREATE TABLE public.notes (
     deadline timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP,
     created_by_id uuid,
     updated_by_id uuid,
-    studio_id uuid
+    studio_id uuid,
+    commentable_type character varying,
+    commentable_id uuid
 );
 
 
@@ -1248,6 +1250,13 @@ CREATE INDEX index_note_history_events_on_tenant_id ON public.note_history_event
 --
 
 CREATE INDEX index_note_history_events_on_user_id ON public.note_history_events USING btree (user_id);
+
+
+--
+-- Name: index_notes_on_commentable; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notes_on_commentable ON public.notes USING btree (commentable_type, commentable_id);
 
 
 --
@@ -2361,6 +2370,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250818184030'),
 ('20250819213059'),
 ('20250826214040'),
-('20250831231336');
+('20250831231336'),
+('20250902174420');
 
 

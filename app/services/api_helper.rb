@@ -123,7 +123,7 @@ class ApiHelper
     heartbeat
   end
 
-  def create_note
+  def create_note(commentable: nil)
     note = nil
     ActiveRecord::Base.transaction do
       note = Note.create!(
@@ -131,6 +131,7 @@ class ApiHelper
         text: params[:text],
         deadline: params[:deadline],
         created_by: current_user,
+        commentable: commentable,
       )
       if current_representation_session
         current_representation_session.record_activity!(

@@ -12,12 +12,26 @@
 
 <% comments_title = "Comments #{octicon('comment', height: 24)}".html_safe %>
 <%= render 'shared/collapseable_section', title: comments_title, title_superscript: "#{@note.comment_count}", header_level: 2, hidden: true do %>
-  <ul>
-    <% @note.comments.each do |comment| %>
-      <li><%= comment.text %></li>
+  <% if @note.comments.any? %>
+    <div class="comments-list">
+      <% @note.chronological_comments.each do |comment| %>
+        <%= render 'shared/timeline_note', note: comment %>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="no-comments">No comments yet.</p>
+  <% end %>
+
+  <div class="comment-form">
+    <%= form_with url: "#{@note.path}/comments", method: :post, local: true, class: "new-comment-form" do |form| %>
+      <div class="form-group">
+        <%= form.text_area :text, placeholder: "Add a comment...", rows: 3, class: "form-control comment-input" %>
+      </div>
+      <div class="form-actions">
+        <%= form.submit "Add Comment", class: "btn btn-primary btn-sm" %>
+      </div>
     <% end %>
-  </ul>
-  <div>Comment</div>
+  </div>
 <% end %>
 
 <% backlinks_title = "Backlinks #{octicon('link', height: 24)}".html_safe %>
