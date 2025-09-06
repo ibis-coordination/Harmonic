@@ -10,26 +10,5 @@
   </ul>
 <% end %>
 
-<% comments_title = "Comments #{octicon('comment', height: 24)}".html_safe %>
-<%= render 'shared/collapseable_section', title: comments_title, title_superscript: "#{@note.comment_count}", header_level: 2, hidden: true do %>
-  <ul>
-    <% @note.comments.each do |comment| %>
-      <li><%= comment.text %></li>
-    <% end %>
-  </ul>
-  <div>Comment</div>
-<% end %>
-
-<% backlinks_title = "Backlinks #{octicon('link', height: 24)}".html_safe %>
-<%= render 'shared/collapseable_section', title: backlinks_title, title_superscript: "#{@note.backlinks.count}", header_level: 2, hidden: true do %>
-  <ul>
-    <% @note.backlinks.each do |r| %>
-      <% model_name = r.class.name.downcase %>
-      <li>
-        <a href="<%= r.path %>">
-          <i class='<%= model_name %>-icon'></i>
-          <code><%= r.path_prefix %>/<%= r.truncated_id %></code>
-      </li>
-    <% end %>
-  </ul>
-<% end %>
+<%= render 'shared/comments_section', commentable: @note %>
+<%= render 'shared/backlinks_section', resource: @note %>

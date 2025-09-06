@@ -4,6 +4,7 @@ class Note < ApplicationRecord
   include Pinnable
   include HasTruncatedId
   include Attachable
+  include Commentable
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -11,6 +12,10 @@ class Note < ApplicationRecord
   before_validation :set_studio_id
   belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
   belongs_to :updated_by, class_name: 'User', foreign_key: 'updated_by_id'
+
+  # Commentable pattern - allows notes to be comments on other resources
+  belongs_to :commentable, polymorphic: true, optional: true
+
   has_many :note_history_events, dependent: :destroy
   # validates :title, presence: true
 
@@ -44,14 +49,6 @@ class Note < ApplicationRecord
     @confirmed_reads ||= note_history_events.where(event_type: 'read_confirmation').select(:user_id).distinct.count
   end
 
-  def comments
-    [] # TODO
-  end
-
-  def comment_count
-    comments.count
-  end
-
   def metric_name
     'readers'
   end
@@ -76,6 +73,8 @@ class Note < ApplicationRecord
       updated_at: updated_at,
       created_by_id: created_by_id,
       updated_by_id: updated_by_id,
+      commentable_type: commentable_type,
+      commentable_id: commentable_id,
     }
     if include.include?('history_events')
       response.merge!({ history_events: history_events.map(&:api_json) })
@@ -137,5 +136,14 @@ class Note < ApplicationRecord
 
   def user_can_edit?(user)
     user.id == created_by.id
+  end
+
+  # Comment-related helper methods
+  def is_comment?
+    commentable_type.present? && commentable_id.present?
+  end
+
+  def standalone_note?
+    !is_comment?
   end
 end

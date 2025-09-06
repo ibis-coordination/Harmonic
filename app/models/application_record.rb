@@ -88,4 +88,8 @@ class ApplicationRecord < ActiveRecord::Base
     "#{metric_value} #{metric_name}"
   end
 
+  def is_commentable?
+    false
+  end
+
 end

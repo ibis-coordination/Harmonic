@@ -1,0 +1,24 @@
+<% comments_title = "Comments #{octicon('comment', height: 24)}".html_safe %>
+<%= render 'shared/collapseable_section', title: comments_title, title_superscript: "#{commentable.comment_count}", header_level: 2, hidden: true do %>
+  <% if commentable.comments.any? %>
+    <div class="comments-list">
+      <% commentable.chronological_comments.each do |comment| %>
+        <%= render 'shared/timeline_note', note: comment %>
+        <hr/>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="no-comments">No comments yet.</p>
+  <% end %>
+
+  <div class="comment-form">
+    <%= form_with url: "#{commentable.path}/comments", method: :post, local: true, class: "new-comment-form" do |form| %>
+      <div class="form-group">
+        <%= form.text_area :text, placeholder: "Add a comment...", rows: 3, class: "form-control comment-input" %>
+      </div>
+      <div class="form-actions">
+        <%= form.submit "Add Comment", class: "btn btn-primary btn-sm" %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

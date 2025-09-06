@@ -1,7 +1,7 @@
 class LinkParser
   def self.parse(text, subdomain: nil, studio_handle: nil)
     models = { 'n' => Note, 'c' => Commitment, 'd' => Decision, 'r' => RepresentationSession }
-    domain = "#{subdomain}.#{ENV['HOSTNAME']}" + (studio_handle ? "/studios/#{studio_handle}" : '')
+    domain = "#{subdomain}.#{ENV['HOSTNAME']}" + (studio_handle ? "/(?:studios|scenes)/#{studio_handle}" : '')
     prefixes = models.keys.join
     pattern = Regexp.new("https://#{domain}/([#{prefixes}])/([0-9a-f-]+)")
     memo = {}

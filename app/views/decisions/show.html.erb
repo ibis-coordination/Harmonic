@@ -38,5 +38,6 @@
   <%= render 'voters' %>
 </span>
 
-<%= backlinks(@decision) %>
+<%= render 'shared/comments_section', commentable: @decision %>
+<%= render 'shared/backlinks_section', resource: @decision %>
 </span>

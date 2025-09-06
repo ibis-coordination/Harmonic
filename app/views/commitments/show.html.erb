@@ -23,5 +23,7 @@
   </div>
 <% end %>
 <%= render 'participants' %>
-<%= backlinks(@commitment) %>
+
+<%= render 'shared/comments_section', commentable: @commitment %>
+<%= render 'shared/backlinks_section', resource: @commitment %>
 </span>

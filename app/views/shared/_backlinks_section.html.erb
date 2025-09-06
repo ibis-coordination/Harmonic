@@ -1,0 +1,13 @@
+<% backlinks_title = "Backlinks #{octicon('link', height: 24)}".html_safe %>
+<%= render 'shared/collapseable_section', title: backlinks_title, title_superscript: "#{resource.backlinks.count}", header_level: 2, hidden: true do %>
+  <p>
+    Items that include a <%= render 'shared/copy_button', text: resource.shareable_link, message: 'link' %> to this <%= resource.class.name.downcase %> <%= resource.backlinks.any? ? 'are' : 'will be' %> listed here.
+  </p>
+  <ul>
+    <% resource.backlinks.each do |r| %>
+      <li>
+        <%= render 'shared/inline_resource_item', resource: r %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

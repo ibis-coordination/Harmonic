@@ -4,6 +4,10 @@
 | updated_at | <%= @note.updated_at %> |
 | deadline | <%= @note.deadline %> |
 
+<% if @note.is_comment? %>
+Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated_id %>](<%= @note.commentable.path %>)
+
+<% end %>
 ## Text
 
 ```markdown

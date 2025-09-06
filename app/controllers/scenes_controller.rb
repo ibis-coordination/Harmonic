@@ -13,6 +13,6 @@ class ScenesController < ApplicationController
 
   def show
     return render 'shared/404' unless @current_studio.studio_type == 'scene'
-    @notes = @current_studio.recent_notes.order(created_at: :desc)
+    @notes = @current_studio.recent_notes.where(commentable_id: nil).order(created_at: :desc)
   end
 end

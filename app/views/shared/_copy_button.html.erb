@@ -1,9 +1,11 @@
+<% message ||= nil %>
+<% success_message ||= message %>
 <span data-controller="clipboard" title="Copy to clipboard">
   <input type="text" value="<%= text %>" data-clipboard-target="source" style="display:none;"/>
   <span class="text-only-button" data-action="click->clipboard#copy" data-clipboard-target="button">
-    <%= octicon 'copy' %>
+    <%= octicon 'copy' %> <%= message %>
   </span>
   <span class="text-only-button" data-clipboard-target="successMessage" style="display:none;">
-    <%= octicon 'check' %>
+    <%= octicon 'check' %> <%= success_message %>
   </span>
 </span>

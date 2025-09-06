@@ -522,6 +522,15 @@ class ApplicationController < ActionController::Base
     )
   end
 
+  def create_comment
+    if current_resource.is_commentable?
+      comment = api_helper.create_note(commentable: current_resource)
+      redirect_to comment.path
+    else
+      render status: 405, json: {message:'comments cannot be added to this datatype'}
+    end
+  end
+
   def render_actions_index(locals)
     @page_title ||= "Actions"
     base_path = request.path.split('/actions')[0]

@@ -86,4 +86,21 @@ class RepresentationSessionsController < ApplicationController
     redirect_to current_studio.path
   end
 
+  private
+
+  def current_resource_model
+    RepresentationSession
+  end
+
+  def current_resource
+    return @current_resource if defined?(@current_resource)
+    if params[:representation_session_id]
+      column = params[:representation_session_id].length == 8 ? 'truncated_id' : 'id'
+      @current_resource = current_studio.representation_sessions.find_by!(column => params[:representation_session_id])
+    else
+      super
+    end
+    @current_resource
+  end
+
 end
