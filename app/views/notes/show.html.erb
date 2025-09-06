@@ -3,12 +3,10 @@
 <%= render 'shared/show_resource_breadcrumbs', resource: @note %>
 <h1 style="margin-top:0;"><%= @note.persisted_title %></h1>
 <% if @note.is_comment? %>
-  <p>
+  <p onclick="location.href='<%= @note.commentable.path %>'" style="cursor:pointer;">
     <%= octicon 'reply' %>
     Replying to
-    <i class="<%= @note.commentable.class.to_s.downcase %>-icon"></i>
-    <strong><%= @note.commentable.class.to_s %></strong>
-    <code><a href="<%= @note.commentable.path %>"><%= @note.commentable.truncated_id %></a></code>
+    <%= render 'shared/inline_resource_item', resource: @note.commentable %>
   </p>
 <% end %>
 <p style="font-size:0.8em;">

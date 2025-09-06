@@ -525,7 +525,7 @@ class ApplicationController < ActionController::Base
   def create_comment
     if current_resource.is_commentable?
       comment = api_helper.create_note(commentable: current_resource)
-      render status: 200, json: comment.api_json
+      redirect_to comment.path
     else
       render status: 405, json: {message:'comments cannot be added to this datatype'}
     end

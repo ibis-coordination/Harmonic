@@ -2,6 +2,7 @@ class Decision < ApplicationRecord
   include Tracked
   include Linkable
   include Pinnable
+  include Commentable
   include HasTruncatedId
   include Attachable
   self.implicit_order_column = "created_at"

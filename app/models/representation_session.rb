@@ -1,5 +1,6 @@
 class RepresentationSession < ApplicationRecord
   include Linkable
+  include Commentable
   include HasTruncatedId
   belongs_to :tenant
   belongs_to :studio

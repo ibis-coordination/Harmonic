@@ -63,11 +63,5 @@
   </table>
 <% end %>
 
-<%= backlinks(@representation_session) %>
-
-<div style="display:none;">
-  <h2>JSON</h2>
-  <pre>
-  <%= JSON.pretty_generate(@representation_session.api_json) %>
-  </pre>
-</div>
+<%= render 'shared/comments_section', commentable: @representation_session %>
+<%= render 'shared/backlinks_section', resource: @representation_session %>
