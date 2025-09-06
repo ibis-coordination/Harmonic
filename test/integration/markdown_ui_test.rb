@@ -22,7 +22,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   def is_markdown?
     response.content_type.starts_with?("text/markdown") &&
-    response.body.start_with?("---\ntitle: ")
+    response.body.start_with?("---\napp: Harmonic")
   end
 
   def has_nav_bar?
