@@ -42,3 +42,5 @@
 
 # Ignore Caddyfile
 Caddyfile
+
+ignore/
