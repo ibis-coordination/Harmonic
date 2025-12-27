@@ -88,7 +88,7 @@ gem 'omniauth-identity'
 gem 'redcarpet'
 gem 'octicons_helper'
 
-gem 'aws-sdk-s3', '~> 1.0'
+gem 'aws-sdk-s3', '~> 1.208'
 
 # Security gems
 gem 'rack-attack' # Rate limiting and request filtering
