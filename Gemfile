@@ -54,6 +54,10 @@ gem "rack", ">= 2.2.13"
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri mingw x64_mingw ]
+
+  # Code style checking
+  gem "rubocop", require: false
+  gem "rubocop-rails", require: false
 end
 
 group :development do
@@ -65,6 +69,9 @@ group :development do
 
   # Speed up commands on slow machines / big apps [https://github.com/rails/spring]
   # gem "spring"
+
+  # Generate Entity-Relationship Diagrams from models
+  gem "rails-erd"
 end
 
 group :test do

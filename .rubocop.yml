@@ -1,0 +1,105 @@
+# Rubocop configuration for Harmonic
+# This is a starting configuration that's lenient on existing code
+# but establishes standards for new code.
+
+require:
+  - rubocop-rails
+
+AllCops:
+  TargetRubyVersion: 3.1
+  NewCops: enable
+  Exclude:
+    - 'db/schema.rb'
+    - 'db/structure.sql'
+    - 'db/migrate/**/*'
+    - 'bin/**/*'
+    - 'vendor/**/*'
+    - 'node_modules/**/*'
+    - 'tmp/**/*'
+    - 'storage/**/*'
+
+# Layout cops
+Layout/LineLength:
+  Max: 150
+  Exclude:
+    - 'config/routes.rb'
+
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
+
+# Metrics cops - lenient for existing large files
+Metrics/ClassLength:
+  Max: 600
+  Exclude:
+    - 'app/controllers/application_controller.rb'
+    - 'app/services/api_helper.rb'
+    - 'app/models/studio.rb'
+
+Metrics/MethodLength:
+  Max: 30
+  Exclude:
+    - 'app/controllers/application_controller.rb'
+    - 'app/services/api_helper.rb'
+
+Metrics/AbcSize:
+  Max: 40
+  Exclude:
+    - 'app/controllers/application_controller.rb'
+    - 'app/services/api_helper.rb'
+
+Metrics/BlockLength:
+  Exclude:
+    - 'config/routes.rb'
+    - 'test/**/*'
+    - 'spec/**/*'
+
+Metrics/CyclomaticComplexity:
+  Max: 15
+
+Metrics/PerceivedComplexity:
+  Max: 15
+
+# Style cops
+Style/Documentation:
+  Enabled: false  # Don't require class documentation for now
+
+Style/FrozenStringLiteralComment:
+  Enabled: false  # Rails doesn't require this
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Style/SymbolArray:
+  EnforcedStyle: brackets
+
+Style/WordArray:
+  EnforcedStyle: brackets
+
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+
+# Rails cops
+Rails/SkipsModelValidations:
+  Enabled: false  # Allow update_column etc when needed
+
+Rails/HasAndBelongsToMany:
+  Enabled: false
+
+Rails/OutputSafety:
+  Enabled: false  # html_safe is sometimes needed
+
+Rails/I18nLocaleTexts:
+  Enabled: false  # Not using I18n extensively yet
+
+# Naming cops
+Naming/PredicateName:
+  Enabled: false  # Allow is_* and has_* methods
+
+Naming/VariableNumber:
+  EnforcedStyle: snake_case
