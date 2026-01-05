@@ -5,7 +5,7 @@ This directory contains project documentation.
 ## Contents
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture, data model, and request flow
-- `API.md` - API documentation (TODO)
+- [API.md](API.md) - REST API documentation with endpoints, request/response formats, and examples
 - `erd.pdf` - Entity-Relationship Diagram (generate with `./scripts/generate-erd.sh`)
 
 ## Generating the ERD
