@@ -4,10 +4,9 @@ This directory contains project documentation.
 
 ## Contents
 
-- `ARCHITECTURE.md` - System architecture overview (TODO)
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture, data model, and request flow
 - `API.md` - API documentation (TODO)
-- `DATA_MODEL.md` - Data model and relationships (TODO)
-- `erd.pdf` - Entity-Relationship Diagram (generate with `bundle exec erd`)
+- `erd.pdf` - Entity-Relationship Diagram (generate with `./scripts/generate-erd.sh`)
 
 ## Generating the ERD
 

@@ -4,6 +4,8 @@ This document provides context and guidelines for AI coding assistants working o
 
 > **Important**: Before making design decisions, read [PHILOSOPHY.md](PHILOSOPHY.md) to understand the values and motivations behind this project.
 
+> **For detailed architecture**: See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system architecture, data model, and request flow.
+
 ## Project Overview
 
 Harmonic is a Ruby on Rails social media application focused on social agency over engagement metrics. It supports multiple tenants (communities) with features for Notes (posts), Decisions (voting), Commitments (group pledges with critical mass), and Cycles (time-based content organization).
