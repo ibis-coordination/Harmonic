@@ -19,13 +19,14 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Files/patterns to exclude from scanning (dev configs, tests, this script)
-EXCLUDE_FILES=".env.example|check-secrets.sh|secrets.*test|fixtures|database.yml"
+EXCLUDE_FILES=".env.example|check-secrets.sh|secrets.*test|fixtures|database.yml|importmap.rb"
 
 # Patterns that suggest secrets (high confidence)
 # These patterns look for actual values, not just variable names
 SECRET_PATTERNS=(
     # API keys with actual values (not empty assignments)
     '[A-Za-z_]*API[_-]?KEY["\s]*[:=]["\s]*[A-Za-z0-9]{16,}'
+    '[A-Za-z_]*API[_-]?TOKEN["\s]*[:=]["\s]*[A-Za-z0-9]{16,}'
     '[A-Za-z_]*SECRET[_-]?KEY["\s]*[:=]["\s]*[A-Za-z0-9]{16,}'
 
     # AWS credentials
@@ -53,12 +54,55 @@ SECRET_PATTERNS=(
     # Stripe keys
     'sk_live_[0-9a-zA-Z]{24}'
     'rk_live_[0-9a-zA-Z]{24}'
+    'pk_live_[0-9a-zA-Z]{24}'
+
+    # Anthropic API keys
+    'sk-ant-api[0-9]{2}-[A-Za-z0-9_-]{80,}'
+
+    # OpenAI API keys
+    'sk-[A-Za-z0-9]{48}'
+    'sk-proj-[A-Za-z0-9_-]{48,}'
+
+    # Google API keys and service accounts
+    'AIza[0-9A-Za-z_-]{35}'
+    '"type"\s*:\s*"service_account"'
+
+    # Heroku API key
+    '[hH][eE][rR][oO][kK][uU].*[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}'
+
+    # Twilio
+    'SK[a-f0-9]{32}'
+    'AC[a-f0-9]{32}'
+
+    # SendGrid
+    'SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}'
+
+    # Mailchimp
+    '[a-f0-9]{32}-us[0-9]{1,2}'
+
+    # NPM tokens
+    'npm_[A-Za-z0-9]{36}'
+
+    # PyPI tokens
+    'pypi-[A-Za-z0-9_-]{50,}'
+
+    # Generic hex tokens (40+ chars, commonly used for API tokens)
+    '["\x27][a-f0-9]{40,}["\x27]'
+
+    # Base64 encoded secrets (long base64 strings assigned to secret-like variables)
+    '(SECRET|TOKEN|KEY|PASS)[A-Z_]*["\s]*[:=]["\s]*[A-Za-z0-9+/]{40,}={0,2}'
 
     # Database URLs with credentials
-    '(mysql|postgres|postgresql|mongodb)://[^:]+:[^@]+@'
+    '(mysql|postgres|postgresql|mongodb|redis)://[^:]+:[^@]+@'
 
     # JWT tokens (they're long base64 strings with dots)
     'eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*'
+
+    # Bearer tokens in code
+    '[Bb]earer\s+[A-Za-z0-9_-]{20,}'
+
+    # Basic auth in URLs
+    'https?://[^:]+:[^@]+@[^/]+'
 )
 
 # Build combined pattern
@@ -102,13 +146,27 @@ if [[ "$1" == "--all" ]]; then
     FILES=$(find . -type f \( \
         -name "*.rb" -o \
         -name "*.js" -o \
+        -name "*.ts" -o \
         -name "*.yml" -o \
         -name "*.yaml" -o \
         -name "*.json" -o \
         -name "*.env" -o \
+        -name "*.env.*" -o \
         -name "*.sh" -o \
         -name "*.erb" -o \
-        -name "*.rake" \
+        -name "*.rake" -o \
+        -name "*.py" -o \
+        -name "*.ipynb" -o \
+        -name "*.md" -o \
+        -name "*.sql" -o \
+        -name "*.toml" -o \
+        -name "*.cfg" -o \
+        -name "*.conf" -o \
+        -name "*.ini" -o \
+        -name "Dockerfile" -o \
+        -name "docker-compose*.yml" -o \
+        -name "Gemfile" -o \
+        -name ".env*" \
     \) \
         ! -path "./.git/*" \
         ! -path "./node_modules/*" \
@@ -131,7 +189,7 @@ fi
 #
 # Default (pre-commit): Check staged files only
 #
-FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.(rb|js|yml|yaml|json|env|sh|erb|rake)$' | grep -v -E "$EXCLUDE_FILES" || true)
+FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.(rb|js|ts|yml|yaml|json|env|sh|erb|rake|py|ipynb|md|sql|toml|cfg|conf|ini)$|Dockerfile|Gemfile|docker-compose' | grep -v -E "$EXCLUDE_FILES" || true)
 
 if [[ -z "$FILES" ]]; then
     exit 0  # No relevant files staged
