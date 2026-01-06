@@ -88,6 +88,9 @@ RESTful JSON API at `/api/v1/` with token-based authentication:
 
 # Generate ERD diagram (after bundle install)
 bundle exec erd
+
+# Set up git hooks (TODO index checks)
+./scripts/setup-hooks.sh
 ```
 
 ## Testing

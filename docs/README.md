@@ -7,6 +7,7 @@ This directory contains project documentation.
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture, data model, and request flow
 - [API.md](API.md) - REST API documentation with endpoints, request/response formats, and examples
 - [KNOWN_BUGS.md](KNOWN_BUGS.md) - Known bugs discovered during testing with reproduction steps
+- [TODO_INDEX.md](TODO_INDEX.md) - Categorized index of all TODO comments in the codebase
 - `erd.pdf` - Entity-Relationship Diagram (generate with `./scripts/generate-erd.sh`)
 
 ## Generating the ERD
