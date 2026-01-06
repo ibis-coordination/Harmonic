@@ -25,11 +25,13 @@ fi
 chmod +x scripts/check-todo-index.sh 2>/dev/null || true
 chmod +x scripts/generate-todo-index.sh 2>/dev/null || true
 chmod +x scripts/check-debug-code.sh 2>/dev/null || true
+chmod +x scripts/check-secrets.sh 2>/dev/null || true
 
 echo ""
 echo "Git hooks installed successfully!"
 echo ""
 echo "Hooks will:"
+echo "  - Block commits containing potential secrets/API keys"
 echo "  - Block commits containing debug code (binding.pry, console.log, etc.)"
 echo "  - Warn when TODO comments are added/removed without updating docs/TODO_INDEX.md"
 echo ""

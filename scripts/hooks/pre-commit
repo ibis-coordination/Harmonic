@@ -3,12 +3,18 @@
 # Git pre-commit hook for Harmonic
 #
 # This hook:
-# 1. Checks for debug code (binding.pry, console.log, etc.)
-# 2. Checks if TODO comments were changed and reminds to update TODO_INDEX.md
+# 1. Scans for accidentally committed secrets/API keys
+# 2. Checks for debug code (binding.pry, console.log, etc.)
+# 3. Checks if TODO comments were changed and reminds to update TODO_INDEX.md
 #
 # To install: ./scripts/setup-hooks.sh
 # To bypass: git commit --no-verify
 #
+
+# Check for secrets (blocks commit if found)
+if [[ -x "./scripts/check-secrets.sh" ]]; then
+    ./scripts/check-secrets.sh || exit 1
+fi
 
 # Check for debug code (blocks commit if found)
 if [[ -x "./scripts/check-debug-code.sh" ]]; then
