@@ -264,48 +264,103 @@ Test service objects that contain critical business logic.
 ### Current State
 | Service | Test File | Status |
 |---------|-----------|--------|
-| `ApiHelper` | `api_helper_test.rb` | Exists |
-| `DataDeletionManager` | `data_deletion_manager_test.rb` | Exists |
-| `CommitmentParticipantManager` | None | Missing |
-| `DecisionParticipantManager` | None | Missing |
-| `MarkdownRenderer` | None | Missing |
-| `LinkParser` | None | Missing |
+| `ApiHelper` | `api_helper_test.rb` | ✅ Exists (10 tests) |
+| `DataDeletionManager` | `data_deletion_manager_test.rb` | ✅ Exists (6 tests) |
+| `CommitmentParticipantManager` | `commitment_participant_manager_test.rb` | ✅ Complete (18 tests) |
+| `DecisionParticipantManager` | `decision_participant_manager_test.rb` | ✅ Complete (17 tests) |
+| `MarkdownRenderer` | `markdown_renderer_test.rb` | ✅ Complete (30 tests) |
+| `LinkParser` | `link_parser_test.rb` | ✅ Complete (26 tests) |
 
-### Tests to Add
+### Implementation Status: ✅ COMPLETE
+
+**Files Created:**
+- `test/services/decision_participant_manager_test.rb` - NEW (17 tests)
+- `test/services/commitment_participant_manager_test.rb` - NEW (18 tests)
+- `test/services/link_parser_test.rb` - NEW (26 tests)
+- `test/services/markdown_renderer_test.rb` - NEW (30 tests)
+
+**Total New Tests: 91 tests added in Phase 4**
+**Test Suite Total: 449 tests (107 service tests)**
+
+### Key Testing Patterns Discovered
+
+1. **Linkable Concern Auto-Creates Links**: Models with `Linkable` concern automatically call `parse_and_create_link_records!` in `after_save`, so use `update_column` to bypass callbacks when testing the service directly
+2. **Thread Context Required**: `MarkdownRenderer.render` with `display_references: true` requires `Tenant.scope_thread_to_tenant` and `Studio.scope_thread_to_studio` to be set
+3. **LinkParser Regex**: Handles both `/studios/` and `/scenes/` URL paths via `(?:studios|scenes)` alternation
+4. **ParticipantManager Idempotency**: Both managers are designed to be idempotent - calling `find_or_create_participant` multiple times returns the same participant
+5. **Anonymous vs User Participants**: When a user is provided, any `participant_uid` is ignored and regenerated
+
+### Tests Added
 
 #### 4.1 Participant Managers
 **File**: `test/services/decision_participant_manager_test.rb`
 
-| Test Case | Priority |
-|-----------|----------|
-| Creates participant for new user | High |
-| Finds existing participant | High |
-| Handles concurrent requests | Medium |
+| Test Case | Priority | Status |
+|-----------|----------|--------|
+| Creates participant for new user | High | ✅ |
+| Returns existing participant for user | High | ✅ |
+| Creates anonymous participant with uid | High | ✅ |
+| Returns existing anonymous participant | High | ✅ |
+| Generates new uid when existing uid has user | High | ✅ |
+| Auto-generates uid when none provided | High | ✅ |
+| Sets name on participants | Medium | ✅ |
+| Raises error without decision | High | ✅ |
+| Idempotent for user | Medium | ✅ |
+| Idempotent for uid | Medium | ✅ |
 
 **File**: `test/services/commitment_participant_manager_test.rb`
 
-| Test Case | Priority |
-|-----------|----------|
-| Creates participant for new user | High |
-| Finds existing participant | High |
-| Updates commitment status | High |
+| Test Case | Priority | Status |
+|-----------|----------|--------|
+| Creates participant for new user | High | ✅ |
+| Returns existing participant for user | High | ✅ |
+| Creates anonymous participant with uid | High | ✅ |
+| Returns existing anonymous participant | High | ✅ |
+| Generates new uid when existing uid has user | High | ✅ |
+| Auto-generates uid when none provided | High | ✅ |
+| Sets name on participants | Medium | ✅ |
+| Raises error without commitment | High | ✅ |
+| New participant is not committed by default | Medium | ✅ |
 
 #### 4.2 Content Processing
 **File**: `test/services/markdown_renderer_test.rb`
 
-| Test Case | Priority |
-|-----------|----------|
-| Renders basic markdown | Medium |
-| Handles code blocks | Medium |
-| Sanitizes HTML | High |
+| Test Case | Priority | Status |
+|-----------|----------|--------|
+| Returns HTML from markdown | High | ✅ |
+| Handles nil/empty content | Medium | ✅ |
+| Converts bold/italic text | Medium | ✅ |
+| Converts links with rel=noopener | High | ✅ |
+| Converts lists (ordered/unordered) | Medium | ✅ |
+| Converts code blocks | Medium | ✅ |
+| Converts blockquotes | Medium | ✅ |
+| Shifts headers by default | Medium | ✅ |
+| Sanitizes script tags | High | ✅ |
+| Sanitizes javascript links | High | ✅ |
+| Removes dangerous protocols | High | ✅ |
+| Adds lazy loading to images | Medium | ✅ |
+| render_inline removes paragraph wrapper | Medium | ✅ |
+| Handles unicode/emoji content | Low | ✅ |
 
 **File**: `test/services/link_parser_test.rb`
 
-| Test Case | Priority |
-|-----------|----------|
-| Parses internal links | Medium |
-| Parses external links | Medium |
-| Creates bidirectional links | Medium |
+| Test Case | Priority | Status |
+|-----------|----------|--------|
+| Extracts note links from text | High | ✅ |
+| Extracts decision links from text | High | ✅ |
+| Extracts commitment links from text | High | ✅ |
+| Extracts multiple links | Medium | ✅ |
+| Does not duplicate records | Medium | ✅ |
+| Ignores different subdomains | High | ✅ |
+| Ignores different studios | High | ✅ |
+| Handles full UUIDs | Medium | ✅ |
+| Handles scene URLs | Medium | ✅ |
+| parse_path extracts records | Medium | ✅ |
+| Instance initialization validation | Medium | ✅ |
+| parse_and_create_link_records! creates links | High | ✅ |
+| Removes stale links on update | High | ✅ |
+| Works with decision description | Medium | ✅ |
+| Works with commitment description | Medium | ✅ |
 
 ---
 
