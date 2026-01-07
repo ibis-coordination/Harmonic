@@ -192,12 +192,36 @@ Test all core domain models with focus on validations, associations, and busines
 ### Current State
 | Model | Test File | Status |
 |-------|-----------|--------|
-| User | `user_test.rb` | Minimal |
-| Note | `note_test.rb` | Good |
-| Decision | `decision_test.rb` | Needs review |
-| Commitment | `commitment_test.rb` | Needs review |
-| Studio | `studio_test.rb` | Needs review |
-| Tenant | `tenant_test.rb` | Needs review |
+| User | `user_test.rb` | ✅ Complete (20 tests) |
+| Note | `note_test.rb` | ✅ Complete (26 tests) |
+| Decision | `decision_test.rb` | ✅ Complete (27 tests) |
+| Commitment | `commitment_test.rb` | ✅ Complete (25 tests) |
+| Studio | `studio_test.rb` | ✅ Complete (22 tests) |
+| Tenant | `tenant_test.rb` | ✅ Complete (19 tests) |
+| Cycle | `cycle_test.rb` | ✅ Complete (15 tests) |
+
+### Implementation Status: ✅ COMPLETE
+
+**Files Modified:**
+- `test/models/user_test.rb` - EXTENDED (15 new tests: user types, validations, permissions, multi-tenancy)
+- `test/models/tenant_test.rb` - EXTENDED (5 new tests: timezone, scoping, API settings)
+- `test/models/studio_test.rb` - EXTENDED (8 new tests: scene type, file uploads, paths, API)
+- `test/models/note_test.rb` - EXTENDED (8 new tests: pinning, deadlines, validations)
+- `test/models/decision_test.rb` - EXTENDED (10 new tests: options, voting, deadlines)
+- `test/models/commitment_test.rb` - EXTENDED (10 new tests: participation, critical mass, pinning)
+- `test/models/cycle_test.rb` - NEW (15 tests: date calculations, unit detection, display)
+
+**Total New Tests: 71 tests added in Phase 3**
+**Test Suite Total: 357 tests (192 model tests)**
+
+### Key Testing Patterns Discovered
+
+1. **LinkParser Requires Non-Nil Text**: Models with `Linkable` concern must have `description` set to avoid nil errors in `after_save` callback
+2. **StudioInvite Requirements**: Requires `code` and `expires_at` in addition to basic associations
+3. **Pinnable Methods**: `pin!` and `unpin!` require keyword args: `tenant:`, `studio:`, `user:`
+4. **Approval Stars Validation**: Only allows `0` or `1` values
+5. **Multi-Tenant Scoping**: Use `unscoped` or `Tenant.scope_thread_to_tenant` for cross-tenant assertions
+6. **Studio Types**: Use `is_scene?` predicate, no `is_studio?` method exists
 
 ### Models Needing Tests (Priority Order)
 

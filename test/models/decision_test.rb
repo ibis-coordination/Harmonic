@@ -126,4 +126,109 @@ class DecisionTest < ActiveSupport::TestCase
     assert_equal decision.created_at, json[:created_at]
     assert_equal decision.updated_at, json[:updated_at]
   end
+
+  # === Deadline Status Tests ===
+
+  test "Decision with future deadline is not closed" do
+    decision = create_decision
+    assert_not decision.closed?
+  end
+
+  test "Decision with past deadline is closed" do
+    decision = Decision.create!(
+      tenant: @tenant,
+      studio: @studio,
+      created_by: @user,
+      updated_by: @user,
+      question: "Closed Decision",
+      description: "Test description",
+      deadline: 1.day.ago
+    )
+
+    assert decision.closed?
+  end
+
+  # === Option Tests ===
+
+  test "Decision can have multiple options" do
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+
+    option1 = Option.create!(decision: decision, title: "Option A", decision_participant: participant)
+    option2 = Option.create!(decision: decision, title: "Option B", decision_participant: participant)
+    option3 = Option.create!(decision: decision, title: "Option C", decision_participant: participant)
+
+    assert_equal 3, decision.options.count
+  end
+
+  test "Decision.options_open can be set to false" do
+    decision = create_decision
+    assert decision.options_open
+
+    decision.options_open = false
+    decision.save!
+    assert_not decision.options_open
+  end
+
+  # === Participant Tests ===
+
+  test "Decision creates participant for voter" do
+    decision = create_decision
+    new_user = create_user(email: "voter_#{SecureRandom.hex(4)}@example.com")
+
+    participant = DecisionParticipant.create!(decision: decision, user: new_user)
+    assert participant.persisted?
+    assert_equal decision, participant.decision
+    assert_equal new_user, participant.user
+  end
+
+  # === Approval and Star Tests ===
+
+  test "Approval can have stars" do
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    option = Option.create!(decision: decision, title: "Starred Option", decision_participant: participant)
+
+    approval = Approval.create!(
+      decision: decision,
+      decision_participant: participant,
+      option: option,
+      value: true,
+      stars: 1
+    )
+
+    assert_equal 1, approval.stars
+  end
+
+  test "Decision.results includes star counts" do
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    option = Option.create!(decision: decision, title: "Star Test Option", decision_participant: participant)
+
+    Approval.create!(
+      decision: decision,
+      decision_participant: participant,
+      option: option,
+      value: true,
+      stars: 1
+    )
+
+    results = decision.results
+    assert_equal 1, results.first.stars
+  end
+
+  # === Pin Tests ===
+
+  test "Decision can be pinned" do
+    decision = create_decision
+    decision.pin!(tenant: @tenant, studio: @studio, user: @user)
+    assert decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user)
+  end
+
+  test "Decision can be unpinned" do
+    decision = create_decision
+    decision.pin!(tenant: @tenant, studio: @studio, user: @user)
+    decision.unpin!(tenant: @tenant, studio: @studio, user: @user)
+    assert_not decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user)
+  end
 end

@@ -164,4 +164,142 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal note.created_by_id, json[:created_by_id]
     assert_equal note.updated_by_id, json[:updated_by_id]
   end
+
+  # === Deadline Tests ===
+
+  test "Note with deadline in the future is open" do
+    tenant = create_tenant
+    user = create_user
+    studio = create_studio(tenant: tenant, created_by: user, handle: "deadline-studio-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      updated_by: user,
+      title: "Future Deadline Note",
+      text: "This note has a future deadline.",
+      deadline: 1.week.from_now
+    )
+
+    assert note.deadline > Time.current
+  end
+
+  test "Note with deadline in the past is closed" do
+    tenant = create_tenant
+    user = create_user
+    studio = create_studio(tenant: tenant, created_by: user, handle: "past-deadline-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      updated_by: user,
+      title: "Past Deadline Note",
+      text: "This note has a past deadline.",
+      deadline: 1.day.ago
+    )
+
+    assert note.deadline < Time.current
+  end
+
+  # === Pin Tests ===
+
+  test "Note can be pinned" do
+    tenant = create_tenant
+    user = create_user
+    studio = create_studio(tenant: tenant, created_by: user, handle: "pin-studio-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      updated_by: user,
+      title: "Pinnable Note",
+      text: "This note can be pinned."
+    )
+
+    note.pin!(tenant: tenant, studio: studio, user: user)
+    assert note.is_pinned?(tenant: tenant, studio: studio, user: user)
+  end
+
+  test "Note can be unpinned" do
+    tenant = create_tenant
+    user = create_user
+    studio = create_studio(tenant: tenant, created_by: user, handle: "unpin-studio-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      updated_by: user,
+      title: "Unpinnable Note",
+      text: "This note can be unpinned."
+    )
+
+    note.pin!(tenant: tenant, studio: studio, user: user)
+    note.unpin!(tenant: tenant, studio: studio, user: user)
+    assert_not note.is_pinned?(tenant: tenant, studio: studio, user: user)
+  end
+
+  # === Link Tests ===
+
+  test "Note can have backlinks" do
+    tenant = create_tenant
+    user = create_user
+    studio = create_studio(tenant: tenant, created_by: user, handle: "link-studio-#{SecureRandom.hex(4)}")
+
+    note1 = Note.create!(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      updated_by: user,
+      title: "Note 1",
+      text: "First note"
+    )
+
+    note2 = Note.create!(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      updated_by: user,
+      title: "Note 2",
+      text: "Second note"
+    )
+
+    Link.create!(
+      tenant: tenant,
+      studio: studio,
+      from_linkable: note1,
+      to_linkable: note2
+    )
+
+    # Note2 should have note1 as a backlink
+    assert_includes note2.backlinks, note1
+    assert_equal 1, note2.backlink_count
+  end
+
+  # === Multiple History Events ===
+
+  test "Multiple updates create multiple history events" do
+    tenant = create_tenant
+    user = create_user
+    studio = create_studio(tenant: tenant, created_by: user, handle: "history-studio-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      updated_by: user,
+      title: "History Note",
+      text: "Original text"
+    )
+
+    note.update!(text: "First update", updated_by: user)
+    note.update!(text: "Second update", updated_by: user)
+    note.update!(text: "Third update", updated_by: user)
+
+    # 1 create + 3 updates = 4 events
+    assert_equal 4, note.note_history_events.count
+  end
 end
