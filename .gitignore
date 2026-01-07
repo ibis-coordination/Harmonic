@@ -43,4 +43,7 @@
 # Ignore Caddyfile
 Caddyfile
 
+# Test coverage reports
+/coverage/
+
 ignore/

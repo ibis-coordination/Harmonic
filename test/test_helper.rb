@@ -1,10 +1,43 @@
+# SimpleCov must be started before any application code is loaded
+if ENV['COVERAGE'] || ENV['CI']
+  require 'simplecov'
+  require 'simplecov-json'
+
+  SimpleCov.start 'rails' do
+    # Enable coverage merging for parallel tests
+    enable_coverage :branch
+
+    add_filter '/test/'
+    add_filter '/config/'
+    add_filter '/vendor/'
+    add_filter '/db/'
+
+    add_group 'Models', 'app/models'
+    add_group 'Controllers', 'app/controllers'
+    add_group 'Services', 'app/services'
+    add_group 'Helpers', 'app/helpers'
+    add_group 'Jobs', 'app/jobs'
+    add_group 'Mailers', 'app/mailers'
+
+    # Generate JSON for CI parsing
+    SimpleCov.formatters = SimpleCov::Formatter::MultiFormatter.new([
+      SimpleCov::Formatter::HTMLFormatter,
+      SimpleCov::Formatter::JSONFormatter
+    ])
+
+    # Minimum coverage threshold - baseline is 47.12%, set slightly below
+    minimum_coverage line: 45, branch: 25
+  end
+end
+
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 
 class ActiveSupport::TestCase
   # Run tests in parallel with specified workers
-  parallelize(workers: :number_of_processors)
+  # Note: When running with COVERAGE=true, consider using workers: 1 for accurate results
+  parallelize(workers: ENV['COVERAGE'] ? 1 : :number_of_processors)
 
   # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
   fixtures :all

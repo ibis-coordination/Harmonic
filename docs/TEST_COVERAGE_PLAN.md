@@ -72,10 +72,14 @@ Add coverage directory to `.gitignore`:
 #### 1.5 Document Baseline
 
 Record the initial coverage percentages in this document:
-- [ ] Overall coverage: ____%
-- [ ] Models: ____%
-- [ ] Controllers: ____%
-- [ ] Services: ____%
+- [x] Overall line coverage: **47.12%** (2057 / 4365 lines)
+- [x] Overall branch coverage: **29.17%** (362 / 1241 branches)
+- [x] Baseline recorded: January 7, 2026
+
+**Notes:**
+- Coverage is higher than expected due to good existing API integration tests
+- Parallel test execution disabled when COVERAGE=true for accurate measurement
+- Minimum threshold set to 45% (slightly below baseline to allow for fluctuation)
 
 ---
 
@@ -1062,12 +1066,12 @@ assert note.note_history_events.count == 2  # + Update event
 
 ### Coverage Milestones
 
-| Date | Overall | Models | Controllers | Services | Notes |
-|------|---------|--------|-------------|----------|-------|
-| Baseline | TBD | TBD | TBD | TBD | Initial measurement |
-| Phase 2 | Target: 40% | - | - | - | Auth complete |
-| Phase 3 | Target: 55% | - | - | - | Core models |
-| Phase 4 | Target: 65% | - | - | - | Services |
+| Date | Line Coverage | Branch Coverage | Notes |
+|------|---------------|-----------------|-------|
+| Jan 7, 2026 | **47.12%** | **29.17%** | Baseline measurement |
+| Phase 2 | Target: 50% | Target: 35% | Auth complete |
+| Phase 3 | Target: 55% | Target: 40% | Core models |
+| Phase 4 | Target: 60% | Target: 45% | Services |
 | Phase 5 | Target: 75% | - | - | - | Controllers |
 | Phase 6 | Target: 80% | - | - | - | API complete |
 
