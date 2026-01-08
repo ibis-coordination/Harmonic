@@ -62,9 +62,9 @@ jobs:
           AUTH_SUBDOMAIN: auth
           REDIS_URL: redis://localhost:6379/0
         run: |
-          bundle exec tapioca gems --silent
-          bundle exec tapioca dsl --silent
-          bundle exec tapioca annotations --silent
+          bundle exec tapioca gems
+          bundle exec tapioca dsl
+          bundle exec tapioca annotations
 
       - name: Run Sorbet type check
         run: bundle exec srb tc
