@@ -738,11 +738,11 @@ App/lib files: 88 (all at typed: false)
   - [x] StudioInvite model
   - [x] TenantUser model
   - [x] ApiToken model
-  - [ ] Attachment model
-  - [ ] OauthIdentity model
-  - [ ] OmniAuthIdentity model
-  - [ ] Heartbeat model
-  - [ ] RepresentationSession model
+  - [x] Attachment model
+  - [x] OauthIdentity model
+  - [x] OmniAuthIdentity model
+  - [x] Heartbeat model
+  - [x] RepresentationSession model
   - [ ] Other models (ApplicationRecord, concerns, etc.)
 
 - [ ] **Phase 5**: Type Services
