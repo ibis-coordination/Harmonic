@@ -1,6 +1,8 @@
-# typed: false
+# typed: true
 
 class Approval < ApplicationRecord
+  extend T::Sig
+
   include Tracked
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -14,14 +16,17 @@ class Approval < ApplicationRecord
   validates :value, inclusion: { in: [0, 1] }
   validates :stars, inclusion: { in: [0, 1] }
 
+  sig { void }
   def set_tenant_id
-    self.tenant_id ||= option.tenant_id
+    self.tenant_id = T.must(option).tenant_id if tenant_id.nil?
   end
 
+  sig { void }
   def set_studio_id
-    self.studio_id ||= option.studio_id
+    self.studio_id = T.must(option).studio_id if studio_id.nil?
   end
 
+  sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
   def api_json(include: [])
     {
       id: id,

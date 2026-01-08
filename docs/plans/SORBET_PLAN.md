@@ -726,9 +726,9 @@ App/lib files: 88 (all at typed: false)
   - [x] Note model
   - [x] Decision model
   - [x] Option model
-  - [ ] Approval model
+  - [x] Approval model
   - [x] Commitment model
-  - [ ] CommitmentParticipant model
+  - [x] CommitmentParticipant model
   - [x] Cycle model
   - [ ] DecisionParticipant model
   - [ ] DecisionResult model
