@@ -111,3 +111,43 @@ class ActiveSupport::TestCase
   end
 
 end
+
+# Integration test helpers for controller tests
+class ActionDispatch::IntegrationTest
+  # Sign in a user for integration tests
+  # In integration tests, we need to simulate the login process
+  # The app checks session[:user_id] for authentication
+  #
+  # This helper uses the honor_system login endpoint which is simpler.
+  # If AUTH_MODE is 'oauth', this will still work because we bypass the
+  # check_honor_system_auth_enabled filter by setting session directly
+  # through a workaround.
+  def sign_in_as(user, tenant: nil)
+    tenant ||= @tenant || @global_tenant
+
+    # Ensure user is member of tenant
+    unless tenant.tenant_users.exists?(user: user)
+      tenant.add_user!(user)
+    end
+
+    # Set host for the request
+    host! "#{tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    # Use the session directly through the integration test's session helper
+    # In Rails 5+, we can use `get` or `post` to set up session state
+    # by accessing the session after a request is made
+    if ENV['AUTH_MODE'] == 'honor_system'
+      post "/login", params: { email: user.email }
+    else
+      # For OAuth mode, we need a workaround since we can't easily simulate OAuth
+      # We'll use a test-only endpoint or manipulate cookies directly
+      # For now, use the encrypted token approach that works with the internal callback
+      key = Rails.application.secret_key_base[0..31]
+      crypt = ActiveSupport::MessageEncryptor.new(key)
+      timestamp = Time.current.to_i
+      token = crypt.encrypt_and_sign("#{tenant.id}:#{user.id}:#{timestamp}")
+      cookies[:token] = token
+      get "/login/callback"
+    end
+  end
+end
