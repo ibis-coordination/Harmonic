@@ -560,7 +560,7 @@ Good coverage exists in `test/integration/`:
 ## Phase 7: CI Workflow Enhancements
 
 ### Objective
-Enhance the GitHub Actions CI workflow to enforce test coverage, report results, and prevent regressions.
+Ensure CI enforces test coverage and prevents merging broken code.
 
 ### Current State
 **File**: `.github/workflows/ruby-tests.yml`
@@ -570,15 +570,13 @@ The existing workflow:
 - ✓ Sets up PostgreSQL and Redis services
 - ✓ Installs Ruby 3.1.7 with bundler caching
 - ✓ Runs `bundle exec rails test`
-- ✗ No coverage reporting
 - ✗ No coverage threshold enforcement
-- ✗ No test result artifacts
 
 ### Tasks
 
-#### 7.1 Add Coverage Reporting to CI
+#### 7.1 Enforce Minimum Coverage Threshold
 
-Update the workflow to generate and upload coverage reports:
+Add a step to fail the build if coverage drops below threshold:
 
 ```yaml
       - name: Run tests with coverage
@@ -593,44 +591,10 @@ Update the workflow to generate and upload coverage reports:
           COVERAGE: true
         run: bundle exec rails test
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 30
-```
-
-#### 7.2 Add Coverage Summary to PR Comments
-
-Consider adding a coverage summary action:
-
-```yaml
-      - name: Code Coverage Summary
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: coverage/coverage.json
-          badge: true
-          format: markdown
-          output: both
-
-      - name: Add Coverage PR Comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        if: github.event_name == 'pull_request'
-        with:
-          recreate: true
-          path: code-coverage-results.md
-```
-
-#### 7.3 Enforce Minimum Coverage Threshold
-
-Add a step to fail the build if coverage drops below threshold:
-
-```yaml
       - name: Check coverage threshold
         run: |
           COVERAGE=$(cat coverage/.last_run.json | jq '.result.covered_percent')
-          THRESHOLD=30
+          THRESHOLD=45
           if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
             echo "Coverage $COVERAGE% is below threshold $THRESHOLD%"
             exit 1
@@ -638,174 +602,19 @@ Add a step to fail the build if coverage drops below threshold:
           echo "Coverage $COVERAGE% meets threshold $THRESHOLD%"
 ```
 
-#### 7.4 Add Test Results Reporting
-
-Add test result reporting for better PR feedback:
-
-```yaml
-      - name: Run tests with coverage
-        env:
-          # ... existing env vars ...
-        run: |
-          bundle exec rails test --verbose 2>&1 | tee test-results.txt
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: test-results.txt
-          retention-days: 7
-```
-
-#### 7.5 Add Branch Protection Rules
+#### 7.2 Configure Branch Protection Rules
 
 Configure GitHub branch protection (manual step in GitHub settings):
 
 - [ ] Require status checks to pass before merging
 - [ ] Require the "test" job to pass
-- [ ] Require branches to be up to date before merging
-- [ ] Consider requiring code review approval
-
-#### 7.6 Add Scheduled Test Runs
-
-Add a scheduled workflow to catch flaky tests:
-
-```yaml
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  schedule:
-    # Run tests daily at 6 AM UTC
-    - cron: '0 6 * * *'
-```
-
-#### 7.7 Add Coverage Badge to README
-
-Once coverage reporting is set up, add a badge to `README.md`:
-
-```markdown
-![Coverage](https://img.shields.io/badge/coverage-XX%25-green)
-```
-
-Or use a dynamic badge service that reads from coverage artifacts.
-
-### Complete Updated Workflow
-
-Here's the full updated `.github/workflows/ruby-tests.yml`:
-
-```yaml
-name: Run Tests
-
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  schedule:
-    - cron: '0 6 * * *'
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    services:
-      db:
-        image: postgres:13
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_USER: decisiveteam
-          POSTGRES_PASSWORD: decisiveteam
-          POSTGRES_DB: decisive_team_test
-      redis:
-        image: redis:6.2-alpine
-        ports:
-          - 6379:6379
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.1.7
-          bundler-cache: true
-
-      - name: Install dependencies
-        run: bundle install
-
-      - name: Set up database
-        env:
-          RAILS_ENV: test
-          DB_HOST: localhost
-          AUTH_MODE: oauth
-          HOSTNAME: harmonic.localhost
-          PRIMARY_SUBDOMAIN: app
-          AUTH_SUBDOMAIN: auth
-          REDIS_URL: redis://localhost:6379/0
-        run: |
-          bin/rails db:create
-          bin/rails db:schema:load
-
-      - name: Run tests with coverage
-        env:
-          RAILS_ENV: test
-          DB_HOST: localhost
-          AUTH_MODE: oauth
-          HOSTNAME: harmonic.localhost
-          PRIMARY_SUBDOMAIN: app
-          AUTH_SUBDOMAIN: auth
-          REDIS_URL: redis://localhost:6379/0
-          COVERAGE: true
-        run: bundle exec rails test
-
-      - name: Check coverage threshold
-        run: |
-          COVERAGE=$(cat coverage/.last_run.json | jq '.result.covered_percent')
-          THRESHOLD=30
-          echo "Coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
-            echo "::error::Coverage $COVERAGE% is below threshold $THRESHOLD%"
-            exit 1
-          fi
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 30
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: test-results.txt
-          retention-days: 7
-```
 
 ### CI Checklist
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Add SimpleCov with JSON output | High | [ ] |
-| Update workflow to run coverage | High | [ ] |
-| Upload coverage artifacts | High | [ ] |
-| Add coverage threshold check | High | [ ] |
-| Add PR comment with coverage | Medium | [ ] |
-| Add scheduled test runs | Medium | [ ] |
-| Configure branch protection | Medium | [ ] |
-| Add coverage badge to README | Low | [ ] |
+| Add coverage threshold check to workflow | High | [ ] |
+| Configure branch protection in GitHub | High | [ ] |
 
 ---
 
