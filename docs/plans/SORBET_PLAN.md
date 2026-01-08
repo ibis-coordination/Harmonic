@@ -681,19 +681,20 @@ bundle exec srb tc --autocorrect
 
 ## Progress Tracking
 
+
 ### Phase Checklist
 
-- [ ] **Phase 1**: Initial Setup
-  - [ ] Add gems to Gemfile
-  - [ ] Run `tapioca init`
-  - [ ] Configure `sorbet/config`
+- [x] **Phase 1**: Initial Setup ✅
+  - [x] Add gems to Gemfile
+  - [x] Run `tapioca init`
+  - [x] Configure `sorbet/config`
 
-- [ ] **Phase 2**: Generate RBI Files
-  - [ ] Generate gem RBIs
-  - [ ] Generate DSL RBIs
+- [x] **Phase 2**: Generate RBI Files ✅
+  - [x] Generate gem RBIs
+  - [x] Generate DSL RBIs
   - [ ] Create custom shims for `Current`
 
-- [ ] **Phase 3**: Establish Baseline
+- [ ] **Phase 3**: Establish Baseline _(in progress)_
   - [ ] Add `# typed: false` to all files
   - [ ] Install Spoom
   - [ ] Measure initial coverage
