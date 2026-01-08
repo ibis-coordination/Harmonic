@@ -21,6 +21,15 @@ if [[ -x "./scripts/check-debug-code.sh" ]]; then
     ./scripts/check-debug-code.sh || exit 1
 fi
 
+# Run Sorbet type check (blocks commit if types fail)
+echo "Running Sorbet type check..."
+if docker compose exec -T web bundle exec srb tc > /dev/null 2>&1; then
+    echo "✓ Sorbet type check passed"
+else
+    echo "✗ Sorbet type check failed. Run 'docker compose exec web bundle exec srb tc' for details."
+    exit 1
+fi
+
 # Run TODO index check (advisory only)
 if [[ -x "./scripts/check-todo-index.sh" ]]; then
     ./scripts/check-todo-index.sh

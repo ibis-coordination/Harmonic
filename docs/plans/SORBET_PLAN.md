@@ -763,10 +763,10 @@ App/lib files: 88 (all at typed: false)
   - [x] Note complex cases in refactor plan doc (skip for now)
   - [x] Keep main controllers at `typed: false` until refactor
 
-- [ ] **Phase 7**: CI Integration
-  - [ ] Add Sorbet check to GitHub Actions
-  - [ ] Add coverage reporting
-  - [ ] Optional: pre-commit hook
+- [x] **Phase 7**: CI Integration ✅
+  - [x] Add Sorbet check to GitHub Actions (`bundle exec srb tc`)
+  - [x] Add coverage reporting (`bundle exec spoom srb coverage`)
+  - [x] Pre-commit hook added to `scripts/hooks/pre-commit`
 
 ---
 
