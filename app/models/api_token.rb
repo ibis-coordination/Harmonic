@@ -1,6 +1,8 @@
-# typed: false
+# typed: true
 
 class ApiToken < ApplicationRecord
+  extend T::Sig
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   belongs_to :user
@@ -11,14 +13,17 @@ class ApiToken < ApplicationRecord
 
   before_validation :generate_token
 
+  sig { returns(T::Array[String]) }
   def self.valid_actions
     ['create', 'read', 'update', 'delete']
   end
 
+  sig { returns(T::Array[String]) }
   def valid_actions
     self.class.valid_actions
   end
 
+  sig { returns(T::Array[String]) }
   def self.valid_resources
     ['all', 'notes', 'confirmations',
      'decisions', 'options', 'approvals', 'decision_participants',
@@ -26,34 +31,41 @@ class ApiToken < ApplicationRecord
      'cycles', 'users', 'api_tokens']
   end
 
+  sig { returns(T::Array[String]) }
   def valid_resources
     self.class.valid_resources
   end
 
   # TODO - remove the invalid scopes, e.g. 'create:cycles', 'update:results', etc.
+  sig { returns(T::Array[String]) }
   def self.valid_scopes
     valid_actions.product(valid_resources).map { |a, r| "#{a}:#{r}" }
   end
 
+  sig { returns(T::Array[String]) }
   def valid_scopes
     self.class.valid_scopes
   end
 
+  sig { returns(T::Array[String]) }
   def self.read_scopes
     # valid_scopes.select { |scope| scope.start_with?('read') }
     ['read:all']
   end
 
+  sig { returns(T::Array[String]) }
   def self.write_scopes
     # valid_scopes.select { |scope| scope.start_with?('create', 'update', 'delete') }
     ['create:all', 'update:all', 'delete:all']
   end
 
+  sig { params(scope: String).returns(T::Boolean) }
   def self.valid_scope?(scope)
     action, resource = scope.split(':')
     valid_actions.include?(action) && valid_resources.include?(resource)
   end
 
+  sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
   def api_json(include: [])
     response = {
       id: id,
@@ -73,39 +85,48 @@ class ApiToken < ApplicationRecord
     response
   end
 
+  sig { returns(String) }
   def obfuscated_token
-    token[0..3] + '*********'
+    T.must(T.must(token)[0..3]) + '*********'
   end
 
+  sig { returns(String) }
   def base_path
-    "/u/#{user.handle}/settings/tokens"
+    "/u/#{T.must(user).handle}/settings/tokens"
   end
 
+  sig { returns(String) }
   def path
     "#{base_path}/#{id}"
   end
 
+  sig { returns(T::Boolean) }
   def active?
     !deleted? && !expired?
   end
 
+  sig { returns(T::Boolean) }
   def expired?
-    expires_at < Time.current
+    T.must(expires_at) < Time.current
   end
 
+  sig { returns(T::Boolean) }
   def deleted?
     !deleted_at.nil?
   end
 
+  sig { void }
   def delete!
-    self.deleted_at ||= Time.current
+    self.deleted_at ||= T.cast(Time.current, ActiveSupport::TimeWithZone)
     save!
   end
 
+  sig { void }
   def token_used!
     update!(last_used_at: Time.current)
   end
 
+  sig { params(action: String, resource_model: T.nilable(T::Class[T.anything])).returns(T::Boolean) }
   def can?(action, resource_model)
     action = {
       'POST' => 'create', 'GET' => 'read', 'PUT' => 'update', 'PATCH' => 'update', 'DELETE' => 'delete'
@@ -113,7 +134,8 @@ class ApiToken < ApplicationRecord
     unless valid_actions.include?(action)
       raise "Invalid action: #{action}"
     end
-    return true if scopes.include?('all') || scopes.include?("#{action}:all")
+    return true if T.must(scopes).include?('all') || T.must(scopes).include?("#{action}:all")
+    return false if resource_model.nil?
     resource_name = resource_model.to_s.pluralize.downcase
     unless valid_resources.include?(resource_name)
       raise "Invalid resource: #{resource_name}"
@@ -121,33 +143,39 @@ class ApiToken < ApplicationRecord
     unless resource_model.method_defined?(:api_json)
       raise "Resource model #{resource_model} does not respond to api_json"
     end
-    scopes.include?("#{action}:#{resource_name}")
+    T.must(scopes).include?("#{action}:#{resource_name}")
   end
 
+  sig { params(resource_model: T::Class[T.anything]).returns(T::Boolean) }
   def can_create?(resource_model)
     can?('create', resource_model)
   end
 
+  sig { params(resource_model: T::Class[T.anything]).returns(T::Boolean) }
   def can_read?(resource_model)
     can?('read', resource_model)
   end
 
+  sig { params(resource_model: T::Class[T.anything]).returns(T::Boolean) }
   def can_update?(resource_model)
     can?('update', resource_model)
   end
 
+  sig { params(resource_model: T::Class[T.anything]).returns(T::Boolean) }
   def can_delete?(resource_model)
     can?('delete', resource_model)
   end
 
   private
 
+  sig { void }
   def generate_token
-    self.token ||= SecureRandom.hex(20)
+    self.token = token.presence || SecureRandom.hex(20)
   end
 
+  sig { void }
   def validate_scopes
-    scopes.each do |scope|
+    T.must(scopes).each do |scope|
       action, resource = scope.split(':')
       unless ApiToken.valid_scope?(scope)
         errors.add(:scopes, "Invalid scope: #{scope}")

@@ -1,6 +1,8 @@
-# typed: false
+# typed: true
 
 class TenantUser < ApplicationRecord
+  extend T::Sig
+
   include CanPin
   include HasRoles
   include HasDismissibleNotices
@@ -9,43 +11,51 @@ class TenantUser < ApplicationRecord
   belongs_to :user
   before_create :set_defaults
 
+  sig { void }
   def set_defaults
-    self.handle = self.handle.presence || user.name.parameterize
-    self.display_name ||= user.name
+    self.handle = self.handle.presence || T.must(user).name.parameterize
+    self.display_name = display_name.presence || T.must(user).name
     self.settings ||= {}
-    self.settings['pinned'] ||= {}
-    self.roles ||= []
-    self.roles << 'default'
+    T.must(self.settings)['pinned'] ||= {}
+    T.must(self.settings)['roles'] ||= []
+    T.must(T.must(self.settings)['roles']) << 'default'
   end
 
+  sig { returns(User) }
   def user
     @user ||= super
-    @user.tenant_user ||= self
-    @user
+    T.must(@user).tenant_user ||= self
+    T.must(@user)
   end
 
+  sig { void }
   def archive!
-    self.archived_at = Time.current
+    self.archived_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
     save!
   end
 
+  sig { void }
   def unarchive!
     self.archived_at = nil
     save!
   end
 
+  sig { returns(T::Boolean) }
   def archived?
     self.archived_at.present?
   end
 
+  sig { returns(String) }
   def path
     "/u/#{handle}"
   end
 
+  sig { returns(String) }
   def url
-    "#{tenant.url}#{path}"
+    "#{T.must(tenant).url}#{path}"
   end
 
+  sig { params(limit: Integer).returns(ActiveRecord::Relation) }
   def confirmed_read_note_events(limit: 10)
     NoteHistoryEvent.where(
       tenant_id: tenant_id,

@@ -736,8 +736,8 @@ App/lib files: 88 (all at typed: false)
   - [x] NoteHistoryEvent model
   - [x] StudioUser model
   - [x] StudioInvite model
-  - [ ] TenantUser model
-  - [ ] ApiToken model
+  - [x] TenantUser model
+  - [x] ApiToken model
   - [ ] Attachment model
   - [ ] OauthIdentity model
   - [ ] OmniAuthIdentity model
