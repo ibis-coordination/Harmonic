@@ -724,9 +724,26 @@ App/lib files: 88 (all at typed: false)
   - [x] Tenant model
   - [x] Studio model
   - [x] Note model
-  - [ ] Decision/Option models
+  - [x] Decision model
+  - [x] Option model
+  - [ ] Approval model
   - [ ] Commitment model
+  - [ ] CommitmentParticipant model
   - [x] Cycle model
+  - [ ] DecisionParticipant model
+  - [ ] DecisionResult model
+  - [ ] Link model
+  - [ ] NoteHistoryEvent model
+  - [ ] StudioUser model
+  - [ ] StudioInvite model
+  - [ ] TenantUser model
+  - [ ] ApiToken model
+  - [ ] Attachment model
+  - [ ] OauthIdentity model
+  - [ ] OmniAuthIdentity model
+  - [ ] Heartbeat model
+  - [ ] RepresentationSession model
+  - [ ] Other models (ApplicationRecord, concerns, etc.)
 
 - [ ] **Phase 5**: Type Services
   - [ ] ApiHelper
