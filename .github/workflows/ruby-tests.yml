@@ -52,7 +52,7 @@ jobs:
           bin/rails db:create
           bin/rails db:schema:load
 
-      - name: Run tests
+      - name: Run tests with coverage
         env:
           RAILS_ENV: test
           DB_HOST: localhost
@@ -61,4 +61,17 @@ jobs:
           PRIMARY_SUBDOMAIN: app
           AUTH_SUBDOMAIN: auth
           REDIS_URL: redis://localhost:6379/0
+          COVERAGE: true
         run: bundle exec rails test
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(cat coverage/.last_run.json | jq '.result.line')
+          THRESHOLD=45
+          echo "Coverage: $COVERAGE%"
+          echo "Threshold: $THRESHOLD%"
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "::error::Coverage $COVERAGE% is below threshold $THRESHOLD%"
+            exit 1
+          fi
+          echo "✓ Coverage meets threshold"
