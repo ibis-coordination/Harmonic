@@ -1,6 +1,7 @@
-# typed: false
+# typed: true
 
 class Note < ApplicationRecord
+  extend T::Sig
   include Tracked
   include Linkable
   include Pinnable
@@ -39,30 +40,42 @@ class Note < ApplicationRecord
     )
   end
 
+  sig { returns(String) }
   def title
-    super.nil? || super.empty? ? text.split("\n").first.truncate(256) : super
+    persisted = super
+    if persisted.nil? || persisted.empty?
+      T.must(T.must(text).split("\n").first).truncate(256)
+    else
+      persisted
+    end
   end
 
+  sig { returns(T.nilable(String)) }
   def persisted_title
     attributes['title']
   end
 
+  sig { returns(Integer) }
   def confirmed_reads
     @confirmed_reads ||= note_history_events.where(event_type: 'read_confirmation').select(:user_id).distinct.count
   end
 
+  sig { returns(String) }
   def metric_name
     'readers'
   end
 
+  sig { returns(Integer) }
   def metric_value
     confirmed_reads
   end
 
+  sig { returns(String) }
   def octicon_metric_icon_name
     'book'
   end
 
+  sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
   def api_json(include: [])
     response = {
       id: id,
@@ -87,25 +100,29 @@ class Note < ApplicationRecord
     response
   end
 
+  sig { returns(String) }
   def path_prefix
     'n'
   end
 
+  sig { returns(ActiveRecord::Relation) }
   def history_events
     note_history_events
   end
 
+  sig { returns(Integer) }
   def interaction_count
     note_history_events.count - 1 # subtract the create event
   end
 
+  sig { params(user: User).returns(NoteHistoryEvent) }
   def confirm_read!(user)
     existing_confirmation = NoteHistoryEvent.find_by(
       note: self,
       user: user,
       event_type: 'read_confirmation'
     )
-    if existing_confirmation && existing_confirmation.happened_at > self.updated_at
+    if existing_confirmation && T.must(existing_confirmation.happened_at) > T.must(self.updated_at)
       return existing_confirmation
     else
       NoteHistoryEvent.create!(
@@ -117,6 +134,7 @@ class Note < ApplicationRecord
     end
   end
 
+  sig { params(user: User).returns(ActiveRecord::Relation) }
   def self.where_user_has_read(user:)
     self.joins(:note_history_events).where(note_history_events: {
       user: user,
@@ -124,6 +142,7 @@ class Note < ApplicationRecord
     })
   end
 
+  sig { params(user: User).returns(T::Boolean) }
   def user_has_read?(user)
     note_history_events.where(
       user: user,
@@ -131,20 +150,24 @@ class Note < ApplicationRecord
     ).exists?
   end
 
+  sig { params(user: User).returns(T::Boolean) }
   def creator_can_skip_confirm?(user)
     # This is a reversed design choice to allow the creator to confirm their own note
     false
   end
 
+  sig { params(user: User).returns(T::Boolean) }
   def user_can_edit?(user)
-    user.id == created_by.id
+    user.id == T.must(created_by).id
   end
 
   # Comment-related helper methods
+  sig { returns(T::Boolean) }
   def is_comment?
     commentable_type.present? && commentable_id.present?
   end
 
+  sig { returns(T::Boolean) }
   def standalone_note?
     !is_comment?
   end

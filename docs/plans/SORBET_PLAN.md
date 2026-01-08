@@ -721,9 +721,9 @@ App/lib files: 88 (all at typed: false)
 
 - [ ] **Phase 4**: Type Core Models
   - [x] User model
-  - [ ] Tenant model
-  - [ ] Studio model
-  - [ ] Note model
+  - [x] Tenant model
+  - [x] Studio model
+  - [x] Note model
   - [ ] Decision/Option models
   - [ ] Commitment model
   - [x] Cycle model
