@@ -1,3 +1,5 @@
+# typed: false
+
 # This class is responsible for managing the business logic around
 # creating commitment participants and inviting users to participate.
 class CommitmentParticipantManager

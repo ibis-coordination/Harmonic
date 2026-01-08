@@ -1,3 +1,5 @@
+# typed: false
+
 class Cycle
   attr_accessor :name
 

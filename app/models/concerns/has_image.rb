@@ -1,3 +1,5 @@
+# typed: false
+
 require 'open-uri'
 
 module HasImage

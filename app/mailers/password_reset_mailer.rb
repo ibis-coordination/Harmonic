@@ -1,3 +1,5 @@
+# typed: false
+
 class PasswordResetMailer < ApplicationMailer
   def reset_password_instructions(identity)
     @identity = identity

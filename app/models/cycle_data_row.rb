@@ -1,3 +1,5 @@
+# typed: false
+
 class CycleDataRow < ApplicationRecord
   self.primary_key = "item_id"
   self.table_name = "cycle_data" # view

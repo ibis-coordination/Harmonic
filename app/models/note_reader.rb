@@ -1,3 +1,5 @@
+# typed: false
+
 class NoteReader
   # This model is not persisted to the database. It is used to render notes in the view.
   attr_accessor :note, :user

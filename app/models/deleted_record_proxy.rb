@@ -1,3 +1,5 @@
+# typed: false
+
 class DeletedRecordProxy
   def name
     '[deleted]'

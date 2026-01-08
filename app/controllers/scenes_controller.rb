@@ -1,3 +1,5 @@
+# typed: false
+
 class ScenesController < ApplicationController
   def index
     @scenes = Studio.where(studio_type: 'scene').limit(20)

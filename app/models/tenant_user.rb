@@ -1,3 +1,5 @@
+# typed: false
+
 class TenantUser < ApplicationRecord
   include CanPin
   include HasRoles

@@ -1,3 +1,5 @@
+# typed: false
+
 # require 'clamav'
 class Attachment < ApplicationRecord
   belongs_to :tenant

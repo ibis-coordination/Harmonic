@@ -1,3 +1,5 @@
+# typed: false
+
 class StudioUser < ApplicationRecord
   include HasRoles
   include HasDismissibleNotices

@@ -1,3 +1,5 @@
+# typed: false
+
 module Attachable
   extend ActiveSupport::Concern
 

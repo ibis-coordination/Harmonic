@@ -1,3 +1,5 @@
+# typed: false
+
 module Pinnable
   extend ActiveSupport::Concern
 

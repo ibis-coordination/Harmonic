@@ -1,3 +1,5 @@
+# typed: false
+
 class Decision < ApplicationRecord
   include Tracked
   include Linkable

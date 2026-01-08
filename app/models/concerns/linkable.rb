@@ -1,3 +1,5 @@
+# typed: false
+
 module Linkable
   extend ActiveSupport::Concern
 

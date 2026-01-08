@@ -1,3 +1,5 @@
+# typed: false
+
 class Studio < ApplicationRecord
   include CanPin
   include HasImage

@@ -1,3 +1,5 @@
+# typed: false
+
 class ApiHelper
   attr_reader :current_user, :current_studio, :current_tenant,
               :current_representation_session, :current_resource_model,

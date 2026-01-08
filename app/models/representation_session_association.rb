@@ -1,3 +1,5 @@
+# typed: false
+
 class RepresentationSessionAssociation < ApplicationRecord
   belongs_to :tenant
   before_validation :set_tenant_id

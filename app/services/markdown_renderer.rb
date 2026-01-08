@@ -1,3 +1,5 @@
+# typed: false
+
 # The purpose of this class is to render Markdown content as HTML, while
 # sanitizing the HTML and adding rel="noopener noreferrer" to all links.
 # This is a security measure to prevent malicious links from being used to

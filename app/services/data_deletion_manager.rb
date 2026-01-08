@@ -1,3 +1,5 @@
+# typed: false
+
 class DataDeletionManager
   attr_reader :confirmation_token
 

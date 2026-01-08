@@ -1,3 +1,5 @@
+# typed: false
+
 class HomeController < ApplicationController
 
   before_action :redirect_representing

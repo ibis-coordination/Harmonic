@@ -1,3 +1,5 @@
+# typed: false
+
 class Option < ApplicationRecord
   include Tracked
   self.implicit_order_column = "created_at"

@@ -1,3 +1,5 @@
+# typed: false
+
 class Heartbeat < ApplicationRecord
   include HasTruncatedId
   belongs_to :tenant

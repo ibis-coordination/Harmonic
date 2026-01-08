@@ -1,3 +1,5 @@
+# typed: false
+
 module Api::V1
   class ResultsController < BaseController
     def index

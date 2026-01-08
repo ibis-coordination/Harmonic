@@ -1,3 +1,5 @@
+# typed: false
+
 class ActionsHelper
   @@actions_by_route = {
     '/studios' => { actions: [] },

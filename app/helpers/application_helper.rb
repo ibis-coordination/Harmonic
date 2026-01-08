@@ -1,3 +1,5 @@
+# typed: false
+
 module ApplicationHelper
   def timeago(datetime)
     ago_or_from_now = datetime < Time.now ? 'ago' : 'from now'

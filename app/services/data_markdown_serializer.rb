@@ -1,3 +1,5 @@
+# typed: false
+
 class DataMarkdownSerializer
   def self.serialize_for_embed_in_markdown(data:, title: "Data")
     if data.is_a?(String)

@@ -1,3 +1,5 @@
+# typed: false
+
 class HonorSystemSessionsController < ApplicationController
   before_action :check_honor_system_auth_enabled
 

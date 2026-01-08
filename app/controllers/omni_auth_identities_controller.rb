@@ -1,3 +1,5 @@
+# typed: false
+
 class OmniAuthIdentitiesController < ApplicationController
   def new
   end

@@ -1,3 +1,5 @@
+# typed: false
+
 class LinkParser
   def self.parse(text, subdomain: nil, studio_handle: nil)
     models = { 'n' => Note, 'c' => Commitment, 'd' => Decision, 'r' => RepresentationSession }

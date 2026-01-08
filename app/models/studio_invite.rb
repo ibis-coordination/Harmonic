@@ -1,3 +1,5 @@
+# typed: false
+
 class StudioInvite < ApplicationRecord
   belongs_to :tenant
   before_validation :set_tenant_id

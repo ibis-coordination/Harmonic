@@ -1,3 +1,5 @@
+# typed: false
+
 module Tracked
   extend ActiveSupport::Concern
 

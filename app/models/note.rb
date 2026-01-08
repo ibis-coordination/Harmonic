@@ -1,3 +1,5 @@
+# typed: false
+
 class Note < ApplicationRecord
   include Tracked
   include Linkable

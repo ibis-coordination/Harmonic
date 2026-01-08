@@ -694,10 +694,30 @@ bundle exec srb tc --autocorrect
   - [x] Generate DSL RBIs
   - [ ] Create custom shims for `Current`
 
-- [ ] **Phase 3**: Establish Baseline _(in progress)_
-  - [ ] Add `# typed: false` to all files
-  - [ ] Install Spoom
-  - [ ] Measure initial coverage
+- [x] **Phase 3**: Establish Baseline ✅
+  - [x] Add `# typed: false` to all 88 app/lib files
+  - [x] Spoom already installed
+  - [x] Baseline coverage measured (see below)
+
+### Baseline Coverage (Phase 3)
+
+```
+Sorbet static: 0.5.12443
+
+Content:
+  files: 512 total, 232 excluding RBIs
+  methods: 88571 total, 1985 excluding RBIs
+
+Sigils:
+  false: 240 (47%)
+  true: 272 (53%) - mostly RBI files
+
+Methods with signatures (excluding RBIs):
+  with signature: 504 (25%)
+  without signature: 1481 (75%)
+
+App/lib files: 88 (all at typed: false)
+```
 
 - [ ] **Phase 4**: Type Core Models
   - [ ] User model

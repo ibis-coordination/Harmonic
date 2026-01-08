@@ -1,3 +1,5 @@
+# typed: false
+
 module HasDismissibleNotices
   extend ActiveSupport::Concern
 

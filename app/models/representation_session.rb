@@ -1,3 +1,5 @@
+# typed: false
+
 class RepresentationSession < ApplicationRecord
   include Linkable
   include Commentable

@@ -1,3 +1,5 @@
+# typed: false
+
 class Commitment < ApplicationRecord
   include Tracked
   include Linkable

@@ -1,3 +1,5 @@
+# typed: false
+
 module Api::V1
   class DecisionsController < BaseController
     def index

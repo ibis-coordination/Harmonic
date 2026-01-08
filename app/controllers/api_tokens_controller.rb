@@ -1,3 +1,5 @@
+# typed: false
+
 class ApiTokensController < ApplicationController
   before_action :set_user
 

@@ -1,3 +1,5 @@
+# typed: false
+
 class TrusteePermission < ActiveRecord::Base
   belongs_to :trustee_user, class_name: 'User'
   belongs_to :granting_user, class_name: 'User'
