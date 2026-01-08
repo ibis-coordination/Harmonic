@@ -730,10 +730,10 @@ App/lib files: 88 (all at typed: false)
   - [x] Commitment model
   - [x] CommitmentParticipant model
   - [x] Cycle model
-  - [ ] DecisionParticipant model
-  - [ ] DecisionResult model
-  - [ ] Link model
-  - [ ] NoteHistoryEvent model
+  - [x] DecisionParticipant model
+  - [x] DecisionResult model
+  - [x] Link model
+  - [x] NoteHistoryEvent model
   - [ ] StudioUser model
   - [ ] StudioInvite model
   - [ ] TenantUser model

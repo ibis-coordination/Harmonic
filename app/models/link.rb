@@ -1,6 +1,8 @@
-# typed: false
+# typed: true
 
 class Link < ApplicationRecord
+  extend T::Sig
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -13,41 +15,45 @@ class Link < ApplicationRecord
   validate :validate_tenant_and_studio_id
   validate :validate_linkables_are_different
 
+  sig { void }
   def set_tenant_id
     return unless self.tenant_id.nil?
-    from_tenant_id = from_linkable.tenant_id
-    to_tenant_id = to_linkable.tenant_id
+    from_tenant_id = T.unsafe(from_linkable).tenant_id
+    to_tenant_id = T.unsafe(to_linkable).tenant_id
     if from_tenant_id != to_tenant_id
       errors.add(:base, "Cannot link objects from different tenants")
     end
     self.tenant_id = from_tenant_id
   end
 
+  sig { void }
   def set_studio_id
     return unless self.studio_id.nil?
-    from_studio_id = from_linkable.studio_id
-    to_studio_id = to_linkable.studio_id
+    from_studio_id = T.unsafe(from_linkable).studio_id
+    to_studio_id = T.unsafe(to_linkable).studio_id
     if from_studio_id != to_studio_id
       errors.add(:base, "Cannot link objects from different studios")
     end
     self.studio_id = from_studio_id
   end
 
+  sig { void }
   def validate_tenant_and_studio_id
-    if from_linkable.tenant_id != tenant_id
+    if T.unsafe(from_linkable).tenant_id != tenant_id
       errors.add(:tenant_id, "must match the tenant of the from_linkable")
     end
-    if from_linkable.studio_id != studio_id
+    if T.unsafe(from_linkable).studio_id != studio_id
       errors.add(:studio_id, "must match the studio of the from_linkable")
     end
-    if to_linkable.tenant_id != tenant_id
+    if T.unsafe(to_linkable).tenant_id != tenant_id
       errors.add(:tenant_id, "must match the tenant of the to_linkable")
     end
-    if to_linkable.studio_id != studio_id
+    if T.unsafe(to_linkable).studio_id != studio_id
       errors.add(:studio_id, "must match the studio of the to_linkable")
     end
   end
 
+  sig { void }
   def validate_linkables_are_different
     if from_linkable.nil? || to_linkable.nil?
       errors.add(:base, "Cannot link nil objects")
@@ -58,6 +64,7 @@ class Link < ApplicationRecord
     end
   end
 
+  sig { params(start_date: T.nilable(Time), end_date: T.nilable(Time), tenant_id: T.nilable(String), studio_id: T.nilable(String), limit: Integer).returns(T::Array[T.untyped]) }
   def self.backlink_leaderboard(start_date: nil, end_date: nil, tenant_id: nil, studio_id: nil, limit: 10)
     tenant_id ||= Tenant.current_id
     studio_id ||= Studio.current_id
