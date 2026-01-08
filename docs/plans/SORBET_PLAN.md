@@ -755,9 +755,13 @@ App/lib files: 88 (all at typed: false)
   - [x] LinkParser
   - [x] MarkdownRenderer
 
-- [ ] **Phase 6**: Type Controllers
-  - [ ] API controllers to `typed: true`
-  - [ ] Extract typed methods from main controllers
+- [x] **Phase 6**: Type Controllers ✅
+  - [x] Create `CONTROLLER_REFACTOR_PLAN.md` for future refactoring notes
+  - [x] Set simple controllers to `typed: true` (minimal changes only)
+    - HealthcheckController (standalone, inherits ActionController::Base)
+    - Api::V1::InfoController (simple, returns static JSON)
+  - [x] Note complex cases in refactor plan doc (skip for now)
+  - [x] Keep main controllers at `typed: false` until refactor
 
 - [ ] **Phase 7**: CI Integration
   - [ ] Add Sorbet check to GitHub Actions

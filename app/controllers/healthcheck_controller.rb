@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 
 # Does not inherit from ApplicationController
 class HealthcheckController < ActionController::Base

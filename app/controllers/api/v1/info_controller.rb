@@ -1,7 +1,8 @@
-# typed: false
+# typed: true
 
 module Api::V1
   class InfoController < BaseController
+    extend T::Sig
 
     def index
       # TODO Use token scopes to determine what to show
