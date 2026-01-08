@@ -734,8 +734,8 @@ App/lib files: 88 (all at typed: false)
   - [x] DecisionResult model
   - [x] Link model
   - [x] NoteHistoryEvent model
-  - [ ] StudioUser model
-  - [ ] StudioInvite model
+  - [x] StudioUser model
+  - [x] StudioInvite model
   - [ ] TenantUser model
   - [ ] ApiToken model
   - [ ] Attachment model
