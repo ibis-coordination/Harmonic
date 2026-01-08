@@ -72,7 +72,15 @@ group :development do
 
   # Generate Entity-Relationship Diagrams from models
   gem "rails-erd"
+
+  # Sorbet type checking
+  gem 'sorbet', '~> 0.5.11', require: false
+  gem 'tapioca', '~> 0.15.0', require: false
+  gem 'spoom', '~> 1.4', require: false
 end
+
+# Sorbet runtime (needed in all environments for sig runtime checks)
+gem 'sorbet-runtime'
 
 group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]

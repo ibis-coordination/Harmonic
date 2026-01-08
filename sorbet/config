@@ -1,0 +1,8 @@
+--dir
+.
+--ignore=tmp/
+--ignore=vendor/
+--ignore=log/
+--ignore=storage/
+--ignore=coverage/
+--ignore=node_modules/

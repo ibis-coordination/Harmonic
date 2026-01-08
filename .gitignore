@@ -46,4 +46,9 @@ Caddyfile
 # Test coverage reports
 /coverage/
 
+# Sorbet - generated RBI files (regenerate with: bin/tapioca gems && bin/tapioca dsl)
+/sorbet/rbi/gems/
+/sorbet/rbi/dsl/
+/sorbet/rbi/annotations/
+
 ignore/
