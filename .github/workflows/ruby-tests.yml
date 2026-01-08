@@ -66,7 +66,7 @@ jobs:
 
       - name: Check coverage threshold
         run: |
-          COVERAGE=$(cat coverage/.last_run.json | jq '.result.covered_percent')
+          COVERAGE=$(cat coverage/.last_run.json | jq '.result.line')
           THRESHOLD=45
           echo "Coverage: $COVERAGE%"
           echo "Threshold: $THRESHOLD%"
