@@ -720,13 +720,13 @@ App/lib files: 88 (all at typed: false)
 ```
 
 - [ ] **Phase 4**: Type Core Models
-  - [ ] User model
+  - [x] User model
   - [ ] Tenant model
   - [ ] Studio model
   - [ ] Note model
   - [ ] Decision/Option models
   - [ ] Commitment model
-  - [ ] Cycle model
+  - [x] Cycle model
 
 - [ ] **Phase 5**: Type Services
   - [ ] ApiHelper
