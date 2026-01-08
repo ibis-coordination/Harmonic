@@ -1,3 +1,5 @@
+# typed: false
+
 module Api::V1
   class ParticipantsController < BaseController
     # Participants are read only

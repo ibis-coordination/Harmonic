@@ -1,3 +1,5 @@
+# typed: false
+
 module HasTruncatedId
   extend ActiveSupport::Concern
 

@@ -1,3 +1,5 @@
+# typed: false
+
 class AttachmentsController < ApplicationController
   def show
     attachment = current_resource.attachments.find_by(id: params[:attachment_id])

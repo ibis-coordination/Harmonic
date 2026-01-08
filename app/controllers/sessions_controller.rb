@@ -1,3 +1,5 @@
+# typed: false
+
 # NOTE - We have to do some redirecting to use the same OAuth providers across different tenant subdomains.
 # The way we do this is by having a single designated auth subdomain that is registered with OAuth providers,
 # then all tenants redirect to that one auth subdomain to authenticate, and once authenticated, the user is

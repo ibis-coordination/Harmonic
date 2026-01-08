@@ -1,3 +1,5 @@
+# typed: false
+
 class DecisionsController < ApplicationController
 
   def new

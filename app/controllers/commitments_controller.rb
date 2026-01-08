@@ -1,3 +1,5 @@
+# typed: false
+
 class CommitmentsController < ApplicationController
 
   def new

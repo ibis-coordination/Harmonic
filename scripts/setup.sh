@@ -38,6 +38,12 @@ wait_for_db
 echo -e "${GREEN}Setting up the database...${NC}"
 docker compose exec web bundle exec rails db:create db:schema:load db:migrate db:seed
 
+# Sorbet RBI files are committed to the repo.
+# To regenerate after gem/model changes, run:
+#   docker compose exec web bundle exec tapioca gems
+#   docker compose exec web bundle exec tapioca dsl
+#   docker compose exec web bundle exec tapioca annotations
+
 echo -e "${GREEN}Setup completed. Removing containers...${NC}"
 docker compose down
 

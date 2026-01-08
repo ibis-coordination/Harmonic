@@ -1,4 +1,8 @@
+# typed: true
+
 class RepresentationSessionAssociation < ApplicationRecord
+  extend T::Sig
+
   belongs_to :tenant
   before_validation :set_tenant_id
   belongs_to :studio
@@ -10,16 +14,19 @@ class RepresentationSessionAssociation < ApplicationRecord
   validate :resource_studio_matches_resource
   validates :resource_type, inclusion: { in: %w[Heartbeat Note Decision Commitment NoteHistoryEvent Option Approval CommitmentParticipant] }
 
+  sig { void }
   def set_tenant_id
-    self.tenant_id = representation_session.tenant_id
+    self.tenant_id = T.must(representation_session).tenant_id
   end
 
+  sig { void }
   def set_studio_id
-    self.studio_id = representation_session.studio_id
+    self.studio_id = T.must(representation_session).studio_id
   end
 
+  sig { void }
   def resource_studio_matches_resource
-    return if resource_studio_id == resource.studio_id
+    return if resource_studio_id == T.unsafe(resource).studio_id
     errors.add(:resource_studio, "must match resource's studio")
   end
 

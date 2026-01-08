@@ -1,3 +1,5 @@
+# typed: true
+
 class Scene < Studio
 
   default_scope do

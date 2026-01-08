@@ -225,13 +225,15 @@ class CycleTest < ActiveSupport::TestCase
   # === Validation Tests ===
 
   test "initialize requires tenant" do
-    assert_raises RuntimeError, "Invalid tenant" do
+    # Sorbet runtime type checking raises TypeError before our manual nil check
+    assert_raises TypeError do
       Cycle.new(name: "today", tenant: nil, studio: @studio)
     end
   end
 
   test "initialize requires studio" do
-    assert_raises RuntimeError, "Invalid studio" do
+    # Sorbet runtime type checking raises TypeError before our manual nil check
+    assert_raises TypeError do
       Cycle.new(name: "today", tenant: @tenant, studio: nil)
     end
   end

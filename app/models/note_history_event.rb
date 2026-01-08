@@ -1,4 +1,8 @@
+# typed: true
+
 class NoteHistoryEvent < ApplicationRecord
+  extend T::Sig
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -10,23 +14,27 @@ class NoteHistoryEvent < ApplicationRecord
   validates :happened_at, presence: true
   validate :validate_tenant_and_studio_id
 
+  sig { void }
   def set_tenant_id
-    self.tenant_id ||= note.tenant_id
+    self.tenant_id = T.must(note).tenant_id if tenant_id.nil?
   end
 
+  sig { void }
   def set_studio_id
-    self.studio_id ||= note.studio_id
+    self.studio_id = T.must(note).studio_id if studio_id.nil?
   end
 
+  sig { void }
   def validate_tenant_and_studio_id
-    if note.tenant_id != tenant_id
+    if T.must(note).tenant_id != tenant_id
       errors.add(:tenant_id, "must match the tenant of the note")
     end
-    if note.studio_id != studio_id
+    if T.must(note).studio_id != studio_id
       errors.add(:studio_id, "must match the studio of the note")
     end
   end
 
+  sig { returns(T::Hash[Symbol, T.untyped]) }
   def api_json
     {
       id: id,
@@ -38,6 +46,7 @@ class NoteHistoryEvent < ApplicationRecord
     }
   end
 
+  sig { returns(String) }
   def description
     # TODO refactor this
     case event_type
@@ -52,6 +61,7 @@ class NoteHistoryEvent < ApplicationRecord
     end
   end
 
+  sig { returns(T.nilable(User)) }
   def creator
     user
   end

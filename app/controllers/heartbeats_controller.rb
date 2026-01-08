@@ -1,3 +1,5 @@
+# typed: false
+
 class HeartbeatsController < ApplicationController
   def index
     @current_heartbeat = current_heartbeat

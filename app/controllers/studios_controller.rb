@@ -1,3 +1,5 @@
+# typed: false
+
 class StudiosController < ApplicationController
 
   def show

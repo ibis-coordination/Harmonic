@@ -1,3 +1,5 @@
+# typed: false
+
 class UsersController < ApplicationController
   def index
     @users = current_tenant.tenant_users

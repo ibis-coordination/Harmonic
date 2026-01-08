@@ -1,3 +1,5 @@
+# typed: false
+
 module CanPin
   extend ActiveSupport::Concern
 

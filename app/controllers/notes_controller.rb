@@ -1,3 +1,5 @@
+# typed: false
+
 class NotesController < ApplicationController
 
   def new

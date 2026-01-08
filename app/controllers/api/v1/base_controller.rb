@@ -1,3 +1,5 @@
+# typed: false
+
 class Api::V1::BaseController < ApplicationController
   before_action :api_authorize!, if: :api_token_present?
 

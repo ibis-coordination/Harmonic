@@ -52,6 +52,12 @@ jobs:
           bin/rails db:create
           bin/rails db:schema:load
 
+      - name: Run Sorbet type check
+        run: bundle exec srb tc
+
+      - name: Check Sorbet coverage
+        run: bundle exec spoom srb coverage
+
       - name: Run tests with coverage
         env:
           RAILS_ENV: test

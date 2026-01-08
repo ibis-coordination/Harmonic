@@ -46,4 +46,6 @@ Caddyfile
 # Test coverage reports
 /coverage/
 
+# Sorbet RBI files are committed to the repo (faster CI, no generation step needed)
+
 ignore/

@@ -1,3 +1,5 @@
+# typed: false
+
 require 'sidekiq/api'
 class AdminController < ApplicationController
   before_action :ensure_admin_user

@@ -1,4 +1,8 @@
+# typed: true
+
 class Tenant < ApplicationRecord
+  extend T::Sig
+
   self.implicit_order_column = "created_at"
   has_many :tenant_users
   has_many :users, through: :tenant_users
@@ -18,6 +22,7 @@ class Tenant < ApplicationRecord
     has_many table.to_sym
   end
 
+  sig { params(subdomain: String).returns(Tenant) }
   def self.scope_thread_to_tenant(subdomain:)
     if subdomain == ENV['AUTH_SUBDOMAIN']
       tenant = Tenant.new(
@@ -39,23 +44,28 @@ class Tenant < ApplicationRecord
     tenant
   end
 
+  sig { void }
   def self.clear_thread_scope
     Thread.current[:tenant_id] = nil
     Thread.current[:tenant_handle] = nil
   end
 
+  sig { returns(T.nilable(String)) }
   def self.current_subdomain
     Thread.current[:tenant_subdomain]
   end
 
+  sig { returns(T.nilable(String)) }
   def self.current_id
     Thread.current[:tenant_id]
   end
 
+  sig { returns(T.nilable(String)) }
   def self.current_main_studio_id
     Thread.current[:main_studio_id]
   end
 
+  sig { returns(ActiveRecord::Relation) }
   def self.all_public_tenants
     unscoped.where(
       subdomain: [
@@ -65,10 +75,12 @@ class Tenant < ApplicationRecord
     )
   end
 
+  sig { returns(String) }
   def path
     "/"
   end
 
+  sig { void }
   def set_defaults
     return unless self.respond_to?(:settings)
     self.settings = ({
@@ -91,58 +103,70 @@ class Tenant < ApplicationRecord
     }).merge(self.settings || {})
   end
 
+  sig { returns(T::Hash[String, T.untyped]) }
   def default_studio_settings
     self.settings['default_studio_settings'] || {}
   end
 
+  sig { returns(T::Array[String]) }
   def auth_providers
     settings['auth_providers'] || ['github']
   end
 
+  sig { params(providers: T::Array[String]).void }
   def auth_providers=(providers)
     self.settings['auth_providers'] = providers
   end
 
+  sig { params(provider: String).void }
   def add_auth_provider!(provider)
     self.settings['auth_providers'] = (self.settings['auth_providers'] || []) + [provider]
     save!
   end
 
+  sig { params(provider: String).returns(T::Boolean) }
   def valid_auth_provider?(provider)
     self.settings['auth_providers'].include?(provider)
   end
 
+  sig { params(value: T.nilable(String)).void }
   def timezone=(value)
     if value.present?
       @timezone = ActiveSupport::TimeZone[value]
       set_defaults
-      self.settings = self.settings.merge('timezone' => @timezone.name)
-      self.main_studio.timezone = @timezone.name
-      self.main_studio.save!
+      self.settings = self.settings.merge('timezone' => T.must(@timezone).name)
+      T.must(main_studio).timezone = T.must(@timezone).name
+      T.must(main_studio).save!
     end
   end
 
+  sig { returns(ActiveSupport::TimeZone) }
   def timezone
     @timezone ||= self.settings['timezone'] ? ActiveSupport::TimeZone[self.settings['timezone']] : ActiveSupport::TimeZone['UTC']
   end
 
+  sig { returns(T::Boolean) }
   def allow_main_studio_items?
     settings['allow_main_studio_items'].to_s == 'true'
   end
 
+  sig { returns(T::Boolean) }
   def allow_file_uploads?
     settings['allow_file_uploads'].to_s == 'true'
   end
 
+  sig { returns(T::Boolean) }
   def api_enabled?
     settings['api_enabled'].to_s == 'true'
   end
 
+  sig { void }
   def enable_api!
     self.settings['api_enabled'] = true
     save!
   end
 
+  sig { params(created_by: User).void }
   def create_main_studio!(created_by:)
     self.main_studio = studios.create!(
       name: "#{self.subdomain}.#{ENV['HOSTNAME']}",
@@ -151,10 +175,11 @@ class Tenant < ApplicationRecord
     )
     # Always enable API for the main studio
     # Both tenant and studio must have API enabled for it to be accessible
-    self.main_studio.enable_api!
+    T.must(main_studio).enable_api!
     save!
   end
 
+  sig { params(user: User).returns(TenantUser) }
   def add_user!(user)
     tenant_users.create!(
       user: user,
@@ -163,10 +188,12 @@ class Tenant < ApplicationRecord
     )
   end
 
+  sig { returns(T.nilable(String)) }
   def description
     settings['description']
   end
 
+  sig { params(limit: Integer).returns(T::Array[User]) }
   def team(limit: 100)
     tenant_users
       .where(archived_at: nil)
@@ -178,50 +205,56 @@ class Tenant < ApplicationRecord
     end
   end
 
+  sig { params(user: User).returns(T::Boolean) }
   def is_admin?(user)
     tu = tenant_users.find_by(user: user)
-    tu && tu.roles.include?('admin')
+    !!(tu && tu.roles.include?('admin'))
   end
 
+  sig { returns(ActiveRecord::Relation) }
   def admin_users
-    tenant_users.where_has_role('admin')
+    T.unsafe(tenant_users).where_has_role('admin')
   end
 
-  def auth_providers
-    settings['auth_providers'] || ['github']
-  end
-
+  sig { returns(T::Boolean) }
   def require_login?
     settings['require_login'].to_s == 'false' ? false : true
   end
 
+  sig { returns(String) }
   def domain
     "#{subdomain}.#{ENV['HOSTNAME']}"
   end
 
+  sig { returns(String) }
   def url
     "https://#{domain}"
   end
 
+  sig { returns(T::Boolean) }
   def archived?
     archived_at.present?
   end
 
+  sig { void }
   def archive!
-    self.archived_at = Time.current
+    self.archived_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
     save!
   end
 
   private
 
+  sig { params(subdomain: T.nilable(String)).void }
   def self.current_subdomain=(subdomain)
     Thread.current[:tenant_subdomain] = subdomain
   end
 
+  sig { params(id: T.nilable(String)).void }
   def self.current_id=(id)
     Thread.current[:tenant_id] = id
   end
 
+  sig { params(id: T.nilable(String)).void }
   def self.current_main_studio_id=(id)
     Thread.current[:main_studio_id] = id
   end

@@ -1,3 +1,5 @@
+# typed: false
+
 module Api::V1
   class ApprovalsController < BaseController
     def create

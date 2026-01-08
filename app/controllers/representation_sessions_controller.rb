@@ -1,3 +1,5 @@
+# typed: false
+
 class RepresentationSessionsController < ApplicationController
 
   def index

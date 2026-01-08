@@ -1,3 +1,5 @@
+# typed: false
+
 class CyclesController < ApplicationController
 
   def index

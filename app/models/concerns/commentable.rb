@@ -1,3 +1,5 @@
+# typed: false
+
 module Commentable
   extend ActiveSupport::Concern
 

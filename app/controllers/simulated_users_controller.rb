@@ -1,3 +1,5 @@
+# typed: false
+
 class SimulatedUsersController < ApplicationController
   def new
   end

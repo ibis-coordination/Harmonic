@@ -1,3 +1,5 @@
+# typed: false
+
 class LearnController < ApplicationController
   def index
     render layout: 'application', html: (

@@ -1,7 +1,12 @@
+# typed: true
+
 class OauthIdentity < ApplicationRecord
+  extend T::Sig
+
   self.implicit_order_column = "created_at"
   belongs_to :user
 
+  sig { params(auth: T.untyped).returns(OauthIdentity) }
   def self.find_or_create_from_auth(auth)
     identity = find_or_initialize_by(
       provider: auth.provider,
@@ -38,8 +43,7 @@ class OauthIdentity < ApplicationRecord
     identity
   end
 
-  private
-
+  sig { params(auth: T.untyped).returns(T.nilable(String)) }
   def self.url_from_auth(auth)
     case auth.provider
     when 'github'

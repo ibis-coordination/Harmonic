@@ -1,4 +1,7 @@
+# typed: true
+
 class Decision < ApplicationRecord
+  extend T::Sig
   include Tracked
   include Linkable
   include Pinnable
@@ -19,10 +22,12 @@ class Decision < ApplicationRecord
   validates :question, presence: true
   validates :deadline, presence: true
 
+  sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
   def self.api_json
-    map { |decision| decision.api_json }
+    T.unsafe(self).map { |decision| decision.api_json }
   end
 
+  sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
   def api_json(include: [])
     response = {
       id: id,
@@ -59,28 +64,34 @@ class Decision < ApplicationRecord
     response
   end
 
+  sig { returns(T.nilable(String)) }
   def title
     question
   end
 
+  sig { returns(ActiveRecord::Relation) }
   def participants
     decision_participants
   end
 
+  sig { params(participant: DecisionParticipant).returns(T::Boolean) }
   def can_add_options?(participant)
     return false if closed? || !participant.authenticated?
     return true if options_open? || participant.user_id == created_by_id
     return false
   end
 
+  sig { params(participant: DecisionParticipant).returns(T::Boolean) }
   def can_update_options?(participant)
     can_add_options?(participant)
   end
 
+  sig { params(participant: DecisionParticipant).returns(T::Boolean) }
   def can_delete_options?(participant)
     can_add_options?(participant)
   end
 
+  sig { params(participant_or_user: T.any(DecisionParticipant, User)).returns(T::Boolean) }
   def can_edit_settings?(participant_or_user)
     if participant_or_user.is_a?(DecisionParticipant)
       participant_or_user.user_id == created_by_id
@@ -89,18 +100,22 @@ class Decision < ApplicationRecord
     end
   end
 
+  sig { params(participant_or_user: T.any(DecisionParticipant, User)).returns(T::Boolean) }
   def can_close?(participant_or_user)
     can_edit_settings?(participant_or_user)
   end
 
+  sig { returns(T::Boolean) }
   def close_at_critical_mass?
     false # This method is only required for parity with Commitment
   end
 
+  sig { returns(T::Boolean) }
   def public?
     false
   end
 
+  sig { returns(T::Array[DecisionResult]) }
   def results
     return @results if @results
     @results = DecisionResult.where(
@@ -112,18 +127,22 @@ class Decision < ApplicationRecord
     end
   end
 
+  sig { returns(Integer) }
   def view_count
     participants.count
   end
 
+  sig { returns(Integer) }
   def option_contributor_count
     options.distinct.count(:decision_participant_id)
   end
 
+  sig { returns(Integer) }
   def voter_count
     approvals.distinct.count(:decision_participant_id)
   end
 
+  sig { returns(T::Array[User]) }
   def voters
     return @voters if defined?(@voters)
     # TODO - clean this up
@@ -131,21 +150,25 @@ class Decision < ApplicationRecord
       id: approvals.distinct.pluck(:decision_participant_id)
     ).includes(:user).map do |dp|
       dp.user
-    end
+    end.compact
   end
 
+  sig { returns(String) }
   def metric_name
     'voters'
   end
 
+  sig { returns(Integer) }
   def metric_value
     voter_count
   end
 
+  sig { returns(String) }
   def octicon_metric_icon_name
     'check-circle'
   end
 
+  sig { returns(String) }
   def path_prefix
     'd'
   end

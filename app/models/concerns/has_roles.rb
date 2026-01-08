@@ -1,3 +1,5 @@
+# typed: false
+
 module HasRoles # TenantUser, StudioUser, ...
   extend ActiveSupport::Concern
 

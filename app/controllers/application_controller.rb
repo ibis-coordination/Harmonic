@@ -1,3 +1,5 @@
+# typed: false
+
 class ApplicationController < ActionController::Base
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_studio,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat

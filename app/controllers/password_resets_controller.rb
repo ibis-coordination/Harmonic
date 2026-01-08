@@ -1,3 +1,5 @@
+# typed: false
+
 class PasswordResetsController < ApplicationController
   before_action :find_identity_by_token, only: [:show, :update]
 

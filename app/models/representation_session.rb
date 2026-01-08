@@ -1,4 +1,8 @@
+# typed: true
+
 class RepresentationSession < ApplicationRecord
+  extend T::Sig
+
   include Linkable
   include Commentable
   include HasTruncatedId
@@ -11,12 +15,14 @@ class RepresentationSession < ApplicationRecord
   validates :began_at, presence: true
   validates :confirmed_understanding, inclusion: { in: [true] }
 
+  sig { void }
   def parse_and_create_link_records!
     # This method is overriding the method in the Linkable module
     # because the RepresentationSession model does not have a text field
     # but it can have backlinks from other models.
   end
 
+  sig { returns(T::Hash[Symbol, T.untyped]) }
   def api_json
     {
       id: id,
@@ -31,39 +37,46 @@ class RepresentationSession < ApplicationRecord
     }
   end
 
+  sig { void }
   def begin!
     # TODO - add a check for active representation session
     raise 'Must confirm understanding' unless confirmed_understanding
     # TODO - add more validations
-    self.began_at = Time.current if began_at.nil?
-    self.activity_log['activity'] ||= []
+    self.began_at = T.cast(Time.current, ActiveSupport::TimeWithZone) if began_at.nil?
+    T.must(self.activity_log)['activity'] ||= []
     save!
   end
 
+  sig { returns(T::Boolean) }
   def active?
     ended_at.nil?
   end
 
+  sig { returns(Float) }
   def elapsed_time
-    return ended_at - began_at if ended_at
-    return Time.current - began_at
+    return T.must(ended_at) - T.must(began_at) if ended_at
+    return Time.current - T.must(began_at)
   end
 
+  sig { void }
   def end!
     return if ended?
-    self.activity_log['activity'] ||= []
-    self.ended_at = Time.current
+    T.must(self.activity_log)['activity'] ||= []
+    self.ended_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
     save!
   end
 
+  sig { returns(T::Boolean) }
   def ended?
     ended_at.present?
   end
 
+  sig { returns(T::Boolean) }
   def expired?
-    return ended? || Time.current > began_at + 24.hours
+    return ended? || Time.current > T.must(began_at) + 24.hours
   end
 
+  sig { params(semantic_event: T::Hash[Symbol, T.untyped]).void }
   def validate_semantic_event!(semantic_event)
     # example = {
     #   "timestamp": "2021-09-01T12:34:56Z",
@@ -98,6 +111,7 @@ class RepresentationSession < ApplicationRecord
   end
 
 
+  sig { params(request: T.untyped, semantic_event: T::Hash[Symbol, T.untyped]).void }
   def record_activity!(request:, semantic_event:)
     raise 'Session has ended' if ended?
     raise 'Session has expired' if expired?
@@ -123,8 +137,8 @@ class RepresentationSession < ApplicationRecord
         )
         sub_resource[:association_id] = association.id
       end
-      activity_log['activity'] ||= []
-      activity_log['activity'] << {
+      T.must(activity_log)['activity'] ||= []
+      T.must(activity_log)['activity'] << {
         id: SecureRandom.uuid,
         happened_at: Time.current,
         semantic_event: semantic_event,
@@ -140,20 +154,24 @@ class RepresentationSession < ApplicationRecord
     end
   end
 
+  sig { returns(String) }
   def title
     "Representation Session #{truncated_id}"
   end
 
+  sig { returns(String) }
   def path
-    "/studios/#{studio.handle}/r/#{truncated_id}"
+    "/studios/#{T.must(studio).handle}/r/#{truncated_id}"
   end
 
+  sig { returns(String) }
   def url
-    "#{tenant.url}#{path}"
+    "#{T.must(tenant).url}#{path}"
   end
 
+  sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
   def human_readable_activity_log
-    @human_readable_activity_log ||= [activity_log['activity'], nil].flatten.each_cons(2).map do |activity, next_activity|
+    @human_readable_activity_log ||= T.let([T.must(activity_log)['activity'], nil].flatten.each_cons(2).map do |activity, next_activity|
       next if activity.nil? || activity['semantic_event'].nil?
       # for multiple sequetial vote events for the same decision within the same session, only show the last vote
       two_votes_on_same_decision = activity && next_activity &&
@@ -174,9 +192,10 @@ class RepresentationSession < ApplicationRecord
         studio: studio,
         main_resource: main_resource,
       }
-    end.compact
+    end.compact, T.nilable(T::Array[T::Hash[Symbol, T.untyped]]))
   end
 
+  sig { params(event_type: String).returns(String) }
   def event_type_to_verb_phrase(event_type)
     case event_type
     when 'create'
@@ -196,6 +215,7 @@ class RepresentationSession < ApplicationRecord
     end
   end
 
+  sig { returns(Integer) }
   def action_count
     human_readable_activity_log.count
   end
