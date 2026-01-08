@@ -1,8 +1,11 @@
-# typed: false
+# typed: true
 
 class DataDeletionManager
+  extend T::Sig
+
   attr_reader :confirmation_token
 
+  sig { params(user: User).void }
   def initialize(user:)
     @user = user
     # The validation confirmation token is a guard against accidental deletion.
@@ -11,17 +14,18 @@ class DataDeletionManager
     @confirmation_token = SecureRandom.hex(10)
   end
 
+  sig { params(token: String, message: T.nilable(String)).void }
   def validate_confirmation_token!(token, message: nil)
     message = "Invalid confirmation token. #{message}"
     raise message unless token == @confirmation_token
   end
 
+  sig { params(studio: Studio, confirmation_token: String).returns(String) }
   def delete_studio!(studio:, confirmation_token:)
     validate_confirmation_token!(confirmation_token, message: "delete_studio! will delete all associated Notes, Decisions, Commitments, RepresentationSessions, TrusteeUsers, and any other associated data.")
     # Ensure the studio exists
     studio_name = studio.name
     studio_id = studio.id
-    raise "studio.id returned nil" if studio_id.nil?
     ActiveRecord::Base.transaction do
       # Delete all associated data
       [
@@ -48,6 +52,7 @@ class DataDeletionManager
     "Studio '#{studio_name}' (ID: #{studio_id}) has been deleted successfully."
   end
 
+  sig { params(user: User, confirmation_token: String, force_delete: T::Boolean).returns(String) }
   def delete_user!(user:, confirmation_token:, force_delete: false)
     validate_confirmation_token!(confirmation_token)
     if force_delete
@@ -97,11 +102,11 @@ class DataDeletionManager
     "PII for user '#{user.id}' has been removed and the user has been marked as deleted."
   end
 
+  sig { params(note: Note, confirmation_token: String).returns(String) }
   def delete_note!(note:, confirmation_token:)
     validate_confirmation_token!(confirmation_token)
     note_title = note.title
     note_id = note.id
-    raise "note.id returned nil" if note_id.nil?
     ActiveRecord::Base.transaction do
       # Delete all associated data
       NoteHistoryEvent.unscoped.where(note_id: note.id).each do |event|
@@ -120,11 +125,11 @@ class DataDeletionManager
     "Note '#{note_title}' (ID: #{note_id}) has been deleted successfully."
   end
 
+  sig { params(decision: Decision, confirmation_token: String).returns(String) }
   def delete_decision!(decision:, confirmation_token:)
     validate_confirmation_token!(confirmation_token)
     decision_question = decision.question
     decision_id = decision.id
-    raise "decision.id returned nil" if decision_id.nil?
     ActiveRecord::Base.transaction do
       # Delete all associated data
       Approval.unscoped.where(decision_id: decision.id).each do |approval|
@@ -148,11 +153,11 @@ class DataDeletionManager
     "Decision '#{decision_question}' (ID: #{decision_id}) has been deleted successfully."
   end
 
+  sig { params(commitment: Commitment, confirmation_token: String).returns(String) }
   def delete_commitment!(commitment:, confirmation_token:)
     validate_confirmation_token!(confirmation_token)
     commitment_title = commitment.title
     commitment_id = commitment.id
-    raise "commitment.id returned nil" if commitment_id.nil?
     ActiveRecord::Base.transaction do
       # Delete all associated data
       CommitmentParticipant.unscoped.where(commitment_id: commitment.id).each do |participant|
@@ -170,6 +175,7 @@ class DataDeletionManager
     "Commitment '#{commitment_title}' (ID: #{commitment_id}) has been deleted successfully."
   end
 
+  sig { params(representation_session: RepresentationSession, confirmation_token: String).returns(T.noreturn) }
   def delete_representation_session!(representation_session:, confirmation_token:)
     validate_confirmation_token!(confirmation_token)
     # Delete all associated data

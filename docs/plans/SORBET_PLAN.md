@@ -745,9 +745,15 @@ App/lib files: 88 (all at typed: false)
   - [x] RepresentationSession model
   - [x] Other models (ApplicationRecord, CycleDataRow, DeletedRecordProxy, NoteReader, RepresentationSessionAssociation, Scene, TrusteePermission)
 
-- [ ] **Phase 5**: Type Services
-  - [ ] ApiHelper
-  - [ ] Participant manager services
+- [x] **Phase 5**: Type Services ✅
+  - [x] ActionsHelper
+  - [x] ApiHelper
+  - [x] CommitmentParticipantManager
+  - [x] DataDeletionManager
+  - [x] DataMarkdownSerializer
+  - [x] DecisionParticipantManager
+  - [x] LinkParser
+  - [x] MarkdownRenderer
 
 - [ ] **Phase 6**: Type Controllers
   - [ ] API controllers to `typed: true`

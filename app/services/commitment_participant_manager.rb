@@ -1,8 +1,11 @@
-# typed: false
+# typed: true
 
 # This class is responsible for managing the business logic around
 # creating commitment participants and inviting users to participate.
 class CommitmentParticipantManager
+  extend T::Sig
+
+  sig { params(commitment: Commitment, user: T.nilable(User), participant_uid: T.nilable(String), name: T.nilable(String)).void }
   def initialize(commitment:, user: nil, participant_uid: nil, name: nil)
     @commitment = commitment
     @user = user
@@ -11,10 +14,8 @@ class CommitmentParticipantManager
     # TODO - add validations
   end
 
+  sig { returns(CommitmentParticipant) }
   def find_or_create_participant
-    unless @commitment
-      raise 'commitment must be present to find or create participant'
-    end
     if @user
       # User takes precedence over participant_uid.
       # TODO - maybe provide users the option to claim participant_uid after logging in.
@@ -31,10 +32,12 @@ class CommitmentParticipantManager
 
   private
 
+  sig { returns(String) }
   def generate_participant_uid
     SecureRandom.uuid
   end
 
+  sig { returns(CommitmentParticipant) }
   def find_or_create_by_participant_uid
     if @participant_uid.nil?
       raise 'participant_uid must be present to find or create by participant_uid'
@@ -62,6 +65,7 @@ class CommitmentParticipantManager
     participant
   end
 
+  sig { returns(CommitmentParticipant) }
   def find_or_create_by_user
     if @user.nil?
       raise 'user must be present to find or create by user'

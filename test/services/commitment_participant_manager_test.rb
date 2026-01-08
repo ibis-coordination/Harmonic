@@ -165,10 +165,9 @@ class CommitmentParticipantManagerTest < ActiveSupport::TestCase
   # === Error Handling Tests ===
 
   test "find_or_create_participant raises error without commitment" do
-    manager = CommitmentParticipantManager.new(commitment: nil, user: @user)
-
-    assert_raises RuntimeError do
-      manager.find_or_create_participant
+    # Sorbet enforces the type at runtime, so passing nil raises TypeError
+    assert_raises TypeError do
+      CommitmentParticipantManager.new(commitment: nil, user: @user)
     end
   end
 

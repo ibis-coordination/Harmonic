@@ -1,7 +1,10 @@
-# typed: false
+# typed: true
 
 class LinkParser
-  def self.parse(text, subdomain: nil, studio_handle: nil)
+  extend T::Sig
+
+  sig { params(text: String, subdomain: T.nilable(String), studio_handle: T.nilable(String), block: T.proc.params(record: T.untyped).void).returns(String) }
+  def self.parse(text, subdomain: nil, studio_handle: nil, &block)
     models = { 'n' => Note, 'c' => Commitment, 'd' => Decision, 'r' => RepresentationSession }
     domain = "#{subdomain}.#{ENV['HOSTNAME']}" + (studio_handle ? "/(?:studios|scenes)/#{studio_handle}" : '')
     prefixes = models.keys.join
@@ -20,6 +23,7 @@ class LinkParser
     end
   end
 
+  sig { params(path: String).returns(T.untyped) }
   def self.parse_path(path)
     models = { 'n' => Note, 'c' => Commitment, 'd' => Decision, 'r' => RepresentationSession }
     path_pieces = path.split('/')
@@ -33,6 +37,7 @@ class LinkParser
     record = model.find_by(column_name => id, studio_id: studio_ids)
   end
 
+  sig { params(from_record: T.nilable(T.any(Note, Decision, Commitment)), subdomain: T.nilable(String), studio_handle: T.nilable(String)).void }
   def initialize(from_record: nil, subdomain: nil, studio_handle: nil)
     @from_record = from_record
     @subdomain = subdomain
@@ -44,14 +49,15 @@ class LinkParser
     end
   end
 
-  def parse(text = nil)
+  sig { params(text: T.nilable(String), block: T.proc.params(record: T.untyped).void).void }
+  def parse(text = nil, &block)
     if @from_record
       if text
         raise ArgumentError, "Cannot pass in text with from_record"
       end
-      text = @from_record.class == Note ? @from_record.text : @from_record.description
-      subdomain = @from_record.tenant.subdomain
-      studio_handle = @from_record.studio.handle
+      text = @from_record.class == Note ? T.unsafe(@from_record).text : T.unsafe(@from_record).description
+      subdomain = T.must(@from_record.tenant).subdomain
+      studio_handle = T.must(@from_record.studio).handle
       self.class.parse(text, subdomain: subdomain, studio_handle: studio_handle) do |to_record|
         yield to_record
       end
@@ -67,6 +73,7 @@ class LinkParser
     end
   end
 
+  sig { void }
   def parse_and_create_link_records!
     unless @from_record
       raise ArgumentError, "Cannot create link records without a from_record"

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 
 # The purpose of this class is to render Markdown content as HTML, while
 # sanitizing the HTML and adding rel="noopener noreferrer" to all links.
@@ -7,6 +7,7 @@
 # Also, for image tags we check for http(s) protocol and add loading="lazy"
 # to enable lazy loading of images for performance and partial DoS protection.
 class MarkdownRenderer
+  extend T::Sig
   @@markdown = Redcarpet::Markdown.new(
     Redcarpet::Render::HTML.new(
       hard_wrap: true,
@@ -21,6 +22,7 @@ class MarkdownRenderer
     fenced_code_blocks: true
   )
 
+  sig { params(content: T.untyped, shift_headers: T::Boolean, display_references: T::Boolean).returns(String) }
   def self.render(content, shift_headers: true, display_references: true)
     raw_html = @@markdown.render(content.to_s)
     sanitized_html = sanitize(raw_html)
@@ -35,6 +37,7 @@ class MarkdownRenderer
     output
   end
 
+  sig { params(content: T.untyped).returns(String) }
   def self.render_inline(content)
     raw_html = @@markdown.render(content.to_s)
     sanitized_html = sanitize(raw_html)
@@ -43,6 +46,7 @@ class MarkdownRenderer
 
   private
 
+  sig { params(html: String).returns(String) }
   def self.sanitize(html)
     sanitized_html = ActionController::Base.helpers.sanitize(html)
     doc = Nokogiri::HTML.fragment(sanitized_html)
@@ -75,6 +79,7 @@ class MarkdownRenderer
     doc.to_html
   end
 
+  sig { params(html: String, shift_by: Integer).returns(String) }
   def self.shift_headers(html, shift_by: 1)
     doc = Nokogiri::HTML.fragment(html)
     (1..6).reverse_each do |i|
@@ -85,6 +90,7 @@ class MarkdownRenderer
     doc.to_html
   end
 
+  sig { params(html: String).returns(String) }
   def self.display_refereces(html)
     link_parser = LinkParser.new(subdomain: Tenant.current_subdomain, studio_handle: Studio.current_handle)
     doc = Nokogiri::HTML.fragment(html)

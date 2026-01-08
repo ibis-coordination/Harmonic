@@ -1,6 +1,7 @@
-# typed: false
+# typed: true
 
 class ActionsHelper
+  extend T::Sig
   @@actions_by_route = {
     '/studios' => { actions: [] },
     '/studios/new' => {
@@ -127,14 +128,17 @@ class ActionsHelper
     }
   end.sort_by { |item| item[:route] }
 
+  sig { returns(T::Hash[String, T::Hash[Symbol, T.untyped]]) }
   def self.actions_by_route
     @@actions_by_route
   end
 
+  sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
   def self.routes_and_actions
     @@routes_and_actions
   end
 
+  sig { params(route: String).returns(T.nilable(T::Hash[Symbol, T.untyped])) }
   def self.actions_for_route(route)
     @@actions_by_route[route]
   end
