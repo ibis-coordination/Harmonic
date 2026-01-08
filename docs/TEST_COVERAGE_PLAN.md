@@ -570,32 +570,20 @@ These bugs are documented in the skipped tests and can be addressed separately.
 ### Objective
 Ensure CI enforces test coverage and prevents merging broken code.
 
-### Current State
-**File**: `.github/workflows/ruby-tests.yml`
+### Implementation Status: ✅ COMPLETE
 
-The existing workflow:
-- ✓ Runs on push/PR to `main`
-- ✓ Sets up PostgreSQL and Redis services
-- ✓ Installs Ruby 3.1.7 with bundler caching
-- ✓ Runs `bundle exec rails test`
-- ✗ No coverage threshold enforcement
+**File Modified**: `.github/workflows/ruby-tests.yml`
 
-### Tasks
+### Changes Made
 
-#### 7.1 Enforce Minimum Coverage Threshold
+#### 7.1 Enforce Minimum Coverage Threshold ✅
 
-Add a step to fail the build if coverage drops below threshold:
+Added `COVERAGE: true` environment variable and coverage threshold check step:
 
 ```yaml
       - name: Run tests with coverage
         env:
-          RAILS_ENV: test
-          DB_HOST: localhost
-          AUTH_MODE: oauth
-          HOSTNAME: harmonic.localhost
-          PRIMARY_SUBDOMAIN: app
-          AUTH_SUBDOMAIN: auth
-          REDIS_URL: redis://localhost:6379/0
+          # ... existing env vars ...
           COVERAGE: true
         run: bundle exec rails test
 
@@ -604,15 +592,16 @@ Add a step to fail the build if coverage drops below threshold:
           COVERAGE=$(cat coverage/.last_run.json | jq '.result.covered_percent')
           THRESHOLD=45
           if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
-            echo "Coverage $COVERAGE% is below threshold $THRESHOLD%"
+            echo "::error::Coverage $COVERAGE% is below threshold $THRESHOLD%"
             exit 1
           fi
-          echo "Coverage $COVERAGE% meets threshold $THRESHOLD%"
 ```
+
+The threshold is set to **45%** (slightly below the current baseline of ~47%).
 
 #### 7.2 Configure Branch Protection Rules
 
-Configure GitHub branch protection (manual step in GitHub settings):
+Configure in GitHub repository settings (manual step):
 
 - [ ] Require status checks to pass before merging
 - [ ] Require the "test" job to pass
@@ -621,8 +610,8 @@ Configure GitHub branch protection (manual step in GitHub settings):
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Add coverage threshold check to workflow | High | [ ] |
-| Configure branch protection in GitHub | High | [ ] |
+| Add coverage threshold check to workflow | High | ✅ |
+| Configure branch protection in GitHub | High | ⏳ Manual step |
 
 ---
 
