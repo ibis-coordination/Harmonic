@@ -1,6 +1,8 @@
-# typed: false
+# typed: true
 
 class TrusteePermission < ActiveRecord::Base
+  extend T::Sig
+
   belongs_to :trustee_user, class_name: 'User'
   belongs_to :granting_user, class_name: 'User'
   belongs_to :trusted_user, class_name: 'User'
@@ -9,10 +11,12 @@ class TrusteePermission < ActiveRecord::Base
 
   validate :all_users_conform_to_expectations
 
+  sig { returns(String) }
   def display_name
-    relationship_phrase.gsub('{trusted_user}', trusted_user.display_name).gsub('{granting_user}', granting_user.display_name)
+    T.must(relationship_phrase).gsub('{trusted_user}', T.must(T.must(trusted_user).display_name)).gsub('{granting_user}', T.must(T.must(granting_user).display_name))
   end
 
+  sig { void }
   def create_trustee_user!
     return if self.trustee_user
     self.trustee_user = User.create!(
@@ -22,8 +26,9 @@ class TrusteePermission < ActiveRecord::Base
     )
   end
 
+  sig { void }
   def all_users_conform_to_expectations
-    unless trustee_user.trustee?
+    unless T.must(trustee_user).trustee?
       errors.add(:trustee_user, "must be a trustee user")
     end
     if granting_user == trusted_user
@@ -33,28 +38,30 @@ class TrusteePermission < ActiveRecord::Base
     elsif trusted_user == trustee_user
       errors.add(:trustee_user, "cannot be the same as the trusted user")
     end
-    if granting_user.trustee?
+    if T.must(granting_user).trustee?
       # Currently this case only makes sense if the granting user that is of type 'trustee' is a studio trustee
       # and the trusted user is a member of the studio that the trustee user represents.
       # In this case, the trusted user is acting as a representative of the studio via the studio trustee.
-      if !granting_user.studio_trustee?
+      if !T.must(granting_user).studio_trustee?
         errors.add(:granting_user, "must be a studio trustee if the granting user is of type 'trustee'")
-      elsif !granting_user.trustee_studio.users.include?(trusted_user)
+      elsif !T.must(granting_user).trustee_studio&.users&.include?(trusted_user)
         errors.add(:trusted_user, "must be a member of the studio that the granting user represents")
       end
     end
-    if trusted_user.trustee?
+    if T.must(trusted_user).trustee?
       errors.add(:trusted_user, "cannot be a trustee user")
     end
   end
 
+  sig { params(permissions: T::Hash[String, T.untyped]).void }
   def grant_permissions!(permissions)
-    self.permissions = self.permissions.merge(permissions)
+    self.permissions = T.must(self.permissions).merge(permissions)
     save!
   end
 
+  sig { params(permissions: T::Array[String]).void }
   def revoke_permissions!(permissions)
-    self.permissions = self.permissions.except(*permissions)
+    self.permissions = T.must(self.permissions).except(*permissions)
     save!
   end
 

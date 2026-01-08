@@ -1,6 +1,8 @@
-# typed: false
+# typed: true
 
 class CycleDataRow < ApplicationRecord
+  extend T::Sig
+
   self.primary_key = "item_id"
   self.table_name = "cycle_data" # view
   belongs_to :tenant
@@ -9,6 +11,7 @@ class CycleDataRow < ApplicationRecord
   belongs_to :created_by, class_name: 'User'
   belongs_to :updated_by, class_name: 'User'
 
+  sig { returns(T::Array[String]) }
   def self.valid_group_bys
     self.valid_sort_bys + [
       'status', 'created_within_cycle', 'updated_within_cycle',
@@ -20,18 +23,22 @@ class CycleDataRow < ApplicationRecord
     ]
   end
 
+  sig { returns(T::Array[String]) }
   def self.valid_sort_bys
     self.column_names - ['tenant_id', 'studio_id', 'item_id']
   end
 
+  sig { params(cycle: Cycle).void }
   def cycle=(cycle)
     @cycle = cycle
   end
 
+  sig { returns(T::Boolean) }
   def is_open
-    deadline > Time.now
+    T.must(deadline) > Time.now
   end
 
+  sig { returns(String) }
   def status
     if is_open
       'open'
@@ -40,78 +47,98 @@ class CycleDataRow < ApplicationRecord
     end
   end
 
+  sig { returns(T::Boolean) }
   def created_within_cycle
-    created_at >= @cycle.start_date && created_at <= @cycle.end_date
+    T.must(created_at) >= T.must(@cycle).start_date && T.must(created_at) <= T.must(@cycle).end_date
   end
 
+  sig { returns(T::Boolean) }
   def updated_within_cycle
-    updated_at >= @cycle.start_date && updated_at <= @cycle.end_date
+    T.must(updated_at) >= T.must(@cycle).start_date && T.must(updated_at) <= T.must(@cycle).end_date
   end
 
+  sig { returns(T::Boolean) }
   def deadline_within_cycle
-    deadline >= @cycle.start_date && deadline <= @cycle.end_date
+    T.must(deadline) >= T.must(@cycle).start_date && T.must(deadline) <= T.must(@cycle).end_date
   end
 
+  sig { returns(Integer) }
   def days_until_deadline
-    (deadline.to_date - Time.now.to_date).to_i
+    (T.must(deadline).to_date - Time.now.to_date).to_i
   end
 
+  sig { params(timezone: String).void }
   def timezone=(timezone)
     @timezone = timezone
   end
 
+  sig { returns(String) }
   def timezone
-    @timezone ||= studio.timezone
+    @timezone ||= T.let(T.must(T.must(studio).timezone).to_s, T.nilable(String))
+    T.must(@timezone)
   end
 
+  sig { returns(Date) }
   def date_created
-    created_at.in_time_zone(timezone).to_date
+    T.must(created_at).in_time_zone(timezone).to_date
   end
 
+  sig { returns(Date) }
   def date_updated
-    updated_at.in_time_zone(timezone).to_date
+    T.must(updated_at).in_time_zone(timezone).to_date
   end
 
+  sig { returns(Date) }
   def date_deadline
-    deadline.in_time_zone(timezone).to_date
+    T.must(deadline).in_time_zone(timezone).to_date
   end
 
+  sig { returns(String) }
   def week_created
-    created_at.in_time_zone(timezone).strftime('%Y-%W')
+    T.must(created_at).in_time_zone(timezone).strftime('%Y-%W')
   end
 
+  sig { returns(String) }
   def week_updated
-    updated_at.in_time_zone(timezone).strftime('%Y-%W')
+    T.must(updated_at).in_time_zone(timezone).strftime('%Y-%W')
   end
 
+  sig { returns(String) }
   def week_deadline
-    deadline.in_time_zone(timezone).strftime('%Y-%W')
+    T.must(deadline).in_time_zone(timezone).strftime('%Y-%W')
   end
 
+  sig { returns(String) }
   def month_created
-    created_at.in_time_zone(timezone).strftime('%Y-%m')
+    T.must(created_at).in_time_zone(timezone).strftime('%Y-%m')
   end
 
+  sig { returns(String) }
   def month_updated
-    updated_at.in_time_zone(timezone).strftime('%Y-%m')
+    T.must(updated_at).in_time_zone(timezone).strftime('%Y-%m')
   end
 
+  sig { returns(String) }
   def month_deadline
-    deadline.in_time_zone(timezone).strftime('%Y-%m')
+    T.must(deadline).in_time_zone(timezone).strftime('%Y-%m')
   end
 
+  sig { returns(String) }
   def year_created
-    created_at.in_time_zone(timezone).strftime('%Y')
+    T.must(created_at).in_time_zone(timezone).strftime('%Y')
   end
 
+  sig { returns(String) }
   def year_updated
-    updated_at.in_time_zone(timezone).strftime('%Y')
+    T.must(updated_at).in_time_zone(timezone).strftime('%Y')
   end
 
+  sig { returns(String) }
   def year_deadline
-    deadline.in_time_zone(timezone).strftime('%Y')
+    T.must(deadline).in_time_zone(timezone).strftime('%Y')
   end
 
+  sig { returns(T::Hash[Symbol, T.untyped]) }
   def api_json
     {
       item_type: item_type,
@@ -131,16 +158,19 @@ class CycleDataRow < ApplicationRecord
     }
   end
 
+  sig { returns(T.untyped) }
   def item
-    item_type.constantize.unscoped.find(item_id)
+    T.must(item_type).constantize.unscoped.find(item_id)
   end
 
-  def item_path(studio: self.studio)
+  sig { params(studio: Studio).returns(String) }
+  def item_path(studio: T.must(self.studio))
     # Allow passing in studio to avoid reloading it
     # Would be ideal to load the item and call path on it, but that causes N + 1 queries
-    "#{studio.path}/#{item_type.downcase[0]}/#{item_id[0..7]}"
+    "#{studio.path}/#{T.must(item_type).downcase[0]}/#{T.must(item_id)[0..7]}"
   end
 
+  sig { returns(T.nilable(String)) }
   def metric_name
     case item_type
     when 'Note'
@@ -152,6 +182,7 @@ class CycleDataRow < ApplicationRecord
     end
   end
 
+  sig { returns(T.nilable(Integer)) }
   def metric_value
     case item_type
     when 'Note'
@@ -164,6 +195,7 @@ class CycleDataRow < ApplicationRecord
     end
   end
 
+  sig { returns(T.nilable(String)) }
   def octicon_metric_icon_name
     case item_type
     when 'Note'
@@ -175,7 +207,8 @@ class CycleDataRow < ApplicationRecord
     end
   end
 
-  def item_data_for_inline_display(studio: self.studio)
+  sig { params(studio: Studio).returns(T::Hash[Symbol, T.untyped]) }
+  def item_data_for_inline_display(studio: T.must(self.studio))
     # Allow passing in studio to avoid reloading it
     {
       type: item_type,
@@ -187,6 +220,7 @@ class CycleDataRow < ApplicationRecord
     }
   end
 
+  sig { returns(String) }
   def path
     item_path
   end

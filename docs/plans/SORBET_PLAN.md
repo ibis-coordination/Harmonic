@@ -719,7 +719,7 @@ Methods with signatures (excluding RBIs):
 App/lib files: 88 (all at typed: false)
 ```
 
-- [ ] **Phase 4**: Type Core Models
+- [x] **Phase 4**: Type Core Models
   - [x] User model
   - [x] Tenant model
   - [x] Studio model
@@ -743,7 +743,7 @@ App/lib files: 88 (all at typed: false)
   - [x] OmniAuthIdentity model
   - [x] Heartbeat model
   - [x] RepresentationSession model
-  - [ ] Other models (ApplicationRecord, concerns, etc.)
+  - [x] Other models (ApplicationRecord, CycleDataRow, DeletedRecordProxy, NoteReader, RepresentationSessionAssociation, Scene, TrusteePermission)
 
 - [ ] **Phase 5**: Type Services
   - [ ] ApiHelper
