@@ -52,6 +52,20 @@ jobs:
           bin/rails db:create
           bin/rails db:schema:load
 
+      - name: Generate Sorbet RBI files
+        env:
+          RAILS_ENV: test
+          DB_HOST: localhost
+          AUTH_MODE: oauth
+          HOSTNAME: harmonic.localhost
+          PRIMARY_SUBDOMAIN: app
+          AUTH_SUBDOMAIN: auth
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          bundle exec tapioca gems --silent
+          bundle exec tapioca dsl --silent
+          bundle exec tapioca annotations --silent
+
       - name: Run Sorbet type check
         run: bundle exec srb tc
 
