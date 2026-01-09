@@ -371,7 +371,7 @@ export default class extends Controller {
 
 - [x] All JavaScript files converted to TypeScript
 - [x] TypeScript compilation passes with strict mode
-- [ ] No `any` types (except where unavoidable)
+- [x] No `any` types (except where unavoidable)
 - [x] All Stimulus targets and values properly typed
 - [x] CI blocks on TypeScript errors
 - [x] Development workflow documented (see CLAUDE.md)
