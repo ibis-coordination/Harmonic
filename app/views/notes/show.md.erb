@@ -21,6 +21,16 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 <% end %>
 
 <%= render 'shared/backlinks', resource: @note %>
+## Comments (<%= @note.comments_count %>)
+
+<% if @note.comments.empty? %>
+No comments yet.
+<% else %>
+<% @note.chronological_comments.each do |comment| %>
+* [<%= comment.created_by&.display_name || 'Unknown' %>](<%= comment.created_by&.path || '#' %>) (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
+<% end %>
+<% end %>
+
 ## Actions
 
 <% if @note_reader.confirmed_read_but_note_updated? %>
@@ -28,7 +38,9 @@ _Note updated since you last confirmed reading. Reconfirm to acknowledge the cha
 
 * `confirm_read()` to reconfirm that you have read this note.
 <% elsif @note_reader.confirmed_read? %>
-You have confirmed that you have read this note. No action is needed.
+You have confirmed that you have read this note.
+
 <% else %>
 * `confirm_read()` to confirm that you have read this note.
 <% end %>
+* `add_comment(text)` - Add a comment to this note
