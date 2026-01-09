@@ -241,7 +241,7 @@ class NotesController < ApplicationController
     render_actions_index({
       actions: [{
         name: 'create_note',
-        params_string: '(title, text, deadline)',
+        params_string: '(text)',
       }]
     })
   end
@@ -251,7 +251,7 @@ class NotesController < ApplicationController
     render_actions_index({
       actions: [{
         name: 'update_note',
-        params_string: '(title, text, deadline)',
+        params_string: '(text)',
       }]
     })
   end
