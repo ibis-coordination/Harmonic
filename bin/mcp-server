@@ -1,0 +1,142 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# MCP (Model Context Protocol) server for Harmonic
+# This script implements stdio transport for MCP clients like Claude Code
+#
+# Usage:
+#   bin/mcp-server
+#
+# Environment variables:
+#   HARMONIC_API_TOKEN  - API token for authentication (required)
+#   HARMONIC_SUBDOMAIN  - Tenant subdomain (required)
+#   HARMONIC_STUDIO     - Studio handle (required)
+#   HARMONIC_BASE_URL   - Base URL override (optional, defaults to http://{subdomain}.localhost:3000)
+#   MCP_DEBUG           - Set to "true" for debug logging to stderr
+
+require_relative "../config/environment"
+
+class McpServer
+  def initialize
+    @debug = ENV["MCP_DEBUG"] == "true"
+    validate_environment!
+    setup_context!
+  end
+
+  def run
+    debug_log("MCP server starting...")
+    debug_log("Tenant: #{@tenant.subdomain}, Studio: #{@studio.handle}, User: #{@user.email}")
+
+    $stdin.each_line do |line|
+      line = line.strip
+      next if line.empty?
+
+      debug_log("Received: #{line}")
+
+      begin
+        request = JSON.parse(line)
+        response = @handler.handle(request)
+
+        if response
+          output = JSON.generate(response)
+          debug_log("Sending: #{output}")
+          $stdout.puts(output)
+          $stdout.flush
+        end
+      rescue JSON::ParserError => e
+        error_response = {
+          "jsonrpc" => "2.0",
+          "id" => nil,
+          "error" => { "code" => -32700, "message" => "Parse error: #{e.message}" },
+        }
+        $stdout.puts(JSON.generate(error_response))
+        $stdout.flush
+      rescue StandardError => e
+        debug_log("Error: #{e.message}\n#{e.backtrace.join("\n")}")
+        error_response = {
+          "jsonrpc" => "2.0",
+          "id" => nil,
+          "error" => { "code" => -32603, "message" => "Internal error: #{e.message}" },
+        }
+        $stdout.puts(JSON.generate(error_response))
+        $stdout.flush
+      end
+    end
+
+    debug_log("MCP server shutting down")
+  end
+
+  private
+
+  def validate_environment!
+    missing = []
+    missing << "HARMONIC_API_TOKEN" unless ENV["HARMONIC_API_TOKEN"]
+    missing << "HARMONIC_SUBDOMAIN" unless ENV["HARMONIC_SUBDOMAIN"]
+    missing << "HARMONIC_STUDIO" unless ENV["HARMONIC_STUDIO"]
+
+    unless missing.empty?
+      $stderr.puts "Error: Missing required environment variables: #{missing.join(', ')}"
+      $stderr.puts ""
+      $stderr.puts "Required environment variables:"
+      $stderr.puts "  HARMONIC_API_TOKEN  - API token for authentication"
+      $stderr.puts "  HARMONIC_SUBDOMAIN  - Tenant subdomain (e.g., 'myteam')"
+      $stderr.puts "  HARMONIC_STUDIO     - Studio handle (e.g., 'main')"
+      $stderr.puts ""
+      $stderr.puts "Optional:"
+      $stderr.puts "  HARMONIC_BASE_URL   - Base URL (default: http://{subdomain}.localhost:3000)"
+      $stderr.puts "  MCP_DEBUG           - Set to 'true' for debug logging"
+      exit(1)
+    end
+  end
+
+  def setup_context!
+    subdomain = ENV["HARMONIC_SUBDOMAIN"]
+    studio_handle = ENV["HARMONIC_STUDIO"]
+    api_token_string = ENV["HARMONIC_API_TOKEN"]
+
+    # Find tenant by subdomain
+    @tenant = Tenant.find_by(subdomain: subdomain)
+    unless @tenant
+      $stderr.puts "Error: Tenant not found for subdomain: #{subdomain}"
+      exit(1)
+    end
+
+    # Set tenant context for queries
+    Tenant.current_id = @tenant.id
+
+    # Find studio by handle
+    @studio = Studio.unscoped.find_by(handle: studio_handle, tenant_id: @tenant.id)
+    unless @studio
+      $stderr.puts "Error: Studio not found: #{studio_handle}"
+      exit(1)
+    end
+
+    # Set studio context
+    Studio.current_id = @studio.id
+
+    # Find API token and associated user
+    api_token = ApiToken.find_by(token: api_token_string, tenant_id: @tenant.id)
+    unless api_token&.active?
+      $stderr.puts "Error: Invalid or expired API token"
+      exit(1)
+    end
+
+    @user = api_token.user
+    unless @user
+      $stderr.puts "Error: No user associated with API token"
+      exit(1)
+    end
+
+    # Initialize the protocol handler
+    @handler = Mcp::ProtocolHandler.new(user: @user, tenant: @tenant, studio: @studio)
+  end
+
+  def debug_log(message)
+    return unless @debug
+
+    $stderr.puts("[MCP #{Time.now.strftime('%H:%M:%S')}] #{message}")
+  end
+end
+
+# Run the server
+McpServer.new.run
