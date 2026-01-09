@@ -46,5 +46,7 @@ No comments yet.
 
 ## Actions
 
+<% unless @commitment_participant.committed? || @commitment.closed? %>
 * `join_commitment()` - Join the commitment
+<% end %>
 * `add_comment(text)` - Add a comment to this commitment

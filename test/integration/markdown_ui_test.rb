@@ -219,4 +219,111 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Verify comment was created
     assert commitment.comments.exists?, "Comment should have been created on commitment"
   end
+
+  # Conditional action display tests
+  test "commitment show page shows join_commitment action when user has not joined" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Test commitment")
+
+    get "/studios/#{@studio.handle}/c/#{commitment.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    assert response.body.include?("`join_commitment()`"),
+      "Should show join_commitment action when user hasn't joined"
+  end
+
+  test "commitment show page hides join_commitment action when user has already joined" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Test commitment")
+
+    # Join the commitment
+    participant = CommitmentParticipant.find_or_create_by!(
+      commitment: commitment,
+      user: @user,
+      tenant: @tenant,
+    )
+    participant.update!(committed: true, committed_at: Time.current)
+
+    get "/studios/#{@studio.handle}/c/#{commitment.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    refute response.body.include?("`join_commitment()`"),
+      "Should NOT show join_commitment action when user has already joined"
+    # Should still show add_comment
+    assert response.body.include?("`add_comment(text)`"),
+      "Should still show add_comment action"
+  end
+
+  test "commitment show page hides join_commitment action when commitment is closed" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Test commitment")
+    commitment.update!(deadline: 1.day.ago) # closed? checks if deadline < Time.now
+
+    get "/studios/#{@studio.handle}/c/#{commitment.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    refute response.body.include?("`join_commitment()`"),
+      "Should NOT show join_commitment action when commitment is closed"
+  end
+
+  test "note show page shows confirm_read action when user has not confirmed" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test note")
+
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    assert response.body.include?("`confirm_read()`"),
+      "Should show confirm_read action when user hasn't confirmed"
+    assert response.body.include?("to confirm that you have read this note"),
+      "Should show 'confirm' message for unconfirmed notes"
+  end
+
+  test "note show page hides confirm_read action when user has confirmed" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test note")
+
+    # Confirm read by creating a history event
+    NoteHistoryEvent.create!(
+      tenant: @tenant,
+      note: note,
+      user: @user,
+      event_type: 'read_confirmation',
+      happened_at: Time.current,
+    )
+
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    assert response.body.include?("You have confirmed that you have read this note"),
+      "Should show confirmation message"
+    # Should still show add_comment
+    assert response.body.include?("`add_comment(text)`"),
+      "Should still show add_comment action"
+  end
+
+  test "note show page shows reconfirm action when note updated after confirmation" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test note")
+
+    # Confirm read by creating a history event in the past
+    NoteHistoryEvent.create!(
+      tenant: @tenant,
+      note: note,
+      user: @user,
+      event_type: 'read_confirmation',
+      happened_at: 1.hour.ago,
+    )
+
+    # Update note after confirmation
+    note.update!(updated_at: Time.current)
+
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    assert response.body.include?("`confirm_read()`"),
+      "Should show confirm_read action when note updated since confirmation"
+    assert response.body.include?("reconfirm"),
+      "Should mention reconfirm when note was updated"
+  end
 end
