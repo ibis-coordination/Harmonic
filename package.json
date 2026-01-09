@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "esbuild app/javascript/application.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts",
-    "build:watch": "esbuild app/javascript/application.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts --watch",
+    "build:watch": "esbuild app/javascript/application.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts --watch=forever",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
