@@ -6,6 +6,16 @@ This document outlines the plan for building an MCP (Model Context Protocol) ser
 
 Create an MCP server that enables AI agents to interact with Harmonic using the same navigation model as humans—visiting URLs, seeing contextual content and available actions, and executing actions in context. This preserves URL sharing between humans and agents and maintains context-appropriate tooling.
 
+## Status
+
+**Phase 1-3: Complete** ✅
+
+Implemented as a standalone Ruby script (`bin/mcp-server`) that communicates with the Rails app via HTTP. This approach:
+- Avoids Ruby version conflicts (Rails runs in Docker with Ruby 3.1.7)
+- Uses only Ruby stdlib (json, net/http, uri)
+- Makes HTTP requests to existing markdown endpoints
+- Duplicates action definitions (trade-off for portability)
+
 ## Background
 
 ### Current Dual-Interface Architecture
@@ -217,10 +227,10 @@ Current URL: /studios/team/d/abc123
 
 JSON-RPC 2.0 implementation for MCP.
 
-- [ ] Parse JSON-RPC requests
-- [ ] Route to appropriate handlers (initialize, tools/list, tools/call)
-- [ ] Format JSON-RPC responses
-- [ ] Handle errors with proper error codes
+- [x] Parse JSON-RPC requests
+- [x] Route to appropriate handlers (initialize, tools/list, tools/call)
+- [x] Format JSON-RPC responses
+- [x] Handle errors with proper error codes
 
 ```ruby
 # app/services/mcp/protocol_handler.rb
@@ -243,9 +253,9 @@ end
 
 Maintains navigation context within a session.
 
-- [ ] Track current URL
-- [ ] Cache current page's available actions
-- [ ] Handle session persistence (for stdio transport)
+- [x] Track current URL
+- [x] Cache current page's available actions
+- [x] Handle session persistence (for stdio transport)
 
 ```ruby
 # app/services/mcp/navigation_state.rb
@@ -269,10 +279,10 @@ end
 
 Renders pages as markdown with available actions.
 
-- [ ] Reuse existing markdown views (*.md.erb)
-- [ ] Integrate with ActionsHelper for available actions
-- [ ] Handle authentication context
-- [ ] Parse/structure action definitions for MCP response
+- [x] Reuse existing markdown views (*.md.erb) — via HTTP requests to Rails app
+- [x] Integrate with ActionsHelper for available actions
+- [x] Handle authentication context
+- [x] Parse/structure action definitions for MCP response
 
 ```ruby
 # app/services/mcp/markdown_fetcher.rb
@@ -300,10 +310,10 @@ end
 
 Executes contextual actions.
 
-- [ ] Validate action is available at current URL
-- [ ] Map action to appropriate service (ApiHelper, ParticipantManagers, etc.)
-- [ ] Execute with proper authentication context
-- [ ] Return result with any redirect URL
+- [x] Validate action is available at current URL
+- [x] Map action to appropriate service (ApiHelper, ParticipantManagers, etc.) — via HTTP POST to action endpoints
+- [x] Execute with proper authentication context
+- [x] Return result with any redirect URL
 
 ```ruby
 # app/services/mcp/action_executor.rb
@@ -323,9 +333,9 @@ end
 
 Handle stdio communication for Claude Code.
 
-- [ ] Read JSON-RPC from stdin
-- [ ] Write responses to stdout
-- [ ] Handle connection lifecycle
+- [x] Read JSON-RPC from stdin
+- [x] Write responses to stdout
+- [x] Handle connection lifecycle
 
 ```ruby
 #!/usr/bin/env ruby
@@ -373,29 +383,29 @@ config/
 
 ## Implementation Order
 
-### Phase 1: Protocol Foundation
-- [ ] JSON-RPC 2.0 handler (initialize, tools/list, tools/call)
-- [ ] Tool definitions (navigate, execute_action)
-- [ ] Stdio transport (bin/mcp-server)
-- [ ] Basic navigation state (current_url, available_actions)
+### Phase 1: Protocol Foundation ✅
+- [x] JSON-RPC 2.0 handler (initialize, tools/list, tools/call)
+- [x] Tool definitions (navigate, execute_action)
+- [x] Stdio transport (bin/mcp-server)
+- [x] Basic navigation state (current_url, available_actions)
 
-### Phase 2: Navigation Integration
-- [ ] Markdown fetcher using existing views
-- [ ] Actions extraction from ActionsHelper
-- [ ] Format actions for MCP response
-- [ ] Test with Claude Code
+### Phase 2: Navigation Integration ✅
+- [x] Markdown fetcher using existing views
+- [x] Actions extraction from ActionsHelper
+- [x] Format actions for MCP response
+- [x] Test with Claude Code
 
-### Phase 3: Action Execution
-- [ ] Action executor with validation
-- [ ] Integration with ApiHelper
-- [ ] Integration with ParticipantManagers
-- [ ] Error handling and messaging
+### Phase 3: Action Execution ✅
+- [x] Action executor with validation
+- [x] Integration with ApiHelper (via HTTP)
+- [x] Integration with ParticipantManagers (via HTTP)
+- [x] Error handling and messaging
 
 ### Phase 4: Polish
-- [ ] Session persistence
+- [x] Session persistence (in-memory for stdio)
 - [ ] HTTP transport option
 - [ ] Documentation
-- [ ] Edge case handling
+- [x] Edge case handling (SSL for .local domains)
 
 ## Example Interaction
 
@@ -429,12 +439,12 @@ MCP_HTTP_PORT=3001
 
 ## Success Criteria
 
-- [ ] `bin/mcp-server` starts and responds to MCP protocol
-- [ ] Can navigate to any studio URL and see markdown content
-- [ ] Available actions match what ActionsHelper provides
-- [ ] Can execute actions (create note, vote, join commitment)
-- [ ] URLs returned by server work in browser
-- [ ] Errors are informative and actionable
+- [x] `bin/mcp-server` starts and responds to MCP protocol
+- [x] Can navigate to any studio URL and see markdown content
+- [x] Available actions match what ActionsHelper provides
+- [x] Can execute actions (create note, vote, join commitment)
+- [x] URLs returned by server work in browser
+- [x] Errors are informative and actionable
 
 ## Non-Goals
 
@@ -451,7 +461,7 @@ MCP_HTTP_PORT=3001
 - [ ] Integration tests for MarkdownFetcher with real views
 - [ ] Integration tests for ActionExecutor with real services
 - [ ] End-to-end test with mock stdin/stdout
-- [ ] Manual testing with Claude Code
+- [x] Manual testing with Claude Code
 
 ## Security Considerations
 
