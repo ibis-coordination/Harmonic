@@ -101,8 +101,8 @@ SECRET_PATTERNS=(
     # Bearer tokens in code
     '[Bb]earer\s+[A-Za-z0-9_-]{20,}'
 
-    # Basic auth in URLs
-    'https?://[^:]+:[^@]+@[^/]+'
+    # Basic auth in URLs (user:pass must come before first slash, not in path)
+    'https?://[^/:]+:[^/@]+@[^/]+'
 )
 
 # Build combined pattern

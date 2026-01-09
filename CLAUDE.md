@@ -44,6 +44,12 @@ docker compose exec web bundle exec rubocop -a
 # Run Sorbet type checker
 docker compose exec web bundle exec srb tc
 
+# Run TypeScript type checker
+docker compose exec js npm run typecheck
+
+# Run frontend tests
+docker compose exec js npm test
+
 # Generate ERD diagram
 ./scripts/generate-erd.sh
 ```
@@ -97,10 +103,17 @@ The app serves two parallel interfaces:
 
 ## Testing
 
+### Backend (Ruby)
 - Framework: Minitest
 - Coverage threshold: 45% line, 25% branch (CI enforces this)
 - Test helpers: `create_tenant_studio_user`, `create_note`, `create_decision`, etc. in `test/test_helper.rb`
 - Integration tests use `sign_in_as(user, tenant:)` helper
+
+### Frontend (TypeScript)
+- Framework: Vitest with jsdom
+- Test files: `app/javascript/**/*.test.ts`
+- Run tests: `docker compose exec js npm test`
+- Watch mode: `docker compose exec js npm run test:watch`
 
 ## Environment Variables
 

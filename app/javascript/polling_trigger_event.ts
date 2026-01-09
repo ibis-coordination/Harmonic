@@ -25,3 +25,5 @@ const triggerPolling = (): void => {
 
 triggerPolling()
 document.addEventListener("visibilitychange", triggerPolling)
+
+export {}
