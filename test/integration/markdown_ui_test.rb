@@ -82,4 +82,104 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   test "GET /studios/:studio_handle/decide returns 200 markdown with actions" do
     assert_200_markdown_page_with_actions("Decide", "/studios/#{@studio.handle}/decide")
   end
+
+  # Cycle detail pages
+  test "GET /studios/:studio_handle/cycles returns 200 markdown" do
+    get "/studios/#{@studio.handle}/cycles", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+  end
+
+  test "GET /studios/:studio_handle/cycles/today returns 200 markdown" do
+    get "/studios/#{@studio.handle}/cycles/today", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+  end
+
+  # Decision actions
+  test "POST add_option action on decision returns 200 markdown" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Test decision?")
+    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/actions/add_option",
+      params: { title: "Test option" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+  end
+
+  # Commitment actions
+  test "POST join_commitment action returns 200 markdown" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Test commitment")
+    post "/studios/#{@studio.handle}/c/#{commitment.truncated_id}/actions/join_commitment",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+  end
+
+  # Heartbeat gate tests
+  test "studio homepage without heartbeat shows only send_heartbeat action" do
+    # Ensure no heartbeat exists for this cycle
+    Heartbeat.where(studio: @studio, user: @user).delete_all
+
+    get "/studios/#{@studio.handle}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should show heartbeat required message
+    assert response.body.include?("Heartbeat Required"),
+      "Should show heartbeat required message"
+
+    # Should include the send_heartbeat action
+    assert response.body.include?("send_heartbeat"),
+      "Should include send_heartbeat action"
+
+    # Should NOT show full studio content (like pinned items, team, new note/decision/commit actions)
+    refute response.body.include?("## Team"),
+      "Should NOT show Team section when heartbeat missing"
+    refute response.body.include?("[New Note]"),
+      "Should NOT show New Note action when heartbeat missing"
+  end
+
+  test "studio homepage with heartbeat shows full content" do
+    # Create a heartbeat for the current cycle
+    heartbeat = Heartbeat.create!(
+      tenant: @tenant,
+      studio: @studio,
+      user: @user,
+      expires_at: 1.day.from_now,
+    )
+
+    get "/studios/#{@studio.handle}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should NOT show heartbeat required message
+    refute response.body.include?("Heartbeat Required"),
+      "Should NOT show heartbeat required when heartbeat exists"
+
+    # Should show full studio content
+    assert response.body.include?("## Team"),
+      "Should show Team section when heartbeat exists"
+    assert response.body.include?("[New Note]"),
+      "Should show New Note action when heartbeat exists"
+  ensure
+    heartbeat&.destroy
+  end
+
+  test "POST send_heartbeat action creates heartbeat and returns 200" do
+    # Ensure no heartbeat exists
+    Heartbeat.where(studio: @studio, user: @user).delete_all
+
+    post "/studios/#{@studio.handle}/actions/send_heartbeat",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify heartbeat was created
+    assert Heartbeat.where(studio: @studio, user: @user).exists?,
+      "Heartbeat should have been created"
+  ensure
+    Heartbeat.where(studio: @studio, user: @user).delete_all
+  end
 end

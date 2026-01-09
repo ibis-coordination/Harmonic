@@ -22,7 +22,7 @@ module ApplicationHelper
     hours = minutes / 60
     days = hours / 24
     weeks = days / 7
-    # months = days / 30
+    months = days / 30
     years = days / 365
     significant_unit = if years > 0
       "#{years} year".pluralize(years)

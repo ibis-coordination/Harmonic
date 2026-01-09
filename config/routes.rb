@@ -102,6 +102,8 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}" => "#{studios_or_scenes}#create"
     get "#{studios_or_scenes}/:studio_handle" => "#{studios_or_scenes}#show"
     get "#{studios_or_scenes}/:studio_handle/actions" => 'studios#actions_index_default'
+    get "#{studios_or_scenes}/:studio_handle/actions/send_heartbeat" => 'studios#describe_send_heartbeat'
+    post "#{studios_or_scenes}/:studio_handle/actions/send_heartbeat" => 'studios#send_heartbeat'
     get "#{studios_or_scenes}/:studio_handle/pinned.html" => 'studios#pinned_items_partial'
     get "#{studios_or_scenes}/:studio_handle/team.html" => 'studios#team_partial'
     get "#{studios_or_scenes}/:studio_handle/cycles" => 'cycles#index'
@@ -185,6 +187,9 @@ Rails.application.routes.draw do
     get "#{prefix}/commit" => 'commitments#new'
     post "#{prefix}/commit" => 'commitments#create'
     resources :commitments, only: [:show], path: "#{prefix}/c" do
+      get '/actions' => 'commitments#actions_index_show'
+      get '/actions/join_commitment' => 'commitments#describe_join_commitment'
+      post '/actions/join_commitment' => 'commitments#join_commitment'
       get '/metric' => 'commitments#metric'
       get '/status.html' => 'commitments#status_partial'
       get '/participants.html' => 'commitments#participants_list_items_partial'
