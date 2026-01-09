@@ -280,10 +280,11 @@ Stimulus controllers (`app/javascript/controllers/`):
 
 ### Asset Pipeline
 
-Using **importmap-rails** (no Node.js/Webpack):
-- JavaScript imports mapped in `config/importmap.rb`
-- Vendor JS in `vendor/javascript/`
+Using **jsbundling-rails** with esbuild and **TypeScript**:
+- TypeScript source in `app/javascript/`
+- Compiled JS output to `app/assets/builds/`
 - CSS in `app/assets/stylesheets/`
+- Build commands: `npm run build`, `npm run typecheck`
 
 ## Background Jobs
 

@@ -131,9 +131,6 @@ GEM
     hashie (5.0.0)
     i18n (1.14.6)
       concurrent-ruby (~> 1.0)
-    importmap-rails (1.0.2)
-      actionpack (>= 6.0.0)
-      railties (>= 6.0.0)
     io-console (0.5.11)
     irb (1.4.1)
       reline (>= 0.3.0)
@@ -141,6 +138,8 @@ GEM
       actionview (>= 5.0.0)
       activesupport (>= 5.0.0)
     jmespath (1.6.2)
+    jsbundling-rails (1.3.1)
+      railties (>= 6.0.0)
     json (2.18.0)
     jwt (2.7.1)
     language_server-protocol (3.17.0.5)
@@ -386,8 +385,8 @@ DEPENDENCIES
   debug
   factory_bot_rails
   faker
-  importmap-rails
   jbuilder
+  jsbundling-rails
   nokogiri (>= 1.18.8)
   octicons_helper
   omniauth-github
