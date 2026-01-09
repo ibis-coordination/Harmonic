@@ -1,0 +1,25 @@
+{
+  "name": "harmonic-team",
+  "private": true,
+  "scripts": {
+    "build": "esbuild app/javascript/application.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts",
+    "build:watch": "esbuild app/javascript/application.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hotwired/stimulus": "^3.2.2",
+    "@hotwired/turbo-rails": "^8.0.12",
+    "cropperjs": "^1.6.2",
+    "date-fns": "^3.6.0",
+    "hotkeys-js": "^3.13.9",
+    "stimulus-clipboard": "^4.0.1",
+    "stimulus-dropdown": "^2.1.0",
+    "stimulus-timeago": "^4.1.0",
+    "stimulus-use": "^0.52.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.3"
+  }
+}

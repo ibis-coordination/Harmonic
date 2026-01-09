@@ -18,6 +18,11 @@ RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
     graphviz \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install Node.js (LTS version)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+  && apt-get install -y nodejs \
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 RUN gem update --system && gem install bundler
 
 # Set the working directory
@@ -31,8 +36,17 @@ RUN bundle config build.nokogiri --use-system-libraries
 # Install the gems
 RUN bundle install
 
+# Copy package.json for npm install
+COPY package.json ./
+
+# Install npm dependencies
+RUN npm install
+
 # Copy the rest of the application code into the working directory
 COPY . .
+
+# Build JavaScript assets
+RUN npm run build
 
 # Expose the port the app will run on
 EXPOSE 3000
