@@ -54,32 +54,33 @@ Harmonic's data model follows the OODA loop:
 ### Notes
 
 On `/studios/{slug}/note`:
-- `create_note(text, deadline)` - Create a note with markdown text and optional deadline
+- `create_note(text)` - Create a note with markdown text
 
 On `/studios/{slug}/n/{id}`:
 - `confirm_read()` - Confirm you have read the note (not a "like", signals awareness)
+- `add_comment(text)` - Add a comment to the note
 
 ### Decisions
 
 On `/studios/{slug}/decide`:
-- `create_decision(question, description, deadline, options_open)` - Create a decision
+- `create_decision(question, description, options_open, deadline)` - Create a decision
   - `options_open=true` allows anyone to add options
   - `options_open=false` only creator can add options
 
 On `/studios/{slug}/d/{id}`:
-- `add_option(title, description)` - Add an option to vote on
-- `accept_option(option_id)` - Mark an option as acceptable
-- `unaccept_option(option_id)` - Remove acceptance
-- `prefer_option(option_id)` - Set as your preferred option (from accepted ones)
+- `add_option(title)` - Add an option to vote on
+- `vote(option_title, accept, prefer)` - Vote on an option (accept=true/false, prefer=true/false)
+- `add_comment(text)` - Add a comment to the decision
 
 ### Commitments
 
 On `/studios/{slug}/commit`:
-- `create_commitment(title, description, deadline, critical_mass)` - Create a commitment
+- `create_commitment(title, description, critical_mass, deadline)` - Create a commitment
   - `critical_mass` is the number of participants needed to activate
 
 On `/studios/{slug}/c/{id}`:
 - `join_commitment()` - Join the commitment
+- `add_comment(text)` - Add a comment to the commitment
 
 ## Acceptance Voting (Decisions)
 

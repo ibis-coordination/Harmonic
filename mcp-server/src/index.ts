@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { handleNavigate, handleExecuteAction, createState, type Config } from "./handlers.js";
+import { CONTEXT_MARKDOWN } from "./context.js";
 
 // Configuration from environment
 const config: Config = {
@@ -53,6 +54,25 @@ server.registerTool(
     },
   },
   async ({ action, params }) => handleExecuteAction(action, params as Record<string, unknown> | undefined, config, state)
+);
+
+// Register context resource
+server.registerResource(
+  "context",
+  "harmonic://context",
+  {
+    description: "Documentation and context for using Harmonic. Read this first to understand the platform, data model, and available actions.",
+    mimeType: "text/markdown",
+  },
+  async () => ({
+    contents: [
+      {
+        uri: "harmonic://context",
+        mimeType: "text/markdown",
+        text: CONTEXT_MARKDOWN,
+      },
+    ],
+  })
 );
 
 // Start the server

@@ -1,7 +1,7 @@
 # New Note
 
-Notes require a title, text content (markdown), and a deadline. The deadline determines the relevance duration of the note.
+Notes only require text content (markdown). Any links to other resources within the studio should include the full URL, not just the path.
 
-## Actions
+## [Actions](<%= @current_studio.path %>/note/actions)
 
-* `create_note(title="...", text="...", deadline="YYYY-MM-DD")` to create a new note.
+* [`create_note(text)`](<%= @current_studio.path %>/note/actions/create_note) to create a new note.
