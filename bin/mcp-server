@@ -2,31 +2,150 @@
 # frozen_string_literal: true
 
 # MCP (Model Context Protocol) server for Harmonic
-# This script implements stdio transport for MCP clients like Claude Code
+# Standalone server that doesn't require Rails - communicates via HTTP
 #
 # Usage:
 #   bin/mcp-server
 #
 # Environment variables:
 #   HARMONIC_API_TOKEN  - API token for authentication (required)
-#   HARMONIC_SUBDOMAIN  - Tenant subdomain (required)
+#   HARMONIC_BASE_URL   - Full base URL including subdomain (required)
 #   HARMONIC_STUDIO     - Studio handle (required)
-#   HARMONIC_BASE_URL   - Base URL override (optional, defaults to http://{subdomain}.localhost:3000)
 #   MCP_DEBUG           - Set to "true" for debug logging to stderr
 
-require_relative "../config/environment"
+require "json"
+require "net/http"
+require "uri"
 
 class McpServer
+  PROTOCOL_VERSION = "2024-11-05"
+  SERVER_NAME = "harmonic"
+  SERVER_VERSION = "0.1.0"
+
+  TOOLS = [
+    {
+      "name" => "navigate",
+      "description" => "Navigate to a URL in Harmonic and see its content and available actions. " \
+                       "Returns markdown content plus a list of actions you can take on this page. " \
+                       "URLs can be shared with humans—they see the same page in their browser. " \
+                       "Examples: '/studios/team', '/studios/team/d/abc123', '/studios/team/cycles/today'",
+      "inputSchema" => {
+        "type" => "object",
+        "properties" => {
+          "url" => {
+            "type" => "string",
+            "description" => "Relative URL path (e.g., '/studios/team/n/abc123')",
+          },
+        },
+        "required" => ["url"],
+      },
+    },
+    {
+      "name" => "execute_action",
+      "description" => "Execute an action available at the current URL. " \
+                       "You must call 'navigate' first to see available actions. " \
+                       "Actions are contextual—only actions listed for the current page will work.",
+      "inputSchema" => {
+        "type" => "object",
+        "properties" => {
+          "action" => {
+            "type" => "string",
+            "description" => "Action name from the available actions list",
+          },
+          "params" => {
+            "type" => "object",
+            "description" => "Parameters for the action (see action's parameter list)",
+            "additionalProperties" => true,
+          },
+        },
+        "required" => ["action"],
+      },
+    },
+  ].freeze
+
+  # Route patterns for action lookup
+  ROUTE_PATTERNS = [
+    [%r{^/studios/[^/]+/n/[^/]+/edit$}, "/studios/:studio_handle/n/:note_id/edit"],
+    [%r{^/studios/[^/]+/n/[^/]+$}, "/studios/:studio_handle/n/:note_id"],
+    [%r{^/studios/[^/]+/note$}, "/studios/:studio_handle/note"],
+    [%r{^/studios/[^/]+/d/[^/]+/settings$}, "/studios/:studio_handle/d/:decision_id/settings"],
+    [%r{^/studios/[^/]+/d/[^/]+$}, "/studios/:studio_handle/d/:decision_id"],
+    [%r{^/studios/[^/]+/decide$}, "/studios/:studio_handle/decide"],
+    [%r{^/studios/[^/]+/c/[^/]+/settings$}, "/studios/:studio_handle/c/:commitment_id/settings"],
+    [%r{^/studios/[^/]+/c/[^/]+$}, "/studios/:studio_handle/c/:commitment_id"],
+    [%r{^/studios/[^/]+/commit$}, "/studios/:studio_handle/commit"],
+    [%r{^/studios/[^/]+/join$}, "/studios/:studio_handle/join"],
+    [%r{^/studios/[^/]+/settings$}, "/studios/:studio_handle/settings"],
+    [%r{^/studios/[^/]+/cycles}, "/studios/:studio_handle/cycles"],
+    [%r{^/studios/[^/]+/backlinks$}, "/studios/:studio_handle/backlinks"],
+    [%r{^/studios/[^/]+/team$}, "/studios/:studio_handle/team"],
+    [%r{^/studios/[^/]+$}, "/studios/:studio_handle"],
+    [%r{^/studios/new$}, "/studios/new"],
+    [%r{^/studios$}, "/studios"],
+  ].freeze
+
+  # Actions available at each route pattern
+  ACTIONS_BY_ROUTE = {
+    "/studios" => [],
+    "/studios/new" => [
+      { name: "create_studio", params_string: "(name, handle, description, timezone, tempo, synchronization_mode)", description: "Create a new studio" },
+    ],
+    "/studios/:studio_handle" => [],
+    "/studios/:studio_handle/join" => [
+      { name: "join_studio", params_string: "()", description: "Join a studio" },
+    ],
+    "/studios/:studio_handle/settings" => [
+      { name: "update_studio_settings", params_string: "(name, description, timezone, tempo, synchronization_mode)", description: "Update studio settings" },
+    ],
+    "/studios/:studio_handle/cycles" => [],
+    "/studios/:studio_handle/backlinks" => [],
+    "/studios/:studio_handle/team" => [],
+    "/studios/:studio_handle/note" => [
+      { name: "create_note", params_string: "(title, text, deadline)", description: "Create a new note" },
+    ],
+    "/studios/:studio_handle/n/:note_id" => [
+      { name: "confirm_read", params_string: "()", description: "Confirm that you have read the note" },
+    ],
+    "/studios/:studio_handle/n/:note_id/edit" => [
+      { name: "update_note", params_string: "(title, text, deadline)", description: "Update the note" },
+    ],
+    "/studios/:studio_handle/decide" => [
+      { name: "create_decision", params_string: "(question, description, options_open, deadline)", description: "Create a new decision" },
+    ],
+    "/studios/:studio_handle/d/:decision_id" => [
+      { name: "add_option", params_string: "(title)", description: "Add an option to the options list" },
+      { name: "vote", params_string: "(option_title, accept, prefer)", description: "Vote on an option" },
+    ],
+    "/studios/:studio_handle/d/:decision_id/settings" => [
+      { name: "update_decision_settings", params_string: "(question, description, options_open, deadline)", description: "Update the decision settings" },
+    ],
+    "/studios/:studio_handle/commit" => [
+      { name: "create_commitment", params_string: "(title, description, critical_mass, deadline)", description: "Create a new commitment" },
+    ],
+    "/studios/:studio_handle/c/:commitment_id" => [
+      { name: "join_commitment", params_string: "()", description: "Join the commitment" },
+    ],
+    "/studios/:studio_handle/c/:commitment_id/settings" => [
+      { name: "update_commitment_settings", params_string: "(title, description, critical_mass, deadline)", description: "Update the commitment settings" },
+    ],
+  }.freeze
+
   def initialize
     @debug = ENV["MCP_DEBUG"] == "true"
+    @api_token = ENV["HARMONIC_API_TOKEN"]
+    @base_url = ENV["HARMONIC_BASE_URL"]
+    @studio = ENV["HARMONIC_STUDIO"]
+    @current_url = nil
+    @available_actions = []
+
     validate_environment!
-    setup_context!
   end
 
   def run
     debug_log("MCP server starting...")
-    debug_log("Tenant: #{@tenant.subdomain}, Studio: #{@studio.handle}, User: #{@user.email}")
+    debug_log("Base URL: #{@base_url}, Studio: #{@studio}")
 
+    $stdout.sync = true
     $stdin.each_line do |line|
       line = line.strip
       next if line.empty?
@@ -35,31 +154,18 @@ class McpServer
 
       begin
         request = JSON.parse(line)
-        response = @handler.handle(request)
+        response = handle(request)
 
         if response
           output = JSON.generate(response)
           debug_log("Sending: #{output}")
           $stdout.puts(output)
-          $stdout.flush
         end
       rescue JSON::ParserError => e
-        error_response = {
-          "jsonrpc" => "2.0",
-          "id" => nil,
-          "error" => { "code" => -32700, "message" => "Parse error: #{e.message}" },
-        }
-        $stdout.puts(JSON.generate(error_response))
-        $stdout.flush
+        send_error(nil, -32700, "Parse error: #{e.message}")
       rescue StandardError => e
-        debug_log("Error: #{e.message}\n#{e.backtrace.join("\n")}")
-        error_response = {
-          "jsonrpc" => "2.0",
-          "id" => nil,
-          "error" => { "code" => -32603, "message" => "Internal error: #{e.message}" },
-        }
-        $stdout.puts(JSON.generate(error_response))
-        $stdout.flush
+        debug_log("Error: #{e.message}\n#{e.backtrace&.first(5)&.join("\n")}")
+        send_error(nil, -32603, "Internal error: #{e.message}")
       end
     end
 
@@ -70,70 +176,242 @@ class McpServer
 
   def validate_environment!
     missing = []
-    missing << "HARMONIC_API_TOKEN" unless ENV["HARMONIC_API_TOKEN"]
-    missing << "HARMONIC_SUBDOMAIN" unless ENV["HARMONIC_SUBDOMAIN"]
-    missing << "HARMONIC_STUDIO" unless ENV["HARMONIC_STUDIO"]
+    missing << "HARMONIC_API_TOKEN" unless @api_token
+    missing << "HARMONIC_BASE_URL" unless @base_url
+    missing << "HARMONIC_STUDIO" unless @studio
 
     unless missing.empty?
       $stderr.puts "Error: Missing required environment variables: #{missing.join(', ')}"
       $stderr.puts ""
       $stderr.puts "Required environment variables:"
       $stderr.puts "  HARMONIC_API_TOKEN  - API token for authentication"
-      $stderr.puts "  HARMONIC_SUBDOMAIN  - Tenant subdomain (e.g., 'myteam')"
+      $stderr.puts "  HARMONIC_BASE_URL   - Full base URL (e.g., 'https://app.harmonic.local')"
       $stderr.puts "  HARMONIC_STUDIO     - Studio handle (e.g., 'main')"
       $stderr.puts ""
       $stderr.puts "Optional:"
-      $stderr.puts "  HARMONIC_BASE_URL   - Base URL (default: http://{subdomain}.localhost:3000)"
       $stderr.puts "  MCP_DEBUG           - Set to 'true' for debug logging"
       exit(1)
     end
   end
 
-  def setup_context!
-    subdomain = ENV["HARMONIC_SUBDOMAIN"]
-    studio_handle = ENV["HARMONIC_STUDIO"]
-    api_token_string = ENV["HARMONIC_API_TOKEN"]
+  def handle(request)
+    method = request["method"]
+    id = request["id"]
+    params = request["params"] || {}
 
-    # Find tenant by subdomain
-    @tenant = Tenant.find_by(subdomain: subdomain)
-    unless @tenant
-      $stderr.puts "Error: Tenant not found for subdomain: #{subdomain}"
-      exit(1)
+    result = case method
+    when "initialize"
+      handle_initialize(params)
+    when "initialized"
+      nil # Client acknowledgment, no response needed
+    when "tools/list"
+      { "tools" => TOOLS }
+    when "tools/call"
+      handle_tool_call(params)
+    when "resources/list"
+      { "resources" => [] }
+    when "ping"
+      {}
+    else
+      return error_response(id, -32601, "Method not found: #{method}")
     end
 
-    # Set tenant context for queries
-    Tenant.current_id = @tenant.id
+    return nil if result.nil?
 
-    # Find studio by handle
-    @studio = Studio.unscoped.find_by(handle: studio_handle, tenant_id: @tenant.id)
-    unless @studio
-      $stderr.puts "Error: Studio not found: #{studio_handle}"
-      exit(1)
+    { "jsonrpc" => "2.0", "id" => id, "result" => result }
+  rescue StandardError => e
+    error_response(id, -32603, "Internal error: #{e.message}")
+  end
+
+  def handle_initialize(_params)
+    {
+      "protocolVersion" => PROTOCOL_VERSION,
+      "serverInfo" => { "name" => SERVER_NAME, "version" => SERVER_VERSION },
+      "capabilities" => { "tools" => {}, "resources" => {} },
+    }
+  end
+
+  def handle_tool_call(params)
+    tool_name = params["name"]
+    arguments = params["arguments"] || {}
+
+    case tool_name
+    when "navigate"
+      execute_navigate(arguments)
+    when "execute_action"
+      execute_action(arguments)
+    else
+      error_content("Unknown tool: #{tool_name}")
+    end
+  end
+
+  def execute_navigate(arguments)
+    url = arguments["url"]
+    return error_content("Missing required parameter: url") if url.nil? || url.empty?
+
+    # Normalize URL
+    url = "/#{url}" unless url.start_with?("/")
+
+    # Fetch markdown from Rails app
+    result = fetch_markdown(url)
+    return error_content(result[:error]) if result[:error]
+
+    # Get available actions for this URL
+    @current_url = url
+    @available_actions = actions_for_url(url)
+
+    content = <<~MD
+      # Current URL: #{url}
+
+      #{result[:markdown]}
+
+      ## Available Actions
+
+      #{format_actions(@available_actions)}
+    MD
+
+    { "content" => [{ "type" => "text", "text" => content }] }
+  end
+
+  def execute_action(arguments)
+    action_name = arguments["action"]
+    action_params = arguments["params"] || {}
+
+    return error_content("Missing required parameter: action") if action_name.nil? || action_name.empty?
+    return error_content("No current URL. Call 'navigate' first.") unless @current_url
+
+    unless @available_actions.any? { |a| a[:name].to_s == action_name }
+      available = @available_actions.map { |a| a[:name] }.join(", ")
+      return error_content("Action '#{action_name}' not available. Available: #{available}")
     end
 
-    # Set studio context
-    Studio.current_id = @studio.id
+    # Execute action via HTTP POST
+    result = post_action(@current_url, action_name, action_params)
+    return error_content(result[:error]) if result[:error]
 
-    # Find API token and associated user
-    api_token = ApiToken.find_by(token: api_token_string, tenant_id: @tenant.id)
-    unless api_token&.active?
-      $stderr.puts "Error: Invalid or expired API token"
-      exit(1)
+    message = result[:message] || "#{action_name} completed successfully."
+    content = <<~MD
+      ✓ #{message}
+
+      Current URL: #{@current_url}
+
+      (Use 'navigate' to see updated content and available actions)
+    MD
+
+    { "content" => [{ "type" => "text", "text" => content }] }
+  end
+
+  def fetch_markdown(url)
+    uri = URI.parse("#{@base_url}#{url}")
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.open_timeout = 10
+    http.read_timeout = 30
+    # Skip SSL verification for local development with self-signed certs
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE if uri.host&.end_with?(".local")
+
+    request = Net::HTTP::Get.new(uri.request_uri)
+    request["Accept"] = "text/markdown"
+    request["Authorization"] = "Bearer #{@api_token}"
+
+    response = http.request(request)
+
+    case response.code.to_i
+    when 200
+      { markdown: response.body }
+    when 401
+      { error: "Unauthorized. Check your API token." }
+    when 403
+      { error: "Forbidden. You don't have access to this resource." }
+    when 404
+      { error: "Not found: #{url}" }
+    else
+      { error: "HTTP #{response.code}: #{response.message}" }
     end
+  rescue StandardError => e
+    { error: "Failed to fetch #{url}: #{e.message}" }
+  end
 
-    @user = api_token.user
-    unless @user
-      $stderr.puts "Error: No user associated with API token"
-      exit(1)
+  def post_action(url, action, params)
+    action_url = "#{url.chomp('/')}/actions/#{action}"
+    uri = URI.parse("#{@base_url}#{action_url}")
+
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.open_timeout = 10
+    http.read_timeout = 30
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE if uri.host&.end_with?(".local")
+
+    request = Net::HTTP::Post.new(uri.request_uri)
+    request["Accept"] = "text/markdown"
+    request["Content-Type"] = "application/json"
+    request["Authorization"] = "Bearer #{@api_token}"
+    request.body = params.to_json
+
+    response = http.request(request)
+
+    case response.code.to_i
+    when 200, 201
+      { success: true, message: "#{action} completed successfully.", body: response.body }
+    when 302, 303
+      { success: true, message: "#{action} completed successfully." }
+    when 400, 422
+      { error: "Validation error: #{extract_error(response.body)}" }
+    when 401
+      { error: "Unauthorized. Check your API token." }
+    when 403
+      { error: "Forbidden. You don't have permission." }
+    when 404
+      { error: "Action not found: #{action}" }
+    else
+      { error: "HTTP #{response.code}: #{response.message}" }
     end
+  rescue StandardError => e
+    { error: "Failed to execute #{action}: #{e.message}" }
+  end
 
-    # Initialize the protocol handler
-    @handler = Mcp::ProtocolHandler.new(user: @user, tenant: @tenant, studio: @studio)
+  def actions_for_url(url)
+    # Convert URL to route pattern
+    clean_url = url.split("?").first || url
+    ROUTE_PATTERNS.each do |regex, pattern|
+      return ACTIONS_BY_ROUTE[pattern] || [] if clean_url.match?(regex)
+    end
+    []
+  end
+
+  def format_actions(actions)
+    return "No actions available." if actions.empty?
+
+    actions.map do |action|
+      desc = "- **#{action[:name]}**: #{action[:description]}"
+      if action[:params_string] && action[:params_string] != "()"
+        desc += "\n  - Parameters: `#{action[:params_string]}`"
+      end
+      desc
+    end.join("\n\n")
+  end
+
+  def extract_error(body)
+    json = JSON.parse(body)
+    json["error"] || json["errors"]&.join(", ") || json["message"] || body[0..200]
+  rescue JSON::ParserError
+    body[0..200]
+  end
+
+  def error_content(message)
+    { "content" => [{ "type" => "text", "text" => "Error: #{message}" }], "isError" => true }
+  end
+
+  def error_response(id, code, message)
+    { "jsonrpc" => "2.0", "id" => id, "error" => { "code" => code, "message" => message } }
+  end
+
+  def send_error(id, code, message)
+    $stdout.puts JSON.generate(error_response(id, code, message))
   end
 
   def debug_log(message)
     return unless @debug
-
     $stderr.puts("[MCP #{Time.now.strftime('%H:%M:%S')}] #{message}")
   end
 end

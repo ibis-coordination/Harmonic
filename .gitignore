@@ -47,6 +47,9 @@
 # Ignore .env file
 .env
 
+# Ignore MCP config (contains API tokens)
+.mcp.json
+
 # Ignore Caddyfile
 Caddyfile
 
