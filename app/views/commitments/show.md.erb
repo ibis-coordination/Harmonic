@@ -44,9 +44,9 @@ No comments yet.
 <% end %>
 <% end %>
 
-## Actions
+## [Actions](<%= @commitment.path %>/actions)
 
 <% unless @commitment_participant.committed? || @commitment.closed? %>
-* `join_commitment()` - Join the commitment
+* [`join_commitment()`](<%= @commitment.path %>/actions/join_commitment) - Join the commitment
 <% end %>
-* `add_comment(text)` - Add a comment to this commitment
+* [`add_comment(text)`](<%= @commitment.path %>/actions/add_comment) - Add a comment to this commitment

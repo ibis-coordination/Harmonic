@@ -48,8 +48,8 @@ No comments yet.
 <% end %>
 <% end %>
 
-## Actions
+## [Actions](<%= @decision.path %>/actions)
 
-<% if @decision.closed? %>This decision is closed. <% else %>* `add_option(text)` - Add an option to the decision
-* `vote(option, accept, prefer)` - Vote on an option<% end %>
-* `add_comment(text)` - Add a comment to this decision
+<% if @decision.closed? %>This decision is closed. <% else %>* [`add_option(text)`](<%= @decision.path %>/actions/add_option) - Add an option to the decision
+* [`vote(option_title, accept, prefer)`](<%= @decision.path %>/actions/vote) - Vote on an option<% end %>
+* [`add_comment(text)`](<%= @decision.path %>/actions/add_comment) - Add a comment to this decision

@@ -31,16 +31,16 @@ No comments yet.
 <% end %>
 <% end %>
 
-## Actions
+## [Actions](<%= @note.path %>/actions)
 
 <% if @note_reader.confirmed_read_but_note_updated? %>
 _Note updated since you last confirmed reading. Reconfirm to acknowledge the changes._
 
-* `confirm_read()` to reconfirm that you have read this note.
+* [`confirm_read()`](<%= @note.path %>/actions/confirm_read) to reconfirm that you have read this note.
 <% elsif @note_reader.confirmed_read? %>
 You have confirmed that you have read this note.
 
 <% else %>
-* `confirm_read()` to confirm that you have read this note.
+* [`confirm_read()`](<%= @note.path %>/actions/confirm_read) to confirm that you have read this note.
 <% end %>
-* `add_comment(text)` - Add a comment to this note
+* [`add_comment(text)`](<%= @note.path %>/actions/add_comment) - Add a comment to this note

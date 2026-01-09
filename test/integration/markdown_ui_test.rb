@@ -30,7 +30,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   def has_actions_section?
-    response.body.include?("# Actions")
+    response.body.include?("# Actions") || response.body.include?("# [Actions]")
   end
 
   def page_title
