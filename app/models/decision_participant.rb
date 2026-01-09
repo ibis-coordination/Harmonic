@@ -11,7 +11,7 @@ class DecisionParticipant < ApplicationRecord
   belongs_to :decision
   belongs_to :user, optional: true
 
-  has_many :approvals, dependent: :destroy
+  has_many :votes, dependent: :destroy
   has_many :options, dependent: :destroy
 
   sig { void }
@@ -32,8 +32,8 @@ class DecisionParticipant < ApplicationRecord
       user_id: user_id,
       created_at: created_at,
     }
-    if include.include?('approvals')
-      response.merge!({ approvals: approvals.map(&:api_json) })
+    if include.include?('votes')
+      response.merge!({ votes: votes.map(&:api_json) })
     end
     response
   end
@@ -46,6 +46,6 @@ class DecisionParticipant < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def has_dependent_resources?
-    approvals.any? || options.any?
+    votes.any? || options.any?
   end
 end

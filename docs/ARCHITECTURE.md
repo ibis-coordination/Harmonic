@@ -112,7 +112,7 @@ Decision
 ├── belongs_to :tenant, :studio, :created_by, :updated_by
 ├── has_many :options              # choices to vote on
 ├── has_many :decision_participants
-├── has_many :approvals            # votes (through participants/options)
+├── has_many :votes                # votes (through participants/options)
 └── includes Linkable, Pinnable, Attachable, Commentable
 ```
 
@@ -254,7 +254,7 @@ Methods:
 
 ### Participant Managers
 Handle participation logic:
-- `DecisionParticipantManager` - voting, approvals
+- `DecisionParticipantManager` - voting
 - `CommitmentParticipantManager` - joining commitments
 
 ### Other Services

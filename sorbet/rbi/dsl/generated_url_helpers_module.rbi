@@ -52,31 +52,25 @@ module GeneratedUrlHelpersModule
   def api_v1_cycles_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_approval_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_approvals_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_option_approval_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_option_approvals_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_option_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_option_vote_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_option_votes_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_options_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_participant_approval_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_participant_approvals_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_participant_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_participant_vote_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_participant_votes_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_participants_url(*args); end
@@ -86,6 +80,12 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_vote_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_votes_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_decisions_url(*args); end
@@ -190,22 +190,22 @@ module GeneratedUrlHelpersModule
   def edit_api_v1_cycle_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def edit_api_v1_decision_approval_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def edit_api_v1_decision_option_approval_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_decision_option_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def edit_api_v1_decision_participant_approval_url(*args); end
+  def edit_api_v1_decision_option_vote_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_decision_participant_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def edit_api_v1_decision_participant_vote_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_decision_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def edit_api_v1_decision_vote_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_note_url(*args); end
@@ -274,22 +274,22 @@ module GeneratedUrlHelpersModule
   def new_api_v1_cycle_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_api_v1_decision_approval_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def new_api_v1_decision_option_approval_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def new_api_v1_decision_option_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_api_v1_decision_participant_approval_url(*args); end
+  def new_api_v1_decision_option_vote_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def new_api_v1_decision_participant_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def new_api_v1_decision_participant_vote_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def new_api_v1_decision_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def new_api_v1_decision_vote_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def new_api_v1_note_url(*args); end

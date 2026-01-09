@@ -27,7 +27,7 @@ module Api::V1
 
     def destroy
       if current_decision.can_delete_options?(current_decision_participant)
-        # TODO Check for approvals first
+        # TODO Check for votes first
         option = current_resource
         option.destroy!
         # TODO how to record this when in representation session?

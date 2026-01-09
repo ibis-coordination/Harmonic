@@ -26,7 +26,7 @@ class ApiToken < ApplicationRecord
   sig { returns(T::Array[String]) }
   def self.valid_resources
     ['all', 'notes', 'confirmations',
-     'decisions', 'options', 'approvals', 'decision_participants',
+     'decisions', 'options', 'votes', 'decision_participants',
      'commitments', 'commitment_participants',
      'cycles', 'users', 'api_tokens']
   end

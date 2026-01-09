@@ -8,8 +8,8 @@ export default class DecisionController extends Controller {
   declare readonly optionsSectionTarget: HTMLElement
 
   private refreshing = false
-  private updatingApprovals = false
-  private lastApprovalUpdate = ""
+  private updatingVotes = false
+  private lastVoteUpdate = ""
   private previousOptionsListHtml = ""
 
   initialize(): void {
@@ -72,17 +72,17 @@ export default class DecisionController extends Controller {
     return response
   }
 
-  nextApprovalState(approved: boolean, stars: boolean): [boolean, boolean] {
-    if (stars) {
+  nextVoteState(accepted: boolean, preferred: boolean): [boolean, boolean] {
+    if (preferred) {
       return [false, false]
-    } else if (approved) {
+    } else if (accepted) {
       return [true, true]
     } else {
       return [true, false]
     }
   }
 
-  async toggleApprovalValues(event: Event): Promise<void> {
+  async toggleVoteValues(event: Event): Promise<void> {
     const studioHandle = window.location.pathname.startsWith("/studios/")
       ? window.location.pathname.split("/")[2]
       : null
@@ -93,47 +93,47 @@ export default class DecisionController extends Controller {
     const optionItem = target.closest(".option-item") as HTMLElement | null
     if (!optionItem) return
 
-    const checkbox = optionItem.querySelector("input.approval-button") as HTMLInputElement | null
+    const checkbox = optionItem.querySelector("input.acceptance-button") as HTMLInputElement | null
     const starButton = optionItem.querySelector("input.star-button") as HTMLInputElement | null
     if (!checkbox || !starButton) return
 
     const isToggleClick = target === checkbox || target === starButton
 
     const optionId = optionItem.dataset.optionId
-    let approved = checkbox.checked
-    let stars = starButton.checked
+    let accepted = checkbox.checked
+    let preferred = starButton.checked
 
     if (!isToggleClick) {
-      ;[approved, stars] = this.nextApprovalState(approved, stars)
-      checkbox.checked = approved
-      starButton.checked = stars
+      ;[accepted, preferred] = this.nextVoteState(accepted, preferred)
+      checkbox.checked = accepted
+      starButton.checked = preferred
     }
 
-    this.updatingApprovals = true
-    await fetch(`${urlPrefix}/api/v1/decisions/${decisionId}/options/${optionId}/approvals`, {
+    this.updatingVotes = true
+    await fetch(`${urlPrefix}/api/v1/decisions/${decisionId}/options/${optionId}/votes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-CSRF-Token": this.csrfToken,
       },
-      body: JSON.stringify({ value: approved, stars }),
+      body: JSON.stringify({ accepted, preferred }),
     })
-    this.updatingApprovals = false
-    this.lastApprovalUpdate = new Date().toString()
+    this.updatingVotes = false
+    this.lastVoteUpdate = new Date().toString()
     const ddu = new Event("decisionDataUpdated")
     document.dispatchEvent(ddu)
   }
 
-  async cycleApprovalState(event: Event): Promise<void> {
+  async cycleVoteState(event: Event): Promise<void> {
     const target = event.target as HTMLElement
     if (target.tagName === "A") return
     event.preventDefault()
-    return this.toggleApprovalValues(event)
+    return this.toggleVoteValues(event)
   }
 
   async refreshOptions(event: Event): Promise<void> {
     event.preventDefault()
-    if (this.refreshing || this.updatingApprovals) return
+    if (this.refreshing || this.updatingVotes) return
     this.refreshing = true
 
     const url = this.optionsSectionTarget.dataset.url
@@ -142,7 +142,7 @@ export default class DecisionController extends Controller {
       return
     }
 
-    const lastApprovalUpdateBeforeRefresh = this.lastApprovalUpdate
+    const lastVoteUpdateBeforeRefresh = this.lastVoteUpdate
 
     try {
       const response = await fetch(url, {
@@ -153,7 +153,7 @@ export default class DecisionController extends Controller {
       })
 
       const refreshIsStale =
-        this.updatingApprovals || this.lastApprovalUpdate !== lastApprovalUpdateBeforeRefresh
+        this.updatingVotes || this.lastVoteUpdate !== lastVoteUpdateBeforeRefresh
 
       if (refreshIsStale) {
         // Skip this stale refresh

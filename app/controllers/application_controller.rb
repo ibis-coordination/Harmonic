@@ -339,12 +339,12 @@ class ApplicationController < ActionController::Base
     @current_decision_participant
   end
 
-  def current_approvals
-    return @current_approvals if defined?(@current_approvals)
+  def current_votes
+    return @current_votes if defined?(@current_votes)
     if current_decision_participant
-      @current_approvals = current_decision_participant.approvals
+      @current_votes = current_decision_participant.votes
     else
-      @current_approvals = nil
+      @current_votes = nil
     end
   end
 

@@ -12,7 +12,7 @@ class RepresentationSessionAssociation < ApplicationRecord
   belongs_to :resource_studio, class_name: 'Studio'
 
   validate :resource_studio_matches_resource
-  validates :resource_type, inclusion: { in: %w[Heartbeat Note Decision Commitment NoteHistoryEvent Option Approval CommitmentParticipant] }
+  validates :resource_type, inclusion: { in: %w[Heartbeat Note Decision Commitment NoteHistoryEvent Option Vote CommitmentParticipant] }
 
   sig { void }
   def set_tenant_id

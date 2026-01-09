@@ -1,6 +1,6 @@
 # typed: true
 
-class Approval < ApplicationRecord
+class Vote < ApplicationRecord
   extend T::Sig
 
   include Tracked
@@ -13,8 +13,8 @@ class Approval < ApplicationRecord
   belongs_to :decision
   belongs_to :decision_participant
 
-  validates :value, inclusion: { in: [0, 1] }
-  validates :stars, inclusion: { in: [0, 1] }
+  validates :accepted, inclusion: { in: [0, 1] }
+  validates :preferred, inclusion: { in: [0, 1] }
 
   sig { void }
   def set_tenant_id
@@ -33,8 +33,8 @@ class Approval < ApplicationRecord
       option_id: option_id,
       decision_id: decision_id,
       decision_participant_id: decision_participant_id,
-      value: value,
-      stars: stars,
+      accepted: accepted,
+      preferred: preferred,
       created_at: created_at,
       updated_at: updated_at,
     }

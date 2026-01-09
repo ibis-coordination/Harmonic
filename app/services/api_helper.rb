@@ -332,7 +332,7 @@ class ApiHelper
     T.must(option)
   end
 
-  sig { returns(Approval) }
+  sig { returns(Vote) }
   def vote
     associations = {
       tenant: current_tenant,
@@ -341,13 +341,13 @@ class ApiHelper
       option: current_option,
       decision_participant: current_decision_participant,
     }
-    # If the approval already exists, update it. Otherwise, create a new one.
-    # There should only be one approval record per decision + option + participant.
-    approval = Approval.find_by(associations) || Approval.new(associations)
-    approval.value = params.has_key?(:value) ? params[:value] : params[:accept]
-    approval.stars = params.has_key?(:stars) ? params[:stars] : params[:prefer]
+    # If the vote already exists, update it. Otherwise, create a new one.
+    # There should only be one vote record per decision + option + participant.
+    vote = Vote.find_by(associations) || Vote.new(associations)
+    vote.accepted = params.has_key?(:accepted) ? params[:accepted] : params[:accept]
+    vote.preferred = params.has_key?(:preferred) ? params[:preferred] : params[:prefer]
     ActiveRecord::Base.transaction do
-      approval.save!
+      vote.save!
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -366,15 +366,15 @@ class ApiHelper
                 id: T.must(current_option).id,
               },
               {
-                type: 'Approval',
-                id: approval.id,
+                type: 'Vote',
+                id: vote.id,
               },
             ],
           }
         )
       end
     end
-    approval
+    vote
   end
 
   sig { returns(User) }

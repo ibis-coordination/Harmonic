@@ -284,20 +284,6 @@ class User
     sig { params(value: T::Enumerable[::ApiToken]).void }
     def api_tokens=(value); end
 
-    sig { returns(T::Array[T.untyped]) }
-    def approval_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def approval_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `User` class because it declared `has_many :approvals, through: :decision_participants`.
-    # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
-    sig { returns(::Approval::PrivateCollectionProxy) }
-    def approvals; end
-
-    sig { params(value: T::Enumerable[::Approval]).void }
-    def approvals=(value); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Attachment) }
     def build_image_attachment(*args, &blk); end
 
@@ -465,6 +451,20 @@ class User
 
     sig { params(value: T::Enumerable[::Tenant]).void }
     def tenants=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def vote_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def vote_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :votes, through: :decision_participants`.
+    # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
+    sig { returns(::Vote::PrivateCollectionProxy) }
+    def votes; end
+
+    sig { params(value: T::Enumerable[::Vote]).void }
+    def votes=(value); end
   end
 
   module GeneratedAssociationRelationMethods

@@ -62,7 +62,7 @@ class ActiveSupport::TestCase
       # so it's necessary to manually delete association records first, before the referenced records, to avoid foreign key violations.
       RepresentationSessionAssociation, RepresentationSession,
       Link, NoteHistoryEvent, Note,
-      Approval, Option, DecisionParticipant, Decision,
+      Vote, Option, DecisionParticipant, Decision,
       CommitmentParticipant, Commitment,
       StudioInvite, StudioUser, Studio,
       ApiToken, TenantUser, Tenant,

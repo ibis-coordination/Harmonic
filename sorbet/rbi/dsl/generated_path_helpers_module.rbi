@@ -52,31 +52,25 @@ module GeneratedPathHelpersModule
   def api_v1_cycles_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_approval_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_approvals_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_option_approval_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_option_approvals_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_option_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_option_vote_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_option_votes_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_options_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_participant_approval_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_decision_participant_approvals_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_participant_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_participant_vote_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_participant_votes_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_participants_path(*args); end
@@ -86,6 +80,12 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_decision_results_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_vote_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_decision_votes_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_decisions_path(*args); end
@@ -190,22 +190,22 @@ module GeneratedPathHelpersModule
   def edit_api_v1_cycle_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def edit_api_v1_decision_approval_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def edit_api_v1_decision_option_approval_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_decision_option_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def edit_api_v1_decision_participant_approval_path(*args); end
+  def edit_api_v1_decision_option_vote_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_decision_participant_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def edit_api_v1_decision_participant_vote_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_decision_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def edit_api_v1_decision_vote_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_note_path(*args); end
@@ -274,22 +274,22 @@ module GeneratedPathHelpersModule
   def new_api_v1_cycle_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_api_v1_decision_approval_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def new_api_v1_decision_option_approval_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def new_api_v1_decision_option_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_api_v1_decision_participant_approval_path(*args); end
+  def new_api_v1_decision_option_vote_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def new_api_v1_decision_participant_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def new_api_v1_decision_participant_vote_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def new_api_v1_decision_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def new_api_v1_decision_vote_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def new_api_v1_note_path(*args); end

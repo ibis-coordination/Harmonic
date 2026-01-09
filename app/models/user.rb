@@ -7,7 +7,7 @@ class User < ApplicationRecord
   self.implicit_order_column = "created_at"
   has_many :oauth_identities
   has_many :decision_participants
-  has_many :approvals, through: :decision_participants
+  has_many :votes, through: :decision_participants
   has_many :commitment_participants
   has_many :note_history_events
   has_many :tenant_users

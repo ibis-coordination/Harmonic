@@ -196,44 +196,44 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
     assert_equal 2, body.length
   end
 
-  # Approvals (Votes)
-  test "create approval casts a vote" do
+  # Votes
+  test "create vote casts a vote" do
     decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
     option = create_option(tenant: @tenant, studio: @studio, created_by: @user, decision: decision)
-    approval_params = { value: 1, stars: 0 }
-    assert_difference "Approval.count", 1 do
-      post api_path("/#{decision.truncated_id}/options/#{option.id}/approvals"), params: approval_params.to_json, headers: @headers
+    vote_params = { accepted: 1, preferred: 0 }
+    assert_difference "Vote.count", 1 do
+      post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: vote_params.to_json, headers: @headers
     end
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal 1, body["value"]
-    assert_equal 0, body["stars"]
+    assert_equal 1, body["accepted"]
+    assert_equal 0, body["preferred"]
   end
 
-  test "create approval with stars preference" do
+  test "create vote with preference" do
     decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
     option = create_option(tenant: @tenant, studio: @studio, created_by: @user, decision: decision)
-    approval_params = { value: 1, stars: 1 }
-    post api_path("/#{decision.truncated_id}/options/#{option.id}/approvals"), params: approval_params.to_json, headers: @headers
+    vote_params = { accepted: 1, preferred: 1 }
+    post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: vote_params.to_json, headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal 1, body["stars"]
+    assert_equal 1, body["preferred"]
   end
 
-  test "update approval changes vote" do
+  test "update vote changes vote" do
     decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
     option = create_option(tenant: @tenant, studio: @studio, created_by: @user, decision: decision)
     # First, cast a vote
-    approval_params = { value: 1, stars: 0 }
-    post api_path("/#{decision.truncated_id}/options/#{option.id}/approvals"), params: approval_params.to_json, headers: @headers
+    vote_params = { accepted: 1, preferred: 0 }
+    post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: vote_params.to_json, headers: @headers
     assert_response :success
-    approval_id = JSON.parse(response.body)["id"]
+    vote_id = JSON.parse(response.body)["id"]
     # Then update it
-    update_params = { value: 0 }
-    put api_path("/#{decision.truncated_id}/options/#{option.id}/approvals/#{approval_id}"), params: update_params.to_json, headers: @headers
+    update_params = { accepted: 0 }
+    put api_path("/#{decision.truncated_id}/options/#{option.id}/votes/#{vote_id}"), params: update_params.to_json, headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal 0, body["value"]
+    assert_equal 0, body["accepted"]
   end
 
   # Results
@@ -242,14 +242,14 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
     option1 = create_option(tenant: @tenant, studio: @studio, created_by: @user, decision: decision, title: "Option 1")
     option2 = create_option(tenant: @tenant, studio: @studio, created_by: @user, decision: decision, title: "Option 2")
     # Vote for option1
-    post api_path("/#{decision.truncated_id}/options/#{option1.id}/approvals"), params: { value: 1, stars: 1 }.to_json, headers: @headers
+    post api_path("/#{decision.truncated_id}/options/#{option1.id}/votes"), params: { accepted: 1, preferred: 1 }.to_json, headers: @headers
     get api_path("/#{decision.truncated_id}/results"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
     assert body.is_a?(Array)
     # Option with vote should be ranked higher
     winner = body.find { |r| r["option_id"] == option1.id }
-    assert_equal 1, winner["approved_yes"]
+    assert_equal 1, winner["accepted_yes"]
   end
 
   # Participants
@@ -257,7 +257,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
     decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
     # Create a participant by voting
     option = create_option(tenant: @tenant, studio: @studio, created_by: @user, decision: decision)
-    post api_path("/#{decision.truncated_id}/options/#{option.id}/approvals"), params: { value: 1 }.to_json, headers: @headers
+    post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: { accepted: 1 }.to_json, headers: @headers
     get api_path("/#{decision.truncated_id}/participants"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
