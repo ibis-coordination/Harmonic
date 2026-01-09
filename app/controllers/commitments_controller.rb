@@ -132,6 +132,70 @@ class CommitmentsController < ApplicationController
     @page_description = "Change settings for this commitment"
   end
 
+  def actions_index_show
+    @page_title = "Actions | #{current_commitment.title}"
+    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/c/:commitment_id'))
+  end
+
+  def describe_join_commitment
+    render_action_description({
+      action_name: 'join_commitment',
+      resource: current_commitment,
+      description: 'Join the commitment',
+      params: [],
+    })
+  end
+
+  def join_commitment
+    @commitment = current_commitment
+    return render_action_error({ action_name: 'join_commitment', resource: @commitment, error: 'Not found' }) unless @commitment
+    return render_action_error({ action_name: 'join_commitment', resource: @commitment, error: 'You must be logged in to join.' }) unless current_user
+    return render_action_error({ action_name: 'join_commitment', resource: @commitment, error: 'This commitment is closed.' }) if @commitment.closed?
+
+    begin
+      @commitment_participant = current_commitment_participant
+      @commitment_participant_name = @commitment_participant.name || current_user.name
+      @commitment_participant.committed = true
+      @commitment_participant.name = @commitment_participant_name
+      ActiveRecord::Base.transaction do
+        @commitment_participant.save!
+        @commitment.close_if_limit_reached!
+        if current_representation_session
+          current_representation_session.record_activity!(
+            request: request,
+            semantic_event: {
+              timestamp: Time.current,
+              event_type: 'commit',
+              studio_id: current_studio.id,
+              main_resource: {
+                type: 'Commitment',
+                id: @commitment.id,
+                truncated_id: @commitment.truncated_id,
+              },
+              sub_resources: [
+                {
+                  type: 'CommitmentParticipant',
+                  id: @commitment_participant.id,
+                }
+              ],
+            }
+          )
+        end
+      end
+      render_action_success({
+        action_name: 'join_commitment',
+        resource: @commitment,
+        result: "You have successfully joined the commitment '#{@commitment.title}'",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'join_commitment',
+        resource: @commitment,
+        error: e.message,
+      })
+    end
+  end
+
   def update_settings
     @commitment = current_commitment
     return render '404', status: 404 unless @commitment

@@ -533,6 +533,39 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  def describe_add_comment
+    render_action_description({
+      action_name: 'add_comment',
+      resource: current_resource,
+      description: 'Add a comment to this item',
+      params: [{
+        name: 'text',
+        description: 'The text content of the comment',
+        type: 'string',
+      }],
+    })
+  end
+
+  def add_comment
+    return render_action_error({ action_name: 'add_comment', resource: current_resource, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'add_comment', resource: current_resource, error: 'Comments cannot be added to this item.' }) unless current_resource&.is_commentable?
+
+    begin
+      comment = api_helper.create_note(commentable: current_resource)
+      render_action_success({
+        action_name: 'add_comment',
+        resource: current_resource,
+        result: "Comment added successfully.",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'add_comment',
+        resource: current_resource,
+        error: e.message,
+      })
+    end
+  end
+
   def render_actions_index(locals)
     @page_title ||= "Actions"
     base_path = request.path.split('/actions')[0]

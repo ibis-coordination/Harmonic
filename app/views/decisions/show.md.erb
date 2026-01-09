@@ -38,7 +38,18 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 <% if @decision.voters.empty? %>No voters yet.<% else %><% @decision.voters.each do |voter| %>* [<%= voter.display_name %>](<%= voter.path %>)
 <% end %><% end %>
 <%= render 'shared/backlinks', resource: @decision %>
+## Comments (<%= @decision.comments_count %>)
+
+<% if @decision.comments.empty? %>
+No comments yet.
+<% else %>
+<% @decision.chronological_comments.each do |comment| %>
+* [<%= comment.created_by&.display_name || 'Unknown' %>](<%= comment.created_by&.path || '#' %>) (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
+<% end %>
+<% end %>
+
 ## Actions
 
-<% if @decision.closed? %>This decision is closed. No actions available.<% else %>* `add_option(text)` - Add an option to the decision
+<% if @decision.closed? %>This decision is closed. <% else %>* `add_option(text)` - Add an option to the decision
 * `vote(option, accept, prefer)` - Vote on an option<% end %>
+* `add_comment(text)` - Add a comment to this decision

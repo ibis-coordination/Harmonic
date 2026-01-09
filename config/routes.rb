@@ -102,6 +102,8 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}" => "#{studios_or_scenes}#create"
     get "#{studios_or_scenes}/:studio_handle" => "#{studios_or_scenes}#show"
     get "#{studios_or_scenes}/:studio_handle/actions" => 'studios#actions_index_default'
+    get "#{studios_or_scenes}/:studio_handle/actions/send_heartbeat" => 'studios#describe_send_heartbeat'
+    post "#{studios_or_scenes}/:studio_handle/actions/send_heartbeat" => 'studios#send_heartbeat'
     get "#{studios_or_scenes}/:studio_handle/pinned.html" => 'studios#pinned_items_partial'
     get "#{studios_or_scenes}/:studio_handle/team.html" => 'studios#team_partial'
     get "#{studios_or_scenes}/:studio_handle/cycles" => 'cycles#index'
@@ -145,6 +147,8 @@ Rails.application.routes.draw do
       get '/actions' => 'notes#actions_index_show'
       get '/actions/confirm_read' => 'notes#describe_confirm_read'
       post '/actions/confirm_read' => 'notes#confirm_read'
+      get '/actions/add_comment' => 'notes#describe_add_comment'
+      post '/actions/add_comment' => 'notes#add_comment'
       post '/comments' => 'notes#create_comment'
       get '/edit/actions' => 'notes#actions_index_edit'
       get '/edit/actions/update_note' => 'notes#describe_update_note'
@@ -169,6 +173,8 @@ Rails.application.routes.draw do
       post '/actions/add_option' => 'decisions#add_option'
       get '/actions/vote' => 'decisions#describe_vote'
       post '/actions/vote' => 'decisions#vote'
+      get '/actions/add_comment' => 'decisions#describe_add_comment'
+      post '/actions/add_comment' => 'decisions#add_comment'
       get '/metric' => 'decisions#metric'
       get '/results.html' => 'decisions#results_partial'
       get '/options.html' => 'decisions#options_partial'
@@ -185,6 +191,11 @@ Rails.application.routes.draw do
     get "#{prefix}/commit" => 'commitments#new'
     post "#{prefix}/commit" => 'commitments#create'
     resources :commitments, only: [:show], path: "#{prefix}/c" do
+      get '/actions' => 'commitments#actions_index_show'
+      get '/actions/join_commitment' => 'commitments#describe_join_commitment'
+      post '/actions/join_commitment' => 'commitments#join_commitment'
+      get '/actions/add_comment' => 'commitments#describe_add_comment'
+      post '/actions/add_comment' => 'commitments#add_comment'
       get '/metric' => 'commitments#metric'
       get '/status.html' => 'commitments#status_partial'
       get '/participants.html' => 'commitments#participants_list_items_partial'

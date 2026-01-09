@@ -92,6 +92,38 @@ class StudiosController < ApplicationController
     end
   end
 
+  def describe_send_heartbeat
+    render_action_description({
+      action_name: 'send_heartbeat',
+      resource: @current_studio,
+      description: 'Send a heartbeat to confirm your presence in the studio for this cycle',
+      params: [],
+    })
+  end
+
+  def send_heartbeat
+    return render_action_error({ action_name: 'send_heartbeat', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+
+    if current_heartbeat
+      return render_action_error({ action_name: 'send_heartbeat', resource: @current_studio, error: 'Heartbeat already exists for this cycle.' })
+    end
+
+    begin
+      heartbeat = api_helper.create_heartbeat
+      render_action_success({
+        action_name: 'send_heartbeat',
+        resource: @current_studio,
+        result: "Heartbeat sent. You now have access to #{@current_studio.name} for this cycle.",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'send_heartbeat',
+        resource: @current_studio,
+        error: e.message,
+      })
+    end
+  end
+
   def handle_available
     render json: { available: Studio.handle_available?(params[:handle]) }
   end

@@ -1,5 +1,14 @@
 # Studio: <%= @current_studio.name %>
 
+<% if !@current_studio.is_main_studio? && @current_user && !@current_heartbeat %>
+## Heartbeat Required
+
+You must send a heartbeat to access this studio for the current cycle.
+
+## Actions
+
+* `send_heartbeat()` - Send a heartbeat to confirm your presence in the studio
+<% else %>
 ## Explore
 
 * [Cycles](<%= @current_studio.path %>/cycles)
@@ -30,3 +39,4 @@ No team members yet.
 * [New Note](<%= @current_studio.path %>/note)
 * [New Decision](<%= @current_studio.path %>/decide)
 * [New Commitment](<%= @current_studio.path %>/commit)
+<% end %>
