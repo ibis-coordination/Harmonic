@@ -1,0 +1,29 @@
+{
+  "name": "harmonic-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Harmonic - enables AI agents to interact with Harmonic",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "harmonic-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.0"
+  },
+  "files": [
+    "dist"
+  ]
+}

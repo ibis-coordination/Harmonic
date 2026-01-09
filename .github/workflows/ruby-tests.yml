@@ -72,6 +72,17 @@ jobs:
       - name: Build JavaScript assets
         run: npm run build
 
+      - name: Build MCP server
+        run: |
+          cd mcp-server
+          npm install
+          npm run build
+
+      - name: Run MCP server tests
+        run: |
+          cd mcp-server
+          npm test
+
       - name: Run tests with coverage
         env:
           RAILS_ENV: test
