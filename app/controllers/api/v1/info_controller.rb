@@ -27,11 +27,11 @@ module Api::V1
             methods: ['GET', 'PUT', 'DELETE'],
           },
           {
-            path: '/api/v1/decisions/:decision_id/options/:option_id/approvals',
+            path: '/api/v1/decisions/:decision_id/options/:option_id/votes',
             methods: ['GET', 'POST'],
           },
           {
-            path: '/api/v1/decisions/:decision_id/options/:option_id/approvals/:approval_id',
+            path: '/api/v1/decisions/:decision_id/options/:option_id/votes/:vote_id',
             methods: ['GET', 'PUT', 'DELETE'],
           },
           {
@@ -43,11 +43,11 @@ module Api::V1
             methods: ['GET', 'PUT', 'DELETE'],
           },
           {
-            path: '/api/v1/decisions/:decision_id/participants/:participant_id/approvals',
+            path: '/api/v1/decisions/:decision_id/participants/:participant_id/votes',
             methods: ['GET', 'POST'],
           },
           {
-            path: '/api/v1/decisions/:decision_id/participants/:participant_id/approvals/:approval_id',
+            path: '/api/v1/decisions/:decision_id/participants/:participant_id/votes/:vote_id',
             methods: ['GET', 'PUT', 'DELETE'],
           },
           {

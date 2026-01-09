@@ -17,8 +17,8 @@ No options yet.
 Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 
 <% @decision.options.order(:created_at).each do |option| %>
-<% approval = @approvals.where(option: option).first || Approval.new(value: 0) %>
-* [<%= approval.value == 1 ? '✅' : ' ' %>] [<%= approval.stars == 1 ? '⭐️' : ' ' %>] <%= option.title %>
+<% vote = @votes.where(option: option).first || Vote.new(accepted: 0) %>
+* [<%= vote.accepted == 1 ? '✅' : ' ' %>] [<%= vote.preferred == 1 ? '⭐️' : ' ' %>] <%= option.title %>
 <% end %><% end %><% end %>
 ## <%= @decision.closed? ? "Final" : "Current" %> Results
 
@@ -30,7 +30,7 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 | 0 | Add options to see results. | 0 | 0 | 0 |
 <% end %>
 <% @decision.results.each.with_index do |result, index| %>
-| <%= index + 1 %> | <%= result.option_title %> | <%= (result.approved_yes || 0) %> | <%= (result.stars || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
+| <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
 <% end %>
 
 ## Voters (<%= @decision.voters.count %>)

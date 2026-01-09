@@ -135,7 +135,7 @@ class DecisionsController < ApplicationController
     @page_description = "Decide as a group with Harmonic Team"
     @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
 
-    @approvals = current_approvals
+    @votes = current_votes
     set_results_view_vars
     set_pin_vars
   end
@@ -181,7 +181,7 @@ class DecisionsController < ApplicationController
 
   def options_partial
     @decision = current_decision
-    @approvals = current_approvals
+    @votes = current_votes
     render partial: 'options_list_items'
   end
 
@@ -237,11 +237,11 @@ class DecisionsController < ApplicationController
 
   def vote
     begin
-      @approval = api_helper.vote
+      @vote = api_helper.vote
       render_action_success({
         action_name: 'vote',
-        resource: @approval.decision,
-        result: "You have successfully voted on option '#{@approval.option.title}'",
+        resource: @vote.decision,
+        result: "You have successfully voted on option '#{@vote.option.title}'",
       })
     rescue ActiveRecord::RecordInvalid => e
       render_action_error({

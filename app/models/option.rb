@@ -12,7 +12,7 @@ class Option < ApplicationRecord
   belongs_to :decision_participant
   belongs_to :decision
 
-  has_many :approvals, dependent: :destroy
+  has_many :votes, dependent: :destroy
 
   sig { void }
   def set_tenant_id

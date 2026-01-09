@@ -104,18 +104,22 @@ Since there are no external clients, we can do a straightforward rename:
 
 ## Progress
 
-- [ ] Create database migration
-- [ ] Rename model file and update class
-- [ ] Update Decision model associations and methods
-- [ ] Update DecisionResult model
-- [ ] Update Option model
-- [ ] Update DecisionParticipant model
-- [ ] Rename and update controller
-- [ ] Update routes
-- [ ] Update ApiHelper
-- [ ] Update views
-- [ ] Update frontend TypeScript
-- [ ] Update tests
-- [ ] Regenerate Sorbet RBI files (`bundle exec tapioca dsl`)
-- [ ] Update documentation
-- [ ] Run full test suite
+- [x] Create database migration
+- [x] Rename model file and update class
+- [x] Update Decision model associations and methods
+- [x] Update DecisionResult model
+- [x] Update Option model
+- [x] Update DecisionParticipant model
+- [x] Rename and update controller
+- [x] Update routes
+- [x] Update ApiHelper
+- [x] Update views
+- [x] Update frontend TypeScript
+- [x] Update tests
+- [x] Regenerate Sorbet RBI files (`bundle exec tapioca dsl`)
+- [x] Update documentation
+- [x] Run full test suite
+
+## Completed
+
+All tasks completed on 2026-01-09. All 501 backend tests and 17 frontend tests pass.

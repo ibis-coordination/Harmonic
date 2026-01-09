@@ -249,7 +249,7 @@ Get a specific decision.
 }
 ```
 
-**Include options:** `participants`, `options`, `approvals`, `results`, `backlinks`
+**Include options:** `participants`, `options`, `votes`, `results`, `backlinks`
 
 #### POST /api/v1/decisions
 
@@ -317,49 +317,49 @@ Delete an option. Only allowed if no votes have been cast on it.
 
 ---
 
-### Approvals (Votes)
+### Votes
 
-Approvals represent votes on decision options.
+Votes represent acceptance/preference votes on decision options.
 
-#### GET /api/v1/decisions/{decision_id}/approvals
+#### GET /api/v1/decisions/{decision_id}/votes
 
-List all approvals for a decision.
+List all votes for a decision.
 
-#### GET /api/v1/decisions/{decision_id}/options/{option_id}/approvals
+#### GET /api/v1/decisions/{decision_id}/options/{option_id}/votes
 
-List approvals for a specific option.
+List votes for a specific option.
 
-#### POST /api/v1/decisions/{decision_id}/options/{option_id}/approvals
+#### POST /api/v1/decisions/{decision_id}/options/{option_id}/votes
 
 Cast a vote on an option.
 
 **Request Body:**
 ```json
 {
-  "value": 1,
-  "stars": 0
+  "accepted": 1,
+  "preferred": 0
 }
 ```
 
 **Fields:**
-- `value` - 0 (reject) or 1 (accept)
-- `stars` - 0 or 1 (preference indicator)
+- `accepted` - 0 (reject) or 1 (accept)
+- `preferred` - 0 or 1 (preference indicator)
 
 **Response:**
 ```json
 {
-  "id": "approval-uuid",
+  "id": "vote-uuid",
   "option_id": "option-uuid",
   "decision_id": "decision-uuid",
   "decision_participant_id": "participant-uuid",
-  "value": 1,
-  "stars": 0,
+  "accepted": 1,
+  "preferred": 0,
   "created_at": "2026-01-05T12:00:00Z",
   "updated_at": "2026-01-05T12:00:00Z"
 }
 ```
 
-#### PUT /api/v1/decisions/{decision_id}/options/{option_id}/approvals/{id}
+#### PUT /api/v1/decisions/{decision_id}/options/{option_id}/votes/{id}
 
 Update a vote.
 
@@ -385,7 +385,7 @@ List participants in a decision.
 ]
 ```
 
-**Include options:** `approvals`
+**Include options:** `votes`
 
 ---
 
@@ -406,16 +406,16 @@ Get voting results for a decision.
     "option_id": "option-uuid",
     "option_title": "Winning Option",
     "option_random_id": "123456789",
-    "approved_yes": 5,
-    "approved_no": 1,
-    "approval_count": 6,
-    "stars": 3
+    "accepted_yes": 5,
+    "accepted_no": 1,
+    "vote_count": 6,
+    "preferred": 3
   },
   ...
 ]
 ```
 
-Results are sorted by: `approved_yes` (desc), then `stars` (desc), then `random_id` (for ties).
+Results are sorted by: `accepted_yes` (desc), then `preferred` (desc), then `random_id` (for ties).
 
 ---
 
@@ -729,10 +729,10 @@ curl -X POST https://acme.harmonic.example/studios/team/api/v1/decisions \
   }'
 
 # Vote on an option
-curl -X POST https://acme.harmonic.example/studios/team/api/v1/decisions/{id}/options/{option_id}/approvals \
+curl -X POST https://acme.harmonic.example/studios/team/api/v1/decisions/{id}/options/{option_id}/votes \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"value": 1, "stars": 1}'
+  -d '{"accepted": 1, "preferred": 1}'
 
 # Get results
 curl https://acme.harmonic.example/studios/team/api/v1/decisions/{id}/results \

@@ -177,22 +177,22 @@ class ApiHelperTest < ActiveSupport::TestCase
       params: params,
       request: {}
     )
-    approval = api_helper.vote
-    assert approval.persisted?
-    assert_equal 1, approval.value
-    assert_equal 1, approval.stars
-    assert_equal option, approval.option
-    assert_equal decision, approval.decision
-    assert_equal @user, approval.decision_participant.user
+    vote = api_helper.vote
+    assert vote.persisted?
+    assert_equal 1, vote.accepted
+    assert_equal 1, vote.preferred
+    assert_equal option, vote.option
+    assert_equal decision, vote.decision
+    assert_equal @user, vote.decision_participant.user
   end
 
-  test "ApiHelper.vote creates or updates a vote for a decision option (value + stars)" do
+  test "ApiHelper.vote creates or updates a vote for a decision option (accepted + preferred)" do
     decision = create_decision
     option = create_option(decision: decision)
     params = {
       option_title: option.title,
-      value: false,
-      stars: false
+      accepted: false,
+      preferred: false
     }
     api_helper = ApiHelper.new(
       current_user: @user,
@@ -202,13 +202,13 @@ class ApiHelperTest < ActiveSupport::TestCase
       params: params,
       request: {}
     )
-    approval = api_helper.vote
-    assert approval.persisted?
-    assert_equal 0, approval.value
-    assert_equal 0, approval.stars
-    assert_equal option, approval.option
-    assert_equal decision, approval.decision
-    assert_equal @user, approval.decision_participant.user
+    vote = api_helper.vote
+    assert vote.persisted?
+    assert_equal 0, vote.accepted
+    assert_equal 0, vote.preferred
+    assert_equal option, vote.option
+    assert_equal decision, vote.decision
+    assert_equal @user, vote.decision_participant.user
   end
 
 end

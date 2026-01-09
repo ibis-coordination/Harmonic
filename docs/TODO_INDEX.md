@@ -114,9 +114,9 @@ Webhook functionality is stubbed but not implemented. See `app/services/webhook_
 
 | File | Line | Description |
 |------|------|-------------|
-| `app/controllers/api/v1/options_controller.rb` | 19 | Record approval when in representation session |
-| `app/controllers/api/v1/options_controller.rb` | 28 | Check for existing approvals before creating |
-| `app/controllers/api/v1/options_controller.rb` | 31 | Record unapproval when in representation session |
+| `app/controllers/api/v1/options_controller.rb` | 19 | Record vote when in representation session |
+| `app/controllers/api/v1/options_controller.rb` | 28 | Check for existing votes before creating |
+| `app/controllers/api/v1/options_controller.rb` | 31 | Record unvote when in representation session |
 | `app/javascript/controllers/decision_voters_controller.js` | 12 | Only poll if decision is open |
 | `app/javascript/controllers/decision_results_controller.js` | 12 | Only poll if decision is open |
 

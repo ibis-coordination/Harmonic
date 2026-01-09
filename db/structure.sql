@@ -1,3 +1,8 @@
+\restrict NHNBbapHTCLVEufmHahi1qgonT3V4nmpZyW2DHnMEl01x6MdW5GCMhYFPnxJh4R
+
+-- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
+-- Dumped by pg_dump version 15.14 (Debian 15.14-0+deb12u1)
+
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
@@ -92,24 +97,6 @@ CREATE TABLE public.api_tokens (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     deleted_at timestamp(6) without time zone
-);
-
-
---
--- Name: approvals; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.approvals (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    decision_id uuid,
-    decision_participant_id uuid,
-    option_id uuid,
-    value integer NOT NULL,
-    stars integer DEFAULT 0,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    tenant_id uuid NOT NULL,
-    studio_id uuid
 );
 
 
@@ -338,10 +325,10 @@ SELECT
     NULL::uuid AS decision_id,
     NULL::uuid AS option_id,
     NULL::text AS option_title,
-    NULL::bigint AS approved_yes,
-    NULL::bigint AS approved_no,
-    NULL::bigint AS approval_count,
-    NULL::bigint AS stars,
+    NULL::bigint AS accepted_yes,
+    NULL::bigint AS accepted_no,
+    NULL::bigint AS vote_count,
+    NULL::bigint AS preferred,
     NULL::integer AS random_id;
 
 
@@ -658,6 +645,24 @@ CREATE TABLE public.users (
 
 
 --
+-- Name: votes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.votes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    decision_id uuid,
+    decision_participant_id uuid,
+    option_id uuid,
+    accepted integer NOT NULL,
+    preferred integer DEFAULT 0,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    tenant_id uuid NOT NULL,
+    studio_id uuid
+);
+
+
+--
 -- Name: active_storage_attachments active_storage_attachments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -690,10 +695,10 @@ ALTER TABLE ONLY public.api_tokens
 
 
 --
--- Name: approvals approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: votes approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approvals
+ALTER TABLE ONLY public.votes
     ADD CONSTRAINT approvals_pkey PRIMARY KEY (id);
 
 
@@ -935,48 +940,6 @@ CREATE UNIQUE INDEX index_api_tokens_on_token ON public.api_tokens USING btree (
 --
 
 CREATE INDEX index_api_tokens_on_user_id ON public.api_tokens USING btree (user_id);
-
-
---
--- Name: index_approvals_on_decision_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_approvals_on_decision_id ON public.approvals USING btree (decision_id);
-
-
---
--- Name: index_approvals_on_decision_participant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_approvals_on_decision_participant_id ON public.approvals USING btree (decision_participant_id);
-
-
---
--- Name: index_approvals_on_option_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_approvals_on_option_id ON public.approvals USING btree (option_id);
-
-
---
--- Name: index_approvals_on_option_id_and_decision_participant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_approvals_on_option_id_and_decision_participant_id ON public.approvals USING btree (option_id, decision_participant_id);
-
-
---
--- Name: index_approvals_on_studio_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_approvals_on_studio_id ON public.approvals USING btree (studio_id);
-
-
---
--- Name: index_approvals_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_approvals_on_tenant_id ON public.approvals USING btree (tenant_id);
 
 
 --
@@ -1603,6 +1566,48 @@ CREATE INDEX index_users_on_parent_id ON public.users USING btree (parent_id);
 
 
 --
+-- Name: index_votes_on_decision_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_votes_on_decision_id ON public.votes USING btree (decision_id);
+
+
+--
+-- Name: index_votes_on_decision_participant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_votes_on_decision_participant_id ON public.votes USING btree (decision_participant_id);
+
+
+--
+-- Name: index_votes_on_option_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_votes_on_option_id ON public.votes USING btree (option_id);
+
+
+--
+-- Name: index_votes_on_option_id_and_decision_participant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_votes_on_option_id_and_decision_participant_id ON public.votes USING btree (option_id, decision_participant_id);
+
+
+--
+-- Name: index_votes_on_studio_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_votes_on_studio_id ON public.votes USING btree (studio_id);
+
+
+--
+-- Name: index_votes_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_votes_on_tenant_id ON public.votes USING btree (tenant_id);
+
+
+--
 -- Name: cycle_data_commitments _RETURN; Type: RULE; Schema: public; Owner: -
 --
 
@@ -1651,7 +1656,7 @@ CREATE OR REPLACE VIEW public.cycle_data_decisions AS
     (count(DISTINCT a.decision_participant_id))::integer AS voter_count,
     (count(DISTINCT o.id))::integer AS option_count
    FROM ((((public.decisions d
-     LEFT JOIN public.approvals a ON ((d.id = a.decision_id)))
+     LEFT JOIN public.votes a ON ((d.id = a.decision_id)))
      LEFT JOIN public.options o ON ((d.id = o.decision_id)))
      LEFT JOIN public.links dl ON (((d.id = dl.from_linkable_id) AND ((dl.from_linkable_type)::text = 'Decision'::text))))
      LEFT JOIN public.links dbl ON (((d.id = dbl.to_linkable_id) AND ((dbl.to_linkable_type)::text = 'Decision'::text))))
@@ -1696,15 +1701,15 @@ CREATE OR REPLACE VIEW public.decision_results AS
     o.decision_id,
     o.id AS option_id,
     o.title AS option_title,
-    COALESCE(sum(a.value), (0)::bigint) AS approved_yes,
-    (count(a.value) - COALESCE(sum(a.value), (0)::bigint)) AS approved_no,
-    count(a.value) AS approval_count,
-    COALESCE(sum(a.stars), (0)::bigint) AS stars,
+    COALESCE(sum(v.accepted), (0)::bigint) AS accepted_yes,
+    (count(v.accepted) - COALESCE(sum(v.accepted), (0)::bigint)) AS accepted_no,
+    count(v.accepted) AS vote_count,
+    COALESCE(sum(v.preferred), (0)::bigint) AS preferred,
     o.random_id
    FROM (public.options o
-     LEFT JOIN public.approvals a ON ((a.option_id = o.id)))
+     LEFT JOIN public.votes v ON ((v.option_id = o.id)))
   GROUP BY o.tenant_id, o.decision_id, o.id
-  ORDER BY COALESCE(sum(a.value), (0)::bigint) DESC, COALESCE(sum(a.stars), (0)::bigint) DESC, o.random_id DESC;
+  ORDER BY COALESCE(sum(v.accepted), (0)::bigint) DESC, COALESCE(sum(v.preferred), (0)::bigint) DESC, o.random_id DESC;
 
 
 --
@@ -1724,10 +1729,10 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
--- Name: approvals fk_rails_0e623a5b8b; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: votes fk_rails_0e623a5b8b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approvals
+ALTER TABLE ONLY public.votes
     ADD CONSTRAINT fk_rails_0e623a5b8b FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
@@ -1756,10 +1761,10 @@ ALTER TABLE ONLY public.studio_invites
 
 
 --
--- Name: approvals fk_rails_23f31e4409; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: votes fk_rails_23f31e4409; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approvals
+ALTER TABLE ONLY public.votes
     ADD CONSTRAINT fk_rails_23f31e4409 FOREIGN KEY (option_id) REFERENCES public.options(id);
 
 
@@ -1828,10 +1833,10 @@ ALTER TABLE ONLY public.decisions
 
 
 --
--- Name: approvals fk_rails_387fb9c532; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: votes fk_rails_387fb9c532; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approvals
+ALTER TABLE ONLY public.votes
     ADD CONSTRAINT fk_rails_387fb9c532 FOREIGN KEY (decision_id) REFERENCES public.decisions(id);
 
 
@@ -2044,10 +2049,10 @@ ALTER TABLE ONLY public.options
 
 
 --
--- Name: approvals fk_rails_a6ed1157e1; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: votes fk_rails_a6ed1157e1; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approvals
+ALTER TABLE ONLY public.votes
     ADD CONSTRAINT fk_rails_a6ed1157e1 FOREIGN KEY (decision_participant_id) REFERENCES public.decision_participants(id);
 
 
@@ -2068,10 +2073,10 @@ ALTER TABLE ONLY public.commitments
 
 
 --
--- Name: approvals fk_rails_ae9f41675e; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: votes fk_rails_ae9f41675e; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approvals
+ALTER TABLE ONLY public.votes
     ADD CONSTRAINT fk_rails_ae9f41675e FOREIGN KEY (studio_id) REFERENCES public.studios(id);
 
 
@@ -2279,6 +2284,8 @@ ALTER TABLE ONLY public.studios
 -- PostgreSQL database dump complete
 --
 
+\unrestrict NHNBbapHTCLVEufmHahi1qgonT3V4nmpZyW2DHnMEl01x6MdW5GCMhYFPnxJh4R
+
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
@@ -2371,6 +2378,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250819213059'),
 ('20250826214040'),
 ('20250831231336'),
-('20250902174420');
+('20250902174420'),
+('20260109023653');
 
 

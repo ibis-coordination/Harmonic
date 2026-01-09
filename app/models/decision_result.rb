@@ -14,19 +14,19 @@ class DecisionResult < ApplicationRecord
       option_id: option_id,
       option_title: option_title,
       option_random_id: random_id,
-      approved_yes: approved_yes,
-      approved_no: approved_no,
-      approval_count: approval_count,
-      stars: stars,
+      accepted_yes: accepted_yes,
+      accepted_no: accepted_no,
+      vote_count: vote_count,
+      preferred: preferred,
     }
   end
 
   sig { params(other_result: DecisionResult).returns(String) }
   def get_sorting_factor(other_result)
-    if self.approved_yes != other_result.approved_yes
-      'approved_yes'
-    elsif self.stars != other_result.stars
-      'stars'
+    if self.accepted_yes != other_result.accepted_yes
+      'accepted_yes'
+    elsif self.preferred != other_result.preferred
+      'preferred'
     else
       'random_id'
     end

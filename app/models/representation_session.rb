@@ -102,7 +102,7 @@ class RepresentationSession < ApplicationRecord
     raise "Invalid main resource type #{semantic_event[:main_resource][:type]}" unless valid_main_resource_types.include?(semantic_event[:main_resource][:type])
     valid_resource_keys = [:type, :id, :truncated_id].sort
     raise "Invalid main resource keys #{semantic_event[:main_resource].keys}" unless semantic_event[:main_resource].keys.sort == valid_resource_keys
-    valid_sub_resource_types = %w(NoteHistoryEvent Option Approval CommitmentParticipant).sort
+    valid_sub_resource_types = %w(NoteHistoryEvent Option Vote CommitmentParticipant).sort
     valid_sub_resource_keys = [:type, :id].sort
     semantic_event[:sub_resources].each do |sub_resource|
       raise "Invalid sub resource type #{sub_resource[:type]}" unless valid_sub_resource_types.include?(sub_resource[:type])

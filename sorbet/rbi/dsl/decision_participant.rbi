@@ -330,20 +330,6 @@ class DecisionParticipant
   end
 
   module GeneratedAssociationMethods
-    sig { returns(T::Array[T.untyped]) }
-    def approval_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def approval_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `DecisionParticipant` class because it declared `has_many :approvals`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::Approval::PrivateCollectionProxy) }
-    def approvals; end
-
-    sig { params(value: T::Enumerable[::Approval]).void }
-    def approvals=(value); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Decision) }
     def build_decision(*args, &blk); end
 
@@ -441,6 +427,20 @@ class DecisionParticipant
 
     sig { params(value: T.nilable(::User)).void }
     def user=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def vote_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def vote_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `DecisionParticipant` class because it declared `has_many :votes`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::Vote::PrivateCollectionProxy) }
+    def votes; end
+
+    sig { params(value: T::Enumerable[::Vote]).void }
+    def votes=(value); end
   end
 
   module GeneratedAssociationRelationMethods

@@ -68,7 +68,7 @@ class DecisionTest < ActiveSupport::TestCase
     [1, 2, 3].each do |i|
       user = create_user(email: "u#{i}@example.com")
       participant = DecisionParticipant.create!(decision: decision, user: @user, participant_uid: "u#{i}")
-      Approval.create!(decision: decision, decision_participant: participant, option: option, value: true, stars: 0)
+      Vote.create!(decision: decision, decision_participant: participant, option: option, accepted: 1, preferred: 0)
       assert_equal i, decision.voter_count
     end
   end
@@ -80,18 +80,18 @@ class DecisionTest < ActiveSupport::TestCase
       Option.create!(decision: decision, title: "Option 1", decision_participant: participant),
       Option.create!(decision: decision, title: "Option 2", decision_participant: participant)
     ]
-    approval1 = Approval.create!(decision: decision, decision_participant: participant, option: options.first, value: true, stars: 0)
-    approval2 = Approval.create!(decision: decision, decision_participant: participant, option: options.last, value: false, stars: 1)
+    vote1 = Vote.create!(decision: decision, decision_participant: participant, option: options.first, accepted: 1, preferred: 0)
+    vote2 = Vote.create!(decision: decision, decision_participant: participant, option: options.last, accepted: 0, preferred: 1)
     results = decision.results
     assert_equal 2, results.size
     assert_equal options.first.id, results[0][:option_id]
     assert_equal options.last.id, results[1][:option_id]
-    assert_equal 1, results[0].approved_yes
-    assert_equal 0, results[1].approved_yes
-    assert_equal 0, results[0].approved_no
-    assert_equal 1, results[1].approved_no
-    assert_equal 0, results[0].stars
-    assert_equal 1, results[1].stars
+    assert_equal 1, results[0].accepted_yes
+    assert_equal 0, results[1].accepted_yes
+    assert_equal 0, results[0].accepted_no
+    assert_equal 1, results[1].accepted_no
+    assert_equal 0, results[0].preferred
+    assert_equal 1, results[1].preferred
   end
 
   test "Decision.can_add_options? returns true for creator" do
@@ -182,39 +182,39 @@ class DecisionTest < ActiveSupport::TestCase
     assert_equal new_user, participant.user
   end
 
-  # === Approval and Star Tests ===
+  # === Vote and Preference Tests ===
 
-  test "Approval can have stars" do
+  test "Vote can have preference" do
     decision = create_decision
     participant = DecisionParticipant.create!(decision: decision, user: @user)
-    option = Option.create!(decision: decision, title: "Starred Option", decision_participant: participant)
+    option = Option.create!(decision: decision, title: "Preferred Option", decision_participant: participant)
 
-    approval = Approval.create!(
+    vote = Vote.create!(
       decision: decision,
       decision_participant: participant,
       option: option,
-      value: true,
-      stars: 1
+      accepted: 1,
+      preferred: 1
     )
 
-    assert_equal 1, approval.stars
+    assert_equal 1, vote.preferred
   end
 
-  test "Decision.results includes star counts" do
+  test "Decision.results includes preference counts" do
     decision = create_decision
     participant = DecisionParticipant.create!(decision: decision, user: @user)
-    option = Option.create!(decision: decision, title: "Star Test Option", decision_participant: participant)
+    option = Option.create!(decision: decision, title: "Preference Test Option", decision_participant: participant)
 
-    Approval.create!(
+    Vote.create!(
       decision: decision,
       decision_participant: participant,
       option: option,
-      value: true,
-      stars: 1
+      accepted: 1,
+      preferred: 1
     )
 
     results = decision.results
-    assert_equal 1, results.first.stars
+    assert_equal 1, results.first.preferred
   end
 
   # === Pin Tests ===

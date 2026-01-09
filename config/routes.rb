@@ -32,12 +32,12 @@ Rails.application.routes.draw do
       resources :decisions do
         get :results, to: 'results#index'
         resources :participants do
-          resources :approvals
+          resources :votes
         end
         resources :options do
-          resources :approvals
+          resources :votes
         end
-        resources :approvals
+        resources :votes
       end
       resources :commitments do
         post :join, to: 'commitments#join'
@@ -205,12 +205,12 @@ Rails.application.routes.draw do
         resources :decisions do
           get :results, to: 'results#index'
           resources :participants do
-            resources :approvals
+            resources :votes
           end
           resources :options do
-            resources :approvals
+            resources :votes
           end
-          resources :approvals
+          resources :votes
         end
         resources :commitments do
           post :join, to: 'commitments#join'

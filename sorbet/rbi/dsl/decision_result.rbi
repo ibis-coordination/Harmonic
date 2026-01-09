@@ -494,139 +494,94 @@ class DecisionResult
 
   module GeneratedAttributeMethods
     sig { returns(T.nilable(::Integer)) }
-    def approval_count; end
+    def accepted_no; end
 
     sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
-    def approval_count=(value); end
+    def accepted_no=(value); end
 
     sig { returns(T::Boolean) }
-    def approval_count?; end
+    def accepted_no?; end
 
     sig { returns(T.nilable(::Integer)) }
-    def approval_count_before_last_save; end
+    def accepted_no_before_last_save; end
 
     sig { returns(T.untyped) }
-    def approval_count_before_type_cast; end
+    def accepted_no_before_type_cast; end
 
     sig { returns(T::Boolean) }
-    def approval_count_came_from_user?; end
+    def accepted_no_came_from_user?; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approval_count_change; end
+    def accepted_no_change; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approval_count_change_to_be_saved; end
+    def accepted_no_change_to_be_saved; end
 
     sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
-    def approval_count_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def accepted_no_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
-    def approval_count_in_database; end
+    def accepted_no_in_database; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approval_count_previous_change; end
+    def accepted_no_previous_change; end
 
     sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
-    def approval_count_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def accepted_no_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
-    def approval_count_previously_was; end
+    def accepted_no_previously_was; end
 
     sig { returns(T.nilable(::Integer)) }
-    def approval_count_was; end
+    def accepted_no_was; end
 
     sig { void }
-    def approval_count_will_change!; end
+    def accepted_no_will_change!; end
 
     sig { returns(T.nilable(::Integer)) }
-    def approved_no; end
+    def accepted_yes; end
 
     sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
-    def approved_no=(value); end
+    def accepted_yes=(value); end
 
     sig { returns(T::Boolean) }
-    def approved_no?; end
+    def accepted_yes?; end
 
     sig { returns(T.nilable(::Integer)) }
-    def approved_no_before_last_save; end
+    def accepted_yes_before_last_save; end
 
     sig { returns(T.untyped) }
-    def approved_no_before_type_cast; end
+    def accepted_yes_before_type_cast; end
 
     sig { returns(T::Boolean) }
-    def approved_no_came_from_user?; end
+    def accepted_yes_came_from_user?; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approved_no_change; end
+    def accepted_yes_change; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approved_no_change_to_be_saved; end
+    def accepted_yes_change_to_be_saved; end
 
     sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
-    def approved_no_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def accepted_yes_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
-    def approved_no_in_database; end
+    def accepted_yes_in_database; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approved_no_previous_change; end
+    def accepted_yes_previous_change; end
 
     sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
-    def approved_no_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def accepted_yes_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
-    def approved_no_previously_was; end
+    def accepted_yes_previously_was; end
 
     sig { returns(T.nilable(::Integer)) }
-    def approved_no_was; end
+    def accepted_yes_was; end
 
     sig { void }
-    def approved_no_will_change!; end
-
-    sig { returns(T.nilable(::Integer)) }
-    def approved_yes; end
-
-    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
-    def approved_yes=(value); end
-
-    sig { returns(T::Boolean) }
-    def approved_yes?; end
-
-    sig { returns(T.nilable(::Integer)) }
-    def approved_yes_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def approved_yes_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def approved_yes_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approved_yes_change; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approved_yes_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
-    def approved_yes_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::Integer)) }
-    def approved_yes_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def approved_yes_previous_change; end
-
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
-    def approved_yes_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::Integer)) }
-    def approved_yes_previously_was; end
-
-    sig { returns(T.nilable(::Integer)) }
-    def approved_yes_was; end
-
-    sig { void }
-    def approved_yes_will_change!; end
+    def accepted_yes_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def decision_id; end
@@ -809,6 +764,51 @@ class DecisionResult
     def option_title_will_change!; end
 
     sig { returns(T.nilable(::Integer)) }
+    def preferred; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def preferred=(value); end
+
+    sig { returns(T::Boolean) }
+    def preferred?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def preferred_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def preferred_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def preferred_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def preferred_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def preferred_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def preferred_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def preferred_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def preferred_previous_change; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def preferred_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def preferred_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def preferred_was; end
+
+    sig { void }
+    def preferred_will_change!; end
+
+    sig { returns(T.nilable(::Integer)) }
     def random_id; end
 
     sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
@@ -854,13 +854,10 @@ class DecisionResult
     def random_id_will_change!; end
 
     sig { void }
-    def restore_approval_count!; end
+    def restore_accepted_no!; end
 
     sig { void }
-    def restore_approved_no!; end
-
-    sig { void }
-    def restore_approved_yes!; end
+    def restore_accepted_yes!; end
 
     sig { void }
     def restore_decision_id!; end
@@ -875,31 +872,28 @@ class DecisionResult
     def restore_option_title!; end
 
     sig { void }
-    def restore_random_id!; end
+    def restore_preferred!; end
 
     sig { void }
-    def restore_stars!; end
+    def restore_random_id!; end
 
     sig { void }
     def restore_tenant_id!; end
 
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def saved_change_to_approval_count; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_approval_count?; end
+    sig { void }
+    def restore_vote_count!; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def saved_change_to_approved_no; end
+    def saved_change_to_accepted_no; end
 
     sig { returns(T::Boolean) }
-    def saved_change_to_approved_no?; end
+    def saved_change_to_accepted_no?; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def saved_change_to_approved_yes; end
+    def saved_change_to_accepted_yes; end
 
     sig { returns(T::Boolean) }
-    def saved_change_to_approved_yes?; end
+    def saved_change_to_accepted_yes?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_decision_id; end
@@ -926,16 +920,16 @@ class DecisionResult
     def saved_change_to_option_title?; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_preferred; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_preferred?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def saved_change_to_random_id; end
 
     sig { returns(T::Boolean) }
     def saved_change_to_random_id?; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def saved_change_to_stars; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_stars?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_tenant_id; end
@@ -943,50 +937,11 @@ class DecisionResult
     sig { returns(T::Boolean) }
     def saved_change_to_tenant_id?; end
 
-    sig { returns(T.nilable(::Integer)) }
-    def stars; end
-
-    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
-    def stars=(value); end
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_vote_count; end
 
     sig { returns(T::Boolean) }
-    def stars?; end
-
-    sig { returns(T.nilable(::Integer)) }
-    def stars_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def stars_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def stars_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def stars_change; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def stars_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
-    def stars_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::Integer)) }
-    def stars_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def stars_previous_change; end
-
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
-    def stars_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::Integer)) }
-    def stars_previously_was; end
-
-    sig { returns(T.nilable(::Integer)) }
-    def stars_was; end
-
-    sig { void }
-    def stars_will_change!; end
+    def saved_change_to_vote_count?; end
 
     sig { returns(T.nilable(::String)) }
     def tenant_id; end
@@ -1033,14 +988,56 @@ class DecisionResult
     sig { void }
     def tenant_id_will_change!; end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_approval_count?; end
+    sig { returns(T.nilable(::Integer)) }
+    def vote_count; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def vote_count=(value); end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_approved_no?; end
+    def vote_count?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def vote_count_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def vote_count_before_type_cast; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_approved_yes?; end
+    def vote_count_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def vote_count_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def vote_count_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def vote_count_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def vote_count_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def vote_count_previous_change; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def vote_count_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def vote_count_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def vote_count_was; end
+
+    sig { void }
+    def vote_count_will_change!; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_accepted_no?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_accepted_yes?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_decision_id?; end
@@ -1055,13 +1052,16 @@ class DecisionResult
     def will_save_change_to_option_title?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_preferred?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_random_id?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_stars?; end
+    def will_save_change_to_tenant_id?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_tenant_id?; end
+    def will_save_change_to_vote_count?; end
   end
 
   module GeneratedRelationMethods

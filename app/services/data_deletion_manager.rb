@@ -31,7 +31,7 @@ class DataDeletionManager
       [
         RepresentationSessionAssociation, RepresentationSession,
         Link, NoteHistoryEvent, Note,
-        Approval, Option, DecisionParticipant, Decision,
+        Vote, Option, DecisionParticipant, Decision,
         CommitmentParticipant, Commitment,
         StudioInvite, StudioUser
       ].each do |model|
@@ -132,8 +132,8 @@ class DataDeletionManager
     decision_id = decision.id
     ActiveRecord::Base.transaction do
       # Delete all associated data
-      Approval.unscoped.where(decision_id: decision.id).each do |approval|
-        approval.destroy!
+      Vote.unscoped.where(decision_id: decision.id).each do |vote|
+        vote.destroy!
       end
       Option.unscoped.where(decision_id: decision.id).each do |option|
         option.destroy!

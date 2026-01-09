@@ -1,23 +1,23 @@
 # typed: false
 
 module Api::V1
-  class ApprovalsController < BaseController
+  class VotesController < BaseController
     def create
       begin
-        approval = api_helper.vote
-        render json: approval
+        vote = api_helper.vote
+        render json: vote
       rescue ActiveRecord::RecordInvalid => e
         render json: { error: e.message }, status: 400
       end
     end
 
     def update
-      approval = Approval.where(associations).find_by(id: params[:id])
-      return render json: { error: 'Approval not found' }, status: 404 unless approval
-      approval.value = params[:value] if params[:value].present?
-      approval.stars = params[:stars] if params[:stars].present?
+      vote = Vote.where(associations).find_by(id: params[:id])
+      return render json: { error: 'Vote not found' }, status: 404 unless vote
+      vote.accepted = params[:accepted] if params[:accepted].present?
+      vote.preferred = params[:preferred] if params[:preferred].present?
       ActiveRecord::Base.transaction do
-        approval.save!
+        vote.save!
         if current_representation_session
           current_representation_session.record_activity!(
             request: request,
@@ -36,15 +36,15 @@ module Api::V1
                   id: current_option.id,
                 },
                 {
-                  type: 'Approval',
-                  id: approval.id,
+                  type: 'Vote',
+                  id: vote.id,
                 },
               ],
             }
           )
         end
       end
-      render json: approval
+      render json: vote
     end
 
     private

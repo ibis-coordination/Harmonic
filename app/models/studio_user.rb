@@ -61,15 +61,15 @@ class StudioUser < ApplicationRecord
       tenant_id: tenant_id,
       studio_id: studio_id,
       user_id: user_id,
-    ).includes(:approvals)
-    .where.not(approvals: {id: nil})
+    ).includes(:votes)
+    .where.not(votes: {id: nil})
     .includes(:decision)
     .order(created_at: :desc)
     .limit(limit)
     .map do |dp|
       {
         decision: dp.decision,
-        voted_at: T.must(dp.approvals.max_by(&:updated_at)).updated_at,
+        voted_at: T.must(dp.votes.max_by(&:updated_at)).updated_at,
       }
     end
   end
