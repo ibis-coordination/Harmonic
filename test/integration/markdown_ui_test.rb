@@ -182,4 +182,41 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     Heartbeat.where(studio: @studio, user: @user).delete_all
   end
+
+  # add_comment action tests
+  test "POST add_comment action on note returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test note")
+    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/actions/add_comment",
+      params: { text: "This is a test comment" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify comment was created
+    assert note.comments.exists?, "Comment should have been created on note"
+  end
+
+  test "POST add_comment action on decision returns 200 markdown" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Test decision?")
+    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/actions/add_comment",
+      params: { text: "This is a test comment" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify comment was created
+    assert decision.comments.exists?, "Comment should have been created on decision"
+  end
+
+  test "POST add_comment action on commitment returns 200 markdown" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Test commitment")
+    post "/studios/#{@studio.handle}/c/#{commitment.truncated_id}/actions/add_comment",
+      params: { text: "This is a test comment" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify comment was created
+    assert commitment.comments.exists?, "Comment should have been created on commitment"
+  end
 end

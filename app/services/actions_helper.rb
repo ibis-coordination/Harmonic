@@ -50,6 +50,10 @@ class ActionsHelper
           name: 'confirm_read',
           params_string: '()',
           description: 'Confirm that you have read the note',
+        }, {
+          name: 'add_comment',
+          params_string: '(text)',
+          description: 'Add a comment to this note',
         }
       ]
     },
@@ -81,6 +85,10 @@ class ActionsHelper
           name: 'vote',
           params_string: '(option_title, accept, prefer)',
           description: 'Vote on an option',
+        }, {
+          name: 'add_comment',
+          params_string: '(text)',
+          description: 'Add a comment to this decision',
         }
       ]
     },
@@ -108,6 +116,10 @@ class ActionsHelper
           name: 'join_commitment',
           params_string: '()',
           description: 'Join the commitment',
+        }, {
+          name: 'add_comment',
+          params_string: '(text)',
+          description: 'Add a comment to this commitment',
         }
       ]
     },

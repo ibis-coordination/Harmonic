@@ -117,14 +117,35 @@ Some pages use different formats for documenting available actions:
 
 ---
 
+## Missing add_comment Action
+
+All commentable resources (notes, decisions, commitments, representation sessions) should have an `add_comment` action available via the markdown UI.
+
+**Current behavior:**
+- POST `/comments` routes exist but only work for HTML UI (redirect after create)
+- No `add_comment` action routes for markdown UI
+
+**Required changes:**
+- [x] Add `GET /studios/:handle/n/:id/actions/add_comment` - describe action
+- [x] Add `POST /studios/:handle/n/:id/actions/add_comment` - execute action
+- [x] Add `GET /studios/:handle/d/:id/actions/add_comment` - describe action
+- [x] Add `POST /studios/:handle/d/:id/actions/add_comment` - execute action
+- [x] Add `GET /studios/:handle/c/:id/actions/add_comment` - describe action
+- [x] Add `POST /studios/:handle/c/:id/actions/add_comment` - execute action
+- [ ] Add `GET /studios/:handle/r/:id/actions/add_comment` - describe action (representation sessions)
+- [ ] Add `POST /studios/:handle/r/:id/actions/add_comment` - execute action (representation sessions)
+
+---
+
 ## Fix Priority
 
 ### High Priority (Blocking functionality)
-- [ ] Heartbeat gate on studio homepage (missing feature)
-- [ ] `send_heartbeat` action (missing route)
-- [ ] Cycle detail pages (500 errors)
-- [ ] Add option action on decisions (500 error)
-- [ ] Join commitment action (404 - route missing)
+- [x] Heartbeat gate on studio homepage (missing feature)
+- [x] `send_heartbeat` action (missing route)
+- [x] Cycle detail pages (500 errors)
+- [x] Add option action on decisions (500 error)
+- [x] Join commitment action (404 - route missing)
+- [x] `add_comment` action on notes, decisions, commitments
 
 ### Medium Priority (Missing features)
 - [ ] New commitment page (406 - no markdown support)
@@ -171,9 +192,12 @@ Add tests to `test/integration/markdown_ui_test.rb`. Current coverage only inclu
 - [ ] `POST /studios/:handle/decide/actions/create_decision` - create decision
 - [ ] `POST /studios/:handle/commit/actions/create_commitment` - create commitment
 - [ ] `POST /studios/:handle/n/:id/actions/confirm_read` - confirm read
-- [ ] `POST /studios/:handle/d/:id/actions/add_option` - add option (currently 500)
+- [x] `POST /studios/:handle/d/:id/actions/add_option` - add option (fixed)
 - [ ] `POST /studios/:handle/d/:id/actions/vote` - vote on decision
-- [ ] `POST /studios/:handle/c/:id/actions/join_commitment` - join commitment (currently 404)
+- [x] `POST /studios/:handle/c/:id/actions/join_commitment` - join commitment (fixed)
+- [ ] `POST /studios/:handle/n/:id/actions/add_comment` - add comment to note
+- [ ] `POST /studios/:handle/d/:id/actions/add_comment` - add comment to decision
+- [ ] `POST /studios/:handle/c/:id/actions/add_comment` - add comment to commitment
 
 ### Heartbeat Gate Tests
 
