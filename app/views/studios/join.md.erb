@@ -1,0 +1,25 @@
+# Join <%= @current_studio.name %>
+
+<% if @current_user_is_member %>
+You are already a member of this studio.
+
+[Go to studio homepage](<%= @current_studio.path %>)
+<% elsif @invite %>
+You have been invited to join this studio.
+
+## [Actions](<%= @current_studio.path %>/join/actions)
+
+* [`join_studio()`](<%= @current_studio.path %>/join/actions/join_studio) to accept the invitation and join the studio.
+<% elsif @current_studio.is_scene? %>
+This is a scene (open studio). You can join directly.
+
+## [Actions](<%= @current_studio.path %>/join/actions)
+
+* [`join_studio()`](<%= @current_studio.path %>/join/actions/join_studio) to join the scene.
+<% else %>
+You need an invite code to join this studio.
+
+## [Actions](<%= @current_studio.path %>/join/actions)
+
+* [`join_studio(code)`](<%= @current_studio.path %>/join/actions/join_studio) to join with an invite code.
+<% end %>

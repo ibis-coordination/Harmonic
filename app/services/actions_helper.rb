@@ -39,7 +39,7 @@ class ActionsHelper
       actions: [
         {
           name: 'create_note',
-          params_string: '(title, text, deadline)',
+          params_string: '(text)',
           description: 'Create a new note',
         }
       ]
@@ -61,7 +61,7 @@ class ActionsHelper
       actions: [
         {
           name: 'update_note',
-          params_string: '(title, text, deadline)',
+          params_string: '(text)',
           description: 'Update the note',
         }
       ]

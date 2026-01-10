@@ -68,9 +68,10 @@ docker compose exec js npm test
 ### Multi-Tenancy Pattern
 
 Subdomain-based multi-tenancy using thread-local variables:
-- `Current.tenant` and `Current.user` set in `ApplicationController`
-- Models use `default_scope { where(tenant: Current.tenant) }` in `ApplicationRecord`
-- New records auto-populate `tenant_id` via `before_validation`
+- `Tenant.current_id` and `Studio.current_id` are set via thread-local variables
+- Models use `default_scope { where(tenant_id: Tenant.current_id, studio_id: Studio.current_id) }` pattern in `ApplicationRecord`
+- New records auto-populate `tenant_id` and `studio_id` via `before_validation`
+
 
 ### Core Domain Models (OODA Loop)
 

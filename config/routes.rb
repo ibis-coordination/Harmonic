@@ -115,10 +115,16 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:studio_handle/team" => 'studios#team'
     get "#{studios_or_scenes}/:studio_handle/settings" => 'studios#settings'
     post "#{studios_or_scenes}/:studio_handle/settings" => 'studios#update_settings'
+    get "#{studios_or_scenes}/:studio_handle/settings/actions" => 'studios#actions_index_settings'
+    get "#{studios_or_scenes}/:studio_handle/settings/actions/update_studio_settings" => 'studios#describe_update_studio_settings'
+    post "#{studios_or_scenes}/:studio_handle/settings/actions/update_studio_settings" => 'studios#update_studio_settings_action'
     patch "#{studios_or_scenes}/:studio_handle/image" => 'studios#update_image'
     get "#{studios_or_scenes}/:studio_handle/invite" => 'studios#invite'
     get "#{studios_or_scenes}/:studio_handle/join" => 'studios#join'
     post "#{studios_or_scenes}/:studio_handle/join" => 'studios#accept_invite'
+    get "#{studios_or_scenes}/:studio_handle/join/actions" => 'studios#actions_index_join'
+    get "#{studios_or_scenes}/:studio_handle/join/actions/join_studio" => 'studios#describe_join_studio'
+    post "#{studios_or_scenes}/:studio_handle/join/actions/join_studio" => 'studios#join_studio_action'
     get "#{studios_or_scenes}/:studio_handle/represent" => 'studios#represent'
     post "#{studios_or_scenes}/:studio_handle/represent" => 'representation_sessions#start_representing'
     get '/representing' => 'representation_sessions#representing'
@@ -186,10 +192,16 @@ Rails.application.routes.draw do
       post '/duplicate' => 'decisions#duplicate'
       get '/settings' => 'decisions#settings'
       post '/settings' => 'decisions#update_settings'
+      get '/settings/actions' => 'decisions#actions_index_settings'
+      get '/settings/actions/update_decision_settings' => 'decisions#describe_update_decision_settings'
+      post '/settings/actions/update_decision_settings' => 'decisions#update_decision_settings_action'
     end
 
     get "#{prefix}/commit" => 'commitments#new'
     post "#{prefix}/commit" => 'commitments#create'
+    get "#{prefix}/commit/actions" => 'commitments#actions_index_new'
+    get "#{prefix}/commit/actions/create_commitment" => 'commitments#describe_create_commitment'
+    post "#{prefix}/commit/actions/create_commitment" => 'commitments#create_commitment_action'
     resources :commitments, only: [:show], path: "#{prefix}/c" do
       get '/actions' => 'commitments#actions_index_show'
       get '/actions/join_commitment' => 'commitments#describe_join_commitment'
@@ -205,6 +217,9 @@ Rails.application.routes.draw do
       get '/attachments/:attachment_id' => 'attachments#show'
       get '/settings' => 'commitments#settings'
       post '/settings' => 'commitments#update_settings'
+      get '/settings/actions' => 'commitments#actions_index_settings'
+      get '/settings/actions/update_commitment_settings' => 'commitments#describe_update_commitment_settings'
+      post '/settings/actions/update_commitment_settings' => 'commitments#update_commitment_settings_action'
     end
 
     namespace :api, path: "#{prefix}/api" do

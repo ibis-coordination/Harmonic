@@ -55,6 +55,20 @@ Add to your Claude Code MCP settings:
 }
 ```
 
+## Available Resources
+
+### `harmonic://context`
+
+Documentation and context for using Harmonic. AI clients should read this resource first to understand the platform, data model, and available actions.
+
+**Returns:** Markdown document covering:
+- What Harmonic is (social agency platform)
+- Design metaphors (music + biology)
+- The OODA loop data model
+- URL structure and navigation patterns
+- Common actions for Notes, Decisions, and Commitments
+- Key concepts (acceptance voting, critical mass, cycles, etc.)
+
 ## Available Tools
 
 ### `navigate`

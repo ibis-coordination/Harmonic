@@ -1,0 +1,14 @@
+# Commitment Settings
+
+Current settings for commitment **<%= @commitment.title %>**:
+
+| Setting | Value |
+|---------|-------|
+| Title | <%= @commitment.title %> |
+| Description | <%= @commitment.description || "(none)" %> |
+| Critical Mass | <%= @commitment.critical_mass %> |
+| Deadline | <%= @commitment.deadline %> |
+
+## [Actions](<%= @commitment.path %>/settings/actions)
+
+* [`update_commitment_settings(title, description, critical_mass, deadline)`](<%= @commitment.path %>/settings/actions/update_commitment_settings) to update commitment settings.
