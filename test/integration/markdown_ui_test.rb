@@ -504,6 +504,83 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     studio_user&.remove_role!('admin')
   end
 
+  test "POST update_studio_settings action with invitations param updates setting" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Set initial value
+    @studio.settings['all_members_can_invite'] = false
+    @studio.save!
+
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { invitations: "all_members" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.all_members_can_invite?, "Studio should have all_members_can_invite enabled"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
+  test "POST update_studio_settings action with representation param updates setting" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Set initial value
+    @studio.settings['any_member_can_represent'] = false
+    @studio.save!
+
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { representation: "any_member" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.any_member_can_represent?, "Studio should have any_member_can_represent enabled"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
+  test "POST update_studio_settings action with file_uploads param updates setting" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Set initial value
+    @studio.settings['allow_file_uploads'] = false
+    @studio.save!
+
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { file_uploads: true }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.allow_file_uploads?, "Studio should have file uploads enabled"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
+  test "POST update_studio_settings action with api_enabled=true param enables API" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Studio already has API enabled in setup, but verify setting api_enabled=true works
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { api_enabled: true }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.feature_enabled?('api'), "Studio should have API enabled"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
   test "POST update_decision_settings action updates decision and returns 200 markdown" do
     decision = create_decision(studio: @studio, created_by: @user, question: "Original question?")
     post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/settings/actions/update_decision_settings",
@@ -642,5 +719,221 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     TenantUser.where(user: other_user).delete_all if other_user
     other_token&.destroy
     other_user&.destroy
+  end
+
+  # === Pin/Unpin Action Tests ===
+
+  test "GET note settings returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test Note")
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}/settings", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Note Settings/, response.body, "Should show note settings heading")
+    assert_match(/pin_note/, response.body, "Should show pin_note action")
+  end
+
+  test "POST pin_note action pins note and returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Pinnable Note")
+    refute note.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Note should not be pinned initially"
+
+    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/settings/actions/pin_note",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert note.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Note should be pinned after action"
+  end
+
+  test "POST unpin_note action unpins note and returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Pinned Note")
+    note.pin!(tenant: @tenant, studio: @studio, user: @user)
+    assert note.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Note should be pinned initially"
+
+    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/settings/actions/unpin_note",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    refute note.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Note should be unpinned after action"
+  end
+
+  test "POST pin_decision action pins decision and returns 200 markdown" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Pinnable Decision?")
+    refute decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Decision should not be pinned initially"
+
+    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/settings/actions/pin_decision",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Decision should be pinned after action"
+  end
+
+  test "POST unpin_decision action unpins decision and returns 200 markdown" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Pinned Decision?")
+    decision.pin!(tenant: @tenant, studio: @studio, user: @user)
+    assert decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Decision should be pinned initially"
+
+    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/settings/actions/unpin_decision",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    refute decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Decision should be unpinned after action"
+  end
+
+  test "POST pin_commitment action pins commitment and returns 200 markdown" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Pinnable Commitment")
+    refute commitment.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Commitment should not be pinned initially"
+
+    post "/studios/#{@studio.handle}/c/#{commitment.truncated_id}/settings/actions/pin_commitment",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert commitment.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Commitment should be pinned after action"
+  end
+
+  test "POST unpin_commitment action unpins commitment and returns 200 markdown" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Pinned Commitment")
+    commitment.pin!(tenant: @tenant, studio: @studio, user: @user)
+    assert commitment.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Commitment should be pinned initially"
+
+    post "/studios/#{@studio.handle}/c/#{commitment.truncated_id}/settings/actions/unpin_commitment",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    refute commitment.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Commitment should be unpinned after action"
+  end
+
+  # === Create Studio with Optional Settings ===
+
+  test "POST create_studio with api_enabled param creates studio with API enabled" do
+    handle = "api-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "API Enabled Studio",
+        handle: handle,
+        description: "A studio with API enabled",
+        timezone: "America/New_York",
+        tempo: "daily",
+        synchronization_mode: "improv",
+        api_enabled: true,
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    assert studio.api_enabled?, "Studio should have API enabled"
+  end
+
+  test "POST create_studio with invitations param creates studio with correct setting" do
+    handle = "invitations-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "Invitations Studio",
+        handle: handle,
+        timezone: "UTC",
+        tempo: "daily",
+        synchronization_mode: "improv",
+        invitations: "only_admins",
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    refute studio.all_members_can_invite?, "Studio should have only_admins can invite"
+  end
+
+  test "POST create_studio with representation param creates studio with correct setting" do
+    handle = "representation-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "Representation Studio",
+        handle: handle,
+        timezone: "UTC",
+        tempo: "daily",
+        synchronization_mode: "improv",
+        representation: "only_representatives",
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    refute studio.any_member_can_represent?, "Studio should have only_representatives setting"
+  end
+
+  test "POST create_studio with file_uploads param creates studio with correct setting" do
+    handle = "uploads-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "Uploads Studio",
+        handle: handle,
+        timezone: "UTC",
+        tempo: "daily",
+        synchronization_mode: "improv",
+        file_uploads: true,
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    assert studio.allow_file_uploads?, "Studio should have file uploads enabled"
+  end
+
+  # === API Protection: api_enabled not changeable via API ===
+
+  test "POST update_studio_settings ignores api_enabled param entirely" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Ensure API is enabled first
+    @studio.settings['feature_flags'] ||= {}
+    @studio.settings['feature_flags']['api'] = true
+    @studio.save!
+    assert @studio.api_enabled?, "Studio should have API enabled initially"
+
+    # api_enabled param should be ignored entirely (can't change via API)
+    # Try to disable - should be ignored
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { api_enabled: false }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.api_enabled?, "api_enabled=false should be ignored - setting unchanged"
+
+    # Try to enable (already enabled) - should also be ignored (no-op)
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { api_enabled: true }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+
+    @studio.reload
+    assert @studio.api_enabled?, "api_enabled=true should be ignored - setting unchanged"
+  ensure
+    studio_user&.remove_role!('admin')
   end
 end

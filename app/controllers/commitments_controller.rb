@@ -130,6 +130,7 @@ class CommitmentsController < ApplicationController
     return render 'shared/403', status: 403 unless @commitment.can_edit_settings?(@current_user)
     @page_title = "Commitment Settings"
     @page_description = "Change settings for this commitment"
+    set_pin_vars
   end
 
   def actions_index_new
@@ -282,8 +283,75 @@ class CommitmentsController < ApplicationController
   end
 
   def actions_index_settings
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
     @page_title = "Actions | Commitment Settings"
-    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/c/:commitment_id/settings'))
+    set_pin_vars
+    actions = [
+      { name: 'update_commitment_settings', params_string: '(title, description, critical_mass, deadline)' },
+    ]
+    if @is_pinned
+      actions << { name: 'unpin_commitment', params_string: '()' }
+    else
+      actions << { name: 'pin_commitment', params_string: '()' }
+    end
+    render_actions_index({ actions: actions })
+  end
+
+  def describe_pin_commitment
+    render_action_description({
+      action_name: 'pin_commitment',
+      resource: current_commitment,
+      description: "Pin this commitment to the studio homepage.",
+      params: [],
+    })
+  end
+
+  def pin_commitment_action
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
+    begin
+      @commitment.pin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      render_action_success({
+        action_name: 'pin_commitment',
+        resource: @commitment,
+        result: "Commitment pinned.",
+      })
+    rescue => e
+      render_action_error({
+        action_name: 'pin_commitment',
+        resource: @commitment,
+        error: e.message,
+      })
+    end
+  end
+
+  def describe_unpin_commitment
+    render_action_description({
+      action_name: 'unpin_commitment',
+      resource: current_commitment,
+      description: "Unpin this commitment from the studio homepage.",
+      params: [],
+    })
+  end
+
+  def unpin_commitment_action
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
+    begin
+      @commitment.unpin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      render_action_success({
+        action_name: 'unpin_commitment',
+        resource: @commitment,
+        result: "Commitment unpinned.",
+      })
+    rescue => e
+      render_action_error({
+        action_name: 'unpin_commitment',
+        resource: @commitment,
+        error: e.message,
+      })
+    end
   end
 
   def describe_update_commitment_settings

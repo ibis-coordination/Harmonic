@@ -11,4 +11,7 @@ Current settings for commitment **<%= @commitment.title %>**:
 
 ## [Actions](<%= @commitment.path %>/settings/actions)
 
-* [`update_commitment_settings(title, description, critical_mass, deadline)`](<%= @commitment.path %>/settings/actions/update_commitment_settings) to update commitment settings.
+* [`update_commitment_settings(title, description, critical_mass, deadline)`](<%= @commitment.path %>/settings/actions/update_commitment_settings) - Update commitment settings.
+<% if @is_pinned %>* [`unpin_commitment()`](<%= @commitment.path %>/settings/actions/unpin_commitment) - Unpin this commitment from the studio homepage.
+<% else %>* [`pin_commitment()`](<%= @commitment.path %>/settings/actions/pin_commitment) - Pin this commitment to the studio homepage.
+<% end %>

@@ -71,6 +71,22 @@ class StudiosController < ApplicationController
         name: 'synchronization_mode',
         description: 'The synchronization mode of the studio. "improv" or "orchestra"',
         type: 'string',
+      }, {
+        name: 'invitations',
+        description: 'Who can invite new members: "all_members" or "only_admins" (optional)',
+        type: 'string',
+      }, {
+        name: 'representation',
+        description: 'Who can represent the studio: "any_member" or "only_representatives" (optional)',
+        type: 'string',
+      }, {
+        name: 'file_uploads',
+        description: 'Whether file attachments are allowed (optional)',
+        type: 'boolean',
+      }, {
+        name: 'api_enabled',
+        description: 'Whether API access is allowed for this studio (optional)',
+        type: 'boolean',
       }]
     })
   end
@@ -251,6 +267,10 @@ class StudiosController < ApplicationController
         { name: 'timezone', type: 'string', description: 'The timezone of the studio' },
         { name: 'tempo', type: 'string', description: 'The tempo of the studio: "daily", "weekly", or "monthly"' },
         { name: 'synchronization_mode', type: 'string', description: 'The synchronization mode: "improv" or "orchestra"' },
+        { name: 'invitations', type: 'string', description: 'Who can invite new members: "all_members" or "only_admins"' },
+        { name: 'representation', type: 'string', description: 'Who can represent the studio: "any_member" or "only_representatives"' },
+        { name: 'file_uploads', type: 'boolean', description: 'Whether file attachments are allowed' },
+        { name: 'api_enabled', type: 'boolean', description: 'Whether API access is allowed (not changeable via API - use HTML UI to modify)' },
       ],
     })
   end

@@ -8,7 +8,7 @@ class ActionsHelper
       actions: [
         {
           name: 'create_studio',
-          params_string: '(name, handle, description, timezone, tempo, synchronization_mode)',
+          params_string: '(name, handle, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)',
           description: 'Create a new studio',
         }
       ]
@@ -27,7 +27,7 @@ class ActionsHelper
       actions: [
         {
           name: 'update_studio_settings',
-          params_string: '(name, description, timezone, tempo, synchronization_mode)',
+          params_string: '(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)',
           description: 'Update studio settings',
         }
       ]

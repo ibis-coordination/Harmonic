@@ -11,4 +11,7 @@ Current settings for decision **<%= @decision.question %>**:
 
 ## [Actions](<%= @decision.path %>/settings/actions)
 
-* [`update_decision_settings(question, description, options_open, deadline)`](<%= @decision.path %>/settings/actions/update_decision_settings) to update decision settings.
+* [`update_decision_settings(question, description, options_open, deadline)`](<%= @decision.path %>/settings/actions/update_decision_settings) - Update decision settings.
+<% if @is_pinned %>* [`unpin_decision()`](<%= @decision.path %>/settings/actions/unpin_decision) - Unpin this decision from the studio homepage.
+<% else %>* [`pin_decision()`](<%= @decision.path %>/settings/actions/pin_decision) - Pin this decision to the studio homepage.
+<% end %>

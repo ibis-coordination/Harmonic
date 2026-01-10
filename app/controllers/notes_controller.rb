@@ -87,21 +87,11 @@ class NotesController < ApplicationController
       description: "Create a new note",
       params: [
         {
-          name: 'title',
-          description: 'The title of the note',
-          type: 'string',
-        },
-        {
           name: 'text',
           description: 'The text of the note',
           type: 'string',
         },
-        {
-          name: 'deadline',
-          description: 'The deadline of the note',
-          type: 'datetime',
-        }
-      ]
+      ],
     })
   end
 
@@ -265,6 +255,83 @@ class NotesController < ApplicationController
         params_string: '()',
       }]
     })
+  end
+
+  def settings
+    @note = current_note
+    return render '404', status: 404 unless @note
+    return render 'shared/403', status: 403 unless @note.user_can_edit?(@current_user)
+    @page_title = "Note Settings"
+    set_pin_vars
+  end
+
+  def actions_index_settings
+    @note = current_note
+    return render '404', status: 404 unless @note
+    @page_title = "Actions | Note Settings"
+    actions = []
+    if @note.is_pinned?(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      actions << { name: 'unpin_note', params_string: '()' }
+    else
+      actions << { name: 'pin_note', params_string: '()' }
+    end
+    render_actions_index({ actions: actions })
+  end
+
+  def describe_pin_note
+    render_action_description({
+      action_name: 'pin_note',
+      resource: current_note,
+      description: "Pin this note to the studio homepage.",
+      params: []
+    })
+  end
+
+  def pin_note_action
+    @note = current_note
+    return render '404', status: 404 unless @note
+    begin
+      @note.pin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      render_action_success({
+        action_name: 'pin_note',
+        resource: @note,
+        result: "Note pinned.",
+      })
+    rescue => e
+      render_action_error({
+        action_name: 'pin_note',
+        resource: @note,
+        error: e.message,
+      })
+    end
+  end
+
+  def describe_unpin_note
+    render_action_description({
+      action_name: 'unpin_note',
+      resource: current_note,
+      description: "Unpin this note from the studio homepage.",
+      params: []
+    })
+  end
+
+  def unpin_note_action
+    @note = current_note
+    return render '404', status: 404 unless @note
+    begin
+      @note.unpin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      render_action_success({
+        action_name: 'unpin_note',
+        resource: @note,
+        result: "Note unpinned.",
+      })
+    rescue => e
+      render_action_error({
+        action_name: 'unpin_note',
+        resource: @note,
+        error: e.message,
+      })
+    end
   end
 
 end

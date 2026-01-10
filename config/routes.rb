@@ -170,6 +170,12 @@ Rails.application.routes.draw do
       post '/confirm.html' => 'notes#confirm_and_return_partial'
       put '/pin' => 'notes#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
+      get '/settings' => 'notes#settings'
+      get '/settings/actions' => 'notes#actions_index_settings'
+      get '/settings/actions/pin_note' => 'notes#describe_pin_note'
+      post '/settings/actions/pin_note' => 'notes#pin_note_action'
+      get '/settings/actions/unpin_note' => 'notes#describe_unpin_note'
+      post '/settings/actions/unpin_note' => 'notes#unpin_note_action'
     end
 
     get "#{prefix}/decide" => 'decisions#new'
@@ -199,6 +205,10 @@ Rails.application.routes.draw do
       get '/settings/actions' => 'decisions#actions_index_settings'
       get '/settings/actions/update_decision_settings' => 'decisions#describe_update_decision_settings'
       post '/settings/actions/update_decision_settings' => 'decisions#update_decision_settings_action'
+      get '/settings/actions/pin_decision' => 'decisions#describe_pin_decision'
+      post '/settings/actions/pin_decision' => 'decisions#pin_decision_action'
+      get '/settings/actions/unpin_decision' => 'decisions#describe_unpin_decision'
+      post '/settings/actions/unpin_decision' => 'decisions#unpin_decision_action'
     end
 
     get "#{prefix}/commit" => 'commitments#new'
@@ -224,6 +234,10 @@ Rails.application.routes.draw do
       get '/settings/actions' => 'commitments#actions_index_settings'
       get '/settings/actions/update_commitment_settings' => 'commitments#describe_update_commitment_settings'
       post '/settings/actions/update_commitment_settings' => 'commitments#update_commitment_settings_action'
+      get '/settings/actions/pin_commitment' => 'commitments#describe_pin_commitment'
+      post '/settings/actions/pin_commitment' => 'commitments#pin_commitment_action'
+      get '/settings/actions/unpin_commitment' => 'commitments#describe_unpin_commitment'
+      post '/settings/actions/unpin_commitment' => 'commitments#unpin_commitment_action'
     end
 
     namespace :api, path: "#{prefix}/api" do

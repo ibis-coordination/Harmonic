@@ -81,6 +81,23 @@ class ApiHelper
         tempo: params[:tempo],
         synchronization_mode: params[:synchronization_mode],
       )
+
+      # Apply optional settings
+      if params.has_key?(:invitations)
+        studio.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+      end
+      if params.has_key?(:representation)
+        studio.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+      end
+      if params.has_key?(:file_uploads)
+        studio.settings['allow_file_uploads'] = params[:file_uploads] == true || params[:file_uploads] == 'true' || params[:file_uploads] == '1'
+      end
+      if params.has_key?(:api_enabled)
+        studio.settings['feature_flags'] ||= {}
+        studio.settings['feature_flags']['api'] = params[:api_enabled] == true || params[:api_enabled] == 'true' || params[:api_enabled] == '1'
+      end
+      studio.save! if studio.settings_changed?
+
       # This is needed to ensure that all the models created in this transaction
       # are associated with the correct tenant and studio
       Studio.scope_thread_to_studio(handle: studio.handle, subdomain: T.must(studio.tenant).subdomain)
@@ -158,7 +175,7 @@ class ApiHelper
       note = Note.create!(
         title: params[:title],
         text: params[:text],
-        deadline: params[:deadline],
+        deadline: Time.now,
         created_by: current_user,
         commentable: commentable,
       )
@@ -509,26 +526,39 @@ class ApiHelper
       current_studio.tempo = params[:tempo] if params[:tempo].present?
       current_studio.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
 
-      if current_studio.changed?
-        current_studio.updated_by = current_user
-        current_studio.save!
+      # Handle settings stored in JSON column
+      if params.has_key?(:invitations)
+        current_studio.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+      end
+      if params.has_key?(:representation)
+        current_studio.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+      end
+      if params.has_key?(:file_uploads)
+        current_studio.settings['allow_file_uploads'] = params[:file_uploads] == true || params[:file_uploads] == 'true' || params[:file_uploads] == '1'
+      end
+      # api_enabled is intentionally not changeable via API:
+      # - Can't enable if already disabled (no API access)
+      # - Can't disable (would lock out the caller)
+      # Use HTML UI to change this setting
 
-        if current_representation_session
-          current_representation_session.record_activity!(
-            request: request,
-            semantic_event: {
-              timestamp: Time.current,
-              event_type: 'update',
-              studio_id: current_studio.id,
-              main_resource: {
-                type: 'Studio',
-                id: current_studio.id,
-                truncated_id: current_studio.truncated_id,
-              },
-              sub_resources: [],
-            }
-          )
-        end
+      current_studio.updated_by = current_user
+      current_studio.save!
+
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'update',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Studio',
+              id: current_studio.id,
+              truncated_id: current_studio.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
       end
     end
     current_studio
