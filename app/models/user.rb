@@ -124,6 +124,13 @@ class User < ApplicationRecord
     user == self || (user.subagent? && user.parent_id == self.id)
   end
 
+  sig { params(subagent: User, studio: Studio).returns(T::Boolean) }
+  def can_add_subagent_to_studio?(subagent, studio)
+    return false unless subagent.subagent? && subagent.parent_id == self.id
+    su = studio_users.find_by(studio_id: studio.id)
+    su&.can_invite? || false
+  end
+
   sig { void }
   def archive!
     T.must(tenant_user).archive!

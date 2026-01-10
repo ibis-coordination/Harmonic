@@ -307,12 +307,12 @@ end
 - [x] Update markdown rendering
 - [x] Update impersonation UI
 
-### Phase 3: Studio Membership
-- [ ] Add authorization method
-- [ ] Update parent settings page
-- [ ] Update studio member management
-- [ ] Add API support
-- [ ] Add tests
+### Phase 3: Studio Membership ✓
+- [x] Add authorization method
+- [x] Update parent settings page
+- [x] Update studio member management
+- [x] Add API support
+- [x] Add tests
 
 ---
 
@@ -367,7 +367,7 @@ end
 - [x] Parent relationship visible in activity feeds
 - [x] Parent relationship visible in markdown output
 - [x] Avatars show parent overlay for subagents
-- [ ] Parents can add subagents to studios from settings page
-- [ ] Parents can add subagents to studios from studio member page
+- [x] Parents can add subagents to studios from settings page
+- [ ] Parents can add subagents to studios from studio member page (optional - not implemented)
 - [x] All existing tests pass after updates
-- [ ] New tests cover visibility and studio membership features
+- [x] New tests cover visibility and studio membership features

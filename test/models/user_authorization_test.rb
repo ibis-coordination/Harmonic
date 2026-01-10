@@ -222,6 +222,69 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert_nil su
   end
 
+  # === Add Subagent to Studio Tests ===
+
+  test "parent can add subagent to studio where they have invite permission" do
+    parent = create_unique_user
+    @tenant.add_user!(parent)
+    @studio.add_user!(parent, roles: ['admin'])
+
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
+      parent_id: parent.id
+    )
+    @tenant.add_user!(subagent)
+
+    assert parent.can_add_subagent_to_studio?(subagent, @studio)
+  end
+
+  test "parent cannot add subagent to studio where they lack invite permission" do
+    parent = create_unique_user
+    @tenant.add_user!(parent)
+    # Parent is not a member of the studio
+
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
+      parent_id: parent.id
+    )
+    @tenant.add_user!(subagent)
+
+    assert_not parent.can_add_subagent_to_studio?(subagent, @studio)
+  end
+
+  test "user cannot add another user's subagent to studio" do
+    parent1 = create_unique_user
+    parent2 = create_unique_user
+    @tenant.add_user!(parent1)
+    @tenant.add_user!(parent2)
+    @studio.add_user!(parent2, roles: ['admin'])
+
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
+      parent_id: parent1.id
+    )
+    @tenant.add_user!(subagent)
+
+    # Parent2 has invite permission but subagent belongs to parent1
+    assert_not parent2.can_add_subagent_to_studio?(subagent, @studio)
+  end
+
+  test "cannot add non-subagent user to studio via can_add_subagent_to_studio" do
+    parent = create_unique_user
+    regular_user = create_unique_user
+    @tenant.add_user!(parent)
+    @tenant.add_user!(regular_user)
+    @studio.add_user!(parent, roles: ['admin'])
+
+    assert_not parent.can_add_subagent_to_studio?(regular_user, @studio)
+  end
+
   # === Archive Tests ===
 
   test "archiving user archives their tenant_user" do

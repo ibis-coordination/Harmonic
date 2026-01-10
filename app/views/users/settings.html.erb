@@ -71,13 +71,30 @@ Click image to upload a new image.<br/>
       <table>
         <tr>
           <th>Name</th>
+          <th>Studios</th>
           <th>Created</th>
           <th>Profile</th>
           <th>Impersonate</th>
         </tr>
         <% @subagents.each do |subagent| %>
+          <% subagent_studios = subagent.studio_users.map(&:studio) %>
+          <% available_studios = @invitable_studios - subagent_studios %>
           <tr>
             <td><%= subagent.name %></td>
+            <td>
+              <% if subagent_studios.any? %>
+                <%= subagent_studios.map { |s| link_to(s.name, s.path) }.join(', ').html_safe %>
+              <% else %>
+                <em>None</em>
+              <% end %>
+              <% if available_studios.any? && !subagent.archived? %>
+                <br/>
+                <%= form_tag "#{subagent.path}/add_to_studio", method: :post, style: "display:inline;margin-top:4px;" do %>
+                  <%= select_tag :studio_id, options_for_select(available_studios.map { |s| [s.name, s.id] }), prompt: "Add to studio..." %>
+                  <%= submit_tag "Add", class: "button-small" %>
+                <% end %>
+              <% end %>
+            </td>
             <td><%= timeago(subagent.created_at) %></td>
             <td><%= link_to 'View', subagent.path %></td>
             <% if subagent.archived? %>

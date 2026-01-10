@@ -31,7 +31,23 @@ class UsersController < ApplicationController
     return render '404' if tu.nil?
     return render plain: '403 Unauthorized' unless tu.user == current_user
     @current_user.tenant_user = tu
-    @subagents = @current_user.subagents.includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+    @subagents = @current_user.subagents.includes(:tenant_users, :studio_users).where(tenant_users: { tenant_id: @current_tenant.id })
+    # Studios where current user has invite permission (for adding subagents)
+    @invitable_studios = @current_user.studio_users.includes(:studio).select(&:can_invite?).map(&:studio)
+  end
+
+  def add_subagent_to_studio
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render status: 404, plain: "404 Not Found" if tu.nil?
+    subagent = tu.user
+    return render status: 403, plain: "403 Unauthorized" unless subagent.subagent? && subagent.parent_id == current_user.id
+    studio = Studio.find(params[:studio_id])
+    return render status: 403, plain: "403 Unauthorized" unless current_user.can_add_subagent_to_studio?(subagent, studio)
+
+    # Add subagent to the studio
+    studio.add_user!(subagent)
+    flash[:notice] = "#{subagent.display_name} has been added to #{studio.name}"
+    redirect_to "#{current_user.path}/settings"
   end
 
   def update_profile

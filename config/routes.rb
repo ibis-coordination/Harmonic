@@ -90,6 +90,7 @@ Rails.application.routes.draw do
               only: [:new, :create, :show, :destroy]
     post 'impersonate' => 'users#impersonate', on: :member
     delete 'impersonate' => 'users#stop_impersonating', on: :member
+    post 'add_to_studio' => 'users#add_subagent_to_studio', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|
