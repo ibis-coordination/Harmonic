@@ -281,14 +281,14 @@ end
 
 ## Implementation Order
 
-### Phase 0: Impersonation Tests (FIRST)
-- [ ] Create `test/integration/impersonation_test.rb`
-- [ ] Add tests for starting impersonation
-- [ ] Add tests for session management
-- [ ] Add tests for actions while impersonating
-- [ ] Add tests for stopping impersonation
-- [ ] Add edge case tests
-- [ ] Verify all tests pass before proceeding
+### Phase 0: Impersonation Tests (FIRST) ✓
+- [x] Create `test/integration/impersonation_test.rb`
+- [x] Add tests for starting impersonation
+- [x] Add tests for session management
+- [x] Add tests for actions while impersonating
+- [x] Add tests for stopping impersonation
+- [x] Add edge case tests
+- [x] Verify all tests pass before proceeding
 
 ### Phase 1: Core Rename
 - [ ] Database migration
@@ -360,7 +360,7 @@ end
 
 ## Success Criteria
 
-- [ ] Impersonation integration tests written and passing (before any refactor)
+- [x] Impersonation integration tests written and passing (before any refactor)
 - [ ] All references to "simulated" replaced with "subagent" in code and UI
 - [ ] Database migration runs successfully
 - [ ] Parent relationship visible on subagent profiles
