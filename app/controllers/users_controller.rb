@@ -149,4 +149,58 @@ class UsersController < ApplicationController
     redirect_to request.referrer
   end
 
+  # Markdown API actions
+
+  def actions_index
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render '404', status: 404 if tu.nil?
+    return render plain: '403 Unauthorized', status: 403 unless tu.user == current_user
+    @page_title = "Actions | Your Settings"
+    render_actions_index(ActionsHelper.actions_for_route('/u/:handle/settings'))
+  end
+
+  def describe_update_profile
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render '404', status: 404 if tu.nil?
+    return render plain: '403 Unauthorized', status: 403 unless tu.user == current_user
+    render_action_description({
+      action_name: 'update_profile',
+      resource: current_user,
+      description: 'Update your profile name and/or handle',
+      params: [
+        { name: 'name', type: 'string', description: 'Your display name' },
+        { name: 'new_handle', type: 'string', description: 'Your unique handle (used in URLs)' },
+      ],
+    })
+  end
+
+  def execute_update_profile
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render '404', status: 404 if tu.nil?
+    return render plain: '403 Unauthorized', status: 403 unless tu.user == current_user
+
+    if params[:name].present?
+      current_user.name = params[:name]
+      current_user.save!
+      TenantUser.unscoped.where(user: current_user).update_all(display_name: params[:name])
+    end
+    # Use new_handle to avoid conflict with path parameter :handle
+    # Note: handle is a virtual attribute that delegates to tenant_user
+    if params[:new_handle].present?
+      current_user.handle = params[:new_handle]
+      current_user.tenant_user.save!
+      # Also update all other tenant_users for this user
+      TenantUser.unscoped.where(user: current_user).where.not(id: current_user.tenant_user.id).update_all(handle: params[:new_handle])
+    end
+
+    @page_title = "Your Settings"
+    @current_user.tenant_user = tu
+    @subagents = @current_user.subagents.includes(:tenant_users, :studio_users).where(tenant_users: { tenant_id: @current_tenant.id })
+    @invitable_studios = @current_user.studio_users.includes(:studio).select(&:can_invite?).map(&:studio)
+    respond_to do |format|
+      format.md { render 'settings' }
+      format.html { redirect_to "#{current_user.path}/settings" }
+    end
+  end
+
 end

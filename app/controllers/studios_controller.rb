@@ -294,6 +294,123 @@ class StudiosController < ApplicationController
     end
   end
 
+  def describe_add_subagent_to_studio
+    # Get list of addable subagents for context
+    addable_subagents = current_user.subagents.includes(:tenant_users, :studio_users)
+      .where(tenant_users: { tenant_id: @current_tenant.id })
+      .reject { |s| s.studios.include?(@current_studio) }
+
+    render_action_description({
+      action_name: 'add_subagent_to_studio',
+      resource: @current_studio,
+      description: 'Add one of your subagents to this studio',
+      params: [
+        { name: 'subagent_id', type: 'integer', description: "ID of the subagent to add. Your available subagents: #{addable_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
+      ],
+    })
+  end
+
+  def execute_add_subagent_to_studio
+    return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+
+    begin
+      subagent = User.find(params[:subagent_id])
+      unless subagent.subagent? && subagent.parent_id == current_user.id
+        return render_action_error({
+          action_name: 'add_subagent_to_studio',
+          resource: @current_studio,
+          error: 'You can only add your own subagents.',
+        })
+      end
+      unless current_user.can_add_subagent_to_studio?(subagent, @current_studio)
+        return render_action_error({
+          action_name: 'add_subagent_to_studio',
+          resource: @current_studio,
+          error: 'You do not have permission to add subagents to this studio.',
+        })
+      end
+
+      @current_studio.add_user!(subagent)
+      render_action_success({
+        action_name: 'add_subagent_to_studio',
+        resource: @current_studio,
+        result: "#{subagent.display_name} has been added to #{@current_studio.name}.",
+      })
+    rescue ActiveRecord::RecordNotFound
+      render_action_error({
+        action_name: 'add_subagent_to_studio',
+        resource: @current_studio,
+        error: 'Subagent not found.',
+      })
+    rescue StandardError => e
+      render_action_error({
+        action_name: 'add_subagent_to_studio',
+        resource: @current_studio,
+        error: e.message,
+      })
+    end
+  end
+
+  def describe_remove_subagent_from_studio
+    # Get list of removable subagents for context
+    studio_subagents = @current_studio.studio_users.includes(:user)
+      .reject(&:archived?)
+      .map(&:user)
+      .select { |u| u.subagent? && u.parent_id == current_user.id }
+
+    render_action_description({
+      action_name: 'remove_subagent_from_studio',
+      resource: @current_studio,
+      description: 'Remove a subagent from this studio',
+      params: [
+        { name: 'subagent_id', type: 'integer', description: "ID of the subagent to remove. Your subagents in this studio: #{studio_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
+      ],
+    })
+  end
+
+  def execute_remove_subagent_from_studio
+    return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+
+    begin
+      subagent = User.find(params[:subagent_id])
+      unless subagent.subagent? && subagent.parent_id == current_user.id
+        return render_action_error({
+          action_name: 'remove_subagent_from_studio',
+          resource: @current_studio,
+          error: 'You can only remove your own subagents.',
+        })
+      end
+
+      studio_user = StudioUser.find_by(studio: @current_studio, user: subagent)
+      if studio_user.nil? || studio_user.archived?
+        return render_action_error({
+          action_name: 'remove_subagent_from_studio',
+          resource: @current_studio,
+          error: 'Subagent is not a member of this studio.',
+        })
+      end
+
+      studio_user.archive!
+      render_action_success({
+        action_name: 'remove_subagent_from_studio',
+        resource: @current_studio,
+        result: "#{subagent.display_name} has been removed from #{@current_studio.name}.",
+      })
+    rescue ActiveRecord::RecordNotFound
+      render_action_error({
+        action_name: 'remove_subagent_from_studio',
+        resource: @current_studio,
+        error: 'Subagent not found.',
+      })
+    rescue StandardError => e
+      render_action_error({
+        action_name: 'remove_subagent_from_studio',
+        resource: @current_studio,
+        error: e.message,
+      })
+    end
+  end
+
   def actions_index_join
     @page_title = "Actions | Join Studio"
     render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/join'))

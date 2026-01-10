@@ -1,0 +1,12 @@
+# New Subagent
+
+Create a new subagent. Subagents are virtual identities that you manage. These identities can be associated with AI agents and other automated systems that interact with the app through the API.
+
+## Parameters
+
+* **name** (string): The name of the subagent
+* **generate_token** (boolean, optional): If true, automatically generate an API token for this subagent (default: false)
+
+## [Actions](<%= @current_user.path %>/settings/subagents/new/actions)
+
+* [`create_subagent(name, generate_token)`](<%= @current_user.path %>/settings/subagents/new/actions/create_subagent) - Create the subagent

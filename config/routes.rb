@@ -92,6 +92,18 @@ Rails.application.routes.draw do
     delete 'impersonate' => 'users#stop_impersonating', on: :member
     post 'add_to_studio' => 'users#add_subagent_to_studio', on: :member
     delete 'remove_from_studio' => 'users#remove_subagent_from_studio', on: :member
+    # User settings actions
+    get 'settings/actions' => 'users#actions_index', on: :member
+    get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member
+    post 'settings/actions/update_profile' => 'users#execute_update_profile', on: :member
+    # API token actions
+    get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
+    get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member
+    post 'settings/tokens/new/actions/create_api_token' => 'api_tokens#execute_create_api_token', on: :member
+    # Subagent actions
+    get 'settings/subagents/new/actions' => 'subagents#actions_index', on: :member
+    get 'settings/subagents/new/actions/create_subagent' => 'subagents#describe_create_subagent', on: :member
+    post 'settings/subagents/new/actions/create_subagent' => 'subagents#execute_create_subagent', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|
@@ -122,6 +134,10 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:studio_handle/settings/actions" => 'studios#actions_index_settings'
     get "#{studios_or_scenes}/:studio_handle/settings/actions/update_studio_settings" => 'studios#describe_update_studio_settings'
     post "#{studios_or_scenes}/:studio_handle/settings/actions/update_studio_settings" => 'studios#update_studio_settings_action'
+    get "#{studios_or_scenes}/:studio_handle/settings/actions/add_subagent_to_studio" => 'studios#describe_add_subagent_to_studio'
+    post "#{studios_or_scenes}/:studio_handle/settings/actions/add_subagent_to_studio" => 'studios#execute_add_subagent_to_studio'
+    get "#{studios_or_scenes}/:studio_handle/settings/actions/remove_subagent_from_studio" => 'studios#describe_remove_subagent_from_studio'
+    post "#{studios_or_scenes}/:studio_handle/settings/actions/remove_subagent_from_studio" => 'studios#execute_remove_subagent_from_studio'
     patch "#{studios_or_scenes}/:studio_handle/image" => 'studios#update_image'
     get "#{studios_or_scenes}/:studio_handle/invite" => 'studios#invite'
     get "#{studios_or_scenes}/:studio_handle/join" => 'studios#join'

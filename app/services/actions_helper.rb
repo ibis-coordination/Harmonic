@@ -29,6 +29,16 @@ class ActionsHelper
           name: 'update_studio_settings',
           params_string: '(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)',
           description: 'Update studio settings',
+        },
+        {
+          name: 'add_subagent_to_studio',
+          params_string: '(subagent_id)',
+          description: 'Add one of your subagents to this studio',
+        },
+        {
+          name: 'remove_subagent_from_studio',
+          params_string: '(subagent_id)',
+          description: 'Remove a subagent from this studio',
         }
       ]
     },
@@ -129,6 +139,33 @@ class ActionsHelper
           name: 'update_commitment_settings',
           params_string: '(title, description, critical_mass, deadline)',
           description: 'Update the commitment settings',
+        }
+      ]
+    },
+    '/u/:handle/settings' => {
+      actions: [
+        {
+          name: 'update_profile',
+          params_string: '(name, new_handle)',
+          description: 'Update your profile name and/or handle',
+        }
+      ]
+    },
+    '/u/:handle/settings/tokens/new' => {
+      actions: [
+        {
+          name: 'create_api_token',
+          params_string: '(name, read_write, duration, duration_unit)',
+          description: 'Create a new API token',
+        }
+      ]
+    },
+    '/u/:handle/settings/subagents/new' => {
+      actions: [
+        {
+          name: 'create_subagent',
+          params_string: '(name, generate_token)',
+          description: 'Create a new subagent',
         }
       ]
     }

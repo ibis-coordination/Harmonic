@@ -936,4 +936,239 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     studio_user&.remove_role!('admin')
   end
+
+  # === Phase 2: User Management Actions ===
+
+  test "GET /u/:handle/settings returns 200 markdown with actions section" do
+    get "/u/#{@user.handle}/settings", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert has_actions_section?, "User settings should have actions section"
+    assert_match(/update_profile/, response.body, "Should show update_profile action")
+  end
+
+  test "POST update_profile action updates user name and returns 200 markdown" do
+    original_name = @user.name
+    post "/u/#{@user.handle}/settings/actions/update_profile",
+      params: { name: "Updated Name" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @user.reload
+    assert_equal "Updated Name", @user.name, "User name should have been updated"
+  ensure
+    @user.update!(name: original_name)
+    TenantUser.unscoped.where(user: @user).update_all(display_name: original_name)
+  end
+
+  test "POST update_profile action updates user handle and returns 200 markdown" do
+    original_handle = @user.handle
+    new_handle = "updated-#{SecureRandom.hex(4)}"
+    post "/u/#{@user.handle}/settings/actions/update_profile",
+      params: { new_handle: new_handle }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Reload tenant_user association since handle is stored there
+    tu = @tenant.tenant_users.find_by(user: @user)
+    assert_equal new_handle, tu.handle, "User handle should have been updated"
+  ensure
+    TenantUser.unscoped.where(user: @user).update_all(handle: original_handle)
+  end
+
+  test "GET /u/:handle/settings/tokens/new returns 200 markdown with actions" do
+    get "/u/#{@user.handle}/settings/tokens/new", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert has_actions_section?, "New token page should have actions section"
+    assert_match(/create_api_token/, response.body, "Should show create_api_token action")
+  end
+
+  test "POST create_api_token action creates token and returns 200 markdown" do
+    initial_count = @user.api_tokens.count
+    post "/u/#{@user.handle}/settings/tokens/new/actions/create_api_token",
+      params: { name: "Test Token", read_write: "read" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @user.reload
+    assert_equal initial_count + 1, @user.api_tokens.count, "New token should have been created"
+    new_token = @user.api_tokens.last
+    assert_equal "Test Token", new_token.name
+  ensure
+    @user.api_tokens.where(name: "Test Token").destroy_all
+  end
+
+  test "POST create_api_token action creates read_write token" do
+    post "/u/#{@user.handle}/settings/tokens/new/actions/create_api_token",
+      params: { name: "Write Token", read_write: "write" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    new_token = ApiToken.find_by(name: "Write Token", user: @user)
+    assert new_token, "Token should have been created"
+    assert new_token.scopes.include?('create:all'), "Token should have write scopes (create:all), got: #{new_token.scopes}"
+  ensure
+    ApiToken.where(name: "Write Token", user: @user).destroy_all
+  end
+
+  test "GET /u/:handle/settings/subagents/new returns 200 markdown with actions" do
+    get "/u/#{@user.handle}/settings/subagents/new", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert has_actions_section?, "New subagent page should have actions section"
+    assert_match(/create_subagent/, response.body, "Should show create_subagent action")
+  end
+
+  test "POST create_subagent action creates subagent and returns 200 markdown" do
+    subagent_name = "Test Subagent #{SecureRandom.hex(4)}"
+    initial_count = @user.subagents.count
+    post "/u/#{@user.handle}/settings/subagents/new/actions/create_subagent",
+      params: { name: subagent_name }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @user.reload
+    assert_equal initial_count + 1, @user.subagents.count, "New subagent should have been created"
+    new_subagent = @user.subagents.find_by(name: subagent_name)
+    assert new_subagent, "Subagent should exist"
+    assert new_subagent.subagent?, "New user should be a subagent"
+  ensure
+    subagent = User.find_by(name: subagent_name)
+    if subagent
+      TenantUser.where(user: subagent).delete_all
+      subagent.destroy
+    end
+  end
+
+  test "POST create_subagent action with generate_token creates subagent with token" do
+    subagent_name = "Subagent With Token #{SecureRandom.hex(4)}"
+    post "/u/#{@user.handle}/settings/subagents/new/actions/create_subagent",
+      params: { name: subagent_name, generate_token: true }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    new_subagent = User.find_by(name: subagent_name)
+    assert new_subagent, "Subagent should exist"
+    assert new_subagent.api_tokens.any?, "Subagent should have an API token"
+  ensure
+    subagent = User.find_by(name: subagent_name)
+    if subagent
+      subagent.api_tokens.delete_all
+      TenantUser.where(user: subagent).delete_all
+      subagent.destroy
+    end
+  end
+
+  test "POST add_subagent_to_studio action adds subagent to studio" do
+    # Create a subagent first
+    subagent_name = "Studio Subagent #{SecureRandom.hex(4)}"
+    subagent = User.create!(
+      name: subagent_name,
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(subagent)
+
+    # Create a second studio where user is admin
+    second_studio = Studio.create!(
+      tenant: @tenant,
+      name: "Second Studio #{SecureRandom.hex(4)}",
+      handle: "second-#{SecureRandom.hex(4)}",
+      created_by: @user,
+    )
+    second_studio.add_user!(@user, roles: ['admin'])
+    second_studio.enable_api!
+
+    # Subagent should not be in the second studio initially
+    refute subagent.studios.include?(second_studio), "Subagent should not be in studio initially"
+
+    # Add subagent to studio via API
+    post "/studios/#{second_studio.handle}/settings/actions/add_subagent_to_studio",
+      params: { subagent_id: subagent.id }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    subagent.reload
+    assert subagent.studios.include?(second_studio), "Subagent should now be in the studio"
+  ensure
+    StudioUser.where(studio: second_studio).delete_all if second_studio
+    second_studio&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "POST remove_subagent_from_studio action removes subagent from studio" do
+    # Create a subagent and add to studio
+    subagent_name = "Remove Subagent #{SecureRandom.hex(4)}"
+    subagent = User.create!(
+      name: subagent_name,
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(subagent)
+
+    # Create a second studio where user is admin
+    second_studio = Studio.create!(
+      tenant: @tenant,
+      name: "Remove Studio #{SecureRandom.hex(4)}",
+      handle: "remove-#{SecureRandom.hex(4)}",
+      created_by: @user,
+    )
+    second_studio.add_user!(@user, roles: ['admin'])
+    second_studio.add_user!(subagent)
+    second_studio.enable_api!
+
+    # Subagent should be in the studio initially
+    assert subagent.studios.include?(second_studio), "Subagent should be in studio initially"
+
+    # Remove subagent from studio via API
+    post "/studios/#{second_studio.handle}/settings/actions/remove_subagent_from_studio",
+      params: { subagent_id: subagent.id }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    subagent.reload
+    # The studio_user should be archived, not deleted
+    studio_user = StudioUser.unscoped.find_by(studio: second_studio, user: subagent)
+    assert studio_user.archived?, "Subagent's studio membership should be archived"
+  ensure
+    StudioUser.where(studio: second_studio).delete_all if second_studio
+    second_studio&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Studio settings markdown shows add_subagent_to_studio action when subagents exist" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Create a subagent that's not in this studio
+    subagent = User.create!(
+      name: "Available Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(subagent)
+
+    get "/studios/#{@studio.handle}/settings", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/add_subagent_to_studio/, response.body, "Should show add_subagent_to_studio action")
+  ensure
+    studio_user&.remove_role!('admin')
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
 end

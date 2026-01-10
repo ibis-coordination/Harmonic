@@ -48,4 +48,10 @@ Studio memberships:
 
 ## [Actions](<%= @current_user.path %>/settings/actions)
 
-* No actions available via API.
+* [`update_profile(name, new_handle)`](<%= @current_user.path %>/settings/actions/update_profile) - Update your profile name and/or handle
+<% if @current_tenant.api_enabled? %>
+* [New API Token](<%= @current_user.path %>/settings/tokens/new) - Create a new API token
+<% if @current_user.person? %>
+* [New Subagent](<%= @current_user.path %>/settings/subagents/new) - Create a new subagent
+<% end %>
+<% end %>
