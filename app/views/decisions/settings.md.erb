@@ -1,0 +1,14 @@
+# Decision Settings
+
+Current settings for decision **<%= @decision.question %>**:
+
+| Setting | Value |
+|---------|-------|
+| Question | <%= @decision.question %> |
+| Description | <%= @decision.description || "(none)" %> |
+| Options Open | <%= @decision.options_open? ? "Yes" : "No" %> |
+| Deadline | <%= @decision.deadline %> |
+
+## [Actions](<%= @decision.path %>/settings/actions)
+
+* [`update_decision_settings(question, description, options_open, deadline)`](<%= @decision.path %>/settings/actions/update_decision_settings) to update decision settings.

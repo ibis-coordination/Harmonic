@@ -281,6 +281,44 @@ class CommitmentsController < ApplicationController
     redirect_to @commitment.path
   end
 
+  def actions_index_settings
+    @page_title = "Actions | Commitment Settings"
+    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/c/:commitment_id/settings'))
+  end
+
+  def describe_update_commitment_settings
+    render_action_description({
+      action_name: 'update_commitment_settings',
+      resource: current_commitment,
+      description: 'Update commitment settings',
+      params: [
+        { name: 'title', type: 'string', description: 'The title of the commitment' },
+        { name: 'description', type: 'string', description: 'A description of the commitment' },
+        { name: 'critical_mass', type: 'integer', description: 'Minimum number of participants required' },
+        { name: 'deadline', type: 'string', description: 'The deadline (YYYY-MM-DD)' },
+      ],
+    })
+  end
+
+  def update_commitment_settings_action
+    return render_action_error({ action_name: 'update_commitment_settings', resource: current_commitment, error: 'You must be logged in.' }) unless current_user
+
+    begin
+      commitment = api_helper.update_commitment_settings
+      render_action_success({
+        action_name: 'update_commitment_settings',
+        resource: commitment,
+        result: "Commitment settings updated successfully.",
+      })
+    rescue StandardError => e
+      render_action_error({
+        action_name: 'update_commitment_settings',
+        resource: current_commitment,
+        error: e.message,
+      })
+    end
+  end
+
   private
 
   def current_app

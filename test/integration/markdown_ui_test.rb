@@ -478,4 +478,110 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert response.body.include?("reconfirm"),
       "Should mention reconfirm when note was updated"
   end
+
+  # Settings action tests
+  test "POST update_studio_settings action updates studio and returns 200 markdown" do
+    # Make user an admin for this test
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: {
+        name: "Updated Studio Name",
+        description: "Updated description",
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify studio was updated
+    @studio.reload
+    assert_equal "Updated Studio Name", @studio.name, "Studio name should have been updated"
+    assert_equal "Updated description", @studio.description, "Studio description should have been updated"
+  ensure
+    # Restore original name
+    @studio.update!(name: "Global Studio", description: nil)
+    studio_user&.remove_role!('admin')
+  end
+
+  test "POST update_decision_settings action updates decision and returns 200 markdown" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Original question?")
+    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/settings/actions/update_decision_settings",
+      params: {
+        question: "Updated question?",
+        description: "Updated description",
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify decision was updated
+    decision.reload
+    assert_equal "Updated question?", decision.question, "Decision question should have been updated"
+    assert_equal "Updated description", decision.description, "Decision description should have been updated"
+  end
+
+  test "POST update_commitment_settings action updates commitment and returns 200 markdown" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Original title")
+    post "/studios/#{@studio.handle}/c/#{commitment.truncated_id}/settings/actions/update_commitment_settings",
+      params: {
+        title: "Updated title",
+        description: "Updated description",
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify commitment was updated
+    commitment.reload
+    assert_equal "Updated title", commitment.title, "Commitment title should have been updated"
+    assert_equal "Updated description", commitment.description, "Commitment description should have been updated"
+  end
+
+  test "POST join_studio action joins scene and returns 200 markdown" do
+    # Create a scene (open studio) that allows direct join
+    scene = Studio.create!(
+      tenant: @tenant,
+      name: "Test Scene",
+      handle: "test-scene-#{SecureRandom.hex(4)}",
+      studio_type: 'scene',
+      open_scene: true,
+      created_by: @user,
+    )
+    scene.add_user!(@user, roles: ['admin'])
+    scene.enable_api!
+
+    # Create a different user who will join
+    other_user = User.create!(
+      name: "Other User",
+      email: "other-#{SecureRandom.hex(4)}@test.com",
+    )
+    @tenant.add_user!(other_user)
+    other_token = ApiToken.create!(
+      tenant: @tenant,
+      user: other_user,
+      scopes: ApiToken.valid_scopes,
+    )
+    other_headers = {
+      "Authorization" => "Bearer #{other_token.token}",
+      "Accept" => "text/markdown",
+      "Content-Type" => "application/json",
+    }
+
+    post "/scenes/#{scene.handle}/join/actions/join_studio",
+      params: {}.to_json,
+      headers: other_headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify user joined the scene
+    other_user.reload
+    assert other_user.studios.include?(scene), "User should have joined the scene"
+  ensure
+    StudioUser.where(studio: scene).delete_all if scene
+    scene&.destroy
+    TenantUser.where(user: other_user).delete_all if other_user
+    other_token&.destroy
+    other_user&.destroy
+  end
 end

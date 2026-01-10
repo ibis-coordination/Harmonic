@@ -179,6 +179,44 @@ class DecisionsController < ApplicationController
     redirect_to @decision.path
   end
 
+  def actions_index_settings
+    @page_title = "Actions | Decision Settings"
+    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/d/:decision_id/settings'))
+  end
+
+  def describe_update_decision_settings
+    render_action_description({
+      action_name: 'update_decision_settings',
+      resource: current_decision,
+      description: 'Update decision settings',
+      params: [
+        { name: 'question', type: 'string', description: 'The question to be decided' },
+        { name: 'description', type: 'string', description: 'A description of the decision' },
+        { name: 'options_open', type: 'boolean', description: 'Whether new options can be added' },
+        { name: 'deadline', type: 'string', description: 'The deadline for the decision (YYYY-MM-DD)' },
+      ],
+    })
+  end
+
+  def update_decision_settings_action
+    return render_action_error({ action_name: 'update_decision_settings', resource: current_decision, error: 'You must be logged in.' }) unless current_user
+
+    begin
+      decision = api_helper.update_decision_settings
+      render_action_success({
+        action_name: 'update_decision_settings',
+        resource: decision,
+        result: "Decision settings updated successfully.",
+      })
+    rescue StandardError => e
+      render_action_error({
+        action_name: 'update_decision_settings',
+        resource: current_decision,
+        error: e.message,
+      })
+    end
+  end
+
   def options_partial
     @decision = current_decision
     @votes = current_votes

@@ -164,6 +164,82 @@ class StudiosController < ApplicationController
     redirect_to request.referrer
   end
 
+  def actions_index_settings
+    @page_title = "Actions | Studio Settings"
+    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/settings'))
+  end
+
+  def describe_update_studio_settings
+    render_action_description({
+      action_name: 'update_studio_settings',
+      resource: @current_studio,
+      description: 'Update studio settings',
+      params: [
+        { name: 'name', type: 'string', description: 'The name of the studio' },
+        { name: 'description', type: 'string', description: 'A description of the studio' },
+        { name: 'timezone', type: 'string', description: 'The timezone of the studio' },
+        { name: 'tempo', type: 'string', description: 'The tempo of the studio: "daily", "weekly", or "monthly"' },
+        { name: 'synchronization_mode', type: 'string', description: 'The synchronization mode: "improv" or "orchestra"' },
+      ],
+    })
+  end
+
+  def update_studio_settings_action
+    return render_action_error({ action_name: 'update_studio_settings', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+
+    begin
+      studio = api_helper.update_studio_settings
+      render_action_success({
+        action_name: 'update_studio_settings',
+        resource: studio,
+        result: "Studio settings updated successfully.",
+      })
+    rescue StandardError => e
+      render_action_error({
+        action_name: 'update_studio_settings',
+        resource: @current_studio,
+        error: e.message,
+      })
+    end
+  end
+
+  def actions_index_join
+    @page_title = "Actions | Join Studio"
+    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/join'))
+  end
+
+  def describe_join_studio
+    render_action_description({
+      action_name: 'join_studio',
+      resource: @current_studio,
+      description: 'Join the studio',
+      params: [
+        { name: 'code', type: 'string', required: false, description: 'Invite code (optional for scenes)' },
+      ],
+    })
+  end
+
+  def join_studio_action
+    return render_action_error({ action_name: 'join_studio', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+
+    begin
+      invite = StudioInvite.find_by(code: params[:code]) if params[:code]
+      invite ||= StudioInvite.find_by(invited_user: current_user, studio: @current_studio)
+      api_helper.join_studio(invite: invite)
+      render_action_success({
+        action_name: 'join_studio',
+        resource: @current_studio,
+        result: "You have joined #{@current_studio.name}.",
+      })
+    rescue StandardError => e
+      render_action_error({
+        action_name: 'join_studio',
+        resource: @current_studio,
+        error: e.message,
+      })
+    end
+  end
+
   def team
     @page_title = 'Studio Team'
   end

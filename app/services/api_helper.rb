@@ -460,4 +460,151 @@ class ApiHelper
     @current_option
   end
 
+  sig { params(invite: T.nilable(StudioInvite)).returns(StudioUser) }
+  def join_studio(invite: nil)
+    raise 'User is already a member of this studio' if current_user.studios.include?(current_studio)
+
+    studio_user = T.let(nil, T.nilable(StudioUser))
+    ActiveRecord::Base.transaction do
+      if invite
+        raise 'Invite does not match studio' unless invite.studio == current_studio
+        current_user.accept_invite!(invite)
+        studio_user = current_user.studio_users.find_by(studio: current_studio)
+      elsif current_studio.is_scene?
+        # Scenes allow direct join without invite
+        current_studio.add_user!(current_user)
+        studio_user = current_user.studio_users.find_by(studio: current_studio)
+      else
+        raise 'Valid invite required to join this studio'
+      end
+
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'join',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Studio',
+              id: current_studio.id,
+              truncated_id: current_studio.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+      end
+    end
+    T.must(studio_user)
+  end
+
+  sig { returns(Studio) }
+  def update_studio_settings
+    raise 'Unauthorized: must be admin' unless current_user.studio_user&.is_admin?
+
+    ActiveRecord::Base.transaction do
+      current_studio.name = params[:name] if params[:name].present?
+      current_studio.description = params[:description] if params[:description].present?
+      current_studio.timezone = params[:timezone] if params[:timezone].present?
+      current_studio.tempo = params[:tempo] if params[:tempo].present?
+      current_studio.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
+
+      if current_studio.changed?
+        current_studio.updated_by = current_user
+        current_studio.save!
+
+        if current_representation_session
+          current_representation_session.record_activity!(
+            request: request,
+            semantic_event: {
+              timestamp: Time.current,
+              event_type: 'update',
+              studio_id: current_studio.id,
+              main_resource: {
+                type: 'Studio',
+                id: current_studio.id,
+                truncated_id: current_studio.truncated_id,
+              },
+              sub_resources: [],
+            }
+          )
+        end
+      end
+    end
+    current_studio
+  end
+
+  sig { returns(Decision) }
+  def update_decision_settings
+    decision = T.must(current_decision)
+    raise 'Unauthorized: only creator can edit settings' unless decision.can_edit_settings?(current_user)
+
+    ActiveRecord::Base.transaction do
+      decision.question = params[:question] if params[:question].present?
+      decision.description = params[:description] if params[:description].present?
+      decision.options_open = params[:options_open] if params.has_key?(:options_open)
+      decision.deadline = params[:deadline] if params[:deadline].present?
+
+      decision.save!
+
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'update',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Decision',
+              id: decision.id,
+              truncated_id: decision.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+      end
+    end
+    decision
+  end
+
+  sig { returns(Commitment) }
+  def update_commitment_settings
+    commitment = T.must(current_commitment)
+    raise 'Unauthorized: only creator can edit settings' unless commitment.can_edit_settings?(current_user)
+
+    ActiveRecord::Base.transaction do
+      commitment.title = params[:title] if params[:title].present?
+      commitment.description = params[:description] if params[:description].present?
+
+      if params[:critical_mass].present?
+        new_cm = params[:critical_mass].to_i
+        if new_cm < commitment.critical_mass.to_i && commitment.participant_count > 0
+          raise 'Cannot lower critical mass after participants have joined'
+        end
+        commitment.critical_mass = new_cm
+      end
+
+      commitment.deadline = params[:deadline] if params[:deadline].present?
+      commitment.save!
+
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: 'update',
+            studio_id: current_studio.id,
+            main_resource: {
+              type: 'Commitment',
+              id: commitment.id,
+              truncated_id: commitment.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+      end
+    end
+    commitment
+  end
+
 end
