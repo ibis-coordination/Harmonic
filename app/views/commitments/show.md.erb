@@ -1,4 +1,4 @@
-# Commitment: [<%= @commitment.title %>](<%= @commitment.path %>)
+# Commitment: [<%= raw @commitment.title %>](<%= @commitment.path %>)
 
 | created_at | <%= @commitment.created_at %> |
 | updated_at | <%= @commitment.updated_at %> |
@@ -40,7 +40,7 @@ No participants yet.
 No comments yet.
 <% else %>
 <% @commitment.chronological_comments.each do |comment| %>
-* <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
+* <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= raw comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
 <% end %>
 <% end %>
 

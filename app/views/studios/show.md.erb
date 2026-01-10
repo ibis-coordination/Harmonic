@@ -18,7 +18,7 @@ You must send a heartbeat to access this studio for the current cycle.
 
 <% if @pinned_items.length > 0 %>
 <% @pinned_items.each do |item| %>
-* <%= item[:item].class.to_s %>: [<%= item[:item].title %>](<%= item[:item].path %>) pinned <%= time_ago_in_words(item[:pinned_at]) %> ago
+* <%= item[:item].class.to_s %>: [<%= raw item[:item].title %>](<%= item[:item].path %>) pinned <%= time_ago_in_words(item[:pinned_at]) %> ago
 <% end %>
 <% else %>
 No pinned items yet.

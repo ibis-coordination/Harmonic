@@ -538,6 +538,19 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal "Updated description", commitment.description, "Commitment description should have been updated"
   end
 
+  # HTML entities should not appear in markdown output
+  test "note with apostrophe in title should not have HTML entities in markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test's apostrophe note")
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should contain the actual apostrophe, not HTML entity
+    assert_match(/Test's apostrophe/, response.body, "Title should contain actual apostrophe, not HTML entity")
+    refute_match(/&#39;/, response.body, "Markdown output should not contain HTML entities like &#39;")
+    refute_match(/&amp;/, response.body, "Markdown output should not contain HTML entities like &amp;")
+  end
+
   # Learn pages should return markdown, not HTML
   test "GET /learn returns proper markdown without HTML tags" do
     get "/learn", headers: @headers
