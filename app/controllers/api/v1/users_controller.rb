@@ -13,9 +13,9 @@ module Api::V1
     end
 
     def create
-      # Only simulated users can be created via the API
+      # Only subagent users can be created via the API
       begin
-        user = api_helper.create_simulated_user
+        user = api_helper.create_subagent
         token = generate_token(user) if params[:generate_token]
         response = user.api_json
         response[:token] = token.token if token
@@ -26,7 +26,7 @@ module Api::V1
     end
 
     def update
-      # Users can only update their own records or simulated users
+      # Users can only update their own records or subagent users
       user = current_tenant.users.find_by(id: params[:id])
       return render json: { error: 'User not found' }, status: 404 unless user
       return render json: { error: 'Unauthorized' }, status: 401 unless current_user.can_edit?(user)
@@ -45,7 +45,7 @@ module Api::V1
     end
 
     def destroy
-      # Users can only delete simulated users with no associated data
+      # Users can only delete subagent users with no associated data
       user = current_tenant.users.find_by(id: params[:id])
       return render json: { error: 'User not found' }, status: 404 unless user
       return render json: { error: 'Unauthorized' }, status: 401 unless current_user.can_edit?(user)

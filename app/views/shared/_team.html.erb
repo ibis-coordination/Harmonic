@@ -4,6 +4,9 @@
     <a href="<%= u.studio_user.path %>" class="user-profile-link">
       <img src="<%= u.image_url %>"/> <%= u.display_name %>
     </a>
+    <% if u.subagent? %>
+      <span class="role-badge" title="subagent of <%= u.parent&.display_name %>">subagent</span>
+    <% end %>
     <% if u.studio_user.is_admin? %>
       <span class="role-badge">admin</span>
     <% end %>

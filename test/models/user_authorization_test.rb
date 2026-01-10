@@ -25,29 +25,29 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     user = User.new(email: "person@example.com", name: "Person", user_type: "person")
     assert user.valid?
     assert user.person?
-    assert_not user.simulated?
+    assert_not user.subagent?
     assert_not user.trustee?
   end
 
-  test "simulated user type requires parent_id" do
-    user = User.new(email: "simulated@example.com", name: "Simulated", user_type: "simulated")
+  test "subagent user type requires parent_id" do
+    user = User.new(email: "subagent@example.com", name: "Subagent", user_type: "subagent")
     assert_not user.valid?
-    assert_includes user.errors[:parent_id], "must be set for simulated users"
+    assert_includes user.errors[:parent_id], "must be set for subagent users"
   end
 
-  test "simulated user with parent is valid" do
+  test "subagent user with parent is valid" do
     parent = create_user
     user = User.new(
-      email: "simulated@example.com",
-      name: "Simulated",
-      user_type: "simulated",
+      email: "subagent@example.com",
+      name: "Subagent",
+      user_type: "subagent",
       parent_id: parent.id
     )
     assert user.valid?
-    assert user.simulated?
+    assert user.subagent?
   end
 
-  test "non-simulated user cannot have parent_id" do
+  test "non-subagent user cannot have parent_id" do
     parent = create_user
     user = User.new(
       email: "person@example.com",
@@ -56,12 +56,12 @@ class UserAuthorizationTest < ActiveSupport::TestCase
       parent_id: parent.id
     )
     assert_not user.valid?
-    assert_includes user.errors[:parent_id], "can only be set for simulated users"
+    assert_includes user.errors[:parent_id], "can only be set for subagent users"
   end
 
   test "user cannot be its own parent" do
     user = create_user
-    user.user_type = "simulated"
+    user.user_type = "subagent"
     user.parent_id = user.id
     assert_not user.valid?
     assert_includes user.errors[:parent_id], "user cannot be its own parent"
@@ -81,63 +81,63 @@ class UserAuthorizationTest < ActiveSupport::TestCase
 
   # === Impersonation Tests ===
 
-  test "parent can impersonate their simulated user" do
+  test "parent can impersonate their subagent user" do
     parent = create_unique_user
     @tenant.add_user!(parent)
 
-    simulated = User.create!(
-      email: "sim_#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated #{SecureRandom.hex(4)}",
-      user_type: "simulated",
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
       parent_id: parent.id
     )
-    @tenant.add_user!(simulated)
+    @tenant.add_user!(subagent)
 
     # Set tenant context for archived? check
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    assert parent.can_impersonate?(simulated)
+    assert parent.can_impersonate?(subagent)
   end
 
-  test "user cannot impersonate non-child simulated user" do
+  test "user cannot impersonate non-child subagent user" do
     parent1 = create_unique_user
     parent2 = create_unique_user
     @tenant.add_user!(parent1)
     @tenant.add_user!(parent2)
 
-    simulated = User.create!(
-      email: "sim_#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated #{SecureRandom.hex(4)}",
-      user_type: "simulated",
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
       parent_id: parent1.id
     )
-    @tenant.add_user!(simulated)
+    @tenant.add_user!(subagent)
 
     # Set tenant context
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    assert_not parent2.can_impersonate?(simulated)
+    assert_not parent2.can_impersonate?(subagent)
   end
 
-  test "user cannot impersonate archived simulated user" do
+  test "user cannot impersonate archived subagent user" do
     parent = create_unique_user
     @tenant.add_user!(parent)
-    simulated = User.create!(
-      email: "sim_#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated #{SecureRandom.hex(4)}",
-      user_type: "simulated",
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
       parent_id: parent.id
     )
 
     # Add to tenant so we can archive
-    @tenant.add_user!(simulated)
+    @tenant.add_user!(subagent)
 
     # Set tenant context for archived? check
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    simulated.tenant_user.update!(archived_at: Time.current)
+    subagent.tenant_user.update!(archived_at: Time.current)
 
-    assert_not parent.can_impersonate?(simulated)
+    assert_not parent.can_impersonate?(subagent)
   end
 
   test "user cannot impersonate regular person user" do
@@ -163,15 +163,15 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert_not @user.can_edit?(other_user)
   end
 
-  test "parent can edit their simulated user" do
-    simulated = User.create!(
-      email: "sim_#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated User",
-      user_type: "simulated",
+  test "parent can edit their subagent user" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent User",
+      user_type: "subagent",
       parent_id: @user.id
     )
 
-    assert @user.can_edit?(simulated)
+    assert @user.can_edit?(subagent)
   end
 
   # === Tenant Access Tests ===
@@ -220,6 +220,69 @@ class UserAuthorizationTest < ActiveSupport::TestCase
 
     su = other_studio.studio_users.find_by(user: new_user)
     assert_nil su
+  end
+
+  # === Add Subagent to Studio Tests ===
+
+  test "parent can add subagent to studio where they have invite permission" do
+    parent = create_unique_user
+    @tenant.add_user!(parent)
+    @studio.add_user!(parent, roles: ['admin'])
+
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
+      parent_id: parent.id
+    )
+    @tenant.add_user!(subagent)
+
+    assert parent.can_add_subagent_to_studio?(subagent, @studio)
+  end
+
+  test "parent cannot add subagent to studio where they lack invite permission" do
+    parent = create_unique_user
+    @tenant.add_user!(parent)
+    # Parent is not a member of the studio
+
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
+      parent_id: parent.id
+    )
+    @tenant.add_user!(subagent)
+
+    assert_not parent.can_add_subagent_to_studio?(subagent, @studio)
+  end
+
+  test "user cannot add another user's subagent to studio" do
+    parent1 = create_unique_user
+    parent2 = create_unique_user
+    @tenant.add_user!(parent1)
+    @tenant.add_user!(parent2)
+    @studio.add_user!(parent2, roles: ['admin'])
+
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent #{SecureRandom.hex(4)}",
+      user_type: "subagent",
+      parent_id: parent1.id
+    )
+    @tenant.add_user!(subagent)
+
+    # Parent2 has invite permission but subagent belongs to parent1
+    assert_not parent2.can_add_subagent_to_studio?(subagent, @studio)
+  end
+
+  test "cannot add non-subagent user to studio via can_add_subagent_to_studio" do
+    parent = create_unique_user
+    regular_user = create_unique_user
+    @tenant.add_user!(parent)
+    @tenant.add_user!(regular_user)
+    @studio.add_user!(parent, roles: ['admin'])
+
+    assert_not parent.can_add_subagent_to_studio?(regular_user, @studio)
   end
 
   # === Archive Tests ===

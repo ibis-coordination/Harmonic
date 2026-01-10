@@ -378,14 +378,14 @@ class ApiHelper
   end
 
   sig { returns(User) }
-  def create_simulated_user
-    # Only simulated users can be created via the API
+  def create_subagent
+    # Only subagent users can be created via the API
     user = T.let(nil, T.nilable(User))
     ActiveRecord::Base.transaction do
       user = User.create!(
         name: params[:name],
-        email: SecureRandom.uuid + '@not-a-real-email.com',
-        user_type: 'simulated',
+        email: SecureRandom.uuid + "@not-a-real-email.com",
+        user_type: "subagent",
         parent_id: current_user.id,
       )
       tenant_user = current_tenant.add_user!(user)

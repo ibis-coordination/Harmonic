@@ -5,7 +5,19 @@
   <a href="<%= @showing_user.path %>">
     <code><%= @showing_user.handle %></code>
   </a>
+  <% if @showing_user.subagent? %>
+    <span class="role-badge" title="This is a subagent managed by <%= @showing_user.parent&.display_name %>">subagent</span>
+  <% end %>
 </p>
+<% if @showing_user.subagent? && @showing_user.parent %>
+  <p style="color: var(--color-fg-muted); font-size: 0.9em;">
+    Managed by
+    <a href="<%= @showing_user.parent.path %>">
+      <%= profile_pic(@showing_user.parent, size: 20, style: 'vertical-align:middle;margin-right:4px;') %>
+      <strong><%= @showing_user.parent.display_name %></strong>
+    </a>
+  </p>
+<% end %>
 
 <% if @current_user != @showing_user %>
   <% if @common_studios.count > 0 %>

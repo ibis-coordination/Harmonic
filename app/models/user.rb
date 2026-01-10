@@ -15,12 +15,12 @@ class User < ApplicationRecord
   has_many :studio_users
   has_many :studios, through: :studio_users
   has_many :api_tokens
-  has_many :simulated_users, class_name: 'User', foreign_key: 'parent_id'
+  has_many :subagents, class_name: "User", foreign_key: "parent_id"
 
-  validates :user_type, inclusion: { in: %w(person simulated trustee) }
+  validates :user_type, inclusion: { in: %w(person subagent trustee) }
   validates :email, presence: true
   validates :name, presence: true
-  validate :simulated_user_must_have_parent
+  validate :subagent_must_have_parent
 
   sig { returns(T::Hash[Symbol, T.untyped]) }
   def api_json
@@ -54,11 +54,11 @@ class User < ApplicationRecord
   end
 
   sig { void }
-  def simulated_user_must_have_parent
-    if parent_id.present? && !simulated?
-      errors.add(:parent_id, "can only be set for simulated users")
-    elsif parent_id.nil? && simulated?
-      errors.add(:parent_id, "must be set for simulated users")
+  def subagent_must_have_parent
+    if parent_id.present? && !subagent?
+      errors.add(:parent_id, "can only be set for subagent users")
+    elsif parent_id.nil? && subagent?
+      errors.add(:parent_id, "must be set for subagent users")
     end
     if persisted? && parent_id == id
       errors.add(:parent_id, "user cannot be its own parent")
@@ -71,8 +71,8 @@ class User < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def simulated?
-    user_type == 'simulated'
+  def subagent?
+    user_type == "subagent"
   end
 
   sig { returns(T::Boolean) }
@@ -94,7 +94,7 @@ class User < ApplicationRecord
 
   sig { params(user: User).returns(T::Boolean) }
   def can_impersonate?(user)
-    is_parent = user.simulated? && user.parent_id == self.id && !user.archived?
+    is_parent = user.subagent? && user.parent_id == self.id && !user.archived?
     return true if is_parent
     if user.studio_trustee?
       su = self.studio_users.find_by(studio_id: T.must(user.trustee_studio).id)
@@ -121,7 +121,14 @@ class User < ApplicationRecord
 
   sig { params(user: User).returns(T::Boolean) }
   def can_edit?(user)
-    user == self || (user.simulated? && user.parent_id == self.id)
+    user == self || (user.subagent? && user.parent_id == self.id)
+  end
+
+  sig { params(subagent: User, studio: Studio).returns(T::Boolean) }
+  def can_add_subagent_to_studio?(subagent, studio)
+    return false unless subagent.subagent? && subagent.parent_id == self.id
+    su = studio_users.find_by(studio_id: studio.id)
+    su&.can_invite? || false
   end
 
   sig { void }
@@ -199,6 +206,19 @@ class User < ApplicationRecord
     else
       tenant_user&.display_name
     end
+  end
+
+  sig { returns(String) }
+  def display_name_with_parent
+    return display_name || "" unless subagent?
+    parent_name = parent&.display_name || "unknown"
+    "#{display_name} (subagent of #{parent_name})"
+  end
+
+  sig { returns(T.nilable(User)) }
+  def parent
+    return nil unless parent_id
+    User.unscoped.find_by(id: parent_id)
   end
 
   sig { params(handle: String).void }

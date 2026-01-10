@@ -17,7 +17,7 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 ## History
 
 <% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
-* <% if event.user %>[<%= event.user.display_name %>](<%= event.user.path %>) <% end %><%= event.description %> at <%= event.happened_at %>
+* <% if event.user %><%= user_link_md(event.user) %> <% end %><%= event.description %> at <%= event.happened_at %>
 <% end %>
 
 <%= render 'shared/backlinks', resource: @note %>
@@ -27,7 +27,7 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 No comments yet.
 <% else %>
 <% @note.chronological_comments.each do |comment| %>
-* [<%= comment.created_by&.display_name || 'Unknown' %>](<%= comment.created_by&.path || '#' %>) (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
+* <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
 <% end %>
 <% end %>
 

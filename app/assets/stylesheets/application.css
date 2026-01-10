@@ -596,3 +596,93 @@ ul.attachments-list {
     background-image: url(/pin-fill-icon-white.svg);
   }
 }
+
+/* Subagent management cards */
+.subagent-card {
+  border: 1px solid var(--color-border-default);
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: var(--color-canvas-default);
+  display: flex;
+  gap: 16px;
+}
+
+.subagent-card-image {
+  flex-shrink: 0;
+}
+
+.subagent-card-image img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: var(--color-border-default);
+}
+
+.subagent-card-content {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.subagent-card h3 {
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.subagent-card h4 {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--color-fg-muted);
+}
+
+.subagent-meta {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: var(--color-fg-muted);
+}
+
+.subagent-meta form {
+  display: inline-block;
+}
+
+.studio-membership-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px 0;
+}
+
+.studio-membership-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.studio-membership-list li:last-child {
+  border-bottom: none;
+}
+
+.studio-membership-list li.none-message {
+  color: var(--color-fg-muted);
+}
+
+.studio-membership-list li a {
+  flex-grow: 1;
+}
+
+.add-to-studio-form {
+  margin-top: 8px;
+}
+
+.button-danger {
+  background-color: #cf222e;
+  color: white;
+  border-color: #cf222e;
+}
+
+.button-danger:hover {
+  background-color: #a40e26;
+  border-color: #a40e26;
+}

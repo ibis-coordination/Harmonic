@@ -117,4 +117,21 @@ class StudioUser < ApplicationRecord
     end
   end
 
+  sig { void }
+  def archive!
+    self.archived_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
+    save!
+  end
+
+  sig { void }
+  def unarchive!
+    self.archived_at = nil
+    save!
+  end
+
+  sig { returns(T::Boolean) }
+  def archived?
+    archived_at.present?
+  end
+
 end

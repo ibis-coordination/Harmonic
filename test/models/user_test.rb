@@ -47,14 +47,14 @@ class UserTest < ActiveSupport::TestCase
   test "person? returns true for person user type" do
     user = User.new(user_type: "person")
     assert user.person?
-    assert_not user.simulated?
+    assert_not user.subagent?
     assert_not user.trustee?
   end
 
-  test "simulated? returns true for simulated user type" do
+  test "subagent? returns true for subagent user type" do
     parent = create_user
-    user = User.new(user_type: "simulated", parent_id: parent.id)
-    assert user.simulated?
+    user = User.new(user_type: "subagent", parent_id: parent.id)
+    assert user.subagent?
     assert_not user.person?
     assert_not user.trustee?
   end
@@ -63,7 +63,7 @@ class UserTest < ActiveSupport::TestCase
     user = User.new(user_type: "trustee")
     assert user.trustee?
     assert_not user.person?
-    assert_not user.simulated?
+    assert_not user.subagent?
   end
 
   # === Association Tests ===
@@ -87,16 +87,16 @@ class UserTest < ActiveSupport::TestCase
     assert tenant2_membership.present?, "User should be added to tenant2"
   end
 
-  test "user can have simulated users as children" do
-    simulated = User.create!(
-      email: "sim_#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated User",
-      user_type: "simulated",
+  test "user can have subagent users as children" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent User",
+      user_type: "subagent",
       parent_id: @user.id
     )
 
-    assert_includes @user.simulated_users, simulated
-    assert_equal @user.id, simulated.parent_id
+    assert_includes @user.subagents, subagent
+    assert_equal @user.id, subagent.parent_id
   end
 
   # === Display Name and Handle Tests ===
@@ -110,6 +110,38 @@ class UserTest < ActiveSupport::TestCase
     # Handle is set when user is added to tenant
     assert @user.handle.present?
     assert_equal @user.tenant_user.handle, @user.handle
+  end
+
+  test "display_name_with_parent for person returns display_name" do
+    @user.tenant_user.update!(display_name: "Alice")
+    assert_equal "Alice", @user.display_name_with_parent
+  end
+
+  test "display_name_with_parent for subagent includes parent name" do
+    @user.tenant_user.update!(display_name: "Bob")
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Alice Bot",
+      user_type: "subagent",
+      parent_id: @user.id
+    )
+    @tenant.add_user!(subagent)
+    subagent.tenant_user.update!(display_name: "Alice")
+    assert_equal "Alice (subagent of Bob)", subagent.display_name_with_parent
+  end
+
+  test "parent returns parent user for subagent" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent",
+      user_type: "subagent",
+      parent_id: @user.id
+    )
+    assert_equal @user, subagent.parent
+  end
+
+  test "parent returns nil for person user" do
+    assert_nil @user.parent
   end
 
   # === API JSON Tests ===
@@ -137,14 +169,14 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.can_edit?(other_user)
   end
 
-  test "parent can edit simulated child" do
-    simulated = User.create!(
-      email: "sim_#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated User",
-      user_type: "simulated",
+  test "parent can edit subagent child" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent User",
+      user_type: "subagent",
       parent_id: @user.id
     )
-    assert @user.can_edit?(simulated)
+    assert @user.can_edit?(subagent)
   end
 
   # === Invite Acceptance Tests ===
