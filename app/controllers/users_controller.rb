@@ -10,6 +10,7 @@ class UsersController < ApplicationController
     return render '404' if tu.nil?
     @showing_user = tu.user
     @showing_user.tenant_user = tu
+    @page_title = @showing_user.display_name
     if params[:studio_handle]
       # Showing user in a specific studio
       su = @showing_user.studio_users.where(studio: current_studio).first
@@ -24,16 +25,25 @@ class UsersController < ApplicationController
       @common_studios = current_user.studios & @showing_user.studios - [current_tenant.main_studio]
       @additional_common_studio_count = 0
     end
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   def settings
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404' if tu.nil?
     return render plain: '403 Unauthorized' unless tu.user == current_user
+    @page_title = "Your Settings"
     @current_user.tenant_user = tu
     @subagents = @current_user.subagents.includes(:tenant_users, :studio_users).where(tenant_users: { tenant_id: @current_tenant.id })
     # Studios where current user has invite permission (for adding subagents)
     @invitable_studios = @current_user.studio_users.includes(:studio).select(&:can_invite?).map(&:studio)
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   def add_subagent_to_studio

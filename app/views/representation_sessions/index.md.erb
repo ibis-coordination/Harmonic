@@ -1,0 +1,55 @@
+# Representation
+
+<% if @active_sessions.any? %>
+## Active Sessions
+
+<%= @current_studio.name %> is currently being represented in <%= @active_sessions.count %> active session<%= @active_sessions.count == 1 ? '' : 's' %>.
+
+<% @active_sessions.each do |session| %>
+* [Session `<%= session.truncated_id %>`](<%= session.path %>) - began <%= time_ago_in_words(session.began_at) %> ago
+<% end %>
+<% end %>
+
+Representation allows this studio (<%= raw @current_studio.name %>) to act as an individual member of other studios.
+
+<% if @current_studio.trustee_user.studios.empty? %>
+<%= raw @current_studio.name %> is not currently a member of any other studios.
+<% else %>
+<%= raw @current_studio.name %> is currently a member of the following studios:
+
+<% @current_studio.trustee_user.studios.each do |studio| %>
+* [<%= raw studio.name %>](<%= studio.path %>)
+<% end %>
+<% end %>
+
+## Representatives
+
+Representatives act on behalf of <%= raw @current_studio.name %> through sessions during which their actions are recorded and made visible here.
+
+<% if @current_studio.any_member_can_represent? %>
+<%= raw @current_studio.name %> is configured to allow any member to represent the studio.
+<% else %>
+<%= raw @current_studio.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.
+
+<% @representatives.each do |representative| %>
+* [<%= raw representative.display_name %>](<%= representative.path %>) (representative)
+<% end %>
+<% end %>
+
+## Past Sessions
+
+<% if @representation_sessions.empty? %>
+No sessions have happened yet.
+<% else %>
+<% @representation_sessions.each do |representation_session| %>
+* [Session `<%= representation_session.truncated_id %>`](<%= representation_session.path %>) - <%= representation_session.action_count %> action<%= representation_session.action_count == 1 ? '' : 's' %>, ended <%= time_ago_in_words(representation_session.ended_at) %> ago
+<% end %>
+<% end %>
+
+## [Actions](<%= @current_studio.path %>/representation/actions)
+
+<% if @current_user.studio_user.can_represent? %>
+* [New Session](<%= @current_studio.path %>/represent)
+<% else %>
+* No actions available.
+<% end %>

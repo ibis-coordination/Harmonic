@@ -568,6 +568,35 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/^\* \[/, response.body, "Learn page should have markdown list items with links")
   end
 
+  # Error page tests - should return markdown, not 500
+  test "GET note edit without permission returns 403 markdown" do
+    # Create a note by a different user
+    other_user = User.create!(name: "Other", email: "other-#{SecureRandom.hex(4)}@test.com")
+    @tenant.add_user!(other_user)
+    @studio.add_user!(other_user)
+    note = create_note(studio: @studio, created_by: other_user, title: "Not my note")
+
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}/edit", headers: @headers
+    assert_equal 403, response.status
+    assert response.content_type.starts_with?("text/markdown"), "403 page should return markdown format"
+    assert_match(/403 Forbidden/, response.body, "Should show 403 message")
+  ensure
+    StudioUser.where(user: other_user).delete_all if other_user
+    TenantUser.where(user: other_user).delete_all if other_user
+    note&.destroy
+    other_user&.destroy
+  end
+
+  # User profile page tests
+  test "GET /u/:handle returns 200 markdown for user profile" do
+    get "/u/#{@user.handle}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should contain user info
+    assert_match(/#{@user.display_name}/, response.body, "Should show user's display name")
+  end
+
   test "POST join_studio action joins scene and returns 200 markdown" do
     # Create a scene (open studio) that allows direct join
     scene = Studio.create!(

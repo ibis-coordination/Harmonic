@@ -39,6 +39,10 @@ class HomeController < ApplicationController
 
   def help
     @page_title = 'Help'
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   def contact

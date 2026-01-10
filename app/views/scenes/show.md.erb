@@ -1,0 +1,18 @@
+# Scene: <%= raw @current_studio.name %>
+
+<%= raw @current_studio.description %>
+
+## Recent Notes
+
+<% if @notes.length > 0 %>
+<% @notes.each do |note| %>
+* [<%= raw note.title.present? ? note.title : "Note #{note.truncated_id}" %>](<%= note.path %>)
+  * Created: <%= time_ago_in_words(note.created_at) %> ago
+<% end %>
+<% else %>
+No notes yet.
+<% end %>
+
+## [Actions](<%= @current_studio.path %>/actions)
+
+* [New Note](<%= @current_studio.path %>/note)

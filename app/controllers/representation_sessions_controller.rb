@@ -7,6 +7,10 @@ class RepresentationSessionsController < ApplicationController
     @page_title = 'Representation'
     @representation_sessions = current_tenant.representation_sessions.where.not(ended_at: nil).order(ended_at: :desc).limit(100)
     @active_sessions = current_tenant.representation_sessions.where(ended_at: nil).order(began_at: :desc).limit(100)
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   def index_partial
@@ -18,6 +22,10 @@ class RepresentationSessionsController < ApplicationController
     @page_title = 'Representation Session'
     column = params[:id].length == 8 ? 'truncated_id' : 'id'
     @representation_session = current_studio.representation_sessions.find_by!(column => params[:id])
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   def represent

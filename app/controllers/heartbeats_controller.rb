@@ -2,7 +2,12 @@
 
 class HeartbeatsController < ApplicationController
   def index
+    @page_title = 'Heartbeats'
     @current_heartbeat = current_heartbeat
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   # def show

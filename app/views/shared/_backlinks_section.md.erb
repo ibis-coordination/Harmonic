@@ -1,0 +1,9 @@
+## Backlinks
+
+<% if resource.backlinks.any? %>
+<% resource.backlinks.each do |r| %>
+* <%= r.class.name %>: [<%= raw r.respond_to?(:title) ? r.title : "#{r.class.name} #{r.truncated_id}" %>](<%= r.path %>)
+<% end %>
+<% else %>
+No backlinks yet.
+<% end %>
