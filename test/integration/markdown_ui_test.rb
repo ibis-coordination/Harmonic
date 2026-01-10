@@ -120,24 +120,152 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert is_markdown?
   end
 
+  # Studio actions
+  test "POST create_studio action creates studio and returns 200 markdown" do
+    handle = "test-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "Test Studio",
+        handle: handle,
+        description: "A test studio",
+        timezone: "America/New_York",
+        tempo: "daily",
+        synchronization_mode: "improv",
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify studio was created
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    assert_equal "Test Studio", studio.name
+  end
+
+  # Note actions
+  test "POST create_note action creates note and returns 200 markdown" do
+    note_count_before = Note.count
+    post "/studios/#{@studio.handle}/note/actions/create_note",
+      params: { text: "This is a test note" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify note was created
+    assert_equal note_count_before + 1, Note.count, "Note should have been created"
+    assert Note.exists?(text: "This is a test note"), "Note should have the correct text"
+  end
+
+  test "POST confirm_read action creates read confirmation and returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test note")
+    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/actions/confirm_read",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify read confirmation was created
+    assert NoteHistoryEvent.exists?(note: note, user: @user, event_type: 'read_confirmation'),
+      "Read confirmation event should have been created"
+  end
+
+  test "POST update_note action updates note and returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test note", text: "Original text")
+    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/edit/actions/update_note",
+      params: { text: "Updated note text" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify note was updated
+    note.reload
+    assert_equal "Updated note text", note.text, "Note text should have been updated"
+  end
+
   # Decision actions
-  test "POST add_option action on decision returns 200 markdown" do
+  test "POST create_decision action creates decision and returns 200 markdown" do
+    decision_count_before = Decision.count
+    post "/studios/#{@studio.handle}/decide/actions/create_decision",
+      params: {
+        question: "Test decision question?",
+        description: "A test decision",
+        options_open: true,
+        deadline: 1.week.from_now.to_date.to_s,
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify decision was created
+    assert_equal decision_count_before + 1, Decision.count, "Decision should have been created"
+    assert Decision.exists?(question: "Test decision question?"), "Decision should have the correct question"
+  end
+
+  test "POST add_option action adds option to decision and returns 200 markdown" do
     decision = create_decision(studio: @studio, created_by: @user, question: "Test decision?")
+    options_count_before = decision.options.count
     post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/actions/add_option",
       params: { title: "Test option" }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
+
+    # Verify option was added
+    decision.reload
+    assert_equal options_count_before + 1, decision.options.count, "Option should have been added"
+    assert decision.options.exists?(title: "Test option"), "Option should have the correct title"
+  end
+
+  test "POST vote action records vote and returns 200 markdown" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Test decision?")
+    # First add an option to vote on
+    option = create_option(decision: decision, title: "Option A")
+
+    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/actions/vote",
+      params: { option_title: "Option A", accept: true, prefer: false }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify vote was recorded (votes belong to decision_participant, not user directly)
+    option.reload
+    vote = option.votes.joins(:decision_participant).find_by(decision_participants: { user_id: @user.id })
+    assert vote, "Vote should have been recorded"
+    assert_equal 1, vote.accepted, "Vote should be marked as accepted"
+    assert_equal 0, vote.preferred, "Vote should not be marked as preferred"
   end
 
   # Commitment actions
-  test "POST join_commitment action returns 200 markdown" do
+  test "POST create_commitment action creates commitment and returns 200 markdown" do
+    commitment_count_before = Commitment.count
+    post "/studios/#{@studio.handle}/commit/actions/create_commitment",
+      params: {
+        title: "Test commitment",
+        description: "A test commitment",
+        critical_mass: 2,
+        deadline: 1.week.from_now.to_date.to_s,
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Verify commitment was created
+    assert_equal commitment_count_before + 1, Commitment.count, "Commitment should have been created"
+    assert Commitment.exists?(title: "Test commitment"), "Commitment should have the correct title"
+  end
+
+  test "POST join_commitment action joins user to commitment and returns 200 markdown" do
     commitment = create_commitment(studio: @studio, created_by: @user, title: "Test commitment")
     post "/studios/#{@studio.handle}/c/#{commitment.truncated_id}/actions/join_commitment",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
+
+    # Verify user joined commitment
+    participant = CommitmentParticipant.find_by(commitment: commitment, user: @user)
+    assert participant, "User should have joined the commitment"
+    assert participant.committed, "Participant should be marked as committed"
   end
 
   # Heartbeat gate tests
