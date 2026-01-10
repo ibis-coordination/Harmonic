@@ -132,4 +132,100 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     # Should show "Archived" status
     assert_match "Archived", response.body
   end
+
+  # ====================
+  # Studio Settings Page - Subagent Management
+  # ====================
+
+  test "studio settings page shows subagents in that studio" do
+    # Add subagent to studio first
+    @studio.add_user!(@subagent)
+
+    sign_in_as(@parent, tenant: @tenant)
+    get "/studios/#{@studio.handle}/settings"
+
+    assert_response :success
+    assert_match @subagent.display_name, response.body
+    assert_match "Subagents in this Studio", response.body
+  end
+
+  test "admin can add own subagent to studio via settings JSON endpoint" do
+    sign_in_as(@parent, tenant: @tenant)
+
+    # Verify subagent is not in studio initially
+    assert_nil StudioUser.find_by(studio: @studio, user: @subagent)
+
+    post "/studios/#{@studio.handle}/settings/add_subagent",
+         params: { subagent_id: @subagent.id },
+         headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
+         as: :json
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal @subagent.id, json_response["subagent_id"]
+    assert_equal @subagent.display_name, json_response["subagent_name"]
+
+    # Verify subagent is now in studio
+    assert_not_nil StudioUser.find_by(studio: @studio, user: @subagent)
+  end
+
+  test "admin cannot add another user's subagent to studio via settings" do
+    other_parent = create_user(name: "Other Parent")
+    @tenant.add_user!(other_parent)
+    other_subagent = User.create!(
+      email: "other-subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
+      name: "Other Subagent",
+      user_type: "subagent",
+      parent_id: other_parent.id,
+    )
+    @tenant.add_user!(other_subagent)
+
+    sign_in_as(@parent, tenant: @tenant)
+
+    post "/studios/#{@studio.handle}/settings/add_subagent",
+         params: { subagent_id: other_subagent.id },
+         headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
+         as: :json
+
+    assert_response :forbidden
+    assert_nil StudioUser.find_by(studio: @studio, user: other_subagent)
+  end
+
+  test "admin can remove subagent from studio via settings JSON endpoint" do
+    # First add subagent to studio
+    @studio.add_user!(@subagent)
+    studio_user = StudioUser.find_by(studio: @studio, user: @subagent)
+    assert_not_nil studio_user
+    assert_not studio_user.archived?
+
+    sign_in_as(@parent, tenant: @tenant)
+
+    delete "/studios/#{@studio.handle}/settings/remove_subagent",
+           params: { subagent_id: @subagent.id },
+           headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
+           as: :json
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal @subagent.id, json_response["subagent_id"]
+    assert_equal true, json_response["can_readd"]
+
+    # Verify subagent membership is archived (not deleted)
+    studio_user.reload
+    assert studio_user.archived?
+  end
+
+  test "non-admin cannot add subagent to studio via settings" do
+    # Remove admin role from parent
+    @parent.studio_users.find_by(studio: @studio)&.remove_role!('admin')
+
+    sign_in_as(@parent, tenant: @tenant)
+
+    post "/studios/#{@studio.handle}/settings/add_subagent",
+         params: { subagent_id: @subagent.id },
+         headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
+         as: :json
+
+    assert_response :forbidden
+  end
 end

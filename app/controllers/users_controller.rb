@@ -46,8 +46,46 @@ class UsersController < ApplicationController
 
     # Add subagent to the studio
     studio.add_user!(subagent)
-    flash[:notice] = "#{subagent.display_name} has been added to #{studio.name}"
-    redirect_to "#{current_user.path}/settings"
+
+    respond_to do |format|
+      format.json do
+        render json: {
+          studio_id: studio.id,
+          studio_name: studio.name,
+          studio_path: studio.path,
+        }
+      end
+      format.html do
+        flash[:notice] = "#{subagent.display_name} has been added to #{studio.name}"
+        redirect_to "#{current_user.path}/settings"
+      end
+    end
+  end
+
+  def remove_subagent_from_studio
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render status: 404, plain: "404 Not Found" if tu.nil?
+    subagent = tu.user
+    return render status: 403, plain: "403 Unauthorized" unless subagent.subagent? && subagent.parent_id == current_user.id
+
+    studio = Studio.find(params[:studio_id])
+    studio_user = StudioUser.find_by(studio: studio, user: subagent)
+    return render status: 404, plain: "404 Not Found" if studio_user.nil? || studio_user.archived?
+
+    studio_user.archive!
+
+    respond_to do |format|
+      format.json do
+        render json: {
+          studio_id: studio.id,
+          studio_name: studio.name,
+        }
+      end
+      format.html do
+        flash[:notice] = "#{subagent.display_name} has been removed from #{studio.name}"
+        redirect_to "#{current_user.path}/settings"
+      end
+    end
   end
 
   def update_profile

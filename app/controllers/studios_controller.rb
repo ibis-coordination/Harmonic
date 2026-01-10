@@ -136,6 +136,18 @@ class StudiosController < ApplicationController
   def settings
     if @current_user.studio_user.is_admin?
       @page_title = 'Studio Settings'
+      # Subagents in this studio (for display) - exclude archived memberships
+      @studio_subagents = @current_studio.users
+        .includes(:tenant_users)
+        .joins(:studio_users)
+        .where(user_type: 'subagent')
+        .where(studio_users: { studio_id: @current_studio.id, archived_at: nil })
+        .distinct
+      # Current user's subagents that are NOT active members of this studio (for adding)
+      user_subagent_ids = @current_user.subagents.pluck(:id)
+      active_studio_subagent_ids = @studio_subagents.pluck(:id)
+      addable_ids = user_subagent_ids - active_studio_subagent_ids
+      @addable_subagents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
     else
       return render layout: 'application', html: 'You must be an admin to access studio settings.'
     end
@@ -162,6 +174,65 @@ class StudiosController < ApplicationController
     @current_studio.save!
     flash[:notice] = "Settings successfully updated. [Return to studio homepage.](#{@current_studio.url})"
     redirect_to request.referrer
+  end
+
+  def add_subagent
+    unless @current_user.studio_user&.is_admin?
+      return render status: 403, json: { error: 'Unauthorized' }
+    end
+    subagent = User.find_by(id: params[:subagent_id])
+    if subagent.nil? || !subagent.subagent? || subagent.parent_id != @current_user.id
+      return render status: 403, json: { error: 'You can only add your own subagents' }
+    end
+    @current_studio.add_user!(subagent)
+
+    respond_to do |format|
+      format.json do
+        render json: {
+          subagent_id: subagent.id,
+          subagent_name: subagent.display_name,
+          subagent_path: subagent.path,
+          parent_name: @current_user.display_name,
+          parent_path: @current_user.path,
+        }
+      end
+      format.html do
+        flash[:notice] = "#{subagent.display_name} has been added to #{@current_studio.name}"
+        redirect_to "#{@current_studio.path}/settings"
+      end
+    end
+  end
+
+  def remove_subagent
+    unless @current_user.studio_user&.is_admin?
+      return render status: 403, json: { error: 'Unauthorized' }
+    end
+    subagent = User.find_by(id: params[:subagent_id])
+    if subagent.nil? || !subagent.subagent?
+      return render status: 404, json: { error: 'Subagent not found' }
+    end
+
+    studio_user = StudioUser.find_by(studio: @current_studio, user: subagent)
+    if studio_user.nil? || studio_user.archived?
+      return render status: 404, json: { error: 'Subagent not in this studio' }
+    end
+
+    studio_user.archive!
+    can_readd = subagent.parent_id == @current_user.id
+
+    respond_to do |format|
+      format.json do
+        render json: {
+          subagent_id: subagent.id,
+          subagent_name: subagent.display_name,
+          can_readd: can_readd,
+        }
+      end
+      format.html do
+        flash[:notice] = "#{subagent.display_name} has been removed from #{@current_studio.name}"
+        redirect_to "#{@current_studio.path}/settings"
+      end
+    end
   end
 
   def actions_index_settings

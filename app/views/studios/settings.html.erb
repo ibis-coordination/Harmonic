@@ -4,7 +4,7 @@
 <h2>Studio Image</h2>
 <%= render 'shared/profile_image_upload', resource: @current_studio, size: 83 %>
 
-<%= form_with(url: "#{@current_studio.path}/settings") do |form| %>
+<%= form_with(url: "#{@current_studio.path}/settings", id: "studio-settings-form") do |form| %>
   <h2>Studio Name</h2>
   <p>
     <%= form.text_field :name, placeholder: 'Studio Name', value: @current_studio.name %>
@@ -98,6 +98,68 @@
     </p>
   <% end %>
 
-  <hr style="height:1px;" />
-  <%= form.submit 'Save' %>
 <% end %>
+
+<% if @current_tenant.api_enabled? %>
+  <div data-controller="subagent-manager" data-subagent-manager-remove-url-value="<%= @current_studio.path %>/settings/remove_subagent">
+    <h2>Subagents in this Studio</h2>
+    <p>
+      Subagents are virtual identities managed by their parent user.
+      Actions taken by subagents are the responsibility of their parent.
+    </p>
+    <div data-subagent-manager-target="list">
+      <table<%= @studio_subagents.empty? ? ' style="display:none;"'.html_safe : '' %>>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Managed by</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @studio_subagents.each do |subagent| %>
+            <tr data-subagent-id="<%= subagent.id %>">
+              <td><%= link_to subagent.display_name, subagent.path %></td>
+              <td>
+                <% if subagent.parent %>
+                  <%= link_to subagent.parent.display_name, subagent.parent.path %>
+                <% else %>
+                  <em>Unknown</em>
+                <% end %>
+              </td>
+              <td>
+                <button type="button" class="button-small button-danger"
+                        data-action="subagent-manager#remove"
+                        data-subagent-id="<%= subagent.id %>"
+                        data-subagent-name="<%= subagent.display_name %>"
+                        data-remove-url="<%= @current_studio.path %>/settings/remove_subagent">
+                  Remove
+                </button>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+      <% if @studio_subagents.empty? %>
+        <p class="empty-message"><em>No subagents in this studio.</em></p>
+      <% end %>
+    </div>
+
+    <% if @addable_subagents.any? %>
+      <h3>Add your subagents to this studio</h3>
+      <form data-subagent-manager-target="addForm" data-action="submit->subagent-manager#add" action="<%= @current_studio.path %>/settings/add_subagent" method="post">
+        <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+        <select name="subagent_id" data-subagent-manager-target="select">
+          <option value="">Select a subagent...</option>
+          <% @addable_subagents.each do |s| %>
+            <option value="<%= s.id %>"><%= s.display_name %></option>
+          <% end %>
+        </select>
+        <button type="submit" class="button">Add to Studio</button>
+      </form>
+    <% end %>
+  </div>
+<% end %>
+
+<hr style="height:1px;" />
+<button type="submit" form="studio-settings-form">Save</button>

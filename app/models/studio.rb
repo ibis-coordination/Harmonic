@@ -417,6 +417,12 @@ class Studio < ApplicationRecord
 
   sig { params(user: User, roles: T::Array[String]).returns(StudioUser) }
   def add_user!(user, roles: [])
+    existing_su = studio_users.find_by(user: user)
+    if existing_su
+      existing_su.unarchive! if existing_su.archived?
+      existing_su.add_roles!(roles)
+      return existing_su
+    end
     su = studio_users.create!(
       tenant: tenant,
       user: user,

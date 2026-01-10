@@ -91,6 +91,7 @@ Rails.application.routes.draw do
     post 'impersonate' => 'users#impersonate', on: :member
     delete 'impersonate' => 'users#stop_impersonating', on: :member
     post 'add_to_studio' => 'users#add_subagent_to_studio', on: :member
+    delete 'remove_from_studio' => 'users#remove_subagent_from_studio', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|
@@ -116,6 +117,8 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:studio_handle/team" => 'studios#team'
     get "#{studios_or_scenes}/:studio_handle/settings" => 'studios#settings'
     post "#{studios_or_scenes}/:studio_handle/settings" => 'studios#update_settings'
+    post "#{studios_or_scenes}/:studio_handle/settings/add_subagent" => 'studios#add_subagent'
+    delete "#{studios_or_scenes}/:studio_handle/settings/remove_subagent" => 'studios#remove_subagent'
     get "#{studios_or_scenes}/:studio_handle/settings/actions" => 'studios#actions_index_settings'
     get "#{studios_or_scenes}/:studio_handle/settings/actions/update_studio_settings" => 'studios#describe_update_studio_settings'
     post "#{studios_or_scenes}/:studio_handle/settings/actions/update_studio_settings" => 'studios#update_studio_settings_action'
