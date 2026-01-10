@@ -1171,4 +1171,263 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     TenantUser.where(user: subagent).delete_all if subagent
     subagent&.destroy
   end
+
+  # === Security Tests: Subagent Restrictions ===
+  # These tests use API token authentication to simulate subagents acting on their own behalf
+
+  test "Subagents cannot create subagents via API token - returns 403" do
+    # Create a subagent with an API token
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    # Use API token auth instead of session
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to create a subagent - should be blocked
+    post "/u/#{subagent.handle}/settings/subagents/new/actions/create_subagent",
+      params: { name: "Nested Subagent" }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status  # render_action_error returns 200
+    assert_match(/Only person accounts can create subagents/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagents cannot access create subagent page via API token - returns 403" do
+    # Create a subagent with an API token
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to access create subagent page - should be blocked
+    get "/u/#{subagent.handle}/settings/subagents/new", headers: subagent_headers
+    assert_equal 403, response.status
+    assert_match(/Only person accounts can create subagents/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagents cannot create their own API tokens via API token - returns 403" do
+    # Create a subagent with an API token
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to create an API token for themselves - should be blocked
+    post "/u/#{subagent.handle}/settings/tokens/new/actions/create_api_token",
+      params: { name: "Self Token" }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status  # render_action_error returns 200
+    assert_match(/Subagents cannot create their own API tokens/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagents cannot access create API token page via API token - returns 403" do
+    # Create a subagent with an API token
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to access create API token page - should be blocked
+    get "/u/#{subagent.handle}/settings/tokens/new", headers: subagent_headers
+    assert_equal 403, response.status
+    assert_match(/Subagents cannot create their own API tokens/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Parents can still create API tokens for their subagents" do
+    # Create a subagent
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+
+    # Parent (person) creates token for subagent - should work
+    post "/u/#{subagent.handle}/settings/tokens/new/actions/create_api_token",
+      params: { name: "Parent Created Token" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    token = ApiToken.find_by(name: "Parent Created Token", user: subagent)
+    assert token, "Token should have been created for subagent"
+  ensure
+    ApiToken.where(user: subagent).delete_all if subagent
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagents cannot execute add_subagent_to_studio via API token - returns 403" do
+    # Create two subagents - one with API token, one to try to add
+    acting_subagent = User.create!(
+      name: "Acting Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    other_subagent = User.create!(
+      name: "Other Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(acting_subagent)
+    @tenant.add_user!(other_subagent)
+    @studio.add_user!(acting_subagent)
+    token = ApiToken.create!(
+      user: acting_subagent,
+      tenant: @tenant,
+      name: "Acting Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to add another subagent to studio - should be blocked
+    post "/studios/#{@studio.handle}/settings/actions/add_subagent_to_studio",
+      params: { subagent_id: other_subagent.id }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status
+    assert_match(/Only person accounts can manage subagents/, response.body)
+  ensure
+    token&.destroy
+    StudioUser.where(user: [acting_subagent, other_subagent]).delete_all
+    TenantUser.where(user: [acting_subagent, other_subagent]).delete_all
+    acting_subagent&.destroy
+    other_subagent&.destroy
+  end
+
+  test "Subagents cannot execute remove_subagent_from_studio via API token - returns 403" do
+    # Create two subagents - one with API token, one already in studio
+    acting_subagent = User.create!(
+      name: "Acting Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    other_subagent = User.create!(
+      name: "Other Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(acting_subagent)
+    @tenant.add_user!(other_subagent)
+    @studio.add_user!(acting_subagent)
+    @studio.add_user!(other_subagent)
+    token = ApiToken.create!(
+      user: acting_subagent,
+      tenant: @tenant,
+      name: "Acting Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to remove another subagent from studio - should be blocked
+    post "/studios/#{@studio.handle}/settings/actions/remove_subagent_from_studio",
+      params: { subagent_id: other_subagent.id }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status
+    assert_match(/Only person accounts can manage subagents/, response.body)
+  ensure
+    token&.destroy
+    StudioUser.where(user: [acting_subagent, other_subagent]).delete_all
+    TenantUser.where(user: [acting_subagent, other_subagent]).delete_all
+    acting_subagent&.destroy
+    other_subagent&.destroy
+  end
 end

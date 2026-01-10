@@ -295,6 +295,7 @@ class StudiosController < ApplicationController
   end
 
   def describe_add_subagent_to_studio
+    return render status: 403, plain: '403 Unauthorized - Only person accounts can manage subagents' unless current_user&.person?
     # Get list of addable subagents for context
     addable_subagents = current_user.subagents.includes(:tenant_users, :studio_users)
       .where(tenant_users: { tenant_id: @current_tenant.id })
@@ -312,6 +313,7 @@ class StudiosController < ApplicationController
 
   def execute_add_subagent_to_studio
     return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_studio, error: 'Only person accounts can manage subagents.' }) unless current_user.person?
 
     begin
       subagent = User.find(params[:subagent_id])
@@ -352,6 +354,7 @@ class StudiosController < ApplicationController
   end
 
   def describe_remove_subagent_from_studio
+    return render status: 403, plain: '403 Unauthorized - Only person accounts can manage subagents' unless current_user&.person?
     # Get list of removable subagents for context
     studio_subagents = @current_studio.studio_users.includes(:user)
       .reject(&:archived?)
@@ -370,6 +373,7 @@ class StudiosController < ApplicationController
 
   def execute_remove_subagent_from_studio
     return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_studio, error: 'Only person accounts can manage subagents.' }) unless current_user.person?
 
     begin
       subagent = User.find(params[:subagent_id])

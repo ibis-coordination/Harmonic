@@ -28,9 +28,9 @@ Current settings for **<%= @current_studio.name %>**:
 ## [Actions](<%= @current_studio.path %>/settings/actions)
 
 * [`update_studio_settings(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)`](<%= @current_studio.path %>/settings/actions/update_studio_settings) - Update studio settings
-<% if @current_tenant.api_enabled? && @addable_subagents.present? %>
+<% if @current_tenant.api_enabled? && @current_user.person? && @addable_subagents.present? %>
 * [`add_subagent_to_studio(subagent_id)`](<%= @current_studio.path %>/settings/actions/add_subagent_to_studio) - Add one of your subagents to this studio
 <% end %>
-<% if @current_tenant.api_enabled? && @studio_subagents.present? && @studio_subagents.any? { |s| s.parent_id == @current_user.id } %>
+<% if @current_tenant.api_enabled? && @current_user.person? && @studio_subagents.present? && @studio_subagents.any? { |s| s.parent_id == @current_user.id } %>
 * [`remove_subagent_from_studio(subagent_id)`](<%= @current_studio.path %>/settings/actions/remove_subagent_from_studio) - Remove a subagent from this studio
 <% end %>

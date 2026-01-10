@@ -4,6 +4,10 @@ class ApiTokensController < ApplicationController
   before_action :set_user
 
   def new
+    # Block subagents from creating their own tokens (parents can still create tokens for their subagents)
+    if @showing_user == current_user && current_user.subagent?
+      return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
+    end
     @token = @showing_user.api_tokens.new(user: @showing_user)
     respond_to do |format|
       format.html
@@ -12,6 +16,10 @@ class ApiTokensController < ApplicationController
   end
 
   def create
+    # Block subagents from creating their own tokens (parents can still create tokens for their subagents)
+    if @showing_user == current_user && current_user.subagent?
+      return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
+    end
     @token = @showing_user.api_tokens.new
     @token.name = token_params[:name]
     @token.scopes = ApiToken.read_scopes
@@ -40,11 +48,19 @@ class ApiTokensController < ApplicationController
   # Markdown API actions
 
   def actions_index
+    # Block subagents from creating their own tokens
+    if @showing_user == current_user && current_user.subagent?
+      return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
+    end
     @page_title = "Actions | New API Token"
     render_actions_index(ActionsHelper.actions_for_route('/u/:handle/settings/tokens/new'))
   end
 
   def describe_create_api_token
+    # Block subagents from creating their own tokens
+    if @showing_user == current_user && current_user.subagent?
+      return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
+    end
     render_action_description({
       action_name: 'create_api_token',
       resource: @showing_user,
@@ -59,6 +75,14 @@ class ApiTokensController < ApplicationController
   end
 
   def execute_create_api_token
+    # Block subagents from creating their own tokens
+    if @showing_user == current_user && current_user.subagent?
+      return render_action_error({
+        action_name: 'create_api_token',
+        resource: @showing_user,
+        error: 'Subagents cannot create their own API tokens.',
+      })
+    end
     @token = @showing_user.api_tokens.new
     @token.name = params[:name]
     @token.scopes = ApiToken.read_scopes
