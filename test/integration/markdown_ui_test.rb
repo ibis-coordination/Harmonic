@@ -83,6 +83,30 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_200_markdown_page_with_actions("Decide", "/studios/#{@studio.handle}/decide")
   end
 
+  test "GET /studios/:studio_handle/commit returns 200 markdown with actions" do
+    assert_200_markdown_page_with_actions("Commit", "/studios/#{@studio.handle}/commit")
+  end
+
+  test "GET /studios/:studio_handle/n/:note_id returns 200 markdown with actions" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test note")
+    assert_200_markdown_page_with_actions(note.title, "/studios/#{@studio.handle}/n/#{note.truncated_id}")
+  end
+
+  test "GET /studios/:studio_handle/n/:note_id/edit returns 200 markdown with actions" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test note")
+    assert_200_markdown_page_with_actions("Edit Note", "/studios/#{@studio.handle}/n/#{note.truncated_id}/edit")
+  end
+
+  test "GET /studios/:studio_handle/d/:decision_id returns 200 markdown with actions" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Test decision?")
+    assert_200_markdown_page_with_actions(decision.question, "/studios/#{@studio.handle}/d/#{decision.truncated_id}")
+  end
+
+  test "GET /studios/:studio_handle/c/:commitment_id returns 200 markdown with actions" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Test commitment")
+    assert_200_markdown_page_with_actions(commitment.title, "/studios/#{@studio.handle}/c/#{commitment.truncated_id}")
+  end
+
   # Cycle detail pages
   test "GET /studios/:studio_handle/cycles returns 200 markdown" do
     get "/studios/#{@studio.handle}/cycles", headers: @headers

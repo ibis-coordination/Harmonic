@@ -190,6 +190,9 @@ Rails.application.routes.draw do
 
     get "#{prefix}/commit" => 'commitments#new'
     post "#{prefix}/commit" => 'commitments#create'
+    get "#{prefix}/commit/actions" => 'commitments#actions_index_new'
+    get "#{prefix}/commit/actions/create_commitment" => 'commitments#describe_create_commitment'
+    post "#{prefix}/commit/actions/create_commitment" => 'commitments#create_commitment_action'
     resources :commitments, only: [:show], path: "#{prefix}/c" do
       get '/actions' => 'commitments#actions_index_show'
       get '/actions/join_commitment' => 'commitments#describe_join_commitment'
