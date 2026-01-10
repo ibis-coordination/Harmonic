@@ -112,6 +112,38 @@ class UserTest < ActiveSupport::TestCase
     assert_equal @user.tenant_user.handle, @user.handle
   end
 
+  test "display_name_with_parent for person returns display_name" do
+    @user.tenant_user.update!(display_name: "Alice")
+    assert_equal "Alice", @user.display_name_with_parent
+  end
+
+  test "display_name_with_parent for subagent includes parent name" do
+    @user.tenant_user.update!(display_name: "Bob")
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Alice Bot",
+      user_type: "subagent",
+      parent_id: @user.id
+    )
+    @tenant.add_user!(subagent)
+    subagent.tenant_user.update!(display_name: "Alice")
+    assert_equal "Alice (subagent of Bob)", subagent.display_name_with_parent
+  end
+
+  test "parent returns parent user for subagent" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent",
+      user_type: "subagent",
+      parent_id: @user.id
+    )
+    assert_equal @user, subagent.parent
+  end
+
+  test "parent returns nil for person user" do
+    assert_nil @user.parent
+  end
+
   # === API JSON Tests ===
 
   test "api_json returns expected fields" do

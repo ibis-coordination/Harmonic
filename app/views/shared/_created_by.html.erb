@@ -2,6 +2,9 @@
   <% verb ||= '' %>
   <%= profile_pic(resource.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
   <strong><%= resource.created_by.display_name %></strong>
+  <% if resource.created_by.subagent? && resource.created_by.parent %>
+    <span class="subagent-attribution" title="subagent of <%= resource.created_by.parent.display_name %>">(subagent of <%= link_to resource.created_by.parent.display_name, resource.created_by.parent.path %>)</span>
+  <% end %>
   <%= link_to "@#{resource.created_by.handle}", resource.created_by.path %>
   <%= verb %> <%= timeago(resource.created_at) %>
   <br/>
@@ -9,6 +12,9 @@
     Updated <strong><%= timeago(resource.updated_at) %></strong>
     by <%= profile_pic(resource.updated_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
     <strong><%= resource.updated_by.display_name %></strong>
+    <% if resource.updated_by.subagent? && resource.updated_by.parent %>
+      <span class="subagent-attribution" title="subagent of <%= resource.updated_by.parent.display_name %>">(subagent of <%= link_to resource.updated_by.parent.display_name, resource.updated_by.parent.path %>)</span>
+    <% end %>
     <%= link_to "@#{resource.updated_by.handle}", resource.updated_by.path %>
   <% end %>
 </span>

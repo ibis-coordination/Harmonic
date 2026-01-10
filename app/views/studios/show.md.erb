@@ -28,7 +28,7 @@ No pinned items yet.
 
 <% if @current_studio.users.length > 0 %>
 <% @current_studio.users.each do |user| %>
-* [<%= user.display_name %>](<%= user.path %>)
+* <%= user_link_md(user) %>
 <% end %>
 <% else %>
 No team members yet.

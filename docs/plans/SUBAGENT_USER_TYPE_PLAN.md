@@ -299,13 +299,13 @@ end
 - [x] Service updates
 - [x] Update existing tests (rename simulated → subagent)
 
-### Phase 2: Visibility
-- [ ] Add helper methods for display with parent
-- [ ] Update avatar component
-- [ ] Update profile pages
-- [ ] Update activity displays
-- [ ] Update markdown rendering
-- [ ] Update impersonation UI
+### Phase 2: Visibility ✓
+- [x] Add helper methods for display with parent
+- [x] Update avatar component
+- [x] Update profile pages
+- [x] Update activity displays
+- [x] Update markdown rendering
+- [x] Update impersonation UI
 
 ### Phase 3: Studio Membership
 - [ ] Add authorization method
@@ -363,10 +363,10 @@ end
 - [x] Impersonation integration tests written and passing (before any refactor)
 - [x] All references to "simulated" replaced with "subagent" in code and UI
 - [x] Database migration runs successfully
-- [ ] Parent relationship visible on subagent profiles
-- [ ] Parent relationship visible in activity feeds
-- [ ] Parent relationship visible in markdown output
-- [ ] Avatars show parent overlay for subagents
+- [x] Parent relationship visible on subagent profiles
+- [x] Parent relationship visible in activity feeds
+- [x] Parent relationship visible in markdown output
+- [x] Avatars show parent overlay for subagents
 - [ ] Parents can add subagents to studios from settings page
 - [ ] Parents can add subagents to studios from studio member page
 - [x] All existing tests pass after updates

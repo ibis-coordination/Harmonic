@@ -201,6 +201,19 @@ class User < ApplicationRecord
     end
   end
 
+  sig { returns(String) }
+  def display_name_with_parent
+    return display_name || "" unless subagent?
+    parent_name = parent&.display_name || "unknown"
+    "#{display_name} (subagent of #{parent_name})"
+  end
+
+  sig { returns(T.nilable(User)) }
+  def parent
+    return nil unless parent_id
+    User.unscoped.find_by(id: parent_id)
+  end
+
   sig { params(handle: String).void }
   def handle=(handle)
     T.must(tenant_user).handle = handle

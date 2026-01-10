@@ -35,7 +35,7 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 
 ## Voters (<%= @decision.voters.count %>)
 
-<% if @decision.voters.empty? %>No voters yet.<% else %><% @decision.voters.each do |voter| %>* [<%= voter.display_name %>](<%= voter.path %>)
+<% if @decision.voters.empty? %>No voters yet.<% else %><% @decision.voters.each do |voter| %>* <%= user_link_md(voter) %>
 <% end %><% end %>
 <%= render 'shared/backlinks', resource: @decision %>
 ## Comments (<%= @decision.comments_count %>)
@@ -44,7 +44,7 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 No comments yet.
 <% else %>
 <% @decision.chronological_comments.each do |comment| %>
-* [<%= comment.created_by&.display_name || 'Unknown' %>](<%= comment.created_by&.path || '#' %>) (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
+* <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
 <% end %>
 <% end %>
 

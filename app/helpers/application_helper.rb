@@ -100,13 +100,32 @@ module ApplicationHelper
     html.html_safe
   end
 
-  def profile_pic(user, size: 30, style: '')
+  # Render a user link in markdown format, with parent attribution for subagents
+  def user_link_md(user, include_parent: true)
+    return "" unless user
+    base_link = "[#{user.display_name}](#{user.path})"
+    if include_parent && user.subagent? && user.parent
+      "#{base_link} (subagent of [#{user.parent.display_name}](#{user.parent.path}))"
+    else
+      base_link
+    end
+  end
+
+  def profile_pic(user, size: 30, style: '', show_parent: false)
+    title = user.subagent? && user.parent ? "#{user.display_name} (subagent of #{user.parent.display_name})" : user.display_name
     if user.image_url
-      image_tag user.image_url, class: 'profile-pic', width: size, height: size, title: user.display_name, style: "width:#{size}px;height:#{size}px;line-height:#{size}px;" + style
+      main_img = image_tag user.image_url, class: 'profile-pic', width: size, height: size, title: title, style: "width:#{size}px;height:#{size}px;line-height:#{size}px;" + style
+      if show_parent && user.subagent? && user.parent&.image_url
+        parent_size = (size * 0.4).to_i
+        parent_img = image_tag user.parent.image_url, class: 'profile-pic-parent', width: parent_size, height: parent_size, title: "Managed by #{user.parent.display_name}", style: "position:absolute;bottom:-2px;right:-2px;width:#{parent_size}px;height:#{parent_size}px;border:1px solid var(--color-border-default);border-radius:50%;"
+        "<span style='position:relative;display:inline-block;#{style}'>#{main_img}#{parent_img}</span>".html_safe
+      else
+        main_img
+      end
     else
       return ""
       initials = user.display_name.split.map(&:first).join
-      "<div class='profile-pic' title='#{user.display_name}' style='display:inline-block;width:#{size}px;height:#{size}px;line-height:#{size}px;color:var(--color-fg-default);#{style}'><span>#{initials}</span></div>".html_safe
+      "<div class='profile-pic' title='#{title}' style='display:inline-block;width:#{size}px;height:#{size}px;line-height:#{size}px;color:var(--color-fg-default);#{style}'><span>#{initials}</span></div>".html_safe
     end
   end
 
