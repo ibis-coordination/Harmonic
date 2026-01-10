@@ -5,14 +5,14 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @studio = @global_studio
     @parent = @global_user
-    @simulated = User.create!(
-      email: "simulated-#{SecureRandom.hex(4)}@not-a-real-email.com",
-      name: "Simulated User",
-      user_type: "simulated",
+    @subagent = User.create!(
+      email: "subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
+      name: "Subagent User",
+      user_type: "subagent",
       parent_id: @parent.id,
     )
-    @tenant.add_user!(@simulated)
-    @studio.add_user!(@simulated)
+    @tenant.add_user!(@subagent)
+    @studio.add_user!(@subagent)
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
@@ -20,43 +20,43 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   # Starting Impersonation
   # ====================
 
-  test "parent can start impersonating their simulated user" do
+  test "parent can start impersonating their subagent user" do
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
 
     assert_response :redirect
     follow_redirect!
     assert_response :success
   end
 
-  test "parent cannot impersonate another user's simulated user" do
+  test "parent cannot impersonate another user's subagent user" do
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
     @studio.add_user!(other_parent)
-    other_simulated = User.create!(
-      email: "other-simulated-#{SecureRandom.hex(4)}@not-a-real-email.com",
-      name: "Other Simulated",
-      user_type: "simulated",
+    other_subagent = User.create!(
+      email: "other-subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
+      name: "Other Subagent",
+      user_type: "subagent",
       parent_id: other_parent.id,
     )
-    @tenant.add_user!(other_simulated)
-    @studio.add_user!(other_simulated)
+    @tenant.add_user!(other_subagent)
+    @studio.add_user!(other_subagent)
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{other_simulated.handle}/impersonate"
+    post "/u/#{other_subagent.handle}/impersonate"
 
     assert_response :forbidden
   end
 
-  test "parent cannot impersonate archived simulated user" do
+  test "parent cannot impersonate archived subagent user" do
     # Archive through tenant_user since archived_at is on TenantUser
-    @simulated.tenant_user = @tenant.tenant_users.find_by(user: @simulated)
-    @simulated.archive!
+    @subagent.tenant_user = @tenant.tenant_users.find_by(user: @subagent)
+    @subagent.archive!
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
 
     assert_response :forbidden
   end
@@ -74,7 +74,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   end
 
   test "unauthenticated user cannot impersonate anyone" do
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
 
     # Should redirect to login or return error
     assert_response :redirect
@@ -84,32 +84,32 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   # Session Management
   # ====================
 
-  test "after impersonation starts current_user returns the simulated user" do
+  test "after impersonation starts current_user returns the subagent user" do
     sign_in_as(@parent, tenant: @tenant)
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
 
     # Access a page that shows current user info
-    get "/u/#{@simulated.handle}"
+    get "/u/#{@subagent.handle}"
 
     assert_response :success
-    # The simulated user's profile should be accessible
+    # The subagent user's profile should be accessible
   end
 
-  test "creating content while impersonating attributes it to simulated user" do
+  test "creating content while impersonating attributes it to subagent user" do
     sign_in_as(@parent, tenant: @tenant)
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
     # Create a note while impersonating
     post "/studios/#{@studio.handle}/note", params: {
       note: {
-        title: "Note from simulated user",
-        text: "This should be attributed to the simulated user",
+        title: "Note from subagent user",
+        text: "This should be attributed to the subagent user",
       },
     }
 
     note = Note.last
-    assert_equal @simulated.id, note.created_by_id
+    assert_equal @subagent.id, note.created_by_id
     assert_not_equal @parent.id, note.created_by_id
   end
 
@@ -117,25 +117,25 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   # Actions While Impersonating
   # ====================
 
-  test "creating a note while impersonating attributes it to the simulated user" do
+  test "creating a note while impersonating attributes it to the subagent user" do
     sign_in_as(@parent, tenant: @tenant)
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
     assert_difference "Note.count", 1 do
       post "/studios/#{@studio.handle}/note", params: {
         note: {
-          title: "Simulated user's note",
-          text: "Created by simulated user",
+          title: "Subagent user's note",
+          text: "Created by subagent user",
         },
       }
     end
 
     note = Note.last
-    assert_equal @simulated.id, note.created_by_id
+    assert_equal @subagent.id, note.created_by_id
   end
 
-  test "voting on a decision while impersonating records the simulated user's participation" do
+  test "voting on a decision while impersonating records the subagent user's participation" do
     sign_in_as(@parent, tenant: @tenant)
 
     # Create a decision first
@@ -157,7 +157,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     )
 
     # Now impersonate and vote
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
     post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/actions/vote", params: {
@@ -165,9 +165,9 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
       value: 1,
     }
 
-    # Check that the vote was recorded for the simulated user
-    participant = decision.participants.find_by(user: @simulated)
-    assert_not_nil participant, "Simulated user should have a participant record"
+    # Check that the vote was recorded for the subagent user
+    participant = decision.participants.find_by(user: @subagent)
+    assert_not_nil participant, "Subagent user should have a participant record"
   end
 
   # ====================
@@ -176,17 +176,17 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
 
   test "parent can stop impersonating" do
     sign_in_as(@parent, tenant: @tenant)
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
-    delete "/u/#{@simulated.handle}/impersonate", headers: { "HTTP_REFERER" => "/" }
+    delete "/u/#{@subagent.handle}/impersonate", headers: { "HTTP_REFERER" => "/" }
 
     assert_response :redirect
   end
 
   test "after stopping impersonation current_user returns the original person user" do
     sign_in_as(@parent, tenant: @tenant)
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
     # Create a note while impersonating
@@ -194,10 +194,10 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
       note: { title: "Before stop", text: "Impersonating" },
     }
     note_while_impersonating = Note.last
-    assert_equal @simulated.id, note_while_impersonating.created_by_id
+    assert_equal @subagent.id, note_while_impersonating.created_by_id
 
     # Stop impersonating
-    delete "/u/#{@simulated.handle}/impersonate", headers: { "HTTP_REFERER" => "/studios/#{@studio.handle}" }
+    delete "/u/#{@subagent.handle}/impersonate", headers: { "HTTP_REFERER" => "/studios/#{@studio.handle}" }
     follow_redirect!
 
     # Create another note after stopping
@@ -212,14 +212,14 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   # Edge Cases
   # ====================
 
-  test "if simulated user is archived during session impersonation ends gracefully" do
+  test "if subagent user is archived during session impersonation ends gracefully" do
     sign_in_as(@parent, tenant: @tenant)
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
-    # Archive the simulated user while impersonating
-    @simulated.tenant_user = @tenant.tenant_users.find_by(user: @simulated)
-    @simulated.archive!
+    # Archive the subagent user while impersonating
+    @subagent.tenant_user = @tenant.tenant_users.find_by(user: @subagent)
+    @subagent.archive!
 
     # Access a page - should no longer be impersonating
     get "/studios/#{@studio.handle}"
@@ -230,19 +230,19 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
 
   test "impersonation is cleared when parent can no longer impersonate" do
     sign_in_as(@parent, tenant: @tenant)
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
     # Change parent_id to someone else (simulating an edge case)
     other_user = create_user(name: "New Parent")
     @tenant.add_user!(other_user)
-    @simulated.update_column(:parent_id, other_user.id)
+    @subagent.update_column(:parent_id, other_user.id)
 
     # Access a page - impersonation should be cleared
     get "/studios/#{@studio.handle}"
 
     assert_response :success
-    # Session should clear impersonation since @parent can no longer impersonate @simulated
+    # Session should clear impersonation since @parent can no longer impersonate @subagent
   end
 
   test "cannot start impersonation for non-existent user" do
@@ -255,7 +255,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
 
   test "impersonation persists across multiple requests" do
     sign_in_as(@parent, tenant: @tenant)
-    post "/u/#{@simulated.handle}/impersonate"
+    post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
     # Make multiple requests
@@ -271,6 +271,6 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     }
 
     note = Note.last
-    assert_equal @simulated.id, note.created_by_id
+    assert_equal @subagent.id, note.created_by_id
   end
 end

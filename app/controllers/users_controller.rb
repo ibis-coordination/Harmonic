@@ -31,7 +31,7 @@ class UsersController < ApplicationController
     return render '404' if tu.nil?
     return render plain: '403 Unauthorized' unless tu.user == current_user
     @current_user.tenant_user = tu
-    @simulated_users = @current_user.simulated_users.includes(:tenant_users).where(tenant_users: {tenant_id: @current_tenant.id})
+    @subagents = @current_user.subagents.includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
   end
 
   def update_profile
@@ -58,10 +58,10 @@ class UsersController < ApplicationController
 
   def impersonate
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render status: 404, plain: '404 Not Found' if tu.nil?
-    return render status: 403, plain: '403 Unauthorized' unless current_user.can_impersonate?(tu.user)
-    return render status: 403, plain: '403 Unauthorized' unless tu.user.simulated?
-    session[:simulated_user_id] = tu.user.id
+    return render status: 404, plain: "404 Not Found" if tu.nil?
+    return render status: 403, plain: "403 Unauthorized" unless current_user.can_impersonate?(tu.user)
+    return render status: 403, plain: "403 Unauthorized" unless tu.user.subagent?
+    session[:subagent_user_id] = tu.user.id
     redirect_to root_path
   end
 

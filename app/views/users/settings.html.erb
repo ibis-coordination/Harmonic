@@ -61,13 +61,13 @@ Click image to upload a new image.<br/>
   <%= button_to 'Create Personal API Token', "#{@current_user.path}/settings/tokens/new", method: :get, class: 'button' %>
 
   <% if @current_user.person? %>
-    <h2>Simulated Users</h2>
+    <h2>Subagents</h2>
     <p>
-      Simulated users are virtual identities that you manage.
+      Subagents are virtual identities that you manage.
       These identities can be associated with AI agents and other automated systems that interact with the app through the API.
-      You can also impersonate simulated users for testing and inspection purposes.
+      You can also impersonate subagents for testing and inspection purposes.
     </p>
-    <% if @simulated_users.any? %>
+    <% if @subagents.any? %>
       <table>
         <tr>
           <th>Name</th>
@@ -75,25 +75,25 @@ Click image to upload a new image.<br/>
           <th>Profile</th>
           <th>Impersonate</th>
         </tr>
-        <% @simulated_users.each do |simulated_user| %>
+        <% @subagents.each do |subagent| %>
           <tr>
-            <td><%= simulated_user.name %></td>
-            <td><%= timeago(simulated_user.created_at) %></td>
-            <td><%= link_to 'View', simulated_user.path %></td>
-            <% if simulated_user.archived? %>
+            <td><%= subagent.name %></td>
+            <td><%= timeago(subagent.created_at) %></td>
+            <td><%= link_to 'View', subagent.path %></td>
+            <% if subagent.archived? %>
               <td>Archived</td>
             <% else %>
-              <td><%= button_to 'Impersonate', "#{simulated_user.path}/impersonate", method: :post %></td>
+              <td><%= button_to 'Impersonate', "#{subagent.path}/impersonate", method: :post %></td>
             <% end %>
           </tr>
         <% end %>
       </table>
-      <%= button_to 'Create Simulated User', "#{@current_user.path}/settings/simulated_users/new", method: :get, class: 'button' %>
-      <h2>Simulated User API Tokens</h2>
-      <p>Simulated users have their own API tokens, which you as the owner are responsible for.</p>
-      <% @simulated_users.each do |simulated_user| %>
-        <% if simulated_user.api_tokens.any? %>
-          <h3><%= simulated_user.name %></h3>
+      <%= button_to 'Create Subagent', "#{@current_user.path}/settings/subagents/new", method: :get, class: 'button' %>
+      <h2>Subagent API Tokens</h2>
+      <p>Subagents have their own API tokens, which you as the owner are responsible for.</p>
+      <% @subagents.each do |subagent| %>
+        <% if subagent.api_tokens.any? %>
+          <h3><%= subagent.name %></h3>
           <table>
             <tr>
               <th>Name</th>
@@ -104,7 +104,7 @@ Click image to upload a new image.<br/>
               <th>Active</th>
               <th>View</th>
             </tr>
-            <% simulated_user.api_tokens.each do |token| %>
+            <% subagent.api_tokens.each do |token| %>
               <tr>
                 <td><%= token.name || 'Unnamed' %></td>
                 <td>
@@ -120,13 +120,13 @@ Click image to upload a new image.<br/>
             <% end %>
           </table>
         <% else %>
-          <h3><%= simulated_user.name %></h3>
-          <p><%= simulated_user.name %> has no API tokens.</p>
+          <h3><%= subagent.name %></h3>
+          <p><%= subagent.name %> has no API tokens.</p>
         <% end %>
-        <%= button_to "Create API Token for #{simulated_user.name}", "#{simulated_user.path}/settings/tokens/new", method: :get, class: 'button' %>
+        <%= button_to "Create API Token for #{subagent.name}", "#{subagent.path}/settings/tokens/new", method: :get, class: 'button' %>
       <% end %>
     <% else %>
-      <%= button_to 'Create Simulated User', "#{@current_user.path}/settings/simulated_users/new", method: :get, class: 'button' %>
+      <%= button_to 'Create Subagent', "#{@current_user.path}/settings/subagents/new", method: :get, class: 'button' %>
     <% end %>
   <% end %>
 <% end %>

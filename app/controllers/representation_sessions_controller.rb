@@ -74,8 +74,8 @@ class RepresentationSessionsController < ApplicationController
     end
     @current_representation_session = current_representation_session || rs
     exists_and_active = @current_representation_session && @current_representation_session.active?
-    acting_user_is_rep = exists_and_active && [@current_person_user, @current_simulated_user].include?(@current_representation_session.representative_user)
-    # raise "#{exists_and_active} - #{acting_user_is_rep} - #{rs} #{@current_person_user.name} - #{@current_simulated_user.name}" unless exists_and_active && acting_user_is_rep
+    acting_user_is_rep = exists_and_active && [@current_person_user, @current_subagent_user].include?(@current_representation_session.representative_user)
+    # raise "#{exists_and_active} - #{acting_user_is_rep} - #{rs} #{@current_person_user.name} - #{@current_subagent_user.name}" unless exists_and_active && acting_user_is_rep
     if exists_and_active && acting_user_is_rep
       session_url = @current_representation_session.url
       @current_representation_session.end!

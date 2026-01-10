@@ -290,14 +290,14 @@ end
 - [x] Add edge case tests
 - [x] Verify all tests pass before proceeding
 
-### Phase 1: Core Rename
-- [ ] Database migration
-- [ ] Model changes (User)
-- [ ] Controller renames and updates
-- [ ] Route updates
-- [ ] View renames and text updates
-- [ ] Service updates
-- [ ] Update existing tests (rename simulated → subagent)
+### Phase 1: Core Rename ✓
+- [x] Database migration
+- [x] Model changes (User)
+- [x] Controller renames and updates
+- [x] Route updates
+- [x] View renames and text updates
+- [x] Service updates
+- [x] Update existing tests (rename simulated → subagent)
 
 ### Phase 2: Visibility
 - [ ] Add helper methods for display with parent
@@ -361,13 +361,13 @@ end
 ## Success Criteria
 
 - [x] Impersonation integration tests written and passing (before any refactor)
-- [ ] All references to "simulated" replaced with "subagent" in code and UI
-- [ ] Database migration runs successfully
+- [x] All references to "simulated" replaced with "subagent" in code and UI
+- [x] Database migration runs successfully
 - [ ] Parent relationship visible on subagent profiles
 - [ ] Parent relationship visible in activity feeds
 - [ ] Parent relationship visible in markdown output
 - [ ] Avatars show parent overlay for subagents
 - [ ] Parents can add subagents to studios from settings page
 - [ ] Parents can add subagents to studios from studio member page
-- [ ] All existing tests pass after updates
+- [x] All existing tests pass after updates
 - [ ] New tests cover visibility and studio membership features

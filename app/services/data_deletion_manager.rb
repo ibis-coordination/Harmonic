@@ -67,9 +67,9 @@ class DataDeletionManager
       user.save!
       # API tokens are marked as deleted but not destroyed
       ApiToken.unscoped.where(user_id: user.id).update_all(deleted_at: Time.current)
-      User.unscoped.where(parent_id: user.id).each do |simulated_user|
-        # Simulated users are not modified, but their API tokens are marked as deleted
-        ApiToken.unscoped.where(user_id: simulated_user.id).update_all(deleted_at: Time.current)
+      User.unscoped.where(parent_id: user.id).each do |subagent|
+        # Subagent users are not modified, but their API tokens are marked as deleted
+        ApiToken.unscoped.where(user_id: subagent.id).update_all(deleted_at: Time.current)
       end
       StudioUser.unscoped.where(user_id: user.id).each do |studio_user|
         studio_user_is_sole_admin = studio_user.is_admin? && studio_user.studio.admins.count == 1

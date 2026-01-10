@@ -85,8 +85,8 @@ Rails.application.routes.draw do
     resources :api_tokens,
               path: 'settings/tokens',
               only: [:new, :create, :show, :destroy]
-    resources :simulated_users,
-              path: 'settings/simulated_users',
+    resources :subagents,
+              path: "settings/subagents",
               only: [:new, :create, :show, :destroy]
     post 'impersonate' => 'users#impersonate', on: :member
     delete 'impersonate' => 'users#stop_impersonating', on: :member

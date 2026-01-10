@@ -54,15 +54,15 @@
           });
         </script>
       <% end %>
-      <% if @current_simulated_user %>
+      <% if @current_subagent_user %>
         <div class="alert">
-          <span>You are impersonating simulated user <%= @current_simulated_user.display_name %>.</span>
-          <%= button_to "End Session", "#{@current_simulated_user.path}/impersonate", method: :delete %>
+          <span>Acting as subagent <%= @current_subagent_user.display_name %>.</span>
+          <%= button_to "End Session", "#{@current_subagent_user.path}/impersonate", method: :delete %>
         </div>
       <% end %>
       <% if @current_representation_session %>
         <div class="alert">
-          <span><%= @current_simulated_user ? "As #{@current_simulated_user.display_name}, y" : 'Y' %>ou are acting as a representative of <%= @current_user.display_name %>.</span>
+          <span><%= @current_subagent_user ? "As #{@current_subagent_user.display_name}, y" : "Y" %>ou are acting as a representative of <%= @current_user.display_name %>.</span>
           <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete %>
         </div>
       <% end %>

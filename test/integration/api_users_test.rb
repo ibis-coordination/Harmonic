@@ -61,28 +61,28 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  # Create (simulated users only)
-  test "create creates a simulated user" do
+  # Create (subagent users only)
+  test "create creates a subagent user" do
     user_params = {
-      name: "Simulated Test User",
-      email: "simulated-#{SecureRandom.hex(4)}@example.com",
-      handle: "sim-#{SecureRandom.hex(4)}"
+      name: "Subagent Test User",
+      email: "subagent-#{SecureRandom.hex(4)}@example.com",
+      handle: "subagent-#{SecureRandom.hex(4)}"
     }
-    assert_difference "User.where(user_type: 'simulated').count", 1 do
+    assert_difference "User.where(user_type: 'subagent').count", 1 do
       post api_path, params: user_params.to_json, headers: @headers
     end
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal "simulated", body["user_type"]
-    assert_equal "Simulated Test User", body["display_name"]
+    assert_equal "subagent", body["user_type"]
+    assert_equal "Subagent Test User", body["display_name"]
   end
 
   test "create with generate_token returns token" do
     skip "Bug: generate_token method not implemented in users controller"
     user_params = {
-      name: "Simulated User with Token",
-      email: "simulated-token-#{SecureRandom.hex(4)}@example.com",
-      handle: "sim-token-#{SecureRandom.hex(4)}",
+      name: "Subagent User with Token",
+      email: "subagent-token-#{SecureRandom.hex(4)}@example.com",
+      handle: "subagent-token-#{SecureRandom.hex(4)}",
       generate_token: true
     }
     post api_path, params: user_params.to_json, headers: @headers
@@ -94,9 +94,9 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
 
   test "create without generate_token does not return token" do
     user_params = {
-      name: "Simulated User No Token",
-      email: "simulated-notoken-#{SecureRandom.hex(4)}@example.com",
-      handle: "sim-notoken-#{SecureRandom.hex(4)}"
+      name: "Subagent User No Token",
+      email: "subagent-notoken-#{SecureRandom.hex(4)}@example.com",
+      handle: "subagent-notoken-#{SecureRandom.hex(4)}"
     }
     post api_path, params: user_params.to_json, headers: @headers
     assert_response :success
@@ -125,21 +125,21 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     assert_equal "Updated Name", @user.name
   end
 
-  test "update can update simulated user created by current user" do
+  test "update can update subagent user created by current user" do
     skip "Bug: tenant.users has_many through association order issue"
-    # Create a simulated user
-    simulated = User.create!(
-      email: "simulated-update-#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated for Update",
-      user_type: "simulated",
+    # Create a subagent user
+    subagent = User.create!(
+      email: "subagent-update-#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent for Update",
+      user_type: "subagent",
       parent_id: @user.id
     )
-    @tenant.add_user!(simulated)
-    update_params = { name: "Updated Simulated Name" }
-    put api_path("/#{simulated.id}"), params: update_params.to_json, headers: @headers
+    @tenant.add_user!(subagent)
+    update_params = { name: "Updated Subagent Name" }
+    put api_path("/#{subagent.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
-    simulated.reload
-    assert_equal "Updated Simulated Name", simulated.name
+    subagent.reload
+    assert_equal "Updated Subagent Name", subagent.name
   end
 
   test "update cannot update other person user" do
@@ -151,34 +151,34 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
-  test "update can archive simulated user" do
+  test "update can archive subagent user" do
     skip "Bug: tenant.users has_many through association order issue"
-    simulated = User.create!(
-      email: "simulated-archive-#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated for Archive",
-      user_type: "simulated",
+    subagent = User.create!(
+      email: "subagent-archive-#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent for Archive",
+      user_type: "subagent",
       parent_id: @user.id
     )
-    @tenant.add_user!(simulated)
+    @tenant.add_user!(subagent)
     update_params = { archived: true }
-    put api_path("/#{simulated.id}"), params: update_params.to_json, headers: @headers
+    put api_path("/#{subagent.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
-    simulated.reload
-    assert simulated.archived?
+    subagent.reload
+    assert subagent.archived?
   end
 
   # Delete
-  test "delete deletes simulated user with no data" do
+  test "delete deletes subagent user with no data" do
     skip "Bug: tenant.users has_many through association order issue"
-    simulated = User.create!(
-      email: "simulated-delete-#{SecureRandom.hex(4)}@example.com",
-      name: "Simulated for Delete",
-      user_type: "simulated",
+    subagent = User.create!(
+      email: "subagent-delete-#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent for Delete",
+      user_type: "subagent",
       parent_id: @user.id
     )
-    @tenant.add_user!(simulated)
+    @tenant.add_user!(subagent)
     assert_difference "User.count", -1 do
-      delete api_path("/#{simulated.id}"), headers: @headers
+      delete api_path("/#{subagent.id}"), headers: @headers
     end
     assert_response :success
   end
