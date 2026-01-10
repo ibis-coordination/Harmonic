@@ -538,6 +538,23 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal "Updated description", commitment.description, "Commitment description should have been updated"
   end
 
+  # Learn pages should return markdown, not HTML
+  test "GET /learn returns proper markdown without HTML tags" do
+    get "/learn", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should NOT contain HTML tags
+    refute_match(/<h1>/, response.body, "Learn page should not contain <h1> HTML tags")
+    refute_match(/<ul>/, response.body, "Learn page should not contain <ul> HTML tags")
+    refute_match(/<li>/, response.body, "Learn page should not contain <li> HTML tags")
+    refute_match(/<a /, response.body, "Learn page should not contain <a> HTML tags")
+
+    # Should contain markdown syntax
+    assert_match(/^# Learn/, response.body, "Learn page should have markdown heading")
+    assert_match(/^\* \[/, response.body, "Learn page should have markdown list items with links")
+  end
+
   test "POST join_studio action joins scene and returns 200 markdown" do
     # Create a scene (open studio) that allows direct join
     scene = Studio.create!(

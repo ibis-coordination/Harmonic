@@ -152,6 +152,18 @@ class CycleTest < ActiveSupport::TestCase
     assert_match(/\d{4}/, cycle.display_window)   # Contains year
   end
 
+  test "display_window does not contain double spaces for single-digit days" do
+    # Test with a fixed date that has a single-digit day
+    travel_to Time.zone.local(2026, 1, 9, 12, 0, 0) do
+      cycle = Cycle.new(name: "today", tenant: @tenant, studio: @studio)
+      display = cycle.display_window
+      # Should not have double spaces (e.g., "January  9" should be "January 9")
+      refute_match(/  /, display, "display_window should not contain double spaces: #{display}")
+      # Should contain the single-digit day without leading space padding
+      assert_match(/January 9/, display, "display_window should format single-digit day without padding: #{display}")
+    end
+  end
+
   test "display_window formats week as range" do
     cycle = Cycle.new(name: "this-week", tenant: @tenant, studio: @studio)
     assert_match(/-/, cycle.display_window)  # Contains dash for range
