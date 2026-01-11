@@ -16,6 +16,8 @@ class User < ApplicationRecord
   has_many :studios, through: :studio_users
   has_many :api_tokens
   has_many :subagents, class_name: "User", foreign_key: "parent_id"
+  has_many :notification_recipients
+  has_many :notifications, through: :notification_recipients
 
   validates :user_type, inclusion: { in: %w(person subagent trustee) }
   validates :email, presence: true

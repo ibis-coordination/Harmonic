@@ -8,6 +8,8 @@ class Event < ApplicationRecord
   belongs_to :actor, class_name: "User", optional: true
   belongs_to :subject, polymorphic: true, optional: true
 
+  has_many :notifications, dependent: :destroy
+
   validates :event_type, presence: true
 
   scope :recent, -> { order(created_at: :desc) }

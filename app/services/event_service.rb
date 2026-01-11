@@ -34,7 +34,7 @@ class EventService
 
   sig { params(event: Event).void }
   def self.dispatch_to_handlers(event)
-    # Phase 2: NotificationDispatcher.dispatch(event)
+    NotificationDispatcher.dispatch(event)
     # Phase 4: WebhookDispatcher.dispatch(event)
   end
 end

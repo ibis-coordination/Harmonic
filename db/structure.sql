@@ -1,4 +1,4 @@
-\restrict IMvyup55hx6nbW5LwqhHENOer03PvoS2rwUcRHsrSb8RucJNQvlCPgDB5F9HdJH
+\restrict L3OtDfsGjQLcFlY7zi2ah5GrIt6pUguv3on43SV76UKOh0he16KIaitEnukf1zc
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -443,6 +443,41 @@ CREATE TABLE public.notes (
 
 
 --
+-- Name: notification_recipients; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notification_recipients (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    notification_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    channel character varying DEFAULT 'in_app'::character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    read_at timestamp(6) without time zone,
+    dismissed_at timestamp(6) without time zone,
+    delivered_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    notification_type character varying NOT NULL,
+    title character varying NOT NULL,
+    body text,
+    url character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: oauth_identities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -806,6 +841,22 @@ ALTER TABLE ONLY public.note_history_events
 
 ALTER TABLE ONLY public.notes
     ADD CONSTRAINT notes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notification_recipients notification_recipients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_recipients
+    ADD CONSTRAINT notification_recipients_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notifications notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
 
 
 --
@@ -1323,6 +1374,69 @@ CREATE UNIQUE INDEX index_notes_on_truncated_id ON public.notes USING btree (tru
 --
 
 CREATE INDEX index_notes_on_updated_by_id ON public.notes USING btree (updated_by_id);
+
+
+--
+-- Name: index_notification_recipients_on_channel; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_channel ON public.notification_recipients USING btree (channel);
+
+
+--
+-- Name: index_notification_recipients_on_notification_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_notification_id ON public.notification_recipients USING btree (notification_id);
+
+
+--
+-- Name: index_notification_recipients_on_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_status ON public.notification_recipients USING btree (status);
+
+
+--
+-- Name: index_notification_recipients_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_user_id ON public.notification_recipients USING btree (user_id);
+
+
+--
+-- Name: index_notification_recipients_on_user_id_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_user_id_and_status ON public.notification_recipients USING btree (user_id, status);
+
+
+--
+-- Name: index_notifications_on_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notifications_on_created_at ON public.notifications USING btree (created_at);
+
+
+--
+-- Name: index_notifications_on_event_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notifications_on_event_id ON public.notifications USING btree (event_id);
+
+
+--
+-- Name: index_notifications_on_notification_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notifications_on_notification_type ON public.notifications USING btree (notification_type);
+
+
+--
+-- Name: index_notifications_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notifications_on_tenant_id ON public.notifications USING btree (tenant_id);
 
 
 --
@@ -1965,6 +2079,14 @@ ALTER TABLE ONLY public.commitments
 
 
 --
+-- Name: notification_recipients fk_rails_51975e21a8; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_recipients
+    ADD CONSTRAINT fk_rails_51975e21a8 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: studio_users fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2050,6 +2172,22 @@ ALTER TABLE ONLY public.studio_invites
 
 ALTER TABLE ONLY public.notes
     ADD CONSTRAINT fk_rails_6e1963e950 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: notifications fk_rails_78f4b5a537; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT fk_rails_78f4b5a537 FOREIGN KEY (event_id) REFERENCES public.events(id);
+
+
+--
+-- Name: notifications fk_rails_7c99fe0556; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT fk_rails_7c99fe0556 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -2146,6 +2284,14 @@ ALTER TABLE ONLY public.votes
 
 ALTER TABLE ONLY public.attachments
     ADD CONSTRAINT fk_rails_a7d5052ac1 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: notification_recipients fk_rails_a8704dfb21; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_recipients
+    ADD CONSTRAINT fk_rails_a8704dfb21 FOREIGN KEY (notification_id) REFERENCES public.notifications(id);
 
 
 --
@@ -2376,7 +2522,7 @@ ALTER TABLE ONLY public.studios
 -- PostgreSQL database dump complete
 --
 
-\unrestrict IMvyup55hx6nbW5LwqhHENOer03PvoS2rwUcRHsrSb8RucJNQvlCPgDB5F9HdJH
+\unrestrict L3OtDfsGjQLcFlY7zi2ah5GrIt6pUguv3on43SV76UKOh0he16KIaitEnukf1zc
 
 SET search_path TO "$user", public;
 
@@ -2473,6 +2619,8 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250902174420'),
 ('20260109023653'),
 ('20260110023045'),
+('20260111021537'),
+('20260111021538'),
 ('20260111095925');
 
 

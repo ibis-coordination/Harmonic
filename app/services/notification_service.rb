@@ -1,0 +1,54 @@
+# typed: true
+
+class NotificationService
+  extend T::Sig
+
+  sig do
+    params(
+      event: Event,
+      recipient: User,
+      notification_type: String,
+      title: String,
+      body: T.nilable(String),
+      url: T.nilable(String),
+      channels: T::Array[String]
+    ).returns(Notification)
+  end
+  def self.create_and_deliver!(event:, recipient:, notification_type:, title:, body: nil, url: nil, channels: ["in_app"])
+    notification = Notification.create!(
+      event: event,
+      tenant_id: T.unsafe(event).tenant_id,
+      notification_type: notification_type,
+      title: title,
+      body: body,
+      url: url
+    )
+
+    channels.each do |channel|
+      notification_recipient = NotificationRecipient.create!(
+        notification: notification,
+        user: recipient,
+        channel: channel,
+        status: "pending"
+      )
+
+      # Enqueue delivery job
+      NotificationDeliveryJob.perform_later(notification_recipient.id)
+    end
+
+    notification
+  end
+
+  sig { params(user: User).returns(Integer) }
+  def self.unread_count_for(user)
+    NotificationRecipient.where(user: user).in_app.unread.count
+  end
+
+  sig { params(user: User).void }
+  def self.mark_all_read_for(user)
+    NotificationRecipient.where(user: user).in_app.unread.update_all(
+      read_at: Time.current,
+      status: "read"
+    )
+  end
+end
