@@ -4,10 +4,10 @@
 | updated_at | <%= @note.updated_at %> |
 | deadline | <%= @note.deadline %> |
 
-<% if @note.is_comment? %>
+<% if @note.is_comment? -%>
 Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated_id %>](<%= @note.commentable.path %>)
 
-<% end %>
+<% end -%>
 ## Text
 
 ```markdown
@@ -16,32 +16,32 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 
 ## History
 
-<% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
+<% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| -%>
 * <% if event.user %><%= user_link_md(event.user) %> <% end %><%= event.description %> at <%= event.happened_at %>
-<% end %>
+<% end -%>
 
 <%= render 'shared/backlinks', resource: @note %>
 <%= render 'shared/attachments_section', resource: @note %>
 ## Comments (<%= @note.comments_count %>)
 
-<% if @note.comments.empty? %>
+<% if @note.comments.empty? -%>
 No comments yet.
-<% else %>
-<% @note.chronological_comments.each do |comment| %>
+<% else -%>
+<% @note.chronological_comments.each do |comment| -%>
 * <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
-<% end %>
-<% end %>
+<% end -%>
+<% end -%>
 
 ## [Actions](<%= @note.path %>/actions)
 
-<% if @note_reader.confirmed_read_but_note_updated? %>
+<% if @note_reader.confirmed_read_but_note_updated? -%>
 _Note updated since you last confirmed reading. Reconfirm to acknowledge the changes._
 
 * [`confirm_read()`](<%= @note.path %>/actions/confirm_read) to reconfirm that you have read this note.
-<% elsif @note_reader.confirmed_read? %>
+<% elsif @note_reader.confirmed_read? -%>
 You have confirmed that you have read this note.
 
-<% else %>
+<% else -%>
 * [`confirm_read()`](<%= @note.path %>/actions/confirm_read) to confirm that you have read this note.
-<% end %>
+<% end -%>
 * [`add_comment(text)`](<%= @note.path %>/actions/add_comment) - Add a comment to this note

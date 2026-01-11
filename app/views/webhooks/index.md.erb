@@ -2,17 +2,17 @@
 
 Studio: <%= @current_studio.name %>
 
-<% if @webhooks.empty? %>
+<% if @webhooks.empty? -%>
 No webhooks configured.
 
 Webhooks allow external services to receive real-time notifications when events occur in this studio.
-<% else %>
+<% else -%>
 | Name | URL | Events | Status |
 |------|-----|--------|--------|
-<% @webhooks.each do |webhook| %>
+<% @webhooks.each do |webhook| -%>
 | [<%= webhook.name %>](/studios/<%= @current_studio.handle %>/settings/webhooks/<%= webhook.truncated_id %>) | `<%= truncate(webhook.url, length: 40) %>` | <%= webhook.events.include?("*") ? "All" : webhook.events.size %> | <%= webhook.enabled? ? "Enabled" : "Disabled" %> |
-<% end %>
-<% end %>
+<% end -%>
+<% end -%>
 
 ## [Actions](/studios/<%= @current_studio.handle %>/settings/webhooks/new/actions)
 

@@ -1,5 +1,7 @@
-<% if resource.backlinks.any? %>## Backlinks
+<% if resource.backlinks.any? -%>
+## Backlinks
 
-<% resource.backlinks.each do |r| %>
+<% resource.backlinks.each do |r| -%>
 * <%= r.class.to_s %>: [<%= raw r.title %>](<%= r.path %>)
-<% end %><% end %>
+<% end -%>
+<% end -%>

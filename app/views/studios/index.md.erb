@@ -1,14 +1,14 @@
 # Studios
 
-<% if @studios.any? %>
-<% @studios.each do |studio| %>
+<% if @studios.any? -%>
+<% @studios.each do |studio| -%>
 * [<%= raw studio.name %>](<%= studio.path %>)
-<% end %>
-<% elsif current_user %>
+<% end -%>
+<% elsif current_user -%>
 You are not a member of any studios yet.
-<% else %>
+<% else -%>
 [Log in](/login) to see your studios.
-<% end %>
+<% end -%>
 
 ## [Actions](/studios/actions)
 
