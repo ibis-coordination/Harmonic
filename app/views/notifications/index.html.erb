@@ -1,0 +1,61 @@
+<h1><%= octicon "bell", height: 32 %> Notifications</h1>
+
+<p>
+  <% if @unread_count > 0 %>
+    <strong><%= @unread_count %></strong> unread notifications
+    <% if @unread_count > 0 %>
+      <form action="/notifications/actions/mark_all_read" method="post" style="display:inline;">
+        <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+        <button type="submit" class="btn btn-small">Mark all read</button>
+      </form>
+    <% end %>
+  <% else %>
+    No unread notifications
+  <% end %>
+</p>
+
+<% if @notification_recipients.empty? %>
+  <p style="opacity:0.6;"><em>No notifications yet.</em></p>
+<% else %>
+  <ul class="notification-list" style="list-style:none; padding:0;">
+    <% @notification_recipients.each do |recipient| %>
+      <li style="padding:0.5rem 0; border-bottom:1px solid #eee; <%= recipient.read? ? 'opacity:0.6;' : '' %>">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <% if recipient.notification.url.present? %>
+              <a href="<%= recipient.notification.url %>">
+                <strong><%= recipient.notification.title %></strong>
+              </a>
+            <% else %>
+              <strong><%= recipient.notification.title %></strong>
+            <% end %>
+            <% if recipient.notification.body.present? %>
+              <p style="margin:0.25rem 0; font-size:0.9em;"><%= truncate(recipient.notification.body, length: 200) %></p>
+            <% end %>
+            <small style="opacity:0.6;"><%= time_ago_in_words(recipient.created_at) %> ago</small>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <% unless recipient.read? %>
+              <form action="/notifications/actions/mark_read" method="post" style="display:inline;">
+                <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+                <%= hidden_field_tag :id, recipient.id %>
+                <button type="submit" class="btn btn-small" title="Mark as read">
+                  <%= octicon "check" %>
+                </button>
+              </form>
+            <% end %>
+            <% unless recipient.dismissed? %>
+              <form action="/notifications/actions/dismiss" method="post" style="display:inline;">
+                <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+                <%= hidden_field_tag :id, recipient.id %>
+                <button type="submit" class="btn btn-small" title="Dismiss">
+                  <%= octicon "x" %>
+                </button>
+              </form>
+            <% end %>
+          </div>
+        </div>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

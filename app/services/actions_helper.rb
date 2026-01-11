@@ -262,6 +262,27 @@ class ActionsHelper
       params_string: "()",
       params: [],
     },
+
+    # Notification actions
+    "mark_read" => {
+      description: "Mark a notification as read",
+      params_string: "(id)",
+      params: [
+        { name: "id", type: "string", description: "The ID of the notification recipient to mark as read" },
+      ],
+    },
+    "dismiss" => {
+      description: "Dismiss a notification",
+      params_string: "(id)",
+      params: [
+        { name: "id", type: "string", description: "The ID of the notification recipient to dismiss" },
+      ],
+    },
+    "mark_all_read" => {
+      description: "Mark all notifications as read",
+      params_string: "()",
+      params: [],
+    },
   }.freeze
 
   # Route to actions mapping for actions index pages
@@ -385,6 +406,13 @@ class ActionsHelper
     "/admin/sidekiq/jobs/:jid" => {
       actions: [
         { name: "retry_sidekiq_job", params_string: ACTION_DEFINITIONS["retry_sidekiq_job"][:params_string], description: ACTION_DEFINITIONS["retry_sidekiq_job"][:description] },
+      ],
+    },
+    "/notifications" => {
+      actions: [
+        { name: "mark_read", params_string: ACTION_DEFINITIONS["mark_read"][:params_string], description: ACTION_DEFINITIONS["mark_read"][:description] },
+        { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
+        { name: "mark_all_read", params_string: ACTION_DEFINITIONS["mark_all_read"][:params_string], description: ACTION_DEFINITIONS["mark_all_read"][:description] },
       ],
     },
   }

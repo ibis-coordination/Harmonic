@@ -1,0 +1,19 @@
+# Notifications
+
+Unread: <%= @unread_count %>
+
+<% if @notification_recipients.empty? %>
+No notifications.
+<% else %>
+| Status | Title | Time | Actions |
+|--------|-------|------|---------|
+<% @notification_recipients.each do |recipient| %>
+| <%= recipient.read? ? 'read' : 'unread' %> | [<%= recipient.notification.title %>](<%= recipient.notification.url || '/notifications' %>) | <%= time_ago_in_words(recipient.created_at) %> ago | <% unless recipient.read? %>[mark_read](/notifications/actions/mark_read?id=<%= recipient.id %>)<% end %> <% unless recipient.dismissed? %>[dismiss](/notifications/actions/dismiss?id=<%= recipient.id %>)<% end %> |
+<% end %>
+<% end %>
+
+## [Actions](/notifications/actions)
+
+* [`mark_read(id)`](/notifications/actions/mark_read) - Mark a notification as read
+* [`dismiss(id)`](/notifications/actions/dismiss) - Dismiss a notification
+* [`mark_all_read()`](/notifications/actions/mark_all_read) - Mark all notifications as read

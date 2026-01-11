@@ -60,6 +60,17 @@ Rails.application.routes.draw do
   get 'help' => 'home#help'
   get 'contact' => 'home#contact'
 
+  # Notifications
+  get 'notifications' => 'notifications#index'
+  get 'notifications/unread_count' => 'notifications#unread_count'
+  get 'notifications/actions' => 'notifications#actions_index'
+  get 'notifications/actions/mark_read' => 'notifications#describe_mark_read'
+  post 'notifications/actions/mark_read' => 'notifications#execute_mark_read'
+  get 'notifications/actions/dismiss' => 'notifications#describe_dismiss'
+  post 'notifications/actions/dismiss' => 'notifications#execute_dismiss'
+  get 'notifications/actions/mark_all_read' => 'notifications#describe_mark_all_read'
+  post 'notifications/actions/mark_all_read' => 'notifications#execute_mark_all_read'
+
   get 'learn' => 'learn#index'
   get 'learn/awareness-indicators' => 'learn#awareness_indicators'
   get 'learn/acceptance-voting' => 'learn#acceptance_voting'
