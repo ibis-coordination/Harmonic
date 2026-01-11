@@ -2,6 +2,7 @@
 
 class Webhook < ApplicationRecord
   extend T::Sig
+  include HasTruncatedId
 
   belongs_to :tenant
   belongs_to :studio, optional: true
@@ -21,6 +22,12 @@ class Webhook < ApplicationRecord
   def subscribed_to?(event_type)
     return false if events.blank?
     events.include?(event_type) || events.include?("*")
+  end
+
+  sig { returns(String) }
+  def path
+    s = Studio.unscoped.find_by(id: studio_id)
+    "/studios/#{s&.handle}/settings/webhooks/#{truncated_id}"
   end
 
   private

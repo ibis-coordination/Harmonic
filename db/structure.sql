@@ -1,4 +1,4 @@
-\restrict Zui1To08HyGMm992kg9j2w4gEnLQgl8aWzfuIVsmC8lNvV2zK9ZxsQTnaDpwn4k
+\restrict 7FkOxqiQmbWQqLPdg2ThOumNzLjpWjlxU6fAWA6Vde5ciEeK1d2uEQDZrbBTwAF
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -752,7 +752,8 @@ CREATE TABLE public.webhooks (
     created_by_id uuid NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL
 );
 
 
@@ -1910,6 +1911,13 @@ CREATE INDEX index_webhooks_on_tenant_id_and_enabled ON public.webhooks USING bt
 
 
 --
+-- Name: index_webhooks_on_truncated_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_webhooks_on_truncated_id ON public.webhooks USING btree (truncated_id);
+
+
+--
 -- Name: cycle_data_commitments _RETURN; Type: RULE; Schema: public; Owner: -
 --
 
@@ -2682,7 +2690,7 @@ ALTER TABLE ONLY public.studios
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Zui1To08HyGMm992kg9j2w4gEnLQgl8aWzfuIVsmC8lNvV2zK9ZxsQTnaDpwn4k
+\unrestrict 7FkOxqiQmbWQqLPdg2ThOumNzLjpWjlxU6fAWA6Vde5ciEeK1d2uEQDZrbBTwAF
 
 SET search_path TO "$user", public;
 
@@ -2783,6 +2791,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260111021538'),
 ('20260111095925'),
 ('20260111113813'),
-('20260111113916');
+('20260111113916'),
+('20260111124237');
 
 

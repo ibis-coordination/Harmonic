@@ -1,0 +1,58 @@
+<h1><%= octicon "webhook", height: 32 %> Webhooks</h1>
+
+<p>
+  <a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks/new" %>" class="btn btn-primary">
+    <%= octicon "plus" %> New Webhook
+  </a>
+</p>
+
+<% if @webhooks.empty? %>
+  <p style="opacity:0.6;"><em>No webhooks configured yet.</em></p>
+  <p>Webhooks allow external services to receive real-time notifications when events occur in this studio.</p>
+<% else %>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>URL</th>
+        <th>Events</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @webhooks.each do |webhook| %>
+        <tr>
+          <td>
+            <a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks/#{webhook.truncated_id}" %>">
+              <%= webhook.name %>
+            </a>
+          </td>
+          <td style="font-family:monospace; font-size:0.85em;"><%= truncate(webhook.url, length: 50) %></td>
+          <td>
+            <% if webhook.events.include?("*") %>
+              <span class="label">All events</span>
+            <% else %>
+              <%= webhook.events.size %> event(s)
+            <% end %>
+          </td>
+          <td>
+            <% if webhook.enabled? %>
+              <span class="label label-success">Enabled</span>
+            <% else %>
+              <span class="label label-default">Disabled</span>
+            <% end %>
+          </td>
+          <td>
+            <a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks/#{webhook.truncated_id}" %>" class="btn btn-small">
+              View
+            </a>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
+
+<hr>
+<p><a href="<%= "/studios/#{@current_studio.handle}/settings" %>">&larr; Back to Studio Settings</a></p>
