@@ -9,6 +9,7 @@ class Event < ApplicationRecord
   belongs_to :subject, polymorphic: true, optional: true
 
   has_many :notifications, dependent: :destroy
+  has_many :webhook_deliveries, dependent: :destroy
 
   validates :event_type, presence: true
 

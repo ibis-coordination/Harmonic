@@ -1,4 +1,4 @@
-\restrict L3OtDfsGjQLcFlY7zi2ah5GrIt6pUguv3on43SV76UKOh0he16KIaitEnukf1zc
+\restrict Zui1To08HyGMm992kg9j2w4gEnLQgl8aWzfuIVsmC8lNvV2zK9ZxsQTnaDpwn4k
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -716,6 +716,47 @@ CREATE TABLE public.votes (
 
 
 --
+-- Name: webhook_deliveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webhook_deliveries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    webhook_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    request_body text,
+    response_code integer,
+    response_body text,
+    error_message text,
+    delivered_at timestamp(6) without time zone,
+    next_retry_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: webhooks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webhooks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    studio_id uuid,
+    name character varying NOT NULL,
+    url character varying NOT NULL,
+    secret character varying NOT NULL,
+    events jsonb DEFAULT '[]'::jsonb NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    created_by_id uuid NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: active_storage_attachments active_storage_attachments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -961,6 +1002,22 @@ ALTER TABLE ONLY public.trustee_permissions
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: webhook_deliveries webhook_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: webhooks webhooks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT webhooks_pkey PRIMARY KEY (id);
 
 
 --
@@ -1790,6 +1847,69 @@ CREATE INDEX index_votes_on_tenant_id ON public.votes USING btree (tenant_id);
 
 
 --
+-- Name: index_webhook_deliveries_on_event_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_event_id ON public.webhook_deliveries USING btree (event_id);
+
+
+--
+-- Name: index_webhook_deliveries_on_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_status ON public.webhook_deliveries USING btree (status);
+
+
+--
+-- Name: index_webhook_deliveries_on_status_and_next_retry_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_status_and_next_retry_at ON public.webhook_deliveries USING btree (status, next_retry_at);
+
+
+--
+-- Name: index_webhook_deliveries_on_webhook_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_webhook_id ON public.webhook_deliveries USING btree (webhook_id);
+
+
+--
+-- Name: index_webhooks_on_created_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_created_by_id ON public.webhooks USING btree (created_by_id);
+
+
+--
+-- Name: index_webhooks_on_studio_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_studio_id ON public.webhooks USING btree (studio_id);
+
+
+--
+-- Name: index_webhooks_on_studio_id_and_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_studio_id_and_enabled ON public.webhooks USING btree (studio_id, enabled);
+
+
+--
+-- Name: index_webhooks_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_tenant_id ON public.webhooks USING btree (tenant_id);
+
+
+--
+-- Name: index_webhooks_on_tenant_id_and_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_tenant_id_and_enabled ON public.webhooks USING btree (tenant_id, enabled);
+
+
+--
 -- Name: cycle_data_commitments _RETURN; Type: RULE; Schema: public; Owner: -
 --
 
@@ -1932,6 +2052,14 @@ ALTER TABLE ONLY public.options
 
 ALTER TABLE ONLY public.decisions
     ADD CONSTRAINT fk_rails_148841bc6d FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: webhooks fk_rails_188617e004; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT fk_rails_188617e004 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
 
 
 --
@@ -2319,6 +2447,22 @@ ALTER TABLE ONLY public.votes
 
 
 --
+-- Name: webhook_deliveries fk_rails_b1d1ee2779; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT fk_rails_b1d1ee2779 FOREIGN KEY (event_id) REFERENCES public.events(id);
+
+
+--
+-- Name: webhook_deliveries fk_rails_bed195a05d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT fk_rails_bed195a05d FOREIGN KEY (webhook_id) REFERENCES public.webhooks(id);
+
+
+--
 -- Name: active_storage_attachments fk_rails_c3b3935057; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2332,6 +2476,14 @@ ALTER TABLE ONLY public.active_storage_attachments
 
 ALTER TABLE ONLY public.heartbeats
     ADD CONSTRAINT fk_rails_c4c1ea3d5d FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: webhooks fk_rails_c7a17f683f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT fk_rails_c7a17f683f FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -2447,6 +2599,14 @@ ALTER TABLE ONLY public.commitments
 
 
 --
+-- Name: webhooks fk_rails_e567730fa3; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT fk_rails_e567730fa3 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: representation_sessions fk_rails_ee2c2c283c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2522,7 +2682,7 @@ ALTER TABLE ONLY public.studios
 -- PostgreSQL database dump complete
 --
 
-\unrestrict L3OtDfsGjQLcFlY7zi2ah5GrIt6pUguv3on43SV76UKOh0he16KIaitEnukf1zc
+\unrestrict Zui1To08HyGMm992kg9j2w4gEnLQgl8aWzfuIVsmC8lNvV2zK9ZxsQTnaDpwn4k
 
 SET search_path TO "$user", public;
 
@@ -2621,6 +2781,8 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260110023045'),
 ('20260111021537'),
 ('20260111021538'),
-('20260111095925');
+('20260111095925'),
+('20260111113813'),
+('20260111113916');
 
 
