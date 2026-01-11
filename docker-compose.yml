@@ -70,6 +70,14 @@ services:
   #   env_file:
   #     # Make sure your NGROK_AUTHTOKEN is set in the .env file, and HOST_MODE is set to "ngrok".
   #     - .env
+  clamav:
+    image: clamav/clamav:stable
+    platform: linux/amd64
+    volumes:
+      - clamav_data:/var/lib/clamav
+    # ClamAV exposes clamd on port 3310
+    # No need to expose externally, just for internal docker network
+
   # # For development only
   mailcatcher:
     image: sj26/mailcatcher
@@ -84,3 +92,4 @@ volumes:
   caddy_data:
   caddy_config:
   node_modules:
+  clamav_data:

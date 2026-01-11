@@ -1,0 +1,57 @@
+# Your Settings
+
+## Profile
+
+Name: <%= raw @current_user.name %>
+Handle: `<%= @current_user.handle %>`
+
+<% if @current_user.external_oauth_identities.any? %>
+## Connected Accounts
+
+<% @current_user.external_oauth_identities.each do |identity| %>
+* <%= identity.provider.titleize %> ([<%= identity.username %>](<%= identity.url %>)) - Connected <%= time_ago_in_words(identity.created_at) %> ago
+<% end %>
+<% end %>
+
+<% if @current_tenant.api_enabled? %>
+## Personal API Tokens
+
+<% if @current_user.api_tokens.any? %>
+| Name | Created | Last Used | Expires | Active |
+|------|---------|-----------|---------|--------|
+<% @current_user.api_tokens.each do |token| %>
+| <%= raw token.name || 'Unnamed' %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Yes' : 'No' %> |
+<% end %>
+<% else %>
+No personal API tokens.
+<% end %>
+
+<% if @current_user.person? && @subagents.any? %>
+## Subagents
+
+<% @subagents.each do |subagent| %>
+### <%= raw subagent.name %><%= subagent.archived? ? ' (Archived)' : '' %>
+
+* [View Profile](<%= subagent.path %>)
+* Created <%= time_ago_in_words(subagent.created_at) %> ago
+<% active_studios = subagent.studio_users.reject(&:archived?).map(&:studio).reject { |s| s == @current_tenant.main_studio } %>
+<% if active_studios.any? %>
+
+Studio memberships:
+<% active_studios.each do |s| %>
+* [<%= raw s.name %>](<%= s.path %>)
+<% end %>
+<% end %>
+<% end %>
+<% end %>
+<% end %>
+
+## [Actions](<%= @current_user.path %>/settings/actions)
+
+* [`update_profile(name, new_handle)`](<%= @current_user.path %>/settings/actions/update_profile) - Update your profile name and/or handle
+<% if @current_tenant.api_enabled? %>
+* [New API Token](<%= @current_user.path %>/settings/tokens/new) - Create a new API token
+<% if @current_user.person? %>
+* [New Subagent](<%= @current_user.path %>/settings/subagents/new) - Create a new subagent
+<% end %>
+<% end %>

@@ -1,4 +1,4 @@
-# Note: <%= @note.title %>
+# Note: <%= raw @note.title %>
 
 | created_at | <%= @note.created_at %> |
 | updated_at | <%= @note.updated_at %> |
@@ -21,6 +21,7 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 <% end %>
 
 <%= render 'shared/backlinks', resource: @note %>
+<%= render 'shared/attachments_section', resource: @note %>
 ## Comments (<%= @note.comments_count %>)
 
 <% if @note.comments.empty? %>

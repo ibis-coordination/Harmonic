@@ -534,16 +534,7 @@ class ApplicationController < ActionController::Base
   end
 
   def describe_add_comment
-    render_action_description({
-      action_name: 'add_comment',
-      resource: current_resource,
-      description: 'Add a comment to this item',
-      params: [{
-        name: 'text',
-        description: 'The text content of the comment',
-        type: 'string',
-      }],
-    })
+    render_action_description(ActionsHelper.action_description("add_comment", resource: current_resource))
   end
 
   def add_comment

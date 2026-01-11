@@ -1,0 +1,17 @@
+# Heartbeats
+
+<% if @current_heartbeat %>
+Your current heartbeat was sent at <%= @current_heartbeat.created_at %>.
+
+It expires at <%= @current_heartbeat.expires_at %>.
+<% else %>
+You have not sent a heartbeat for this cycle.
+<% end %>
+
+## [Actions](<%= @current_studio.path %>/heartbeats/actions)
+
+<% if @current_heartbeat %>
+* No actions available (heartbeat already sent).
+<% else %>
+* [`create_heartbeat()`](<%= @current_studio.path %>/heartbeats/actions/create_heartbeat) - Send a heartbeat
+<% end %>

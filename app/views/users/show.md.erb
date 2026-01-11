@@ -1,0 +1,25 @@
+# User: <%= raw @showing_user.display_name %><%= @showing_user.archived? ? ' (Archived)' : '' %>
+
+Handle: `<%= @showing_user.handle %>`
+<% if @showing_user.subagent? %>
+Type: Subagent
+<% end %>
+<% if @showing_user.subagent? && @showing_user.parent %>
+
+Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.path %>)
+<% end %>
+
+<% if @current_user != @showing_user && @common_studios.length > 0 %>
+## Common Studios
+
+<% @common_studios.each do |studio| %>
+* [<%= raw studio.name %>](<%= studio.path %>)
+<% end %>
+<% if @additional_common_studio_count > 0 %>
+And <%= @additional_common_studio_count %> more...
+<% end %>
+<% end %>
+
+## [Actions](<%= @showing_user.path %>/actions)
+
+* No actions available.

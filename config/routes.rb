@@ -66,17 +66,27 @@ Rails.application.routes.draw do
   get 'learn/reciprocal-commitment' => 'learn#reciprocal_commitment'
 
   get 'admin' => 'admin#admin'
+  get 'admin/actions' => 'admin#actions_index'
   get 'admin/settings' => 'admin#tenant_settings'
   post 'admin/settings' => 'admin#update_tenant_settings'
+  get 'admin/settings/actions' => 'admin#actions_index_settings'
+  get 'admin/settings/actions/update_tenant_settings' => 'admin#describe_update_tenant_settings'
+  post 'admin/settings/actions/update_tenant_settings' => 'admin#execute_update_tenant_settings'
   get 'admin/tenants' => 'admin#tenants'
   get 'admin/tenants/new' => 'admin#new_tenant'
   post 'admin/tenants' => 'admin#create_tenant'
+  get 'admin/tenants/new/actions' => 'admin#actions_index_new_tenant'
+  get 'admin/tenants/new/actions/create_tenant' => 'admin#describe_create_tenant'
+  post 'admin/tenants/new/actions/create_tenant' => 'admin#execute_create_tenant'
   get 'admin/tenants/:subdomain/complete' => 'admin#complete_tenant_creation'
   get 'admin/tenants/:subdomain' => 'admin#show_tenant'
   get 'admin/sidekiq' => 'admin#sidekiq'
   get 'admin/sidekiq/queues/:name' => 'admin#sidekiq_show_queue'
   get 'admin/sidekiq/jobs/:jid' => 'admin#sidekiq_show_job'
   post 'admin/sidekiq/jobs/:jid/retry' => 'admin#sidekiq_retry_job'
+  get 'admin/sidekiq/jobs/:jid/actions' => 'admin#actions_index_sidekiq_job'
+  get 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#describe_retry_sidekiq_job'
+  post 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#execute_retry_sidekiq_job'
 
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
@@ -92,6 +102,18 @@ Rails.application.routes.draw do
     delete 'impersonate' => 'users#stop_impersonating', on: :member
     post 'add_to_studio' => 'users#add_subagent_to_studio', on: :member
     delete 'remove_from_studio' => 'users#remove_subagent_from_studio', on: :member
+    # User settings actions
+    get 'settings/actions' => 'users#actions_index', on: :member
+    get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member
+    post 'settings/actions/update_profile' => 'users#execute_update_profile', on: :member
+    # API token actions
+    get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
+    get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member
+    post 'settings/tokens/new/actions/create_api_token' => 'api_tokens#execute_create_api_token', on: :member
+    # Subagent actions
+    get 'settings/subagents/new/actions' => 'subagents#actions_index', on: :member
+    get 'settings/subagents/new/actions/create_subagent' => 'subagents#describe_create_subagent', on: :member
+    post 'settings/subagents/new/actions/create_subagent' => 'subagents#execute_create_subagent', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|
@@ -122,6 +144,10 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:studio_handle/settings/actions" => 'studios#actions_index_settings'
     get "#{studios_or_scenes}/:studio_handle/settings/actions/update_studio_settings" => 'studios#describe_update_studio_settings'
     post "#{studios_or_scenes}/:studio_handle/settings/actions/update_studio_settings" => 'studios#update_studio_settings_action'
+    get "#{studios_or_scenes}/:studio_handle/settings/actions/add_subagent_to_studio" => 'studios#describe_add_subagent_to_studio'
+    post "#{studios_or_scenes}/:studio_handle/settings/actions/add_subagent_to_studio" => 'studios#execute_add_subagent_to_studio'
+    get "#{studios_or_scenes}/:studio_handle/settings/actions/remove_subagent_from_studio" => 'studios#describe_remove_subagent_from_studio'
+    post "#{studios_or_scenes}/:studio_handle/settings/actions/remove_subagent_from_studio" => 'studios#execute_remove_subagent_from_studio'
     patch "#{studios_or_scenes}/:studio_handle/image" => 'studios#update_image'
     get "#{studios_or_scenes}/:studio_handle/invite" => 'studios#invite'
     get "#{studios_or_scenes}/:studio_handle/join" => 'studios#join'
@@ -163,6 +189,8 @@ Rails.application.routes.draw do
       get '/edit/actions' => 'notes#actions_index_edit'
       get '/edit/actions/update_note' => 'notes#describe_update_note'
       post '/edit/actions/update_note' => 'notes#update_note'
+      get '/edit/actions/add_attachment' => 'notes#describe_add_attachment'
+      post '/edit/actions/add_attachment' => 'notes#add_attachment'
       get '/metric' => 'notes#metric'
       get '/edit' => 'notes#edit'
       post '/edit' => 'notes#update'
@@ -170,6 +198,15 @@ Rails.application.routes.draw do
       post '/confirm.html' => 'notes#confirm_and_return_partial'
       put '/pin' => 'notes#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
+      get '/attachments/:attachment_id/actions' => 'notes#actions_index_attachment'
+      get '/attachments/:attachment_id/actions/remove_attachment' => 'notes#describe_remove_attachment'
+      post '/attachments/:attachment_id/actions/remove_attachment' => 'notes#remove_attachment'
+      get '/settings' => 'notes#settings'
+      get '/settings/actions' => 'notes#actions_index_settings'
+      get '/settings/actions/pin_note' => 'notes#describe_pin_note'
+      post '/settings/actions/pin_note' => 'notes#pin_note_action'
+      get '/settings/actions/unpin_note' => 'notes#describe_unpin_note'
+      post '/settings/actions/unpin_note' => 'notes#unpin_note_action'
     end
 
     get "#{prefix}/decide" => 'decisions#new'
@@ -193,12 +230,21 @@ Rails.application.routes.draw do
       post '/comments' => 'decisions#create_comment'
       put '/pin' => 'decisions#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
+      get '/attachments/:attachment_id/actions' => 'decisions#actions_index_attachment'
+      get '/attachments/:attachment_id/actions/remove_attachment' => 'decisions#describe_remove_attachment'
+      post '/attachments/:attachment_id/actions/remove_attachment' => 'decisions#remove_attachment'
       post '/duplicate' => 'decisions#duplicate'
       get '/settings' => 'decisions#settings'
       post '/settings' => 'decisions#update_settings'
       get '/settings/actions' => 'decisions#actions_index_settings'
       get '/settings/actions/update_decision_settings' => 'decisions#describe_update_decision_settings'
       post '/settings/actions/update_decision_settings' => 'decisions#update_decision_settings_action'
+      get '/settings/actions/pin_decision' => 'decisions#describe_pin_decision'
+      post '/settings/actions/pin_decision' => 'decisions#pin_decision_action'
+      get '/settings/actions/unpin_decision' => 'decisions#describe_unpin_decision'
+      post '/settings/actions/unpin_decision' => 'decisions#unpin_decision_action'
+      get '/settings/actions/add_attachment' => 'decisions#describe_add_attachment'
+      post '/settings/actions/add_attachment' => 'decisions#add_attachment'
     end
 
     get "#{prefix}/commit" => 'commitments#new'
@@ -219,11 +265,20 @@ Rails.application.routes.draw do
       put '/pin' => 'commitments#pin'
       post '/comments' => 'commitments#create_comment'
       get '/attachments/:attachment_id' => 'attachments#show'
+      get '/attachments/:attachment_id/actions' => 'commitments#actions_index_attachment'
+      get '/attachments/:attachment_id/actions/remove_attachment' => 'commitments#describe_remove_attachment'
+      post '/attachments/:attachment_id/actions/remove_attachment' => 'commitments#remove_attachment'
       get '/settings' => 'commitments#settings'
       post '/settings' => 'commitments#update_settings'
       get '/settings/actions' => 'commitments#actions_index_settings'
       get '/settings/actions/update_commitment_settings' => 'commitments#describe_update_commitment_settings'
       post '/settings/actions/update_commitment_settings' => 'commitments#update_commitment_settings_action'
+      get '/settings/actions/pin_commitment' => 'commitments#describe_pin_commitment'
+      post '/settings/actions/pin_commitment' => 'commitments#pin_commitment_action'
+      get '/settings/actions/unpin_commitment' => 'commitments#describe_unpin_commitment'
+      post '/settings/actions/unpin_commitment' => 'commitments#unpin_commitment_action'
+      get '/settings/actions/add_attachment' => 'commitments#describe_add_attachment'
+      post '/settings/actions/add_attachment' => 'commitments#add_attachment'
     end
 
     namespace :api, path: "#{prefix}/api" do

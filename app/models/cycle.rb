@@ -134,15 +134,15 @@ class Cycle
   def display_window
     case unit
     when 'day'
-      start_date.strftime('%A, %B %e, %Y')
+      start_date.strftime('%A, %B %-e, %Y')
     when 'week'
-      "#{start_date.strftime('%B %e')} - #{end_date.strftime('%B %e, %Y')}"
+      "#{start_date.strftime('%B %-e')} - #{end_date.strftime('%B %-e, %Y')}"
     when 'month'
       start_date.strftime('%B %Y')
     when 'year'
       start_date.strftime('%Y')
     when 'custom'
-      "#{start_date.strftime('%B %e')} - #{end_date.strftime('%B %e, %Y')}"
+      "#{start_date.strftime('%B %-e')} - #{end_date.strftime('%B %-e, %Y')}"
     end
   end
 

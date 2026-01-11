@@ -1,0 +1,23 @@
+# Tenant: <%= @showing_tenant.name %>
+
+[Back to All Tenants](/admin/tenants)
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @showing_tenant.name %> |
+| Subdomain | `<%= @showing_tenant.subdomain %>` |
+| Domain | `<%= @showing_tenant.domain %>` |
+| Created | <%= time_ago_in_words(@showing_tenant.created_at) %> ago |
+| Updated | <%= time_ago_in_words(@showing_tenant.updated_at) %> ago |
+
+<% if @current_user_is_admin_of_showing_tenant %>
+## Settings (You are an admin of this tenant)
+
+```json
+<%= JSON.pretty_generate(@showing_tenant.settings) %>
+```
+
+Visit the tenant's admin page: [<%= @showing_tenant.domain %>/admin](https://<%= @showing_tenant.domain %>/admin)
+<% else %>
+*You are not an admin of this tenant, so settings are hidden.*
+<% end %>

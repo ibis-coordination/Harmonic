@@ -16,7 +16,13 @@ RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
     libvips \
     curl \
     graphviz \
+    clamdscan \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Configure clamdscan to connect to clamav service
+RUN mkdir -p /etc/clamav && \
+    echo "TCPSocket 3310" > /etc/clamav/clamd.conf && \
+    echo "TCPAddr clamav" >> /etc/clamav/clamd.conf
 
 # Install Node.js (LTS version)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \

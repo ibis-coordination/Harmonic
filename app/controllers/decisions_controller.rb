@@ -1,6 +1,7 @@
 # typed: false
 
 class DecisionsController < ApplicationController
+  include AttachmentActions
 
   def new
     @page_title = "Decide"
@@ -146,6 +147,7 @@ class DecisionsController < ApplicationController
     return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
     @page_title = "Decision Settings"
     @page_description = "Change settings for this decision"
+    set_pin_vars
   end
 
   def update_settings
@@ -180,22 +182,69 @@ class DecisionsController < ApplicationController
   end
 
   def actions_index_settings
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
     @page_title = "Actions | Decision Settings"
-    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/d/:decision_id/settings'))
+    set_pin_vars
+    actions = [
+      { name: 'update_decision_settings', params_string: '(question, description, options_open, deadline)' },
+    ]
+    if @is_pinned
+      actions << { name: 'unpin_decision', params_string: '()' }
+    else
+      actions << { name: 'pin_decision', params_string: '()' }
+    end
+    render_actions_index({ actions: actions })
+  end
+
+  def describe_pin_decision
+    render_action_description(ActionsHelper.action_description("pin_decision", resource: current_decision))
+  end
+
+  def pin_decision_action
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    begin
+      @decision.pin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      render_action_success({
+        action_name: 'pin_decision',
+        resource: @decision,
+        result: "Decision pinned.",
+      })
+    rescue => e
+      render_action_error({
+        action_name: 'pin_decision',
+        resource: @decision,
+        error: e.message,
+      })
+    end
+  end
+
+  def describe_unpin_decision
+    render_action_description(ActionsHelper.action_description("unpin_decision", resource: current_decision))
+  end
+
+  def unpin_decision_action
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    begin
+      @decision.unpin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      render_action_success({
+        action_name: 'unpin_decision',
+        resource: @decision,
+        result: "Decision unpinned.",
+      })
+    rescue => e
+      render_action_error({
+        action_name: 'unpin_decision',
+        resource: @decision,
+        error: e.message,
+      })
+    end
   end
 
   def describe_update_decision_settings
-    render_action_description({
-      action_name: 'update_decision_settings',
-      resource: current_decision,
-      description: 'Update decision settings',
-      params: [
-        { name: 'question', type: 'string', description: 'The question to be decided' },
-        { name: 'description', type: 'string', description: 'A description of the decision' },
-        { name: 'options_open', type: 'boolean', description: 'Whether new options can be added' },
-        { name: 'deadline', type: 'string', description: 'The deadline for the decision (YYYY-MM-DD)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("update_decision_settings", resource: current_decision))
   end
 
   def update_decision_settings_action
@@ -314,62 +363,15 @@ class DecisionsController < ApplicationController
   def describe_create_decision
     @page_title = 'Create Decision'
     @page_description = 'Create a new decision'
-    render_action_description({
-      action_name: 'create_decision',
-      resource: current_decision,
-      description: 'Create a new decision',
-      params: [{
-        name: 'question',
-        description: 'The question to be decided',
-        type: 'string',
-      }, {
-        name: 'description',
-        description: 'A description of the decision',
-        type: 'string',
-      }, {
-        name: 'options_open',
-        description: 'Whether to allow adding options',
-        type: 'boolean',
-      }, {
-        name: 'deadline',
-        description: 'The deadline for the decision',
-        type: 'datetime',
-      }]
-    })
+    render_action_description(ActionsHelper.action_description("create_decision"))
   end
 
   def describe_add_option
-    render_action_description({
-      action_name: 'add_option',
-      resource: current_decision,
-      description: 'Add an option to the decision',
-      params: [{
-        name: 'title',
-        description: 'The title of the option (must be unique)',
-        type: 'string',
-      }]
-    })
+    render_action_description(ActionsHelper.action_description("add_option", resource: current_decision))
   end
 
   def describe_vote
-    render_action_description({
-      action_name: 'vote',
-      resource: current_decision,
-      description: 'Vote on an option',
-      params: [{
-        name: 'option_title',
-        description: 'The title of the option you are voting on',
-        type: 'string',
-      }, {
-        name: 'accept',
-        description: 'Whether you accept the option',
-        type: 'boolean',
-      }, {
-        name: 'prefer',
-        description: 'Whether you prefer the option',
-        type: 'boolean',
-      }]
-    })
+    render_action_description(ActionsHelper.action_description("vote", resource: current_decision))
   end
 
   private

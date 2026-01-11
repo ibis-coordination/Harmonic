@@ -504,6 +504,83 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     studio_user&.remove_role!('admin')
   end
 
+  test "POST update_studio_settings action with invitations param updates setting" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Set initial value
+    @studio.settings['all_members_can_invite'] = false
+    @studio.save!
+
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { invitations: "all_members" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.all_members_can_invite?, "Studio should have all_members_can_invite enabled"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
+  test "POST update_studio_settings action with representation param updates setting" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Set initial value
+    @studio.settings['any_member_can_represent'] = false
+    @studio.save!
+
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { representation: "any_member" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.any_member_can_represent?, "Studio should have any_member_can_represent enabled"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
+  test "POST update_studio_settings action with file_uploads param updates setting" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Set initial value
+    @studio.settings['allow_file_uploads'] = false
+    @studio.save!
+
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { file_uploads: true }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.allow_file_uploads?, "Studio should have file uploads enabled"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
+  test "POST update_studio_settings action with api_enabled=true param enables API" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Studio already has API enabled in setup, but verify setting api_enabled=true works
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { api_enabled: true }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.feature_enabled?('api'), "Studio should have API enabled"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
   test "POST update_decision_settings action updates decision and returns 200 markdown" do
     decision = create_decision(studio: @studio, created_by: @user, question: "Original question?")
     post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/settings/actions/update_decision_settings",
@@ -536,6 +613,65 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     commitment.reload
     assert_equal "Updated title", commitment.title, "Commitment title should have been updated"
     assert_equal "Updated description", commitment.description, "Commitment description should have been updated"
+  end
+
+  # HTML entities should not appear in markdown output
+  test "note with apostrophe in title should not have HTML entities in markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test's apostrophe note")
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should contain the actual apostrophe, not HTML entity
+    assert_match(/Test's apostrophe/, response.body, "Title should contain actual apostrophe, not HTML entity")
+    refute_match(/&#39;/, response.body, "Markdown output should not contain HTML entities like &#39;")
+    refute_match(/&amp;/, response.body, "Markdown output should not contain HTML entities like &amp;")
+  end
+
+  # Learn pages should return markdown, not HTML
+  test "GET /learn returns proper markdown without HTML tags" do
+    get "/learn", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should NOT contain HTML tags
+    refute_match(/<h1>/, response.body, "Learn page should not contain <h1> HTML tags")
+    refute_match(/<ul>/, response.body, "Learn page should not contain <ul> HTML tags")
+    refute_match(/<li>/, response.body, "Learn page should not contain <li> HTML tags")
+    refute_match(/<a /, response.body, "Learn page should not contain <a> HTML tags")
+
+    # Should contain markdown syntax
+    assert_match(/^# Learn/, response.body, "Learn page should have markdown heading")
+    assert_match(/^\* \[/, response.body, "Learn page should have markdown list items with links")
+  end
+
+  # Error page tests - should return markdown, not 500
+  test "GET note edit without permission returns 403 markdown" do
+    # Create a note by a different user
+    other_user = User.create!(name: "Other", email: "other-#{SecureRandom.hex(4)}@test.com")
+    @tenant.add_user!(other_user)
+    @studio.add_user!(other_user)
+    note = create_note(studio: @studio, created_by: other_user, title: "Not my note")
+
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}/edit", headers: @headers
+    assert_equal 403, response.status
+    assert response.content_type.starts_with?("text/markdown"), "403 page should return markdown format"
+    assert_match(/403 Forbidden/, response.body, "Should show 403 message")
+  ensure
+    StudioUser.where(user: other_user).delete_all if other_user
+    TenantUser.where(user: other_user).delete_all if other_user
+    note&.destroy
+    other_user&.destroy
+  end
+
+  # User profile page tests
+  test "GET /u/:handle returns 200 markdown for user profile" do
+    get "/u/#{@user.handle}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should contain user info
+    assert_match(/#{@user.display_name}/, response.body, "Should show user's display name")
   end
 
   test "POST join_studio action joins scene and returns 200 markdown" do
@@ -583,5 +719,1284 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     TenantUser.where(user: other_user).delete_all if other_user
     other_token&.destroy
     other_user&.destroy
+  end
+
+  # === Pin/Unpin Action Tests ===
+
+  test "GET note settings returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Test Note")
+    get "/studios/#{@studio.handle}/n/#{note.truncated_id}/settings", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Note Settings/, response.body, "Should show note settings heading")
+    assert_match(/pin_note/, response.body, "Should show pin_note action")
+  end
+
+  test "POST pin_note action pins note and returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Pinnable Note")
+    refute note.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Note should not be pinned initially"
+
+    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/settings/actions/pin_note",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert note.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Note should be pinned after action"
+  end
+
+  test "POST unpin_note action unpins note and returns 200 markdown" do
+    note = create_note(studio: @studio, created_by: @user, title: "Pinned Note")
+    note.pin!(tenant: @tenant, studio: @studio, user: @user)
+    assert note.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Note should be pinned initially"
+
+    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/settings/actions/unpin_note",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    refute note.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Note should be unpinned after action"
+  end
+
+  test "POST pin_decision action pins decision and returns 200 markdown" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Pinnable Decision?")
+    refute decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Decision should not be pinned initially"
+
+    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/settings/actions/pin_decision",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Decision should be pinned after action"
+  end
+
+  test "POST unpin_decision action unpins decision and returns 200 markdown" do
+    decision = create_decision(studio: @studio, created_by: @user, question: "Pinned Decision?")
+    decision.pin!(tenant: @tenant, studio: @studio, user: @user)
+    assert decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Decision should be pinned initially"
+
+    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/settings/actions/unpin_decision",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    refute decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Decision should be unpinned after action"
+  end
+
+  test "POST pin_commitment action pins commitment and returns 200 markdown" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Pinnable Commitment")
+    refute commitment.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Commitment should not be pinned initially"
+
+    post "/studios/#{@studio.handle}/c/#{commitment.truncated_id}/settings/actions/pin_commitment",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert commitment.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Commitment should be pinned after action"
+  end
+
+  test "POST unpin_commitment action unpins commitment and returns 200 markdown" do
+    commitment = create_commitment(studio: @studio, created_by: @user, title: "Pinned Commitment")
+    commitment.pin!(tenant: @tenant, studio: @studio, user: @user)
+    assert commitment.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Commitment should be pinned initially"
+
+    post "/studios/#{@studio.handle}/c/#{commitment.truncated_id}/settings/actions/unpin_commitment",
+      params: {}.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    refute commitment.is_pinned?(tenant: @tenant, studio: @studio, user: @user), "Commitment should be unpinned after action"
+  end
+
+  # === Create Studio with Optional Settings ===
+
+  test "POST create_studio with api_enabled param creates studio with API enabled" do
+    handle = "api-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "API Enabled Studio",
+        handle: handle,
+        description: "A studio with API enabled",
+        timezone: "America/New_York",
+        tempo: "daily",
+        synchronization_mode: "improv",
+        api_enabled: true,
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    assert studio.api_enabled?, "Studio should have API enabled"
+  end
+
+  test "POST create_studio with invitations param creates studio with correct setting" do
+    handle = "invitations-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "Invitations Studio",
+        handle: handle,
+        timezone: "UTC",
+        tempo: "daily",
+        synchronization_mode: "improv",
+        invitations: "only_admins",
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    refute studio.all_members_can_invite?, "Studio should have only_admins can invite"
+  end
+
+  test "POST create_studio with representation param creates studio with correct setting" do
+    handle = "representation-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "Representation Studio",
+        handle: handle,
+        timezone: "UTC",
+        tempo: "daily",
+        synchronization_mode: "improv",
+        representation: "only_representatives",
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    refute studio.any_member_can_represent?, "Studio should have only_representatives setting"
+  end
+
+  test "POST create_studio with file_uploads param creates studio with correct setting" do
+    handle = "uploads-studio-#{SecureRandom.hex(4)}"
+    post "/studios/new/actions/create_studio",
+      params: {
+        name: "Uploads Studio",
+        handle: handle,
+        timezone: "UTC",
+        tempo: "daily",
+        synchronization_mode: "improv",
+        file_uploads: true,
+      }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    studio = Studio.find_by(handle: handle)
+    assert studio, "Studio should have been created"
+    assert studio.allow_file_uploads?, "Studio should have file uploads enabled"
+  end
+
+  # === API Protection: api_enabled not changeable via API ===
+
+  test "POST update_studio_settings ignores api_enabled param entirely" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Ensure API is enabled first
+    @studio.settings['feature_flags'] ||= {}
+    @studio.settings['feature_flags']['api'] = true
+    @studio.save!
+    assert @studio.api_enabled?, "Studio should have API enabled initially"
+
+    # api_enabled param should be ignored entirely (can't change via API)
+    # Try to disable - should be ignored
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { api_enabled: false }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @studio.reload
+    assert @studio.api_enabled?, "api_enabled=false should be ignored - setting unchanged"
+
+    # Try to enable (already enabled) - should also be ignored (no-op)
+    post "/studios/#{@studio.handle}/settings/actions/update_studio_settings",
+      params: { api_enabled: true }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+
+    @studio.reload
+    assert @studio.api_enabled?, "api_enabled=true should be ignored - setting unchanged"
+  ensure
+    studio_user&.remove_role!('admin')
+  end
+
+  # === Phase 2: User Management Actions ===
+
+  test "GET /u/:handle/settings returns 200 markdown with actions section" do
+    get "/u/#{@user.handle}/settings", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert has_actions_section?, "User settings should have actions section"
+    assert_match(/update_profile/, response.body, "Should show update_profile action")
+  end
+
+  test "POST update_profile action updates user name and returns 200 markdown" do
+    original_name = @user.name
+    post "/u/#{@user.handle}/settings/actions/update_profile",
+      params: { name: "Updated Name" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @user.reload
+    assert_equal "Updated Name", @user.name, "User name should have been updated"
+  ensure
+    @user.update!(name: original_name)
+    TenantUser.unscoped.where(user: @user).update_all(display_name: original_name)
+  end
+
+  test "POST update_profile action updates user handle and returns 200 markdown" do
+    original_handle = @user.handle
+    new_handle = "updated-#{SecureRandom.hex(4)}"
+    post "/u/#{@user.handle}/settings/actions/update_profile",
+      params: { new_handle: new_handle }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Reload tenant_user association since handle is stored there
+    tu = @tenant.tenant_users.find_by(user: @user)
+    assert_equal new_handle, tu.handle, "User handle should have been updated"
+  ensure
+    TenantUser.unscoped.where(user: @user).update_all(handle: original_handle)
+  end
+
+  test "GET /u/:handle/settings/tokens/new returns 200 markdown with actions" do
+    get "/u/#{@user.handle}/settings/tokens/new", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert has_actions_section?, "New token page should have actions section"
+    assert_match(/create_api_token/, response.body, "Should show create_api_token action")
+  end
+
+  test "POST create_api_token action creates token and returns 200 markdown" do
+    initial_count = @user.api_tokens.count
+    post "/u/#{@user.handle}/settings/tokens/new/actions/create_api_token",
+      params: { name: "Test Token", read_write: "read" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @user.reload
+    assert_equal initial_count + 1, @user.api_tokens.count, "New token should have been created"
+    new_token = @user.api_tokens.last
+    assert_equal "Test Token", new_token.name
+  ensure
+    @user.api_tokens.where(name: "Test Token").destroy_all
+  end
+
+  test "POST create_api_token action creates read_write token" do
+    post "/u/#{@user.handle}/settings/tokens/new/actions/create_api_token",
+      params: { name: "Write Token", read_write: "write" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    new_token = ApiToken.find_by(name: "Write Token", user: @user)
+    assert new_token, "Token should have been created"
+    assert new_token.scopes.include?('create:all'), "Token should have write scopes (create:all), got: #{new_token.scopes}"
+  ensure
+    ApiToken.where(name: "Write Token", user: @user).destroy_all
+  end
+
+  test "GET /u/:handle/settings/subagents/new returns 200 markdown with actions" do
+    get "/u/#{@user.handle}/settings/subagents/new", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert has_actions_section?, "New subagent page should have actions section"
+    assert_match(/create_subagent/, response.body, "Should show create_subagent action")
+  end
+
+  test "POST create_subagent action creates subagent and returns 200 markdown" do
+    subagent_name = "Test Subagent #{SecureRandom.hex(4)}"
+    initial_count = @user.subagents.count
+    post "/u/#{@user.handle}/settings/subagents/new/actions/create_subagent",
+      params: { name: subagent_name }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @user.reload
+    assert_equal initial_count + 1, @user.subagents.count, "New subagent should have been created"
+    new_subagent = @user.subagents.find_by(name: subagent_name)
+    assert new_subagent, "Subagent should exist"
+    assert new_subagent.subagent?, "New user should be a subagent"
+  ensure
+    subagent = User.find_by(name: subagent_name)
+    if subagent
+      TenantUser.where(user: subagent).delete_all
+      subagent.destroy
+    end
+  end
+
+  test "POST create_subagent action with generate_token creates subagent with token" do
+    subagent_name = "Subagent With Token #{SecureRandom.hex(4)}"
+    post "/u/#{@user.handle}/settings/subagents/new/actions/create_subagent",
+      params: { name: subagent_name, generate_token: true }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    new_subagent = User.find_by(name: subagent_name)
+    assert new_subagent, "Subagent should exist"
+    assert new_subagent.api_tokens.any?, "Subagent should have an API token"
+  ensure
+    subagent = User.find_by(name: subagent_name)
+    if subagent
+      subagent.api_tokens.delete_all
+      TenantUser.where(user: subagent).delete_all
+      subagent.destroy
+    end
+  end
+
+  test "POST add_subagent_to_studio action adds subagent to studio" do
+    # Create a subagent first
+    subagent_name = "Studio Subagent #{SecureRandom.hex(4)}"
+    subagent = User.create!(
+      name: subagent_name,
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(subagent)
+
+    # Create a second studio where user is admin
+    second_studio = Studio.create!(
+      tenant: @tenant,
+      name: "Second Studio #{SecureRandom.hex(4)}",
+      handle: "second-#{SecureRandom.hex(4)}",
+      created_by: @user,
+    )
+    second_studio.add_user!(@user, roles: ['admin'])
+    second_studio.enable_api!
+
+    # Subagent should not be in the second studio initially
+    refute subagent.studios.include?(second_studio), "Subagent should not be in studio initially"
+
+    # Add subagent to studio via API
+    post "/studios/#{second_studio.handle}/settings/actions/add_subagent_to_studio",
+      params: { subagent_id: subagent.id }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    subagent.reload
+    assert subagent.studios.include?(second_studio), "Subagent should now be in the studio"
+  ensure
+    StudioUser.where(studio: second_studio).delete_all if second_studio
+    second_studio&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "POST remove_subagent_from_studio action removes subagent from studio" do
+    # Create a subagent and add to studio
+    subagent_name = "Remove Subagent #{SecureRandom.hex(4)}"
+    subagent = User.create!(
+      name: subagent_name,
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(subagent)
+
+    # Create a second studio where user is admin
+    second_studio = Studio.create!(
+      tenant: @tenant,
+      name: "Remove Studio #{SecureRandom.hex(4)}",
+      handle: "remove-#{SecureRandom.hex(4)}",
+      created_by: @user,
+    )
+    second_studio.add_user!(@user, roles: ['admin'])
+    second_studio.add_user!(subagent)
+    second_studio.enable_api!
+
+    # Subagent should be in the studio initially
+    assert subagent.studios.include?(second_studio), "Subagent should be in studio initially"
+
+    # Remove subagent from studio via API
+    post "/studios/#{second_studio.handle}/settings/actions/remove_subagent_from_studio",
+      params: { subagent_id: subagent.id }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    subagent.reload
+    # The studio_user should be archived, not deleted
+    studio_user = StudioUser.unscoped.find_by(studio: second_studio, user: subagent)
+    assert studio_user.archived?, "Subagent's studio membership should be archived"
+  ensure
+    StudioUser.where(studio: second_studio).delete_all if second_studio
+    second_studio&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Studio settings markdown shows add_subagent_to_studio action when subagents exist" do
+    studio_user = @user.studio_users.find_by(studio: @studio)
+    studio_user.add_role!('admin')
+
+    # Create a subagent that's not in this studio
+    subagent = User.create!(
+      name: "Available Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(subagent)
+
+    get "/studios/#{@studio.handle}/settings", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/add_subagent_to_studio/, response.body, "Should show add_subagent_to_studio action")
+  ensure
+    studio_user&.remove_role!('admin')
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  # === Security Tests: Subagent Restrictions ===
+  # These tests use API token authentication to simulate subagents acting on their own behalf
+
+  test "Subagents cannot create subagents via API token - returns 403" do
+    # Create a subagent with an API token
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    # Use API token auth instead of session
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to create a subagent - should be blocked
+    post "/u/#{subagent.handle}/settings/subagents/new/actions/create_subagent",
+      params: { name: "Nested Subagent" }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status  # render_action_error returns 200
+    assert_match(/Only person accounts can create subagents/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagents cannot access create subagent page via API token - returns 403" do
+    # Create a subagent with an API token
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to access create subagent page - should be blocked
+    get "/u/#{subagent.handle}/settings/subagents/new", headers: subagent_headers
+    assert_equal 403, response.status
+    assert_match(/Only person accounts can create subagents/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagents cannot create their own API tokens via API token - returns 403" do
+    # Create a subagent with an API token
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to create an API token for themselves - should be blocked
+    post "/u/#{subagent.handle}/settings/tokens/new/actions/create_api_token",
+      params: { name: "Self Token" }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status  # render_action_error returns 200
+    assert_match(/Subagents cannot create their own API tokens/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagents cannot access create API token page via API token - returns 403" do
+    # Create a subagent with an API token
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to access create API token page - should be blocked
+    get "/u/#{subagent.handle}/settings/tokens/new", headers: subagent_headers
+    assert_equal 403, response.status
+    assert_match(/Subagents cannot create their own API tokens/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Parents can still create API tokens for their subagents" do
+    # Create a subagent
+    subagent = User.create!(
+      name: "Test Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+
+    # Parent (person) creates token for subagent - should work
+    post "/u/#{subagent.handle}/settings/tokens/new/actions/create_api_token",
+      params: { name: "Parent Created Token" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    token = ApiToken.find_by(name: "Parent Created Token", user: subagent)
+    assert token, "Token should have been created for subagent"
+  ensure
+    ApiToken.where(user: subagent).delete_all if subagent
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagents cannot execute add_subagent_to_studio via API token - returns 403" do
+    # Create two subagents - one with API token, one to try to add
+    acting_subagent = User.create!(
+      name: "Acting Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    other_subagent = User.create!(
+      name: "Other Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(acting_subagent)
+    @tenant.add_user!(other_subagent)
+    @studio.add_user!(acting_subagent)
+    token = ApiToken.create!(
+      user: acting_subagent,
+      tenant: @tenant,
+      name: "Acting Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to add another subagent to studio - should be blocked
+    post "/studios/#{@studio.handle}/settings/actions/add_subagent_to_studio",
+      params: { subagent_id: other_subagent.id }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status
+    assert_match(/Only person accounts can manage subagents/, response.body)
+  ensure
+    token&.destroy
+    StudioUser.where(user: [acting_subagent, other_subagent]).delete_all
+    TenantUser.where(user: [acting_subagent, other_subagent]).delete_all
+    acting_subagent&.destroy
+    other_subagent&.destroy
+  end
+
+  test "Subagents cannot execute remove_subagent_from_studio via API token - returns 403" do
+    # Create two subagents - one with API token, one already in studio
+    acting_subagent = User.create!(
+      name: "Acting Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    other_subagent = User.create!(
+      name: "Other Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(acting_subagent)
+    @tenant.add_user!(other_subagent)
+    @studio.add_user!(acting_subagent)
+    @studio.add_user!(other_subagent)
+    token = ApiToken.create!(
+      user: acting_subagent,
+      tenant: @tenant,
+      name: "Acting Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Try to remove another subagent from studio - should be blocked
+    post "/studios/#{@studio.handle}/settings/actions/remove_subagent_from_studio",
+      params: { subagent_id: other_subagent.id }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status
+    assert_match(/Only person accounts can manage subagents/, response.body)
+  ensure
+    token&.destroy
+    StudioUser.where(user: [acting_subagent, other_subagent]).delete_all
+    TenantUser.where(user: [acting_subagent, other_subagent]).delete_all
+    acting_subagent&.destroy
+    other_subagent&.destroy
+  end
+
+  # === Phase 3: Admin Panel Markdown API ===
+
+  test "GET /admin returns 200 markdown for admin user" do
+    # Make user an admin
+    tu = @tenant.tenant_users.find_by(user: @user)
+    tu.add_role!('admin')
+
+    get "/admin", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Admin/, response.body, "Should show Admin heading")
+  ensure
+    tu&.remove_role!('admin')
+  end
+
+  test "GET /admin returns 403 for non-admin user" do
+    get "/admin", headers: @headers
+    assert_equal 403, response.status
+  end
+
+  test "GET /admin/settings returns 200 markdown with actions for admin user" do
+    tu = @tenant.tenant_users.find_by(user: @user)
+    tu.add_role!('admin')
+
+    get "/admin/settings", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Admin Settings/, response.body, "Should show Admin Settings heading")
+    assert has_actions_section?, "Admin settings should have actions section"
+    assert_match(/update_tenant_settings/, response.body, "Should show update_tenant_settings action")
+  ensure
+    tu&.remove_role!('admin')
+  end
+
+  test "POST update_tenant_settings action updates tenant and returns 200 markdown" do
+    tu = @tenant.tenant_users.find_by(user: @user)
+    tu.add_role!('admin')
+    original_name = @tenant.name
+
+    post "/admin/settings/actions/update_tenant_settings",
+      params: { name: "Updated Tenant Name" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @tenant.reload
+    assert_equal "Updated Tenant Name", @tenant.name, "Tenant name should have been updated"
+  ensure
+    tu&.remove_role!('admin')
+    @tenant.update!(name: original_name)
+  end
+
+  # === Admin Panel Security: Subagent Access Requirements ===
+
+  test "Subagent admin can access admin pages when both subagent AND parent are admins" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Should be able to access admin page
+    get "/admin", headers: subagent_headers
+    assert_equal 200, response.status
+    assert is_markdown?
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagent admin cannot access admin pages when parent is NOT admin" do
+    # Parent is NOT an admin (no role added)
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Should NOT be able to access admin page because parent is not admin
+    get "/admin", headers: subagent_headers
+    assert_equal 403, response.status
+    assert_match(/Subagent admin access requires both subagent and parent to be admins/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagent cannot access admin pages when subagent is NOT admin even if parent is" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent WITHOUT admin role
+    subagent = User.create!(
+      name: "Non-Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    # NOT adding admin role to subagent
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Should NOT be able to access admin page because subagent is not admin
+    get "/admin", headers: subagent_headers
+    assert_equal 403, response.status
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  # === Admin Panel Security: Subagent Production Write Restrictions ===
+
+  test "Subagent admin can perform write operations in development/test environment" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    original_name = @tenant.name
+
+    # In test environment, should be able to perform write operations
+    post "/admin/settings/actions/update_tenant_settings",
+      params: { name: "Subagent Updated Name" }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @tenant.reload
+    assert_equal "Subagent Updated Name", @tenant.name, "Subagent should be able to update in test env"
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+    @tenant.update!(name: original_name) if @tenant
+  end
+
+  test "Subagent admin cannot perform write operations in production environment" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      # Should NOT be able to perform write operations in production
+      post "/admin/settings/actions/update_tenant_settings",
+        params: { name: "Should Not Update" }.to_json,
+        headers: subagent_headers
+      assert_equal 403, response.status
+      assert_match(/Subagents cannot perform admin write operations in production/, response.body)
+    ensure
+      Thread.current[:simulate_production] = nil
+    end
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagent admin can still read admin pages in production environment" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      # Should be able to READ admin pages in production
+      get "/admin", headers: subagent_headers
+      assert_equal 200, response.status
+      assert is_markdown?
+    ensure
+      Thread.current[:simulate_production] = nil
+    end
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Person admin can still perform write operations in production environment" do
+    # Make user an admin
+    tu = @tenant.tenant_users.find_by(user: @user)
+    tu.add_role!('admin')
+    original_name = @tenant.name
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      # Person admin should still be able to write in production
+      post "/admin/settings/actions/update_tenant_settings",
+        params: { name: "Person Updated Name" }.to_json,
+        headers: @headers
+      assert_equal 200, response.status
+      assert is_markdown?
+
+      @tenant.reload
+      assert_equal "Person Updated Name", @tenant.name, "Person admin should be able to update in production"
+    ensure
+      Thread.current[:simulate_production] = nil
+    end
+  ensure
+    tu&.remove_role!('admin')
+    @tenant.update!(name: original_name)
+  end
+
+  test "Admin settings page hides actions for subagents in production" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      get "/admin/settings", headers: subagent_headers
+      assert_equal 200, response.status
+      assert is_markdown?
+      # Should show read-only message instead of actions
+      assert_match(/read-only access/, response.body, "Should show read-only message for subagent in production")
+    ensure
+      Thread.current[:simulate_production] = nil
+    end
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  # === Phase 4: File Attachments Markdown API ===
+
+  test "Note show page displays attachments section when attachments exist" do
+    note = create_note(text: "Note with attachment")
+    # Create an attachment
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("test file content"),
+      filename: "test.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Attachments \(1\)/, response.body, "Should show Attachments section with count")
+    assert_match(/test\.txt/, response.body, "Should show filename")
+  ensure
+    attachment&.destroy
+    note&.destroy
+  end
+
+  test "Note show page does not display attachments section when no attachments" do
+    note = create_note(text: "Note without attachment")
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    refute_match(/## Attachments/, response.body, "Should not show Attachments section")
+  ensure
+    note&.destroy
+  end
+
+  test "GET /n/:id/edit/actions/add_attachment describes add_attachment action" do
+    @tenant.settings["allow_file_uploads"] = "true"
+    @tenant.save!
+    @studio.settings["allow_file_uploads"] = "true"
+    @studio.save!
+    note = create_note(text: "Test note")
+
+    get "#{note.path}/edit/actions/add_attachment", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/add_attachment/, response.body)
+    assert_match(/file/, response.body, "Should describe file parameter")
+  ensure
+    note&.destroy
+  end
+
+  test "POST /n/:id/edit/actions/add_attachment adds attachment via base64" do
+    @tenant.settings["allow_file_uploads"] = "true"
+    @tenant.save!
+    @studio.settings["allow_file_uploads"] = "true"
+    @studio.save!
+    note = create_note(text: "Test note for attachment")
+    file_content = "Hello, this is test file content"
+    encoded_content = Base64.encode64(file_content)
+
+    post "#{note.path}/edit/actions/add_attachment",
+      params: {
+        file: {
+          data: encoded_content,
+          content_type: "text/plain",
+          filename: "test_upload.txt"
+        }
+      }.to_json,
+      headers: @headers
+
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/added successfully/, response.body)
+
+    note.reload
+    assert_equal 1, note.attachments.count, "Note should have one attachment"
+    assert_equal "test_upload.txt", note.attachments.first.filename
+  ensure
+    note&.attachments&.destroy_all
+    note&.destroy
+  end
+
+  test "GET /n/:id/attachments/:attachment_id/actions describes remove_attachment action" do
+    note = create_note(text: "Note with attachment")
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("test content"),
+      filename: "remove_me.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    get "#{note.path}/attachments/#{attachment.id}/actions", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/remove_attachment/, response.body)
+  ensure
+    attachment&.destroy
+    note&.destroy
+  end
+
+  test "POST /n/:id/attachments/:attachment_id/actions/remove_attachment removes attachment" do
+    note = create_note(text: "Note with attachment to remove")
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("test content"),
+      filename: "to_remove.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+    attachment_id = attachment.id
+
+    post "#{note.path}/attachments/#{attachment_id}/actions/remove_attachment",
+      headers: @headers
+
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/removed successfully/, response.body)
+
+    note.reload
+    assert_equal 0, note.attachments.count, "Note should have no attachments"
+  ensure
+    note&.destroy
+  end
+
+  test "Decision show page displays attachments section" do
+    decision = create_decision(question: "Decision with attachment?")
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("decision attachment"),
+      filename: "decision.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: decision,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    get decision.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Attachments \(1\)/, response.body)
+    assert_match(/decision\.txt/, response.body)
+  ensure
+    attachment&.destroy
+    decision&.destroy
+  end
+
+  test "Commitment show page displays attachments section" do
+    commitment = create_commitment(title: "Commitment with attachment")
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("commitment attachment"),
+      filename: "commitment.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: commitment,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    get commitment.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Attachments \(1\)/, response.body)
+    assert_match(/commitment\.txt/, response.body)
+  ensure
+    attachment&.destroy
+    commitment&.destroy
   end
 end

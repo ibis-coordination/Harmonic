@@ -1,6 +1,7 @@
 # typed: false
 
 class CommitmentsController < ApplicationController
+  include AttachmentActions
 
   def new
     @page_title = "Commit"
@@ -130,6 +131,7 @@ class CommitmentsController < ApplicationController
     return render 'shared/403', status: 403 unless @commitment.can_edit_settings?(@current_user)
     @page_title = "Commitment Settings"
     @page_description = "Change settings for this commitment"
+    set_pin_vars
   end
 
   def actions_index_new
@@ -143,16 +145,7 @@ class CommitmentsController < ApplicationController
   end
 
   def describe_create_commitment
-    render_action_description({
-      action_name: 'create_commitment',
-      description: 'Create a new commitment',
-      params: [
-        { name: 'title', type: 'string', required: true, description: 'Title of the commitment' },
-        { name: 'description', type: 'string', required: false, description: 'Description (markdown)' },
-        { name: 'critical_mass', type: 'integer', required: true, description: 'Minimum participants needed' },
-        { name: 'deadline', type: 'string', required: true, description: 'Deadline (YYYY-MM-DD)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("create_commitment"))
   end
 
   def create_commitment_action
@@ -181,12 +174,7 @@ class CommitmentsController < ApplicationController
   end
 
   def describe_join_commitment
-    render_action_description({
-      action_name: 'join_commitment',
-      resource: current_commitment,
-      description: 'Join the commitment',
-      params: [],
-    })
+    render_action_description(ActionsHelper.action_description("join_commitment", resource: current_commitment))
   end
 
   def join_commitment
@@ -282,22 +270,69 @@ class CommitmentsController < ApplicationController
   end
 
   def actions_index_settings
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
     @page_title = "Actions | Commitment Settings"
-    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/c/:commitment_id/settings'))
+    set_pin_vars
+    actions = [
+      { name: 'update_commitment_settings', params_string: '(title, description, critical_mass, deadline)' },
+    ]
+    if @is_pinned
+      actions << { name: 'unpin_commitment', params_string: '()' }
+    else
+      actions << { name: 'pin_commitment', params_string: '()' }
+    end
+    render_actions_index({ actions: actions })
+  end
+
+  def describe_pin_commitment
+    render_action_description(ActionsHelper.action_description("pin_commitment", resource: current_commitment))
+  end
+
+  def pin_commitment_action
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
+    begin
+      @commitment.pin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      render_action_success({
+        action_name: 'pin_commitment',
+        resource: @commitment,
+        result: "Commitment pinned.",
+      })
+    rescue => e
+      render_action_error({
+        action_name: 'pin_commitment',
+        resource: @commitment,
+        error: e.message,
+      })
+    end
+  end
+
+  def describe_unpin_commitment
+    render_action_description(ActionsHelper.action_description("unpin_commitment", resource: current_commitment))
+  end
+
+  def unpin_commitment_action
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
+    begin
+      @commitment.unpin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      render_action_success({
+        action_name: 'unpin_commitment',
+        resource: @commitment,
+        result: "Commitment unpinned.",
+      })
+    rescue => e
+      render_action_error({
+        action_name: 'unpin_commitment',
+        resource: @commitment,
+        error: e.message,
+      })
+    end
   end
 
   def describe_update_commitment_settings
-    render_action_description({
-      action_name: 'update_commitment_settings',
-      resource: current_commitment,
-      description: 'Update commitment settings',
-      params: [
-        { name: 'title', type: 'string', description: 'The title of the commitment' },
-        { name: 'description', type: 'string', description: 'A description of the commitment' },
-        { name: 'critical_mass', type: 'integer', description: 'Minimum number of participants required' },
-        { name: 'deadline', type: 'string', description: 'The deadline (YYYY-MM-DD)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("update_commitment_settings", resource: current_commitment))
   end
 
   def update_commitment_settings_action

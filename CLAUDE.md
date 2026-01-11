@@ -116,6 +116,11 @@ The app serves two parallel interfaces:
 - Run tests: `docker compose exec js npm test`
 - Watch mode: `docker compose exec js npm run test:watch`
 
+### Manual testing
+- Framework: checklists
+- Instruction/checklist files: `test/manual/**/*.manual_test.md`
+- Run tests: use MCP server to connect to the app's markdown UI, follow instructions in test file, verify checklist items
+
 ## Environment Variables
 
 Key variables (see `.env.example`):

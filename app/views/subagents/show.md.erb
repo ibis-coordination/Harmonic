@@ -1,0 +1,19 @@
+# Subagent Created
+
+Successfully created subagent **<%= raw @subagent.display_name %>**.
+
+| Property | Value |
+|----------|-------|
+| Name | <%= raw @subagent.name %> |
+| Handle | `<%= @subagent.handle %>` |
+| Profile | [<%= @subagent.path %>](<%= @subagent.path %>) |
+<% if @token %>
+| API Token | `<%= @token.token %>` |
+| Token Expires | in <%= time_ago_in_words(@token.expires_at) %> |
+<% end %>
+
+<% if @token %>
+**Important:** Save this API token now. You won't be able to see the full token again.
+<% end %>
+
+[Back to Settings](<%= @current_user.path %>/settings)

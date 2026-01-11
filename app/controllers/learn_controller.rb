@@ -2,9 +2,15 @@
 
 class LearnController < ApplicationController
   def index
-    render layout: 'application', html: (
-      markdown(render_to_string('learn/index', layout: false, formats: [:md]))
-    )
+    @page_title = 'Learn'
+    respond_to do |format|
+      format.html do
+        render layout: 'application', html: (
+          markdown(render_to_string('learn/index', layout: false, formats: [:md]))
+        )
+      end
+      format.md
+    end
   end
 
   def awareness_indicators
@@ -22,7 +28,13 @@ class LearnController < ApplicationController
   private
 
   def show
-    render layout: 'application', html: page_html
+    @page_title = params[:action].titleize
+    respond_to do |format|
+      format.html do
+        render layout: 'application', html: page_html
+      end
+      format.md
+    end
   end
 
   def page_html

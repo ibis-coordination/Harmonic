@@ -2,7 +2,12 @@
 
 class HeartbeatsController < ApplicationController
   def index
+    @page_title = 'Heartbeats'
     @current_heartbeat = current_heartbeat
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   # def show
@@ -40,10 +45,6 @@ class HeartbeatsController < ApplicationController
   end
 
   def describe_create_heartbeat
-    render_action_description({
-      action_name: 'create_heartbeat',
-      description: "Create a new heartbeat",
-      params: []
-    })
+    render_action_description(ActionsHelper.action_description("send_heartbeat"))
   end
 end

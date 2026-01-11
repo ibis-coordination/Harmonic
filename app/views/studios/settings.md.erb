@@ -10,7 +10,27 @@ Current settings for **<%= @current_studio.name %>**:
 | Timezone | <%= @current_studio.timezone %> |
 | Tempo | <%= @current_studio.tempo %> |
 | Synchronization Mode | <%= @current_studio.synchronization_mode %> |
+<% if @current_tenant.api_enabled? %>
+| Invitations | <%= @current_studio.all_members_can_invite? ? 'All members can invite' : 'Only admins can invite' %> |
+| Representation | <%= @current_studio.any_member_can_represent? ? 'Any member can represent' : 'Only representatives' %> |
+| File Uploads | <%= @current_studio.allow_file_uploads? ? 'Enabled' : 'Disabled' %> |
+| API Access | <%= @current_studio.api_enabled? ? 'Enabled' : 'Disabled' %> |
+<% end %>
+<% if @current_tenant.api_enabled? && @studio_subagents.present? %>
+
+## Subagents in this Studio
+
+<% @studio_subagents.each do |subagent| %>
+* [<%= raw subagent.display_name %>](<%= subagent.path %>) - managed by <%= subagent.parent ? "[#{subagent.parent.display_name}](#{subagent.parent.path})" : "Unknown" %>
+<% end %>
+<% end %>
 
 ## [Actions](<%= @current_studio.path %>/settings/actions)
 
-* [`update_studio_settings(name, description, timezone, tempo, synchronization_mode)`](<%= @current_studio.path %>/settings/actions/update_studio_settings) to update studio settings.
+* [`update_studio_settings(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)`](<%= @current_studio.path %>/settings/actions/update_studio_settings) - Update studio settings
+<% if @current_tenant.api_enabled? && @current_user.person? && @addable_subagents.present? %>
+* [`add_subagent_to_studio(subagent_id)`](<%= @current_studio.path %>/settings/actions/add_subagent_to_studio) - Add one of your subagents to this studio
+<% end %>
+<% if @current_tenant.api_enabled? && @current_user.person? && @studio_subagents.present? && @studio_subagents.any? { |s| s.parent_id == @current_user.id } %>
+* [`remove_subagent_from_studio(subagent_id)`](<%= @current_studio.path %>/settings/actions/remove_subagent_from_studio) - Remove a subagent from this studio
+<% end %>
