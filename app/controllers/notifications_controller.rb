@@ -20,13 +20,7 @@ class NotificationsController < ApplicationController
   end
 
   def actions_index
-    render_actions_index({
-      actions: [
-        ActionsHelper.action_description("mark_read", resource: nil),
-        ActionsHelper.action_description("dismiss", resource: nil),
-        ActionsHelper.action_description("mark_all_read", resource: nil),
-      ],
-    })
+    render_actions_index(ActionsHelper.actions_for_route('/notifications'))
   end
 
   def describe_mark_read
