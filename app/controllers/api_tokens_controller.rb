@@ -61,17 +61,7 @@ class ApiTokensController < ApplicationController
     if @showing_user == current_user && current_user.subagent?
       return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
     end
-    render_action_description({
-      action_name: 'create_api_token',
-      resource: @showing_user,
-      description: 'Create a new API token',
-      params: [
-        { name: 'name', type: 'string', description: 'A name for this token to help you identify it' },
-        { name: 'read_write', type: 'string', description: 'Token permissions: "read" for read-only, "write" for read + write access' },
-        { name: 'duration', type: 'integer', description: 'How long until the token expires (default: 12)' },
-        { name: 'duration_unit', type: 'string', description: 'Unit for duration: "hour(s)", "day(s)", "week(s)", or "month(s)" (default: "month(s)")' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("create_api_token", resource: @showing_user))
   end
 
   def execute_create_api_token

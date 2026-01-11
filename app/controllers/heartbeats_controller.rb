@@ -45,10 +45,6 @@ class HeartbeatsController < ApplicationController
   end
 
   def describe_create_heartbeat
-    render_action_description({
-      action_name: 'create_heartbeat',
-      description: "Create a new heartbeat",
-      params: []
-    })
+    render_action_description(ActionsHelper.action_description("send_heartbeat"))
   end
 end

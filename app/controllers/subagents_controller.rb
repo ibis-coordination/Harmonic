@@ -35,15 +35,7 @@ class SubagentsController < ApplicationController
 
   def describe_create_subagent
     return render status: 403, plain: '403 Unauthorized - Only person accounts can create subagents' unless current_user&.person?
-    render_action_description({
-      action_name: 'create_subagent',
-      resource: @current_user,
-      description: 'Create a new subagent',
-      params: [
-        { name: 'name', type: 'string', description: 'The name of the subagent' },
-        { name: 'generate_token', type: 'boolean', description: 'If true, automatically generate an API token for this subagent (default: false)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("create_subagent", resource: @current_user))
   end
 
   def execute_create_subagent

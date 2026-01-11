@@ -83,17 +83,7 @@ class NotesController < ApplicationController
   end
 
   def describe_create_note
-    render_action_description({
-      action_name: 'create_note',
-      description: "Create a new note",
-      params: [
-        {
-          name: 'text',
-          description: 'The text of the note',
-          type: 'string',
-        },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("create_note"))
   end
 
   def show
@@ -138,28 +128,7 @@ class NotesController < ApplicationController
   end
 
   def describe_update_note
-    render_action_description({
-      action_name: 'update_note',
-      resource: current_note,
-      description: "Update this note.",
-      params: [
-        {
-          name: 'title',
-          description: 'The updated title of the note',
-          type: 'string',
-        },
-        {
-          name: 'text',
-          description: 'The updated text of the note',
-          type: 'string',
-        },
-        {
-          name: 'deadline',
-          description: 'The updated deadline of the note',
-          type: 'datetime',
-        }
-      ]
-    })
+    render_action_description(ActionsHelper.action_description("update_note", resource: current_note))
   end
 
   def confirm_and_return_partial
@@ -213,12 +182,7 @@ class NotesController < ApplicationController
   end
 
   def describe_confirm_read
-    render_action_description({
-      action_name: 'confirm_read',
-      resource: current_note,
-      description: "Confirm that you have read this note.",
-      params: []
-    })
+    render_action_description(ActionsHelper.action_description("confirm_read", resource: current_note))
   end
 
   def history_log_partial
@@ -280,12 +244,7 @@ class NotesController < ApplicationController
   end
 
   def describe_pin_note
-    render_action_description({
-      action_name: 'pin_note',
-      resource: current_note,
-      description: "Pin this note to the studio homepage.",
-      params: []
-    })
+    render_action_description(ActionsHelper.action_description("pin_note", resource: current_note))
   end
 
   def pin_note_action
@@ -308,12 +267,7 @@ class NotesController < ApplicationController
   end
 
   def describe_unpin_note
-    render_action_description({
-      action_name: 'unpin_note',
-      resource: current_note,
-      description: "Unpin this note from the studio homepage.",
-      params: []
-    })
+    render_action_description(ActionsHelper.action_description("unpin_note", resource: current_note))
   end
 
   def unpin_note_action

@@ -145,16 +145,7 @@ class CommitmentsController < ApplicationController
   end
 
   def describe_create_commitment
-    render_action_description({
-      action_name: 'create_commitment',
-      description: 'Create a new commitment',
-      params: [
-        { name: 'title', type: 'string', required: true, description: 'Title of the commitment' },
-        { name: 'description', type: 'string', required: false, description: 'Description (markdown)' },
-        { name: 'critical_mass', type: 'integer', required: true, description: 'Minimum participants needed' },
-        { name: 'deadline', type: 'string', required: true, description: 'Deadline (YYYY-MM-DD)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("create_commitment"))
   end
 
   def create_commitment_action
@@ -183,12 +174,7 @@ class CommitmentsController < ApplicationController
   end
 
   def describe_join_commitment
-    render_action_description({
-      action_name: 'join_commitment',
-      resource: current_commitment,
-      description: 'Join the commitment',
-      params: [],
-    })
+    render_action_description(ActionsHelper.action_description("join_commitment", resource: current_commitment))
   end
 
   def join_commitment
@@ -300,12 +286,7 @@ class CommitmentsController < ApplicationController
   end
 
   def describe_pin_commitment
-    render_action_description({
-      action_name: 'pin_commitment',
-      resource: current_commitment,
-      description: "Pin this commitment to the studio homepage.",
-      params: [],
-    })
+    render_action_description(ActionsHelper.action_description("pin_commitment", resource: current_commitment))
   end
 
   def pin_commitment_action
@@ -328,12 +309,7 @@ class CommitmentsController < ApplicationController
   end
 
   def describe_unpin_commitment
-    render_action_description({
-      action_name: 'unpin_commitment',
-      resource: current_commitment,
-      description: "Unpin this commitment from the studio homepage.",
-      params: [],
-    })
+    render_action_description(ActionsHelper.action_description("unpin_commitment", resource: current_commitment))
   end
 
   def unpin_commitment_action
@@ -356,17 +332,7 @@ class CommitmentsController < ApplicationController
   end
 
   def describe_update_commitment_settings
-    render_action_description({
-      action_name: 'update_commitment_settings',
-      resource: current_commitment,
-      description: 'Update commitment settings',
-      params: [
-        { name: 'title', type: 'string', description: 'The title of the commitment' },
-        { name: 'description', type: 'string', description: 'A description of the commitment' },
-        { name: 'critical_mass', type: 'integer', description: 'Minimum number of participants required' },
-        { name: 'deadline', type: 'string', description: 'The deadline (YYYY-MM-DD)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("update_commitment_settings", resource: current_commitment))
   end
 
   def update_commitment_settings_action

@@ -12,18 +12,11 @@ module AttachmentActions
     return render status: :forbidden, plain: "403 Forbidden - Edit permission required" unless can_edit_resource?(resource)
     return render status: :forbidden, plain: "403 Forbidden - File uploads are not enabled" unless file_uploads_allowed?
 
-    render_action_description({
-                                action_name: "add_attachment",
-                                resource: resource,
-                                description: "Add a file attachment to this #{current_resource_model.name.downcase}",
-                                params: [
-                                  {
-                                    name: "file",
-                                    description: "The file to attach (base64 encoded data with content_type and filename)",
-                                    type: "object",
-                                  },
-                                ],
-                              })
+    render_action_description(ActionsHelper.action_description(
+      "add_attachment",
+      resource: resource,
+      description_override: "Add a file attachment to this #{current_resource_model.name.downcase}"
+    ))
   end
 
   def add_attachment
@@ -142,12 +135,11 @@ module AttachmentActions
     attachment = resource.attachments.find_by(id: params[:attachment_id])
     return render status: :not_found, plain: "404 Attachment not found" unless attachment
 
-    render_action_description({
-                                action_name: "remove_attachment",
-                                resource: resource,
-                                description: "Remove attachment '#{attachment.filename}' from this #{current_resource_model.name.downcase}",
-                                params: [],
-                              })
+    render_action_description(ActionsHelper.action_description(
+      "remove_attachment",
+      resource: resource,
+      description_override: "Remove attachment '#{attachment.filename}' from this #{current_resource_model.name.downcase}"
+    ))
   end
 
   def remove_attachment

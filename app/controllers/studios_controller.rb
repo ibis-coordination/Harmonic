@@ -43,52 +43,7 @@ class StudiosController < ApplicationController
   def describe_create_studio
     @page_title = 'Create Studio'
     @page_description = 'Create a new studio'
-    render_action_description({
-      action_name: 'create_studio',
-      resource: nil,
-      description: 'Create a new studio',
-      params: [{
-        name: 'name',
-        description: 'The name of the studio',
-        type: 'string',
-      }, {
-        name: 'handle',
-        description: 'The handle of the studio (used in the URL)',
-        type: 'string',
-      }, {
-        name: 'description',
-        description: 'A description of the studio that will appear on the studio homepage',
-        type: 'string',
-      }, {
-        name: 'timezone',
-        description: 'The timezone of the studio',
-        type: 'string',
-      }, {
-        name: 'tempo',
-        description: 'The tempo of the studio. "daily", "weekly", or "monthly"',
-        type: 'string',
-      }, {
-        name: 'synchronization_mode',
-        description: 'The synchronization mode of the studio. "improv" or "orchestra"',
-        type: 'string',
-      }, {
-        name: 'invitations',
-        description: 'Who can invite new members: "all_members" or "only_admins" (optional)',
-        type: 'string',
-      }, {
-        name: 'representation',
-        description: 'Who can represent the studio: "any_member" or "only_representatives" (optional)',
-        type: 'string',
-      }, {
-        name: 'file_uploads',
-        description: 'Whether file attachments are allowed (optional)',
-        type: 'boolean',
-      }, {
-        name: 'api_enabled',
-        description: 'Whether API access is allowed for this studio (optional)',
-        type: 'boolean',
-      }]
-    })
+    render_action_description(ActionsHelper.action_description("create_studio"))
   end
 
   def create_studio
@@ -109,12 +64,7 @@ class StudiosController < ApplicationController
   end
 
   def describe_send_heartbeat
-    render_action_description({
-      action_name: 'send_heartbeat',
-      resource: @current_studio,
-      description: 'Send a heartbeat to confirm your presence in the studio for this cycle',
-      params: [],
-    })
+    render_action_description(ActionsHelper.action_description("send_heartbeat", resource: @current_studio))
   end
 
   def send_heartbeat
@@ -257,22 +207,7 @@ class StudiosController < ApplicationController
   end
 
   def describe_update_studio_settings
-    render_action_description({
-      action_name: 'update_studio_settings',
-      resource: @current_studio,
-      description: 'Update studio settings',
-      params: [
-        { name: 'name', type: 'string', description: 'The name of the studio' },
-        { name: 'description', type: 'string', description: 'A description of the studio' },
-        { name: 'timezone', type: 'string', description: 'The timezone of the studio' },
-        { name: 'tempo', type: 'string', description: 'The tempo of the studio: "daily", "weekly", or "monthly"' },
-        { name: 'synchronization_mode', type: 'string', description: 'The synchronization mode: "improv" or "orchestra"' },
-        { name: 'invitations', type: 'string', description: 'Who can invite new members: "all_members" or "only_admins"' },
-        { name: 'representation', type: 'string', description: 'Who can represent the studio: "any_member" or "only_representatives"' },
-        { name: 'file_uploads', type: 'boolean', description: 'Whether file attachments are allowed' },
-        { name: 'api_enabled', type: 'boolean', description: 'Whether API access is allowed (not changeable via API - use HTML UI to modify)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("update_studio_settings", resource: @current_studio))
   end
 
   def update_studio_settings_action
@@ -301,14 +236,11 @@ class StudiosController < ApplicationController
       .where(tenant_users: { tenant_id: @current_tenant.id })
       .reject { |s| s.studios.include?(@current_studio) }
 
-    render_action_description({
-      action_name: 'add_subagent_to_studio',
-      resource: @current_studio,
-      description: 'Add one of your subagents to this studio',
-      params: [
-        { name: 'subagent_id', type: 'integer', description: "ID of the subagent to add. Your available subagents: #{addable_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
-      ],
-    })
+    # Use dynamic params to include available subagent IDs
+    dynamic_params = [
+      { name: 'subagent_id', type: 'integer', description: "ID of the subagent to add. Your available subagents: #{addable_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
+    ]
+    render_action_description(ActionsHelper.action_description("add_subagent_to_studio", resource: @current_studio, params_override: dynamic_params))
   end
 
   def execute_add_subagent_to_studio
@@ -361,14 +293,11 @@ class StudiosController < ApplicationController
       .map(&:user)
       .select { |u| u.subagent? && u.parent_id == current_user.id }
 
-    render_action_description({
-      action_name: 'remove_subagent_from_studio',
-      resource: @current_studio,
-      description: 'Remove a subagent from this studio',
-      params: [
-        { name: 'subagent_id', type: 'integer', description: "ID of the subagent to remove. Your subagents in this studio: #{studio_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
-      ],
-    })
+    # Use dynamic params to include removable subagent IDs
+    dynamic_params = [
+      { name: 'subagent_id', type: 'integer', description: "ID of the subagent to remove. Your subagents in this studio: #{studio_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
+    ]
+    render_action_description(ActionsHelper.action_description("remove_subagent_from_studio", resource: @current_studio, params_override: dynamic_params))
   end
 
   def execute_remove_subagent_from_studio
@@ -421,14 +350,7 @@ class StudiosController < ApplicationController
   end
 
   def describe_join_studio
-    render_action_description({
-      action_name: 'join_studio',
-      resource: @current_studio,
-      description: 'Join the studio',
-      params: [
-        { name: 'code', type: 'string', required: false, description: 'Invite code (optional for scenes)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("join_studio", resource: @current_studio))
   end
 
   def join_studio_action

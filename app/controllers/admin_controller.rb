@@ -139,18 +139,7 @@ class AdminController < ApplicationController
   end
 
   def describe_update_tenant_settings
-    render_action_description({
-      action_name: 'update_tenant_settings',
-      resource: nil,
-      description: 'Update tenant settings',
-      params: [
-        { name: 'name', type: 'string', description: 'Tenant name' },
-        { name: 'timezone', type: 'string', description: 'Tenant timezone (e.g., "America/New_York")' },
-        { name: 'api_enabled', type: 'boolean', description: 'Enable API access for the tenant' },
-        { name: 'require_login', type: 'boolean', description: 'Require login to view content' },
-        { name: 'allow_file_uploads', type: 'boolean', description: 'Allow file uploads' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("update_tenant_settings"))
   end
 
   def execute_update_tenant_settings
@@ -177,15 +166,7 @@ class AdminController < ApplicationController
 
   def describe_create_tenant
     return render status: 403, plain: '403 Unauthorized' unless is_main_tenant?
-    render_action_description({
-      action_name: 'create_tenant',
-      resource: nil,
-      description: 'Create a new tenant',
-      params: [
-        { name: 'subdomain', type: 'string', description: 'Unique subdomain for the tenant (used in URL)' },
-        { name: 'name', type: 'string', description: 'Display name for the tenant' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("create_tenant"))
   end
 
   def execute_create_tenant
@@ -219,12 +200,7 @@ class AdminController < ApplicationController
     return render status: 403, plain: '403 Unauthorized' unless is_main_tenant?
     @job = find_job(params[:jid])
     return render status: 404, plain: '404 Job not found' if @job.nil?
-    render_action_description({
-      action_name: 'retry_sidekiq_job',
-      resource: nil,
-      description: 'Retry this Sidekiq job',
-      params: [],
-    })
+    render_action_description(ActionsHelper.action_description("retry_sidekiq_job"))
   end
 
   def execute_retry_sidekiq_job

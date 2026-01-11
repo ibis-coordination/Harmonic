@@ -163,15 +163,7 @@ class UsersController < ApplicationController
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404', status: 404 if tu.nil?
     return render plain: '403 Unauthorized', status: 403 unless tu.user == current_user
-    render_action_description({
-      action_name: 'update_profile',
-      resource: current_user,
-      description: 'Update your profile name and/or handle',
-      params: [
-        { name: 'name', type: 'string', description: 'Your display name' },
-        { name: 'new_handle', type: 'string', description: 'Your unique handle (used in URLs)' },
-      ],
-    })
+    render_action_description(ActionsHelper.action_description("update_profile", resource: current_user))
   end
 
   def execute_update_profile

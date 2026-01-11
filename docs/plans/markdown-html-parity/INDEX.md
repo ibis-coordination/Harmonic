@@ -134,10 +134,11 @@ Pages needed to perform actions that don't exist in markdown:
 13. ✅ Add `add_attachment(file)` and `remove_attachment()` actions
 14. See [file-uploads.md](file-uploads.md) for details
 
-### Phase 5: Refactor Action Descriptions
-13. Consolidate all action and parameter descriptions into `ActionsHelper` as the single source of truth
-14. Update controllers to use `ActionsHelper` for `describe_*` methods instead of duplicating param definitions
-15. This reduces duplication between `ActionsHelper` and individual controller `describe_*` methods
+### Phase 5: Refactor Action Descriptions ✅ DONE
+13. ✅ Consolidated all action and parameter descriptions into `ActionsHelper` as the single source of truth
+14. ✅ Updated all 32 controller `describe_*` methods to use `ActionsHelper.action_description()` instead of duplicating param definitions
+15. ✅ `ACTION_DEFINITIONS` constant now contains full action metadata (description, params_string, params)
+16. ✅ Controllers with dynamic descriptions (e.g., attachment filenames, subagent IDs) use `description_override` or `params_override`
 
 ---
 
