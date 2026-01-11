@@ -1,0 +1,14 @@
+<%= @notification.title %>
+
+<%= @notification.notification_type.upcase %>
+
+<% if @notification.body.present? -%>
+<%= @notification.body %>
+
+<% end -%>
+<% if @notification_url.present? -%>
+View details: <%= @notification_url %>
+
+<% end -%>
+---
+You received this email because you have email notifications enabled for <%= @notification.notification_type %> notifications.

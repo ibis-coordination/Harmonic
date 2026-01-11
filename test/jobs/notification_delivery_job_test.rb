@@ -53,6 +53,35 @@ class NotificationDeliveryJobTest < ActiveSupport::TestCase
     assert recipient.delivered_at.present?
   end
 
+  test "perform sends email for email recipient" do
+    tenant, studio, user = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    event = Event.create!(tenant: tenant, studio: studio, event_type: "note.created")
+    notification = Notification.create!(
+      tenant: tenant,
+      event: event,
+      notification_type: "mention",
+      title: "Test Email Notification",
+      body: "This is a test notification body",
+      url: "/n/test123",
+    )
+
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "email",
+      status: "pending",
+    )
+
+    initial_count = ActionMailer::Base.deliveries.size
+    NotificationDeliveryJob.perform_now(recipient.id)
+
+    assert_equal initial_count + 1, ActionMailer::Base.deliveries.size
+    recipient.reload
+    assert_equal "delivered", recipient.status
+  end
+
   test "perform does nothing if recipient not found" do
     # Should not raise an error
     assert_nothing_raised do

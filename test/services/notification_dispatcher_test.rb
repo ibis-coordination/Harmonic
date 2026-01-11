@@ -205,4 +205,128 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     recipient = notification.notification_recipients.first
     assert_equal user.id, recipient.user_id
   end
+
+  # Preference-based channel selection tests
+
+  test "channels_for_user returns default in_app when no tenant_user" do
+    user = User.new(email: "test@example.com", name: "Test", user_type: "person")
+
+    channels = NotificationDispatcher.channels_for_user(user, "mention")
+    assert_equal ["in_app"], channels
+  end
+
+  test "channels_for_user returns both channels for mention by default" do
+    tenant, studio, user = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    channels = NotificationDispatcher.channels_for_user(user, "mention")
+    assert_includes channels, "in_app"
+    assert_includes channels, "email"
+  end
+
+  test "channels_for_user returns only in_app for comment by default" do
+    tenant, studio, user = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    channels = NotificationDispatcher.channels_for_user(user, "comment")
+    assert_equal ["in_app"], channels
+  end
+
+  test "channels_for_user respects user preferences" do
+    tenant, studio, user = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    # Disable email for mentions
+    user.tenant_user.set_notification_preference!("mention", "email", false)
+
+    channels = NotificationDispatcher.channels_for_user(user, "mention")
+    assert_equal ["in_app"], channels
+  end
+
+  test "notify_user creates recipients for correct channels based on preferences" do
+    tenant, studio, user = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    # Enable email for comments (disabled by default)
+    user.tenant_user.set_notification_preference!("comment", "email", true)
+
+    event = Event.create!(
+      tenant: tenant,
+      studio: studio,
+      event_type: "comment.created",
+      actor: user,
+    )
+
+    # Call notify_user directly
+    NotificationDispatcher.notify_user(
+      event: event,
+      recipient: user,
+      notification_type: "comment",
+      title: "Test comment",
+    )
+
+    notification = Notification.where(event: event).last
+    recipients = notification.notification_recipients
+
+    assert_equal 2, recipients.count
+    channels = recipients.map(&:channel)
+    assert_includes channels, "in_app"
+    assert_includes channels, "email"
+  end
+
+  test "handle_note_event creates email recipient for mentions when enabled" do
+    tenant, studio, user = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    # Create another user to mention (with email enabled by default for mentions)
+    mentioned_user = create_user(email: "mentioned-email@example.com", name: "Mentioned Email User")
+    tenant.add_user!(mentioned_user)
+    mentioned_user.tenant_user.update!(handle: "emailuser")
+
+    # Create a note with mention
+    note = create_note(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      text: "Hello @emailuser, check this out!",
+    )
+
+    # Get the created event
+    event = Event.where(event_type: "note.created", subject: note).last
+    notification = Notification.where(event: event).last
+
+    # Should have both in_app and email recipients
+    recipients = notification.notification_recipients
+    channels = recipients.map(&:channel)
+    assert_includes channels, "in_app"
+    assert_includes channels, "email"
+  end
+
+  test "handle_note_event skips email when user disables it" do
+    tenant, studio, user = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    # Create another user to mention and disable their email notifications
+    mentioned_user = create_user(email: "noemail@example.com", name: "No Email User")
+    tenant.add_user!(mentioned_user)
+    mentioned_user.tenant_user.update!(handle: "noemailuser")
+    mentioned_user.tenant_user.set_notification_preference!("mention", "email", false)
+
+    # Create a note with mention
+    note = create_note(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      text: "Hello @noemailuser, check this out!",
+    )
+
+    # Get the created event
+    event = Event.where(event_type: "note.created", subject: note).last
+    notification = Notification.where(event: event).last
+
+    # Should have only in_app recipient
+    recipients = notification.notification_recipients
+    assert_equal 1, recipients.count
+    assert_equal "in_app", recipients.first.channel
+  end
 end
