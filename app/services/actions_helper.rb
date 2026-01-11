@@ -67,12 +67,25 @@ class ActionsHelper
         }
       ]
     },
+    '/studios/:studio_handle/n/:note_id/attachments/:attachment_id' => {
+      actions: [
+        {
+          name: 'remove_attachment',
+          params_string: '()',
+          description: 'Remove this attachment',
+        }
+      ]
+    },
     '/studios/:studio_handle/n/:note_id/edit' => {
       actions: [
         {
           name: 'update_note',
           params_string: '(text)',
           description: 'Update the note',
+        }, {
+          name: 'add_attachment',
+          params_string: '(file)',
+          description: 'Add a file attachment to this note',
         }
       ]
     },
@@ -102,12 +115,25 @@ class ActionsHelper
         }
       ]
     },
+    '/studios/:studio_handle/d/:decision_id/attachments/:attachment_id' => {
+      actions: [
+        {
+          name: 'remove_attachment',
+          params_string: '()',
+          description: 'Remove this attachment',
+        }
+      ]
+    },
     '/studios/:studio_handle/d/:decision_id/settings' => {
       actions: [
         {
           name: 'update_decision_settings',
           params_string: '(question, description, options_open, deadline)',
           description: 'Update the decision settings',
+        }, {
+          name: 'add_attachment',
+          params_string: '(file)',
+          description: 'Add a file attachment to this decision',
         }
       ]
     },
@@ -133,12 +159,25 @@ class ActionsHelper
         }
       ]
     },
+    '/studios/:studio_handle/c/:commitment_id/attachments/:attachment_id' => {
+      actions: [
+        {
+          name: 'remove_attachment',
+          params_string: '()',
+          description: 'Remove this attachment',
+        }
+      ]
+    },
     '/studios/:studio_handle/c/:commitment_id/settings' => {
       actions: [
         {
           name: 'update_commitment_settings',
           params_string: '(title, description, critical_mass, deadline)',
           description: 'Update the commitment settings',
+        }, {
+          name: 'add_attachment',
+          params_string: '(file)',
+          description: 'Add a file attachment to this commitment',
         }
       ]
     },

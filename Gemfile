@@ -111,3 +111,4 @@ gem 'aws-sdk-s3', '~> 1.208'
 
 # Security gems
 gem 'rack-attack' # Rate limiting and request filtering
+gem 'clamby' # ClamAV virus scanning

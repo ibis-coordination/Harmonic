@@ -21,6 +21,7 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 <% end %>
 
 <%= render 'shared/backlinks', resource: @note %>
+<%= render 'shared/attachments_section', resource: @note %>
 ## Comments (<%= @note.comments_count %>)
 
 <% if @note.comments.empty? %>

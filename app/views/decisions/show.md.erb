@@ -38,6 +38,7 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 <% if @decision.voters.empty? %>No voters yet.<% else %><% @decision.voters.each do |voter| %>* <%= user_link_md(voter) %>
 <% end %><% end %>
 <%= render 'shared/backlinks', resource: @decision %>
+<%= render 'shared/attachments_section', resource: @decision %>
 ## Comments (<%= @decision.comments_count %>)
 
 <% if @decision.comments.empty? %>

@@ -34,6 +34,7 @@ No participants yet.
 <% end %>
 
 <%= render 'shared/backlinks', resource: @commitment %>
+<%= render 'shared/attachments_section', resource: @commitment %>
 ## Comments (<%= @commitment.comments_count %>)
 
 <% if @commitment.comments.empty? %>

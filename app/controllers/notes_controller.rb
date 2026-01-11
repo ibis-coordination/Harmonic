@@ -1,6 +1,7 @@
 # typed: false
 
 class NotesController < ApplicationController
+  include AttachmentActions
 
   def new
     @page_title = "Note"

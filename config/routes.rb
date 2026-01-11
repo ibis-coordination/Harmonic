@@ -189,6 +189,8 @@ Rails.application.routes.draw do
       get '/edit/actions' => 'notes#actions_index_edit'
       get '/edit/actions/update_note' => 'notes#describe_update_note'
       post '/edit/actions/update_note' => 'notes#update_note'
+      get '/edit/actions/add_attachment' => 'notes#describe_add_attachment'
+      post '/edit/actions/add_attachment' => 'notes#add_attachment'
       get '/metric' => 'notes#metric'
       get '/edit' => 'notes#edit'
       post '/edit' => 'notes#update'
@@ -196,6 +198,9 @@ Rails.application.routes.draw do
       post '/confirm.html' => 'notes#confirm_and_return_partial'
       put '/pin' => 'notes#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
+      get '/attachments/:attachment_id/actions' => 'notes#actions_index_attachment'
+      get '/attachments/:attachment_id/actions/remove_attachment' => 'notes#describe_remove_attachment'
+      post '/attachments/:attachment_id/actions/remove_attachment' => 'notes#remove_attachment'
       get '/settings' => 'notes#settings'
       get '/settings/actions' => 'notes#actions_index_settings'
       get '/settings/actions/pin_note' => 'notes#describe_pin_note'
@@ -225,6 +230,9 @@ Rails.application.routes.draw do
       post '/comments' => 'decisions#create_comment'
       put '/pin' => 'decisions#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
+      get '/attachments/:attachment_id/actions' => 'decisions#actions_index_attachment'
+      get '/attachments/:attachment_id/actions/remove_attachment' => 'decisions#describe_remove_attachment'
+      post '/attachments/:attachment_id/actions/remove_attachment' => 'decisions#remove_attachment'
       post '/duplicate' => 'decisions#duplicate'
       get '/settings' => 'decisions#settings'
       post '/settings' => 'decisions#update_settings'
@@ -235,6 +243,8 @@ Rails.application.routes.draw do
       post '/settings/actions/pin_decision' => 'decisions#pin_decision_action'
       get '/settings/actions/unpin_decision' => 'decisions#describe_unpin_decision'
       post '/settings/actions/unpin_decision' => 'decisions#unpin_decision_action'
+      get '/settings/actions/add_attachment' => 'decisions#describe_add_attachment'
+      post '/settings/actions/add_attachment' => 'decisions#add_attachment'
     end
 
     get "#{prefix}/commit" => 'commitments#new'
@@ -255,6 +265,9 @@ Rails.application.routes.draw do
       put '/pin' => 'commitments#pin'
       post '/comments' => 'commitments#create_comment'
       get '/attachments/:attachment_id' => 'attachments#show'
+      get '/attachments/:attachment_id/actions' => 'commitments#actions_index_attachment'
+      get '/attachments/:attachment_id/actions/remove_attachment' => 'commitments#describe_remove_attachment'
+      post '/attachments/:attachment_id/actions/remove_attachment' => 'commitments#remove_attachment'
       get '/settings' => 'commitments#settings'
       post '/settings' => 'commitments#update_settings'
       get '/settings/actions' => 'commitments#actions_index_settings'
@@ -264,6 +277,8 @@ Rails.application.routes.draw do
       post '/settings/actions/pin_commitment' => 'commitments#pin_commitment_action'
       get '/settings/actions/unpin_commitment' => 'commitments#describe_unpin_commitment'
       post '/settings/actions/unpin_commitment' => 'commitments#unpin_commitment_action'
+      get '/settings/actions/add_attachment' => 'commitments#describe_add_attachment'
+      post '/settings/actions/add_attachment' => 'commitments#add_attachment'
     end
 
     namespace :api, path: "#{prefix}/api" do

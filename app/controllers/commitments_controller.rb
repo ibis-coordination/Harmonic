@@ -1,6 +1,7 @@
 # typed: false
 
 class CommitmentsController < ApplicationController
+  include AttachmentActions
 
   def new
     @page_title = "Commit"

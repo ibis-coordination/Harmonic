@@ -1,6 +1,7 @@
 # typed: false
 
 class DecisionsController < ApplicationController
+  include AttachmentActions
 
   def new
     @page_title = "Decide"

@@ -1805,4 +1805,198 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     TenantUser.where(user: subagent).delete_all if subagent
     subagent&.destroy
   end
+
+  # === Phase 4: File Attachments Markdown API ===
+
+  test "Note show page displays attachments section when attachments exist" do
+    note = create_note(text: "Note with attachment")
+    # Create an attachment
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("test file content"),
+      filename: "test.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Attachments \(1\)/, response.body, "Should show Attachments section with count")
+    assert_match(/test\.txt/, response.body, "Should show filename")
+  ensure
+    attachment&.destroy
+    note&.destroy
+  end
+
+  test "Note show page does not display attachments section when no attachments" do
+    note = create_note(text: "Note without attachment")
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    refute_match(/## Attachments/, response.body, "Should not show Attachments section")
+  ensure
+    note&.destroy
+  end
+
+  test "GET /n/:id/edit/actions/add_attachment describes add_attachment action" do
+    @tenant.settings["allow_file_uploads"] = "true"
+    @tenant.save!
+    @studio.settings["allow_file_uploads"] = "true"
+    @studio.save!
+    note = create_note(text: "Test note")
+
+    get "#{note.path}/edit/actions/add_attachment", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/add_attachment/, response.body)
+    assert_match(/file/, response.body, "Should describe file parameter")
+  ensure
+    note&.destroy
+  end
+
+  test "POST /n/:id/edit/actions/add_attachment adds attachment via base64" do
+    @tenant.settings["allow_file_uploads"] = "true"
+    @tenant.save!
+    @studio.settings["allow_file_uploads"] = "true"
+    @studio.save!
+    note = create_note(text: "Test note for attachment")
+    file_content = "Hello, this is test file content"
+    encoded_content = Base64.encode64(file_content)
+
+    post "#{note.path}/edit/actions/add_attachment",
+      params: {
+        file: {
+          data: encoded_content,
+          content_type: "text/plain",
+          filename: "test_upload.txt"
+        }
+      }.to_json,
+      headers: @headers
+
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/added successfully/, response.body)
+
+    note.reload
+    assert_equal 1, note.attachments.count, "Note should have one attachment"
+    assert_equal "test_upload.txt", note.attachments.first.filename
+  ensure
+    note&.attachments&.destroy_all
+    note&.destroy
+  end
+
+  test "GET /n/:id/attachments/:attachment_id/actions describes remove_attachment action" do
+    note = create_note(text: "Note with attachment")
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("test content"),
+      filename: "remove_me.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    get "#{note.path}/attachments/#{attachment.id}/actions", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/remove_attachment/, response.body)
+  ensure
+    attachment&.destroy
+    note&.destroy
+  end
+
+  test "POST /n/:id/attachments/:attachment_id/actions/remove_attachment removes attachment" do
+    note = create_note(text: "Note with attachment to remove")
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("test content"),
+      filename: "to_remove.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+    attachment_id = attachment.id
+
+    post "#{note.path}/attachments/#{attachment_id}/actions/remove_attachment",
+      headers: @headers
+
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/removed successfully/, response.body)
+
+    note.reload
+    assert_equal 0, note.attachments.count, "Note should have no attachments"
+  ensure
+    note&.destroy
+  end
+
+  test "Decision show page displays attachments section" do
+    decision = create_decision(question: "Decision with attachment?")
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("decision attachment"),
+      filename: "decision.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: decision,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    get decision.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Attachments \(1\)/, response.body)
+    assert_match(/decision\.txt/, response.body)
+  ensure
+    attachment&.destroy
+    decision&.destroy
+  end
+
+  test "Commitment show page displays attachments section" do
+    commitment = create_commitment(title: "Commitment with attachment")
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("commitment attachment"),
+      filename: "commitment.txt",
+      content_type: "text/plain"
+    )
+    attachment = Attachment.create!(
+      tenant_id: @tenant.id,
+      studio_id: @studio.id,
+      attachable: commitment,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    get commitment.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Attachments \(1\)/, response.body)
+    assert_match(/commitment\.txt/, response.body)
+  ensure
+    attachment&.destroy
+    commitment&.destroy
+  end
 end

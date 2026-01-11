@@ -129,8 +129,10 @@ Pages needed to perform actions that don't exist in markdown:
 
 **Note:** Admin templates should show actions conditionally to prepare for future `readonly_admin` permission type. See [admin.md](admin.md) for details.
 
-### Phase 4: File Uploads (Final Step)
-12. Implement file attachment functionality - see [file-uploads.md](file-uploads.md)
+### Phase 4: File Uploads ✅ DONE
+12. ✅ Display attachments in Note, Decision, Commitment markdown views
+13. ✅ Add `add_attachment(file)` and `remove_attachment()` actions
+14. See [file-uploads.md](file-uploads.md) for details
 
 ### Phase 5: Refactor Action Descriptions
 13. Consolidate all action and parameter descriptions into `ActionsHelper` as the single source of truth
