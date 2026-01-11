@@ -1,0 +1,18 @@
+# New Tenant
+
+[Back to All Tenants](/admin/tenants)
+
+Create a new tenant with a unique subdomain.
+
+## Parameters
+
+* **subdomain** (string): The subdomain for the new tenant (must be unique, used in URLs)
+* **name** (string): The display name for the tenant
+
+## [Actions](/admin/tenants/new/actions)
+
+<% if can_perform_admin_actions? %>
+* [`create_tenant(subdomain, name)`](/admin/tenants/new/actions/create_tenant) - Create the tenant
+<% else %>
+* No actions available (read-only access)
+<% end %>

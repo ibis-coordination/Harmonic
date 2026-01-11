@@ -66,17 +66,27 @@ Rails.application.routes.draw do
   get 'learn/reciprocal-commitment' => 'learn#reciprocal_commitment'
 
   get 'admin' => 'admin#admin'
+  get 'admin/actions' => 'admin#actions_index'
   get 'admin/settings' => 'admin#tenant_settings'
   post 'admin/settings' => 'admin#update_tenant_settings'
+  get 'admin/settings/actions' => 'admin#actions_index_settings'
+  get 'admin/settings/actions/update_tenant_settings' => 'admin#describe_update_tenant_settings'
+  post 'admin/settings/actions/update_tenant_settings' => 'admin#execute_update_tenant_settings'
   get 'admin/tenants' => 'admin#tenants'
   get 'admin/tenants/new' => 'admin#new_tenant'
   post 'admin/tenants' => 'admin#create_tenant'
+  get 'admin/tenants/new/actions' => 'admin#actions_index_new_tenant'
+  get 'admin/tenants/new/actions/create_tenant' => 'admin#describe_create_tenant'
+  post 'admin/tenants/new/actions/create_tenant' => 'admin#execute_create_tenant'
   get 'admin/tenants/:subdomain/complete' => 'admin#complete_tenant_creation'
   get 'admin/tenants/:subdomain' => 'admin#show_tenant'
   get 'admin/sidekiq' => 'admin#sidekiq'
   get 'admin/sidekiq/queues/:name' => 'admin#sidekiq_show_queue'
   get 'admin/sidekiq/jobs/:jid' => 'admin#sidekiq_show_job'
   post 'admin/sidekiq/jobs/:jid/retry' => 'admin#sidekiq_retry_job'
+  get 'admin/sidekiq/jobs/:jid/actions' => 'admin#actions_index_sidekiq_job'
+  get 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#describe_retry_sidekiq_job'
+  post 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#execute_retry_sidekiq_job'
 
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member

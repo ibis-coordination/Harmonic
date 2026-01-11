@@ -1,0 +1,45 @@
+# Job Details
+
+[Back to Sidekiq Dashboard](/admin/sidekiq)
+
+<% if @job %>
+| Property | Value |
+|----------|-------|
+| JID | `<%= @job.respond_to?(:jid) ? @job.jid : @job[2]['payload']['jid'] %>` |
+| Class | `<%= @job.respond_to?(:item) ? @job.item['class'] : @job[2]['payload']['class'] %>` |
+<% if @job.respond_to?(:item) && @job.item['error_class'] %>
+| Error Class | `<%= @job.item['error_class'] %>` |
+| Error Message | <%= @job.item['error_message'] %> |
+| Retry Count | <%= @job.item['retry_count'] || 0 %> |
+<% end %>
+
+## Arguments
+
+```json
+<%= JSON.pretty_generate(@job.respond_to?(:item) ? @job.item['args'] : @job[2]['payload']['args']) %>
+```
+
+<% if @job.respond_to?(:item) && @job.item['error_backtrace'] %>
+## Backtrace
+
+```
+<%= @job.item['error_backtrace'].first(20).join("\n") %>
+```
+<% end %>
+
+## [Actions](/admin/sidekiq/jobs/<%= @job.respond_to?(:jid) ? @job.jid : @job[2]['payload']['jid'] %>/actions)
+
+<% if can_perform_admin_actions? %>
+<% if @job.respond_to?(:retry) %>
+* [`retry_sidekiq_job()`](/admin/sidekiq/jobs/<%= @job.jid %>/actions/retry_sidekiq_job) - Retry this job
+<% end %>
+<% else %>
+* No actions available (read-only access)
+<% end %>
+<% else %>
+**Job not found**
+
+The job may have completed or been deleted.
+
+[Return to Sidekiq Dashboard](/admin/sidekiq)
+<% end %>

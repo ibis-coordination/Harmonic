@@ -1430,4 +1430,379 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     acting_subagent&.destroy
     other_subagent&.destroy
   end
+
+  # === Phase 3: Admin Panel Markdown API ===
+
+  test "GET /admin returns 200 markdown for admin user" do
+    # Make user an admin
+    tu = @tenant.tenant_users.find_by(user: @user)
+    tu.add_role!('admin')
+
+    get "/admin", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Admin/, response.body, "Should show Admin heading")
+  ensure
+    tu&.remove_role!('admin')
+  end
+
+  test "GET /admin returns 403 for non-admin user" do
+    get "/admin", headers: @headers
+    assert_equal 403, response.status
+  end
+
+  test "GET /admin/settings returns 200 markdown with actions for admin user" do
+    tu = @tenant.tenant_users.find_by(user: @user)
+    tu.add_role!('admin')
+
+    get "/admin/settings", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/Admin Settings/, response.body, "Should show Admin Settings heading")
+    assert has_actions_section?, "Admin settings should have actions section"
+    assert_match(/update_tenant_settings/, response.body, "Should show update_tenant_settings action")
+  ensure
+    tu&.remove_role!('admin')
+  end
+
+  test "POST update_tenant_settings action updates tenant and returns 200 markdown" do
+    tu = @tenant.tenant_users.find_by(user: @user)
+    tu.add_role!('admin')
+    original_name = @tenant.name
+
+    post "/admin/settings/actions/update_tenant_settings",
+      params: { name: "Updated Tenant Name" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @tenant.reload
+    assert_equal "Updated Tenant Name", @tenant.name, "Tenant name should have been updated"
+  ensure
+    tu&.remove_role!('admin')
+    @tenant.update!(name: original_name)
+  end
+
+  # === Admin Panel Security: Subagent Access Requirements ===
+
+  test "Subagent admin can access admin pages when both subagent AND parent are admins" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Should be able to access admin page
+    get "/admin", headers: subagent_headers
+    assert_equal 200, response.status
+    assert is_markdown?
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagent admin cannot access admin pages when parent is NOT admin" do
+    # Parent is NOT an admin (no role added)
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Should NOT be able to access admin page because parent is not admin
+    get "/admin", headers: subagent_headers
+    assert_equal 403, response.status
+    assert_match(/Subagent admin access requires both subagent and parent to be admins/, response.body)
+  ensure
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagent cannot access admin pages when subagent is NOT admin even if parent is" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent WITHOUT admin role
+    subagent = User.create!(
+      name: "Non-Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    # NOT adding admin role to subagent
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Should NOT be able to access admin page because subagent is not admin
+    get "/admin", headers: subagent_headers
+    assert_equal 403, response.status
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  # === Admin Panel Security: Subagent Production Write Restrictions ===
+
+  test "Subagent admin can perform write operations in development/test environment" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    original_name = @tenant.name
+
+    # In test environment, should be able to perform write operations
+    post "/admin/settings/actions/update_tenant_settings",
+      params: { name: "Subagent Updated Name" }.to_json,
+      headers: subagent_headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    @tenant.reload
+    assert_equal "Subagent Updated Name", @tenant.name, "Subagent should be able to update in test env"
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+    @tenant.update!(name: original_name) if @tenant
+  end
+
+  test "Subagent admin cannot perform write operations in production environment" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Content-Type' => 'application/json',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      # Should NOT be able to perform write operations in production
+      post "/admin/settings/actions/update_tenant_settings",
+        params: { name: "Should Not Update" }.to_json,
+        headers: subagent_headers
+      assert_equal 403, response.status
+      assert_match(/Subagents cannot perform admin write operations in production/, response.body)
+    ensure
+      Thread.current[:simulate_production] = nil
+    end
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Subagent admin can still read admin pages in production environment" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      # Should be able to READ admin pages in production
+      get "/admin", headers: subagent_headers
+      assert_equal 200, response.status
+      assert is_markdown?
+    ensure
+      Thread.current[:simulate_production] = nil
+    end
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
+
+  test "Person admin can still perform write operations in production environment" do
+    # Make user an admin
+    tu = @tenant.tenant_users.find_by(user: @user)
+    tu.add_role!('admin')
+    original_name = @tenant.name
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      # Person admin should still be able to write in production
+      post "/admin/settings/actions/update_tenant_settings",
+        params: { name: "Person Updated Name" }.to_json,
+        headers: @headers
+      assert_equal 200, response.status
+      assert is_markdown?
+
+      @tenant.reload
+      assert_equal "Person Updated Name", @tenant.name, "Person admin should be able to update in production"
+    ensure
+      Thread.current[:simulate_production] = nil
+    end
+  ensure
+    tu&.remove_role!('admin')
+    @tenant.update!(name: original_name)
+  end
+
+  test "Admin settings page hides actions for subagents in production" do
+    # Make parent user an admin
+    parent_tu = @tenant.tenant_users.find_by(user: @user)
+    parent_tu.add_role!('admin')
+
+    # Create a subagent with admin role
+    subagent = User.create!(
+      name: "Admin Subagent",
+      email: "#{SecureRandom.uuid}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    subagent_tu = @tenant.add_user!(subagent)
+    subagent_tu.add_role!('admin')
+    token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Admin Subagent Token",
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+    )
+
+    subagent_headers = {
+      'Accept' => 'text/markdown',
+      'Authorization' => "Bearer #{token.token}",
+    }
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      get "/admin/settings", headers: subagent_headers
+      assert_equal 200, response.status
+      assert is_markdown?
+      # Should show read-only message instead of actions
+      assert_match(/read-only access/, response.body, "Should show read-only message for subagent in production")
+    ensure
+      Thread.current[:simulate_production] = nil
+    end
+  ensure
+    parent_tu&.remove_role!('admin')
+    token&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
 end

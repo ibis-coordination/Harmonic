@@ -1,0 +1,20 @@
+# Queue: <%= @queue.name %>
+
+[Back to Sidekiq Dashboard](/admin/sidekiq)
+
+Queue size: **<%= @queue.size %>**
+
+## Jobs
+
+<% if @queue.any? %>
+| JID | Class | Enqueued At |
+|-----|-------|-------------|
+<% @queue.first(50).each do |job| %>
+| [`<%= job.jid[0..7] %>...`](/admin/sidekiq/jobs/<%= job.jid %>) | <%= job.item['class'] %> | <%= time_ago_in_words(Time.at(job.item['enqueued_at'])) %> ago |
+<% end %>
+<% if @queue.size > 50 %>
+*... and <%= @queue.size - 50 %> more*
+<% end %>
+<% else %>
+*Queue is empty*
+<% end %>

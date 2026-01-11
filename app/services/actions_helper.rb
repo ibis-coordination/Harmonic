@@ -168,7 +168,35 @@ class ActionsHelper
           description: 'Create a new subagent',
         }
       ]
-    }
+    },
+    '/admin' => { actions: [] },
+    '/admin/settings' => {
+      actions: [
+        {
+          name: 'update_tenant_settings',
+          params_string: '(name, timezone, api_enabled, require_login, allow_file_uploads)',
+          description: 'Update tenant settings',
+        }
+      ]
+    },
+    '/admin/tenants/new' => {
+      actions: [
+        {
+          name: 'create_tenant',
+          params_string: '(subdomain, name)',
+          description: 'Create a new tenant',
+        }
+      ]
+    },
+    '/admin/sidekiq/jobs/:jid' => {
+      actions: [
+        {
+          name: 'retry_sidekiq_job',
+          params_string: '()',
+          description: 'Retry this Sidekiq job',
+        }
+      ]
+    },
   }
   @@routes_and_actions = @@actions_by_route.keys.map do |route|
     {

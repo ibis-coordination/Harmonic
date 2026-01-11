@@ -1,8 +1,43 @@
 # Admin Panel - Functional Gaps
 
+**Status: COMPLETED**
+
 The admin panel has **no markdown views at all**. All admin functionality is HTML-only.
 
 [← Back to Index](INDEX.md)
+
+---
+
+## Completion Summary
+
+Phase 3 (Admin Panel) has been completed with the following:
+
+### Implemented Features
+
+1. **Markdown views for all admin pages:**
+   - `/admin` - Admin dashboard
+   - `/admin/settings` - Tenant settings
+   - `/admin/tenants` - Tenant list (primary subdomain only)
+   - `/admin/tenants/new` - New tenant form (primary subdomain only)
+   - `/admin/tenants/:subdomain` - Tenant details
+   - `/admin/sidekiq` - Sidekiq dashboard (primary subdomain only)
+   - `/admin/sidekiq/queues/:name` - Queue details
+   - `/admin/sidekiq/jobs/:jid` - Job details
+
+2. **Markdown API actions:**
+   - `update_tenant_settings(name, timezone, api_enabled, require_login, allow_file_uploads)`
+   - `create_tenant(subdomain, name)`
+   - `retry_sidekiq_job()`
+
+3. **Security implementations:**
+   - Subagents require BOTH subagent AND parent to be admins
+   - Subagents cannot perform write operations in production
+   - `can_perform_admin_actions?` helper shows/hides actions based on permissions
+
+4. **Tests:**
+   - 12 new tests covering admin markdown API
+   - Tests for subagent access restrictions
+   - Tests using production environment simulation via `Thread.current[:simulate_production]`
 
 ---
 
@@ -164,12 +199,79 @@ Some features only available on primary subdomain (system-wide administration).
 
 ---
 
+## Security Concerns (Phase 3)
+
+### 1. Subagent Admin Access Restrictions
+
+**Requirement:** Subagents can only access admin pages if BOTH conditions are met:
+- The subagent user has admin role
+- The subagent's parent user ALSO has admin role
+
+**Rationale:** Prevents privilege escalation where a non-admin person creates a subagent and somehow the subagent gets admin access.
+
+**Implementation:**
+```ruby
+def ensure_subagent_admin_access
+  return true unless current_user.subagent?
+  # Subagent must be admin AND parent must be admin
+  unless current_user.admin? && current_user.parent&.admin?
+    render status: 403, plain: '403 Unauthorized - Subagent admin access requires both subagent and parent to be admins'
+    return false
+  end
+  true
+end
+```
+
+### 2. Subagent Write Operations - Production Restriction
+
+**Requirement:** Subagents cannot perform any write operations in the admin panel in production. They can only perform write operations in development and test environments.
+
+**Rationale:** Safety measure to prevent AI agents from accidentally making destructive admin changes in production.
+
+**Implementation:**
+```ruby
+def block_subagent_admin_writes_in_production
+  return true unless current_user.subagent?
+  return true unless Rails.env.production?
+  # In production, subagents can only read admin pages, not write
+  if request.method != 'GET'
+    render status: 403, plain: '403 Unauthorized - Subagents cannot perform admin write operations in production'
+    return false
+  end
+  true
+end
+```
+
+**Tests Required:**
+- Mock production environment (`Rails.env.stub(:production?) { true }`)
+- Verify subagent GET requests succeed (with proper admin access)
+- Verify subagent POST/PUT/DELETE requests return 403
+
+### 3. Combined Authorization Flow for Admin Actions
+
+For any admin action, the authorization checks should be:
+
+1. **Is user authenticated?** → 401 if not
+2. **Is user an admin?** → 403 if not
+3. **If subagent: Is parent also admin?** → 403 if not
+4. **If subagent in production: Is this a read-only operation?** → 403 if write
+
+```ruby
+before_action :ensure_admin_user
+before_action :ensure_subagent_admin_access
+before_action :block_subagent_admin_writes_in_production
+```
+
+---
+
 ## Implementation Notes
 
 ### Authentication
 - All admin routes require `ensure_admin_user` before_action
 - Markdown views must respect same authorization
 - Return 403 for non-admin users
+- **NEW:** Subagents require parent to also be admin
+- **NEW:** Subagents cannot write in production
 
 ### Primary Subdomain Check
 - Tenant management and Sidekiq only on primary subdomain
