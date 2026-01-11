@@ -1,0 +1,23 @@
+<%= render 'shared/show_resource_breadcrumbs', hide_studio_path: true, resource: 'Studios' %>
+<h1><%= octicon 'heart', height: 24 %> Studios</h1>
+
+<% if @studios.any? %>
+  <ul>
+    <% @studios.each do |studio| %>
+      <li>
+        <a href="<%= studio.path %>">
+          <img src="<%= studio.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
+          <%= studio.name %>
+        </a>
+      </li>
+    <% end %>
+  </ul>
+<% elsif current_user %>
+  <p>You are not a member of any studios yet.</p>
+<% else %>
+  <p><a href="/login">Log in</a> to see your studios.</p>
+<% end %>
+
+<% if current_user %>
+  <p><a href="/studios/new">Create a new studio</a></p>
+<% end %>

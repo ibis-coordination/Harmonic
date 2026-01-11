@@ -10,6 +10,15 @@ class ScenesController < ApplicationController
     end
   end
 
+  def actions_index
+    @page_title = "Actions | Scenes"
+    render_actions_index({
+      actions: [
+        ActionsHelper.action_description("create_scene"),
+      ],
+    })
+  end
+
   def new
   end
 

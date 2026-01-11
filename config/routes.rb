@@ -129,6 +129,7 @@ Rails.application.routes.draw do
 
   ['studios','scenes'].each do |studios_or_scenes|
     get "#{studios_or_scenes}" => "#{studios_or_scenes}#index"
+    get "#{studios_or_scenes}/actions" => "#{studios_or_scenes}#actions_index"
     get "#{studios_or_scenes}/new" => "#{studios_or_scenes}#new"
     get "#{studios_or_scenes}/new/actions" => 'studios#actions_index_new'
     get "#{studios_or_scenes}/new/actions/create_studio" => 'studios#describe_create_studio'
