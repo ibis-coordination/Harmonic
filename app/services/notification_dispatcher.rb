@@ -18,6 +18,12 @@ class NotificationDispatcher
       handle_commitment_join_event(event)
     when "commitment.critical_mass"
       handle_commitment_critical_mass_event(event)
+    when "decision.created"
+      handle_decision_created_event(event)
+    when "commitment.created"
+      handle_commitment_created_event(event)
+    when "option.created"
+      handle_option_created_event(event)
     when /^agent\./
       handle_agent_event(event)
     end
@@ -35,6 +41,9 @@ class NotificationDispatcher
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
+
+    # Only notify users who have access to the studio
+    mentioned_users = mentioned_users.select { |u| user_can_access_studio?(event, u) }
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -174,6 +183,100 @@ class NotificationDispatcher
     # For now, this is a placeholder
   end
 
+  sig { params(event: Event).void }
+  def self.handle_decision_created_event(event)
+    subject = event.subject
+    return unless subject.is_a?(Decision)
+
+    decision = T.let(subject, Decision)
+
+    # Parse mentions from question and description fields
+    text_to_parse = [decision.question, decision.description].compact.join(" ")
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id)
+
+    # Don't notify the actor (they mentioned themselves)
+    mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
+
+    # Only notify users who have access to the studio
+    mentioned_users = mentioned_users.select { |u| user_can_access_studio?(event, u) }
+
+    mentioned_users.each do |user|
+      actor_name = event.actor&.display_name || "Someone"
+
+      notify_user(
+        event: event,
+        recipient: user,
+        notification_type: "mention",
+        title: "#{actor_name} mentioned you in a decision",
+        body: decision.question.to_s.truncate(200),
+        url: decision.path
+      )
+    end
+  end
+
+  sig { params(event: Event).void }
+  def self.handle_commitment_created_event(event)
+    subject = event.subject
+    return unless subject.is_a?(Commitment)
+
+    commitment = T.let(subject, Commitment)
+
+    # Parse mentions from title and description fields
+    text_to_parse = [commitment.title, commitment.description].compact.join(" ")
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id)
+
+    # Don't notify the actor (they mentioned themselves)
+    mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
+
+    # Only notify users who have access to the studio
+    mentioned_users = mentioned_users.select { |u| user_can_access_studio?(event, u) }
+
+    mentioned_users.each do |user|
+      actor_name = event.actor&.display_name || "Someone"
+
+      notify_user(
+        event: event,
+        recipient: user,
+        notification_type: "mention",
+        title: "#{actor_name} mentioned you in a commitment",
+        body: commitment.title.to_s.truncate(200),
+        url: commitment.path
+      )
+    end
+  end
+
+  sig { params(event: Event).void }
+  def self.handle_option_created_event(event)
+    subject = event.subject
+    return unless subject.is_a?(Option)
+
+    option = T.let(subject, Option)
+    decision = option.decision
+
+    # Parse mentions from title and description fields
+    text_to_parse = [option.title, option.description].compact.join(" ")
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id)
+
+    # Don't notify the actor (they mentioned themselves)
+    mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
+
+    # Only notify users who have access to the studio
+    mentioned_users = mentioned_users.select { |u| user_can_access_studio?(event, u) }
+
+    mentioned_users.each do |user|
+      actor_name = event.actor&.display_name || "Someone"
+
+      notify_user(
+        event: event,
+        recipient: user,
+        notification_type: "mention",
+        title: "#{actor_name} mentioned you in a decision option",
+        body: option.title.to_s.truncate(200),
+        url: decision&.path
+      )
+    end
+  end
+
   # Helper method to create notifications with preference-based channel selection
   sig do
     params(
@@ -239,5 +342,12 @@ class NotificationDispatcher
     commitment.participants.includes(:user).map(&:user).compact
   end
 
-  private_class_method :get_created_by, :get_path, :decision_participants, :commitment_participants
+  # Check if a user has access to the studio where the event occurred
+  sig { params(event: Event, user: User).returns(T::Boolean) }
+  def self.user_can_access_studio?(event, user)
+    studio_user = StudioUser.find_by(studio: event.studio, user: user)
+    studio_user.present? && !studio_user.archived?
+  end
+
+  private_class_method :get_created_by, :get_path, :decision_participants, :commitment_participants, :user_can_access_studio?
 end
