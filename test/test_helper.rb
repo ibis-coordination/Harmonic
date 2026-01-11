@@ -60,6 +60,7 @@ class ActiveSupport::TestCase
     [
       # Note: order matters in this array. "Dependent destroy" doesn't always work for some reason (TODO debug),
       # so it's necessary to manually delete association records first, before the referenced records, to avoid foreign key violations.
+      Event,
       RepresentationSessionAssociation, RepresentationSession,
       Link, NoteHistoryEvent, Note,
       Vote, Option, DecisionParticipant, Decision,

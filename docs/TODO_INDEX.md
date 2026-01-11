@@ -3,7 +3,7 @@
 This document catalogs all TODO comments in the codebase, organized by category and priority. Use this as a reference when looking for improvement opportunities.
 
 > **Last updated**: January 2026
-> **Total TODOs**: 44
+> **Total TODOs**: 40
 
 ---
 
@@ -11,7 +11,7 @@ This document catalogs all TODO comments in the codebase, organized by category 
 
 | Category | Count | Priority |
 |----------|-------|----------|
-| [Webhooks & Tracking](#webhooks--tracking) | 4 | Medium |
+| [Webhooks & Tracking](#webhooks--tracking) | 0 | ✅ Implemented |
 | [Validation & Error Handling](#validation--error-handling) | 7 | Medium |
 | [Performance](#performance) | 3 | Low |
 | [Security & Authorization](#security--authorization) | 4 | High |
@@ -25,14 +25,10 @@ This document catalogs all TODO comments in the codebase, organized by category 
 
 ## Webhooks & Tracking
 
-Webhook functionality is stubbed but not implemented. See `app/services/webhook_services/` for the intended architecture.
+**IMPLEMENTED:** The `Tracked` concern now uses `EventService` to record events to the `events` table.
+Webhook delivery will be implemented in Phase 4 of the notifications-webhooks feature.
 
-| File | Line | Description |
-|------|------|-------------|
-| `app/models/concerns/tracked.rb` | 5 | Change to `around_` callbacks so tracked changes occur within DB transaction |
-| `app/models/concerns/tracked.rb` | 13 | Implement `track_creation` - queue webhook for create events |
-| `app/models/concerns/tracked.rb` | 18 | Implement `track_changes` - queue webhook for update events |
-| `app/models/concerns/tracked.rb` | 23 | Implement `track_deletion` - queue webhook for delete events |
+See `docs/plans/notifications-webhooks.md` for the full implementation plan.
 
 ---
 

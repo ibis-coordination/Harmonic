@@ -1,7 +1,7 @@
-\restrict TYev7I9wCXBEfGm0ESmkaXkffv9Az0J03EaQb7Vo67xuiQgCHC717JUPd7wdacP
+\restrict IMvyup55hx6nbW5LwqhHENOer03PvoS2rwUcRHsrSb8RucJNQvlCPgDB5F9HdJH
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
--- Dumped by pg_dump version 15.14 (Debian 15.14-0+deb12u1)
+-- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -349,6 +349,24 @@ CREATE TABLE public.decisions (
     created_by_id uuid,
     updated_by_id uuid,
     studio_id uuid
+);
+
+
+--
+-- Name: events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    studio_id uuid NOT NULL,
+    event_type character varying NOT NULL,
+    actor_id uuid,
+    subject_type character varying,
+    subject_id uuid,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
 );
 
 
@@ -751,6 +769,14 @@ ALTER TABLE ONLY public.decisions
 
 
 --
+-- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: heartbeats heartbeats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1122,6 +1148,48 @@ CREATE UNIQUE INDEX index_decisions_on_truncated_id ON public.decisions USING bt
 --
 
 CREATE INDEX index_decisions_on_updated_by_id ON public.decisions USING btree (updated_by_id);
+
+
+--
+-- Name: index_events_on_actor_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_actor_id ON public.events USING btree (actor_id);
+
+
+--
+-- Name: index_events_on_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_created_at ON public.events USING btree (created_at);
+
+
+--
+-- Name: index_events_on_event_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_event_type ON public.events USING btree (event_type);
+
+
+--
+-- Name: index_events_on_studio_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_studio_id ON public.events USING btree (studio_id);
+
+
+--
+-- Name: index_events_on_subject_type_and_subject_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_subject_type_and_subject_id ON public.events USING btree (subject_type, subject_id);
+
+
+--
+-- Name: index_events_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_tenant_id ON public.events USING btree (tenant_id);
 
 
 --
@@ -1801,6 +1869,14 @@ ALTER TABLE ONLY public.commitments
 
 
 --
+-- Name: events fk_rails_2c515e778f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT fk_rails_2c515e778f FOREIGN KEY (actor_id) REFERENCES public.users(id);
+
+
+--
 -- Name: oauth_identities fk_rails_2f75762ff1; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1937,6 +2013,14 @@ ALTER TABLE ONLY public.heartbeats
 
 
 --
+-- Name: events fk_rails_6844d4946c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT fk_rails_6844d4946c FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: links fk_rails_6888b30c51; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2062,6 +2146,14 @@ ALTER TABLE ONLY public.votes
 
 ALTER TABLE ONLY public.attachments
     ADD CONSTRAINT fk_rails_a7d5052ac1 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: events fk_rails_ae2d71ac2b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT fk_rails_ae2d71ac2b FOREIGN KEY (studio_id) REFERENCES public.studios(id);
 
 
 --
@@ -2284,7 +2376,7 @@ ALTER TABLE ONLY public.studios
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TYev7I9wCXBEfGm0ESmkaXkffv9Az0J03EaQb7Vo67xuiQgCHC717JUPd7wdacP
+\unrestrict IMvyup55hx6nbW5LwqhHENOer03PvoS2rwUcRHsrSb8RucJNQvlCPgDB5F9HdJH
 
 SET search_path TO "$user", public;
 
@@ -2380,6 +2472,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250831231336'),
 ('20250902174420'),
 ('20260109023653'),
-('20260110023045');
+('20260110023045'),
+('20260111095925');
 
 
