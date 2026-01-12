@@ -20,20 +20,26 @@
     Require login for all users
   </p>
 
-  <h2>Allow File Uploads</h2>
-  <p>
-    <%= form.check_box :allow_file_uploads, checked: @current_tenant.allow_file_uploads? %>
-    Allow users to attach files to notes, decisions, and commitments
-  </p>
+  <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.app_enabled?(f) } %>
+  <% if available_flags.any? %>
+    <h2>Features Enabled</h2>
+    <p style="color: var(--color-fg-muted); margin-bottom: 1rem;">
+      Features must be enabled here for studios to use them. When disabled, the feature is unavailable for all studios in this tenant.
+    </p>
 
-  <h2>Enable API</h2>
-  <p>
-    This overrides studio settings if disabled, but does not override studio settings if enabled.
-    Both tenant settings and studio settings must have the API enabled for it to be accessible for a given studio.
-  </p>
-  <p>
-    <%= form.check_box :api_enabled, checked: @current_tenant.api_enabled? %> Enable API access
-  </p>
+    <% available_flags.each do |flag_name| %>
+      <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
+      <% tenant_enabled_locally = @current_tenant.feature_flag_enabled_locally?(flag_name) %>
+
+      <div style="margin-bottom: 1rem; padding: 0.75rem; border: 1px solid var(--color-border-default);">
+        <strong><%= metadata['name'] %></strong>
+        <p style="margin: 0.5rem 0;">
+          <%= form.check_box "feature_#{flag_name}", checked: tenant_enabled_locally, id: "feature_#{flag_name}" %>
+          <label for="feature_<%= flag_name %>"><%= metadata['description'] %></label>
+        </p>
+      </div>
+    <% end %>
+  <% end %>
 
   <!-- <h2>Home Page</h2>
   <h2>About Page</h2>

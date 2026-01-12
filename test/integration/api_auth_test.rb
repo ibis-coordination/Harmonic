@@ -86,8 +86,7 @@ class ApiTest < ActionDispatch::IntegrationTest
   # === API Enabled/Disabled Tests ===
 
   test "denies access when API is disabled at tenant level" do
-    @tenant.settings['api_enabled'] = false
-    @tenant.save!
+    @tenant.set_feature_flag!("api", false)
 
     get v1_api_endpoint, headers: @headers
     assert_response :forbidden

@@ -9,13 +9,27 @@ Current settings for **<%= @current_tenant.name %>**:
 | Name | <%= @current_tenant.name %> |
 | Timezone | <%= @current_tenant.timezone %> |
 | Require Login | <%= @current_tenant.require_login? ? 'Yes' : 'No' %> |
-| Allow File Uploads | <%= @current_tenant.allow_file_uploads? ? 'Yes' : 'No' %> |
-| API Enabled | <%= @current_tenant.api_enabled? ? 'Yes' : 'No' %> |
+<% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.app_enabled?(f) } %>
+<% if available_flags.any? %>
+
+## Features Enabled
+
+Features must be enabled at the tenant level for studios to use them.
+
+| Feature | Enabled |
+|---------|---------|
+<% available_flags.each do |flag_name| %>
+<% metadata = FeatureFlagService.flag_metadata(flag_name) %>
+<% tenant_enabled_locally = @current_tenant.feature_flag_enabled_locally?(flag_name) %>
+| <%= metadata['name'] %> | <%= tenant_enabled_locally ? 'Yes' : 'No' %> |
+<% end %>
+<% end %>
 
 ## [Actions](/admin/settings/actions)
 
 <% if can_perform_admin_actions? %>
-* [`update_tenant_settings(name, timezone, require_login, allow_file_uploads, api_enabled)`](/admin/settings/actions/update_tenant_settings) - Update tenant settings
+<% flag_params = available_flags.map { |f| "feature_#{f}" }.join(", ") %>
+* [`update_tenant_settings(name, timezone, require_login<%= ", #{flag_params}" if available_flags.any? %>)`](/admin/settings/actions/update_tenant_settings) - Update tenant settings
 <% else %>
 * No actions available (read-only access)
 <% end %>

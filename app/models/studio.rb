@@ -5,6 +5,7 @@ class Studio < ApplicationRecord
 
   include CanPin
   include HasImage
+  include HasFeatureFlags
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   belongs_to :created_by, class_name: 'User'
@@ -153,19 +154,20 @@ class Studio < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def api_enabled?
-    feature_enabled?('api') || is_main_studio?
+    # Main studio always has API enabled
+    return true if is_main_studio?
+    FeatureFlagService.studio_enabled?(self, "api")
   end
 
   sig { void }
   def enable_api!
-    enable_feature!('api')
-    save!
+    enable_feature_flag!("api")
   end
 
-  sig { params(feature: String).returns(T::Boolean) }
-  def feature_enabled?(feature)
-    feature_flags = self.settings['feature_flags'] || {}
-    feature_flags[feature].to_s == 'true' || self.settings["#{feature}_enabled"].to_s == 'true'
+  # Check if a feature is enabled at the studio level (with cascade from tenant/app)
+  sig { params(flag_name: String).returns(T::Boolean) }
+  def feature_enabled?(flag_name)
+    FeatureFlagService.studio_enabled?(self, flag_name)
   end
 
   sig { params(value: T.nilable(String)).void }
@@ -279,19 +281,14 @@ class Studio < ApplicationRecord
     self.synchronization_mode == 'orchestra'
   end
 
-  sig { params(feature: String).void }
-  def enable_feature!(feature)
-    self.settings["feature_flags"] ||= {}
-    self.settings["feature_flags"][feature] = true
-    save!
+  sig { params(flag_name: String).void }
+  def enable_feature!(flag_name)
+    enable_feature_flag!(flag_name)
   end
 
-  sig { params(feature: String).void }
-  def disable_feature!(feature)
-    self.settings["#{feature}_enabled"] = false
-    self.settings["feature_flags"] ||= {}
-    self.settings["feature_flags"][feature] = false
-    save!
+  sig { params(flag_name: String).void }
+  def disable_feature!(flag_name)
+    disable_feature_flag!(flag_name)
   end
 
   sig { returns(Integer) }
@@ -321,7 +318,19 @@ class Studio < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def allow_file_uploads?
-    self.settings['allow_file_uploads'].to_s == 'true'
+    file_attachments_enabled?
+  end
+
+  sig { returns(T::Boolean) }
+  def file_attachments_enabled?
+    # Use unified feature flag system with legacy fallback
+    if feature_flags_hash.key?("file_attachments")
+      FeatureFlagService.studio_enabled?(self, "file_attachments")
+    else
+      # Legacy: check old setting location
+      FeatureFlagService.tenant_enabled?(T.must(tenant), "file_attachments") &&
+        settings["allow_file_uploads"].to_s == "true"
+    end
   end
 
   sig { void }

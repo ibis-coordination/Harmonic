@@ -1,0 +1,27 @@
+# Feature Flag Definitions
+#
+# This file defines all available feature flags in the application.
+# Flags follow a hierarchical cascade: App -> Tenant -> Studio
+# A feature must be enabled at ALL higher levels to be available at a given level.
+#
+# Configuration options per flag:
+#   name: Human-readable display name
+#   description: Explanation shown in admin UIs
+#   app_enabled: Whether enabled at app level (fixed, requires restart to change)
+#   default_tenant: Default value for new tenants
+#   default_studio: Default value for new studios
+
+feature_flags:
+  api:
+    name: "API Access"
+    description: "Enables API access for programmatic integrations and AI agents"
+    app_enabled: true
+    default_tenant: false
+    default_studio: false
+
+  file_attachments:
+    name: "File Attachments"
+    description: "Allows users to attach files to notes, decisions, and commitments"
+    app_enabled: true
+    default_tenant: true
+    default_studio: true

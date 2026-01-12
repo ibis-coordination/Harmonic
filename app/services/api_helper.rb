@@ -534,7 +534,10 @@ class ApiHelper
         current_studio.settings['any_member_can_represent'] = params[:representation] == 'any_member'
       end
       if params.has_key?(:file_uploads)
-        current_studio.settings['allow_file_uploads'] = params[:file_uploads] == true || params[:file_uploads] == 'true' || params[:file_uploads] == '1'
+        # Use unified feature flag system
+        enabled = params[:file_uploads] == true || params[:file_uploads] == "true" || params[:file_uploads] == "1"
+        current_studio.settings["feature_flags"] ||= {}
+        current_studio.settings["feature_flags"]["file_attachments"] = enabled
       end
       # api_enabled is intentionally not changeable via API:
       # - Can't enable if already disabled (no API access)

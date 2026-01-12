@@ -1,4 +1,4 @@
-\restrict 7FkOxqiQmbWQqLPdg2ThOumNzLjpWjlxU6fAWA6Vde5ciEeK1d2uEQDZrbBTwAF
+\restrict 7vtq8DlmaP8gll34odchqbXQJjn4X7oVSYfCMePkfQ0pyorffFa3aKTnwA4bdCv
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -2690,7 +2690,7 @@ ALTER TABLE ONLY public.studios
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 7FkOxqiQmbWQqLPdg2ThOumNzLjpWjlxU6fAWA6Vde5ciEeK1d2uEQDZrbBTwAF
+\unrestrict 7vtq8DlmaP8gll34odchqbXQJjn4X7oVSYfCMePkfQ0pyorffFa3aKTnwA4bdCv
 
 SET search_path TO "$user", public;
 
@@ -2787,11 +2787,13 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250902174420'),
 ('20260109023653'),
 ('20260110023045'),
+('20260111021536'),
 ('20260111021537'),
 ('20260111021538'),
 ('20260111095925'),
 ('20260111113813'),
 ('20260111113916'),
-('20260111124237');
+('20260111124237'),
+('20260112131013');
 
 

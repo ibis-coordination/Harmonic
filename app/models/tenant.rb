@@ -2,6 +2,7 @@
 
 class Tenant < ApplicationRecord
   extend T::Sig
+  include HasFeatureFlags
 
   self.implicit_order_column = "created_at"
   has_many :tenant_users
@@ -152,18 +153,42 @@ class Tenant < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def allow_file_uploads?
-    settings['allow_file_uploads'].to_s == 'true'
+    file_attachments_enabled?
+  end
+
+  sig { returns(T::Boolean) }
+  def file_attachments_enabled?
+    # Use unified feature flag system with legacy fallback
+    if feature_flags_hash.key?("file_attachments")
+      FeatureFlagService.tenant_enabled?(self, "file_attachments")
+    else
+      # Legacy: check old setting location
+      FeatureFlagService.app_enabled?("file_attachments") &&
+        settings["allow_file_uploads"].to_s == "true"
+    end
   end
 
   sig { returns(T::Boolean) }
   def api_enabled?
-    settings['api_enabled'].to_s == 'true'
+    # Use unified feature flag system with legacy fallback
+    if feature_flags_hash.key?("api")
+      FeatureFlagService.tenant_enabled?(self, "api")
+    else
+      # Legacy: check old setting location
+      FeatureFlagService.app_enabled?("api") &&
+        settings["api_enabled"].to_s == "true"
+    end
+  end
+
+  # Check if a feature is enabled at the tenant level (with cascade from app)
+  sig { params(flag_name: String).returns(T::Boolean) }
+  def feature_enabled?(flag_name)
+    FeatureFlagService.tenant_enabled?(self, flag_name)
   end
 
   sig { void }
   def enable_api!
-    self.settings['api_enabled'] = true
-    save!
+    set_feature_flag!("api", true)
   end
 
   sig { params(created_by: User).void }

@@ -153,11 +153,22 @@ class StudiosController < ApplicationController
     @current_studio.synchronization_mode = params[:synchronization_mode]
     @current_studio.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
     @current_studio.settings['any_member_can_represent'] = params[:representation] == 'any_member'
-    @current_studio.settings['allow_file_uploads'] = params[:allow_file_uploads] == 'true' || params[:allow_file_uploads] == '1'
-    @current_studio.settings['api_enabled'] = params[:api_enabled] == 'true' || params[:api_enabled] == '1'
     unless ENV['SAAS_MODE'] == 'true'
       @current_studio.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
     end
+
+    # Handle feature flags via unified system
+    FeatureFlagService.all_flags.each do |flag_name|
+      param_key = "feature_#{flag_name}"
+      if params.key?(param_key) || params.key?(flag_name)
+        # Accept both feature_api and api (legacy) param names
+        value = params[param_key] || params[flag_name]
+        enabled = value == "true" || value == "1" || value == true
+        @current_studio.settings["feature_flags"] ||= {}
+        @current_studio.settings["feature_flags"][flag_name] = enabled
+      end
+    end
+
     @current_studio.updated_by = @current_user if @current_studio.changed?
     @current_studio.save!
     flash[:notice] = "Settings successfully updated. [Return to studio homepage.](#{@current_studio.url})"
