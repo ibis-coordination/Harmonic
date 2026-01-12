@@ -5,6 +5,7 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @tenant.enable_api!
     @studio = @global_studio
+    @studio.enable_api!  # Enable API at studio level for subagent functionality
     @parent = @global_user
     # Ensure parent has admin role on studio to have invite permission
     @parent.studio_users.find_by(studio: @studio)&.add_role!('admin')

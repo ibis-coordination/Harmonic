@@ -26,11 +26,26 @@ class AdminController < ApplicationController
   def update_tenant_settings
     @current_tenant.name = params[:name]
     @current_tenant.timezone = params[:timezone]
-    ['api_enabled', 'require_login', 'allow_file_uploads'].each do |setting|
-      if ['true', 'false', '1', '0'].include?(params[setting])
-        @current_tenant.settings[setting] = params[setting] == 'true' || params[setting] == '1'
+
+    # Handle non-feature-flag settings
+    ["require_login"].each do |setting|
+      if ["true", "false", "1", "0"].include?(params[setting])
+        @current_tenant.settings[setting] = params[setting] == "true" || params[setting] == "1"
       end
     end
+
+    # Handle feature flags via unified system
+    FeatureFlagService.all_flags.each do |flag_name|
+      param_key = "feature_#{flag_name}"
+      if params.key?(param_key) || params.key?(flag_name)
+        # Accept both feature_api and api (legacy) param names
+        value = params[param_key] || params[flag_name]
+        enabled = value == "true" || value == "1" || value == true
+        @current_tenant.settings["feature_flags"] ||= {}
+        @current_tenant.settings["feature_flags"][flag_name] = enabled
+      end
+    end
+
     # TODO - Home page, About page, Help page, Contact page
     @current_tenant.save!
     redirect_to "/admin"
@@ -145,15 +160,30 @@ class AdminController < ApplicationController
   def execute_update_tenant_settings
     @current_tenant.name = params[:name] if params[:name].present?
     @current_tenant.timezone = params[:timezone] if params[:timezone].present?
-    ['api_enabled', 'require_login', 'allow_file_uploads'].each do |setting|
-      if ['true', 'false', '1', '0'].include?(params[setting])
-        @current_tenant.settings[setting] = params[setting] == 'true' || params[setting] == '1'
+
+    # Handle non-feature-flag settings
+    ["require_login"].each do |setting|
+      if ["true", "false", "1", "0"].include?(params[setting])
+        @current_tenant.settings[setting] = params[setting] == "true" || params[setting] == "1"
       end
     end
+
+    # Handle feature flags via unified system
+    FeatureFlagService.all_flags.each do |flag_name|
+      param_key = "feature_#{flag_name}"
+      if params.key?(param_key) || params.key?(flag_name)
+        # Accept both feature_api and api (legacy) param names
+        value = params[param_key] || params[flag_name]
+        enabled = value == "true" || value == "1" || value == true
+        @current_tenant.settings["feature_flags"] ||= {}
+        @current_tenant.settings["feature_flags"][flag_name] = enabled
+      end
+    end
+
     @current_tenant.save!
 
     respond_to do |format|
-      format.md { render 'tenant_settings' }
+      format.md { render "tenant_settings" }
       format.html { redirect_to "/admin" }
     end
   end

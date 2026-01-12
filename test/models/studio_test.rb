@@ -223,6 +223,9 @@ class StudioTest < ActiveSupport::TestCase
   test "Studio.enable_api! enables API for studio" do
     tenant = create_tenant
     user = create_user
+    # Enable API at tenant level first (required for cascade)
+    tenant.set_feature_flag!("api", true)
+
     studio = Studio.create!(
       tenant: tenant,
       created_by: user,
