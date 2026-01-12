@@ -2,14 +2,18 @@
 
 Cycle duration: <%= @cycle.display_duration %> (<% if @cycle.start_date > @cycle.now %>starting <%= time_ago_in_words(@cycle.start_date) %><% elsif @cycle.end_date < @cycle.now %>ended <%= time_ago_in_words(@cycle.end_date) %><% else %>ending in <%= time_ago_in_words(@cycle.end_date) %><% end %>)
 
-<% ['Notes', 'Decisions', 'Commitments'].each do |resource_type| %>## <%= resource_type %>
-<% if instance_variable_get("@#{resource_type.downcase.underscore}").empty? %>
+<% ['Notes', 'Decisions', 'Commitments'].each do |resource_type| -%>
+## <%= resource_type %>
+<% if instance_variable_get("@#{resource_type.downcase.underscore}").empty? -%>
 
-No <%= resource_type.downcase %> in this cycle.<% end %>
-<% resources = instance_variable_get("@#{resource_type.downcase.underscore}") %><% resources.each do |resource| %>* [<%= raw resource.title %>](<%= resource.path %>)
+No <%= resource_type.downcase %> in this cycle.
+<% end -%>
+<% resources = instance_variable_get("@#{resource_type.downcase.underscore}") -%>
+<% resources.each do |resource| -%>
+* [<%= raw resource.title %>](<%= resource.path %>)
   * Created: <%= time_ago_or_from_now(resource.created_at) %>
   * Deadline: <%= time_ago_or_from_now(resource.deadline) %>
   * Duration: <%= duration_in_words(resource.deadline - resource.created_at) %>
-<% end %>
+<% end -%>
 
-<% end %>
+<% end -%>

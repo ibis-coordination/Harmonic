@@ -4,14 +4,14 @@
 
 | Subdomain | Name |
 |-----------|------|
-<% @tenants.each do |tenant| %>
+<% @tenants.each do |tenant| -%>
 | [`<%= tenant.subdomain %>`](/admin/tenants/<%= tenant.subdomain %>) | <%= raw tenant.name %> |
-<% end %>
+<% end -%>
 
 ## [Actions](/admin/tenants/actions)
 
-<% if can_perform_admin_actions? %>
+<% if can_perform_admin_actions? -%>
 * [`create_tenant(subdomain, name)`](/admin/tenants/new/actions/create_tenant) - Create a new tenant
-<% else %>
+<% else -%>
 * No actions available (read-only access)
-<% end %>
+<% end -%>

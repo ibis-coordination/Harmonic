@@ -1,0 +1,122 @@
+<h1><%= octicon "webhook", height: 32 %> <%= @webhook.name %></h1>
+
+<div class="webhook-details" style="margin-bottom:2rem;">
+  <table class="table" style="max-width:600px;">
+    <tr>
+      <th style="width:120px;">URL</th>
+      <td style="font-family:monospace; font-size:0.85em; word-break:break-all;"><%= @webhook.url %></td>
+    </tr>
+    <tr>
+      <th>Status</th>
+      <td>
+        <% if @webhook.enabled? %>
+          <span class="label label-success">Enabled</span>
+        <% else %>
+          <span class="label label-default">Disabled</span>
+        <% end %>
+      </td>
+    </tr>
+    <tr>
+      <th>Events</th>
+      <td>
+        <% if @webhook.events.include?("*") %>
+          <span class="label">All events</span>
+        <% else %>
+          <% @webhook.events.each do |event| %>
+            <span class="label" style="margin-right:0.25rem;"><%= event %></span>
+          <% end %>
+        <% end %>
+      </td>
+    </tr>
+    <tr>
+      <th>Secret</th>
+      <td>
+        <code style="font-size:0.85em;"><%= @webhook.secret.first(8) %>...</code>
+        <small style="opacity:0.6;">(partial, for security)</small>
+      </td>
+    </tr>
+    <tr>
+      <th>Created</th>
+      <td><%= @webhook.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+    </tr>
+  </table>
+
+  <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+    <form action="<%= "/studios/#{@current_studio.handle}/settings/webhooks/#{@webhook.truncated_id}/actions/test_webhook" %>" method="post" style="display:inline;">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+      <button type="submit" class="btn btn-primary">
+        <%= octicon "zap" %> Send Test
+      </button>
+    </form>
+
+    <% if @webhook.enabled? %>
+      <form action="<%= "/studios/#{@current_studio.handle}/settings/webhooks/#{@webhook.truncated_id}/actions/update_webhook" %>" method="post" style="display:inline;">
+        <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+        <%= hidden_field_tag :enabled, "false" %>
+        <button type="submit" class="btn">Disable</button>
+      </form>
+    <% else %>
+      <form action="<%= "/studios/#{@current_studio.handle}/settings/webhooks/#{@webhook.truncated_id}/actions/update_webhook" %>" method="post" style="display:inline;">
+        <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+        <%= hidden_field_tag :enabled, "true" %>
+        <button type="submit" class="btn btn-success">Enable</button>
+      </form>
+    <% end %>
+
+    <form action="<%= "/studios/#{@current_studio.handle}/settings/webhooks/#{@webhook.truncated_id}/actions/delete_webhook" %>" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this webhook?');">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+      <button type="submit" class="btn btn-danger">Delete</button>
+    </form>
+  </div>
+</div>
+
+<h2>Recent Deliveries</h2>
+
+<% if @recent_deliveries.empty? %>
+  <p style="opacity:0.6;"><em>No deliveries yet.</em></p>
+<% else %>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Event</th>
+        <th>Status</th>
+        <th>Response</th>
+        <th>Attempts</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @recent_deliveries.each do |delivery| %>
+        <tr>
+          <td><code><%= delivery.event&.event_type || "unknown" %></code></td>
+          <td>
+            <% case delivery.status %>
+            <% when "success" %>
+              <span class="label label-success">Success</span>
+            <% when "failed" %>
+              <span class="label label-danger">Failed</span>
+            <% when "retrying" %>
+              <span class="label label-warning">Retrying</span>
+            <% else %>
+              <span class="label">Pending</span>
+            <% end %>
+          </td>
+          <td>
+            <% if delivery.response_code %>
+              <code><%= delivery.response_code %></code>
+            <% elsif delivery.error_message %>
+              <span style="color:red; font-size:0.85em;"><%= truncate(delivery.error_message, length: 50) %></span>
+            <% else %>
+              -
+            <% end %>
+          </td>
+          <td><%= delivery.attempt_count %></td>
+          <td><%= time_ago_in_words(delivery.created_at) %> ago</td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
+
+<hr>
+<p><a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks" %>">&larr; Back to Webhooks</a></p>

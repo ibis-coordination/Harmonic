@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; }
+    .header { border-bottom: 2px solid #007bff; padding-bottom: 20px; margin-bottom: 20px; }
+    .header h1 { margin: 0; font-size: 24px; color: #333; }
+    .notification-type { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+    .notification-type.mention { background-color: #e3f2fd; color: #1565c0; }
+    .notification-type.comment { background-color: #fff3e0; color: #ef6c00; }
+    .notification-type.participation { background-color: #e8f5e9; color: #2e7d32; }
+    .notification-type.system { background-color: #fce4ec; color: #c2185b; }
+    .content { margin: 20px 0; }
+    .content h2 { font-size: 18px; margin: 0 0 10px 0; color: #333; }
+    .content p { margin: 0 0 15px 0; color: #666; }
+    .body-text { background-color: #f9f9f9; padding: 15px; border-radius: 4px; border-left: 3px solid #007bff; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+    .button:hover { background-color: #0056b3; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999; }
+    .footer a { color: #007bff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Harmonic</h1>
+    </div>
+
+    <div class="content">
+      <span class="notification-type <%= @notification.notification_type %>"><%= @notification.notification_type %></span>
+
+      <h2><%= @notification.title %></h2>
+
+      <% if @notification.body.present? %>
+        <div class="body-text">
+          <p><%= @notification.body %></p>
+        </div>
+      <% end %>
+
+      <% if @notification_url.present? %>
+        <a href="<%= @notification_url %>" class="button">View Details</a>
+
+        <p style="font-size: 12px; color: #999;">
+          Or copy and paste this link into your browser:<br>
+          <%= @notification_url %>
+        </p>
+      <% end %>
+    </div>
+
+    <div class="footer">
+      <p>
+        You received this email because you have email notifications enabled for <%= @notification.notification_type %> notifications.
+      </p>
+      <p>
+        <a href="<%= @notification_url&.gsub(@notification.url || '', '/notifications') %>">Manage notification preferences</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

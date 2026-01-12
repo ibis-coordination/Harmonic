@@ -1,6 +1,16 @@
-<div class="top-right-display">
+<div class="top-right-display" data-controller="notification-badge" data-notification-badge-poll-interval-value="30000">
 <% if @current_user %>
-  <div data-controller="top-right-menu">
+  <div style="display:inline-block;vertical-align:top;margin-right:8px;">
+    <a href="/notifications" class="notification-icon" title="Notifications">
+      <%= octicon 'inbox', height: 20 %>
+      <span class="notification-badge-count"
+            data-notification-badge-target="count"
+            style="<%= @unread_notification_count.to_i > 0 ? '' : 'display:none;' %>">
+        <%= @unread_notification_count.to_i %>
+      </span>
+    </a>
+  </div>
+  <div data-controller="top-right-menu" style="display:inline-block;">
     <div data-top-right-menu-target="button" class="top-menu-button" data-action="click->top-right-menu#toggleMenu">
       <%= profile_pic(@current_user) %>
     </div>

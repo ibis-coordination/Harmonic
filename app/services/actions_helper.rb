@@ -262,6 +262,59 @@ class ActionsHelper
       params_string: "()",
       params: [],
     },
+
+    # Notification actions
+    "mark_read" => {
+      description: "Mark a notification as read",
+      params_string: "(id)",
+      params: [
+        { name: "id", type: "string", description: "The ID of the notification recipient to mark as read" },
+      ],
+    },
+    "dismiss" => {
+      description: "Dismiss a notification",
+      params_string: "(id)",
+      params: [
+        { name: "id", type: "string", description: "The ID of the notification recipient to dismiss" },
+      ],
+    },
+    "mark_all_read" => {
+      description: "Mark all notifications as read",
+      params_string: "()",
+      params: [],
+    },
+
+    # Webhook actions
+    "create_webhook" => {
+      description: "Create a new webhook",
+      params_string: "(name, url, events, enabled)",
+      params: [
+        { name: "name", type: "string", description: "A descriptive name for this webhook" },
+        { name: "url", type: "string", description: "The HTTPS URL to receive webhook payloads" },
+        { name: "events", type: "array", description: "Event types to subscribe to (default: all)" },
+        { name: "enabled", type: "boolean", description: "Whether the webhook is active (default: true)" },
+      ],
+    },
+    "update_webhook" => {
+      description: "Update a webhook",
+      params_string: "(name, url, events, enabled)",
+      params: [
+        { name: "name", type: "string", description: "A descriptive name for this webhook" },
+        { name: "url", type: "string", description: "The HTTPS URL to receive webhook payloads" },
+        { name: "events", type: "array", description: "Event types to subscribe to" },
+        { name: "enabled", type: "boolean", description: "Whether the webhook is active" },
+      ],
+    },
+    "delete_webhook" => {
+      description: "Delete a webhook",
+      params_string: "()",
+      params: [],
+    },
+    "test_webhook" => {
+      description: "Send a test webhook",
+      params_string: "()",
+      params: [],
+    },
   }.freeze
 
   # Route to actions mapping for actions index pages
@@ -385,6 +438,26 @@ class ActionsHelper
     "/admin/sidekiq/jobs/:jid" => {
       actions: [
         { name: "retry_sidekiq_job", params_string: ACTION_DEFINITIONS["retry_sidekiq_job"][:params_string], description: ACTION_DEFINITIONS["retry_sidekiq_job"][:description] },
+      ],
+    },
+    "/notifications" => {
+      actions: [
+        { name: "mark_read", params_string: ACTION_DEFINITIONS["mark_read"][:params_string], description: ACTION_DEFINITIONS["mark_read"][:description] },
+        { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
+        { name: "mark_all_read", params_string: ACTION_DEFINITIONS["mark_all_read"][:params_string], description: ACTION_DEFINITIONS["mark_all_read"][:description] },
+      ],
+    },
+    "/studios/:studio_handle/settings/webhooks" => { actions: [] },
+    "/studios/:studio_handle/settings/webhooks/new" => {
+      actions: [
+        { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string], description: ACTION_DEFINITIONS["create_webhook"][:description] },
+      ],
+    },
+    "/studios/:studio_handle/settings/webhooks/:id" => {
+      actions: [
+        { name: "update_webhook", params_string: ACTION_DEFINITIONS["update_webhook"][:params_string], description: ACTION_DEFINITIONS["update_webhook"][:description] },
+        { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
+        { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
       ],
     },
   }

@@ -6,54 +6,54 @@
 
 | Queue | Size |
 |-------|------|
-<% @queues.each do |queue| %>
+<% @queues.each do |queue| -%>
 | [`<%= queue.name %>`](/admin/sidekiq/queues/<%= queue.name %>) | <%= queue.size %> |
-<% end %>
+<% end -%>
 
 ## Retries (<%= @retries.size %>)
 
-<% if @retries.any? %>
+<% if @retries.any? -%>
 | JID | Class | Retry Count | Error |
 |-----|-------|-------------|-------|
-<% @retries.first(20).each do |job| %>
+<% @retries.first(20).each do |job| -%>
 | [`<%= job.jid[0..7] %>...`](/admin/sidekiq/jobs/<%= job.jid %>) | <%= job.item['class'] %> | <%= job.item['retry_count'] || 0 %> | <%= job.item['error_message']&.truncate(50) %> |
-<% end %>
-<% if @retries.size > 20 %>
+<% end -%>
+<% if @retries.size > 20 -%>
 *... and <%= @retries.size - 20 %> more*
-<% end %>
-<% else %>
+<% end -%>
+<% else -%>
 *No retries*
-<% end %>
+<% end -%>
 
 ## Scheduled (<%= @scheduled.size %>)
 
-<% if @scheduled.any? %>
+<% if @scheduled.any? -%>
 | JID | Class | Scheduled For |
 |-----|-------|---------------|
-<% @scheduled.first(20).each do |job| %>
+<% @scheduled.first(20).each do |job| -%>
 | [`<%= job.jid[0..7] %>...`](/admin/sidekiq/jobs/<%= job.jid %>) | <%= job.item['class'] %> | <%= time_ago_in_words(job.at) %> from now |
-<% end %>
-<% if @scheduled.size > 20 %>
+<% end -%>
+<% if @scheduled.size > 20 -%>
 *... and <%= @scheduled.size - 20 %> more*
-<% end %>
-<% else %>
+<% end -%>
+<% else -%>
 *No scheduled jobs*
-<% end %>
+<% end -%>
 
 ## Dead (<%= @dead.size %>)
 
-<% if @dead.any? %>
+<% if @dead.any? -%>
 | JID | Class | Failed At | Error |
 |-----|-------|-----------|-------|
-<% @dead.first(20).each do |job| %>
+<% @dead.first(20).each do |job| -%>
 | [`<%= job.jid[0..7] %>...`](/admin/sidekiq/jobs/<%= job.jid %>) | <%= job.item['class'] %> | <%= time_ago_in_words(job.at) %> ago | <%= job.item['error_message']&.truncate(50) %> |
-<% end %>
-<% if @dead.size > 20 %>
+<% end -%>
+<% if @dead.size > 20 -%>
 *... and <%= @dead.size - 20 %> more*
-<% end %>
-<% else %>
+<% end -%>
+<% else -%>
 *No dead jobs*
-<% end %>
+<% end -%>
 
 ## [Actions](/admin/sidekiq/actions)
 

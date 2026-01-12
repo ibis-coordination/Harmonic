@@ -13,12 +13,12 @@ class TenantUser < ApplicationRecord
 
   sig { void }
   def set_defaults
-    self.handle = self.handle.presence || T.must(user).name.parameterize
+    self.handle = handle.presence || T.must(user).name.parameterize
     self.display_name = display_name.presence || T.must(user).name
     self.settings ||= {}
-    T.must(self.settings)['pinned'] ||= {}
-    T.must(self.settings)['roles'] ||= []
-    T.must(T.must(self.settings)['roles']) << 'default'
+    T.must(self.settings)["pinned"] ||= {}
+    T.must(self.settings)["roles"] ||= []
+    T.must(T.must(self.settings)["roles"]) << "default"
   end
 
   sig { returns(User) }
@@ -42,7 +42,7 @@ class TenantUser < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def archived?
-    self.archived_at.present?
+    archived_at.present?
   end
 
   sig { returns(String) }
@@ -60,7 +60,53 @@ class TenantUser < ApplicationRecord
     NoteHistoryEvent.where(
       tenant_id: tenant_id,
       user_id: user_id,
-      event_type: 'read_confirmation',
+      event_type: "read_confirmation"
     ).includes(:note).order(happened_at: :desc).limit(limit)
+  end
+
+  # Notification Preferences
+  # Default preferences for each notification type
+  DEFAULT_NOTIFICATION_PREFERENCES = T.let({
+    "mention" => { "in_app" => true, "email" => true },
+    "comment" => { "in_app" => true, "email" => false },
+    "participation" => { "in_app" => true, "email" => false },
+    "system" => { "in_app" => true, "email" => true },
+  }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
+
+  sig { returns(T::Hash[String, T::Hash[String, T::Boolean]]) }
+  def notification_preferences
+    settings_hash = T.cast(settings, T.nilable(T::Hash[String, T.untyped]))
+    return DEFAULT_NOTIFICATION_PREFERENCES.deep_dup unless settings_hash
+
+    prefs = settings_hash["notification_preferences"]
+    return DEFAULT_NOTIFICATION_PREFERENCES.deep_dup unless prefs.is_a?(Hash)
+
+    T.cast(prefs, T::Hash[String, T::Hash[String, T::Boolean]])
+  end
+
+  sig { params(notification_type: String).returns(T::Array[String]) }
+  def notification_channels_for(notification_type)
+    prefs = notification_preferences[notification_type] || DEFAULT_NOTIFICATION_PREFERENCES[notification_type] || {}
+    channels = []
+    channels << "in_app" if prefs["in_app"]
+    channels << "email" if prefs["email"]
+    channels
+  end
+
+  sig { params(notification_type: String, channel: String).returns(T::Boolean) }
+  def notification_enabled?(notification_type, channel)
+    prefs = notification_preferences[notification_type] || DEFAULT_NOTIFICATION_PREFERENCES[notification_type] || {}
+    prefs[channel] == true
+  end
+
+  sig { params(notification_type: String, channel: String, enabled: T::Boolean).void }
+  def set_notification_preference!(notification_type, channel, enabled)
+    self.settings ||= {}
+    settings_hash = T.cast(settings, T::Hash[String, T.untyped])
+    settings_hash["notification_preferences"] ||= DEFAULT_NOTIFICATION_PREFERENCES.deep_dup
+    notification_prefs = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
+    notification_prefs[notification_type] ||= {}
+    T.must(notification_prefs[notification_type])[channel] = enabled
+    save!
   end
 end

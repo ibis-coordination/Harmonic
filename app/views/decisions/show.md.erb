@@ -5,52 +5,65 @@
 | deadline | <%= @decision.deadline %> |
 | time remaining | <%= @decision.deadline > Time.now ? distance_of_time_in_words(Time.now, @decision.deadline) : 'Deadline passed' %> |
 
-<% if @decision.description.present? %>## Description
+<% if @decision.description.present? -%>
+## Description
 
-<%= raw @decision.description %><% end %><% unless @decision.closed? %>
-
+<%= raw @decision.description %>
+<% end -%>
+<% unless @decision.closed? -%>
 ## Options
 
-<% if @decision.options.empty? %>
+<% if @decision.options.empty? -%>
 No options yet.
-<% else %>
+<% else -%>
 Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 
-<% @decision.options.order(:created_at).each do |option| %>
-<% vote = @votes.where(option: option).first || Vote.new(accepted: 0) %>
+<% @decision.options.order(:created_at).each do |option| -%>
+<% vote = @votes.where(option: option).first || Vote.new(accepted: 0) -%>
 * [<%= vote.accepted == 1 ? '✅' : ' ' %>] [<%= vote.preferred == 1 ? '⭐️' : ' ' %>] <%= raw option.title %>
-<% end %><% end %><% end %>
+<% end -%>
+<% end -%>
+<% end -%>
 ## <%= @decision.closed? ? "Final" : "Current" %> Results
 
 Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
 
 |   |   | ✅ | ⭐ | 🎲 |
 |---|---|---|---|---|
-<% if @decision.results.empty? %>
+<% if @decision.results.empty? -%>
 | 0 | Add options to see results. | 0 | 0 | 0 |
-<% end %>
-<% @decision.results.each.with_index do |result, index| %>
+<% end -%>
+<% @decision.results.each.with_index do |result, index| -%>
 | <%= index + 1 %> | <%= raw result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
-<% end %>
+<% end -%>
 
 ## Voters (<%= @decision.voters.count %>)
 
-<% if @decision.voters.empty? %>No voters yet.<% else %><% @decision.voters.each do |voter| %>* <%= user_link_md(voter) %>
-<% end %><% end %>
+<% if @decision.voters.empty? -%>
+No voters yet.
+<% else -%>
+<% @decision.voters.each do |voter| -%>
+* <%= user_link_md(voter) %>
+<% end -%>
+<% end -%>
 <%= render 'shared/backlinks', resource: @decision %>
 <%= render 'shared/attachments_section', resource: @decision %>
 ## Comments (<%= @decision.comments_count %>)
 
-<% if @decision.comments.empty? %>
+<% if @decision.comments.empty? -%>
 No comments yet.
-<% else %>
-<% @decision.chronological_comments.each do |comment| %>
+<% else -%>
+<% @decision.chronological_comments.each do |comment| -%>
 * <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= raw comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
-<% end %>
-<% end %>
+<% end -%>
+<% end -%>
 
 ## [Actions](<%= @decision.path %>/actions)
 
-<% if @decision.closed? %>This decision is closed. <% else %>* [`add_option(text)`](<%= @decision.path %>/actions/add_option) - Add an option to the decision
-* [`vote(option_title, accept, prefer)`](<%= @decision.path %>/actions/vote) - Vote on an option<% end %>
+<% if @decision.closed? -%>
+This decision is closed.
+<% else -%>
+* [`add_option(text)`](<%= @decision.path %>/actions/add_option) - Add an option to the decision
+* [`vote(option_title, accept, prefer)`](<%= @decision.path %>/actions/vote) - Vote on an option
+<% end -%>
 * [`add_comment(text)`](<%= @decision.path %>/actions/add_comment) - Add a comment to this decision

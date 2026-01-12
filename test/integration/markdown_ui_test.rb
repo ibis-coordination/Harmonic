@@ -1999,4 +1999,117 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     attachment&.destroy
     commitment&.destroy
   end
+
+  # === Notification Count in Markdown UI ===
+
+  test "markdown UI displays unread notification count in nav bar" do
+    # Create another user to trigger a notification
+    other_user = User.create!(
+      name: "Other User",
+      email: "other-notif-#{SecureRandom.hex(4)}@test.com",
+    )
+    @tenant.add_user!(other_user)
+    @studio.add_user!(other_user)
+
+    # Create a notification for @user
+    event = Event.create!(
+      tenant: @tenant,
+      studio: @studio,
+      event_type: "note.created",
+      actor: other_user,
+    )
+    notification = Notification.create!(
+      tenant: @tenant,
+      event: event,
+      notification_type: "mention",
+      title: "Test notification",
+    )
+    NotificationRecipient.create!(
+      notification: notification,
+      user: @user,
+      channel: "in_app",
+      status: "delivered",
+    )
+
+    # Request a markdown page
+    get "/", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Check that the nav bar includes the notification count
+    # The format is: | [<%= @unread_notification_count %>](/notifications) |
+    assert_match(/\| \[1\]\(\/notifications\) \|/, response.body,
+      "Nav bar should display unread notification count of 1")
+  ensure
+    NotificationRecipient.where(notification: notification).delete_all if notification
+    notification&.destroy
+    event&.destroy
+    StudioUser.where(user: other_user).delete_all if other_user
+    TenantUser.where(user: other_user).delete_all if other_user
+    other_user&.destroy
+  end
+
+  test "markdown UI displays zero notification count when no unread notifications" do
+    # Ensure no notifications exist for this user
+    NotificationRecipient.where(user: @user).delete_all
+
+    # Request a markdown page
+    get "/", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Check that the nav bar shows 0
+    assert_match(/\| \[0\]\(\/notifications\) \|/, response.body,
+      "Nav bar should display notification count of 0 when no unread notifications")
+  end
+
+  test "markdown UI notification count updates after marking notification as read" do
+    # Create another user to trigger a notification
+    other_user = User.create!(
+      name: "Other User",
+      email: "other-notif2-#{SecureRandom.hex(4)}@test.com",
+    )
+    @tenant.add_user!(other_user)
+    @studio.add_user!(other_user)
+
+    # Create a notification for @user
+    event = Event.create!(
+      tenant: @tenant,
+      studio: @studio,
+      event_type: "note.created",
+      actor: other_user,
+    )
+    notification = Notification.create!(
+      tenant: @tenant,
+      event: event,
+      notification_type: "mention",
+      title: "Test notification",
+    )
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: @user,
+      channel: "in_app",
+      status: "delivered",
+    )
+
+    # Verify count is 1 initially
+    get "/", headers: @headers
+    assert_match(/\| \[1\]\(\/notifications\) \|/, response.body,
+      "Nav bar should display unread notification count of 1")
+
+    # Mark the notification as read (unread scope checks read_at: nil)
+    recipient.update!(status: "read", read_at: Time.current)
+
+    # Check that count is now 0
+    get "/", headers: @headers
+    assert_match(/\| \[0\]\(\/notifications\) \|/, response.body,
+      "Nav bar should display notification count of 0 after marking as read")
+  ensure
+    NotificationRecipient.where(notification: notification).delete_all if notification
+    notification&.destroy
+    event&.destroy
+    StudioUser.where(user: other_user).delete_all if other_user
+    TenantUser.where(user: other_user).delete_all if other_user
+    other_user&.destroy
+  end
 end

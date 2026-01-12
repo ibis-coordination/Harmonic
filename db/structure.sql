@@ -1,7 +1,7 @@
-\restrict TYev7I9wCXBEfGm0ESmkaXkffv9Az0J03EaQb7Vo67xuiQgCHC717JUPd7wdacP
+\restrict 7FkOxqiQmbWQqLPdg2ThOumNzLjpWjlxU6fAWA6Vde5ciEeK1d2uEQDZrbBTwAF
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
--- Dumped by pg_dump version 15.14 (Debian 15.14-0+deb12u1)
+-- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -353,6 +353,24 @@ CREATE TABLE public.decisions (
 
 
 --
+-- Name: events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    studio_id uuid NOT NULL,
+    event_type character varying NOT NULL,
+    actor_id uuid,
+    subject_type character varying,
+    subject_id uuid,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: heartbeats; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -421,6 +439,41 @@ CREATE TABLE public.notes (
     studio_id uuid,
     commentable_type character varying,
     commentable_id uuid
+);
+
+
+--
+-- Name: notification_recipients; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notification_recipients (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    notification_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    channel character varying DEFAULT 'in_app'::character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    read_at timestamp(6) without time zone,
+    dismissed_at timestamp(6) without time zone,
+    delivered_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    notification_type character varying NOT NULL,
+    title character varying NOT NULL,
+    body text,
+    url character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
 );
 
 
@@ -663,6 +716,48 @@ CREATE TABLE public.votes (
 
 
 --
+-- Name: webhook_deliveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webhook_deliveries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    webhook_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    request_body text,
+    response_code integer,
+    response_body text,
+    error_message text,
+    delivered_at timestamp(6) without time zone,
+    next_retry_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: webhooks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webhooks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    studio_id uuid,
+    name character varying NOT NULL,
+    url character varying NOT NULL,
+    secret character varying NOT NULL,
+    events jsonb DEFAULT '[]'::jsonb NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    created_by_id uuid NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL
+);
+
+
+--
 -- Name: active_storage_attachments active_storage_attachments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -751,6 +846,14 @@ ALTER TABLE ONLY public.decisions
 
 
 --
+-- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: heartbeats heartbeats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -780,6 +883,22 @@ ALTER TABLE ONLY public.note_history_events
 
 ALTER TABLE ONLY public.notes
     ADD CONSTRAINT notes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notification_recipients notification_recipients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_recipients
+    ADD CONSTRAINT notification_recipients_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notifications notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
 
 
 --
@@ -884,6 +1003,22 @@ ALTER TABLE ONLY public.trustee_permissions
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: webhook_deliveries webhook_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: webhooks webhooks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT webhooks_pkey PRIMARY KEY (id);
 
 
 --
@@ -1125,6 +1260,48 @@ CREATE INDEX index_decisions_on_updated_by_id ON public.decisions USING btree (u
 
 
 --
+-- Name: index_events_on_actor_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_actor_id ON public.events USING btree (actor_id);
+
+
+--
+-- Name: index_events_on_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_created_at ON public.events USING btree (created_at);
+
+
+--
+-- Name: index_events_on_event_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_event_type ON public.events USING btree (event_type);
+
+
+--
+-- Name: index_events_on_studio_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_studio_id ON public.events USING btree (studio_id);
+
+
+--
+-- Name: index_events_on_subject_type_and_subject_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_subject_type_and_subject_id ON public.events USING btree (subject_type, subject_id);
+
+
+--
+-- Name: index_events_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_tenant_id ON public.events USING btree (tenant_id);
+
+
+--
 -- Name: index_heartbeats_on_studio_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1255,6 +1432,69 @@ CREATE UNIQUE INDEX index_notes_on_truncated_id ON public.notes USING btree (tru
 --
 
 CREATE INDEX index_notes_on_updated_by_id ON public.notes USING btree (updated_by_id);
+
+
+--
+-- Name: index_notification_recipients_on_channel; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_channel ON public.notification_recipients USING btree (channel);
+
+
+--
+-- Name: index_notification_recipients_on_notification_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_notification_id ON public.notification_recipients USING btree (notification_id);
+
+
+--
+-- Name: index_notification_recipients_on_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_status ON public.notification_recipients USING btree (status);
+
+
+--
+-- Name: index_notification_recipients_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_user_id ON public.notification_recipients USING btree (user_id);
+
+
+--
+-- Name: index_notification_recipients_on_user_id_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_user_id_and_status ON public.notification_recipients USING btree (user_id, status);
+
+
+--
+-- Name: index_notifications_on_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notifications_on_created_at ON public.notifications USING btree (created_at);
+
+
+--
+-- Name: index_notifications_on_event_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notifications_on_event_id ON public.notifications USING btree (event_id);
+
+
+--
+-- Name: index_notifications_on_notification_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notifications_on_notification_type ON public.notifications USING btree (notification_type);
+
+
+--
+-- Name: index_notifications_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notifications_on_tenant_id ON public.notifications USING btree (tenant_id);
 
 
 --
@@ -1608,6 +1848,76 @@ CREATE INDEX index_votes_on_tenant_id ON public.votes USING btree (tenant_id);
 
 
 --
+-- Name: index_webhook_deliveries_on_event_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_event_id ON public.webhook_deliveries USING btree (event_id);
+
+
+--
+-- Name: index_webhook_deliveries_on_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_status ON public.webhook_deliveries USING btree (status);
+
+
+--
+-- Name: index_webhook_deliveries_on_status_and_next_retry_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_status_and_next_retry_at ON public.webhook_deliveries USING btree (status, next_retry_at);
+
+
+--
+-- Name: index_webhook_deliveries_on_webhook_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_webhook_id ON public.webhook_deliveries USING btree (webhook_id);
+
+
+--
+-- Name: index_webhooks_on_created_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_created_by_id ON public.webhooks USING btree (created_by_id);
+
+
+--
+-- Name: index_webhooks_on_studio_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_studio_id ON public.webhooks USING btree (studio_id);
+
+
+--
+-- Name: index_webhooks_on_studio_id_and_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_studio_id_and_enabled ON public.webhooks USING btree (studio_id, enabled);
+
+
+--
+-- Name: index_webhooks_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_tenant_id ON public.webhooks USING btree (tenant_id);
+
+
+--
+-- Name: index_webhooks_on_tenant_id_and_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_tenant_id_and_enabled ON public.webhooks USING btree (tenant_id, enabled);
+
+
+--
+-- Name: index_webhooks_on_truncated_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_webhooks_on_truncated_id ON public.webhooks USING btree (truncated_id);
+
+
+--
 -- Name: cycle_data_commitments _RETURN; Type: RULE; Schema: public; Owner: -
 --
 
@@ -1753,6 +2063,14 @@ ALTER TABLE ONLY public.decisions
 
 
 --
+-- Name: webhooks fk_rails_188617e004; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT fk_rails_188617e004 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+
+
+--
 -- Name: studio_invites fk_rails_19f2570176; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1798,6 +2116,14 @@ ALTER TABLE ONLY public.representation_session_associations
 
 ALTER TABLE ONLY public.commitments
     ADD CONSTRAINT fk_rails_2b0260c142 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: events fk_rails_2c515e778f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT fk_rails_2c515e778f FOREIGN KEY (actor_id) REFERENCES public.users(id);
 
 
 --
@@ -1889,6 +2215,14 @@ ALTER TABLE ONLY public.commitments
 
 
 --
+-- Name: notification_recipients fk_rails_51975e21a8; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_recipients
+    ADD CONSTRAINT fk_rails_51975e21a8 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: studio_users fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1937,6 +2271,14 @@ ALTER TABLE ONLY public.heartbeats
 
 
 --
+-- Name: events fk_rails_6844d4946c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT fk_rails_6844d4946c FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: links fk_rails_6888b30c51; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1966,6 +2308,22 @@ ALTER TABLE ONLY public.studio_invites
 
 ALTER TABLE ONLY public.notes
     ADD CONSTRAINT fk_rails_6e1963e950 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: notifications fk_rails_78f4b5a537; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT fk_rails_78f4b5a537 FOREIGN KEY (event_id) REFERENCES public.events(id);
+
+
+--
+-- Name: notifications fk_rails_7c99fe0556; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT fk_rails_7c99fe0556 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -2065,6 +2423,22 @@ ALTER TABLE ONLY public.attachments
 
 
 --
+-- Name: notification_recipients fk_rails_a8704dfb21; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_recipients
+    ADD CONSTRAINT fk_rails_a8704dfb21 FOREIGN KEY (notification_id) REFERENCES public.notifications(id);
+
+
+--
+-- Name: events fk_rails_ae2d71ac2b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT fk_rails_ae2d71ac2b FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+
+
+--
 -- Name: commitments fk_rails_ae61a497df; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2081,6 +2455,22 @@ ALTER TABLE ONLY public.votes
 
 
 --
+-- Name: webhook_deliveries fk_rails_b1d1ee2779; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT fk_rails_b1d1ee2779 FOREIGN KEY (event_id) REFERENCES public.events(id);
+
+
+--
+-- Name: webhook_deliveries fk_rails_bed195a05d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT fk_rails_bed195a05d FOREIGN KEY (webhook_id) REFERENCES public.webhooks(id);
+
+
+--
 -- Name: active_storage_attachments fk_rails_c3b3935057; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2094,6 +2484,14 @@ ALTER TABLE ONLY public.active_storage_attachments
 
 ALTER TABLE ONLY public.heartbeats
     ADD CONSTRAINT fk_rails_c4c1ea3d5d FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: webhooks fk_rails_c7a17f683f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT fk_rails_c7a17f683f FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -2209,6 +2607,14 @@ ALTER TABLE ONLY public.commitments
 
 
 --
+-- Name: webhooks fk_rails_e567730fa3; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT fk_rails_e567730fa3 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: representation_sessions fk_rails_ee2c2c283c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2284,7 +2690,7 @@ ALTER TABLE ONLY public.studios
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TYev7I9wCXBEfGm0ESmkaXkffv9Az0J03EaQb7Vo67xuiQgCHC717JUPd7wdacP
+\unrestrict 7FkOxqiQmbWQqLPdg2ThOumNzLjpWjlxU6fAWA6Vde5ciEeK1d2uEQDZrbBTwAF
 
 SET search_path TO "$user", public;
 
@@ -2380,6 +2786,12 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20250831231336'),
 ('20250902174420'),
 ('20260109023653'),
-('20260110023045');
+('20260110023045'),
+('20260111021537'),
+('20260111021538'),
+('20260111095925'),
+('20260111113813'),
+('20260111113916'),
+('20260111124237');
 
 

@@ -2,13 +2,15 @@
 
 ## Your Studios
 
-<% @studios.each do |studio| %>
+<% @studios.each do |studio| -%>
 * [<%= studio.name %>](<%= studio.path %>)
-<% end %>
+<% end -%>
 
 ## [Actions](/actions)
 
-<% if @current_tenant.allow_main_studio_items? %>* [New Note](/note)
+<% if @current_tenant.allow_main_studio_items? -%>
+* [New Note](/note)
 * [New Decision](/decide)
-* [New Commitment](/commit)<% end %>
+* [New Commitment](/commit)
+<% end -%>
 * [New Studio](/studios/new)

@@ -60,6 +60,17 @@ Rails.application.routes.draw do
   get 'help' => 'home#help'
   get 'contact' => 'home#contact'
 
+  # Notifications
+  get 'notifications' => 'notifications#index'
+  get 'notifications/unread_count' => 'notifications#unread_count'
+  get 'notifications/actions' => 'notifications#actions_index'
+  get 'notifications/actions/mark_read' => 'notifications#describe_mark_read'
+  post 'notifications/actions/mark_read' => 'notifications#execute_mark_read'
+  get 'notifications/actions/dismiss' => 'notifications#describe_dismiss'
+  post 'notifications/actions/dismiss' => 'notifications#execute_dismiss'
+  get 'notifications/actions/mark_all_read' => 'notifications#describe_mark_all_read'
+  post 'notifications/actions/mark_all_read' => 'notifications#execute_mark_all_read'
+
   get 'learn' => 'learn#index'
   get 'learn/awareness-indicators' => 'learn#awareness_indicators'
   get 'learn/acceptance-voting' => 'learn#acceptance_voting'
@@ -118,6 +129,7 @@ Rails.application.routes.draw do
 
   ['studios','scenes'].each do |studios_or_scenes|
     get "#{studios_or_scenes}" => "#{studios_or_scenes}#index"
+    get "#{studios_or_scenes}/actions" => "#{studios_or_scenes}#actions_index"
     get "#{studios_or_scenes}/new" => "#{studios_or_scenes}#new"
     get "#{studios_or_scenes}/new/actions" => 'studios#actions_index_new'
     get "#{studios_or_scenes}/new/actions/create_studio" => 'studios#describe_create_studio'
@@ -148,6 +160,20 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}/:studio_handle/settings/actions/add_subagent_to_studio" => 'studios#execute_add_subagent_to_studio'
     get "#{studios_or_scenes}/:studio_handle/settings/actions/remove_subagent_from_studio" => 'studios#describe_remove_subagent_from_studio'
     post "#{studios_or_scenes}/:studio_handle/settings/actions/remove_subagent_from_studio" => 'studios#execute_remove_subagent_from_studio'
+    # Webhooks
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks" => 'webhooks#index'
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks/new" => 'webhooks#new'
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks/new/actions" => 'webhooks#actions_index_new'
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks/new/actions/create_webhook" => 'webhooks#describe_create_webhook'
+    post "#{studios_or_scenes}/:studio_handle/settings/webhooks/new/actions/create_webhook" => 'webhooks#execute_create_webhook'
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks/:id" => 'webhooks#show'
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks/:id/actions" => 'webhooks#actions_index'
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks/:id/actions/update_webhook" => 'webhooks#describe_update_webhook'
+    post "#{studios_or_scenes}/:studio_handle/settings/webhooks/:id/actions/update_webhook" => 'webhooks#execute_update_webhook'
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks/:id/actions/delete_webhook" => 'webhooks#describe_delete_webhook'
+    post "#{studios_or_scenes}/:studio_handle/settings/webhooks/:id/actions/delete_webhook" => 'webhooks#execute_delete_webhook'
+    get "#{studios_or_scenes}/:studio_handle/settings/webhooks/:id/actions/test_webhook" => 'webhooks#describe_test_webhook'
+    post "#{studios_or_scenes}/:studio_handle/settings/webhooks/:id/actions/test_webhook" => 'webhooks#execute_test_webhook'
     patch "#{studios_or_scenes}/:studio_handle/image" => 'studios#update_image'
     get "#{studios_or_scenes}/:studio_handle/invite" => 'studios#invite'
     get "#{studios_or_scenes}/:studio_handle/join" => 'studios#join'
@@ -165,6 +191,8 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:studio_handle/r/:id" => 'representation_sessions#show'
     post "#{studios_or_scenes}/:studio_handle/r/:representation_session_id/comments" => 'representation_sessions#create_comment'
     get "#{studios_or_scenes}/:studio_handle/u/:handle" => 'users#show'
+    # Autocomplete endpoints (scoped to studio members)
+    get "#{studios_or_scenes}/:studio_handle/autocomplete/users" => 'autocomplete#users'
     get "#{studios_or_scenes}/:studio_handle/backlinks" => 'studios#backlinks'
     get "#{studios_or_scenes}/:studio_handle/backlinks/actions" => 'studios#actions_index_default'
     get "#{studios_or_scenes}/:studio_handle/heartbeats" => 'heartbeats#index'

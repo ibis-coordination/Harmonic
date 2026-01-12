@@ -1,32 +1,32 @@
 # Representation Session `<%= @representation_session.truncated_id %>`
 
-<% unless @representation_session.ended_at %>
+<% unless @representation_session.ended_at -%>
 **This session is currently active.**
-<% end %>
+<% end -%>
 
 | | |
 |---|---|
 | Representative | [<%= raw @representation_session.representative_user.display_name %>](<%= @representation_session.representative_user.path %>) |
 | Started | <%= time_ago_in_words(@representation_session.began_at) %> ago |
-<% if @representation_session.ended_at %>
+<% if @representation_session.ended_at -%>
 | Ended | <%= time_ago_in_words(@representation_session.ended_at) %> ago |
-<% duration = (@representation_session.elapsed_time / 60).round %>
+<% duration = (@representation_session.elapsed_time / 60).round -%>
 | Duration | <%= duration %> minute<%= duration == 1 ? '' : 's' %> |
-<% end %>
+<% end -%>
 
 ## Actions
 
-<% if @representation_session.human_readable_activity_log.empty? %>
+<% if @representation_session.human_readable_activity_log.empty? -%>
 No actions were performed during this session.
-<% else %>
+<% else -%>
 <%= raw @representation_session.representative_user.display_name %> performed the following actions on behalf of <%= raw @representation_session.studio.name %>:
 
 | # | Time | Action | Item | Studio |
 |---|------|--------|------|--------|
-<% @representation_session.human_readable_activity_log.each.with_index do |activity_item, i| %>
+<% @representation_session.human_readable_activity_log.each.with_index do |activity_item, i| -%>
 | <%= i + 1 %> | <%= activity_item[:happened_at].to_time.in_time_zone(@current_studio.timezone.name).strftime('%H:%M %Z') %> | <%= activity_item[:verb_phrase] %> | [<%= activity_item[:main_resource].class.to_s %> `<%= activity_item[:main_resource].truncated_id %>`](<%= activity_item[:main_resource].path %>) | [<%= raw activity_item[:studio].name %>](<%= activity_item[:studio].path %>) |
-<% end %>
-<% end %>
+<% end -%>
+<% end -%>
 
 <%= render 'shared/backlinks_section', resource: @representation_session %>
 

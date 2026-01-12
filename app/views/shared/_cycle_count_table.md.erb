@@ -1,6 +1,6 @@
 | |<% cycles.each do |cycle| %> [<%= cycle.display_name %>](<%= cycle.path %>) |<% end %>
 |---|<% cycles.each do |cycle| %>---|<% end %>
-<% ['Notes', 'Decisions', 'Commitments'].each do |type| %>
-<% count_key = type.downcase.to_sym %>
+<% ['Notes', 'Decisions', 'Commitments'].each do |type| -%>
+<% count_key = type.downcase.to_sym -%>
 | <%= type %> |<% cycles.each do |cycle| %> <%= cycle.counts[count_key] %> |<% end %>
-<% end %>
+<% end -%>

@@ -91,7 +91,18 @@ export async function handleExecuteAction(
   }
 
   try {
-    const actionUrl = `${config.baseUrl}${state.currentPath}/actions/${action}`;
+    // Get the base resource path (strip any /actions suffix or /actions/... suffix)
+    // This handles the case where user navigated to an actions index or action description page
+    let basePath = state.currentPath;
+    const actionsWithSlashIndex = basePath.indexOf("/actions/");
+    if (actionsWithSlashIndex !== -1) {
+      // Path like /notifications/actions/mark_read -> /notifications
+      basePath = basePath.substring(0, actionsWithSlashIndex);
+    } else if (basePath.endsWith("/actions")) {
+      // Path like /notifications/actions -> /notifications
+      basePath = basePath.substring(0, basePath.length - "/actions".length);
+    }
+    const actionUrl = `${config.baseUrl}${basePath}/actions/${action}`;
 
     const response = await fetchFn(actionUrl, {
       method: "POST",

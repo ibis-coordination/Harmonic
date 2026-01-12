@@ -66,25 +66,31 @@ Rails.application.configure do
 
   # Enable delivery errors and configure for production
   config.action_mailer.raise_delivery_errors = true
-  config.action_mailer.delivery_method = :smtp
-  config.action_mailer.default_url_options = { 
-    host: ENV['HOSTNAME'], 
-    protocol: 'https' 
+  config.action_mailer.default_url_options = {
+    host: ENV['HOSTNAME'],
+    protocol: 'https'
   }
 
-  # Generic SMTP configuration - works with any email service
-  config.action_mailer.smtp_settings = {
-    address: ENV['SMTP_SERVER'],
-    port: ENV['SMTP_PORT']&.to_i || 587,
-    domain: ENV['SMTP_DOMAIN'] || ENV['HOSTNAME'],
-    user_name: ENV['SMTP_USERNAME'],
-    password: ENV['SMTP_PASSWORD'],
-    authentication: ENV['SMTP_AUTHENTICATION'] || :plain,
-    enable_starttls_auto: ENV['SMTP_ENABLE_STARTTLS'] != 'false',
-    openssl_verify_mode: ENV['SMTP_OPENSSL_VERIFY_MODE'] || 'peer',
-    open_timeout: 10,
-    read_timeout: 10
-  }.compact # Remove nil values
+  # Use SMTP if configured, otherwise log emails (allows deployment before email is set up)
+  if ENV["SMTP_SERVER"].present?
+    config.action_mailer.delivery_method = :smtp
+    config.action_mailer.smtp_settings = {
+      address: ENV['SMTP_SERVER'],
+      port: ENV['SMTP_PORT']&.to_i || 587,
+      domain: ENV['SMTP_DOMAIN'] || ENV['HOSTNAME'],
+      user_name: ENV['SMTP_USERNAME'],
+      password: ENV['SMTP_PASSWORD'],
+      authentication: ENV['SMTP_AUTHENTICATION'] || :plain,
+      enable_starttls_auto: ENV['SMTP_ENABLE_STARTTLS'] != 'false',
+      openssl_verify_mode: ENV['SMTP_OPENSSL_VERIFY_MODE'] || 'peer',
+      open_timeout: 10,
+      read_timeout: 10
+    }.compact # Remove nil values
+  else
+    # Log emails instead of sending when SMTP is not configured
+    config.action_mailer.delivery_method = :logger
+    Rails.logger.warn("SMTP not configured - emails will be logged but not sent")
+  end
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
   # the I18n.default_locale when a translation cannot be found).

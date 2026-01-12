@@ -1,0 +1,69 @@
+<%= render 'shared/show_resource_breadcrumbs', resource: nil, hide_studio_path: true do %>
+  <%= octicon "inbox" %> Notifications
+<% end %>
+
+<div data-controller="notification-actions">
+  <% if @notification_recipients.empty? %>
+    <p style="opacity:0.6;"><em>All caught up!</em></p>
+  <% else %>
+    <p>
+      <span data-notification-summary>
+        <% if @unread_count > 0 %>
+          <strong data-notification-actions-target="unreadCount"><%= @unread_count %></strong> unread notifications
+        <% else %>
+          No unread notifications
+        <% end %>
+      </span>
+      <% if @unread_count > 0 %>
+        <button type="button"
+                class="btn btn-small"
+                data-action="click->notification-actions#markAllRead"
+                data-notification-actions-target="markAllReadButton">
+          Mark all read
+        </button>
+      <% end %>
+    </p>
+    <ul class="notification-list" style="list-style:none; padding:0;">
+      <% @notification_recipients.each do |recipient| %>
+        <li data-notification-item="<%= recipient.id %>"
+            style="padding:0.5rem 0; border-bottom:1px solid #eee; <%= recipient.read? ? 'opacity:0.6;' : '' %>">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <% if recipient.notification.url.present? %>
+                <a href="<%= recipient.notification.url %>">
+                  <strong><%= recipient.notification.title %></strong>
+                </a>
+              <% else %>
+                <strong><%= recipient.notification.title %></strong>
+              <% end %>
+              <% if recipient.notification.body.present? %>
+                <p style="margin:0.25rem 0; font-size:0.9em;"><%= truncate(recipient.notification.body, length: 200) %></p>
+              <% end %>
+              <small style="opacity:0.6;"><%= time_ago_in_words(recipient.created_at) %> ago</small>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <% unless recipient.read? %>
+                <button type="button"
+                        class="btn btn-small"
+                        title="Mark as read"
+                        data-action="click->notification-actions#markRead"
+                        data-notification-id="<%= recipient.id %>">
+                  <%= octicon "check" %>
+                </button>
+              <% end %>
+              <% unless recipient.dismissed? %>
+                <button type="button"
+                        class="btn btn-small"
+                        title="Dismiss"
+                        data-action="click->notification-actions#dismiss"
+                        data-notification-id="<%= recipient.id %>">
+                  <%= octicon "x" %>
+                </button>
+              <% end %>
+            </div>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</div>

@@ -31,6 +31,7 @@ if ENV['COVERAGE'] || ENV['CI']
 end
 
 ENV["RAILS_ENV"] ||= "test"
+ENV["MAILER_FROM_ADDRESS"] ||= "test@example.com"
 require_relative "../config/environment"
 require "rails/test_help"
 
@@ -60,6 +61,8 @@ class ActiveSupport::TestCase
     [
       # Note: order matters in this array. "Dependent destroy" doesn't always work for some reason (TODO debug),
       # so it's necessary to manually delete association records first, before the referenced records, to avoid foreign key violations.
+      WebhookDelivery, Webhook,
+      NotificationRecipient, Notification, Event,
       RepresentationSessionAssociation, RepresentationSession,
       Link, NoteHistoryEvent, Note,
       Vote, Option, DecisionParticipant, Decision,
@@ -84,8 +87,8 @@ class ActiveSupport::TestCase
     Studio.create!(tenant: tenant, created_by: created_by, name: name, handle: handle)
   end
 
-  def create_note(tenant: @tenant, studio: @studio, created_by: @user, title: "Test Note", text: "This is a test note.")
-    Note.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week)
+  def create_note(tenant: @tenant, studio: @studio, created_by: @user, title: "Test Note", text: "This is a test note.", commentable: nil)
+    Note.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week, commentable: commentable)
   end
 
   def create_decision(tenant: @tenant, studio: @studio, created_by: @user, question: "Test Decision?", description: "This is a test decision.")

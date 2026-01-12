@@ -1,6 +1,7 @@
 <%= form_with url: "#{@current_studio.path}/note" do |form| %>
-  <div>
-    <%= form.text_area :text, placeholder: "Note", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;' %>
+  <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_studio.path %>">
+    <%= form.text_area :text, placeholder: "Note (use @ to mention users)", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', data: { mention_autocomplete_target: "input" } %>
+    <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
   </div>
   <%= render 'shared/multi_file_select', form: form %>
   <%= form.submit 'Post' %>

@@ -2,6 +2,28 @@
 
 class StudiosController < ApplicationController
 
+  def index
+    @page_title = "Studios"
+    if current_user
+      @studios = current_user.studios.where(studio_type: 'studio').order(created_at: :desc)
+    else
+      @studios = []
+    end
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  def actions_index
+    @page_title = "Actions | Studios"
+    render_actions_index({
+      actions: [
+        ActionsHelper.action_description("create_studio"),
+      ],
+    })
+  end
+
   def show
     return render 'shared/404' unless @current_studio.studio_type == 'studio'
     @page_title = @current_studio.name

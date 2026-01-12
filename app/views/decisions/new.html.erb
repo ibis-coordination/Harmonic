@@ -6,8 +6,9 @@
   <div>
     <%= form.text_field :question, placeholder: 'Question that this decision will answer', value: @decision.question %>
   </div>
-  <div style="margin-top:8px;">
-    <%= form.text_area :description, placeholder: 'Description (optional)', value: @decision.description %>
+  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_studio.path %>">
+    <%= form.text_area :description, placeholder: 'Description (optional, use @ to mention users)', value: @decision.description, data: { mention_autocomplete_target: "input" } %>
+    <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
   </div>
   <%= render 'shared/multi_file_select', form: form %>
   <h3>Options</h3>

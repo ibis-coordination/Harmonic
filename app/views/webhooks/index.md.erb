@@ -1,0 +1,24 @@
+# Webhooks
+
+Studio: <%= @current_studio.name %>
+
+<% if @webhooks.empty? -%>
+No webhooks configured.
+
+Webhooks allow external services to receive real-time notifications when events occur in this studio.
+<% else -%>
+| Name | URL | Events | Status |
+|------|-----|--------|--------|
+<% @webhooks.each do |webhook| -%>
+| [<%= webhook.name %>](/studios/<%= @current_studio.handle %>/settings/webhooks/<%= webhook.truncated_id %>) | `<%= truncate(webhook.url, length: 40) %>` | <%= webhook.events.include?("*") ? "All" : webhook.events.size %> | <%= webhook.enabled? ? "Enabled" : "Disabled" %> |
+<% end -%>
+<% end -%>
+
+## [Actions](/studios/<%= @current_studio.handle %>/settings/webhooks/new/actions)
+
+* [`create_webhook(name, url, events, enabled)`](/studios/<%= @current_studio.handle %>/settings/webhooks/new/actions/create_webhook) - Create a new webhook
+
+## Navigation
+
+* [New Webhook](/studios/<%= @current_studio.handle %>/settings/webhooks/new)
+* [Studio Settings](/studios/<%= @current_studio.handle %>/settings)

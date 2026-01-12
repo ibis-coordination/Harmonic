@@ -153,6 +153,45 @@ describe("handleExecuteAction", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Connection refused");
   });
+
+  it("strips /actions/ suffix from path when constructing action URL", async () => {
+    // When user navigates to an action description page, currentPath includes /actions/
+    state.currentPath = "/notifications/actions/mark_read";
+    const mockFn = mockFetch(200, "Notification marked as read");
+    const result = await handleExecuteAction("mark_read", { id: "123" }, config, state, mockFn);
+
+    // Should POST to /notifications/actions/mark_read, not /notifications/actions/mark_read/actions/mark_read
+    expect(mockFn).toHaveBeenCalledWith(
+      "http://localhost:3000/notifications/actions/mark_read",
+      expect.anything()
+    );
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("handles action execution from nested action path", async () => {
+    // When on /studios/team/note/actions/create_note, executing create_note should work
+    state.currentPath = "/studios/team/note/actions/create_note";
+    const mockFn = mockFetch(200, "Note created");
+    await handleExecuteAction("create_note", { text: "test" }, config, state, mockFn);
+
+    expect(mockFn).toHaveBeenCalledWith(
+      "http://localhost:3000/studios/team/note/actions/create_note",
+      expect.anything()
+    );
+  });
+
+  it("strips /actions suffix (without trailing slash) from path", async () => {
+    // When user navigates to the actions index page
+    state.currentPath = "/notifications/actions";
+    const mockFn = mockFetch(200, "Notification marked as read");
+    await handleExecuteAction("mark_read", { id: "123" }, config, state, mockFn);
+
+    // Should POST to /notifications/actions/mark_read, not /notifications/actions/actions/mark_read
+    expect(mockFn).toHaveBeenCalledWith(
+      "http://localhost:3000/notifications/actions/mark_read",
+      expect.anything()
+    );
+  });
 });
 
 describe("createState", () => {

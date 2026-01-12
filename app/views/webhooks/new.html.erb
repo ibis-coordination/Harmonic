@@ -1,0 +1,62 @@
+<h1><%= octicon "webhook", height: 32 %> New Webhook</h1>
+
+<p>Webhooks allow external services to receive real-time notifications when events occur in this studio.</p>
+
+<form action="<%= "/studios/#{@current_studio.handle}/settings/webhooks/new/actions/create_webhook" %>" method="post" style="max-width:600px;">
+  <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+
+  <div class="form-group">
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" class="form-control" placeholder="My Webhook" required>
+    <small class="form-text">A descriptive name for this webhook.</small>
+  </div>
+
+  <div class="form-group">
+    <label for="url">URL</label>
+    <input type="url" id="url" name="url" class="form-control" placeholder="https://example.com/webhook" required>
+    <small class="form-text">The HTTPS URL to receive webhook payloads. Must use HTTPS.</small>
+  </div>
+
+  <div class="form-group">
+    <label for="events">Events</label>
+    <select id="events" name="events" class="form-control">
+      <option value="*" selected>All events</option>
+      <option value="note.created,note.updated,note.deleted">Notes only</option>
+      <option value="decision.created,decision.voted,decision.resolved">Decisions only</option>
+      <option value="commitment.created,commitment.joined,commitment.critical_mass">Commitments only</option>
+      <option value="comment.created">Comments only</option>
+    </select>
+    <small class="form-text">Which events should trigger this webhook.</small>
+  </div>
+
+  <div class="form-group">
+    <label>
+      <input type="checkbox" name="enabled" value="true" checked>
+      Enable this webhook
+    </label>
+  </div>
+
+  <div class="form-group" style="margin-top:1.5rem;">
+    <button type="submit" class="btn btn-primary">Create Webhook</button>
+    <a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks" %>" class="btn">Cancel</a>
+  </div>
+</form>
+
+<hr>
+<h3>Available Event Types</h3>
+<ul>
+  <li><code>note.created</code> - A note was created</li>
+  <li><code>note.updated</code> - A note was updated</li>
+  <li><code>note.deleted</code> - A note was deleted</li>
+  <li><code>decision.created</code> - A decision was created</li>
+  <li><code>decision.voted</code> - A vote was cast on a decision</li>
+  <li><code>decision.resolved</code> - A decision was resolved</li>
+  <li><code>commitment.created</code> - A commitment was created</li>
+  <li><code>commitment.joined</code> - Someone joined a commitment</li>
+  <li><code>commitment.critical_mass</code> - A commitment reached critical mass</li>
+  <li><code>comment.created</code> - A comment was added</li>
+  <li><code>*</code> - All events</li>
+</ul>
+
+<hr>
+<p><a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks" %>">&larr; Back to Webhooks</a></p>
