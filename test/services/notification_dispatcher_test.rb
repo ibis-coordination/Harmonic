@@ -8,6 +8,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     # Create another user to mention
     mentioned_user = create_user(email: "mentioned@example.com", name: "Mentioned User")
     tenant.add_user!(mentioned_user)
+    studio.add_user!(mentioned_user)
     mentioned_user.tenant_user.update!(handle: "mentioned")
 
     # Create a note with mention
@@ -77,6 +78,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
 
     mentioned_user = create_user(email: "test-mentioned@example.com", name: "Test Mentioned User")
     tenant.add_user!(mentioned_user)
+    studio.add_user!(mentioned_user)
     mentioned_user.tenant_user.update!(handle: "testuser")
 
     note = create_note(
@@ -281,6 +283,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     # Create another user to mention (with email enabled by default for mentions)
     mentioned_user = create_user(email: "mentioned-email@example.com", name: "Mentioned Email User")
     tenant.add_user!(mentioned_user)
+    studio.add_user!(mentioned_user)
     mentioned_user.tenant_user.update!(handle: "emailuser")
 
     # Create a note with mention
@@ -309,6 +312,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     # Create another user to mention and disable their email notifications
     mentioned_user = create_user(email: "noemail@example.com", name: "No Email User")
     tenant.add_user!(mentioned_user)
+    studio.add_user!(mentioned_user)
     mentioned_user.tenant_user.update!(handle: "noemailuser")
     mentioned_user.tenant_user.set_notification_preference!("mention", "email", false)
 
@@ -328,5 +332,118 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     recipients = notification.notification_recipients
     assert_equal 1, recipients.count
     assert_equal "in_app", recipients.first.channel
+  end
+
+  # Reply notification tests
+
+  test "handle_note_event notifies note owner when someone replies" do
+    tenant, studio, author = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    # Create another user who will reply
+    replier = create_user(email: "replier@example.com", name: "Replier User")
+    tenant.add_user!(replier)
+    studio.add_user!(replier)
+
+    # Create the original note
+    original_note = create_note(
+      tenant: tenant,
+      studio: studio,
+      created_by: author,
+      text: "Original note content",
+    )
+
+    initial_notification_count = Notification.count
+
+    # Create a reply to the note
+    reply = create_note(
+      tenant: tenant,
+      studio: studio,
+      created_by: replier,
+      text: "This is a reply!",
+      commentable: original_note,
+    )
+
+    # Get the created event for the reply
+    event = Event.where(event_type: "note.created", subject: reply).last
+
+    # Check that a notification was created for the original author
+    notification = Notification.where(event: event, notification_type: "comment").last
+    assert_not_nil notification, "Expected a notification to be created for the note owner"
+    assert_equal "comment", notification.notification_type
+    assert_includes notification.title, "replied to your note"
+
+    # Check recipient is the original author
+    recipient = notification.notification_recipients.first
+    assert_not_nil recipient
+    assert_equal author.id, recipient.user_id
+  end
+
+  test "handle_note_event does not notify author when they reply to their own note" do
+    tenant, studio, user = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    # Create the original note
+    original_note = create_note(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      text: "My note",
+    )
+
+    initial_notification_count = Notification.count
+
+    # Create a reply to their own note
+    reply = create_note(
+      tenant: tenant,
+      studio: studio,
+      created_by: user,
+      text: "Replying to myself",
+      commentable: original_note,
+    )
+
+    # No notification should be created for self-reply
+    comment_notifications = Notification.where(notification_type: "comment")
+    assert_equal initial_notification_count, Notification.count
+  end
+
+  test "handle_note_event notifies decision owner when someone comments on decision" do
+    tenant, studio, decision_owner = create_tenant_studio_user
+    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+
+    # Create another user who will comment
+    commenter = create_user(email: "commenter@example.com", name: "Commenter User")
+    tenant.add_user!(commenter)
+    studio.add_user!(commenter)
+
+    # Create a decision
+    decision = create_decision(
+      tenant: tenant,
+      studio: studio,
+      created_by: decision_owner,
+    )
+
+    # Create a comment on the decision
+    comment = create_note(
+      tenant: tenant,
+      studio: studio,
+      created_by: commenter,
+      text: "Great decision!",
+      commentable: decision,
+    )
+
+    # Get the created event for the comment
+    event = Event.where(event_type: "note.created", subject: comment).last
+
+    # Check that a notification was created for the decision owner
+    notification = Notification.where(event: event, notification_type: "comment").last
+    assert_not_nil notification, "Expected a notification to be created for the decision owner"
+    assert_equal "comment", notification.notification_type
+    assert_includes notification.title, "replied to your decision"
+
+    # Check recipient is the decision owner
+    recipient = notification.notification_recipients.first
+    assert_not_nil recipient
+    assert_equal decision_owner.id, recipient.user_id
   end
 end

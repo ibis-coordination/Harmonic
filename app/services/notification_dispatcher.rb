@@ -36,6 +36,11 @@ class NotificationDispatcher
 
     note = T.let(subject, Note)
 
+    # If this note is a comment/reply, notify the parent content owner
+    if note.is_comment?
+      handle_reply_notification(event, note)
+    end
+
     # Find mentioned users from the note text
     mentioned_users = MentionParser.parse(note.text, tenant_id: event.tenant_id)
 
@@ -80,6 +85,31 @@ class NotificationDispatcher
       recipient: owner,
       notification_type: "comment",
       title: "#{actor_name} commented on your #{content_type}",
+      body: comment.text.to_s.truncate(200),
+      url: get_path(commentable)
+    )
+  end
+
+  # Handle reply notifications when a note is a comment on another piece of content.
+  # This is called from handle_note_event when the note has a commentable.
+  sig { params(event: Event, comment: Note).void }
+  def self.handle_reply_notification(event, comment)
+    commentable = comment.commentable
+    return unless commentable
+
+    # Only notify users who have access to the studio
+    owner = get_created_by(commentable)
+    return if owner.nil? || owner.id == event.actor_id
+    return unless user_can_access_studio?(event, owner)
+
+    actor_name = event.actor&.display_name || "Someone"
+    content_type = commentable.class.name.underscore.humanize.downcase
+
+    notify_user(
+      event: event,
+      recipient: owner,
+      notification_type: "comment",
+      title: "#{actor_name} replied to your #{content_type}",
       body: comment.text.to_s.truncate(200),
       url: get_path(commentable)
     )

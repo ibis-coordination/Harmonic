@@ -2,7 +2,8 @@
 
 class ApplicationController < ActionController::Base
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_studio,
-                :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat
+                :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
+                :load_unread_notification_count
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
@@ -271,6 +272,16 @@ class ApplicationController < ActionController::Base
       ).first
     else
       @current_heartbeat = nil
+    end
+  end
+
+  def load_unread_notification_count
+    return @unread_notification_count if defined?(@unread_notification_count)
+    # Load notification count for HTML and markdown UI, but not JSON API
+    if @current_user && !request.format.json?
+      @unread_notification_count = NotificationService.unread_count_for(@current_user)
+    else
+      @unread_notification_count = 0
     end
   end
 

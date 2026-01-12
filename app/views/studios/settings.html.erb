@@ -159,6 +159,16 @@
       </form>
     <% end %>
   </div>
+
+  <h2><%= octicon 'webhook' %> Webhooks</h2>
+  <p>
+    Webhooks allow external services to receive real-time notifications when events occur in this studio.
+  </p>
+  <p>
+    <a href="<%= @current_studio.path %>/settings/webhooks" class="btn">
+      <%= octicon 'gear' %> Manage Webhooks
+    </a>
+  </p>
 <% end %>
 
 <hr style="height:1px;" />

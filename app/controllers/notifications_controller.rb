@@ -4,14 +4,15 @@ class NotificationsController < ApplicationController
   before_action :require_user
 
   def index
-    @page_title = "Notifications"
     @notification_recipients = NotificationRecipient
       .where(user: current_user)
       .in_app
+      .where.not(status: "dismissed")
       .includes(notification: :event)
       .order(created_at: :desc)
       .limit(50)
     @unread_count = NotificationService.unread_count_for(current_user)
+    @page_title = @unread_count > 0 ? "(#{@unread_count}) Notifications" : "Notifications"
   end
 
   def unread_count
@@ -29,18 +30,31 @@ class NotificationsController < ApplicationController
 
   def execute_mark_read
     recipient = NotificationRecipient.find_by(id: params[:id], user: current_user)
-    return render_action_error({
-      action_name: "mark_read",
-      resource: nil,
-      error: "Notification not found.",
-    }) unless recipient
 
-    recipient.read!
-    render_action_success({
-      action_name: "mark_read",
-      resource: nil,
-      result: "Notification marked as read.",
-    })
+    respond_to do |format|
+      if recipient
+        recipient.read!
+        format.json { render json: { success: true, id: recipient.id, action: "mark_read" } }
+        format.html { render json: { success: true, id: recipient.id, action: "mark_read" } }
+        format.md do
+          render_action_success({
+            action_name: "mark_read",
+            resource: nil,
+            result: "Notification marked as read.",
+          })
+        end
+      else
+        format.json { render json: { success: false, error: "Notification not found." }, status: :not_found }
+        format.html { render json: { success: false, error: "Notification not found." }, status: :not_found }
+        format.md do
+          render_action_error({
+            action_name: "mark_read",
+            resource: nil,
+            error: "Notification not found.",
+          })
+        end
+      end
+    end
   end
 
   def describe_dismiss
@@ -49,18 +63,31 @@ class NotificationsController < ApplicationController
 
   def execute_dismiss
     recipient = NotificationRecipient.find_by(id: params[:id], user: current_user)
-    return render_action_error({
-      action_name: "dismiss",
-      resource: nil,
-      error: "Notification not found.",
-    }) unless recipient
 
-    recipient.dismiss!
-    render_action_success({
-      action_name: "dismiss",
-      resource: nil,
-      result: "Notification dismissed.",
-    })
+    respond_to do |format|
+      if recipient
+        recipient.dismiss!
+        format.json { render json: { success: true, id: recipient.id, action: "dismiss" } }
+        format.html { render json: { success: true, id: recipient.id, action: "dismiss" } }
+        format.md do
+          render_action_success({
+            action_name: "dismiss",
+            resource: nil,
+            result: "Notification dismissed.",
+          })
+        end
+      else
+        format.json { render json: { success: false, error: "Notification not found." }, status: :not_found }
+        format.html { render json: { success: false, error: "Notification not found." }, status: :not_found }
+        format.md do
+          render_action_error({
+            action_name: "dismiss",
+            resource: nil,
+            error: "Notification not found.",
+          })
+        end
+      end
+    end
   end
 
   def describe_mark_all_read
@@ -69,11 +96,18 @@ class NotificationsController < ApplicationController
 
   def execute_mark_all_read
     NotificationService.mark_all_read_for(current_user)
-    render_action_success({
-      action_name: "mark_all_read",
-      resource: nil,
-      result: "All notifications marked as read.",
-    })
+
+    respond_to do |format|
+      format.json { render json: { success: true, action: "mark_all_read" } }
+      format.html { render json: { success: true, action: "mark_all_read" } }
+      format.md do
+        render_action_success({
+          action_name: "mark_all_read",
+          resource: nil,
+          result: "All notifications marked as read.",
+        })
+      end
+    end
   end
 
   private

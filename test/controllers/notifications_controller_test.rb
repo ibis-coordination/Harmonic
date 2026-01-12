@@ -114,8 +114,10 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/notifications/actions/mark_read", params: { id: "nonexistent" }
-    assert_response :success
-    assert_match "Notification not found", response.body
+    assert_response :not_found
+    json_response = JSON.parse(response.body)
+    assert_equal false, json_response["success"]
+    assert_equal "Notification not found.", json_response["error"]
   end
 
   # === Dismiss Tests ===

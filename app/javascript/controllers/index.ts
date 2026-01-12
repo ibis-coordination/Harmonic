@@ -22,9 +22,12 @@ import DecisionVotersController from "./decision_voters_controller"
 import HeartbeatController from "./heartbeat_controller"
 import HelloController from "./hello_controller"
 import LogoutController from "./logout_controller"
+import MentionAutocompleteController from "./mention_autocomplete_controller"
 import MetricController from "./metric_controller"
 import MoreButtonController from "./more_button_controller"
 import NavController from "./nav_controller"
+import NotificationActionsController from "./notification_actions_controller"
+import NotificationBadgeController from "./notification_badge_controller"
 import NoteController from "./note_controller"
 import OptionController from "./option_controller"
 import PinController from "./pin_controller"
@@ -48,9 +51,12 @@ application.register("decision-voters", DecisionVotersController)
 application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)
 application.register("logout", LogoutController)
+application.register("mention-autocomplete", MentionAutocompleteController)
 application.register("metric", MetricController)
 application.register("more-button", MoreButtonController)
 application.register("nav", NavController)
+application.register("notification-actions", NotificationActionsController)
+application.register("notification-badge", NotificationBadgeController)
 application.register("note", NoteController)
 application.register("option", OptionController)
 application.register("pin", PinController)

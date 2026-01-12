@@ -86,8 +86,8 @@ class ActiveSupport::TestCase
     Studio.create!(tenant: tenant, created_by: created_by, name: name, handle: handle)
   end
 
-  def create_note(tenant: @tenant, studio: @studio, created_by: @user, title: "Test Note", text: "This is a test note.")
-    Note.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week)
+  def create_note(tenant: @tenant, studio: @studio, created_by: @user, title: "Test Note", text: "This is a test note.", commentable: nil)
+    Note.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week, commentable: commentable)
   end
 
   def create_decision(tenant: @tenant, studio: @studio, created_by: @user, question: "Test Decision?", description: "This is a test decision.")

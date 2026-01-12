@@ -5,6 +5,6 @@ path: <%= @current_path %>
 title: <%= raw @page_title %>
 timestamp: <%= Time.now.utc %>
 ---
-nav: | [Home](/) <% if @current_studio && @current_studio != @current_tenant.main_studio -%>| <%= @current_studio.studio_type.titleize %>: [<%= @current_studio.name %>](<%= @current_studio.path %>)<% end -%><% if @current_user -%>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>)<% end -%> |
+nav: | [Home](/) <% if @current_studio && @current_studio != @current_tenant.main_studio -%>| <%= @current_studio.studio_type.titleize %>: [<%= @current_studio.name %>](<%= @current_studio.path %>)<% end -%><% if @current_user -%>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>)<% end -%> | [<%= @unread_notification_count %>](/notifications) |
 
 <%= yield %>

@@ -191,6 +191,8 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:studio_handle/r/:id" => 'representation_sessions#show'
     post "#{studios_or_scenes}/:studio_handle/r/:representation_session_id/comments" => 'representation_sessions#create_comment'
     get "#{studios_or_scenes}/:studio_handle/u/:handle" => 'users#show'
+    # Autocomplete endpoints (scoped to studio members)
+    get "#{studios_or_scenes}/:studio_handle/autocomplete/users" => 'autocomplete#users'
     get "#{studios_or_scenes}/:studio_handle/backlinks" => 'studios#backlinks'
     get "#{studios_or_scenes}/:studio_handle/backlinks/actions" => 'studios#actions_index_default'
     get "#{studios_or_scenes}/:studio_handle/heartbeats" => 'heartbeats#index'

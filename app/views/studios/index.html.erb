@@ -12,12 +12,12 @@
       </li>
     <% end %>
   </ul>
-<% elsif current_user %>
+<% elsif @current_user %>
   <p>You are not a member of any studios yet.</p>
 <% else %>
   <p><a href="/login">Log in</a> to see your studios.</p>
 <% end %>
 
-<% if current_user %>
+<% if @current_user %>
   <p><a href="/studios/new">Create a new studio</a></p>
 <% end %>

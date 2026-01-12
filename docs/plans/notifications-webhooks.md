@@ -858,6 +858,15 @@ end
 - `test/services/mention_parser_test.rb`
 - `test/integration/notifications_test.rb`
 - `test/integration/webhooks_test.rb`
+- `app/javascript/controllers/mention_autocomplete_controller.test.ts`
+- `app/javascript/controllers/notification_badge_controller.test.ts`
+
+### Stimulus Controllers (Phase 7)
+- `app/javascript/controllers/mention_autocomplete_controller.ts` - @ mention autocomplete
+- `app/javascript/controllers/notification_badge_controller.ts` - Real-time badge updates
+
+### API Endpoints (Phase 7)
+- `app/controllers/api/users_controller.rb` - User search for autocomplete
 
 ### Modified Files
 - `config/routes.rb` - Add routes
@@ -867,7 +876,11 @@ end
 - `app/models/decision.rb` - Include Trackable
 - `app/models/commitment.rb` - Include Trackable
 - `app/services/actions_helper.rb` - Add webhook/notification actions
-- `app/views/layouts/application.html.erb` - Add notification badge
+- `app/views/layouts/application.html.erb` - Add notification badge and navigation
+- `app/views/layouts/_header.html.erb` - Notification badge with unread count
+- `app/views/studios/settings/*.html.erb` - Webhook navigation links
+- `app/views/notes/_form.html.erb` - Mention autocomplete integration
+- `app/views/comments/_form.html.erb` - Mention autocomplete integration
 
 ---
 
@@ -909,6 +922,31 @@ end
 3. Preference-based delivery
 4. (Optional) Digest job
 
+### Phase 7: UI Improvements
+1. **Notification Navigation & Header Status**
+   - Add notifications link to main navigation (header/sidebar)
+   - Persistent notification badge in header showing unread count
+   - Visual indicator for unread state (color/animation)
+   - Turbo Stream updates for real-time badge count changes
+
+2. **Webhook Navigation**
+   - Add webhooks link to studio settings navigation
+   - Breadcrumb navigation for webhook detail pages
+   - Clear entry point from studio admin panel
+
+3. **@ Mention Autocomplete**
+   - Stimulus controller for mention autocomplete in text inputs
+   - API endpoint for searching users by handle/name
+   - Dropdown UI showing matching users as you type `@`
+   - Keyboard navigation (arrow keys, enter to select)
+   - Apply to: note forms, comment forms, decision/commitment descriptions
+   - Graceful degradation when JS disabled
+
+4. **Navigation Polish**
+   - Consistent back links and breadcrumbs
+   - Clear visual hierarchy for notification types
+   - Empty state messaging for notifications and webhooks lists
+
 ---
 
 ## Verification
@@ -928,6 +966,23 @@ end
 5. Check signature validation
 6. Test retry behavior (use invalid URL first)
 
+### Manual Testing - UI Improvements (Phase 7)
+1. **Notification Navigation**
+   - Verify notifications link visible in header/navigation
+   - Check unread badge displays correct count
+   - Confirm badge updates when notifications are read/created
+2. **Webhook Navigation**
+   - Navigate to studio settings
+   - Verify webhooks link is clearly visible
+   - Test breadcrumb navigation from webhook detail back to list
+3. **Mention Autocomplete**
+   - In a note form, type `@` followed by partial handle
+   - Verify dropdown appears with matching users
+   - Test keyboard navigation (up/down arrows)
+   - Select user with Enter key, verify handle inserted
+   - Test mouse click selection
+   - Verify works in comment forms as well
+
 ### Automated Tests
 ```bash
 docker compose exec web bundle exec rails test test/models/event_test.rb
@@ -936,6 +991,10 @@ docker compose exec web bundle exec rails test test/services/mention_parser_test
 docker compose exec web bundle exec rails test test/services/webhook_delivery_service_test.rb
 docker compose exec web bundle exec rails test test/integration/notifications_test.rb
 docker compose exec web bundle exec rails test test/integration/webhooks_test.rb
+
+# Frontend tests for Phase 7
+docker compose exec js npm test -- mention_autocomplete
+docker compose exec js npm test -- notification_badge
 ```
 
 ---
@@ -948,3 +1007,17 @@ docker compose exec web bundle exec rails test test/integration/webhooks_test.rb
 - **Notification grouping**: Collapse similar notifications
 - **Webhook logs retention**: Auto-cleanup old delivery records
 - **Rate limiting**: Prevent webhook spam to external endpoints
+
+---
+
+## Implementation Status
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 1: Event Infrastructure | Completed | Events table, EventService, Trackable concern |
+| Phase 2: Notifications Core | Completed | Notifications models, NotificationService, MentionParser |
+| Phase 3: Notifications UI | Completed | NotificationsController, views (HTML + markdown) |
+| Phase 4: Webhooks Core | Completed | Webhooks models, WebhookDispatcher, WebhookDeliveryService |
+| Phase 5: Webhooks UI | Completed | WebhooksController, management views |
+| Phase 6: Email Delivery | Completed | NotificationMailer, email templates |
+| Phase 7: UI Improvements | Completed | Notification badge, mention autocomplete, navigation links |

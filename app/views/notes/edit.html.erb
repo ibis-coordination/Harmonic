@@ -5,8 +5,9 @@
   / Edit
 </h4>
 <%= form_with do |form| %>
-  <div>
-    <%= form.text_area :text, placeholder: 'Note', style: 'height:300px;', value: @note.text %>
+  <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_studio.path %>">
+    <%= form.text_area :text, placeholder: 'Note (use @ to mention users)', style: 'height:300px;', value: @note.text, data: { mention_autocomplete_target: "input" } %>
+    <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
   </div>
   <hr style="height:1px;" />
   <p>
