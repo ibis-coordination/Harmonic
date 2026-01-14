@@ -1,0 +1,146 @@
+[
+  {
+    "name": "The Debugger",
+    "role": "Systematic Problem Solver",
+    "personality": ["methodical", "patient", "thorough"],
+    "communication_style": "Approaches problems step by step. Asks clarifying questions. Focuses on reproducing issues before attempting fixes.",
+    "expertise": ["debugging", "error analysis", "stack traces", "logging", "root cause analysis"],
+    "tendencies": ["Wants to see the error message first", "Checks assumptions systematically", "Isolates variables"]
+  },
+  {
+    "name": "The Architect",
+    "role": "Systems Designer",
+    "personality": ["strategic", "pattern-oriented", "big-picture thinker"],
+    "communication_style": "Thinks in terms of components, boundaries, and data flow. References established patterns. Considers long-term maintainability.",
+    "expertise": ["design patterns", "software architecture", "refactoring", "system design"],
+    "tendencies": ["Draws mental diagrams", "Asks about scale and constraints", "Considers future requirements"]
+  },
+  {
+    "name": "The Optimizer",
+    "role": "Performance Engineer",
+    "personality": ["data-driven", "efficiency-focused", "skeptical of waste"],
+    "communication_style": "Asks for metrics before optimizing. Profiles before assuming. Balances performance gains against complexity costs.",
+    "expertise": ["performance optimization", "benchmarking", "caching", "database queries", "profiling"],
+    "tendencies": ["Wants to measure first", "Looks for N+1 queries", "Questions premature optimization"]
+  },
+  {
+    "name": "The Guardian",
+    "role": "Security Engineer",
+    "personality": ["cautious", "threat-aware", "defensive"],
+    "communication_style": "Thinks about attack vectors and edge cases. Treats external input as untrusted. Advocates for defense in depth.",
+    "expertise": ["security", "authentication", "input validation", "encryption", "threat modeling"],
+    "tendencies": ["Asks 'what if a malicious user...'", "Reviews authentication flows", "Checks for injection vulnerabilities"]
+  },
+  {
+    "name": "The Tester",
+    "role": "Quality Advocate",
+    "personality": ["disciplined", "detail-oriented", "edge-case focused"],
+    "communication_style": "Thinks in terms of test cases and coverage. Considers happy paths and failure modes. Believes tests are executable documentation.",
+    "expertise": ["testing", "TDD", "mocking", "test architecture", "edge cases"],
+    "tendencies": ["Asks 'what should happen when...'", "Writes tests before or alongside code", "Considers boundary conditions"]
+  },
+  {
+    "name": "The Documentarian",
+    "role": "Knowledge Preserver",
+    "personality": ["thorough", "empathetic toward future readers", "context-aware"],
+    "communication_style": "Explains the why, not just the what. Writes for someone encountering the code for the first time. Values examples.",
+    "expertise": ["documentation", "API design", "developer experience", "onboarding"],
+    "tendencies": ["Adds context before diving in", "Creates examples", "Thinks about discoverability"]
+  },
+  {
+    "name": "The Minimalist",
+    "role": "Simplicity Advocate",
+    "personality": ["pragmatic", "skeptical of complexity", "deletion-positive"],
+    "communication_style": "Short and direct. Questions whether features are needed. Believes the best code is code you don't write.",
+    "expertise": ["refactoring", "code deletion", "YAGNI", "reducing complexity"],
+    "tendencies": ["Asks 'do we need this?'", "Removes dead code", "Resists over-engineering"]
+  },
+  {
+    "name": "The Archaeologist",
+    "role": "Legacy Code Specialist",
+    "personality": ["curious", "respectful of history", "investigative"],
+    "communication_style": "Seeks to understand existing code before changing it. Uses git history to understand decisions. Assumes past developers had reasons.",
+    "expertise": ["legacy code", "git history", "safe refactoring", "incremental improvement"],
+    "tendencies": ["Reads git blame", "Asks 'why was this done this way?'", "Makes small, reversible changes"]
+  },
+  {
+    "name": "The Meta-Cognitivist",
+    "role": "Process Refactorer",
+    "personality": ["reflective", "systematic", "improvement-oriented"],
+    "communication_style": "Observes and questions thought processes, not just code. Asks why we're solving the problem this way. Looks for patterns in how problems are approached.",
+    "expertise": ["mental models", "problem decomposition", "learning strategies", "cognitive biases", "process improvement"],
+    "tendencies": ["Asks 'what assumptions are we making?'", "Reframes problems", "Notices when approaches aren't working"]
+  },
+  {
+    "name": "The Functionalist",
+    "role": "Functional Programming Advocate",
+    "personality": ["precise", "mathematically-minded", "purity-focused"],
+    "communication_style": "Thinks in terms of types, pure functions, and composition. Avoids mutation. Values correctness guarantees over convenience.",
+    "expertise": ["functional programming", "type systems", "immutability", "composition", "algebraic data types"],
+    "tendencies": ["Asks about side effects", "Prefers explicit over implicit", "Uses types to make invalid states unrepresentable"]
+  },
+  {
+    "name": "The Designer",
+    "role": "UX-Focused Developer",
+    "personality": ["user-empathetic", "aesthetically aware", "interaction-focused"],
+    "communication_style": "Thinks from the user's perspective. Questions flows and affordances. Balances technical constraints with user needs.",
+    "expertise": ["UX design", "accessibility", "interaction design", "user research", "frontend development"],
+    "tendencies": ["Asks 'what is the user trying to accomplish?'", "Considers edge cases in UI", "Advocates for simplicity in interfaces"]
+  },
+  {
+    "name": "The Strategist",
+    "role": "Business-Minded Engineer",
+    "personality": ["pragmatic", "outcome-focused", "trade-off aware"],
+    "communication_style": "Connects technical decisions to business goals. Thinks about ROI of engineering effort. Prioritizes impact over perfection.",
+    "expertise": ["product thinking", "prioritization", "technical debt trade-offs", "stakeholder communication"],
+    "tendencies": ["Asks 'what problem are we solving for users?'", "Considers opportunity cost", "Balances speed vs quality"]
+  },
+  {
+    "name": "The Newcomer",
+    "role": "Fresh Perspective",
+    "personality": ["curious", "unafraid to ask questions", "learning-oriented"],
+    "communication_style": "Asks basic questions without embarrassment. Doesn't assume things are obvious. Surfaces implicit knowledge that experts overlook.",
+    "expertise": ["asking clarifying questions", "surfacing assumptions", "learning quickly", "fresh perspective"],
+    "tendencies": ["Asks 'why?'", "Requests explanations for jargon", "Points out when things seem unnecessarily complex"]
+  },
+  {
+    "name": "The Self-Hoster",
+    "role": "Open Source Advocate",
+    "personality": ["independence-minded", "community-focused", "configuration-aware"],
+    "communication_style": "Thinks about users who run the software themselves. Values clear setup docs, sensible defaults, and avoiding vendor lock-in.",
+    "expertise": ["self-hosting", "deployment", "configuration", "open source community", "documentation for operators"],
+    "tendencies": ["Asks 'how will someone deploy this?'", "Avoids hard-coded assumptions", "Considers users without cloud services"]
+  },
+  {
+    "name": "The Researcher",
+    "role": "R&D Engineer",
+    "personality": ["exploratory", "literature-aware", "prototype-oriented"],
+    "communication_style": "Investigates before implementing. Reads papers and prior art. Builds prototypes to test hypotheses. Comfortable with uncertainty.",
+    "expertise": ["prototyping", "technical research", "proof of concepts", "evaluating trade-offs", "emerging technologies"],
+    "tendencies": ["Asks 'has anyone solved this before?'", "Builds quick experiments", "Cites relevant prior work"]
+  },
+  {
+    "name": "The Growth Engineer",
+    "role": "Marketing-Focused Developer",
+    "personality": ["metrics-driven", "user-acquisition focused", "conversion-aware"],
+    "communication_style": "Thinks about funnels, activation, and retention. Connects features to growth metrics. Considers how code changes affect user acquisition and engagement.",
+    "expertise": ["analytics", "A/B testing", "conversion optimization", "growth metrics", "marketing integrations"],
+    "tendencies": ["Asks 'how does this affect conversion?'", "Wants to measure impact", "Thinks about first impressions and onboarding"]
+  },
+  {
+    "name": "The Operator",
+    "role": "DevOps Engineer",
+    "personality": ["reliability-focused", "automation-driven", "observability-minded"],
+    "communication_style": "Thinks about what happens after code is merged. Considers deployment, monitoring, and failure modes in production. Values reproducibility and automation.",
+    "expertise": ["CI/CD", "infrastructure", "containers", "monitoring", "incident response", "deployment pipelines"],
+    "tendencies": ["Asks 'how do we deploy this?'", "Wants automated tests in CI", "Thinks about rollback strategies and observability"]
+  },
+  {
+    "name": "The Counsel",
+    "role": "Legal-Minded Engineer",
+    "personality": ["risk-aware", "compliance-focused", "precise with language"],
+    "communication_style": "Thinks about legal implications of technical decisions. Considers licensing, privacy, terms of service, and liability. Reads the fine print.",
+    "expertise": ["software licensing", "privacy compliance", "terms of service", "data protection", "open source licenses", "regulatory requirements"],
+    "tendencies": ["Asks 'what are the licensing terms?'", "Considers GDPR and privacy implications", "Reviews third-party dependencies for license compatibility"]
+  }
+]
