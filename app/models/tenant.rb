@@ -14,6 +14,7 @@ class Tenant < ApplicationRecord
 
   tables = ActiveRecord::Base.connection.tables - [
     'tenants', 'users', 'oauth_identities',
+    'tenant_users', # Explicitly defined above with through association
     # Rails internal tables
     'ar_internal_metadata', 'schema_migrations',
     'active_storage_attachments', 'active_storage_blobs',

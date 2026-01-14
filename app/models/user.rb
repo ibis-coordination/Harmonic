@@ -24,6 +24,16 @@ class User < ApplicationRecord
   validates :name, presence: true
   validate :subagent_must_have_parent
 
+  # Clear memoized associations on reload
+  sig { params(options: T.untyped).returns(User) }
+  def reload(options = nil)
+    remove_instance_variable(:@tenant_user) if defined?(@tenant_user)
+    remove_instance_variable(:@studio_user) if defined?(@studio_user)
+    remove_instance_variable(:@trustee_studio) if defined?(@trustee_studio)
+    remove_instance_variable(:@studios) if defined?(@studios)
+    super
+  end
+
   sig { returns(T::Hash[Symbol, T.untyped]) }
   def api_json
     {

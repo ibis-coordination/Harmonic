@@ -44,10 +44,7 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
   end
 
   # Show
-  # Note: Users controller has a bug with tenant.users association order
-  # These tests document the expected behavior but skip due to existing bug
   test "show returns a user" do
-    skip "Bug: tenant.users has_many through association order issue"
     get api_path("/#{@user.id}"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -56,7 +53,6 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
   end
 
   test "show returns 404 for non-existent user" do
-    skip "Bug: tenant.users has_many through association order issue"
     get api_path("/nonexistent-uuid"), headers: @headers
     assert_response :not_found
   end
@@ -78,7 +74,6 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
   end
 
   test "create with generate_token returns token" do
-    skip "Bug: generate_token method not implemented in users controller"
     user_params = {
       name: "Subagent User with Token",
       email: "subagent-token-#{SecureRandom.hex(4)}@example.com",
@@ -115,18 +110,17 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
   end
 
   # Update
-  # Note: Users controller has bugs - tests skipped due to existing issues
+  # Note: Controller only allows updating display_name and handle, not name
+  # (name comes from OAuth and shouldn't be user-editable for person users)
   test "update updates own user record" do
-    skip "Bug: tenant.users has_many through association order issue"
-    update_params = { name: "Updated Name" }
+    update_params = { display_name: "Updated Display Name" }
     put api_path("/#{@user.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
     @user.reload
-    assert_equal "Updated Name", @user.name
+    assert_equal "Updated Display Name", @user.display_name
   end
 
   test "update can update subagent user created by current user" do
-    skip "Bug: tenant.users has_many through association order issue"
     # Create a subagent user
     subagent = User.create!(
       email: "subagent-update-#{SecureRandom.hex(4)}@example.com",
@@ -135,24 +129,22 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
       parent_id: @user.id
     )
     @tenant.add_user!(subagent)
-    update_params = { name: "Updated Subagent Name" }
+    update_params = { display_name: "Updated Subagent Name" }
     put api_path("/#{subagent.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
     subagent.reload
-    assert_equal "Updated Subagent Name", subagent.name
+    assert_equal "Updated Subagent Name", subagent.display_name
   end
 
   test "update cannot update other person user" do
-    skip "Bug: tenant.users has_many through association order issue"
     other_user = create_user(email: "other@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    update_params = { name: "Hacked Name" }
+    update_params = { display_name: "Hacked Name" }
     put api_path("/#{other_user.id}"), params: update_params.to_json, headers: @headers
     assert_response :unauthorized
   end
 
   test "update can archive subagent user" do
-    skip "Bug: tenant.users has_many through association order issue"
     subagent = User.create!(
       email: "subagent-archive-#{SecureRandom.hex(4)}@example.com",
       name: "Subagent for Archive",
@@ -163,14 +155,14 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     update_params = { archived: true }
     put api_path("/#{subagent.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
-    subagent.reload
-    assert subagent.archived?
+    # User#tenant_user is memoized, so we need to query fresh
+    tenant_user = TenantUser.find_by(user_id: subagent.id, tenant_id: @tenant.id)
+    assert tenant_user.archived_at.present?, "Subagent should be archived"
   end
 
   # Delete
   test "delete deletes subagent user with no data" do
-    skip "Bug: tenant.users has_many through association order issue"
-    subagent = User.create!(
+        subagent = User.create!(
       email: "subagent-delete-#{SecureRandom.hex(4)}@example.com",
       name: "Subagent for Delete",
       user_type: "subagent",
@@ -184,14 +176,12 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
   end
 
   test "delete returns 404 for non-existent user" do
-    skip "Bug: tenant.users has_many through association order issue"
-    delete api_path("/nonexistent-uuid"), headers: @headers
+        delete api_path("/nonexistent-uuid"), headers: @headers
     assert_response :not_found
   end
 
   test "delete returns unauthorized for other person user" do
-    skip "Bug: tenant.users has_many through association order issue"
-    other_user = create_user(email: "other@example.com", name: "Other User")
+        other_user = create_user(email: "other@example.com", name: "Other User")
     @tenant.add_user!(other_user)
     delete api_path("/#{other_user.id}"), headers: @headers
     assert_response :unauthorized
