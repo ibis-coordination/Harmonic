@@ -257,5 +257,156 @@ class UserTest < ActiveSupport::TestCase
     assert_equal 1, external.count
     assert_equal "github", external.first.provider
   end
+
+  # === Trustee User Tests ===
+
+  test "studio_trustee? returns true for studio's trustee user" do
+    trustee = @studio.trustee_user
+    assert trustee.trustee?
+    assert trustee.studio_trustee?
+  end
+
+  test "studio_trustee? returns false for non-studio trustee" do
+    # A trustee created via TrusteePermission is not a studio trustee
+    trustee = User.create!(
+      email: "#{SecureRandom.uuid}@not-a-real-email.com",
+      name: "Non-studio Trustee",
+      user_type: "trustee",
+    )
+    assert trustee.trustee?
+    assert_not trustee.studio_trustee?
+  end
+
+  test "trustee_studio returns associated studio" do
+    trustee = @studio.trustee_user
+    assert_equal @studio, trustee.trustee_studio
+  end
+
+  test "trustee_studio returns nil for person user" do
+    assert_nil @user.trustee_studio
+  end
+
+  test "trustee_studio returns nil for non-studio trustee" do
+    trustee = User.create!(
+      email: "#{SecureRandom.uuid}@not-a-real-email.com",
+      name: "Non-studio Trustee",
+      user_type: "trustee",
+    )
+    assert_nil trustee.trustee_studio
+  end
+
+  # === Impersonation Authorization Tests ===
+
+  test "can_impersonate? returns true for parent impersonating subagent" do
+    subagent = create_subagent(parent: @user, name: "Test Subagent")
+    @tenant.add_user!(subagent)
+    assert @user.can_impersonate?(subagent)
+  end
+
+  test "can_impersonate? returns false for archived subagent" do
+    subagent = create_subagent(parent: @user, name: "Test Subagent")
+    @tenant.add_user!(subagent)
+    subagent.tenant_user.archive!
+    assert_not @user.can_impersonate?(subagent)
+  end
+
+  test "can_impersonate? returns false for non-parent user" do
+    other_parent = create_user(email: "other_parent_#{SecureRandom.hex(4)}@example.com", name: "Other Parent")
+    subagent = create_subagent(parent: other_parent, name: "Other Subagent")
+    @tenant.add_user!(subagent)
+    assert_not @user.can_impersonate?(subagent)
+  end
+
+  test "can_impersonate? returns true for representative impersonating studio trustee" do
+    @studio.studio_users.find_by(user: @user).add_role!('representative')
+    trustee = @studio.trustee_user
+    assert @user.can_impersonate?(trustee)
+  end
+
+  test "can_impersonate? returns false for non-representative trying to impersonate studio trustee" do
+    trustee = @studio.trustee_user
+    assert_not @user.can_impersonate?(trustee)
+  end
+
+  test "can_impersonate? returns true when any_member_can_represent is enabled" do
+    @studio.settings['any_member_can_represent'] = true
+    @studio.save!
+    trustee = @studio.trustee_user
+    assert @user.can_impersonate?(trustee)
+  end
+
+  test "can_impersonate? returns false for non-member trying to impersonate studio trustee" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+    trustee = @studio.trustee_user
+    assert_not other_user.can_impersonate?(trustee)
+  end
+
+  # === Representation Authorization Tests ===
+
+  test "can_represent? returns true for trustee user representing their own studio" do
+    trustee = @studio.trustee_user
+    assert trustee.can_represent?(@studio)
+  end
+
+  test "can_represent? returns true for user with representative role" do
+    @studio.studio_users.find_by(user: @user).add_role!('representative')
+    assert @user.can_represent?(@studio)
+  end
+
+  test "can_represent? returns false for user without representative role" do
+    assert_not @user.can_represent?(@studio)
+  end
+
+  test "can_represent? returns true when any_member_can_represent is enabled" do
+    @studio.settings['any_member_can_represent'] = true
+    @studio.save!
+    assert @user.can_represent?(@studio)
+  end
+
+  test "can_represent? returns false for non-member of studio" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User For Rep")
+    @tenant.add_user!(other_user)
+    assert_not other_user.can_represent?(@studio)
+  end
+
+  test "can_represent? with user argument delegates to can_impersonate?" do
+    subagent = create_subagent(parent: @user, name: "Test Subagent For Rep")
+    @tenant.add_user!(subagent)
+    assert @user.can_represent?(subagent)
+    assert_equal @user.can_impersonate?(subagent), @user.can_represent?(subagent)
+  end
+
+  # === Subagent Validation Tests ===
+
+  test "subagent must have parent_id" do
+    subagent = User.new(
+      email: "subagent@example.com",
+      name: "Subagent Without Parent",
+      user_type: "subagent",
+      parent_id: nil,
+    )
+    assert_not subagent.valid?
+    assert_includes subagent.errors[:parent_id], "must be set for subagent users"
+  end
+
+  test "person cannot have parent_id" do
+    person = User.new(
+      email: "person@example.com",
+      name: "Person With Parent",
+      user_type: "person",
+      parent_id: @user.id,
+    )
+    assert_not person.valid?
+    assert_includes person.errors[:parent_id], "can only be set for subagent users"
+  end
+
+  test "user cannot be their own parent" do
+    # Need to save first since the validation checks persisted?
+    test_user = create_user(email: "selfparent_#{SecureRandom.hex(4)}@example.com", name: "Self Parent Test")
+    test_user.parent_id = test_user.id
+    assert_not test_user.valid?
+    assert_includes test_user.errors[:parent_id], "user cannot be its own parent"
+  end
 end
 
