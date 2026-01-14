@@ -40,7 +40,7 @@ Configured via `AUTH_MODE` environment variable:
 
 | Model | Purpose |
 |-------|---------|
-| `User` | User accounts (types: person, simulated, trustee) |
+| `User` | User accounts (types: person, subagent, trustee). See [docs/USER_TYPES.md](docs/USER_TYPES.md) |
 | `Tenant` | A community/instance of the app |
 | `Studio` | Workspaces/groups within a tenant |
 | `Note` | Posts/content items |
