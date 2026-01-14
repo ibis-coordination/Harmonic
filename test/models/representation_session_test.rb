@@ -1,0 +1,513 @@
+require "test_helper"
+
+class RepresentationSessionTest < ActiveSupport::TestCase
+  def setup
+    @tenant = create_tenant(subdomain: "rep-session-#{SecureRandom.hex(4)}")
+    @user = create_user(email: "rep_#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(@user)
+    @studio = create_studio(tenant: @tenant, created_by: @user, handle: "rep-studio-#{SecureRandom.hex(4)}")
+    @studio.add_user!(@user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+  end
+
+  # === Validation Tests ===
+
+  test "representation session requires confirmed_understanding to be true" do
+    session = RepresentationSession.new(
+      tenant: @tenant,
+      studio: @studio,
+      representative_user: @user,
+      trustee_user: @studio.trustee_user,
+      confirmed_understanding: false,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+    assert_not session.valid?
+    assert_includes session.errors[:confirmed_understanding], "is not included in the list"
+  end
+
+  test "representation session requires began_at" do
+    session = RepresentationSession.new(
+      tenant: @tenant,
+      studio: @studio,
+      representative_user: @user,
+      trustee_user: @studio.trustee_user,
+      confirmed_understanding: true,
+      began_at: nil,
+      activity_log: { 'activity' => [] },
+    )
+    assert_not session.valid?
+    assert_includes session.errors[:began_at], "can't be blank"
+  end
+
+  test "representation session requires studio" do
+    session = RepresentationSession.new(
+      tenant: @tenant,
+      studio: nil,
+      representative_user: @user,
+      trustee_user: @studio.trustee_user,
+      confirmed_understanding: true,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+    assert_not session.valid?
+    assert_includes session.errors[:studio], "must exist"
+  end
+
+  test "representation session can be created with valid attributes" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert session.persisted?
+    assert_equal @user, session.representative_user
+    assert_equal @studio.trustee_user, session.trustee_user
+  end
+
+  # === Lifecycle Tests ===
+
+  test "begin! raises if confirmed_understanding is false" do
+    session = RepresentationSession.new(
+      tenant: @tenant,
+      studio: @studio,
+      representative_user: @user,
+      trustee_user: @studio.trustee_user,
+      confirmed_understanding: false,
+      activity_log: { 'activity' => [] },
+    )
+    assert_raises RuntimeError, "Must confirm understanding" do
+      session.begin!
+    end
+  end
+
+  test "begin! sets began_at and initializes activity_log" do
+    session = RepresentationSession.new(
+      tenant: @tenant,
+      studio: @studio,
+      representative_user: @user,
+      trustee_user: @studio.trustee_user,
+      confirmed_understanding: true,
+      activity_log: {},
+    )
+    session.begin!
+    assert session.began_at.present?
+    assert_equal [], session.activity_log['activity']
+  end
+
+  test "active? returns true when ended_at is nil" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert session.active?
+  end
+
+  test "active? returns false when ended_at is set" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    session.end!
+    assert_not session.active?
+  end
+
+  test "end! sets ended_at" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_nil session.ended_at
+    session.end!
+    assert session.ended_at.present?
+  end
+
+  test "end! is idempotent" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    session.end!
+    first_ended_at = session.ended_at
+    session.end!
+    assert_equal first_ended_at, session.ended_at
+  end
+
+  test "ended? returns true after end! is called" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_not session.ended?
+    session.end!
+    assert session.ended?
+  end
+
+  test "expired? returns true after 24 hours" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+      began_at: 25.hours.ago,
+    )
+    assert session.expired?
+  end
+
+  test "expired? returns false within 24 hours" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+      began_at: 23.hours.ago,
+    )
+    assert_not session.expired?
+  end
+
+  test "expired? returns true when session is ended" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    session.end!
+    assert session.expired?
+  end
+
+  # === elapsed_time Tests ===
+
+  test "elapsed_time returns seconds since began_at for active session" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+      began_at: 1.hour.ago,
+    )
+    elapsed = session.elapsed_time
+    assert_in_delta 3600, elapsed, 5 # within 5 seconds
+  end
+
+  test "elapsed_time returns duration for ended session" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+      began_at: 2.hours.ago,
+    )
+    travel_to(1.hour.ago) do
+      session.end!
+    end
+    elapsed = session.elapsed_time
+    assert_in_delta 3600, elapsed, 5 # 1 hour duration
+  end
+
+  # === Activity Recording Tests ===
+
+  test "validate_semantic_event! raises for invalid event type" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_raises RuntimeError do
+      session.validate_semantic_event!({
+        timestamp: Time.current.iso8601,
+        event_type: 'invalid',
+        studio_id: @studio.id,
+        main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
+        sub_resources: [],
+      })
+    end
+  end
+
+  test "validate_semantic_event! raises for invalid main resource type" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_raises RuntimeError do
+      session.validate_semantic_event!({
+        timestamp: Time.current.iso8601,
+        event_type: 'create',
+        studio_id: @studio.id,
+        main_resource: { type: 'InvalidType', id: '123', truncated_id: 'abc123' },
+        sub_resources: [],
+      })
+    end
+  end
+
+  test "validate_semantic_event! accepts valid event" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    # Should not raise
+    session.validate_semantic_event!({
+      timestamp: Time.current.iso8601,
+      event_type: 'create',
+      studio_id: @studio.id,
+      main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
+      sub_resources: [],
+    })
+  end
+
+  test "record_activity! raises if session has ended" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    session.end!
+
+    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    assert_raises RuntimeError, "Session has ended" do
+      session.record_activity!(
+        request: mock_request,
+        semantic_event: {
+          timestamp: Time.current.iso8601,
+          event_type: 'create',
+          studio_id: @studio.id,
+          main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
+          sub_resources: [],
+        },
+      )
+    end
+  end
+
+  test "record_activity! raises if session has expired" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+      began_at: 25.hours.ago,
+    )
+
+    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    assert_raises RuntimeError, "Session has expired" do
+      session.record_activity!(
+        request: mock_request,
+        semantic_event: {
+          timestamp: Time.current.iso8601,
+          event_type: 'create',
+          studio_id: @studio.id,
+          main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
+          sub_resources: [],
+        },
+      )
+    end
+  end
+
+  test "record_activity! adds activity to log and creates association" do
+    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'create',
+        studio_id: @studio.id,
+        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    assert_equal 1, session.activity_log['activity'].count
+    assert_equal 1, session.representation_session_associations.count
+    association = session.representation_session_associations.first
+    assert_equal 'Note', association.resource_type
+    assert_equal note.id, association.resource_id
+  end
+
+  # === Helper Method Tests ===
+
+  test "title returns truncated_id based title" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_match(/Representation Session \w+/, session.title)
+  end
+
+  test "path returns studio-scoped path" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_equal "/studios/#{@studio.handle}/r/#{session.truncated_id}", session.path
+  end
+
+  test "url returns full URL with tenant subdomain" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_match(/#{@tenant.subdomain}.*#{session.truncated_id}/, session.url)
+  end
+
+  test "action_count returns 0 for session with no activity" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_equal 0, session.action_count
+  end
+
+  test "action_count returns count of activities" do
+    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'create',
+        studio_id: @studio.id,
+        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    assert_equal 1, session.action_count
+  end
+
+  # === event_type_to_verb_phrase Tests ===
+
+  test "event_type_to_verb_phrase returns correct phrases" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+
+    assert_equal 'created', session.event_type_to_verb_phrase('create')
+    assert_equal 'updated', session.event_type_to_verb_phrase('update')
+    assert_equal 'confirmed reading', session.event_type_to_verb_phrase('confirm')
+    assert_equal 'added an option to', session.event_type_to_verb_phrase('add_option')
+    assert_equal 'voted on', session.event_type_to_verb_phrase('vote')
+    assert_equal 'joined', session.event_type_to_verb_phrase('commit')
+  end
+
+  test "event_type_to_verb_phrase raises for unknown event type" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+    assert_raises RuntimeError do
+      session.event_type_to_verb_phrase('unknown')
+    end
+  end
+
+  # === human_readable_activity_log Tests ===
+
+  test "human_readable_activity_log deduplicates consecutive votes on same decision" do
+    decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/decisions')
+
+    # Record two votes on the same decision
+    2.times do
+      session.record_activity!(
+        request: mock_request,
+        semantic_event: {
+          timestamp: Time.current.iso8601,
+          event_type: 'vote',
+          studio_id: @studio.id,
+          main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
+          sub_resources: [],
+        },
+      )
+    end
+
+    # Should only show 1 vote (the last one)
+    assert_equal 2, session.activity_log['activity'].count
+    assert_equal 1, session.human_readable_activity_log.count
+    assert_equal 'voted on', session.human_readable_activity_log.first[:verb_phrase]
+  end
+
+  test "human_readable_activity_log shows all different actions" do
+    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/test')
+
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'create',
+        studio_id: @studio.id,
+        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'vote',
+        studio_id: @studio.id,
+        main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    log = session.human_readable_activity_log
+    assert_equal 2, log.count
+    assert_equal 'created', log[0][:verb_phrase]
+    assert_equal 'voted on', log[1][:verb_phrase]
+  end
+
+  # === API JSON Test ===
+
+  test "api_json returns expected fields" do
+    session = create_representation_session(
+      tenant: @tenant,
+      studio: @studio,
+      representative: @user,
+    )
+
+    json = session.api_json
+    assert_equal session.id, json[:id]
+    assert_equal true, json[:confirmed_understanding]
+    assert json[:began_at].present?
+    assert_nil json[:ended_at]
+    assert json[:elapsed_time].is_a?(Numeric)
+    assert json[:activity_log].is_a?(Hash)
+    assert_equal @studio.id, json[:studio_id]
+    assert_equal @user.id, json[:representative_user_id]
+    assert_equal @studio.trustee_user.id, json[:trustee_user_id]
+  end
+end
