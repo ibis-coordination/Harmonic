@@ -16,7 +16,7 @@ module Api::V1
       # Only subagent users can be created via the API
       begin
         user = api_helper.create_subagent
-        token = generate_token(user) if params[:generate_token]
+        token = api_helper.generate_token(user) if params[:generate_token]
         response = user.api_json
         response[:token] = token.token if token
         render json: response
@@ -31,16 +31,17 @@ module Api::V1
       return render json: { error: 'User not found' }, status: 404 unless user
       return render json: { error: 'Unauthorized' }, status: 401 unless current_user.can_edit?(user)
       updatable_attributes.each do |attribute|
-        user[attribute] = params[attribute] if params.has_key?(attribute)
+        # Use public_send since display_name/handle are delegated to tenant_user
+        user.public_send("#{attribute}=", params[attribute]) if params.has_key?(attribute)
       end
       if params[:archived] == true && current_user != user
         user.archive!
       elsif params[:archived] == false && current_user != user
         user.unarchive!
       end
-      if user.changed?
-        user.save!
-      end
+      # Save user if changed, and always save tenant_user since display_name/handle are stored there
+      user.save! if user.changed?
+      user.save_tenant_user! if user.tenant_user&.changed?
       render json: user.api_json
     end
 
