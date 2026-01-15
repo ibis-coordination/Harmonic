@@ -1,0 +1,51 @@
+services:
+  harmonic-agent:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - HOST=0.0.0.0
+      - HARMONIC_BASE_URL=${HARMONIC_BASE_URL}
+      - HARMONIC_API_TOKEN=${HARMONIC_API_TOKEN}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - AI_PROVIDER=${AI_PROVIDER:-claude}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AI_MODEL=${AI_MODEL:-claude-sonnet-4-20250514}
+      - MAX_TURNS=${MAX_TURNS:-20}
+      - MAX_TOKENS_PER_SESSION=${MAX_TOKENS_PER_SESSION:-100000}
+      - SESSION_TIMEOUT_MS=${SESSION_TIMEOUT_MS:-300000}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Development mode with hot reload
+  harmonic-agent-dev:
+    build:
+      context: .
+      target: builder
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./src:/app/src:ro
+    environment:
+      - PORT=3001
+      - HOST=0.0.0.0
+      - HARMONIC_BASE_URL=${HARMONIC_BASE_URL}
+      - HARMONIC_API_TOKEN=${HARMONIC_API_TOKEN}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - AI_PROVIDER=${AI_PROVIDER:-claude}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AI_MODEL=${AI_MODEL:-claude-sonnet-4-20250514}
+      - MAX_TURNS=${MAX_TURNS:-20}
+      - MAX_TOKENS_PER_SESSION=${MAX_TOKENS_PER_SESSION:-100000}
+      - SESSION_TIMEOUT_MS=${SESSION_TIMEOUT_MS:-300000}
+    command: npm run dev
+    profiles:
+      - dev
