@@ -51,6 +51,10 @@ class HonorSystemSessionsController < ApplicationController
 
   private
 
+  def is_auth_controller?
+    true
+  end
+
   def check_honor_system_auth_enabled
     if ENV['AUTH_MODE'] != 'honor_system'
       raise 'Honor System auth is not enabled'

@@ -26,6 +26,11 @@ class Tenant < ApplicationRecord
 
   sig { params(subdomain: String).returns(Tenant) }
   def self.scope_thread_to_tenant(subdomain:)
+    # In single-tenant mode, treat empty/blank subdomain as PRIMARY_SUBDOMAIN
+    if single_tenant_mode? && subdomain.blank?
+      subdomain = single_tenant_subdomain.to_s
+    end
+
     if subdomain == ENV['AUTH_SUBDOMAIN']
       tenant = Tenant.new(
         id: SecureRandom.uuid,
@@ -249,12 +254,21 @@ class Tenant < ApplicationRecord
 
   sig { returns(String) }
   def domain
-    "#{subdomain}.#{ENV['HOSTNAME']}"
+    if self.class.single_tenant_mode?
+      ENV['HOSTNAME'].to_s
+    else
+      "#{subdomain}.#{ENV['HOSTNAME']}"
+    end
   end
 
   sig { returns(String) }
   def url
-    "https://#{domain}"
+    if self.class.single_tenant_mode?
+      protocol = ENV['HOSTNAME'].to_s.include?('localhost') ? 'http' : 'https'
+      "#{protocol}://#{ENV['HOSTNAME']}"
+    else
+      "https://#{domain}"
+    end
   end
 
   sig { returns(T::Boolean) }
