@@ -6,7 +6,7 @@ class NotesController < ApplicationController
   def new
     @page_title = "Note"
     @page_description = "Make a note for your team"
-    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_studio.tempo)
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
     @note = Note.new(
       title: params[:title],
     )
@@ -20,19 +20,19 @@ class NotesController < ApplicationController
       # deadline: Cycle.new_from_end_of_cycle_option(
       #   end_of_cycle: params[:end_of_cycle],
       #   tenant: current_tenant,
-      #   studio: current_studio,
+      #   studio: current_superagent,
       # ).end_date,
       created_by: current_user,
     )
     begin
       ActiveRecord::Base.transaction do
         @note.save!
-        if params[:files] && @current_tenant.allow_file_uploads? && @current_studio.allow_file_uploads?
+        if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
           @note.attach!(params[:files])
         end
         @current_note = @note
-        if params[:pinned] == '1' && current_studio.id != current_tenant.main_studio_id
-          current_studio.pin_item!(@note)
+        if params[:pinned] == '1' && current_superagent.id != current_tenant.main_studio_id
+          current_superagent.pin_item!(@note)
         end
         if current_representation_session
           current_representation_session.record_activity!(
@@ -40,7 +40,7 @@ class NotesController < ApplicationController
             semantic_event: {
               timestamp: Time.current,
               event_type: 'create',
-              studio_id: current_studio.id,
+              superagent_id: current_superagent.id,
               main_resource: {
                 type: 'Note',
                 id: @note.id,
@@ -56,7 +56,7 @@ class NotesController < ApplicationController
       e.record.errors.full_messages.each do |msg|
         flash.now[:alert] = msg
       end
-      @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_studio.tempo)
+      @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
       @note = Note.new(
         title: model_params[:title],
         text: model_params[:text],
@@ -146,7 +146,7 @@ class NotesController < ApplicationController
           semantic_event: {
             timestamp: Time.current,
             event_type: 'confirm',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Note',
               id: @note.id,
@@ -235,7 +235,7 @@ class NotesController < ApplicationController
     return render '404', status: 404 unless @note
     @page_title = "Actions | Note Settings"
     actions = []
-    if @note.is_pinned?(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+    if @note.is_pinned?(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
       actions << { name: 'unpin_note', params_string: '()' }
     else
       actions << { name: 'pin_note', params_string: '()' }
@@ -251,7 +251,7 @@ class NotesController < ApplicationController
     @note = current_note
     return render '404', status: 404 unless @note
     begin
-      @note.pin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      @note.pin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
       render_action_success({
         action_name: 'pin_note',
         resource: @note,
@@ -274,7 +274,7 @@ class NotesController < ApplicationController
     @note = current_note
     return render '404', status: 404 unless @note
     begin
-      @note.unpin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      @note.unpin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
       render_action_success({
         action_name: 'unpin_note',
         resource: @note,

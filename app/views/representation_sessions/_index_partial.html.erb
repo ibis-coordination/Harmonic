@@ -3,7 +3,7 @@
 <div class="active-sessions">
   <h<%= header_level %>>Active Sessions</h<%= header_level %>>
   <p>
-    <%= @current_studio.name %> is currently being represented in <%= @active_sessions.count %> active session<%= @active_sessions.count == 1 ? '' : 's' %>.
+    <%= @current_superagent.name %> is currently being represented in <%= @active_sessions.count %> active session<%= @active_sessions.count == 1 ? '' : 's' %>.
   </p>
   <ul>
     <% @active_sessions.each do |session| %>
@@ -17,26 +17,26 @@
 <hr/>
 <% end %>
 
-<% if @current_user.studio_user.can_represent? %>
+<% if @current_user.superagent_member.can_represent? %>
   <p>
-    <a href="<%= @current_studio.path %>/represent">
+    <a href="<%= @current_superagent.path %>/represent">
       <button>New Session</button>
     </a>
   </p>
 <% end %>
 
-<p>Representation allows this studio (<%= @current_studio.name %>) to act as an individual member of other studios.</p>
+<p>Representation allows this studio (<%= @current_superagent.name %>) to act as an individual member of other studios.</p>
 
-<% if @current_studio.trustee_user.studios.empty? %>
+<% if @current_superagent.trustee_user.superagents.empty? %>
   <p>
-    <%= @current_studio.name %> is not currently a member of any other studios.
+    <%= @current_superagent.name %> is not currently a member of any other studios.
   </p>
 <% else %>
   <p>
-    <%= @current_studio.name %> is currently a member of the following studios:
+    <%= @current_superagent.name %> is currently a member of the following studios:
   </p>
   <ul>
-    <% @current_studio.trustee_user.studios.each do |studio| %>
+    <% @current_superagent.trustee_user.superagents.each do |studio| %>
       <li>
         <%= link_to studio.name, studio.path %>
       </li>
@@ -47,12 +47,12 @@
 
 <h<%= header_level %>>Representatives</h<%= header_level %>>
 
-<p>Representatives act on behalf of <%= @current_studio.name %> through sessions during which their actions are recorded and made visible here.</p>
+<p>Representatives act on behalf of <%= @current_superagent.name %> through sessions during which their actions are recorded and made visible here.</p>
 
-<% if @current_studio.any_member_can_represent? %>
-  <p><%= @current_studio.name %> is configured to allow any member to represent the studio.</p>
+<% if @current_superagent.any_member_can_represent? %>
+  <p><%= @current_superagent.name %> is configured to allow any member to represent the studio.</p>
 <% else %>
-  <p><%= @current_studio.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.</p>
+  <p><%= @current_superagent.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.</p>
 
   <ul>
     <% @representatives.each do |representative| %>

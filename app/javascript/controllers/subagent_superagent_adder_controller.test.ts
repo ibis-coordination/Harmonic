@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest"
 import { Application } from "@hotwired/stimulus"
-import SubagentStudioAdderController from "./subagent_studio_adder_controller"
+import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
 
-describe("SubagentStudioAdderController", () => {
+describe("SubagentSuperagentAdderController", () => {
   let application: Application
 
   beforeEach(() => {
@@ -14,20 +14,20 @@ describe("SubagentStudioAdderController", () => {
 
     // Set up DOM
     document.body.innerHTML = `
-      <div data-controller="subagent-studio-adder" data-subagent-studio-adder-remove-url-value="/u/subagent1/remove_from_studio">
-        <ul class="studio-membership-list" data-subagent-studio-adder-target="studioList">
-          <li class="studio-item" data-studio-id="1">
+      <div data-controller="subagent-superagent-adder" data-subagent-superagent-adder-remove-url-value="/u/subagent1/remove_from_studio">
+        <ul class="studio-membership-list" data-subagent-superagent-adder-target="superagentList">
+          <li class="studio-item" data-superagent-id="1">
             <a href="/studios/studio1">Studio One</a>
             <button type="button" class="button-small button-danger"
-                    data-action="subagent-studio-adder#remove"
-                    data-studio-id="1"
-                    data-studio-name="Studio One">
+                    data-action="subagent-superagent-adder#remove"
+                    data-superagent-id="1"
+                    data-superagent-name="Studio One">
               Remove from studio
             </button>
           </li>
         </ul>
-        <form data-subagent-studio-adder-target="form" data-action="submit->subagent-studio-adder#add" action="/u/subagent1/add_to_studio">
-          <select data-subagent-studio-adder-target="select">
+        <form data-subagent-superagent-adder-target="form" data-action="submit->subagent-superagent-adder#add" action="/u/subagent1/add_to_studio">
+          <select data-subagent-superagent-adder-target="select">
             <option value="">Add to studio...</option>
             <option value="2">Studio Two</option>
           </select>
@@ -37,7 +37,7 @@ describe("SubagentStudioAdderController", () => {
     `
 
     application = Application.start()
-    application.register("subagent-studio-adder", SubagentStudioAdderController)
+    application.register("subagent-superagent-adder", SubagentSuperagentAdderController)
   })
 
   afterEach(() => {
@@ -52,9 +52,9 @@ describe("SubagentStudioAdderController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          studio_id: 2,
-          studio_name: "Studio Two",
-          studio_path: "/studios/studio2",
+          superagent_id: 2,
+          superagent_name: "Studio Two",
+          superagent_path: "/studios/studio2",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -74,7 +74,7 @@ describe("SubagentStudioAdderController", () => {
             "X-CSRF-Token": "test-csrf-token",
             "Accept": "application/json",
           },
-          body: JSON.stringify({ studio_id: "2" }),
+          body: JSON.stringify({ superagent_id: "2" }),
         })
       )
     })
@@ -83,9 +83,9 @@ describe("SubagentStudioAdderController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          studio_id: 2,
-          studio_name: "Studio Two",
-          studio_path: "/studios/studio2",
+          superagent_id: 2,
+          superagent_name: "Studio Two",
+          superagent_path: "/studios/studio2",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -108,9 +108,9 @@ describe("SubagentStudioAdderController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          studio_id: 2,
-          studio_name: "Studio Two",
-          studio_path: "/studios/studio2",
+          superagent_id: 2,
+          superagent_name: "Studio Two",
+          superagent_path: "/studios/studio2",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -142,7 +142,7 @@ describe("SubagentStudioAdderController", () => {
     it("shows confirmation dialog before removing", () => {
       const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false)
 
-      const button = document.querySelector("button[data-action='subagent-studio-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
       expect(confirmSpy).toHaveBeenCalledWith("Remove this subagent from Studio One?")
@@ -154,13 +154,13 @@ describe("SubagentStudioAdderController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          studio_id: 1,
-          studio_name: "Studio One",
+          superagent_id: 1,
+          superagent_name: "Studio One",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-studio-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
       expect(fetch).toHaveBeenCalledWith("/u/subagent1/remove_from_studio", {
@@ -170,7 +170,7 @@ describe("SubagentStudioAdderController", () => {
           "X-CSRF-Token": "test-csrf-token",
           "Accept": "application/json",
         },
-        body: JSON.stringify({ studio_id: "1" }),
+        body: JSON.stringify({ superagent_id: "1" }),
       })
     })
 
@@ -179,17 +179,17 @@ describe("SubagentStudioAdderController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          studio_id: 1,
-          studio_name: "Studio One",
+          superagent_id: 1,
+          superagent_name: "Studio One",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-studio-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
       await vi.waitFor(() => {
-        const item = document.querySelector(".studio-item[data-studio-id='1']")
+        const item = document.querySelector(".studio-item[data-superagent-id='1']")
         expect(item).toBeNull()
       })
     })
@@ -199,13 +199,13 @@ describe("SubagentStudioAdderController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          studio_id: 1,
-          studio_name: "Studio One",
+          superagent_id: 1,
+          superagent_name: "Studio One",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-studio-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
       await vi.waitFor(() => {
@@ -220,13 +220,13 @@ describe("SubagentStudioAdderController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          studio_id: 1,
-          studio_name: "Studio One",
+          superagent_id: 1,
+          superagent_name: "Studio One",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-studio-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
       await vi.waitFor(() => {

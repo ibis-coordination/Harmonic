@@ -6,13 +6,13 @@ class Link < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :studio
-  before_validation :set_studio_id
+  belongs_to :superagent
+  before_validation :set_superagent_id
 
   belongs_to :from_linkable, polymorphic: true
   belongs_to :to_linkable, polymorphic: true
 
-  validate :validate_tenant_and_studio_id
+  validate :validate_tenant_and_superagent_id
   validate :validate_linkables_are_different
 
   sig { void }
@@ -27,29 +27,29 @@ class Link < ApplicationRecord
   end
 
   sig { void }
-  def set_studio_id
-    return unless self.studio_id.nil?
-    from_studio_id = T.unsafe(from_linkable).studio_id
-    to_studio_id = T.unsafe(to_linkable).studio_id
-    if from_studio_id != to_studio_id
-      errors.add(:base, "Cannot link objects from different studios")
+  def set_superagent_id
+    return unless self.superagent_id.nil?
+    from_superagent_id = T.unsafe(from_linkable).superagent_id
+    to_superagent_id = T.unsafe(to_linkable).superagent_id
+    if from_superagent_id != to_superagent_id
+      errors.add(:base, "Cannot link objects from different superagents")
     end
-    self.studio_id = from_studio_id
+    self.superagent_id = from_superagent_id
   end
 
   sig { void }
-  def validate_tenant_and_studio_id
+  def validate_tenant_and_superagent_id
     if T.unsafe(from_linkable).tenant_id != tenant_id
       errors.add(:tenant_id, "must match the tenant of the from_linkable")
     end
-    if T.unsafe(from_linkable).studio_id != studio_id
-      errors.add(:studio_id, "must match the studio of the from_linkable")
+    if T.unsafe(from_linkable).superagent_id != superagent_id
+      errors.add(:superagent_id, "must match the superagent of the from_linkable")
     end
     if T.unsafe(to_linkable).tenant_id != tenant_id
       errors.add(:tenant_id, "must match the tenant of the to_linkable")
     end
-    if T.unsafe(to_linkable).studio_id != studio_id
-      errors.add(:studio_id, "must match the studio of the to_linkable")
+    if T.unsafe(to_linkable).superagent_id != superagent_id
+      errors.add(:superagent_id, "must match the superagent of the to_linkable")
     end
   end
 
@@ -64,15 +64,15 @@ class Link < ApplicationRecord
     end
   end
 
-  sig { params(start_date: T.nilable(Time), end_date: T.nilable(Time), tenant_id: T.nilable(String), studio_id: T.nilable(String), limit: Integer).returns(T::Array[T.untyped]) }
-  def self.backlink_leaderboard(start_date: nil, end_date: nil, tenant_id: nil, studio_id: nil, limit: 10)
+  sig { params(start_date: T.nilable(Time), end_date: T.nilable(Time), tenant_id: T.nilable(String), superagent_id: T.nilable(String), limit: Integer).returns(T::Array[T.untyped]) }
+  def self.backlink_leaderboard(start_date: nil, end_date: nil, tenant_id: nil, superagent_id: nil, limit: 10)
     tenant_id ||= Tenant.current_id
-    studio_id ||= Studio.current_id
+    superagent_id ||= Superagent.current_id
     if tenant_id.nil?
       raise "Cannot call backlink_leaderboard without tenant_id"
     end
-    if studio_id.nil?
-      raise "Cannot call backlink_leaderboard without studio_id"
+    if superagent_id.nil?
+      raise "Cannot call backlink_leaderboard without superagent_id"
     end
     start_date = Time.current - 100.years if start_date.nil?
     end_date = Time.current if end_date.nil?
@@ -86,15 +86,15 @@ class Link < ApplicationRecord
         links l
       LEFT JOIN
         notes n ON l.to_linkable_type = 'Note' AND l.tenant_id = n.tenant_id AND
-                   l.studio_id = n.studio_id AND l.to_linkable_id = n.id
+                   l.superagent_id = n.superagent_id AND l.to_linkable_id = n.id
       LEFT JOIN
         decisions d ON l.to_linkable_type = 'Decision' AND l.tenant_id = d.tenant_id AND
-                       l.studio_id = d.studio_id AND l.to_linkable_id = d.id
+                       l.superagent_id = d.superagent_id AND l.to_linkable_id = d.id
       LEFT JOIN
         commitments c ON l.to_linkable_type = 'Commitment' AND l.tenant_id = c.tenant_id AND
-                         l.studio_id = c.studio_id AND l.to_linkable_id = c.id
+                         l.superagent_id = c.superagent_id AND l.to_linkable_id = c.id
       WHERE
-        l.tenant_id = '#{tenant_id}' AND l.studio_id = '#{studio_id}' AND
+        l.tenant_id = '#{tenant_id}' AND l.superagent_id = '#{superagent_id}' AND
         l.created_at >= '#{start_date}' AND l.created_at <= '#{end_date}'
       GROUP BY
         l.to_linkable_id, l.to_linkable_type, n.title, d.question, c.title

@@ -7,7 +7,7 @@ module Api::V1
         Cycle.new(
           name: name,
           tenant: @current_tenant,
-          studio: @current_studio,
+          superagent: @current_superagent,
           current_user: @current_user,
           params: {
             filters: params[:filters],
@@ -19,7 +19,7 @@ module Api::V1
     end
 
     def show
-      cycle = Cycle.new(name: params[:id], tenant: @current_tenant, studio: @current_studio)
+      cycle = Cycle.new(name: params[:id], tenant: @current_tenant, superagent: @current_superagent)
       render json: cycle.api_json(include: ['notes', 'decisions', 'commitments', 'backlinks'])
     end
 

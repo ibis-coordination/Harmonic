@@ -34,7 +34,7 @@
   <p><em>No actions were performed during this session.</em></p>
 <% else %>
   <p>
-    <%= @representation_session.representative_user.display_name %> performed the following actions on behalf of <%= @representation_session.studio.name %>:
+    <%= @representation_session.representative_user.display_name %> performed the following actions on behalf of <%= @representation_session.superagent.name %>:
   </p>
   <table>
     <thead>
@@ -49,7 +49,7 @@
     <% @representation_session.human_readable_activity_log.each.with_index do |activity_item, i| %>
       <tr>
         <td><%= i + 1 %></td>
-        <td><%= activity_item[:happened_at].to_time.in_time_zone(@current_studio.timezone.name).strftime('%H:%M %Z') %></td>
+        <td><%= activity_item[:happened_at].to_time.in_time_zone(@current_superagent.timezone.name).strftime('%H:%M %Z') %></td>
         <td><%= activity_item[:verb_phrase] %></td>
         <td>
           <a href="<%= activity_item[:main_resource].path %>">

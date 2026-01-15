@@ -12,13 +12,13 @@ class MentionParserTest < ActiveSupport::TestCase
   end
 
   test "parse returns empty array when no mentions" do
-    tenant, _studio, _user = create_tenant_studio_user
+    tenant, _superagent, _user = create_tenant_superagent_user
     assert_equal [], MentionParser.parse("Hello world", tenant_id: tenant.id)
   end
 
   test "parse returns users for valid mentions" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Set a known handle for the user
     user.tenant_user.update!(handle: "alice")
@@ -30,8 +30,8 @@ class MentionParserTest < ActiveSupport::TestCase
   end
 
   test "parse handles multiple mentions" do
-    tenant, studio, user1 = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user1 = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     user1.tenant_user.update!(handle: "alice")
 
@@ -47,8 +47,8 @@ class MentionParserTest < ActiveSupport::TestCase
   end
 
   test "parse ignores duplicate mentions" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     user.tenant_user.update!(handle: "alice")
 
@@ -59,8 +59,8 @@ class MentionParserTest < ActiveSupport::TestCase
   end
 
   test "parse ignores mentions that don't match users" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     user.tenant_user.update!(handle: "alice")
 

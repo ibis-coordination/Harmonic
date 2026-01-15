@@ -2,7 +2,7 @@
 
 <p>Webhooks allow external services to receive real-time notifications when events occur in this studio.</p>
 
-<form action="<%= "/studios/#{@current_studio.handle}/settings/webhooks/new/actions/create_webhook" %>" method="post" style="max-width:600px;">
+<form action="<%= "/studios/#{@current_superagent.handle}/settings/webhooks/new/actions/create_webhook" %>" method="post" style="max-width:600px;">
   <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
 
   <div class="form-group">
@@ -38,7 +38,7 @@
 
   <div class="form-group" style="margin-top:1.5rem;">
     <button type="submit" class="btn btn-primary">Create Webhook</button>
-    <a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks" %>" class="btn">Cancel</a>
+    <a href="<%= "/studios/#{@current_superagent.handle}/settings/webhooks" %>" class="btn">Cancel</a>
   </div>
 </form>
 
@@ -59,4 +59,4 @@
 </ul>
 
 <hr>
-<p><a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks" %>">&larr; Back to Webhooks</a></p>
+<p><a href="<%= "/studios/#{@current_superagent.handle}/settings/webhooks" %>">&larr; Back to Webhooks</a></p>

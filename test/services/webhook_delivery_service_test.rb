@@ -3,8 +3,8 @@ require "webmock/minitest"
 
 class WebhookDeliveryServiceTest < ActiveSupport::TestCase
   setup do
-    @tenant, @studio, @user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    @tenant, @superagent, @user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
 
     @webhook = Webhook.create!(
       tenant: @tenant,
@@ -16,7 +16,7 @@ class WebhookDeliveryServiceTest < ActiveSupport::TestCase
 
     @note = create_note(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
     )
 

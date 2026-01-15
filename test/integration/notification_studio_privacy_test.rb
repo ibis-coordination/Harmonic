@@ -54,7 +54,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     main_studio.add_user!(@user_b)
 
     # Studio X - only User A is a member (this is the private studio)
-    @studio_x = create_studio(tenant: @tenant, created_by: @user_a, name: "Studio X", handle: "studio-x")
+    @studio_x = create_superagent(tenant: @tenant, created_by: @user_a, name: "Studio X", handle: "studio-x")
     @studio_x.add_user!(@user_a)
     # Note: User B is intentionally NOT added to studio_x
 
@@ -63,13 +63,13 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
 
   test "non-member should NOT receive notification when mentioned in private studio" do
     # Set up the studio scope for creating the note
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a note that mentions User B (who is NOT a studio member)
     secret_content = "This is private studio content that @user_b should NOT see!"
     note = create_note(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       title: "Private Note",
       text: secret_content
@@ -78,7 +78,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event (this happens when a note is created)
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "note.created",
       actor: @user_a,
       subject: note
@@ -87,7 +87,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Dispatch notifications
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User B is NOT a member of Studio X
     refute @studio_x.user_is_member?(@user_b), "Test setup error: User B should NOT be a member of Studio X"
@@ -101,13 +101,13 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
 
   test "non-member should NOT see private content on notifications page" do
     # Set up the studio scope for creating the note
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a note that mentions User B (who is NOT a studio member)
     secret_content = "CONFIDENTIAL: Secret project details that @user_b must not see!"
     note = create_note(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       title: "Confidential Note",
       text: secret_content
@@ -116,14 +116,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create and dispatch the event
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "note.created",
       actor: @user_a,
       subject: note
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Sign in as User B (who is NOT a member of Studio X)
     sign_in_as(@user_b, tenant: @tenant)
@@ -148,12 +148,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     user_c.tenant_user.update!(handle: "user_c")
     @studio_x.add_user!(user_c)
 
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a note that mentions User C (who IS a studio member)
     note = create_note(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       title: "Team Note",
       text: "Hey @user_c, please review this!"
@@ -161,14 +161,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
 
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "note.created",
       actor: @user_a,
       subject: note
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User C IS a member
     assert @studio_x.user_is_member?(user_c), "Test setup error: User C should be a member of Studio X"
@@ -182,12 +182,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
   # === Comment Tests (Comments are Notes with commentable_id set) ===
 
   test "non-member should NOT receive notification when mentioned in comment on decision" do
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a decision in Studio X
     decision = create_decision(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       question: "What should we do?",
       description: "Internal discussion"
@@ -196,7 +196,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # User A adds a comment that mentions User B (who is NOT a studio member)
     comment = Note.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       updated_by: @user_a,
       text: "SECRET DECISION INFO: Hey @user_b, what do you think about this private matter?",
@@ -206,14 +206,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for the comment (comments are notes)
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "note.created",
       actor: @user_a,
       subject: comment
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User B is NOT a member of Studio X
     refute @studio_x.user_is_member?(@user_b), "Test setup error: User B should NOT be a member of Studio X"
@@ -226,12 +226,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
   end
 
   test "non-member should NOT receive notification when mentioned in comment on commitment" do
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a commitment in Studio X
     commitment = create_commitment(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       title: "Secret Initiative",
       description: "Confidential project"
@@ -240,7 +240,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # User A adds a comment that mentions User B (who is NOT a studio member)
     comment = Note.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       updated_by: @user_a,
       text: "SECRET COMMITMENT INFO: @user_b should join this confidential initiative!",
@@ -250,14 +250,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for the comment
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "note.created",
       actor: @user_a,
       subject: comment
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User B is NOT a member of Studio X
     refute @studio_x.user_is_member?(@user_b), "Test setup error: User B should NOT be a member of Studio X"
@@ -270,12 +270,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
   end
 
   test "non-member should NOT receive notification when mentioned in comment on note" do
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a note in Studio X
     parent_note = create_note(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       title: "Parent Note",
       text: "Some internal discussion"
@@ -284,7 +284,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # User A adds a comment that mentions User B (who is NOT a studio member)
     comment = Note.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       updated_by: @user_a,
       text: "PRIVATE COMMENT: @user_b, this is confidential information!",
@@ -294,14 +294,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for the comment
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "note.created",
       actor: @user_a,
       subject: comment
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # User B should NOT receive a notification about the comment
     notification_for_user_b = NotificationRecipient.unscoped.find_by(user: @user_b)
@@ -321,12 +321,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
   # also checking studio membership.
 
   test "non-member should NOT receive notification when mentioned in decision description" do
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a decision with User B mentioned in the description
     decision = Decision.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       updated_by: @user_a,
       question: "What should we do about the secret project?",
@@ -337,14 +337,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for decision creation
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "decision.created",
       actor: @user_a,
       subject: decision
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User B is NOT a member of Studio X
     refute @studio_x.user_is_member?(@user_b), "Test setup error: User B should NOT be a member of Studio X"
@@ -357,12 +357,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
   end
 
   test "non-member should NOT receive notification when mentioned in commitment description" do
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a commitment with User B mentioned in the description
     commitment = Commitment.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       updated_by: @user_a,
       title: "Secret Initiative",
@@ -374,14 +374,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for commitment creation
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "commitment.created",
       actor: @user_a,
       subject: commitment
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User B is NOT a member of Studio X
     refute @studio_x.user_is_member?(@user_b), "Test setup error: User B should NOT be a member of Studio X"
@@ -400,12 +400,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     user_c.tenant_user.update!(handle: "user_c")
     @studio_x.add_user!(user_c)
 
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a decision with User C mentioned in the description
     decision = Decision.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       updated_by: @user_a,
       question: "What should we do about the project?",
@@ -416,14 +416,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for decision creation
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "decision.created",
       actor: @user_a,
       subject: decision
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User C IS a member of Studio X
     assert @studio_x.user_is_member?(user_c), "Test setup error: User C should be a member of Studio X"
@@ -442,12 +442,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     user_c.tenant_user.update!(handle: "user_c")
     @studio_x.add_user!(user_c)
 
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a commitment with User C mentioned in the description
     commitment = Commitment.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       updated_by: @user_a,
       title: "Team Initiative",
@@ -459,14 +459,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for commitment creation
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "commitment.created",
       actor: @user_a,
       subject: commitment
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User C IS a member of Studio X
     assert @studio_x.user_is_member?(user_c), "Test setup error: User C should be a member of Studio X"
@@ -483,12 +483,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
   # Mentions in these fields should notify members but not non-members.
 
   test "non-member should NOT receive notification when mentioned in option title" do
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a decision in Studio X
     decision = create_decision(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       question: "What approach should we take?"
     )
@@ -499,7 +499,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # User A adds an option that mentions User B in the title
     option = Option.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       decision: decision,
       decision_participant: participant_a,
       title: "SECRET OPTION: Ask @user_b for their input on this confidential matter"
@@ -508,14 +508,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for option creation
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "option.created",
       actor: @user_a,
       subject: option
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User B is NOT a member of Studio X
     refute @studio_x.user_is_member?(@user_b), "Test setup error: User B should NOT be a member of Studio X"
@@ -528,12 +528,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
   end
 
   test "non-member should NOT receive notification when mentioned in option description" do
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a decision in Studio X
     decision = create_decision(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       question: "What approach should we take?"
     )
@@ -544,7 +544,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # User A adds an option that mentions User B in the description
     option = Option.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       decision: decision,
       decision_participant: participant_a,
       title: "Option A",
@@ -554,14 +554,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for option creation
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "option.created",
       actor: @user_a,
       subject: option
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User B is NOT a member of Studio X
     refute @studio_x.user_is_member?(@user_b), "Test setup error: User B should NOT be a member of Studio X"
@@ -580,12 +580,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     user_c.tenant_user.update!(handle: "user_c")
     @studio_x.add_user!(user_c)
 
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a decision in Studio X
     decision = create_decision(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       question: "What approach should we take?"
     )
@@ -596,7 +596,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # User A adds an option that mentions User C in the title
     option = Option.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       decision: decision,
       decision_participant: participant_a,
       title: "Have @user_c lead this initiative"
@@ -605,14 +605,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for option creation
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "option.created",
       actor: @user_a,
       subject: option
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User C IS a member of Studio X
     assert @studio_x.user_is_member?(user_c), "Test setup error: User C should be a member of Studio X"
@@ -631,12 +631,12 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     user_c.tenant_user.update!(handle: "user_c")
     @studio_x.add_user!(user_c)
 
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio_x.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @studio_x.handle)
 
     # User A creates a decision in Studio X
     decision = create_decision(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       created_by: @user_a,
       question: "What approach should we take?"
     )
@@ -647,7 +647,7 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # User A adds an option that mentions User C in the description
     option = Option.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       decision: decision,
       decision_participant: participant_a,
       title: "Option A",
@@ -657,14 +657,14 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     # Create the event for option creation
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio_x,
+      superagent: @studio_x,
       event_type: "option.created",
       actor: @user_a,
       subject: option
     )
     NotificationDispatcher.dispatch(event)
 
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     # Verify User C IS a member of Studio X
     assert @studio_x.user_is_member?(user_c), "Test setup error: User C should be a member of Studio X"

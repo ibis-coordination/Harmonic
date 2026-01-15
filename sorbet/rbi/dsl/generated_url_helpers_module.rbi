@@ -16,10 +16,28 @@ module GeneratedUrlHelpersModule
   def actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def add_to_studio_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_settings_actions_update_tenant_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_settings_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def admin_settings_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def admin_sidekiq_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_tenants_new_actions_create_tenant_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_tenants_new_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def admin_tenants_new_url(*args); end
@@ -124,7 +142,22 @@ module GeneratedUrlHelpersModule
   def auth_failure_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def commit_actions_create_commitment_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commit_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def commit_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commitment_actions_add_comment_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commitment_actions_join_commitment_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commitment_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def commitment_comments_url(*args); end
@@ -134,6 +167,21 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def commitment_pin_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commitment_settings_actions_add_attachment_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commitment_settings_actions_pin_commitment_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commitment_settings_actions_unpin_commitment_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commitment_settings_actions_update_commitment_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def commitment_settings_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def commitment_settings_url(*args); end
@@ -152,6 +200,9 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def decide_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def decision_actions_add_comment_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def decision_actions_add_option_url(*args); end
@@ -173,6 +224,21 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def decision_pin_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def decision_settings_actions_add_attachment_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def decision_settings_actions_pin_decision_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def decision_settings_actions_unpin_decision_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def decision_settings_actions_update_decision_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def decision_settings_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def decision_settings_url(*args); end
@@ -316,7 +382,10 @@ module GeneratedUrlHelpersModule
   def new_user_api_token_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_user_simulated_user_url(*args); end
+  def new_user_subagent_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def note_actions_add_comment_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def note_actions_confirm_read_url(*args); end
@@ -329,6 +398,9 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def note_comments_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def note_edit_actions_add_attachment_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def note_edit_actions_update_note_url(*args); end
@@ -346,7 +418,37 @@ module GeneratedUrlHelpersModule
   def note_pin_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def note_settings_actions_pin_note_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def note_settings_actions_unpin_note_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def note_settings_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def note_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def note_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_dismiss_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_mark_all_read_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_mark_read_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_unread_count_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def password_reset_url(*args); end
@@ -430,10 +532,16 @@ module GeneratedUrlHelpersModule
   def rails_storage_redirect_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def remove_from_studio_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def representing_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def root_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def scenes_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def scenes_available_url(*args); end
@@ -451,13 +559,34 @@ module GeneratedUrlHelpersModule
   def scenes_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def settings_actions_update_profile_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_actions_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def settings_profile_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_subagents_new_actions_create_subagent_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_subagents_new_actions_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_tokens_new_actions_create_api_token_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_tokens_new_actions_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def settings_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def settings_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def studios_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def studios_available_url(*args); end
@@ -493,10 +622,10 @@ module GeneratedUrlHelpersModule
   def user_api_tokens_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def user_simulated_user_url(*args); end
+  def user_subagent_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def user_simulated_users_url(*args); end
+  def user_subagents_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def user_url(*args); end

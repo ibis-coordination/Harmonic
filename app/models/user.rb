@@ -12,8 +12,8 @@ class User < ApplicationRecord
   has_many :note_history_events
   has_many :tenant_users
   has_many :tenants, through: :tenant_users
-  has_many :studio_users
-  has_many :studios, through: :studio_users
+  has_many :superagent_members
+  has_many :superagents, through: :superagent_members
   has_many :api_tokens
   has_many :subagents, class_name: "User", foreign_key: "parent_id"
   has_many :notification_recipients
@@ -28,9 +28,9 @@ class User < ApplicationRecord
   sig { params(options: T.untyped).returns(User) }
   def reload(options = nil)
     remove_instance_variable(:@tenant_user) if defined?(@tenant_user)
-    remove_instance_variable(:@studio_user) if defined?(@studio_user)
-    remove_instance_variable(:@trustee_studio) if defined?(@trustee_studio)
-    remove_instance_variable(:@studios) if defined?(@studios)
+    remove_instance_variable(:@superagent_member) if defined?(@superagent_member)
+    remove_instance_variable(:@trustee_superagent) if defined?(@trustee_superagent)
+    remove_instance_variable(:@superagents) if defined?(@superagents)
     super
   end
 
@@ -59,7 +59,7 @@ class User < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def image_url
     if trustee?
-      Studio.where(trustee_user: self).first&.image_path
+      Superagent.where(trustee_user: self).first&.image_path
     else
       image_path_no_placeholder || super || image_path
     end
@@ -93,40 +93,46 @@ class User < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def studio_trustee?
-    trustee? && trustee_studio.present?
+  def superagent_trustee?
+    trustee? && trustee_superagent.present?
   end
 
-  sig { returns(T.nilable(Studio)) }
-  def trustee_studio
+  # Alias for backwards compatibility
+  alias_method :studio_trustee?, :superagent_trustee?
+
+  sig { returns(T.nilable(Superagent)) }
+  def trustee_superagent
     return nil unless trustee?
-    return @trustee_studio if defined?(@trustee_studio)
-    @trustee_studio = Studio.where(trustee_user: self).first
+    return @trustee_superagent if defined?(@trustee_superagent)
+    @trustee_superagent = Superagent.where(trustee_user: self).first
   end
+
+  # Alias for backwards compatibility
+  alias_method :trustee_studio, :trustee_superagent
 
   sig { params(user: User).returns(T::Boolean) }
   def can_impersonate?(user)
     is_parent = user.subagent? && user.parent_id == self.id && !user.archived?
     return true if is_parent
-    if user.studio_trustee?
-      su = self.studio_users.find_by(studio_id: T.must(user.trustee_studio).id)
-      return su&.can_represent? || false
+    if user.superagent_trustee?
+      sm = self.superagent_members.find_by(superagent_id: T.must(user.trustee_superagent).id)
+      return sm&.can_represent? || false
     end
     false
   end
 
-  sig { params(studio_or_user: T.any(Studio, User)).returns(T::Boolean) }
-  def can_represent?(studio_or_user)
-    if studio_or_user.is_a?(Studio)
-      studio = studio_or_user
-      is_trustee_of_studio = self.trustee_studio == studio
-      return is_trustee_of_studio if self.trustee?
-      su = self.studio_users.find_by(studio_id: studio.id)
-      return su&.can_represent? || false
-    elsif studio_or_user.is_a?(User)
-      user = studio_or_user
+  sig { params(superagent_or_user: T.any(Superagent, User)).returns(T::Boolean) }
+  def can_represent?(superagent_or_user)
+    if superagent_or_user.is_a?(Superagent)
+      superagent = superagent_or_user
+      is_trustee_of_superagent = self.trustee_superagent == superagent
+      return is_trustee_of_superagent if self.trustee?
+      sm = self.superagent_members.find_by(superagent_id: superagent.id)
+      return sm&.can_represent? || false
+    elsif superagent_or_user.is_a?(User)
+      user = superagent_or_user
       return can_impersonate?(user)
-      # TODO - check for trustee permissions for non-studio trustee users
+      # TODO - check for trustee permissions for non-superagent trustee users
     end
     false
   end
@@ -136,12 +142,15 @@ class User < ApplicationRecord
     user == self || (user.subagent? && user.parent_id == self.id)
   end
 
-  sig { params(subagent: User, studio: Studio).returns(T::Boolean) }
-  def can_add_subagent_to_studio?(subagent, studio)
+  sig { params(subagent: User, superagent: Superagent).returns(T::Boolean) }
+  def can_add_subagent_to_superagent?(subagent, superagent)
     return false unless subagent.subagent? && subagent.parent_id == self.id
-    su = studio_users.find_by(studio_id: studio.id)
-    su&.can_invite? || false
+    sm = superagent_members.find_by(superagent_id: superagent.id)
+    sm&.can_invite? || false
   end
+
+  # Alias for backwards compatibility
+  alias_method :can_add_subagent_to_studio?, :can_add_subagent_to_superagent?
 
   sig { void }
   def archive!
@@ -182,28 +191,50 @@ class User < ApplicationRecord
     T.must(tenant_user).save!
   end
 
-  sig { params(su: StudioUser).void }
-  def studio_user=(su)
-    if su.user_id == self.id
-      @studio_user = su
+  sig { params(sm: SuperagentMember).void }
+  def superagent_member=(sm)
+    if sm.user_id == self.id
+      @superagent_member = sm
     else
-      raise "studioUser user_id does not match User id"
+      raise "SuperagentMember user_id does not match User id"
     end
   end
 
-  sig { returns(T.nilable(StudioUser)) }
+  # Alias for backwards compatibility
+  alias_method :studio_user=, :superagent_member=
+
+  sig { returns(T.nilable(SuperagentMember)) }
+  def superagent_member
+    @superagent_member ||= superagent_members.where(superagent_id: Superagent.current_id).first
+  end
+
+  # Alias for backwards compatibility
   def studio_user
-    @studio_user ||= studio_users.where(studio_id: Studio.current_id).first
+    T.unsafe(self).superagent_member
   end
 
   sig { void }
+  def save_superagent_member!
+    T.must(superagent_member).save!
+  end
+
+  # Alias for backwards compatibility
   def save_studio_user!
-    T.must(studio_user).save!
+    T.unsafe(self).save_superagent_member!
   end
 
   sig { returns(ActiveRecord::Relation) }
+  def superagents
+    @superagents ||= Superagent.joins(:superagent_members).where(superagent_members: {user_id: id})
+  end
+
+  # Aliases for backwards compatibility with code that uses "studio" terminology
   def studios
-    @studios ||= Studio.joins(:studio_users).where(studio_users: {user_id: id})
+    T.unsafe(self).superagents
+  end
+
+  def studio_users
+    T.unsafe(self).superagent_members
   end
 
   sig { params(name: String).void }
@@ -214,7 +245,7 @@ class User < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def display_name
     if trustee?
-      Studio.where(trustee_user: self).first&.name
+      Superagent.where(trustee_user: self).first&.name
     else
       tenant_user&.display_name
     end
@@ -241,8 +272,8 @@ class User < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def handle
     if trustee?
-      studio = Studio.where(trustee_user: self).first
-      studio ? 'studios/' + T.must(studio.handle) : nil
+      superagent = Superagent.where(trustee_user: self).first
+      superagent ? 'studios/' + T.must(superagent.handle) : nil
     else
       tenant_user&.handle
     end
@@ -251,7 +282,7 @@ class User < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def path
     if trustee?
-      Studio.where(trustee_user: self).first&.path
+      Superagent.where(trustee_user: self).first&.path
     else
       tenant_user&.path
     end
@@ -292,10 +323,10 @@ class User < ApplicationRecord
     ApiToken.where(user_id: id, tenant_id: T.must(tenant_user).tenant_id, deleted_at: nil)
   end
 
-  sig { params(studio_invite: StudioInvite).returns(StudioUser) }
-  def accept_invite!(studio_invite)
-    if studio_invite.invited_user_id == self.id || studio_invite.invited_user_id.nil?
-      StudioUser.find_or_create_by!(studio_id: studio_invite.studio_id, user_id: self.id)
+  sig { params(invite: Invite).returns(SuperagentMember) }
+  def accept_invite!(invite)
+    if invite.invited_user_id == self.id || invite.invited_user_id.nil?
+      SuperagentMember.find_or_create_by!(superagent_id: invite.superagent_id, user_id: self.id)
       # TODO track invite accepted event
     else
       raise "Cannot accept invite for another user"
@@ -303,9 +334,12 @@ class User < ApplicationRecord
   end
 
   sig { returns(ActiveRecord::Relation) }
-  def studios_minus_main
-    studios.includes(:tenant).where('tenants.main_studio_id != studios.id')
+  def superagents_minus_main
+    superagents.includes(:tenant).where('tenants.main_superagent_id != superagents.id')
   end
+
+  # Alias for backwards compatibility
+  alias_method :studios_minus_main, :superagents_minus_main
 
   sig { returns(ActiveRecord::Relation) }
   def external_oauth_identities

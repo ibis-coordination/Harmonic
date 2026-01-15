@@ -1,4 +1,4 @@
-\restrict 7vtq8DlmaP8gll34odchqbXQJjn4X7oVSYfCMePkfQ0pyorffFa3aKTnwA4bdCv
+\restrict xIodjCCJ8EPSCnY6H7Yhnp1hBDzLd32tQ3Xg8KhDnvoFfazuvF8QXXUc8WC4FyF
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -119,7 +119,7 @@ CREATE TABLE public.ar_internal_metadata (
 CREATE TABLE public.attachments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
     attachable_type character varying NOT NULL,
     attachable_id uuid NOT NULL,
     name character varying NOT NULL,
@@ -146,7 +146,7 @@ CREATE TABLE public.commitment_participants (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid
+    superagent_id uuid
 );
 
 
@@ -166,7 +166,7 @@ CREATE TABLE public.commitments (
     tenant_id uuid NOT NULL,
     created_by_id uuid,
     updated_by_id uuid,
-    studio_id uuid,
+    superagent_id uuid,
     "limit" integer
 );
 
@@ -178,7 +178,7 @@ CREATE TABLE public.commitments (
 CREATE VIEW public.cycle_data_commitments AS
 SELECT
     NULL::uuid AS tenant_id,
-    NULL::uuid AS studio_id,
+    NULL::uuid AS superagent_id,
     NULL::text AS item_type,
     NULL::uuid AS item_id,
     NULL::text AS title,
@@ -201,7 +201,7 @@ SELECT
 CREATE VIEW public.cycle_data_decisions AS
 SELECT
     NULL::uuid AS tenant_id,
-    NULL::uuid AS studio_id,
+    NULL::uuid AS superagent_id,
     NULL::text AS item_type,
     NULL::uuid AS item_id,
     NULL::text AS title,
@@ -224,7 +224,7 @@ SELECT
 CREATE VIEW public.cycle_data_notes AS
 SELECT
     NULL::uuid AS tenant_id,
-    NULL::uuid AS studio_id,
+    NULL::uuid AS superagent_id,
     NULL::text AS item_type,
     NULL::uuid AS item_id,
     NULL::text AS title,
@@ -246,7 +246,7 @@ SELECT
 
 CREATE VIEW public.cycle_data AS
  SELECT n.tenant_id,
-    n.studio_id,
+    n.superagent_id,
     n.item_type,
     n.item_id,
     n.title,
@@ -263,7 +263,7 @@ CREATE VIEW public.cycle_data AS
    FROM public.cycle_data_notes n
 UNION ALL
  SELECT cycle_data_decisions.tenant_id,
-    cycle_data_decisions.studio_id,
+    cycle_data_decisions.superagent_id,
     cycle_data_decisions.item_type,
     cycle_data_decisions.item_id,
     cycle_data_decisions.title,
@@ -280,7 +280,7 @@ UNION ALL
    FROM public.cycle_data_decisions
 UNION ALL
  SELECT cycle_data_commitments.tenant_id,
-    cycle_data_commitments.studio_id,
+    cycle_data_commitments.superagent_id,
     cycle_data_commitments.item_type,
     cycle_data_commitments.item_id,
     cycle_data_commitments.title,
@@ -311,7 +311,7 @@ CREATE TABLE public.decision_participants (
     user_id uuid,
     participant_uid character varying DEFAULT ''::character varying NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid
+    superagent_id uuid
 );
 
 
@@ -348,7 +348,7 @@ CREATE TABLE public.decisions (
     tenant_id uuid NOT NULL,
     created_by_id uuid,
     updated_by_id uuid,
-    studio_id uuid
+    superagent_id uuid
 );
 
 
@@ -359,7 +359,7 @@ CREATE TABLE public.decisions (
 CREATE TABLE public.events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
     event_type character varying NOT NULL,
     actor_id uuid,
     subject_type character varying,
@@ -377,11 +377,28 @@ CREATE TABLE public.events (
 CREATE TABLE public.heartbeats (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
     user_id uuid NOT NULL,
     expires_at timestamp(6) without time zone NOT NULL,
     activity_log jsonb DEFAULT '{}'::jsonb NOT NULL,
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: invites; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.invites (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    created_by_id uuid NOT NULL,
+    invited_user_id uuid,
+    code character varying NOT NULL,
+    expires_at timestamp(6) without time zone NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -400,7 +417,7 @@ CREATE TABLE public.links (
     to_linkable_id uuid NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    studio_id uuid
+    superagent_id uuid
 );
 
 
@@ -417,7 +434,7 @@ CREATE TABLE public.note_history_events (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid
+    superagent_id uuid
 );
 
 
@@ -436,7 +453,7 @@ CREATE TABLE public.notes (
     deadline timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP,
     created_by_id uuid,
     updated_by_id uuid,
-    studio_id uuid,
+    superagent_id uuid,
     commentable_type character varying,
     commentable_id uuid
 );
@@ -526,7 +543,7 @@ CREATE TABLE public.options (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid
+    superagent_id uuid
 );
 
 
@@ -537,11 +554,11 @@ CREATE TABLE public.options (
 CREATE TABLE public.representation_session_associations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
     representation_session_id uuid NOT NULL,
     resource_type character varying NOT NULL,
     resource_id uuid NOT NULL,
-    resource_studio_id uuid NOT NULL,
+    resource_superagent_id uuid NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -554,7 +571,7 @@ CREATE TABLE public.representation_session_associations (
 CREATE TABLE public.representation_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
     representative_user_id uuid NOT NULL,
     trustee_user_id uuid NOT NULL,
     began_at timestamp(6) without time zone NOT NULL,
@@ -577,30 +594,13 @@ CREATE TABLE public.schema_migrations (
 
 
 --
--- Name: studio_invites; Type: TABLE; Schema: public; Owner: -
+-- Name: superagent_members; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.studio_invites (
+CREATE TABLE public.superagent_members (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid NOT NULL,
-    created_by_id uuid NOT NULL,
-    invited_user_id uuid,
-    code character varying NOT NULL,
-    expires_at timestamp(6) without time zone NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-
---
--- Name: studio_users; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.studio_users (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid NOT NULL,
-    studio_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
     user_id uuid NOT NULL,
     archived_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
@@ -610,10 +610,10 @@ CREATE TABLE public.studio_users (
 
 
 --
--- Name: studios; Type: TABLE; Schema: public; Owner: -
+-- Name: superagents; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.studios (
+CREATE TABLE public.superagents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
     name character varying,
@@ -625,7 +625,7 @@ CREATE TABLE public.studios (
     updated_by_id uuid NOT NULL,
     trustee_user_id uuid,
     description text,
-    studio_type character varying DEFAULT 'studio'::character varying NOT NULL
+    superagent_type character varying DEFAULT 'studio'::character varying NOT NULL
 );
 
 
@@ -657,7 +657,7 @@ CREATE TABLE public.tenants (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     settings jsonb DEFAULT '{}'::jsonb,
-    main_studio_id uuid,
+    main_superagent_id uuid,
     archived_at timestamp(6) without time zone
 );
 
@@ -711,7 +711,7 @@ CREATE TABLE public.votes (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid
+    superagent_id uuid
 );
 
 
@@ -743,7 +743,7 @@ CREATE TABLE public.webhook_deliveries (
 CREATE TABLE public.webhooks (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    studio_id uuid,
+    superagent_id uuid,
     name character varying NOT NULL,
     url character varying NOT NULL,
     secret character varying NOT NULL,
@@ -950,26 +950,26 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
--- Name: studio_invites studio_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: invites studio_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_invites
+ALTER TABLE ONLY public.invites
     ADD CONSTRAINT studio_invites_pkey PRIMARY KEY (id);
 
 
 --
--- Name: studio_users studio_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: superagent_members studio_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_users
+ALTER TABLE ONLY public.superagent_members
     ADD CONSTRAINT studio_users_pkey PRIMARY KEY (id);
 
 
 --
--- Name: studios studios_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: superagents studios_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studios
+ALTER TABLE ONLY public.superagents
     ADD CONSTRAINT studios_pkey PRIMARY KEY (id);
 
 
@@ -1019,6 +1019,20 @@ ALTER TABLE ONLY public.webhook_deliveries
 
 ALTER TABLE ONLY public.webhooks
     ADD CONSTRAINT webhooks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_members_superagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_members_superagent_id ON public.superagent_members USING btree (superagent_id);
+
+
+--
+-- Name: idx_members_tenant_superagent_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_members_tenant_superagent_user ON public.superagent_members USING btree (tenant_id, superagent_id, user_id);
 
 
 --
@@ -1092,10 +1106,10 @@ CREATE INDEX index_attachments_on_created_by_id ON public.attachments USING btre
 
 
 --
--- Name: index_attachments_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_attachments_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_attachments_on_studio_id ON public.attachments USING btree (studio_id);
+CREATE INDEX index_attachments_on_superagent_id ON public.attachments USING btree (superagent_id);
 
 
 --
@@ -1109,7 +1123,7 @@ CREATE INDEX index_attachments_on_tenant_id ON public.attachments USING btree (t
 -- Name: index_attachments_on_tenant_studio_attachable_name; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_attachments_on_tenant_studio_attachable_name ON public.attachments USING btree (tenant_id, studio_id, attachable_id, name);
+CREATE UNIQUE INDEX index_attachments_on_tenant_studio_attachable_name ON public.attachments USING btree (tenant_id, superagent_id, attachable_id, name);
 
 
 --
@@ -1141,10 +1155,10 @@ CREATE INDEX index_commitment_participants_on_participant_uid ON public.commitme
 
 
 --
--- Name: index_commitment_participants_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_commitment_participants_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_commitment_participants_on_studio_id ON public.commitment_participants USING btree (studio_id);
+CREATE INDEX index_commitment_participants_on_superagent_id ON public.commitment_participants USING btree (superagent_id);
 
 
 --
@@ -1169,10 +1183,10 @@ CREATE INDEX index_commitments_on_created_by_id ON public.commitments USING btre
 
 
 --
--- Name: index_commitments_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_commitments_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_commitments_on_studio_id ON public.commitments USING btree (studio_id);
+CREATE INDEX index_commitments_on_superagent_id ON public.commitments USING btree (superagent_id);
 
 
 --
@@ -1211,10 +1225,10 @@ CREATE UNIQUE INDEX index_decision_participants_on_decision_id_and_participant_u
 
 
 --
--- Name: index_decision_participants_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_decision_participants_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_decision_participants_on_studio_id ON public.decision_participants USING btree (studio_id);
+CREATE INDEX index_decision_participants_on_superagent_id ON public.decision_participants USING btree (superagent_id);
 
 
 --
@@ -1232,10 +1246,10 @@ CREATE INDEX index_decisions_on_created_by_id ON public.decisions USING btree (c
 
 
 --
--- Name: index_decisions_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_decisions_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_decisions_on_studio_id ON public.decisions USING btree (studio_id);
+CREATE INDEX index_decisions_on_superagent_id ON public.decisions USING btree (superagent_id);
 
 
 --
@@ -1281,17 +1295,17 @@ CREATE INDEX index_events_on_event_type ON public.events USING btree (event_type
 
 
 --
--- Name: index_events_on_studio_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_events_on_studio_id ON public.events USING btree (studio_id);
-
-
---
 -- Name: index_events_on_subject_type_and_subject_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX index_events_on_subject_type_and_subject_id ON public.events USING btree (subject_type, subject_id);
+
+
+--
+-- Name: index_events_on_superagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_events_on_superagent_id ON public.events USING btree (superagent_id);
 
 
 --
@@ -1302,10 +1316,10 @@ CREATE INDEX index_events_on_tenant_id ON public.events USING btree (tenant_id);
 
 
 --
--- Name: index_heartbeats_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_heartbeats_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_heartbeats_on_studio_id ON public.heartbeats USING btree (studio_id);
+CREATE INDEX index_heartbeats_on_superagent_id ON public.heartbeats USING btree (superagent_id);
 
 
 --
@@ -1319,7 +1333,7 @@ CREATE INDEX index_heartbeats_on_tenant_id ON public.heartbeats USING btree (ten
 -- Name: index_heartbeats_on_tenant_studio_user_expires_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_heartbeats_on_tenant_studio_user_expires_at ON public.heartbeats USING btree (tenant_id, studio_id, user_id, expires_at);
+CREATE UNIQUE INDEX index_heartbeats_on_tenant_studio_user_expires_at ON public.heartbeats USING btree (tenant_id, superagent_id, user_id, expires_at);
 
 
 --
@@ -1337,6 +1351,41 @@ CREATE INDEX index_heartbeats_on_user_id ON public.heartbeats USING btree (user_
 
 
 --
+-- Name: index_invites_on_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_invites_on_code ON public.invites USING btree (code);
+
+
+--
+-- Name: index_invites_on_created_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_invites_on_created_by_id ON public.invites USING btree (created_by_id);
+
+
+--
+-- Name: index_invites_on_invited_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_invites_on_invited_user_id ON public.invites USING btree (invited_user_id);
+
+
+--
+-- Name: index_invites_on_superagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_invites_on_superagent_id ON public.invites USING btree (superagent_id);
+
+
+--
+-- Name: index_invites_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_invites_on_tenant_id ON public.invites USING btree (tenant_id);
+
+
+--
 -- Name: index_links_on_from_linkable; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1344,10 +1393,10 @@ CREATE INDEX index_links_on_from_linkable ON public.links USING btree (from_link
 
 
 --
--- Name: index_links_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_links_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_links_on_studio_id ON public.links USING btree (studio_id);
+CREATE INDEX index_links_on_superagent_id ON public.links USING btree (superagent_id);
 
 
 --
@@ -1372,10 +1421,10 @@ CREATE INDEX index_note_history_events_on_note_id ON public.note_history_events 
 
 
 --
--- Name: index_note_history_events_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_note_history_events_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_note_history_events_on_studio_id ON public.note_history_events USING btree (studio_id);
+CREATE INDEX index_note_history_events_on_superagent_id ON public.note_history_events USING btree (superagent_id);
 
 
 --
@@ -1407,10 +1456,10 @@ CREATE INDEX index_notes_on_created_by_id ON public.notes USING btree (created_b
 
 
 --
--- Name: index_notes_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_notes_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_notes_on_studio_id ON public.notes USING btree (studio_id);
+CREATE INDEX index_notes_on_superagent_id ON public.notes USING btree (superagent_id);
 
 
 --
@@ -1547,10 +1596,10 @@ CREATE INDEX index_options_on_decision_participant_id ON public.options USING bt
 
 
 --
--- Name: index_options_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_options_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_options_on_studio_id ON public.options USING btree (studio_id);
+CREATE INDEX index_options_on_superagent_id ON public.options USING btree (superagent_id);
 
 
 --
@@ -1585,14 +1634,14 @@ CREATE INDEX index_rep_session_assoc_on_resource ON public.representation_sessio
 -- Name: index_rep_session_assoc_on_resource_studio; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_rep_session_assoc_on_resource_studio ON public.representation_session_associations USING btree (resource_studio_id);
+CREATE INDEX index_rep_session_assoc_on_resource_studio ON public.representation_session_associations USING btree (resource_superagent_id);
 
 
 --
--- Name: index_representation_session_associations_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_representation_session_associations_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_representation_session_associations_on_studio_id ON public.representation_session_associations USING btree (studio_id);
+CREATE INDEX index_representation_session_associations_on_superagent_id ON public.representation_session_associations USING btree (superagent_id);
 
 
 --
@@ -1610,10 +1659,10 @@ CREATE INDEX index_representation_sessions_on_representative_user_id ON public.r
 
 
 --
--- Name: index_representation_sessions_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_representation_sessions_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_representation_sessions_on_studio_id ON public.representation_sessions USING btree (studio_id);
+CREATE INDEX index_representation_sessions_on_superagent_id ON public.representation_sessions USING btree (superagent_id);
 
 
 --
@@ -1638,94 +1687,45 @@ CREATE INDEX index_representation_sessions_on_trustee_user_id ON public.represen
 
 
 --
--- Name: index_studio_invites_on_code; Type: INDEX; Schema: public; Owner: -
+-- Name: index_superagent_members_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_studio_invites_on_code ON public.studio_invites USING btree (code);
-
-
---
--- Name: index_studio_invites_on_created_by_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_studio_invites_on_created_by_id ON public.studio_invites USING btree (created_by_id);
+CREATE INDEX index_superagent_members_on_tenant_id ON public.superagent_members USING btree (tenant_id);
 
 
 --
--- Name: index_studio_invites_on_invited_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_superagent_members_on_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_studio_invites_on_invited_user_id ON public.studio_invites USING btree (invited_user_id);
-
-
---
--- Name: index_studio_invites_on_studio_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_studio_invites_on_studio_id ON public.studio_invites USING btree (studio_id);
+CREATE INDEX index_superagent_members_on_user_id ON public.superagent_members USING btree (user_id);
 
 
 --
--- Name: index_studio_invites_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_superagents_on_created_by_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_studio_invites_on_tenant_id ON public.studio_invites USING btree (tenant_id);
-
-
---
--- Name: index_studio_users_on_studio_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_studio_users_on_studio_id ON public.studio_users USING btree (studio_id);
+CREATE INDEX index_superagents_on_created_by_id ON public.superagents USING btree (created_by_id);
 
 
 --
--- Name: index_studio_users_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_superagents_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_studio_users_on_tenant_id ON public.studio_users USING btree (tenant_id);
-
-
---
--- Name: index_studio_users_on_tenant_id_and_studio_id_and_user_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_studio_users_on_tenant_id_and_studio_id_and_user_id ON public.studio_users USING btree (tenant_id, studio_id, user_id);
+CREATE INDEX index_superagents_on_tenant_id ON public.superagents USING btree (tenant_id);
 
 
 --
--- Name: index_studio_users_on_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_superagents_on_tenant_id_and_handle; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_studio_users_on_user_id ON public.studio_users USING btree (user_id);
-
-
---
--- Name: index_studios_on_created_by_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_studios_on_created_by_id ON public.studios USING btree (created_by_id);
+CREATE UNIQUE INDEX index_superagents_on_tenant_id_and_handle ON public.superagents USING btree (tenant_id, handle);
 
 
 --
--- Name: index_studios_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_superagents_on_updated_by_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_studios_on_tenant_id ON public.studios USING btree (tenant_id);
-
-
---
--- Name: index_studios_on_tenant_id_and_handle; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_studios_on_tenant_id_and_handle ON public.studios USING btree (tenant_id, handle);
-
-
---
--- Name: index_studios_on_updated_by_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_studios_on_updated_by_id ON public.studios USING btree (updated_by_id);
+CREATE INDEX index_superagents_on_updated_by_id ON public.superagents USING btree (updated_by_id);
 
 
 --
@@ -1757,10 +1757,10 @@ CREATE INDEX index_tenant_users_on_user_id ON public.tenant_users USING btree (u
 
 
 --
--- Name: index_tenants_on_main_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_tenants_on_main_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_tenants_on_main_studio_id ON public.tenants USING btree (main_studio_id);
+CREATE INDEX index_tenants_on_main_superagent_id ON public.tenants USING btree (main_superagent_id);
 
 
 --
@@ -1834,10 +1834,10 @@ CREATE UNIQUE INDEX index_votes_on_option_id_and_decision_participant_id ON publ
 
 
 --
--- Name: index_votes_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_votes_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_votes_on_studio_id ON public.votes USING btree (studio_id);
+CREATE INDEX index_votes_on_superagent_id ON public.votes USING btree (superagent_id);
 
 
 --
@@ -1883,17 +1883,17 @@ CREATE INDEX index_webhooks_on_created_by_id ON public.webhooks USING btree (cre
 
 
 --
--- Name: index_webhooks_on_studio_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_webhooks_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_webhooks_on_studio_id ON public.webhooks USING btree (studio_id);
+CREATE INDEX index_webhooks_on_superagent_id ON public.webhooks USING btree (superagent_id);
 
 
 --
--- Name: index_webhooks_on_studio_id_and_enabled; Type: INDEX; Schema: public; Owner: -
+-- Name: index_webhooks_on_superagent_id_and_enabled; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_webhooks_on_studio_id_and_enabled ON public.webhooks USING btree (studio_id, enabled);
+CREATE INDEX index_webhooks_on_superagent_id_and_enabled ON public.webhooks USING btree (superagent_id, enabled);
 
 
 --
@@ -1923,7 +1923,7 @@ CREATE UNIQUE INDEX index_webhooks_on_truncated_id ON public.webhooks USING btre
 
 CREATE OR REPLACE VIEW public.cycle_data_commitments AS
  SELECT c.tenant_id,
-    c.studio_id,
+    c.superagent_id,
     'Commitment'::text AS item_type,
     c.id AS item_id,
     c.title,
@@ -1941,8 +1941,8 @@ CREATE OR REPLACE VIEW public.cycle_data_commitments AS
      LEFT JOIN public.commitment_participants p ON ((c.id = p.commitment_id)))
      LEFT JOIN public.links cl ON (((c.id = cl.from_linkable_id) AND ((cl.from_linkable_type)::text = 'Commitment'::text))))
      LEFT JOIN public.links cbl ON (((c.id = cbl.to_linkable_id) AND ((cbl.to_linkable_type)::text = 'Commitment'::text))))
-  GROUP BY c.tenant_id, c.studio_id, c.id
-  ORDER BY c.tenant_id, c.studio_id, c.created_at DESC;
+  GROUP BY c.tenant_id, c.superagent_id, c.id
+  ORDER BY c.tenant_id, c.superagent_id, c.created_at DESC;
 
 
 --
@@ -1951,7 +1951,7 @@ CREATE OR REPLACE VIEW public.cycle_data_commitments AS
 
 CREATE OR REPLACE VIEW public.cycle_data_decisions AS
  SELECT d.tenant_id,
-    d.studio_id,
+    d.superagent_id,
     'Decision'::text AS item_type,
     d.id AS item_id,
     d.question AS title,
@@ -1970,8 +1970,8 @@ CREATE OR REPLACE VIEW public.cycle_data_decisions AS
      LEFT JOIN public.options o ON ((d.id = o.decision_id)))
      LEFT JOIN public.links dl ON (((d.id = dl.from_linkable_id) AND ((dl.from_linkable_type)::text = 'Decision'::text))))
      LEFT JOIN public.links dbl ON (((d.id = dbl.to_linkable_id) AND ((dbl.to_linkable_type)::text = 'Decision'::text))))
-  GROUP BY d.tenant_id, d.studio_id, d.id
-  ORDER BY d.tenant_id, d.studio_id, d.created_at DESC;
+  GROUP BY d.tenant_id, d.superagent_id, d.id
+  ORDER BY d.tenant_id, d.superagent_id, d.created_at DESC;
 
 
 --
@@ -1980,7 +1980,7 @@ CREATE OR REPLACE VIEW public.cycle_data_decisions AS
 
 CREATE OR REPLACE VIEW public.cycle_data_notes AS
  SELECT n.tenant_id,
-    n.studio_id,
+    n.superagent_id,
     'Note'::text AS item_type,
     n.id AS item_id,
     n.title,
@@ -1998,8 +1998,8 @@ CREATE OR REPLACE VIEW public.cycle_data_notes AS
      LEFT JOIN public.note_history_events nhe ON (((n.id = nhe.note_id) AND ((nhe.event_type)::text = 'confirmed_read'::text))))
      LEFT JOIN public.links nl ON (((n.id = nl.from_linkable_id) AND ((nl.from_linkable_type)::text = 'Note'::text))))
      LEFT JOIN public.links nbl ON (((n.id = nbl.to_linkable_id) AND ((nbl.to_linkable_type)::text = 'Note'::text))))
-  GROUP BY n.tenant_id, n.studio_id, n.id
-  ORDER BY n.tenant_id, n.studio_id, n.created_at DESC;
+  GROUP BY n.tenant_id, n.superagent_id, n.id
+  ORDER BY n.tenant_id, n.superagent_id, n.created_at DESC;
 
 
 --
@@ -2023,10 +2023,10 @@ CREATE OR REPLACE VIEW public.decision_results AS
 
 
 --
--- Name: studio_invites fk_rails_07e7bb098b; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: invites fk_rails_07e7bb098b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_invites
+ALTER TABLE ONLY public.invites
     ADD CONSTRAINT fk_rails_07e7bb098b FOREIGN KEY (created_by_id) REFERENCES public.users(id);
 
 
@@ -2067,14 +2067,14 @@ ALTER TABLE ONLY public.decisions
 --
 
 ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_188617e004 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_188617e004 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
--- Name: studio_invites fk_rails_19f2570176; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: invites fk_rails_19f2570176; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_invites
+ALTER TABLE ONLY public.invites
     ADD CONSTRAINT fk_rails_19f2570176 FOREIGN KEY (invited_user_id) REFERENCES public.users(id);
 
 
@@ -2087,19 +2087,19 @@ ALTER TABLE ONLY public.votes
 
 
 --
--- Name: studio_users fk_rails_247e24a571; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: superagent_members fk_rails_247e24a571; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_users
+ALTER TABLE ONLY public.superagent_members
     ADD CONSTRAINT fk_rails_247e24a571 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
--- Name: studio_invites fk_rails_29373b6d24; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: invites fk_rails_29373b6d24; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_invites
-    ADD CONSTRAINT fk_rails_29373b6d24 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+ALTER TABLE ONLY public.invites
+    ADD CONSTRAINT fk_rails_29373b6d24 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2107,7 +2107,7 @@ ALTER TABLE ONLY public.studio_invites
 --
 
 ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_2959985639 FOREIGN KEY (resource_studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_2959985639 FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2175,10 +2175,10 @@ ALTER TABLE ONLY public.attachments
 
 
 --
--- Name: studios fk_rails_3a6c376636; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: superagents fk_rails_3a6c376636; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studios
+ALTER TABLE ONLY public.superagents
     ADD CONSTRAINT fk_rails_3a6c376636 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
@@ -2187,7 +2187,7 @@ ALTER TABLE ONLY public.studios
 --
 
 ALTER TABLE ONLY public.options
-    ADD CONSTRAINT fk_rails_3c650690de FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_3c650690de FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2195,7 +2195,7 @@ ALTER TABLE ONLY public.options
 --
 
 ALTER TABLE ONLY public.commitment_participants
-    ADD CONSTRAINT fk_rails_40630ce2d2 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_40630ce2d2 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2223,10 +2223,10 @@ ALTER TABLE ONLY public.notification_recipients
 
 
 --
--- Name: studio_users fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: superagent_members fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_users
+ALTER TABLE ONLY public.superagent_members
     ADD CONSTRAINT fk_rails_55c1625b39 FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
@@ -2283,22 +2283,22 @@ ALTER TABLE ONLY public.events
 --
 
 ALTER TABLE ONLY public.links
-    ADD CONSTRAINT fk_rails_6888b30c51 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_6888b30c51 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
--- Name: studio_users fk_rails_6922fe428a; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: superagent_members fk_rails_6922fe428a; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_users
-    ADD CONSTRAINT fk_rails_6922fe428a FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+ALTER TABLE ONLY public.superagent_members
+    ADD CONSTRAINT fk_rails_6922fe428a FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
--- Name: studio_invites fk_rails_6dd1026bef; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: invites fk_rails_6dd1026bef; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studio_invites
+ALTER TABLE ONLY public.invites
     ADD CONSTRAINT fk_rails_6dd1026bef FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
@@ -2331,7 +2331,7 @@ ALTER TABLE ONLY public.notifications
 --
 
 ALTER TABLE ONLY public.decisions
-    ADD CONSTRAINT fk_rails_7ee5cf7c37 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_7ee5cf7c37 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2339,7 +2339,7 @@ ALTER TABLE ONLY public.decisions
 --
 
 ALTER TABLE ONLY public.tenants
-    ADD CONSTRAINT fk_rails_81228c3d0f FOREIGN KEY (main_studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_81228c3d0f FOREIGN KEY (main_superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2355,7 +2355,7 @@ ALTER TABLE ONLY public.decision_participants
 --
 
 ALTER TABLE ONLY public.attachments
-    ADD CONSTRAINT fk_rails_87cce8e128 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_87cce8e128 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2367,10 +2367,10 @@ ALTER TABLE ONLY public.trustee_permissions
 
 
 --
--- Name: studios fk_rails_8d8050599b; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: superagents fk_rails_8d8050599b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studios
+ALTER TABLE ONLY public.superagents
     ADD CONSTRAINT fk_rails_8d8050599b FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
 
 
@@ -2387,7 +2387,7 @@ ALTER TABLE ONLY public.representation_session_associations
 --
 
 ALTER TABLE ONLY public.note_history_events
-    ADD CONSTRAINT fk_rails_927b722124 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_927b722124 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2435,7 +2435,7 @@ ALTER TABLE ONLY public.notification_recipients
 --
 
 ALTER TABLE ONLY public.events
-    ADD CONSTRAINT fk_rails_ae2d71ac2b FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_ae2d71ac2b FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2443,7 +2443,7 @@ ALTER TABLE ONLY public.events
 --
 
 ALTER TABLE ONLY public.commitments
-    ADD CONSTRAINT fk_rails_ae61a497df FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_ae61a497df FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2451,7 +2451,7 @@ ALTER TABLE ONLY public.commitments
 --
 
 ALTER TABLE ONLY public.votes
-    ADD CONSTRAINT fk_rails_ae9f41675e FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_ae9f41675e FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2531,7 +2531,7 @@ ALTER TABLE ONLY public.api_tokens
 --
 
 ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_d26514fc52 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_d26514fc52 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2539,7 +2539,7 @@ ALTER TABLE ONLY public.representation_session_associations
 --
 
 ALTER TABLE ONLY public.representation_sessions
-    ADD CONSTRAINT fk_rails_d99c283120 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_d99c283120 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2627,7 +2627,7 @@ ALTER TABLE ONLY public.representation_sessions
 --
 
 ALTER TABLE ONLY public.heartbeats
-    ADD CONSTRAINT fk_rails_ef017bd5f0 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_ef017bd5f0 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2651,7 +2651,7 @@ ALTER TABLE ONLY public.commitment_participants
 --
 
 ALTER TABLE ONLY public.notes
-    ADD CONSTRAINT fk_rails_f11a0907b0 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_f11a0907b0 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2675,14 +2675,14 @@ ALTER TABLE ONLY public.commitment_participants
 --
 
 ALTER TABLE ONLY public.decision_participants
-    ADD CONSTRAINT fk_rails_f9c15d4765 FOREIGN KEY (studio_id) REFERENCES public.studios(id);
+    ADD CONSTRAINT fk_rails_f9c15d4765 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
--- Name: studios fk_rails_fbb5f3e2b8; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: superagents fk_rails_fbb5f3e2b8; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.studios
+ALTER TABLE ONLY public.superagents
     ADD CONSTRAINT fk_rails_fbb5f3e2b8 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
 
 
@@ -2690,7 +2690,7 @@ ALTER TABLE ONLY public.studios
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 7vtq8DlmaP8gll34odchqbXQJjn4X7oVSYfCMePkfQ0pyorffFa3aKTnwA4bdCv
+\unrestrict xIodjCCJ8EPSCnY6H7Yhnp1hBDzLd32tQ3Xg8KhDnvoFfazuvF8QXXUc8WC4FyF
 
 SET search_path TO "$user", public;
 
@@ -2794,6 +2794,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260111113813'),
 ('20260111113916'),
 ('20260111124237'),
-('20260112131013');
+('20260112131013'),
+('20260115044701');
 
 

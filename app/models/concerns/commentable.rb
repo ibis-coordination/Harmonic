@@ -36,7 +36,7 @@ module Commentable
       created_by: created_by,
       updated_by: created_by,
       tenant_id: self.tenant_id,
-      studio_id: self.studio_id
+      superagent_id: self.superagent_id
     )
   end
 

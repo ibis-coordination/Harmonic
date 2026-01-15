@@ -2,13 +2,13 @@ require "test_helper"
 
 class WebhookTest < ActiveSupport::TestCase
   setup do
-    @tenant, @studio, @user = create_tenant_studio_user
+    @tenant, @superagent, @user = create_tenant_superagent_user
   end
 
   test "valid webhook creation" do
     webhook = Webhook.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Test Webhook",
       url: "https://example.com/webhook",
       events: ["note.created"],
@@ -20,7 +20,7 @@ class WebhookTest < ActiveSupport::TestCase
   test "generates secret on create" do
     webhook = Webhook.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Test Webhook",
       url: "https://example.com/webhook",
       events: ["note.created"],
@@ -33,7 +33,7 @@ class WebhookTest < ActiveSupport::TestCase
   test "requires name" do
     webhook = Webhook.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       url: "https://example.com/webhook",
       events: ["note.created"],
       created_by: @user,
@@ -45,7 +45,7 @@ class WebhookTest < ActiveSupport::TestCase
   test "requires https url" do
     webhook = Webhook.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Test Webhook",
       url: "http://example.com/webhook",
       events: ["note.created"],
@@ -58,7 +58,7 @@ class WebhookTest < ActiveSupport::TestCase
   test "requires events" do
     webhook = Webhook.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Test Webhook",
       url: "https://example.com/webhook",
       events: [],

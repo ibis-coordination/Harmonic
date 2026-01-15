@@ -5,8 +5,8 @@ class UserTest < ActiveSupport::TestCase
     @tenant = create_tenant(subdomain: "user-test-#{SecureRandom.hex(4)}")
     @user = create_user(email: "usertest_#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(@user)
-    @studio = create_studio(tenant: @tenant, created_by: @user, handle: "user-studio-#{SecureRandom.hex(4)}")
-    @studio.add_user!(@user)
+    @superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "user-superagent-#{SecureRandom.hex(4)}")
+    @superagent.add_user!(@user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
@@ -73,9 +73,9 @@ class UserTest < ActiveSupport::TestCase
     assert_includes @user.tenants, @tenant
   end
 
-  test "user has many studio_users" do
-    assert @user.studio_users.any?
-    assert_includes @user.studios, @studio
+  test "user has many superagent_members" do
+    assert @user.superagent_members.any?
+    assert_includes @user.superagents, @superagent
   end
 
   test "user can have multiple tenants" do
@@ -182,24 +182,24 @@ class UserTest < ActiveSupport::TestCase
   # === Invite Acceptance Tests ===
 
   test "user can accept invite for themselves" do
-    new_studio = Studio.create!(
+    new_superagent = Superagent.create!(
       tenant: @tenant,
       created_by: @user,
       name: "Invite Studio",
-      handle: "invite-studio-#{SecureRandom.hex(4)}"
+      handle: "invite-superagent-#{SecureRandom.hex(4)}"
     )
-    invite = StudioInvite.create!(
+    invite = Invite.create!(
       tenant: @tenant,
-      studio: new_studio,
+      superagent: new_superagent,
       created_by: @user,
       invited_user: @user,
       code: SecureRandom.hex(8),
       expires_at: 1.week.from_now
     )
 
-    assert_not new_studio.user_is_member?(@user)
+    assert_not new_superagent.user_is_member?(@user)
     @user.accept_invite!(invite)
-    assert new_studio.user_is_member?(@user)
+    assert new_superagent.user_is_member?(@user)
   end
 
   test "user cannot accept invite for another user" do
@@ -207,9 +207,9 @@ class UserTest < ActiveSupport::TestCase
     # Add to tenant with unique handle
     TenantUser.create!(tenant: @tenant, user: other_user, handle: "other-user-#{SecureRandom.hex(4)}")
 
-    invite = StudioInvite.create!(
+    invite = Invite.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       invited_user: other_user,
       code: SecureRandom.hex(8),
@@ -226,13 +226,13 @@ class UserTest < ActiveSupport::TestCase
   test "studios_minus_main excludes main studio" do
     # Set the thread tenant context for the scope
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain) do
-      @tenant.create_main_studio!(created_by: @user)
-      main_studio = @tenant.main_studio
-      main_studio.add_user!(@user)
+      @tenant.create_main_superagent!(created_by: @user)
+      main_superagent = @tenant.main_superagent
+      main_superagent.add_user!(@user)
 
-      studios = @user.studios_minus_main
-      assert_not_includes studios, main_studio
-      assert_includes studios, @studio
+      studios = @user.superagents_minus_main
+      assert_not_includes studios, main_superagent
+      assert_includes studios, @superagent
     end
   end
 
@@ -261,7 +261,7 @@ class UserTest < ActiveSupport::TestCase
   # === Trustee User Tests ===
 
   test "studio_trustee? returns true for studio's trustee user" do
-    trustee = @studio.trustee_user
+    trustee = @superagent.trustee_user
     assert trustee.trustee?
     assert trustee.studio_trustee?
   end
@@ -278,8 +278,8 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "trustee_studio returns associated studio" do
-    trustee = @studio.trustee_user
-    assert_equal @studio, trustee.trustee_studio
+    trustee = @superagent.trustee_user
+    assert_equal @superagent, trustee.trustee_studio
   end
 
   test "trustee_studio returns nil for person user" do
@@ -318,56 +318,56 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "can_impersonate? returns true for representative impersonating studio trustee" do
-    @studio.studio_users.find_by(user: @user).add_role!('representative')
-    trustee = @studio.trustee_user
+    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    trustee = @superagent.trustee_user
     assert @user.can_impersonate?(trustee)
   end
 
   test "can_impersonate? returns false for non-representative trying to impersonate studio trustee" do
-    trustee = @studio.trustee_user
+    trustee = @superagent.trustee_user
     assert_not @user.can_impersonate?(trustee)
   end
 
   test "can_impersonate? returns true when any_member_can_represent is enabled" do
-    @studio.settings['any_member_can_represent'] = true
-    @studio.save!
-    trustee = @studio.trustee_user
+    @superagent.settings['any_member_can_represent'] = true
+    @superagent.save!
+    trustee = @superagent.trustee_user
     assert @user.can_impersonate?(trustee)
   end
 
   test "can_impersonate? returns false for non-member trying to impersonate studio trustee" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    trustee = @studio.trustee_user
+    trustee = @superagent.trustee_user
     assert_not other_user.can_impersonate?(trustee)
   end
 
   # === Representation Authorization Tests ===
 
   test "can_represent? returns true for trustee user representing their own studio" do
-    trustee = @studio.trustee_user
-    assert trustee.can_represent?(@studio)
+    trustee = @superagent.trustee_user
+    assert trustee.can_represent?(@superagent)
   end
 
   test "can_represent? returns true for user with representative role" do
-    @studio.studio_users.find_by(user: @user).add_role!('representative')
-    assert @user.can_represent?(@studio)
+    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    assert @user.can_represent?(@superagent)
   end
 
   test "can_represent? returns false for user without representative role" do
-    assert_not @user.can_represent?(@studio)
+    assert_not @user.can_represent?(@superagent)
   end
 
   test "can_represent? returns true when any_member_can_represent is enabled" do
-    @studio.settings['any_member_can_represent'] = true
-    @studio.save!
-    assert @user.can_represent?(@studio)
+    @superagent.settings['any_member_can_represent'] = true
+    @superagent.save!
+    assert @user.can_represent?(@superagent)
   end
 
   test "can_represent? returns false for non-member of studio" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User For Rep")
     @tenant.add_user!(other_user)
-    assert_not other_user.can_represent?(@studio)
+    assert_not other_user.can_represent?(@superagent)
   end
 
   test "can_represent? with user argument delegates to can_impersonate?" do

@@ -5,8 +5,8 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     @tenant = create_tenant(subdomain: "rep-session-#{SecureRandom.hex(4)}")
     @user = create_user(email: "rep_#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(@user)
-    @studio = create_studio(tenant: @tenant, created_by: @user, handle: "rep-studio-#{SecureRandom.hex(4)}")
-    @studio.add_user!(@user)
+    @superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "rep-studio-#{SecureRandom.hex(4)}")
+    @superagent.add_user!(@user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
@@ -15,9 +15,9 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "representation session requires confirmed_understanding to be true" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative_user: @user,
-      trustee_user: @studio.trustee_user,
+      trustee_user: @superagent.trustee_user,
       confirmed_understanding: false,
       began_at: Time.current,
       activity_log: { 'activity' => [] },
@@ -29,9 +29,9 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "representation session requires began_at" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative_user: @user,
-      trustee_user: @studio.trustee_user,
+      trustee_user: @superagent.trustee_user,
       confirmed_understanding: true,
       began_at: nil,
       activity_log: { 'activity' => [] },
@@ -40,29 +40,29 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_includes session.errors[:began_at], "can't be blank"
   end
 
-  test "representation session requires studio" do
+  test "representation session requires superagent" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      studio: nil,
+      superagent: nil,
       representative_user: @user,
-      trustee_user: @studio.trustee_user,
+      trustee_user: @superagent.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { 'activity' => [] },
     )
     assert_not session.valid?
-    assert_includes session.errors[:studio], "must exist"
+    assert_includes session.errors[:superagent], "must exist"
   end
 
   test "representation session can be created with valid attributes" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert session.persisted?
     assert_equal @user, session.representative_user
-    assert_equal @studio.trustee_user, session.trustee_user
+    assert_equal @superagent.trustee_user, session.trustee_user
   end
 
   # === Lifecycle Tests ===
@@ -70,9 +70,9 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "begin! raises if confirmed_understanding is false" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative_user: @user,
-      trustee_user: @studio.trustee_user,
+      trustee_user: @superagent.trustee_user,
       confirmed_understanding: false,
       activity_log: { 'activity' => [] },
     )
@@ -84,9 +84,9 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "begin! sets began_at and initializes activity_log" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative_user: @user,
-      trustee_user: @studio.trustee_user,
+      trustee_user: @superagent.trustee_user,
       confirmed_understanding: true,
       activity_log: {},
     )
@@ -98,7 +98,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "active? returns true when ended_at is nil" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert session.active?
@@ -107,7 +107,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "active? returns false when ended_at is set" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     session.end!
@@ -117,7 +117,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "end! sets ended_at" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert_nil session.ended_at
@@ -128,7 +128,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "end! is idempotent" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     session.end!
@@ -140,7 +140,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "ended? returns true after end! is called" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert_not session.ended?
@@ -151,7 +151,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "expired? returns true after 24 hours" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
       began_at: 25.hours.ago,
     )
@@ -161,7 +161,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "expired? returns false within 24 hours" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
       began_at: 23.hours.ago,
     )
@@ -171,7 +171,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "expired? returns true when session is ended" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     session.end!
@@ -183,7 +183,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "elapsed_time returns seconds since began_at for active session" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
       began_at: 1.hour.ago,
     )
@@ -194,7 +194,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "elapsed_time returns duration for ended session" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
       began_at: 2.hours.ago,
     )
@@ -210,14 +210,14 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "validate_semantic_event! raises for invalid event type" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert_raises RuntimeError do
       session.validate_semantic_event!({
         timestamp: Time.current.iso8601,
         event_type: 'invalid',
-        studio_id: @studio.id,
+        superagent_id: @superagent.id,
         main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
         sub_resources: [],
       })
@@ -227,14 +227,14 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "validate_semantic_event! raises for invalid main resource type" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert_raises RuntimeError do
       session.validate_semantic_event!({
         timestamp: Time.current.iso8601,
         event_type: 'create',
-        studio_id: @studio.id,
+        superagent_id: @superagent.id,
         main_resource: { type: 'InvalidType', id: '123', truncated_id: 'abc123' },
         sub_resources: [],
       })
@@ -244,14 +244,14 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "validate_semantic_event! accepts valid event" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     # Should not raise
     session.validate_semantic_event!({
       timestamp: Time.current.iso8601,
       event_type: 'create',
-      studio_id: @studio.id,
+      superagent_id: @superagent.id,
       main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
       sub_resources: [],
     })
@@ -260,7 +260,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "record_activity! raises if session has ended" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     session.end!
@@ -272,7 +272,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
         semantic_event: {
           timestamp: Time.current.iso8601,
           event_type: 'create',
-          studio_id: @studio.id,
+          superagent_id: @superagent.id,
           main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
           sub_resources: [],
         },
@@ -283,7 +283,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "record_activity! raises if session has expired" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
       began_at: 25.hours.ago,
     )
@@ -295,7 +295,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
         semantic_event: {
           timestamp: Time.current.iso8601,
           event_type: 'create',
-          studio_id: @studio.id,
+          superagent_id: @superagent.id,
           main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
           sub_resources: [],
         },
@@ -304,10 +304,10 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   end
 
   test "record_activity! adds activity to log and creates association" do
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
 
@@ -317,7 +317,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       semantic_event: {
         timestamp: Time.current.iso8601,
         event_type: 'create',
-        studio_id: @studio.id,
+        superagent_id: @superagent.id,
         main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
         sub_resources: [],
       },
@@ -335,7 +335,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "title returns truncated_id based title" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert_match(/Representation Session \w+/, session.title)
@@ -344,16 +344,16 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "path returns studio-scoped path" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
-    assert_equal "/studios/#{@studio.handle}/r/#{session.truncated_id}", session.path
+    assert_equal "/studios/#{@superagent.handle}/r/#{session.truncated_id}", session.path
   end
 
   test "url returns full URL with tenant subdomain" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert_match(/#{@tenant.subdomain}.*#{session.truncated_id}/, session.url)
@@ -362,17 +362,17 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "action_count returns 0 for session with no activity" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert_equal 0, session.action_count
   end
 
   test "action_count returns count of activities" do
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
 
@@ -382,7 +382,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       semantic_event: {
         timestamp: Time.current.iso8601,
         event_type: 'create',
-        studio_id: @studio.id,
+        superagent_id: @superagent.id,
         main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
         sub_resources: [],
       },
@@ -396,7 +396,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "event_type_to_verb_phrase returns correct phrases" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
 
@@ -411,7 +411,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "event_type_to_verb_phrase raises for unknown event type" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
     assert_raises RuntimeError do
@@ -422,10 +422,10 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   # === human_readable_activity_log Tests ===
 
   test "human_readable_activity_log deduplicates consecutive votes on same decision" do
-    decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
+    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
 
@@ -438,7 +438,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
         semantic_event: {
           timestamp: Time.current.iso8601,
           event_type: 'vote',
-          studio_id: @studio.id,
+          superagent_id: @superagent.id,
           main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
           sub_resources: [],
         },
@@ -452,11 +452,11 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   end
 
   test "human_readable_activity_log shows all different actions" do
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
-    decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
 
@@ -467,7 +467,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       semantic_event: {
         timestamp: Time.current.iso8601,
         event_type: 'create',
-        studio_id: @studio.id,
+        superagent_id: @superagent.id,
         main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
         sub_resources: [],
       },
@@ -478,7 +478,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       semantic_event: {
         timestamp: Time.current.iso8601,
         event_type: 'vote',
-        studio_id: @studio.id,
+        superagent_id: @superagent.id,
         main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
         sub_resources: [],
       },
@@ -495,7 +495,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "api_json returns expected fields" do
     session = create_representation_session(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       representative: @user,
     )
 
@@ -506,8 +506,8 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_nil json[:ended_at]
     assert json[:elapsed_time].is_a?(Numeric)
     assert json[:activity_log].is_a?(Hash)
-    assert_equal @studio.id, json[:studio_id]
+    assert_equal @superagent.id, json[:superagent_id]
     assert_equal @user.id, json[:representative_user_id]
-    assert_equal @studio.trustee_user.id, json[:trustee_user_id]
+    assert_equal @superagent.trustee_user.id, json[:trustee_user_id]
   end
 end

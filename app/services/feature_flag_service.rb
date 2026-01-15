@@ -48,9 +48,9 @@ class FeatureFlagService
     metadata["default_tenant"] == true
   end
 
-  # Get the default value for a studio
+  # Get the default value for a superagent
   sig { params(flag_name: String).returns(T::Boolean) }
-  def self.default_for_studio(flag_name)
+  def self.default_for_superagent(flag_name)
     metadata = flag_metadata(flag_name)
     return false if metadata.nil?
 
@@ -67,29 +67,29 @@ class FeatureFlagService
     tenant.feature_flag_enabled_locally?(flag_name)
   end
 
-  # Check if a flag is enabled at the studio level (considering cascade from tenant)
-  sig { params(studio: Studio, flag_name: String).returns(T::Boolean) }
-  def self.studio_enabled?(studio, flag_name)
+  # Check if a flag is enabled at the superagent level (considering cascade from tenant)
+  sig { params(superagent: Superagent, flag_name: String).returns(T::Boolean) }
+  def self.superagent_enabled?(superagent, flag_name)
     # Must be enabled at tenant level (which includes app level check)
-    return false unless tenant_enabled?(T.must(studio.tenant), flag_name)
+    return false unless tenant_enabled?(T.must(superagent.tenant), flag_name)
 
-    # Check studio's local setting
-    studio.feature_flag_enabled_locally?(flag_name)
+    # Check superagent's local setting
+    superagent.feature_flag_enabled_locally?(flag_name)
   end
 
   # Main entry point: check if a feature is enabled at the appropriate level
   # If only tenant is provided, checks tenant level
-  # If studio is provided, checks studio level (which cascades through tenant and app)
+  # If superagent is provided, checks superagent level (which cascades through tenant and app)
   sig do
     params(
       flag_name: String,
       tenant: T.nilable(Tenant),
-      studio: T.nilable(Studio)
+      superagent: T.nilable(Superagent)
     ).returns(T::Boolean)
   end
-  def self.enabled?(flag_name, tenant: nil, studio: nil)
-    if studio
-      studio_enabled?(studio, flag_name)
+  def self.enabled?(flag_name, tenant: nil, superagent: nil)
+    if superagent
+      superagent_enabled?(superagent, flag_name)
     elsif tenant
       tenant_enabled?(tenant, flag_name)
     else

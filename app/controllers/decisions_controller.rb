@@ -6,7 +6,7 @@ class DecisionsController < ApplicationController
   def new
     @page_title = "Decide"
     @page_description = "Make a group decision with Harmonic Team"
-    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_studio.tempo)
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
     @decision = Decision.new(
       question: params[:question],
     )
@@ -22,11 +22,11 @@ class DecisionsController < ApplicationController
           deadline: deadline_from_params,
           created_by: current_user,
         )
-        if params[:files] && @current_tenant.allow_file_uploads? && @current_studio.allow_file_uploads?
+        if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
           @decision.attach!(params[:files])
         end
-        if params[:pinned] == '1' && current_studio.id != current_tenant.main_studio_id
-          current_studio.pin_item!(@decision)
+        if params[:pinned] == '1' && current_superagent.id != current_tenant.main_studio_id
+          current_superagent.pin_item!(@decision)
         end
         if current_representation_session
           current_representation_session.record_activity!(
@@ -34,7 +34,7 @@ class DecisionsController < ApplicationController
             semantic_event: {
               timestamp: Time.current,
               event_type: 'create',
-              studio_id: current_studio.id,
+              superagent_id: current_superagent.id,
               main_resource: {
                 type: 'Decision',
                 id: @decision.id,
@@ -50,7 +50,7 @@ class DecisionsController < ApplicationController
       e.record.errors.full_messages.each do |msg|
         flash.now[:alert] = msg
       end
-      @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_studio.tempo)
+      @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
       @decision = Decision.new(
         question: decision_params[:question],
         description: decision_params[:description],
@@ -81,7 +81,7 @@ class DecisionsController < ApplicationController
     return render '404', status: 404 unless @decision
     @new_decision = Decision.new(
       tenant_id: @decision.tenant_id,
-      studio_id: @decision.studio_id,
+      superagent_id: @decision.superagent_id,
       question: @decision.question,
       description: @decision.description,
       options_open: @decision.options_open,
@@ -97,7 +97,7 @@ class DecisionsController < ApplicationController
       options = @decision.options.map do |option|
         Option.create!(
           tenant_id: option.tenant_id,
-          studio_id: option.studio_id,
+          superagent_id: option.studio_id,
           decision_id: @new_decision.id,
           decision_participant_id: dp.id,
           title: option.title,
@@ -109,7 +109,7 @@ class DecisionsController < ApplicationController
           semantic_event: {
             timestamp: Time.current,
             event_type: 'create',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Decision',
               id: @decision.id,
@@ -167,7 +167,7 @@ class DecisionsController < ApplicationController
           semantic_event: {
             timestamp: Time.current,
             event_type: 'update',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Decision',
               id: @decision.id,
@@ -205,7 +205,7 @@ class DecisionsController < ApplicationController
     @decision = current_decision
     return render '404', status: 404 unless @decision
     begin
-      @decision.pin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      @decision.pin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
       render_action_success({
         action_name: 'pin_decision',
         resource: @decision,
@@ -228,7 +228,7 @@ class DecisionsController < ApplicationController
     @decision = current_decision
     return render '404', status: 404 unless @decision
     begin
-      @decision.unpin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      @decision.unpin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
       render_action_success({
         action_name: 'unpin_decision',
         resource: @decision,
@@ -286,7 +286,7 @@ class DecisionsController < ApplicationController
           semantic_event: {
             timestamp: Time.current,
             event_type: 'add_option',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Decision',
               id: current_decision.id,

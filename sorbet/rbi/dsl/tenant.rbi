@@ -292,8 +292,8 @@ class Tenant
     sig { params(value: T::Enumerable[::Attachment]).void }
     def attachments=(value); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def build_main_studio(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def build_main_superagent(*args, &blk); end
 
     sig { returns(T::Array[T.untyped]) }
     def commitment_ids; end
@@ -323,11 +323,11 @@ class Tenant
     sig { params(value: T::Enumerable[::Commitment]).void }
     def commitments=(value); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def create_main_studio(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def create_main_superagent(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def create_main_studio!(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def create_main_superagent!(*args, &blk); end
 
     sig { returns(T::Array[T.untyped]) }
     def decision_ids; end
@@ -358,6 +358,20 @@ class Tenant
     def decisions=(value); end
 
     sig { returns(T::Array[T.untyped]) }
+    def event_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def event_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :events`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::Event::PrivateCollectionProxy) }
+    def events; end
+
+    sig { params(value: T::Enumerable[::Event]).void }
+    def events=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def heartbeat_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -370,6 +384,20 @@ class Tenant
 
     sig { params(value: T::Enumerable[::Heartbeat]).void }
     def heartbeats=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def invite_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def invite_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :invites`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::Invite::PrivateCollectionProxy) }
+    def invites; end
+
+    sig { params(value: T::Enumerable[::Invite]).void }
+    def invites=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def link_ids; end
@@ -385,11 +413,11 @@ class Tenant
     sig { params(value: T::Enumerable[::Link]).void }
     def links=(value); end
 
-    sig { returns(T.nilable(::Studio)) }
-    def main_studio; end
+    sig { returns(T.nilable(::Superagent)) }
+    def main_superagent; end
 
-    sig { params(value: T.nilable(::Studio)).void }
-    def main_studio=(value); end
+    sig { params(value: T.nilable(::Superagent)).void }
+    def main_superagent=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def note_history_event_ids; end
@@ -419,6 +447,34 @@ class Tenant
     sig { params(value: T::Enumerable[::Note]).void }
     def notes=(value); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def notification_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def notification_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def notification_recipient_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def notification_recipient_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :notification_recipients`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::NotificationRecipient::PrivateCollectionProxy) }
+    def notification_recipients; end
+
+    sig { params(value: T::Enumerable[::NotificationRecipient]).void }
+    def notification_recipients=(value); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :notifications`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::Notification::PrivateCollectionProxy) }
+    def notifications; end
+
+    sig { params(value: T::Enumerable[::Notification]).void }
+    def notifications=(value); end
+
     # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :omni_auth_identities`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::OmniAuthIdentity::PrivateCollectionProxy) }
@@ -447,8 +503,8 @@ class Tenant
     sig { params(value: T::Enumerable[::Option]).void }
     def options=(value); end
 
-    sig { returns(T.nilable(::Studio)) }
-    def reload_main_studio; end
+    sig { returns(T.nilable(::Superagent)) }
+    def reload_main_superagent; end
 
     sig { returns(T::Array[T.untyped]) }
     def representation_session_association_ids; end
@@ -479,49 +535,35 @@ class Tenant
     def representation_sessions=(value); end
 
     sig { void }
-    def reset_main_studio; end
+    def reset_main_superagent; end
 
     sig { returns(T::Array[T.untyped]) }
-    def studio_ids; end
+    def superagent_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def studio_ids=(ids); end
+    def superagent_ids=(ids); end
 
     sig { returns(T::Array[T.untyped]) }
-    def studio_invite_ids; end
+    def superagent_member_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def studio_invite_ids=(ids); end
+    def superagent_member_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :studio_invites`.
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :superagent_members`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::StudioInvite::PrivateCollectionProxy) }
-    def studio_invites; end
+    sig { returns(::SuperagentMember::PrivateCollectionProxy) }
+    def superagent_members; end
 
-    sig { params(value: T::Enumerable[::StudioInvite]).void }
-    def studio_invites=(value); end
+    sig { params(value: T::Enumerable[::SuperagentMember]).void }
+    def superagent_members=(value); end
 
-    sig { returns(T::Array[T.untyped]) }
-    def studio_user_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def studio_user_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :studio_users`.
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :superagents`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::StudioUser::PrivateCollectionProxy) }
-    def studio_users; end
+    sig { returns(::Superagent::PrivateCollectionProxy) }
+    def superagents; end
 
-    sig { params(value: T::Enumerable[::StudioUser]).void }
-    def studio_users=(value); end
-
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :studios`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::Studio::PrivateCollectionProxy) }
-    def studios; end
-
-    sig { params(value: T::Enumerable[::Studio]).void }
-    def studios=(value); end
+    sig { params(value: T::Enumerable[::Superagent]).void }
+    def superagents=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def tenant_user_ids; end
@@ -578,6 +620,34 @@ class Tenant
 
     sig { params(value: T::Enumerable[::Vote]).void }
     def votes=(value); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :webhook_deliveries`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::WebhookDelivery::PrivateCollectionProxy) }
+    def webhook_deliveries; end
+
+    sig { params(value: T::Enumerable[::WebhookDelivery]).void }
+    def webhook_deliveries=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def webhook_delivery_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def webhook_delivery_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def webhook_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def webhook_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :webhooks`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::Webhook::PrivateCollectionProxy) }
+    def webhooks; end
+
+    sig { params(value: T::Enumerable[::Webhook]).void }
+    def webhooks=(value); end
   end
 
   module GeneratedAssociationRelationMethods
@@ -951,6 +1021,51 @@ class Tenant
     sig { void }
     def main_studio_id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def main_superagent_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def main_superagent_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def main_superagent_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def main_superagent_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def main_superagent_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def main_superagent_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def main_superagent_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def main_superagent_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def main_superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def main_superagent_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def main_superagent_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def main_superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def main_superagent_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def main_superagent_id_was; end
+
+    sig { void }
+    def main_superagent_id_will_change!; end
+
     sig { returns(::String) }
     def name; end
 
@@ -1009,6 +1124,9 @@ class Tenant
     def restore_main_studio_id!; end
 
     sig { void }
+    def restore_main_superagent_id!; end
+
+    sig { void }
     def restore_name!; end
 
     sig { void }
@@ -1043,6 +1161,12 @@ class Tenant
 
     sig { returns(T::Boolean) }
     def saved_change_to_main_studio_id?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_main_superagent_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_main_superagent_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_name; end
@@ -1214,6 +1338,9 @@ class Tenant
 
     sig { returns(T::Boolean) }
     def will_save_change_to_main_studio_id?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_main_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_name?; end

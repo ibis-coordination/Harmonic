@@ -52,15 +52,15 @@ A **trustee** is a synthetic user that enables collective agency. Trustees don't
 - Created automatically (never by users directly)
 - Has a generated email like `{uuid}@not-a-real-email.com`
 - Cannot have a `parent_id`
-- Cannot be a member of the main studio (validation enforced)
+- Cannot be a member of the main superagent (validation enforced)
 - Cannot be the creator of content (validation enforced)
 
 **Two types of trustees:**
 
-1. **Studio Trustee**: Every studio automatically creates a trustee user via `Studio#create_trustee!`. This trustee represents the studio as a unified entity.
-   - `Studio.trustee_user` points to this user
-   - `User#studio_trustee?` returns true
-   - `User#trustee_studio` returns the associated studio
+1. **Superagent Trustee**: Every superagent automatically creates a trustee user via `Superagent#create_trustee!`. This trustee represents the superagent as a unified entity.
+   - `Superagent.trustee_user` points to this user
+   - `User#superagent_trustee?` returns true
+   - `User#trustee_superagent` returns the associated superagent
 
 2. **Delegation Trustee**: Created by `TrusteePermission` to represent a delegation relationship between users. (Note: This feature is scaffolded but not yet used in production.)
 
@@ -71,13 +71,13 @@ A **trustee** is a synthetic user that enables collective agency. Trustees don't
 │                         PERSON USER                              │
 │  - Authenticates via OAuth                                       │
 │  - Can create subagents                                          │
-│  - Can represent studios                                         │
+│  - Can represent superagents                                     │
 └─────────────────────┬───────────────────┬───────────────────────┘
                       │                   │
                       │ creates           │ can_represent?
                       ▼                   ▼
 ┌─────────────────────────────┐   ┌─────────────────────────────┐
-│       SUBAGENT USER         │   │          STUDIO             │
+│       SUBAGENT USER         │   │       SUPERAGENT            │
 │  - parent_id → person       │   │  - has trustee_user         │
 │  - No OAuth identity        │   │  - has representative role  │
 │  - Parent can impersonate   │   └──────────────┬──────────────┘
@@ -86,7 +86,7 @@ A **trustee** is a synthetic user that enables collective agency. Trustees don't
                                                  ▼
                                   ┌─────────────────────────────┐
                                   │       TRUSTEE USER          │
-                                  │  - Represents the studio    │
+                                  │  - Represents superagent    │
                                   │  - Created automatically    │
                                   │  - Used in representation   │
                                   └─────────────────────────────┘
@@ -98,14 +98,14 @@ A **trustee** is a synthetic user that enables collective agency. Trustees don't
 
 Returns true if this user can act as another user:
 - Parent can impersonate their non-archived subagent
-- Representative can impersonate a studio's trustee user (via `can_represent?`)
+- Representative can impersonate a superagent's trustee user (via `can_represent?`)
 
-### `User#can_represent?(studio_or_user)`
+### `User#can_represent?(superagent_or_user)`
 
-Returns true if this user can act on behalf of a studio:
-- Trustee user can represent their own studio
-- Studio member with `representative` role can represent
-- Studio member can represent if `studio.any_member_can_represent?` is true
+Returns true if this user can act on behalf of a superagent:
+- Trustee user can represent their own superagent
+- Superagent member with `representative` role can represent
+- Superagent member can represent if `superagent.any_member_can_represent?` is true
 
 ### `User#can_edit?(user)`
 
@@ -113,9 +113,9 @@ Returns true if this user can modify another user's profile:
 - Users can edit themselves
 - Parents can edit their subagents
 
-### `User#can_add_subagent_to_studio?(subagent, studio)`
+### `User#can_add_subagent_to_superagent?(subagent, superagent)`
 
-Returns true if this user can add a subagent to a studio:
+Returns true if this user can add a subagent to a superagent:
 - Must be the subagent's parent
 - Must have invite permission in the studio
 
@@ -126,7 +126,7 @@ Returns true if this user can add a subagent to a studio:
 | Person cannot have parent_id | `User#subagent_must_have_parent` |
 | Subagent must have parent_id | `User#subagent_must_have_parent` |
 | User cannot be its own parent | `User#subagent_must_have_parent` |
-| Trustee cannot be member of main studio | `StudioUser#trustee_users_not_member_of_main_studio` |
+| Trustee cannot be member of main superagent | `SuperagentMember#trustee_users_not_member_of_main_superagent` |
 | Trustee cannot create content | `ApplicationRecord#creator_is_not_trustee` |
 
 ## Related Documentation

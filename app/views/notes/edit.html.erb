@@ -1,11 +1,11 @@
 <h4 style="display:inline-block;margin-top:0;">
-  <%= link_to @current_studio.name, @current_studio.path || '/' %>
+  <%= link_to @current_superagent.name, @current_superagent.path || '/' %>
   / <i class="note-icon"></i>
   Note <code><%= @note.truncated_id %></code>
   / Edit
 </h4>
 <%= form_with do |form| %>
-  <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_studio.path %>">
+  <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
     <%= form.text_area :text, placeholder: 'Note (use @ to mention users)', style: 'height:300px;', value: @note.text, data: { mention_autocomplete_target: "input" } %>
     <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
   </div>

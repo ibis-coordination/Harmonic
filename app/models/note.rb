@@ -11,8 +11,8 @@ class Note < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :studio
-  before_validation :set_studio_id
+  belongs_to :superagent
+  before_validation :set_superagent_id
   belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
   belongs_to :updated_by, class_name: 'User', foreign_key: 'updated_by_id'
 

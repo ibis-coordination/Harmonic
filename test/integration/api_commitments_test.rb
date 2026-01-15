@@ -4,8 +4,8 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @studio = @global_studio
-    @studio.enable_api!
+    @superagent = @global_superagent
+    @superagent.enable_api!
     @user = @global_user
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -17,11 +17,11 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
       "Content-Type" => "application/json",
     }
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
   end
 
   def api_path(path = "")
-    "#{@studio.path}/api/v1/commitments#{path}"
+    "#{@superagent.path}/api/v1/commitments#{path}"
   end
 
   # Index is not supported
@@ -34,7 +34,7 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
 
   # Show
   test "show returns a commitment" do
-    commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
     get api_path("/#{commitment.truncated_id}"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -52,7 +52,7 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
   end
 
   test "show with include=participants returns participants" do
-    commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
     get api_path("/#{commitment.truncated_id}?include=participants"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -60,7 +60,7 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
   end
 
   test "show with include=backlinks returns backlinks" do
-    commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
     get api_path("/#{commitment.truncated_id}?include=backlinks"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -113,7 +113,7 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
 
   # Update
   test "update updates a commitment by creator" do
-    commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
     update_params = {
       title: "Updated Title",
       description: "Updated description"
@@ -125,7 +125,7 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
   end
 
   test "update can change critical_mass" do
-    commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
     update_params = { critical_mass: 10 }
     put api_path("/#{commitment.truncated_id}"), params: update_params.to_json, headers: @headers
     assert_response :success
@@ -136,8 +136,8 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
   test "update by non-creator returns forbidden" do
     other_user = create_user(email: "other@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @studio.add_user!(other_user)
-    commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: other_user)
+    @superagent.add_user!(other_user)
+    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: other_user)
     update_params = { title: "Hacked title" }
     put api_path("/#{commitment.truncated_id}"), params: update_params.to_json, headers: @headers
     assert_response :forbidden
@@ -145,7 +145,7 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
 
   # Join
   test "join adds user to commitment" do
-    commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
     initial_count = commitment.participant_count
     join_params = { committed: true }
     post api_path("/#{commitment.truncated_id}/join"), params: join_params.to_json, headers: @headers
@@ -155,7 +155,7 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
   end
 
   test "join closed commitment returns error" do
-    commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
     commitment.update!(deadline: Time.current - 1.day)
     join_params = { committed: true }
     post api_path("/#{commitment.truncated_id}/join"), params: join_params.to_json, headers: @headers
@@ -179,7 +179,7 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
   test "commitment reaches critical mass" do
     commitment = Commitment.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       title: "Small Commitment",
       description: "Only needs 1 person",

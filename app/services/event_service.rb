@@ -12,13 +12,13 @@ class EventService
     ).returns(T.nilable(Event))
   end
   def self.record!(event_type:, actor:, subject:, metadata: {})
-    # Skip event creation if tenant/studio context isn't set
+    # Skip event creation if tenant/superagent context isn't set
     # This can happen in some test scenarios or background jobs without context
-    return nil unless Tenant.current_id && Studio.current_id
+    return nil unless Tenant.current_id && Superagent.current_id
 
     event = Event.create!(
       tenant_id: Tenant.current_id,
-      studio_id: Studio.current_id,
+      superagent_id: Superagent.current_id,
       event_type: event_type,
       actor: actor,
       subject: subject,

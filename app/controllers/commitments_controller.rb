@@ -6,7 +6,7 @@ class CommitmentsController < ApplicationController
   def new
     @page_title = "Commit"
     @page_description = "Start a group commitment"
-    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_studio.tempo)
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
     @commitment = Commitment.new(
       title: params[:title],
     )
@@ -24,11 +24,11 @@ class CommitmentsController < ApplicationController
     begin
       ActiveRecord::Base.transaction do
         @commitment.save!
-        if params[:files] && @current_tenant.allow_file_uploads? && @current_studio.allow_file_uploads?
+        if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
           @commitment.attach!(params[:files])
         end
-        if params[:pinned] == '1' && current_studio.id != current_tenant.main_studio_id
-          current_studio.pin_item!(@commitment)
+        if params[:pinned] == '1' && current_superagent.id != current_tenant.main_studio_id
+          current_superagent.pin_item!(@commitment)
         end
         @current_commitment = @commitment
         if current_representation_session
@@ -37,7 +37,7 @@ class CommitmentsController < ApplicationController
             semantic_event: {
               timestamp: Time.current,
               event_type: 'create',
-              studio_id: current_studio.id,
+              superagent_id: current_superagent.id,
               main_resource: {
                 type: 'Commitment',
                 id: @commitment.id,
@@ -98,7 +98,7 @@ class CommitmentsController < ApplicationController
           semantic_event: {
             timestamp: Time.current,
             event_type: 'commit',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Commitment',
               id: @commitment.id,
@@ -197,7 +197,7 @@ class CommitmentsController < ApplicationController
             semantic_event: {
               timestamp: Time.current,
               event_type: 'commit',
-              studio_id: current_studio.id,
+              superagent_id: current_superagent.id,
               main_resource: {
                 type: 'Commitment',
                 id: @commitment.id,
@@ -255,7 +255,7 @@ class CommitmentsController < ApplicationController
           semantic_event: {
             timestamp: Time.current,
             event_type: 'update',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Commitment',
               id: @commitment.id,
@@ -293,7 +293,7 @@ class CommitmentsController < ApplicationController
     @commitment = current_commitment
     return render '404', status: 404 unless @commitment
     begin
-      @commitment.pin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      @commitment.pin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
       render_action_success({
         action_name: 'pin_commitment',
         resource: @commitment,
@@ -316,7 +316,7 @@ class CommitmentsController < ApplicationController
     @commitment = current_commitment
     return render '404', status: 404 unless @commitment
     begin
-      @commitment.unpin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      @commitment.unpin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
       render_action_success({
         action_name: 'unpin_commitment',
         resource: @commitment,

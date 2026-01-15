@@ -34,7 +34,7 @@ No personal API tokens.
 
 * [View Profile](<%= subagent.path %>)
 * Created <%= time_ago_in_words(subagent.created_at) %> ago
-<% active_studios = subagent.studio_users.reject(&:archived?).map(&:studio).reject { |s| s == @current_tenant.main_studio } %>
+<% active_studios = subagent.superagent_members.reject(&:archived?).map(&:superagent).reject { |s| s == @current_tenant.main_superagent } %>
 <% if active_studios.any? %>
 
 Studio memberships:

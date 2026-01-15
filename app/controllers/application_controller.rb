@@ -1,7 +1,7 @@
 # typed: false
 
 class ApplicationController < ActionController::Base
-  before_action :check_auth_subdomain, :current_app, :current_tenant, :current_studio,
+  before_action :check_auth_subdomain, :current_app, :current_tenant, :current_superagent,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count
 
@@ -25,33 +25,36 @@ class ApplicationController < ActionController::Base
 
   def current_tenant
     return @current_tenant if defined?(@current_tenant)
-    current_studio
-    @current_tenant ||= @current_studio.tenant
+    current_superagent
+    @current_tenant ||= @current_superagent.tenant
     redirect_to '/404' if @current_tenant.archived?
     @current_tenant
   end
 
-  def current_studio
-    return @current_studio if defined?(@current_studio)
+  def current_superagent
+    return @current_superagent if defined?(@current_superagent)
     # begin
-      # Studio.scope_thread_to_studio sets the current studio and tenant based on the subdomain and handle
+      # Superagent.scope_thread_to_superagent sets the current superagent and tenant based on the subdomain and handle
       # and raises an error if the subdomain or handle is not found.
       # Default scope is configured in ApplicationRecord to scope all queries to
-      # Tenant.current_tenant_id and Studio.current_studio_id
-      # and automatically set tenant_id and studio_id on any new records.
-      @current_studio = Studio.scope_thread_to_studio(
+      # Tenant.current_tenant_id and Superagent.current_superagent_id
+      # and automatically set tenant_id and superagent_id on any new records.
+      @current_superagent = Superagent.scope_thread_to_superagent(
         subdomain: request.subdomain,
-        handle: params[:studio_handle]
+        handle: params[:superagent_handle]
       )
-      @current_tenant = @current_studio.tenant
+      @current_tenant = @current_superagent.tenant
       # Set these associations to avoid unnecessary reloading.
-      @current_studio.tenant = @current_tenant
-      @current_tenant.main_studio = @current_studio if @current_tenant.main_studio_id == @current_studio.id
+      @current_superagent.tenant = @current_tenant
+      @current_tenant.main_superagent = @current_superagent if @current_tenant.main_superagent_id == @current_superagent.id
     # rescue
     #   raise ActionController::RoutingError.new('Not Found')
     # end
-    @current_studio
+    @current_superagent
   end
+
+  # Backwards compatibility alias
+  alias_method :current_studio, :current_superagent
 
   def current_path
     @current_path ||= request.path
@@ -78,9 +81,9 @@ class ApplicationController < ActionController::Base
   end
 
   def api_authorize!
-    unless current_studio.api_enabled? && current_tenant.api_enabled?
-      studio_or_tenant = current_tenant.api_enabled? ? 'studio' : 'tenant'
-      return render json: { error: "API not enabled for this #{studio_or_tenant}" }, status: 403
+    unless current_superagent.api_enabled? && current_tenant.api_enabled?
+      superagent_or_tenant = current_tenant.api_enabled? ? 'studio' : 'tenant'
+      return render json: { error: "API not enabled for this #{superagent_or_tenant}" }, status: 403
     end
     return render json: { error: 'API only supports JSON or Markdown formats' }, status: 403 unless json_or_markdown_request?
     request.format = :md unless request.format == :json
@@ -135,57 +138,60 @@ class ApplicationController < ActionController::Base
     @current_user
   end
 
-  def current_studio_invite
-    return @current_studio_invite if defined?(@current_studio_invite)
-    if params[:code] || cookies[:studio_invite_code]
-      @current_studio_invite = StudioInvite.find_by(
-        studio: current_studio,
-        code: params[:code] || cookies[:studio_invite_code]
+  def current_invite
+    return @current_invite if defined?(@current_invite)
+    if params[:code] || cookies[:invite_code]
+      @current_invite = Invite.find_by(
+        superagent: current_superagent,
+        code: params[:code] || cookies[:invite_code]
       )
     else
-      @current_studio_invite = nil
+      @current_invite = nil
     end
-    @current_studio_invite
+    @current_invite
   end
+
+  # Backwards compatibility alias
+  alias_method :current_studio_invite, :current_invite
 
   def validate_authenticated_access
     tu = @current_tenant.tenant_users.find_by(user: @current_user)
     if tu.nil?
-      accepting_invite = current_studio_invite && current_studio_invite.studio == @current_studio
+      accepting_invite = current_invite && current_invite.superagent == @current_superagent
       if @current_tenant.require_login? && controller_name != 'sessions' && !accepting_invite
         render status: 403, layout: 'application', template: 'sessions/403_to_logout'
-      elsif accepting_invite && current_studio_invite.is_acceptable_by_user?(@current_user)
-        # The user still has to click "accept" to accept the invite to the studio,
+      elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
+        # The user still has to click "accept" to accept the invite to the superagent,
         # but they need to access the tenant to do so.
         # Not sure how to handle the case where the user does not accept the invite.
         # Should we remove the tenant_user record somehow?
-        # Should we require that all tenant users be a member of at least one (non-main) studio?
+        # Should we require that all tenant users be a member of at least one (non-main) superagent?
         @current_tenant.add_user!(@current_user)
       end
     else
       # This assignment prevents unnecessary reloading.
       @current_user.tenant_user = tu
     end
-    su = current_studio.studio_users.find_by(user: @current_user)
-    if su.nil?
-      if current_studio == current_tenant.main_studio
+    sm = current_superagent.superagent_members.find_by(user: @current_user)
+    if sm.nil?
+      if current_superagent == current_tenant.main_superagent
         if controller_name.ends_with?('sessions' || @current_user.trustee?)
           # Do nothing
         else
-          current_studio.add_user!(@current_user)
+          current_superagent.add_user!(@current_user)
         end
-      elsif current_user.trustee? && current_user.trustee_studio == current_studio
-        # TODO - decide how to handle this case. Trustee is not a member of the studio, but is the trustee.
+      elsif current_user.trustee? && current_user.trustee_superagent == current_superagent
+        # TODO - decide how to handle this case. Trustee is not a member of the superagent, but is the trustee.
       else
-        # If this user has an invite to this studio, they will see the option to accept on the studio's join page.
-        # Otherwise, they will see the studio's default join page, which may or may not allow them to join.
-        path = "#{current_studio.path}/join"
+        # If this user has an invite to this superagent, they will see the option to accept on the superagent's join page.
+        # Otherwise, they will see the superagent's default join page, which may or may not allow them to join.
+        path = "#{current_superagent.path}/join"
         redirect_to path unless request.path == path
       end
     else
-      # TODO Add last_seen_at to StudioUser instead of touch
-      su.touch if controller_name != 'sessions' && controller_name != 'studios'
-      @current_user.studio_user = su
+      # TODO Add last_seen_at to SuperagentMember instead of touch
+      sm.touch if controller_name != 'sessions' && controller_name != 'studios'
+      @current_user.superagent_member = sm
     end
   end
 
@@ -232,9 +238,9 @@ class ApplicationController < ActionController::Base
     if session[:representation_session_id].present?
       @current_representation_session = RepresentationSession.unscoped.find_by(
         trustee_user: @current_user,
-        # Person can be impersonating a subagent user who is representing the studio via a representation session, all simultaneously.
+        # Person can be impersonating a subagent user who is representing the superagent via a representation session, all simultaneously.
         representative_user: @current_subagent_user || @current_person_user,
-        studio: @current_user.trustee_studio,
+        superagent: @current_user.trustee_superagent,
         id: session[:representation_session_id]
       )
       if @current_representation_session.nil?
@@ -262,10 +268,10 @@ class ApplicationController < ActionController::Base
 
   def current_heartbeat
     return @current_heartbeat if defined?(@current_heartbeat)
-    if current_user && !current_studio.is_main_studio?
+    if current_user && !current_superagent.is_main_studio?
       @current_heartbeat = Heartbeat.where(
         tenant: current_tenant,
-        studio: current_studio,
+        superagent: current_superagent,
         user: current_user
       ).where(
         'created_at > ? and expires_at > ?', current_cycle.start_date, Time.current
@@ -407,12 +413,12 @@ class ApplicationController < ActionController::Base
 
   def current_cycle
     return @current_cycle if defined?(@current_cycle)
-    @current_cycle = Cycle.new_from_tempo(tenant: current_tenant, studio: current_studio)
+    @current_cycle = Cycle.new_from_tempo(tenant: current_tenant, superagent: current_superagent)
   end
 
   def previous_cycle
     return @previous_cycle if defined?(@previous_cycle)
-    @previous_cycle = Cycle.new(name: current_cycle.previous_cycle, tenant: current_tenant, studio: current_studio)
+    @previous_cycle = Cycle.new(name: current_cycle.previous_cycle, tenant: current_tenant, superagent: current_superagent)
   end
 
   def metric
@@ -452,7 +458,7 @@ class ApplicationController < ActionController::Base
     if deadline_option == 'no_deadline' || deadline_option == 'close_at_critical_mass'
       return Time.current + 100.years
     elsif deadline_option == 'datetime' && params[:deadline]
-      utc_deadline_param = @current_studio.timezone.parse(params[:deadline]).utc
+      utc_deadline_param = @current_superagent.timezone.parse(params[:deadline]).utc
       return [utc_deadline_param, Time.current].max
     elsif deadline_option == 'close_now'
       return Time.current
@@ -494,9 +500,9 @@ class ApplicationController < ActionController::Base
     @pinnable = current_resource
     return render '404', status: 404 unless @pinnable
     if params[:pinned] == true
-      @pinnable.pin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      @pinnable.pin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
     elsif params[:pinned] == false
-      @pinnable.unpin!(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+      @pinnable.unpin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
     else
       raise 'pinned param required. must be boolean value'
     end
@@ -509,15 +515,15 @@ class ApplicationController < ActionController::Base
 
   def set_pin_vars
     @pinnable = current_resource
-    pin_destination = current_studio == current_tenant.main_studio ? 'your profile' : 'the studio homepage'
-    @is_pinned = current_resource.is_pinned?(tenant: @current_tenant, studio: @current_studio, user: @current_user)
+    pin_destination = current_superagent == current_tenant.main_superagent ? 'your profile' : 'the studio homepage'
+    @is_pinned = current_resource.is_pinned?(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
     @pin_click_title = 'Click to ' + (@is_pinned ? 'unpin from ' : 'pin to ') + pin_destination
   end
 
   def api_helper
     @api_helper ||= ApiHelper.new(
       current_user: current_user,
-      current_studio: current_studio,
+      current_superagent: current_superagent,
       current_tenant: current_tenant,
       current_representation_session: current_representation_session,
       current_cycle: current_cycle,
@@ -578,11 +584,11 @@ class ApplicationController < ActionController::Base
   end
 
   def actions_index_default
-    if current_studio.is_main_studio?
+    if current_superagent.is_main_studio?
       # This should be overridden in child classes.
       raise NotImplementedError, "actions index must be implemented in child classes"
     else
-      @page_title = "Actions | #{current_studio.name}"
+      @page_title = "Actions | #{current_superagent.name}"
       render 'shared/actions_index_studio', locals: {
         base_path: request.path.split('/actions')[0]
       }

@@ -7,10 +7,10 @@ class Tenant < ApplicationRecord
   self.implicit_order_column = "created_at"
   has_many :tenant_users
   has_many :users, through: :tenant_users
-  belongs_to :main_studio, class_name: 'Studio', optional: true # Only optional so that we can create the main studio after the tenant is created
+  belongs_to :main_superagent, class_name: 'Superagent', optional: true # Only optional so that we can create the main superagent after the tenant is created
   before_create :set_defaults
   # Admin controller handles this. Callbacks are buggy.
-  # after_create :create_main_studio!
+  # after_create :create_main_superagent!
 
   tables = ActiveRecord::Base.connection.tables - [
     'tenants', 'users', 'oauth_identities',
@@ -39,7 +39,7 @@ class Tenant < ApplicationRecord
     if tenant
       self.current_subdomain = tenant.subdomain
       self.current_id = tenant.id
-      self.current_main_studio_id = tenant.main_studio_id
+      self.current_main_superagent_id = tenant.main_superagent_id
     else
       raise "Invalid subdomain"
     end
@@ -63,8 +63,8 @@ class Tenant < ApplicationRecord
   end
 
   sig { returns(T.nilable(String)) }
-  def self.current_main_studio_id
-    Thread.current[:main_studio_id]
+  def self.current_main_superagent_id
+    Thread.current[:main_superagent_id]
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -137,8 +137,8 @@ class Tenant < ApplicationRecord
       @timezone = ActiveSupport::TimeZone[value]
       set_defaults
       self.settings = self.settings.merge('timezone' => T.must(@timezone).name)
-      T.must(main_studio).timezone = T.must(@timezone).name
-      T.must(main_studio).save!
+      T.must(main_superagent).timezone = T.must(@timezone).name
+      T.must(main_superagent).save!
     end
   end
 
@@ -193,15 +193,15 @@ class Tenant < ApplicationRecord
   end
 
   sig { params(created_by: User).void }
-  def create_main_studio!(created_by:)
-    self.main_studio = studios.create!(
+  def create_main_superagent!(created_by:)
+    self.main_superagent = superagents.create!(
       name: "#{self.subdomain}.#{ENV['HOSTNAME']}",
       handle: SecureRandom.hex(16),
       created_by: created_by,
     )
-    # Always enable API for the main studio
-    # Both tenant and studio must have API enabled for it to be accessible
-    T.must(main_studio).enable_api!
+    # Always enable API for the main superagent
+    # Both tenant and superagent must have API enabled for it to be accessible
+    T.must(main_superagent).enable_api!
     save!
   end
 
@@ -281,7 +281,21 @@ class Tenant < ApplicationRecord
   end
 
   sig { params(id: T.nilable(String)).void }
-  def self.current_main_studio_id=(id)
-    Thread.current[:main_studio_id] = id
+  def self.current_main_superagent_id=(id)
+    Thread.current[:main_superagent_id] = id
+  end
+
+  # Aliases for backwards compatibility with code that uses "studio" terminology
+  def main_studio
+    T.unsafe(self).main_superagent
+  end
+  alias_attribute :main_studio_id, :main_superagent_id
+
+  def studios
+    T.unsafe(self).superagents
+  end
+
+  def create_main_studio!
+    T.unsafe(self).create_main_superagent!
   end
 end

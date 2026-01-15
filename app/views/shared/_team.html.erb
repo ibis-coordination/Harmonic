@@ -1,16 +1,16 @@
 <ul>
 <% team.each do |u| %>
   <li>
-    <a href="<%= u.studio_user.path %>" class="user-profile-link">
+    <a href="<%= u.superagent_member.path %>" class="user-profile-link">
       <img src="<%= u.image_url %>"/> <%= u.display_name %>
     </a>
     <% if u.subagent? %>
       <span class="role-badge" title="subagent of <%= u.parent&.display_name %>">subagent</span>
     <% end %>
-    <% if u.studio_user.is_admin? %>
+    <% if u.superagent_member.is_admin? %>
       <span class="role-badge">admin</span>
     <% end %>
-    <% if u.studio_user.is_representative? %>
+    <% if u.superagent_member.is_representative? %>
       <span class="role-badge" title="representatives can perform actions on behalf of the studio as a whole">representative</span>
     <% end %>
   </li>

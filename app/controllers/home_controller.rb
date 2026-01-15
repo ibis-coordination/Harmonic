@@ -6,17 +6,17 @@ class HomeController < ApplicationController
 
   def index
     @page_title = 'Home'
-    @studios_and_scenes = @current_user.studios
+    @studios_and_scenes = @current_user.superagents
       .joins(
-        "LEFT JOIN heartbeats ON heartbeats.studio_id = studios.id AND " +
+        "LEFT JOIN heartbeats ON heartbeats.superagent_id = superagents.id AND " +
         "heartbeats.user_id = '#{@current_user.id}' AND " +
         "heartbeats.expires_at > '#{Time.current}'"
       )
-      .select("studios.*, heartbeats.id IS NOT NULL AS has_heartbeat")
-      .where.not(id: @current_tenant.main_studio_id)
+      .select("superagents.*, heartbeats.id IS NOT NULL AS has_heartbeat")
+      .where.not(id: @current_tenant.main_superagent_id)
       .order(:has_heartbeat, :name)
-    @scenes = @studios_and_scenes.where(studio_type: 'scene')
-    @studios = @studios_and_scenes.where(studio_type: 'studio')
+    @scenes = @studios_and_scenes.where(superagent_type: 'scene')
+    @studios = @studios_and_scenes.where(superagent_type: 'studio')
     @public_tenants = Tenant.all_public_tenants
     @other_tenants = TenantUser.unscoped
       .where(user: @current_user)

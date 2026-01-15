@@ -4,8 +4,8 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @studio = @global_studio
-    @studio.enable_api!
+    @superagent = @global_superagent
+    @superagent.enable_api!
     @user = @global_user
     @api_token = ApiToken.create!(
       tenant: @tenant,

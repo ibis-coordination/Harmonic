@@ -1,11 +1,11 @@
-<%= form_with url: "#{@current_studio.path}/note" do |form| %>
-  <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_studio.path %>">
+<%= form_with url: "#{@current_superagent.path}/note" do |form| %>
+  <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
     <%= form.text_area :text, placeholder: "Note (use @ to mention users)", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', data: { mention_autocomplete_target: "input" } %>
     <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
   </div>
   <%= render 'shared/multi_file_select', form: form %>
   <%= form.submit 'Post' %>
-  <% if @current_studio.is_scene? %>
+  <% if @current_superagent.is_scene? %>
     <span>
       <%= octicon 'eye' %>
       Notes posted in scenes are publicly visible.

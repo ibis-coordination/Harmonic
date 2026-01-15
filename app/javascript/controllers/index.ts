@@ -33,7 +33,7 @@ import OptionController from "./option_controller"
 import PinController from "./pin_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
 import SubagentManagerController from "./subagent_manager_controller"
-import SubagentStudioAdderController from "./subagent_studio_adder_controller"
+import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
 import TimeagoController from "./timeago_controller"
 import TooltipController from "./tooltip_controller"
 import TopLeftMenuController from "./top_left_menu_controller"
@@ -62,7 +62,7 @@ application.register("option", OptionController)
 application.register("pin", PinController)
 application.register("scratchpad-links", ScratchpadLinksController)
 application.register("subagent-manager", SubagentManagerController)
-application.register("subagent-studio-adder", SubagentStudioAdderController)
+application.register("subagent-superagent-adder", SubagentSuperagentAdderController)
 application.register("timeago", TimeagoController)
 application.register("tooltip", TooltipController)
 application.register("top-left-menu", TopLeftMenuController)

@@ -2,10 +2,10 @@ require "test_helper"
 
 class EventServiceTest < ActiveSupport::TestCase
   test "record! creates an event" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    note = create_note(tenant: tenant, studio: studio, created_by: user)
+    note = create_note(tenant: tenant, superagent: superagent, created_by: user)
 
     event = EventService.record!(
       event_type: "note.created",
@@ -19,12 +19,12 @@ class EventServiceTest < ActiveSupport::TestCase
     assert_equal user, event.actor
     assert_equal note, event.subject
     assert_equal tenant.id, event.tenant_id
-    assert_equal studio.id, event.studio_id
+    assert_equal superagent.id, event.superagent_id
   end
 
   test "record! works without actor" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     event = EventService.record!(
       event_type: "system.test",

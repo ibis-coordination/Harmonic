@@ -3,27 +3,27 @@
 module Pinnable
   extend ActiveSupport::Concern
 
-  def is_pinned?(tenant:, studio:, user:)
-    if tenant.main_studio_id == studio.id
+  def is_pinned?(tenant:, superagent:, user:)
+    if tenant.main_superagent_id == superagent.id
       user.has_pinned?(self)
     else
-      studio.has_pinned?(self)
+      superagent.has_pinned?(self)
     end
   end
 
-  def pin!(tenant:, studio:, user:)
-    if tenant.main_studio_id == studio.id
+  def pin!(tenant:, superagent:, user:)
+    if tenant.main_superagent_id == superagent.id
       user.pin_item!(self)
     else
-      studio.pin_item!(self)
+      superagent.pin_item!(self)
     end
   end
 
-  def unpin!(tenant:, studio:, user:)
-    if tenant.main_studio_id == studio.id
+  def unpin!(tenant:, superagent:, user:)
+    if tenant.main_superagent_id == superagent.id
       user.unpin_item!(self)
     else
-      studio.unpin_item!(self)
+      superagent.unpin_item!(self)
     end
   end
 

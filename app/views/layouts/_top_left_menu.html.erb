@@ -11,7 +11,7 @@
     <ul>
       <% unless @current_representation_session %>
         <li>
-          <% if @current_studio == @current_tenant.main_studio %>
+          <% if @current_superagent == @current_tenant.main_superagent %>
             <a href="/" style="color:var(--color-accent-fg);">
               <%= octicon 'dot-fill' %>
               <%= octicon 'home' %>
@@ -34,15 +34,15 @@
         <li>
           <h4>Studios</h4>
         </li>
-        <% if @current_user.studios.empty? %>
+        <% if @current_user.superagents.empty? %>
           <li>
             <em>No studios yet</em>
           </li>
         <% end %>
-        <% @current_user.studios.each do |studio| %>
-          <% if studio == @current_tenant.main_studio %>
+        <% @current_user.superagents.each do |studio| %>
+          <% if studio == @current_tenant.main_superagent %>
             <% next %>
-          <% elsif studio == @current_studio %>
+          <% elsif studio == @current_superagent %>
             <li style="color:var(--color-accent-fg)">
               <%= octicon 'dot-fill' %>
               <a href="<%= studio.path %>" style="color:var(--color-accent-fg)"><%= studio.name %></a>

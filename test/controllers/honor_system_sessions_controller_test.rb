@@ -7,7 +7,7 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @user = @global_user
-    @studio = @global_studio
+    @superagent = @global_superagent
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
 
     # Store original AUTH_MODE to restore after tests

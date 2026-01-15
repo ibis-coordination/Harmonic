@@ -3,7 +3,7 @@ require "test_helper"
 class NotesControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
@@ -11,7 +11,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
   # === Unauthenticated Access Tests ===
 
   test "unauthenticated user is redirected from new note form" do
-    get "/studios/#{@studio.handle}/note"
+    get "/studios/#{@superagent.handle}/note"
     assert_response :redirect
   end
 
@@ -19,7 +19,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
   test "authenticated user can access new note form" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@studio.handle}/note"
+    get "/studios/#{@superagent.handle}/note"
     assert_response :success
   end
 
@@ -29,7 +29,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference "Note.count", 1 do
-      post "/studios/#{@studio.handle}/note", params: {
+      post "/studios/#{@superagent.handle}/note", params: {
         note: {
           title: "Test Note Title",
           text: "This is the note content"
@@ -51,19 +51,19 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     # Create note in thread context
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
     note = Note.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       title: "Test Note",
       text: "Test content",
       deadline: Time.current + 1.week
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "/studios/#{@studio.handle}/n/#{note.truncated_id}"
+    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}"
     assert_response :success
   end
 
@@ -74,7 +74,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     # But the find happens before that check, so we get exception
     # In production, Rails rescues this and renders 404
     assert_raises(ActiveRecord::RecordNotFound) do
-      get "/studios/#{@studio.handle}/n/nonexistent123"
+      get "/studios/#{@superagent.handle}/n/nonexistent123"
     end
   end
 
@@ -84,42 +84,42 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
     note = Note.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       title: "Test Note",
       text: "Test content",
       deadline: Time.current + 1.week
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "/studios/#{@studio.handle}/n/#{note.truncated_id}/edit"
+    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}/edit"
     assert_response :success
   end
 
   test "non-creator cannot access edit form" do
     other_user = create_user(name: "Other User")
     @tenant.add_user!(other_user)
-    @studio.add_user!(other_user)
+    @superagent.add_user!(other_user)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
     note = Note.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,  # Created by @user
       title: "Test Note",
       text: "Test content",
       deadline: Time.current + 1.week
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
 
     sign_in_as(other_user, tenant: @tenant)
-    get "/studios/#{@studio.handle}/n/#{note.truncated_id}/edit"
+    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}/edit"
     assert_response :forbidden
   end
 
@@ -129,20 +129,20 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
     note = Note.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       title: "Original Title",
       text: "Original content",
       deadline: Time.current + 1.week
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
 
     # Update uses POST to /n/:note_id/edit
-    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/edit", params: {
+    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/edit", params: {
       note: {
         title: "Updated Title",
         text: "Updated content"
@@ -158,23 +158,23 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
   test "non-creator cannot update note" do
     other_user = create_user(name: "Other User")
     @tenant.add_user!(other_user)
-    @studio.add_user!(other_user)
+    @superagent.add_user!(other_user)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
     note = Note.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       title: "Original Title",
       text: "Original content",
       deadline: Time.current + 1.week
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
 
     sign_in_as(other_user, tenant: @tenant)
-    post "/studios/#{@studio.handle}/n/#{note.truncated_id}/edit", params: {
+    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/edit", params: {
       note: {
         title: "Hacked Title"
       }
@@ -191,19 +191,19 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
     note = Note.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       title: "Test Note",
       text: "Test content",
       deadline: Time.current + 1.week
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "/studios/#{@studio.handle}/n/#{note.truncated_id}/history.html"
+    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}/history.html"
     assert_response :success
   end
 end

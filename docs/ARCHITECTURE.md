@@ -25,7 +25,7 @@ This document describes the technical architecture of Harmonic. For design philo
 │  └── LinkParser, MarkdownRenderer, etc.                             │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Models (ActiveRecord)                                               │
-│  └── Scoped by Tenant + Studio via Thread.current                   │
+│  └── Scoped by Tenant + Superagent via Thread.current               │
 └────────┬────────────────────────────────────────────────────────────┘
          │
          ▼
@@ -41,10 +41,10 @@ Harmonic uses **subdomain-based multi-tenancy**. Each tenant is an independent c
 ### How It Works
 
 1. **Request arrives** with subdomain (e.g., `acme.harmonic.example.com`)
-2. **`ApplicationController#current_tenant`** calls `Studio.scope_thread_to_studio`
+2. **`ApplicationController#current_tenant`** calls `Superagent.scope_thread_to_superagent`
 3. **Thread-local variables** are set:
    - `Thread.current[:tenant_id]`
-   - `Thread.current[:studio_id]`
+   - `Thread.current[:superagent_id]`
 4. **`ApplicationRecord` default_scope** filters all queries:
    ```ruby
    default_scope do
@@ -53,20 +53,20 @@ Harmonic uses **subdomain-based multi-tenancy**. Each tenant is an independent c
      end
    end
    ```
-5. **New records** automatically get `tenant_id` and `studio_id` via `before_validation`
+5. **New records** automatically get `tenant_id` and `superagent_id` via `before_validation`
 
 ### Key Classes
 
 | Class | Responsibility |
 |-------|---------------|
 | `Tenant` | Community/instance. Has subdomain, settings, users |
-| `Studio` | Group within tenant. Can be "studio" (private) or "scene" (public) |
+| `Superagent` | Group within tenant. Can be "studio" (private) or "scene" (public) |
 | `TenantUser` | User membership in a tenant |
-| `StudioUser` | User membership in a studio (with roles) |
+| `SuperagentMember` | User membership in a superagent (with roles) |
 
 ### Thread Safety
 
-Tenant/studio context is stored in `Thread.current`. This works because:
+Tenant/superagent context is stored in `Thread.current`. This works because:
 - Each Rails request runs in its own thread
 - Context is set at the start of each request in `ApplicationController`
 - Context is cleared after request completes
@@ -155,11 +155,11 @@ Link
 | Entity | Purpose |
 |--------|---------|
 | `User` | User account (types: person, simulated, trustee) |
-| `Heartbeat` | Periodic presence signal for studio access |
-| `RepresentationSession` | When user acts on behalf of a studio |
+| `Heartbeat` | Periodic presence signal for superagent access |
+| `RepresentationSession` | When user acts on behalf of a superagent |
 | `ApiToken` | Token for API authentication |
 | `Attachment` | File attached to notes/decisions/commitments |
-| `StudioInvite` | Invitation to join a studio |
+| `Invite` | Invitation to join a superagent |
 
 ### Model Concerns
 
@@ -169,12 +169,12 @@ Shared behaviors extracted into concerns:
 |---------|---------|---------|
 | `HasTruncatedId` | Short 8-char IDs for URLs | Note, Decision, Commitment |
 | `Linkable` | Bidirectional linking | Note, Decision, Commitment |
-| `Pinnable` | Can be pinned to studio | Note, Decision, Commitment |
+| `Pinnable` | Can be pinned to superagent | Note, Decision, Commitment |
 | `Attachable` | File attachments | Note, Decision, Commitment |
 | `Commentable` | Comments (which are Notes) | Note, Decision, Commitment |
 | `Tracked` | Webhook tracking (stubbed) | Note, Decision, Commitment |
-| `HasImage` | Profile/studio images | User, Studio |
-| `CanPin` | Can pin other items | Studio |
+| `HasImage` | Profile/superagent images | User, Superagent |
+| `CanPin` | Can pin other items | Superagent |
 
 ## Authentication
 
@@ -371,7 +371,7 @@ Content routes use prefixes:
 
 API routes:
 - `/api/v1/` - Top-level API
-- `/studios/:studio_handle/api/v1/` - Studio-scoped API
+- `/studios/:superagent_handle/api/v1/` - Superagent-scoped API
 
 ## Environment Variables
 

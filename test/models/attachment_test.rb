@@ -6,12 +6,12 @@ class AttachmentTest < ActiveSupport::TestCase
   def setup
     @tenant = Tenant.create!(subdomain: "attach-test-#{SecureRandom.hex(4)}", name: "Test Tenant")
     @user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
-    @studio = Studio.create!(tenant: @tenant, created_by: @user, name: "Test Studio", handle: "test-studio-#{SecureRandom.hex(4)}")
+    @superagent = Superagent.create!(tenant: @tenant, created_by: @user, name: "Test Studio", handle: "test-studio-#{SecureRandom.hex(4)}")
     Thread.current[:tenant_id] = @tenant.id
-    Thread.current[:studio_id] = @studio.id
+    Thread.current[:superagent_id] = @superagent.id
     @note = Note.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       updated_by: @user,
       title: "Test Note",
@@ -21,7 +21,7 @@ class AttachmentTest < ActiveSupport::TestCase
 
   def teardown
     Thread.current[:tenant_id] = nil
-    Thread.current[:studio_id] = nil
+    Thread.current[:superagent_id] = nil
   end
 
   # Helper to create a valid PNG file (1x1 transparent pixel)
@@ -56,7 +56,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "etc_passwd", content_type: "text/plain")
     attachment = Attachment.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -76,7 +76,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "config", content_type: "text/plain")
     attachment = Attachment.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -95,7 +95,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "file.txt", content_type: "text/plain")
     attachment = Attachment.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -114,7 +114,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "test.txt", content_type: "text/plain")
     attachment = Attachment.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -133,7 +133,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: long_name, content_type: "text/plain")
     attachment = Attachment.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -154,7 +154,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: valid_png_bytes, filename: "image.png", content_type: "image/png")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -169,7 +169,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "This is not a PNG file", filename: "fake.png", content_type: "image/png")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -184,7 +184,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: valid_pdf_bytes, filename: "document.pdf", content_type: "application/pdf")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -198,7 +198,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "Not a PDF file", filename: "fake.pdf", content_type: "application/pdf")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -214,7 +214,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "Plain text content", filename: "document.txt", content_type: "text/plain")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -232,7 +232,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "MZ\x90\x00", filename: "malware.exe", content_type: "application/x-msdownload")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -247,7 +247,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "alert('xss')", filename: "script.js", content_type: "application/javascript")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -267,7 +267,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: large_content, filename: "large.txt", content_type: "text/plain")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -286,7 +286,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "test.txt", content_type: "text/plain")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -301,7 +301,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "test.txt", content_type: "text/plain")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -322,7 +322,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "test.txt", content_type: "text/plain")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -348,7 +348,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "test.txt", content_type: "text/plain")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,
@@ -374,7 +374,7 @@ class AttachmentTest < ActiveSupport::TestCase
     blob = create_blob(content: "test content", filename: "test.txt", content_type: "text/plain")
     attachment = Attachment.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       attachable: @note,
       file: blob,
       created_by: @user,

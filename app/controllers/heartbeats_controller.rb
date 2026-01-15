@@ -18,7 +18,7 @@ class HeartbeatsController < ApplicationController
     if current_heartbeat
       return render status: 409, json: { error: "Heartbeat already exists" }
     end
-    other_heartbeats = Heartbeat.current_for_studio(current_studio).count
+    other_heartbeats = Heartbeat.current_for_superagent(current_superagent).count
     heartbeat = api_helper.create_heartbeat
     render json: {
       expires_at: heartbeat.expires_at,

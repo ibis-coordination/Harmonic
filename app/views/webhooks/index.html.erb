@@ -1,7 +1,7 @@
 <h1><%= octicon "webhook", height: 32 %> Webhooks</h1>
 
 <p>
-  <a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks/new" %>" class="btn btn-primary">
+  <a href="<%= "/studios/#{@current_superagent.handle}/settings/webhooks/new" %>" class="btn btn-primary">
     <%= octicon "plus" %> New Webhook
   </a>
 </p>
@@ -24,7 +24,7 @@
       <% @webhooks.each do |webhook| %>
         <tr>
           <td>
-            <a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks/#{webhook.truncated_id}" %>">
+            <a href="<%= "/studios/#{@current_superagent.handle}/settings/webhooks/#{webhook.truncated_id}" %>">
               <%= webhook.name %>
             </a>
           </td>
@@ -44,7 +44,7 @@
             <% end %>
           </td>
           <td>
-            <a href="<%= "/studios/#{@current_studio.handle}/settings/webhooks/#{webhook.truncated_id}" %>" class="btn btn-small">
+            <a href="<%= "/studios/#{@current_superagent.handle}/settings/webhooks/#{webhook.truncated_id}" %>" class="btn btn-small">
               View
             </a>
           </td>
@@ -55,4 +55,4 @@
 <% end %>
 
 <hr>
-<p><a href="<%= "/studios/#{@current_studio.handle}/settings" %>">&larr; Back to Studio Settings</a></p>
+<p><a href="<%= "/studios/#{@current_superagent.handle}/settings" %>">&larr; Back to Studio Settings</a></p>

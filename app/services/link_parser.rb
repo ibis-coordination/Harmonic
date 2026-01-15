@@ -3,10 +3,10 @@
 class LinkParser
   extend T::Sig
 
-  sig { params(text: String, subdomain: T.nilable(String), studio_handle: T.nilable(String), block: T.proc.params(record: T.untyped).void).returns(String) }
-  def self.parse(text, subdomain: nil, studio_handle: nil, &block)
+  sig { params(text: String, subdomain: T.nilable(String), superagent_handle: T.nilable(String), block: T.proc.params(record: T.untyped).void).returns(String) }
+  def self.parse(text, subdomain: nil, superagent_handle: nil, &block)
     models = { 'n' => Note, 'c' => Commitment, 'd' => Decision, 'r' => RepresentationSession }
-    domain = "#{subdomain}.#{ENV['HOSTNAME']}" + (studio_handle ? "/(?:studios|scenes)/#{studio_handle}" : '')
+    domain = "#{subdomain}.#{ENV['HOSTNAME']}" + (superagent_handle ? "/(?:studios|scenes)/#{superagent_handle}" : '')
     prefixes = models.keys.join
     pattern = Regexp.new("https://#{domain}/([#{prefixes}])/([0-9a-f-]+)")
     memo = {}
@@ -30,22 +30,22 @@ class LinkParser
     prefix = path_pieces[-2]
     id = path_pieces[-1]
     return nil if id.nil?
-    studio_handle = path_pieces[-3]
-    studio_ids = Studio.where(handle: studio_handle).pluck(:id)
+    superagent_handle = path_pieces[-3]
+    superagent_ids = Superagent.where(handle: superagent_handle).pluck(:id)
     model = models[prefix]
     column_name = id.length == 8 ? :truncated_id : :id
-    record = model.find_by(column_name => id, studio_id: studio_ids)
+    record = model.find_by(column_name => id, superagent_id: superagent_ids)
   end
 
-  sig { params(from_record: T.nilable(T.any(Note, Decision, Commitment)), subdomain: T.nilable(String), studio_handle: T.nilable(String)).void }
-  def initialize(from_record: nil, subdomain: nil, studio_handle: nil)
+  sig { params(from_record: T.nilable(T.any(Note, Decision, Commitment)), subdomain: T.nilable(String), superagent_handle: T.nilable(String)).void }
+  def initialize(from_record: nil, subdomain: nil, superagent_handle: nil)
     @from_record = from_record
     @subdomain = subdomain
-    @studio_handle = studio_handle
-    if @from_record.nil? && (@subdomain.nil? || @studio_handle.nil?)
-      raise ArgumentError, "Must pass in either from_record or subdomain + studio_handle"
+    @superagent_handle = superagent_handle
+    if @from_record.nil? && (@subdomain.nil? || @superagent_handle.nil?)
+      raise ArgumentError, "Must pass in either from_record or subdomain + superagent_handle"
     elsif @from_record && @subdomain
-      raise ArgumentError, "Cannot pass in both from_record and subdomain/studio_handle"
+      raise ArgumentError, "Cannot pass in both from_record and subdomain/superagent_handle"
     end
   end
 
@@ -57,15 +57,15 @@ class LinkParser
       end
       text = @from_record.class == Note ? T.unsafe(@from_record).text : T.unsafe(@from_record).description
       subdomain = T.must(@from_record.tenant).subdomain
-      studio_handle = T.must(@from_record.studio).handle
-      self.class.parse(text, subdomain: subdomain, studio_handle: studio_handle) do |to_record|
+      superagent_handle = T.must(@from_record.superagent).handle
+      self.class.parse(text, subdomain: subdomain, superagent_handle: superagent_handle) do |to_record|
         yield to_record
       end
-    elsif @subdomain && @studio_handle
+    elsif @subdomain && @superagent_handle
       if text.nil?
         raise ArgumentError, "Cannot pass in subdomain without text"
       end
-      self.class.parse(text, subdomain: @subdomain, studio_handle: @studio_handle) do |to_record|
+      self.class.parse(text, subdomain: @subdomain, superagent_handle: @superagent_handle) do |to_record|
         yield to_record
       end
     else

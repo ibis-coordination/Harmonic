@@ -13,7 +13,7 @@
 
   <div class="comment-form">
     <%= form_with url: "#{commentable.path}/comments", method: :post, local: true, class: "new-comment-form" do |form| %>
-      <div class="form-group mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_studio.path %>">
+      <div class="form-group mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
         <%= form.text_area :text, placeholder: "Add a comment (use @ to mention users)...", rows: 3, class: "form-control comment-input", data: { mention_autocomplete_target: "input" } %>
         <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
       </div>

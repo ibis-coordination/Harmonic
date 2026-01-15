@@ -4,8 +4,8 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @studio = @global_studio
-    @studio.enable_api!
+    @superagent = @global_superagent
+    @superagent.enable_api!
     @user = @global_user
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -17,11 +17,11 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
       "Content-Type" => "application/json",
     }
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
   end
 
   def api_path(path = "")
-    "#{@studio.path}/api/v1/notes#{path}"
+    "#{@superagent.path}/api/v1/notes#{path}"
   end
 
   # Index is not supported for notes
@@ -34,7 +34,7 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
 
   # Show
   test "show returns a note" do
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     get api_path("/#{note.truncated_id}"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -53,7 +53,7 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
   end
 
   test "show with include=backlinks returns backlinks" do
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     get api_path("/#{note.truncated_id}?include=backlinks"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -61,7 +61,7 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
   end
 
   test "show with include=history_events returns history events" do
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     get api_path("/#{note.truncated_id}?include=history_events"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -104,7 +104,7 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
 
   # Update
   test "update updates a note" do
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user, title: "Original Title", text: "Original text")
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Original Title", text: "Original text")
     update_params = {
       title: "Updated Title",
       text: "Updated text content"
@@ -119,7 +119,7 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
   end
 
   test "update can update deadline" do
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     new_deadline = (Time.current + 2.weeks).iso8601
     update_params = { deadline: new_deadline }
     put api_path("/#{note.truncated_id}"), params: update_params.to_json, headers: @headers
@@ -137,7 +137,7 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
   # Confirm read
   test "confirm creates a read confirmation event" do
     skip "Bug: Route points to NoteController (singular) which doesn't exist"
-    note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     initial_count = note.note_history_events.where(event_type: 'read_confirmation').count
     post api_path("/#{note.truncated_id}/confirm"), headers: @headers
     assert_response :success

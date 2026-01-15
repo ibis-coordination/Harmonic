@@ -31,22 +31,22 @@ The main studio is the default studio at the base path (i.e. `<%= @current_tenan
 
 | Property | Value |
 |----------|-------|
-| Name | <%= @current_tenant.main_studio.name %> |
-| ID | `<%= @current_tenant.main_studio.id %>` |
-| Notes | <%= @current_tenant.main_studio.notes.count %> |
-| Decisions | <%= @current_tenant.main_studio.decisions.count %> |
-| Commitments | <%= @current_tenant.main_studio.commitments.count %> |
+| Name | <%= @current_tenant.main_superagent.name %> |
+| ID | `<%= @current_tenant.main_superagent.id %>` |
+| Notes | <%= @current_tenant.main_superagent.notes.count %> |
+| Decisions | <%= @current_tenant.main_superagent.decisions.count %> |
+| Commitments | <%= @current_tenant.main_superagent.commitments.count %> |
 
 ### Main Studio Settings
 
 ```json
-<%= JSON.pretty_generate(@current_tenant.main_studio.settings) %>
+<%= JSON.pretty_generate(@current_tenant.main_superagent.settings) %>
 ```
 
 ### Other Studios
 
-<% @current_tenant.studios.order(created_at: :desc).each do |studio| %>
-<% next if studio == @current_tenant.main_studio %>
+<% @current_tenant.superagents.order(created_at: :desc).each do |studio| %>
+<% next if studio == @current_tenant.main_superagent %>
 * [<%= raw studio.name %>](<%= studio.path %>) - created <%= time_ago_in_words(studio.created_at) %> ago
 <% end %>
 <% if @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
