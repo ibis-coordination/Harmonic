@@ -3,7 +3,7 @@
   <div style="padding-top:30px;">
     <h4 style="padding-left:92px;margin-top:0px;margin-bottom:0;">
       <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
-      <%= @current_superagent.studio_type.titleize %> <code><%= @current_superagent.handle %></code>
+      <%= @current_superagent.superagent_type.titleize %> <code><%= @current_superagent.handle %></code>
       <% if @current_superagent.is_scene? %>
         <span title="Scenes are publicly visible.">
           <%= octicon 'eye' %>

@@ -47,11 +47,6 @@ class Cycle
     self.new_from_tempo(tenant: T.must(superagent.tenant), superagent: superagent)
   end
 
-  # Backwards compatibility alias
-  class << self
-    alias_method :new_from_studio, :new_from_superagent
-  end
-
   sig do
     params(
       name: String,

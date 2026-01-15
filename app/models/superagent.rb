@@ -110,12 +110,6 @@ class Superagent < ApplicationRecord
     T.must(self.tenant).main_superagent_id == self.id
   end
 
-  # Alias for backwards compatibility with views that use "studio" terminology
-  sig { returns(T::Boolean) }
-  def is_main_studio?
-    is_main_superagent?
-  end
-
   sig { returns(T::Boolean) }
   def is_scene?
     superagent_type == 'scene'
@@ -522,11 +516,6 @@ class Superagent < ApplicationRecord
     Cycle.new_from_superagent(self)
   end
 
-  # Aliases for backwards compatibility with code that uses "studio" terminology
-  def studio_users
-    T.unsafe(self).superagent_members
-  end
-  alias_attribute :studio_type, :superagent_type
 end
 
 # Constant alias for backwards compatibility (used in old migrations)

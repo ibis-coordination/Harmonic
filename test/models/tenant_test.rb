@@ -36,12 +36,12 @@ class TenantTest < ActiveSupport::TestCase
     assert tenant.tenant_users.exists?(user_id: user.id)
   end
 
-  test "Tenant.create_main_studio! creates a main studio" do
+  test "Tenant.create_main_superagent! creates a main superagent" do
     tenant = create_tenant
     user = create_user
 
-    tenant.create_main_studio!(created_by: user)
-    main_studio = tenant.main_studio
+    tenant.create_main_superagent!(created_by: user)
+    main_studio = tenant.main_superagent
 
     assert main_studio.present?
     assert_equal tenant, main_studio.tenant

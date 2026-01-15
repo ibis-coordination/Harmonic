@@ -39,13 +39,13 @@ class TrusteePermission < ActiveRecord::Base
       errors.add(:trustee_user, "cannot be the same as the trusted user")
     end
     if T.must(granting_user).trustee?
-      # Currently this case only makes sense if the granting user that is of type 'trustee' is a studio trustee
-      # and the trusted user is a member of the studio that the trustee user represents.
-      # In this case, the trusted user is acting as a representative of the studio via the studio trustee.
-      if !T.must(granting_user).studio_trustee?
-        errors.add(:granting_user, "must be a studio trustee if the granting user is of type 'trustee'")
-      elsif !T.must(granting_user).trustee_studio&.users&.include?(trusted_user)
-        errors.add(:trusted_user, "must be a member of the studio that the granting user represents")
+      # Currently this case only makes sense if the granting user that is of type 'trustee' is a superagent trustee
+      # and the trusted user is a member of the superagent that the trustee user represents.
+      # In this case, the trusted user is acting as a representative of the superagent via the superagent trustee.
+      if !T.must(granting_user).superagent_trustee?
+        errors.add(:granting_user, "must be a superagent trustee if the granting user is of type 'trustee'")
+      elsif !T.must(granting_user).trustee_superagent&.users&.include?(trusted_user)
+        errors.add(:trusted_user, "must be a member of the superagent that the granting user represents")
       end
     end
     if T.must(trusted_user).trustee?

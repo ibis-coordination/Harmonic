@@ -140,9 +140,4 @@ class SuperagentMember < ApplicationRecord
     archived_at.present?
   end
 
-  # Aliases for backwards compatibility with code that uses "studio" terminology
-  def studio
-    T.unsafe(self).superagent
-  end
-  alias_attribute :studio_id, :superagent_id
 end

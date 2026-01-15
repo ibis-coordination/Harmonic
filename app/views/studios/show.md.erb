@@ -1,6 +1,6 @@
 # Studio: <%= @current_superagent.name %>
 
-<% if !@current_superagent.is_main_studio? && @current_user && !@current_heartbeat -%>
+<% if !@current_superagent.is_main_superagent? && @current_user && !@current_heartbeat -%>
 ## Heartbeat Required
 
 You must send a heartbeat to access this studio for the current cycle.

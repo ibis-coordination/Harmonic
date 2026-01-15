@@ -43,7 +43,4 @@ class Invite < ApplicationRecord
     return true
   end
 
-  # Alias for backwards compatibility
-  alias_attribute :studio, :superagent
-  alias_attribute :studio_id, :superagent_id
 end

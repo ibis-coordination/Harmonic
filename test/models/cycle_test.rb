@@ -48,7 +48,7 @@ class CycleTest < ActiveSupport::TestCase
     assert_equal "year", cycle.unit
   end
 
-  test "new_from_studio uses studio's tempo" do
+  test "new_from_superagent uses superagent's tempo" do
     @superagent.settings["tempo"] = "weekly"
     @superagent.save!
 

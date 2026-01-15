@@ -221,9 +221,9 @@ class UserTest < ActiveSupport::TestCase
     end
   end
 
-  # === Studios Minus Main Tests ===
+  # === Superagents Minus Main Tests ===
 
-  test "studios_minus_main excludes main studio" do
+  test "superagents_minus_main excludes main superagent" do
     # Set the thread tenant context for the scope
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain) do
       @tenant.create_main_superagent!(created_by: @user)
@@ -260,39 +260,39 @@ class UserTest < ActiveSupport::TestCase
 
   # === Trustee User Tests ===
 
-  test "studio_trustee? returns true for studio's trustee user" do
+  test "superagent_trustee? returns true for superagent's trustee user" do
     trustee = @superagent.trustee_user
     assert trustee.trustee?
-    assert trustee.studio_trustee?
+    assert trustee.superagent_trustee?
   end
 
-  test "studio_trustee? returns false for non-studio trustee" do
-    # A trustee created via TrusteePermission is not a studio trustee
+  test "superagent_trustee? returns false for non-superagent trustee" do
+    # A trustee created via TrusteePermission is not a superagent trustee
     trustee = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
-      name: "Non-studio Trustee",
+      name: "Non-superagent Trustee",
       user_type: "trustee",
     )
     assert trustee.trustee?
-    assert_not trustee.studio_trustee?
+    assert_not trustee.superagent_trustee?
   end
 
-  test "trustee_studio returns associated studio" do
+  test "trustee_superagent returns associated superagent" do
     trustee = @superagent.trustee_user
-    assert_equal @superagent, trustee.trustee_studio
+    assert_equal @superagent, trustee.trustee_superagent
   end
 
-  test "trustee_studio returns nil for person user" do
-    assert_nil @user.trustee_studio
+  test "trustee_superagent returns nil for person user" do
+    assert_nil @user.trustee_superagent
   end
 
-  test "trustee_studio returns nil for non-studio trustee" do
+  test "trustee_superagent returns nil for non-superagent trustee" do
     trustee = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
-      name: "Non-studio Trustee",
+      name: "Non-superagent Trustee",
       user_type: "trustee",
     )
-    assert_nil trustee.trustee_studio
+    assert_nil trustee.trustee_superagent
   end
 
   # === Impersonation Authorization Tests ===

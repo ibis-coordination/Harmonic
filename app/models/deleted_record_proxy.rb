@@ -23,6 +23,4 @@ class DeletedRecordProxy
     DeletedRecordProxy.new
   end
 
-  # Backwards compatibility alias
-  alias_method :studio, :superagent
 end

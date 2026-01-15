@@ -1,5 +1,5 @@
 <%= render 'studio_title' %>
-<% scene_or_studio = @current_superagent.studio_type %>
+<% scene_or_studio = @current_superagent.superagent_type %>
 <h2>Join</h2>
 <% if @current_superagent.is_scene? && @current_superagent.scene_is_open? && !@current_user_is_member %>
   <p>

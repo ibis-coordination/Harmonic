@@ -284,18 +284,4 @@ class Tenant < ApplicationRecord
   def self.current_main_superagent_id=(id)
     Thread.current[:main_superagent_id] = id
   end
-
-  # Aliases for backwards compatibility with code that uses "studio" terminology
-  def main_studio
-    T.unsafe(self).main_superagent
-  end
-  alias_attribute :main_studio_id, :main_superagent_id
-
-  def studios
-    T.unsafe(self).superagents
-  end
-
-  def create_main_studio!
-    T.unsafe(self).create_main_superagent!
-  end
 end

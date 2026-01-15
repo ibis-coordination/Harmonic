@@ -53,9 +53,6 @@ class ApplicationController < ActionController::Base
     @current_superagent
   end
 
-  # Backwards compatibility alias
-  alias_method :current_studio, :current_superagent
-
   def current_path
     @current_path ||= request.path
   end
@@ -150,9 +147,6 @@ class ApplicationController < ActionController::Base
     end
     @current_invite
   end
-
-  # Backwards compatibility alias
-  alias_method :current_studio_invite, :current_invite
 
   def validate_authenticated_access
     tu = @current_tenant.tenant_users.find_by(user: @current_user)
@@ -268,7 +262,7 @@ class ApplicationController < ActionController::Base
 
   def current_heartbeat
     return @current_heartbeat if defined?(@current_heartbeat)
-    if current_user && !current_superagent.is_main_studio?
+    if current_user && !current_superagent.is_main_superagent?
       @current_heartbeat = Heartbeat.where(
         tenant: current_tenant,
         superagent: current_superagent,
@@ -584,7 +578,7 @@ class ApplicationController < ActionController::Base
   end
 
   def actions_index_default
-    if current_superagent.is_main_studio?
+    if current_superagent.is_main_superagent?
       # This should be overridden in child classes.
       raise NotImplementedError, "actions index must be implemented in child classes"
     else

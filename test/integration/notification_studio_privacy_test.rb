@@ -47,11 +47,11 @@ class NotificationStudioPrivacyTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(@user_b)
     @user_b.tenant_user.update!(handle: "user_b")
 
-    # Create main studio for tenant (required for sign_in_as to work)
-    @tenant.create_main_studio!(created_by: @user_a)
-    main_studio = @tenant.main_studio
-    main_studio.add_user!(@user_a)
-    main_studio.add_user!(@user_b)
+    # Create main superagent for tenant (required for sign_in_as to work)
+    @tenant.create_main_superagent!(created_by: @user_a)
+    main_superagent = @tenant.main_superagent
+    main_superagent.add_user!(@user_a)
+    main_superagent.add_user!(@user_b)
 
     # Studio X - only User A is a member (this is the private studio)
     @studio_x = create_superagent(tenant: @tenant, created_by: @user_a, name: "Studio X", handle: "studio-x")

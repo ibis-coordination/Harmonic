@@ -97,18 +97,12 @@ class User < ApplicationRecord
     trustee? && trustee_superagent.present?
   end
 
-  # Alias for backwards compatibility
-  alias_method :studio_trustee?, :superagent_trustee?
-
   sig { returns(T.nilable(Superagent)) }
   def trustee_superagent
     return nil unless trustee?
     return @trustee_superagent if defined?(@trustee_superagent)
     @trustee_superagent = Superagent.where(trustee_user: self).first
   end
-
-  # Alias for backwards compatibility
-  alias_method :trustee_studio, :trustee_superagent
 
   sig { params(user: User).returns(T::Boolean) }
   def can_impersonate?(user)
@@ -148,9 +142,6 @@ class User < ApplicationRecord
     sm = superagent_members.find_by(superagent_id: superagent.id)
     sm&.can_invite? || false
   end
-
-  # Alias for backwards compatibility
-  alias_method :can_add_subagent_to_studio?, :can_add_subagent_to_superagent?
 
   sig { void }
   def archive!
@@ -200,17 +191,9 @@ class User < ApplicationRecord
     end
   end
 
-  # Alias for backwards compatibility
-  alias_method :studio_user=, :superagent_member=
-
   sig { returns(T.nilable(SuperagentMember)) }
   def superagent_member
     @superagent_member ||= superagent_members.where(superagent_id: Superagent.current_id).first
-  end
-
-  # Alias for backwards compatibility
-  def studio_user
-    T.unsafe(self).superagent_member
   end
 
   sig { void }
@@ -218,23 +201,9 @@ class User < ApplicationRecord
     T.must(superagent_member).save!
   end
 
-  # Alias for backwards compatibility
-  def save_studio_user!
-    T.unsafe(self).save_superagent_member!
-  end
-
   sig { returns(ActiveRecord::Relation) }
   def superagents
     @superagents ||= Superagent.joins(:superagent_members).where(superagent_members: {user_id: id})
-  end
-
-  # Aliases for backwards compatibility with code that uses "studio" terminology
-  def studios
-    T.unsafe(self).superagents
-  end
-
-  def studio_users
-    T.unsafe(self).superagent_members
   end
 
   sig { params(name: String).void }
@@ -337,9 +306,6 @@ class User < ApplicationRecord
   def superagents_minus_main
     superagents.includes(:tenant).where('tenants.main_superagent_id != superagents.id')
   end
-
-  # Alias for backwards compatibility
-  alias_method :studios_minus_main, :superagents_minus_main
 
   sig { returns(ActiveRecord::Relation) }
   def external_oauth_identities

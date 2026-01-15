@@ -237,7 +237,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     )
     @tenant.add_user!(subagent)
 
-    assert parent.can_add_subagent_to_studio?(subagent, @superagent)
+    assert parent.can_add_subagent_to_superagent?(subagent, @superagent)
   end
 
   test "parent cannot add subagent to studio where they lack invite permission" do
@@ -253,7 +253,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     )
     @tenant.add_user!(subagent)
 
-    assert_not parent.can_add_subagent_to_studio?(subagent, @superagent)
+    assert_not parent.can_add_subagent_to_superagent?(subagent, @superagent)
   end
 
   test "user cannot add another user's subagent to studio" do
@@ -272,7 +272,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     @tenant.add_user!(subagent)
 
     # Parent2 has invite permission but subagent belongs to parent1
-    assert_not parent2.can_add_subagent_to_studio?(subagent, @superagent)
+    assert_not parent2.can_add_subagent_to_superagent?(subagent, @superagent)
   end
 
   test "cannot add non-subagent user to studio via can_add_subagent_to_studio" do
@@ -282,7 +282,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     @tenant.add_user!(regular_user)
     @superagent.add_user!(parent, roles: ['admin'])
 
-    assert_not parent.can_add_subagent_to_studio?(regular_user, @superagent)
+    assert_not parent.can_add_subagent_to_superagent?(regular_user, @superagent)
   end
 
   # === Archive Tests ===
