@@ -151,12 +151,14 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
-  test "webhook requires HTTPS URL" do
+  test "webhook allows HTTP URL in test environment" do
+    # HTTP URLs are allowed in development/test for local development convenience
+    # HTTPS is required only in production (tested in webhook_test.rb)
     post "/studios/#{@superagent.handle}/settings/webhooks/new/actions/create_webhook",
       params: { name: "HTTP Webhook", url: "http://example.com/webhook", events: "*" }.to_json,
       headers: @headers
 
-    assert_response :success  # Action still returns 200 with error message
-    assert_match(/must use HTTPS/, response.body)
+    assert_response :success
+    assert_match(/Webhook created successfully/, response.body)
   end
 end
