@@ -5,7 +5,7 @@ class Heartbeat < ApplicationRecord
 
   include HasTruncatedId
   belongs_to :tenant
-  belongs_to :studio
+  belongs_to :superagent
   belongs_to :user
 
   # TODO - activity log
@@ -15,9 +15,9 @@ class Heartbeat < ApplicationRecord
     T.unsafe(self).where('created_at > ? and created_at < ?', cycle.start_date, cycle.end_date)
   end
 
-  sig { params(studio: Studio).returns(ActiveRecord::Relation) }
-  def self.current_for_studio(studio)
-    T.unsafe(self).where(studio: studio).where('expires_at > ?', Time.current)
+  sig { params(superagent: Superagent).returns(ActiveRecord::Relation) }
+  def self.current_for_superagent(superagent)
+    T.unsafe(self).where(superagent: superagent).where('expires_at > ?', Time.current)
   end
 
   sig { returns(String) }

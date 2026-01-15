@@ -1,28 +1,28 @@
 # typed: true
 
-class StudioUser < ApplicationRecord
+class SuperagentMember < ApplicationRecord
   extend T::Sig
 
   include HasRoles
   include HasDismissibleNotices
   self.implicit_order_column = "created_at"
   belongs_to :tenant
-  belongs_to :studio
+  belongs_to :superagent
   belongs_to :user
 
-  validate :trustee_users_not_member_of_main_studio
+  validate :trustee_users_not_member_of_main_superagent
 
   sig { void }
-  def trustee_users_not_member_of_main_studio
-    if user.trustee? && studio == T.must(tenant).main_studio
-      errors.add(:user, "Trustee users cannot be members of the main studio")
+  def trustee_users_not_member_of_main_superagent
+    if user.trustee? && superagent == T.must(tenant).main_superagent
+      errors.add(:user, "Trustee users cannot be members of the main superagent")
     end
   end
 
   sig { returns(User) }
   def user
     @user ||= super
-    T.must(@user).studio_user ||= self
+    T.must(@user).superagent_member ||= self
     T.must(@user)
   end
 
@@ -30,7 +30,7 @@ class StudioUser < ApplicationRecord
   def confirmed_read_note_events(limit: 10)
     NoteHistoryEvent.where(
       tenant_id: tenant_id,
-      studio_id: studio_id,
+      superagent_id: superagent_id,
       user_id: user_id,
       event_type: 'read_confirmation',
     ).includes(:note).order(happened_at: :desc).limit(limit)
@@ -40,7 +40,7 @@ class StudioUser < ApplicationRecord
   def latest_note_reads(limit: 10)
     T.unsafe(NoteHistoryEvent.where(
       tenant_id: tenant_id,
-      studio_id: studio_id,
+      superagent_id: superagent_id,
       user_id: user_id,
       event_type: 'read_confirmation',
     ).includes(:note))
@@ -59,7 +59,7 @@ class StudioUser < ApplicationRecord
   def latest_votes(limit: 10)
     DecisionParticipant.where(
       tenant_id: tenant_id,
-      studio_id: studio_id,
+      superagent_id: superagent_id,
       user_id: user_id,
     ).includes(:votes)
     .where.not(votes: {id: nil})
@@ -78,7 +78,7 @@ class StudioUser < ApplicationRecord
   def latest_commitment_joins(limit: 10)
     CommitmentParticipant.where(
       tenant_id: tenant_id,
-      studio_id: studio_id,
+      superagent_id: superagent_id,
       user_id: user_id,
     ).where.not(committed_at: nil)
     .includes(:commitment)
@@ -94,7 +94,7 @@ class StudioUser < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def can_invite?
-    archived_at.nil? && (has_role?('admin') || T.must(studio).allow_invites?)
+    archived_at.nil? && (has_role?('admin') || T.must(superagent).allow_invites?)
   end
 
   sig { returns(T::Boolean) }
@@ -104,16 +104,22 @@ class StudioUser < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def can_represent?
-    archived_at.nil? && (has_role?('representative') || T.must(studio).any_member_can_represent?)
+    archived_at.nil? && (has_role?('representative') || T.must(superagent).any_member_can_represent?)
+  end
+
+  # Alias for backwards compatibility
+  sig { returns(T::Boolean) }
+  def is_admin?
+    has_role?('admin')
   end
 
   sig { returns(T.nilable(String)) }
   def path
     if user.trustee?
-      s = Studio.where(trustee_user: user).first
+      s = Superagent.where(trustee_user: user).first
       s&.path
     else
-      "#{T.must(studio).path}/u/#{user.handle}"
+      "#{T.must(superagent).path}/u/#{user.handle}"
     end
   end
 

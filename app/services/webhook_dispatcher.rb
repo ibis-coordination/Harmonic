@@ -19,7 +19,7 @@ class WebhookDispatcher
   sig { params(event: Event).returns(T::Array[Webhook]) }
   def self.find_matching_webhooks(event)
     Webhook.where(tenant_id: event.tenant_id, enabled: true)
-      .where("studio_id IS NULL OR studio_id = ?", event.studio_id)
+      .where("superagent_id IS NULL OR superagent_id = ?", event.superagent_id)
       .to_a
       .select { |webhook| webhook.subscribed_to?(event.event_type) }
   end
@@ -41,7 +41,7 @@ class WebhookDispatcher
   sig { params(event: Event, webhook: Webhook).returns(String) }
   def self.build_payload(event, webhook)
     tenant = event.tenant
-    studio = event.studio
+    studio = event.superagent
     actor = event.actor
 
     payload = {

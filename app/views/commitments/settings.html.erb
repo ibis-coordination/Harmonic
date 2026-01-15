@@ -4,7 +4,7 @@
   <div>
     <%= form.text_field :title, placeholder: 'Action that this commitment will initiate', value: @commitment.title %>
   </div>
-  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_studio.path %>">
+  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
     <%= form.text_area :description, placeholder: 'Description (markdown supported, use @ to mention users)', value: @commitment.description, data: { mention_autocomplete_target: "input" } %>
     <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
   </div>

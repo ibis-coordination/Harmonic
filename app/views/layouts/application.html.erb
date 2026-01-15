@@ -14,7 +14,7 @@
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
   </head>
-  <body <%= @current_studio.id == @current_tenant.main_studio_id ? 'class="homepage"'.html_safe : '' %>>
+  <body <%= @current_superagent.id == @current_tenant.main_superagent_id ? 'class="homepage"'.html_safe : '' %>>
     <div id="expanding-heart">
       <%= octicon 'heart' %>
     </div>

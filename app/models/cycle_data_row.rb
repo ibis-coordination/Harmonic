@@ -6,7 +6,7 @@ class CycleDataRow < ApplicationRecord
   self.primary_key = "item_id"
   self.table_name = "cycle_data" # view
   belongs_to :tenant
-  belongs_to :studio
+  belongs_to :superagent
   belongs_to :item, polymorphic: true
   belongs_to :created_by, class_name: 'User'
   belongs_to :updated_by, class_name: 'User'
@@ -25,7 +25,7 @@ class CycleDataRow < ApplicationRecord
 
   sig { returns(T::Array[String]) }
   def self.valid_sort_bys
-    self.column_names - ['tenant_id', 'studio_id', 'item_id']
+    self.column_names - ['tenant_id', 'superagent_id', 'item_id']
   end
 
   sig { params(cycle: Cycle).void }
@@ -74,7 +74,7 @@ class CycleDataRow < ApplicationRecord
 
   sig { returns(String) }
   def timezone
-    @timezone ||= T.let(T.must(T.must(studio).timezone).to_s, T.nilable(String))
+    @timezone ||= T.let(T.must(T.must(superagent).timezone).to_s, T.nilable(String))
     T.must(@timezone)
   end
 
@@ -163,11 +163,11 @@ class CycleDataRow < ApplicationRecord
     T.must(item_type).constantize.unscoped.find(item_id)
   end
 
-  sig { params(studio: Studio).returns(String) }
-  def item_path(studio: T.must(self.studio))
-    # Allow passing in studio to avoid reloading it
+  sig { params(superagent: Superagent).returns(String) }
+  def item_path(superagent: T.must(self.superagent))
+    # Allow passing in superagent to avoid reloading it
     # Would be ideal to load the item and call path on it, but that causes N + 1 queries
-    "#{studio.path}/#{T.must(item_type).downcase[0]}/#{T.must(item_id)[0..7]}"
+    "#{superagent.path}/#{T.must(item_type).downcase[0]}/#{T.must(item_id)[0..7]}"
   end
 
   sig { returns(T.nilable(String)) }
@@ -207,12 +207,12 @@ class CycleDataRow < ApplicationRecord
     end
   end
 
-  sig { params(studio: Studio).returns(T::Hash[Symbol, T.untyped]) }
-  def item_data_for_inline_display(studio: T.must(self.studio))
-    # Allow passing in studio to avoid reloading it
+  sig { params(superagent: Superagent).returns(T::Hash[Symbol, T.untyped]) }
+  def item_data_for_inline_display(superagent: T.must(self.superagent))
+    # Allow passing in superagent to avoid reloading it
     {
       type: item_type,
-      path: item_path(studio: studio),
+      path: item_path(superagent: superagent),
       title: title,
       metric_name: metric_name,
       metric_value: metric_value,

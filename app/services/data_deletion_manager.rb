@@ -20,12 +20,12 @@ class DataDeletionManager
     raise message unless token == @confirmation_token
   end
 
-  sig { params(studio: Studio, confirmation_token: String).returns(String) }
-  def delete_studio!(studio:, confirmation_token:)
-    validate_confirmation_token!(confirmation_token, message: "delete_studio! will delete all associated Notes, Decisions, Commitments, RepresentationSessions, TrusteeUsers, and any other associated data.")
-    # Ensure the studio exists
-    studio_name = studio.name
-    studio_id = studio.id
+  sig { params(superagent: Superagent, confirmation_token: String).returns(String) }
+  def delete_superagent!(superagent:, confirmation_token:)
+    validate_confirmation_token!(confirmation_token, message: "delete_superagent! will delete all associated Notes, Decisions, Commitments, RepresentationSessions, TrusteeUsers, and any other associated data.")
+    # Ensure the superagent exists
+    superagent_name = superagent.name
+    superagent_id_value = superagent.id
     ActiveRecord::Base.transaction do
       # Delete all associated data
       [
@@ -33,23 +33,23 @@ class DataDeletionManager
         Link, NoteHistoryEvent, Note,
         Vote, Option, DecisionParticipant, Decision,
         CommitmentParticipant, Commitment,
-        StudioInvite, StudioUser
+        Invite, SuperagentMember
       ].each do |model|
-        model.unscoped.where(studio_id: studio.id).delete_all
+        model.unscoped.where(superagent_id: superagent.id).delete_all
       end
       # Delete trustee user only if it does not have any conflicting associations
       # begin
-      #   delete_user!(user: studio.trustee_user, confirmation_token: confirmation_token)
+      #   delete_user!(user: superagent.trustee_user, confirmation_token: confirmation_token)
       # rescue ActiveRecord::RecordNotDestroyed
-      #   Rails.logger.info "Trustee user for studio '#{studio_name}' (ID: #{studio_id}) could not be deleted due to conflicting associations."
+      #   Rails.logger.info "Trustee user for superagent '#{superagent_name}' (ID: #{superagent_id_value}) could not be deleted due to conflicting associations."
       # end
-      # Delete the studio itself
-      studio.destroy!
+      # Delete the superagent itself
+      superagent.destroy!
     end
     # Log the deletion
-    # Rails.logger.info "Studio '#{studio_name}' (ID: #{studio_id}) has been deleted by user '#{@user.name}' (ID: #{@user.id})."
+    # Rails.logger.info "Superagent '#{superagent_name}' (ID: #{superagent_id_value}) has been deleted by user '#{@user.name}' (ID: #{@user.id})."
     # Notify the user about the deletion
-    "Studio '#{studio_name}' (ID: #{studio_id}) has been deleted successfully."
+    "Superagent '#{superagent_name}' (ID: #{superagent_id_value}) has been deleted successfully."
   end
 
   sig { params(user: User, confirmation_token: String, force_delete: T::Boolean).returns(String) }
@@ -71,13 +71,13 @@ class DataDeletionManager
         # Subagent users are not modified, but their API tokens are marked as deleted
         ApiToken.unscoped.where(user_id: subagent.id).update_all(deleted_at: Time.current)
       end
-      StudioUser.unscoped.where(user_id: user.id).each do |studio_user|
-        studio_user_is_sole_admin = studio_user.is_admin? && studio_user.studio.admins.count == 1
-        if studio_user_is_sole_admin
-          # If the user is the only admin of the studio, we need to assign a new admin
-          other_studio_users = studio_user.studio.studio_users.where.not(user_id: user.id).where(archived_at: nil)
-          representatives =  other_studio_users.where_has_role('representative')
-          new_admin = representatives.first || other_studio_users.first
+      SuperagentMember.unscoped.where(user_id: user.id).each do |superagent_member|
+        superagent_member_is_sole_admin = superagent_member.is_admin? && superagent_member.superagent.admins.count == 1
+        if superagent_member_is_sole_admin
+          # If the user is the only admin of the superagent, we need to assign a new admin
+          other_superagent_members = superagent_member.superagent.superagent_members.where.not(user_id: user.id).where(archived_at: nil)
+          representatives =  other_superagent_members.where_has_role('representative')
+          new_admin = representatives.first || other_superagent_members.first
           if new_admin
             new_admin.add_role!('admin')
           else
@@ -85,8 +85,8 @@ class DataDeletionManager
             # TODO
           end
         end
-        studio_user.archived_at = Time.current
-        studio_user.save!
+        superagent_member.archived_at = Time.current
+        superagent_member.save!
       end
       TenantUser.unscoped.where(user_id: user.id).each do |tenant_user|
         tenant_user.update!(

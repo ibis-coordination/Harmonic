@@ -10,7 +10,7 @@ class WebhooksController < ApplicationController
   def index
     @page_title = "Webhooks"
     @webhooks = Webhook.where(tenant_id: @current_tenant.id)
-      .where("studio_id IS NULL OR studio_id = ?", @current_studio.id)
+      .where("superagent_id IS NULL OR superagent_id = ?", @current_superagent.id)
       .order(created_at: :desc)
   end
 
@@ -39,7 +39,7 @@ class WebhooksController < ApplicationController
   def execute_create_webhook
     webhook = Webhook.new(
       tenant_id: @current_tenant.id,
-      studio_id: @current_studio.id,
+      superagent_id: @current_superagent.id,
       name: params[:name],
       url: params[:url],
       events: parse_events(params[:events]),
@@ -129,9 +129,9 @@ class WebhooksController < ApplicationController
   end
 
   def require_studio_admin
-    unless @current_user.studio_user&.is_admin?
+    unless @current_user.superagent_member&.is_admin?
       respond_to do |format|
-        format.html { redirect_to @current_studio.path, alert: "You must be a studio admin to manage webhooks." }
+        format.html { redirect_to @current_superagent.path, alert: "You must be a studio admin to manage webhooks." }
         format.json { render json: { error: "Unauthorized" }, status: :forbidden }
         format.md { render plain: "# Error\n\nYou must be a studio admin to manage webhooks.", status: :forbidden }
       end
@@ -155,11 +155,11 @@ class WebhooksController < ApplicationController
   end
 
   def webhook_path(webhook)
-    "/studios/#{@current_studio.handle}/settings/webhooks/#{webhook.truncated_id}"
+    "/studios/#{@current_superagent.handle}/settings/webhooks/#{webhook.truncated_id}"
   end
 
   def webhooks_path
-    "/studios/#{@current_studio.handle}/settings/webhooks"
+    "/studios/#{@current_superagent.handle}/settings/webhooks"
   end
 
   def parse_events(events_param)

@@ -2,12 +2,12 @@ require "test_helper"
 
 class NotificationServiceTest < ActiveSupport::TestCase
   test "create_and_deliver! creates notification and recipient" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     event = Event.create!(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       event_type: "note.created",
       actor: user,
     )
@@ -31,12 +31,12 @@ class NotificationServiceTest < ActiveSupport::TestCase
   end
 
   test "create_and_deliver! creates recipients for multiple channels" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     event = Event.create!(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       event_type: "note.created",
       actor: user,
     )
@@ -58,10 +58,10 @@ class NotificationServiceTest < ActiveSupport::TestCase
   end
 
   test "unread_count_for returns correct count" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    event = Event.create!(tenant: tenant, studio: studio, event_type: "note.created")
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
 
     notification1 = Notification.create!(
       tenant: tenant,
@@ -96,10 +96,10 @@ class NotificationServiceTest < ActiveSupport::TestCase
   end
 
   test "mark_all_read_for marks all in_app notifications as read" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    event = Event.create!(tenant: tenant, studio: studio, event_type: "note.created")
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
 
     notification = Notification.create!(
       tenant: tenant,

@@ -11,18 +11,18 @@ class UsersController < ApplicationController
     @showing_user = tu.user
     @showing_user.tenant_user = tu
     @page_title = @showing_user.display_name
-    if params[:studio_handle]
-      # Showing user in a specific studio
-      su = @showing_user.studio_users.where(studio: current_studio).first
-      return render '404' if su.nil?
-      @showing_user.studio_user = su
-      @common_studios = [current_studio]
+    if params[:superagent_handle]
+      # Showing user in a specific superagent
+      sm = @showing_user.superagent_members.where(superagent: current_superagent).first
+      return render '404' if sm.nil?
+      @showing_user.superagent_member = sm
+      @common_studios = [current_superagent]
       @additional_common_studio_count = (
-        current_user.studios & @showing_user.studios - [current_tenant.main_studio]
+        current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
       ).count - 1
     else
-      # Showing user at the tenant level, so we want to show all common studios between the current user and the showing user
-      @common_studios = current_user.studios & @showing_user.studios - [current_tenant.main_studio]
+      # Showing user at the tenant level, so we want to show all common superagents between the current user and the showing user
+      @common_studios = current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
       @additional_common_studio_count = 0
     end
     respond_to do |format|
@@ -37,9 +37,9 @@ class UsersController < ApplicationController
     return render plain: '403 Unauthorized' unless tu.user == current_user
     @page_title = "Your Settings"
     @current_user.tenant_user = tu
-    @subagents = @current_user.subagents.includes(:tenant_users, :studio_users).where(tenant_users: { tenant_id: @current_tenant.id })
-    # Studios where current user has invite permission (for adding subagents)
-    @invitable_studios = @current_user.studio_users.includes(:studio).select(&:can_invite?).map(&:studio)
+    @subagents = @current_user.subagents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
+    # Superagents where current user has invite permission (for adding subagents)
+    @invitable_studios = @current_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
     respond_to do |format|
       format.html
       format.md
@@ -51,22 +51,22 @@ class UsersController < ApplicationController
     return render status: 404, plain: "404 Not Found" if tu.nil?
     subagent = tu.user
     return render status: 403, plain: "403 Unauthorized" unless subagent.subagent? && subagent.parent_id == current_user.id
-    studio = Studio.find(params[:studio_id])
-    return render status: 403, plain: "403 Unauthorized" unless current_user.can_add_subagent_to_studio?(subagent, studio)
+    superagent = Superagent.find(params[:superagent_id])
+    return render status: 403, plain: "403 Unauthorized" unless current_user.can_add_subagent_to_superagent?(subagent, superagent)
 
-    # Add subagent to the studio
-    studio.add_user!(subagent)
+    # Add subagent to the superagent
+    superagent.add_user!(subagent)
 
     respond_to do |format|
       format.json do
         render json: {
-          studio_id: studio.id,
-          studio_name: studio.name,
-          studio_path: studio.path,
+          superagent_id: superagent.id,
+          superagent_name: superagent.name,
+          superagent_path: superagent.path,
         }
       end
       format.html do
-        flash[:notice] = "#{subagent.display_name} has been added to #{studio.name}"
+        flash[:notice] = "#{subagent.display_name} has been added to #{superagent.name}"
         redirect_to "#{current_user.path}/settings"
       end
     end
@@ -78,21 +78,21 @@ class UsersController < ApplicationController
     subagent = tu.user
     return render status: 403, plain: "403 Unauthorized" unless subagent.subagent? && subagent.parent_id == current_user.id
 
-    studio = Studio.find(params[:studio_id])
-    studio_user = StudioUser.find_by(studio: studio, user: subagent)
-    return render status: 404, plain: "404 Not Found" if studio_user.nil? || studio_user.archived?
+    superagent = Superagent.find(params[:superagent_id])
+    superagent_member = SuperagentMember.find_by(superagent: superagent, user: subagent)
+    return render status: 404, plain: "404 Not Found" if superagent_member.nil? || superagent_member.archived?
 
-    studio_user.archive!
+    superagent_member.archive!
 
     respond_to do |format|
       format.json do
         render json: {
-          studio_id: studio.id,
-          studio_name: studio.name,
+          superagent_id: superagent.id,
+          superagent_name: superagent.name,
         }
       end
       format.html do
-        flash[:notice] = "#{subagent.display_name} has been removed from #{studio.name}"
+        flash[:notice] = "#{subagent.display_name} has been removed from #{superagent.name}"
         redirect_to "#{current_user.path}/settings"
       end
     end
@@ -187,8 +187,8 @@ class UsersController < ApplicationController
 
     @page_title = "Your Settings"
     @current_user.tenant_user = tu
-    @subagents = @current_user.subagents.includes(:tenant_users, :studio_users).where(tenant_users: { tenant_id: @current_tenant.id })
-    @invitable_studios = @current_user.studio_users.includes(:studio).select(&:can_invite?).map(&:studio)
+    @subagents = @current_user.subagents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
+    @invitable_studios = @current_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
     respond_to do |format|
       format.md { render 'settings' }
       format.html { redirect_to "#{current_user.path}/settings" }

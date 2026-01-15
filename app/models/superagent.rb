@@ -1,6 +1,6 @@
 # typed: true
 
-class Studio < ApplicationRecord
+class Superagent < ApplicationRecord
   extend T::Sig
 
   include CanPin
@@ -15,7 +15,7 @@ class Studio < ApplicationRecord
   before_create :set_defaults
   tables = ActiveRecord::Base.connection.tables - [
     'tenants', 'users', 'tenant_users',
-    'studios', 'api_tokens', 'oauth_identities',
+    'superagents', 'api_tokens', 'oauth_identities',
     # Rails internal tables
     'ar_internal_metadata', 'schema_migrations',
     'active_storage_attachments', 'active_storage_blobs',
@@ -24,8 +24,8 @@ class Studio < ApplicationRecord
   tables.each do |table|
     has_many table.to_sym
   end
-  has_many :users, through: :studio_users
-  validates :studio_type, inclusion: { in: %w[studio scene] }
+  has_many :users, through: :superagent_members
+  validates :superagent_type, inclusion: { in: %w[studio scene] }
   validate :handle_is_valid
   validate :creator_is_not_trustee, on: :create
 
@@ -35,50 +35,50 @@ class Studio < ApplicationRecord
   # So we rely on the controller to create the welcome note.
   # after_create :create_welcome_note!
 
-  sig { params(subdomain: String, handle: T.nilable(String)).returns(Studio) }
-  def self.scope_thread_to_studio(subdomain:, handle:)
+  sig { params(subdomain: String, handle: T.nilable(String)).returns(Superagent) }
+  def self.scope_thread_to_superagent(subdomain:, handle:)
     tenant = Tenant.scope_thread_to_tenant(subdomain: subdomain)
-    studio = handle ? tenant.studios.find_by!(handle: handle) : tenant.main_studio
-    if studio.nil? && subdomain == ENV['AUTH_SUBDOMAIN']
+    superagent = handle ? tenant.superagents.find_by!(handle: handle) : tenant.main_superagent
+    if superagent.nil? && subdomain == ENV['AUTH_SUBDOMAIN']
       # This is a special case for the auth subdomain.
-      # We only need a temporary studio object to set the thread scope.
+      # We only need a temporary superagent object to set the thread scope.
       # It will not be persisted to the database.
-      studio = Studio.new(
+      superagent = Superagent.new(
         id: SecureRandom.uuid,
-        name: 'Harmonic Team',
+        name: 'Harmonic',
         handle: SecureRandom.hex(16),
         tenant: tenant,
       )
-      tenant.main_studio = studio
-    elsif studio.nil? && tenant.main_studio.nil?
-      raise ActiveRecord::RecordNotFound, "Tenant with subdomain '#{subdomain}' is missing a main studio"
-    elsif studio.nil?
-      raise ActiveRecord::RecordNotFound, "Studio with handle '#{handle}' not found"
+      tenant.main_superagent = superagent
+    elsif superagent.nil? && tenant.main_superagent.nil?
+      raise ActiveRecord::RecordNotFound, "Tenant with subdomain '#{subdomain}' is missing a main superagent"
+    elsif superagent.nil?
+      raise ActiveRecord::RecordNotFound, "Superagent with handle '#{handle}' not found"
     end
-    Thread.current[:studio_id] = studio.id
-    Thread.current[:studio_handle] = studio.handle
-    studio
+    Thread.current[:superagent_id] = superagent.id
+    Thread.current[:superagent_handle] = superagent.handle
+    superagent
   end
 
   sig { void }
   def self.clear_thread_scope
-    Thread.current[:studio_id] = nil
-    Thread.current[:studio_handle] = nil
+    Thread.current[:superagent_id] = nil
+    Thread.current[:superagent_handle] = nil
   end
 
   sig { returns(T.nilable(String)) }
   def self.current_handle
-    Thread.current[:studio_handle]
+    Thread.current[:superagent_handle]
   end
 
   sig { returns(T.nilable(String)) }
   def self.current_id
-    Thread.current[:studio_id]
+    Thread.current[:superagent_id]
   end
 
   sig { params(handle: String).returns(T::Boolean) }
   def self.handle_available?(handle)
-    Studio.where(handle: handle).count == 0
+    Superagent.where(handle: handle).count == 0
   end
 
   sig { void }
@@ -106,13 +106,13 @@ class Studio < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def is_main_studio?
-    T.must(self.tenant).main_studio_id == self.id
+  def is_main_superagent?
+    T.must(self.tenant).main_superagent_id == self.id
   end
 
   sig { returns(T::Boolean) }
   def is_scene?
-    studio_type == 'scene'
+    superagent_type == 'scene'
   end
 
   sig { params(value: T::Boolean).void }
@@ -154,9 +154,9 @@ class Studio < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def api_enabled?
-    # Main studio always has API enabled
-    return true if is_main_studio?
-    FeatureFlagService.studio_enabled?(self, "api")
+    # Main superagent always has API enabled
+    return true if is_main_superagent?
+    FeatureFlagService.superagent_enabled?(self, "api")
   end
 
   sig { void }
@@ -164,10 +164,10 @@ class Studio < ApplicationRecord
     enable_feature_flag!("api")
   end
 
-  # Check if a feature is enabled at the studio level (with cascade from tenant/app)
+  # Check if a feature is enabled at the superagent level (with cascade from tenant/app)
   sig { params(flag_name: String).returns(T::Boolean) }
   def feature_enabled?(flag_name)
-    FeatureFlagService.studio_enabled?(self, flag_name)
+    FeatureFlagService.superagent_enabled?(self, flag_name)
   end
 
   sig { params(value: T.nilable(String)).void }
@@ -303,7 +303,7 @@ class Studio < ApplicationRecord
 
   sig { returns(Integer) }
   def file_storage_usage
-    @byte_sum ||= Attachment.where(studio: self).sum(:byte_size)
+    @byte_sum ||= Attachment.where(superagent: self).sum(:byte_size)
   end
 
   sig { returns(String) }
@@ -325,7 +325,7 @@ class Studio < ApplicationRecord
   def file_attachments_enabled?
     # Use unified feature flag system with legacy fallback
     if feature_flags_hash.key?("file_attachments")
-      FeatureFlagService.studio_enabled?(self, "file_attachments")
+      FeatureFlagService.superagent_enabled?(self, "file_attachments")
     else
       # Legacy: check old setting location
       FeatureFlagService.tenant_enabled?(T.must(tenant), "file_attachments") &&
@@ -398,12 +398,12 @@ class Studio < ApplicationRecord
 
   sig { returns(String) }
   def path_prefix
-    "#{studio_type}s"
+    "#{superagent_type}s"
   end
 
   sig { returns(T.nilable(String)) }
   def path
-    if is_main_studio?
+    if is_main_superagent?
       nil
     else
       "/#{path_prefix}/#{handle}"
@@ -424,42 +424,42 @@ class Studio < ApplicationRecord
     handle
   end
 
-  sig { params(user: User, roles: T::Array[String]).returns(StudioUser) }
+  sig { params(user: User, roles: T::Array[String]).returns(SuperagentMember) }
   def add_user!(user, roles: [])
-    existing_su = studio_users.find_by(user: user)
-    if existing_su
-      existing_su.unarchive! if existing_su.archived?
-      existing_su.add_roles!(roles)
-      return existing_su
+    existing_sm = superagent_members.find_by(user: user)
+    if existing_sm
+      existing_sm.unarchive! if existing_sm.archived?
+      existing_sm.add_roles!(roles)
+      return existing_sm
     end
-    su = studio_users.create!(
+    sm = superagent_members.create!(
       tenant: tenant,
       user: user,
     )
-    su.add_roles!(roles)
-    su
+    sm.add_roles!(roles)
+    sm
   end
 
   sig { params(user: User).returns(T::Boolean) }
   def user_is_member?(user)
-    studio_users.where(user: user).count > 0
+    superagent_members.where(user: user).count > 0
   end
 
   sig { params(limit: Integer).returns(T::Array[User]) }
   def team(limit: 100)
-    studio_users
+    superagent_members
       .where(archived_at: nil)
       .includes(:user)
       .limit(limit)
-      .order(created_at: :desc).map do |su|
-        su.user.studio_user = su
-        su.user
+      .order(created_at: :desc).map do |sm|
+        sm.user.superagent_member = sm
+        sm.user
       end
   end
 
   sig { params(start_date: T.nilable(Time), end_date: T.nilable(Time), limit: Integer).returns(T.untyped) }
   def backlink_leaderboard(start_date: nil, end_date: nil, limit: 10)
-    Link.backlink_leaderboard(studio_id: self.id)
+    Link.backlink_leaderboard(superagent_id: self.id)
   end
 
   sig { returns(T.noreturn) }
@@ -467,15 +467,15 @@ class Studio < ApplicationRecord
     raise "Delete not implemented"
   end
 
-  sig { params(created_by: User).returns(StudioInvite) }
+  sig { params(created_by: User).returns(Invite) }
   def find_or_create_shareable_invite(created_by)
-    invite = StudioInvite.where(
-      studio: self,
+    invite = Invite.where(
+      superagent: self,
       invited_user: nil,
     ).where('expires_at > ?', Time.current + 2.days).first
     if invite.nil?
-      invite = StudioInvite.create!(
-        studio: self,
+      invite = Invite.create!(
+        superagent: self,
         created_by: created_by,
         code: SecureRandom.hex(16),
         expires_at: 1.week.from_now,
@@ -493,12 +493,12 @@ class Studio < ApplicationRecord
 
   sig { returns(T::Array[User]) }
   def representatives
-    T.unsafe(studio_users).where_has_role('representative').map(&:user)
+    T.unsafe(superagent_members).where_has_role('representative').map(&:user)
   end
 
   sig { returns(T::Array[User]) }
   def admins
-    T.unsafe(studio_users).where_has_role('admin').map(&:user)
+    T.unsafe(superagent_members).where_has_role('admin').map(&:user)
   end
 
   sig { returns(T::Boolean) }
@@ -513,7 +513,10 @@ class Studio < ApplicationRecord
 
   sig { returns(Cycle) }
   def current_cycle
-    Cycle.new_from_studio(self)
+    Cycle.new_from_superagent(self)
   end
 
 end
+
+# Constant alias for backwards compatibility (used in old migrations)
+Studio = Superagent

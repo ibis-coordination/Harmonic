@@ -1,6 +1,6 @@
 # typed: false
 
-# Shared feature flag functionality for Tenant and Studio models
+# Shared feature flag functionality for Tenant and Superagent models
 module HasFeatureFlags
   extend ActiveSupport::Concern
 
@@ -14,7 +14,7 @@ module HasFeatureFlags
     value = feature_flags_hash[flag_name.to_s]
     # If not explicitly set, use the default from config
     if value.nil?
-      default_method = is_a?(Studio) ? :default_for_studio : :default_for_tenant
+      default_method = is_a?(Superagent) ? :default_for_superagent : :default_for_tenant
       return FeatureFlagService.send(default_method, flag_name)
     end
     value.to_s == "true"

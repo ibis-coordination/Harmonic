@@ -8,7 +8,7 @@ class WebhookTestService
     # Create a test event
     test_event = Event.create!(
       tenant_id: webhook.tenant_id,
-      studio_id: webhook.studio_id,
+      superagent_id: webhook.superagent_id,
       event_type: "webhook.test",
       actor: user,
       subject: webhook,
@@ -30,7 +30,7 @@ class WebhookTestService
   sig { params(webhook: Webhook, user: User).returns(String) }
   def self.build_test_payload(webhook, user)
     tenant = Tenant.find_by(id: webhook.tenant_id)
-    studio = Studio.unscoped.find_by(id: webhook.studio_id)
+    studio = Superagent.unscoped.find_by(id: webhook.superagent_id)
 
     payload = {
       id: SecureRandom.uuid,

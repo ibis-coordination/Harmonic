@@ -48,33 +48,33 @@
 
 <ul>
   <li>
-    Name: <code><%= @current_tenant.main_studio.name %></code>
+    Name: <code><%= @current_tenant.main_superagent.name %></code>
   </li>
   <li>
-    ID: <code><%= @current_tenant.main_studio.id %></code>
-    <%= render 'shared/copy_button', text: @current_tenant.main_studio.id %>
+    ID: <code><%= @current_tenant.main_superagent.id %></code>
+    <%= render 'shared/copy_button', text: @current_tenant.main_superagent.id %>
   </li>
   <li>
-    Notes: <%= @current_tenant.main_studio.notes.count %>
+    Notes: <%= @current_tenant.main_superagent.notes.count %>
   </li>
   <li>
-    Decisions: <%= @current_tenant.main_studio.decisions.count %>
+    Decisions: <%= @current_tenant.main_superagent.decisions.count %>
   </li>
   <li>
-    Commitments: <%= @current_tenant.main_studio.commitments.count %>
+    Commitments: <%= @current_tenant.main_superagent.commitments.count %>
   </li>
 </ul>
 
 <h3>Main Studio Settings</h3>
 <pre>
-<%= JSON.pretty_generate(@current_tenant.main_studio.settings) %>
+<%= JSON.pretty_generate(@current_tenant.main_superagent.settings) %>
 </pre>
 
 <h3>Other Studios</h3>
 
 <ul>
-  <% @current_tenant.studios.order(created_at: :desc).each do |studio| %>
-    <% next if studio == @current_tenant.main_studio %>
+  <% @current_tenant.superagents.order(created_at: :desc).each do |studio| %>
+    <% next if studio == @current_tenant.main_superagent %>
     <li>
       <a href="<%= studio.path %>">
         <%= studio.name %>

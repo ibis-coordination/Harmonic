@@ -44,20 +44,20 @@ class ActiveSupport::TestCase
   fixtures :all
 
   setup do
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
     @global_tenant = Tenant.create!(subdomain: "global", name: "Global Tenant")
     @global_user = User.create!(email: "global_user@example.com", name: "Global User", user_type: "person")
     @global_tenant.add_user!(@global_user)
-    @global_tenant.create_main_studio!(created_by: @global_user)
-    @global_studio = Studio.create!(tenant: @global_tenant, created_by: @global_user, name: "Global Studio", handle: "global-studio")
-    @global_studio.add_user!(@global_user)
+    @global_tenant.create_main_superagent!(created_by: @global_user)
+    @global_superagent = Superagent.create!(tenant: @global_tenant, created_by: @global_user, name: "Global Studio", handle: "global-studio")
+    @global_superagent.add_user!(@global_user)
   end
 
   teardown do
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
-    Tenant.update_all(main_studio_id: nil) # Needed to avoid foreign key violation when deleting studios
+    Tenant.update_all(main_superagent_id: nil) # Needed to avoid foreign key violation when deleting studios
     [
       # Note: order matters in this array. "Dependent destroy" doesn't always work for some reason (TODO debug),
       # so it's necessary to manually delete association records first, before the referenced records, to avoid foreign key violations.
@@ -67,7 +67,7 @@ class ActiveSupport::TestCase
       Link, NoteHistoryEvent, Note,
       Vote, Option, DecisionParticipant, Decision,
       CommitmentParticipant, Commitment,
-      StudioInvite, StudioUser, Studio,
+      Invite, SuperagentMember, Superagent,
       ApiToken, TenantUser, Tenant,
       TrusteePermission, OauthIdentity, User
     ].each do |model|
@@ -83,35 +83,37 @@ class ActiveSupport::TestCase
     User.create!(email: email, name: name, user_type: user_type)
   end
 
-  def create_studio(tenant:, created_by:, name: "Test Studio", handle: "test-studio")
-    Studio.create!(tenant: tenant, created_by: created_by, name: name, handle: handle)
+  def create_superagent(tenant:, created_by:, name: "Test Studio", handle: "test-studio")
+    Superagent.create!(tenant: tenant, created_by: created_by, name: name, handle: handle)
+  end
+  alias_method :create_studio, :create_superagent
+
+  def create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Test Note", text: "This is a test note.", commentable: nil)
+    Note.create!(tenant: tenant, superagent: superagent, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week, commentable: commentable)
   end
 
-  def create_note(tenant: @tenant, studio: @studio, created_by: @user, title: "Test Note", text: "This is a test note.", commentable: nil)
-    Note.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week, commentable: commentable)
+  def create_decision(tenant: @tenant, superagent: @superagent, created_by: @user, question: "Test Decision?", description: "This is a test decision.")
+    Decision.create!(tenant: tenant, superagent: superagent, created_by: created_by, question: question, description: description, deadline: Time.current + 1.week, options_open: true)
   end
 
-  def create_decision(tenant: @tenant, studio: @studio, created_by: @user, question: "Test Decision?", description: "This is a test decision.")
-    Decision.create!(tenant: tenant, studio: studio, created_by: created_by, question: question, description: description, deadline: Time.current + 1.week, options_open: true)
+  def create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Test Commitment", description: "This is a test commitment.")
+    Commitment.create!(tenant: tenant, superagent: superagent, created_by: created_by, title: title, description: description, critical_mass: 1, deadline: Time.current + 1.week)
   end
 
-  def create_commitment(tenant: @tenant, studio: @studio, created_by: @user, title: "Test Commitment", description: "This is a test commitment.")
-    Commitment.create!(tenant: tenant, studio: studio, created_by: created_by, title: title, description: description, critical_mass: 1, deadline: Time.current + 1.week)
-  end
-
-  def create_option(tenant: @tenant, studio: @studio, created_by: @user, decision:, title: "Test Option")
+  def create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision:, title: "Test Option")
     decision_participant = DecisionParticipantManager.new(decision: decision, user: created_by).find_or_create_participant
-    Option.create!(tenant: tenant, studio: studio, decision_participant: decision_participant, decision: decision, title: title)
+    Option.create!(tenant: tenant, superagent: superagent, decision_participant: decision_participant, decision: decision, title: title)
   end
 
-  def create_tenant_studio_user
+  def create_tenant_superagent_user
     tenant = create_tenant
     user = create_user
     tenant.add_user!(user)
-    studio = create_studio(tenant: tenant, created_by: user)
-    studio.add_user!(user)
-    [tenant, studio, user]
+    superagent = create_superagent(tenant: tenant, created_by: user)
+    superagent.add_user!(user)
+    [tenant, superagent, user]
   end
+  alias_method :create_tenant_studio_user, :create_tenant_superagent_user
 
   # Creates a subagent user with the given parent
   # Subagents authenticate via API tokens generated by their parent
@@ -124,20 +126,20 @@ class ActiveSupport::TestCase
     )
   end
 
-  # Creates a representation session for a user acting on behalf of a studio
-  # The representative must have can_represent? permission on the studio
+  # Creates a representation session for a user acting on behalf of a superagent
+  # The representative must have can_represent? permission on the superagent
   def create_representation_session(
     tenant:,
-    studio:,
+    superagent:,
     representative:,
     confirmed_understanding: true,
     began_at: Time.current
   )
     RepresentationSession.create!(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       representative_user: representative,
-      trustee_user: studio.trustee_user,
+      trustee_user: superagent.trustee_user,
       confirmed_understanding: confirmed_understanding,
       began_at: began_at,
       activity_log: { 'activity' => [] },

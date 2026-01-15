@@ -19,7 +19,8 @@ class DeletedRecordProxy
   end
 
   sig { returns(DeletedRecordProxy) }
-  def studio
+  def superagent
     DeletedRecordProxy.new
   end
+
 end

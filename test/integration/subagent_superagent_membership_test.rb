@@ -4,11 +4,11 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @studio = @global_studio
-    @studio.enable_api!  # Enable API at studio level for subagent functionality
+    @superagent = @global_superagent
+    @superagent.enable_api!  # Enable API at studio level for subagent functionality
     @parent = @global_user
     # Ensure parent has admin role on studio to have invite permission
-    @parent.studio_users.find_by(studio: @studio)&.add_role!('admin')
+    @parent.superagent_members.find_by(superagent: @superagent)&.add_role!('admin')
     @subagent = User.create!(
       email: "subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
       name: "Subagent User",
@@ -29,29 +29,29 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     sign_in_as(@parent, tenant: @tenant)
 
     # Verify subagent is not in studio initially
-    assert_nil StudioUser.find_by(studio: @studio, user: @subagent)
+    assert_nil SuperagentMember.find_by(superagent: @superagent, user: @subagent)
 
-    post "/u/#{@subagent.handle}/add_to_studio", params: { studio_id: @studio.id }
+    post "/u/#{@subagent.handle}/add_to_studio", params: { superagent_id: @superagent.id }
 
     assert_response :redirect
     follow_redirect!
 
     # Verify subagent is now in studio
-    assert_not_nil StudioUser.find_by(studio: @studio, user: @subagent)
+    assert_not_nil SuperagentMember.find_by(superagent: @superagent, user: @subagent)
   end
 
   test "parent cannot add their subagent to a studio where they lack invite permission" do
     # Create a studio where parent has no membership
     other_admin = create_user(name: "Other Admin")
     @tenant.add_user!(other_admin)
-    other_studio = create_studio(tenant: @tenant, created_by: other_admin, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_superagent = create_superagent(tenant: @tenant, created_by: other_admin, handle: "other-studio-#{SecureRandom.hex(4)}")
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{@subagent.handle}/add_to_studio", params: { studio_id: other_studio.id }
+    post "/u/#{@subagent.handle}/add_to_studio", params: { superagent_id: other_superagent.id }
 
     assert_response :forbidden
-    assert_nil StudioUser.find_by(studio: other_studio, user: @subagent)
+    assert_nil SuperagentMember.find_by(superagent: other_superagent, user: @subagent)
   end
 
   test "user cannot add another user's subagent to a studio" do
@@ -69,10 +69,10 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     # @parent tries to add other_subagent to @studio
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{other_subagent.handle}/add_to_studio", params: { studio_id: @studio.id }
+    post "/u/#{other_subagent.handle}/add_to_studio", params: { superagent_id: @superagent.id }
 
     assert_response :forbidden
-    assert_nil StudioUser.find_by(studio: @studio, user: other_subagent)
+    assert_nil SuperagentMember.find_by(superagent: @superagent, user: other_subagent)
   end
 
   test "cannot add non-subagent user via add_to_studio endpoint" do
@@ -81,17 +81,17 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{regular_user.handle}/add_to_studio", params: { studio_id: @studio.id }
+    post "/u/#{regular_user.handle}/add_to_studio", params: { superagent_id: @superagent.id }
 
     assert_response :forbidden
     # Regular user might already be in studio from other tests, so just check response
   end
 
   test "unauthenticated user cannot add subagent to studio" do
-    post "/u/#{@subagent.handle}/add_to_studio", params: { studio_id: @studio.id }
+    post "/u/#{@subagent.handle}/add_to_studio", params: { superagent_id: @superagent.id }
 
     assert_response :redirect # Redirects to login
-    assert_nil StudioUser.find_by(studio: @studio, user: @subagent)
+    assert_nil SuperagentMember.find_by(superagent: @superagent, user: @subagent)
   end
 
   # ====================
@@ -100,18 +100,18 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
 
   test "settings page shows subagent studio memberships" do
     # Add subagent to studio first
-    @studio.add_user!(@subagent)
+    @superagent.add_user!(@subagent)
 
     sign_in_as(@parent, tenant: @tenant)
     get "/u/#{@parent.handle}/settings"
 
     assert_response :success
-    assert_match @studio.name, response.body
+    assert_match @superagent.name, response.body
   end
 
   test "settings page shows add to studio dropdown for available studios" do
     # Create another studio where parent has invite permission
-    another_studio = create_studio(tenant: @tenant, created_by: @parent, handle: "another-studio-#{SecureRandom.hex(4)}")
+    another_superagent = create_superagent(tenant: @tenant, created_by: @parent, handle: "another-studio-#{SecureRandom.hex(4)}")
 
     sign_in_as(@parent, tenant: @tenant)
     get "/u/#{@parent.handle}/settings"
@@ -140,10 +140,10 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
 
   test "studio settings page shows subagents in that studio" do
     # Add subagent to studio first
-    @studio.add_user!(@subagent)
+    @superagent.add_user!(@subagent)
 
     sign_in_as(@parent, tenant: @tenant)
-    get "/studios/#{@studio.handle}/settings"
+    get "/studios/#{@superagent.handle}/settings"
 
     assert_response :success
     assert_match @subagent.display_name, response.body
@@ -154,9 +154,9 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     sign_in_as(@parent, tenant: @tenant)
 
     # Verify subagent is not in studio initially
-    assert_nil StudioUser.find_by(studio: @studio, user: @subagent)
+    assert_nil SuperagentMember.find_by(superagent: @superagent, user: @subagent)
 
-    post "/studios/#{@studio.handle}/settings/add_subagent",
+    post "/studios/#{@superagent.handle}/settings/add_subagent",
          params: { subagent_id: @subagent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json
@@ -167,7 +167,7 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     assert_equal @subagent.display_name, json_response["subagent_name"]
 
     # Verify subagent is now in studio
-    assert_not_nil StudioUser.find_by(studio: @studio, user: @subagent)
+    assert_not_nil SuperagentMember.find_by(superagent: @superagent, user: @subagent)
   end
 
   test "admin cannot add another user's subagent to studio via settings" do
@@ -183,25 +183,25 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/studios/#{@studio.handle}/settings/add_subagent",
+    post "/studios/#{@superagent.handle}/settings/add_subagent",
          params: { subagent_id: other_subagent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json
 
     assert_response :forbidden
-    assert_nil StudioUser.find_by(studio: @studio, user: other_subagent)
+    assert_nil SuperagentMember.find_by(superagent: @superagent, user: other_subagent)
   end
 
   test "admin can remove subagent from studio via settings JSON endpoint" do
     # First add subagent to studio
-    @studio.add_user!(@subagent)
-    studio_user = StudioUser.find_by(studio: @studio, user: @subagent)
-    assert_not_nil studio_user
-    assert_not studio_user.archived?
+    @superagent.add_user!(@subagent)
+    superagent_member = SuperagentMember.find_by(superagent: @superagent, user: @subagent)
+    assert_not_nil superagent_member
+    assert_not superagent_member.archived?
 
     sign_in_as(@parent, tenant: @tenant)
 
-    delete "/studios/#{@studio.handle}/settings/remove_subagent",
+    delete "/studios/#{@superagent.handle}/settings/remove_subagent",
            params: { subagent_id: @subagent.id },
            headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
            as: :json
@@ -212,17 +212,17 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     assert_equal true, json_response["can_readd"]
 
     # Verify subagent membership is archived (not deleted)
-    studio_user.reload
-    assert studio_user.archived?
+    superagent_member.reload
+    assert superagent_member.archived?
   end
 
   test "non-admin cannot add subagent to studio via settings" do
     # Remove admin role from parent
-    @parent.studio_users.find_by(studio: @studio)&.remove_role!('admin')
+    @parent.superagent_members.find_by(superagent: @superagent)&.remove_role!('admin')
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/studios/#{@studio.handle}/settings/add_subagent",
+    post "/studios/#{@superagent.handle}/settings/add_subagent",
          params: { subagent_id: @subagent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json

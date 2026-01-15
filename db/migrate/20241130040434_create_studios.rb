@@ -18,7 +18,7 @@ class CreateStudios < ActiveRecord::Migration[7.0]
       add_reference table, :studio, null: true, foreign_key: true, type: :uuid
     end
 
-    add_reference :tenants, :main_studio, null: true, foreign_key: { to_table: :studios }, type: :uuid
+    add_reference :tenants, :main_superagent, null: true, foreign_key: { to_table: :studios }, type: :uuid
 
     create_table :studio_users, id: :uuid do |t|
       t.references :tenant, null: false, foreign_key: true, type: :uuid
@@ -32,12 +32,12 @@ class CreateStudios < ActiveRecord::Migration[7.0]
 
     # Comment out the following when rolling back
     Tenant.all.each do |tenant|
-      tenant.create_main_studio!
+      tenant.create_main_superagent!
       tenant.tenant_users.each do |tu|
-        tenant.main_studio.add_user!(tu.user)
+        tenant.main_superagent.add_user!(tu.user)
       end
       tables_to_update.each do |table|
-        tenant.send(table).update_all(studio_id: tenant.main_studio.id)
+        tenant.send(table).update_all(studio_id: tenant.main_superagent.id)
       end
     end
   end

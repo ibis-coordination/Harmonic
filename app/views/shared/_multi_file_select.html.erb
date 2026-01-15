@@ -1,5 +1,5 @@
-<% if false && @current_tenant.allow_file_uploads? && @current_studio.allow_file_uploads? %>
-  <% if @current_studio.within_file_upload_limit? %>
+<% if false && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads? %>
+  <% if @current_superagent.within_file_upload_limit? %>
     <div>
       <%= form.label :files, "Photos" %>
       <%= form.file_field :files, multiple: true %>

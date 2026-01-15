@@ -1,17 +1,17 @@
 # Studio Settings
 
-Current settings for **<%= @current_studio.name %>**:
+Current settings for **<%= @current_superagent.name %>**:
 
 | Setting | Value |
 |---------|-------|
-| Name | <%= @current_studio.name %> |
-| Handle | <%= @current_studio.handle %> |
-| Description | <%= @current_studio.description || "(none)" %> |
-| Timezone | <%= @current_studio.timezone %> |
-| Tempo | <%= @current_studio.tempo %> |
-| Synchronization Mode | <%= @current_studio.synchronization_mode %> |
-| Invitations | <%= @current_studio.all_members_can_invite? ? 'All members can invite' : 'Only admins can invite' %> |
-| Representation | <%= @current_studio.any_member_can_represent? ? 'Any member can represent' : 'Only representatives' %> |
+| Name | <%= @current_superagent.name %> |
+| Handle | <%= @current_superagent.handle %> |
+| Description | <%= @current_superagent.description || "(none)" %> |
+| Timezone | <%= @current_superagent.timezone %> |
+| Tempo | <%= @current_superagent.tempo %> |
+| Synchronization Mode | <%= @current_superagent.synchronization_mode %> |
+| Invitations | <%= @current_superagent.all_members_can_invite? ? 'All members can invite' : 'Only admins can invite' %> |
+| Representation | <%= @current_superagent.any_member_can_represent? ? 'Any member can represent' : 'Only representatives' %> |
 <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) } %>
 <% if available_flags.any? %>
 
@@ -21,11 +21,11 @@ Current settings for **<%= @current_studio.name %>**:
 |---------|---------|
 <% available_flags.each do |flag_name| %>
 <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
-<% studio_enabled_locally = @current_studio.feature_flag_enabled_locally?(flag_name) %>
+<% studio_enabled_locally = @current_superagent.feature_flag_enabled_locally?(flag_name) %>
 | <%= metadata['name'] %> | <%= studio_enabled_locally ? 'Yes' : 'No' %> |
 <% end %>
 <% end %>
-<% if @current_studio.feature_enabled?('api') && @studio_subagents.present? %>
+<% if @current_superagent.feature_enabled?('api') && @studio_subagents.present? %>
 
 ## Subagents in this Studio
 
@@ -34,13 +34,13 @@ Current settings for **<%= @current_studio.name %>**:
 <% end %>
 <% end %>
 
-## [Actions](<%= @current_studio.path %>/settings/actions)
+## [Actions](<%= @current_superagent.path %>/settings/actions)
 
 <% flag_params = available_flags.map { |f| "feature_#{f}" }.join(", ") %>
-* [`update_studio_settings(name, description, timezone, tempo, synchronization_mode, invitations, representation<%= ", #{flag_params}" if available_flags.any? %>)`](<%= @current_studio.path %>/settings/actions/update_studio_settings) - Update studio settings
-<% if @current_studio.feature_enabled?('api') && @current_user.person? && @addable_subagents.present? %>
-* [`add_subagent_to_studio(subagent_id)`](<%= @current_studio.path %>/settings/actions/add_subagent_to_studio) - Add one of your subagents to this studio
+* [`update_studio_settings(name, description, timezone, tempo, synchronization_mode, invitations, representation<%= ", #{flag_params}" if available_flags.any? %>)`](<%= @current_superagent.path %>/settings/actions/update_studio_settings) - Update studio settings
+<% if @current_superagent.feature_enabled?('api') && @current_user.person? && @addable_subagents.present? %>
+* [`add_subagent_to_studio(subagent_id)`](<%= @current_superagent.path %>/settings/actions/add_subagent_to_studio) - Add one of your subagents to this studio
 <% end %>
-<% if @current_studio.feature_enabled?('api') && @current_user.person? && @studio_subagents.present? && @studio_subagents.any? { |s| s.parent_id == @current_user.id } %>
-* [`remove_subagent_from_studio(subagent_id)`](<%= @current_studio.path %>/settings/actions/remove_subagent_from_studio) - Remove a subagent from this studio
+<% if @current_superagent.feature_enabled?('api') && @current_user.person? && @studio_subagents.present? && @studio_subagents.any? { |s| s.parent_id == @current_user.id } %>
+* [`remove_subagent_from_studio(subagent_id)`](<%= @current_superagent.path %>/settings/actions/remove_subagent_from_studio) - Remove a subagent from this studio
 <% end %>

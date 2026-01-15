@@ -3,14 +3,14 @@ require "test_helper"
 class DecisionTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @user = @global_user
   end
 
   def create_decision
     Decision.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       updated_by: @user,
       question: "Test Decision",
@@ -27,7 +27,7 @@ class DecisionTest < ActiveSupport::TestCase
     assert_equal "Test Decision", decision.question
     assert_equal "This is a test decision.", decision.description
     assert_equal @tenant, decision.tenant
-    assert_equal @studio, decision.studio
+    assert_equal @superagent, decision.superagent
     assert_equal @user, decision.created_by
     assert_equal @user, decision.updated_by
     assert decision.options_open
@@ -36,7 +36,7 @@ class DecisionTest < ActiveSupport::TestCase
   test "Decision requires a question" do
     decision = Decision.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       updated_by: @user,
       description: "This is a test decision without a question.",
@@ -50,7 +50,7 @@ class DecisionTest < ActiveSupport::TestCase
   test "Decision requires a deadline" do
     decision = Decision.new(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       updated_by: @user,
       question: 'No deadline?',
@@ -137,7 +137,7 @@ class DecisionTest < ActiveSupport::TestCase
   test "Decision with past deadline is closed" do
     decision = Decision.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
       updated_by: @user,
       question: "Closed Decision",
@@ -221,14 +221,14 @@ class DecisionTest < ActiveSupport::TestCase
 
   test "Decision can be pinned" do
     decision = create_decision
-    decision.pin!(tenant: @tenant, studio: @studio, user: @user)
-    assert decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user)
+    decision.pin!(tenant: @tenant, superagent: @superagent, user: @user)
+    assert decision.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user)
   end
 
   test "Decision can be unpinned" do
     decision = create_decision
-    decision.pin!(tenant: @tenant, studio: @studio, user: @user)
-    decision.unpin!(tenant: @tenant, studio: @studio, user: @user)
-    assert_not decision.is_pinned?(tenant: @tenant, studio: @studio, user: @user)
+    decision.pin!(tenant: @tenant, superagent: @superagent, user: @user)
+    decision.unpin!(tenant: @tenant, superagent: @superagent, user: @user)
+    assert_not decision.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user)
   end
 end

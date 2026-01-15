@@ -1,5 +1,5 @@
 <span class="blur-if-no-heartbeat <%= @current_heartbeat.nil? ? 'no-heartbeat' : 'has-heartbeat' %>">
-  <%= render 'shared/more_button_studio', studio: @current_studio %>
+  <%= render 'shared/more_button_studio', studio: @current_superagent %>
 </span>
 
 <%= render 'studio_title' %>
@@ -19,7 +19,7 @@
 
   <%= render 'shared/collapseable_section', title: @cycle.display_window, title_superscript: @cycle.display_name, octicon: 'iterations', header_level: 2, hidden: false, indent: true do %>
     <p>
-      <span style="font-size: 0.8em;" title="<%= @current_studio.timezone.name %>">
+      <span style="font-size: 0.8em;" title="<%= @current_superagent.timezone.name %>">
         <%= @cycle.display_duration %>,
         <% if @cycle.start_date > @cycle.now %>
           starting <%= timeago(@cycle.start_date) %>
@@ -32,7 +32,7 @@
       <br/>
       <span id="last-sync-display" style="font-size: 0.8em;display:inline;">
         <span style="opacity:0.6;">Last sync <%= timeago(Time.current) %></span>
-        <a href="<%= @current_studio.path %>"><%= octicon 'sync' %></a>
+        <a href="<%= @current_superagent.path %>"><%= octicon 'sync' %></a>
       </span>
       <script>
         setTimeout(function() {
@@ -44,7 +44,7 @@
     <% notes_title = "<i class='note-icon medium-icon'></i> Notes".html_safe %>
     <% notes_title_superscript = { unread: @unread_notes.count, read: @read_notes.count.to_s } %>
     <%= render 'shared/collapseable_section', title: notes_title, title_superscript: notes_title_superscript, header_level: 3, hidden: true, indent: true do %>
-      <a href="<%= @current_studio.path %>/note">
+      <a href="<%= @current_superagent.path %>/note">
         <button>New Note</button>
       </a>
 
@@ -65,7 +65,7 @@
     <% decisions_title = "<i class='decision-icon medium-icon'></i> Decisions".html_safe %>
     <% decisions_title_superscript = { open: @open_decisions.count, closed: @closed_decisions.count.to_s } %>
     <%= render 'shared/collapseable_section', title: decisions_title, title_superscript: decisions_title_superscript, header_level: 3, hidden: true, indent: true do %>
-      <a href="<%= @current_studio.path %>/decide">
+      <a href="<%= @current_superagent.path %>/decide">
         <button>New Decision</button>
       </a>
       <%= render 'shared/collapseable_section', title: "Open Decisions", title_superscript: { '' => @open_decisions.count }, header_level: 4, hidden: false do %>
@@ -87,7 +87,7 @@
     <% commitments_title = "<i class='commitment-icon medium-icon'></i> Commitments".html_safe %>
     <% commitments_title_superscript = { open: @open_commitments.count, closed: @closed_commitments.count.to_s } %>
     <%= render 'shared/collapseable_section', title: commitments_title, title_superscript: commitments_title_superscript, header_level: 3, hidden: true, indent: true do %>
-      <a href="<%= @current_studio.path %>/commit">
+      <a href="<%= @current_superagent.path %>/commit">
         <button>New Commitment</button>
       </a>
       <%= render 'shared/collapseable_section', title: "Open Commitments", title_superscript: { '' => @open_commitments.count }, header_level: 4, hidden: false do %>
@@ -154,8 +154,8 @@
 
     <%= render 'shared/collapseable_section', title: "Explore", octicon: 'telescope', header_level: 4, hidden: false, indent: true do %>
       <ul>
-        <li><a href="<%= @current_studio.path %>/cycles">Cycles</a></li>
-        <li><a href="<%= @current_studio.path %>/backlinks">Backlinks</a></li>
+        <li><a href="<%= @current_superagent.path %>/cycles">Cycles</a></li>
+        <li><a href="<%= @current_superagent.path %>/backlinks">Backlinks</a></li>
         <!--
           <li>Activity</li>
           <li>Notes</li>
@@ -166,19 +166,19 @@
     <% end %>
 
     <%= render 'shared/collapseable_section', title: "Studio Members", title_superscript: "#{@team.count}", octicon: 'people', header_level: 4, hidden: false, indent: true do %>
-      <% if @current_user.studio_user.can_invite? %>
-        <a href="<%= @current_studio.path %>/invite">
+      <% if @current_user.superagent_member.can_invite? %>
+        <a href="<%= @current_superagent.path %>/invite">
           <button>Invite New Member</button>
         </a>
       <% end %>
       <%= render 'shared/team', team: @team %>
     <% end %>
 
-    <%= render 'shared/collapseable_section', title: 'Representation', octicon: 'feed-person', header_level: 4, hidden: true, indent: true, lazy_load: "#{@current_studio.path}/representation.html" do %>
+    <%= render 'shared/collapseable_section', title: 'Representation', octicon: 'feed-person', header_level: 4, hidden: true, indent: true, lazy_load: "#{@current_superagent.path}/representation.html" do %>
     <% end %>
 
-    <% if @current_user.studio_user.can_edit_settings? %>
-      <a href="<%= @current_studio.path %>/settings" style="color:var(--color-fg-default);">
+    <% if @current_user.superagent_member.can_edit_settings? %>
+      <a href="<%= @current_superagent.path %>/settings" style="color:var(--color-fg-default);">
         <%= octicon 'gear' %> Studio Settings
       </a>
     <% end %>

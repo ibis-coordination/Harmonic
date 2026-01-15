@@ -3,17 +3,17 @@ require "test_helper"
 class ApiHelperTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @user = @global_user
-    # Studio.scope_thread_to_studio sets the current studio and tenant.
+    # Superagent.scope_thread_to_superagent sets the current studio and tenant.
     # In controller actions, this is handled by ApplicationController
-    Studio.scope_thread_to_studio(
+    Superagent.scope_thread_to_superagent(
       subdomain: @tenant.subdomain,
-      handle: @studio.handle
+      handle: @superagent.handle
     )
   end
 
-  test "ApiHelper.create_studio creates a studio" do
+  test "ApiHelper.create_studio creates a superagent" do
     params = {
       name: "Studio Name",
       handle: "studio-handle",
@@ -24,24 +24,24 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_representation_session: nil,
-      current_resource_model: Studio,
+      current_resource_model: Superagent,
       current_resource: nil,
       params: params,
       request: {}
     )
-    studio = api_helper.create_studio
-    assert studio.persisted?
-    assert_equal params[:name], studio.name
-    assert_equal params[:handle], studio.handle
-    assert_equal params[:description], studio.description
-    assert_equal params[:timezone], studio.timezone.name
-    assert_equal params[:tempo], studio.tempo
-    assert_equal params[:synchronization_mode], studio.synchronization_mode
-    assert_equal @tenant, studio.tenant
-    assert_equal @user, studio.created_by
+    superagent = api_helper.create_studio
+    assert superagent.persisted?
+    assert_equal params[:name], superagent.name
+    assert_equal params[:handle], superagent.handle
+    assert_equal params[:description], superagent.description
+    assert_equal params[:timezone], superagent.timezone.name
+    assert_equal params[:tempo], superagent.tempo
+    assert_equal params[:synchronization_mode], superagent.synchronization_mode
+    assert_equal @tenant, superagent.tenant
+    assert_equal @user, superagent.created_by
   end
 
   test "ApiHelper.create_note creates a note" do
@@ -52,7 +52,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Note,
@@ -75,7 +75,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Decision,
@@ -93,7 +93,7 @@ class ApiHelperTest < ActiveSupport::TestCase
   test "ApiHelper.confirm_read raises error for invalid resource model" do
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Decision,
@@ -110,7 +110,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     note = create_note
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Note,
@@ -129,7 +129,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     params = { title: "New Title", text: "Updated text." }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Note,
@@ -149,7 +149,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     params = { title: "Option Title" }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_decision: decision,
       params: params,
@@ -171,7 +171,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_decision: decision,
       params: params,
@@ -196,7 +196,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_studio: @studio,
+      current_superagent: @superagent,
       current_tenant: @tenant,
       current_decision: decision,
       params: params,

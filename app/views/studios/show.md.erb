@@ -1,18 +1,18 @@
-# Studio: <%= @current_studio.name %>
+# Studio: <%= @current_superagent.name %>
 
-<% if !@current_studio.is_main_studio? && @current_user && !@current_heartbeat -%>
+<% if !@current_superagent.is_main_superagent? && @current_user && !@current_heartbeat -%>
 ## Heartbeat Required
 
 You must send a heartbeat to access this studio for the current cycle.
 
-## [Actions](<%= @current_studio.path %>/actions)
+## [Actions](<%= @current_superagent.path %>/actions)
 
-* [`send_heartbeat()`](<%= @current_studio.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence in the studio
+* [`send_heartbeat()`](<%= @current_superagent.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence in the studio
 <% else -%>
 ## Explore
 
-* [Cycles](<%= @current_studio.path %>/cycles)
-* [Backlinks](<%= @current_studio.path %>/backlinks)
+* [Cycles](<%= @current_superagent.path %>/cycles)
+* [Backlinks](<%= @current_superagent.path %>/backlinks)
 
 ## Pinned
 
@@ -26,17 +26,17 @@ No pinned items yet.
 
 ## Team
 
-<% if @current_studio.users.length > 0 -%>
-<% @current_studio.users.each do |user| -%>
+<% if @current_superagent.users.length > 0 -%>
+<% @current_superagent.users.each do |user| -%>
 * <%= user_link_md(user) %>
 <% end -%>
 <% else -%>
 No team members yet.
 <% end -%>
 
-## [Actions](<%= @current_studio.path %>/actions)
+## [Actions](<%= @current_superagent.path %>/actions)
 
-* [New Note](<%= @current_studio.path %>/note)
-* [New Decision](<%= @current_studio.path %>/decide)
-* [New Commitment](<%= @current_studio.path %>/commit)
+* [New Note](<%= @current_superagent.path %>/note)
+* [New Decision](<%= @current_superagent.path %>/decide)
+* [New Commitment](<%= @current_superagent.path %>/commit)
 <% end -%>

@@ -1,4 +1,4 @@
-<% studio ||= @current_studio %>
+<% studio ||= @current_superagent %>
 <span data-controller="more-button" class="more-button">
   <div
     data-more-button-target="plus"
@@ -50,7 +50,7 @@
             </span>
           </li>
         <% elsif option == 'pin' %>
-          <% option = { action: 'pin', icon: 'pin', url: "#{resource.path}/pin", label: "#{@is_pinned ? 'Unpin from' : 'Pin to'} #{studio == @current_tenant.main_studio ? 'your profile' : 'studio homepage' }" } %>
+          <% option = { action: 'pin', icon: 'pin', url: "#{resource.path}/pin", label: "#{@is_pinned ? 'Unpin from' : 'Pin to'} #{studio == @current_tenant.main_superagent ? 'your profile' : 'studio homepage' }" } %>
           <li>
             <%= octicon option[:icon] %>
             <span  data-action="click->more-button#pin" data-url="<%= option[:url] %>">

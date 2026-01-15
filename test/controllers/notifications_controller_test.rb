@@ -3,7 +3,7 @@ require "test_helper"
 class NotificationsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
@@ -32,8 +32,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     # Create a notification for the user
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
-    event = Event.create!(tenant: @tenant, studio: @studio, event_type: "test.created")
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -46,7 +46,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "delivered",
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     get "/notifications"
     assert_response :success
@@ -59,8 +59,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     # Create unread notification
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
-    event = Event.create!(tenant: @tenant, studio: @studio, event_type: "test.created")
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -73,7 +73,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "pending",
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     get "/notifications/unread_count", headers: { "Accept" => "application/json" }
     assert_response :success
@@ -86,8 +86,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "mark_read marks notification as read" do
     sign_in_as(@user, tenant: @tenant)
 
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
-    event = Event.create!(tenant: @tenant, studio: @studio, event_type: "test.created")
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -100,7 +100,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "delivered",
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     post "/notifications/actions/mark_read", params: { id: recipient.id }
     assert_response :success
@@ -125,8 +125,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "dismiss dismisses notification" do
     sign_in_as(@user, tenant: @tenant)
 
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
-    event = Event.create!(tenant: @tenant, studio: @studio, event_type: "test.created")
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -139,7 +139,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "delivered",
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     post "/notifications/actions/dismiss", params: { id: recipient.id }
     assert_response :success
@@ -154,8 +154,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "mark_all_read marks all notifications as read" do
     sign_in_as(@user, tenant: @tenant)
 
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
-    event = Event.create!(tenant: @tenant, studio: @studio, event_type: "test.created")
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -174,7 +174,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "delivered",
     )
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
 
     post "/notifications/actions/mark_all_read"
     assert_response :success

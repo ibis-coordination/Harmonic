@@ -6,7 +6,7 @@
   <div>
     <%= form.text_field :question, placeholder: 'Question that this decision will answer', value: @decision.question %>
   </div>
-  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_studio.path %>">
+  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
     <%= form.text_area :description, placeholder: 'Description (optional, use @ to mention users)', value: @decision.description, data: { mention_autocomplete_target: "input" } %>
     <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
   </div>
@@ -25,7 +25,7 @@
   </p>
   <hr style="height:1px;" />
   <%= form.submit 'Start Decision' %>
-  <% if @current_studio.is_scene? %>
+  <% if @current_superagent.is_scene? %>
     <span>
       <%= octicon 'eye' %>
       Decisions posted in scenes are publicly visible.

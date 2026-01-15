@@ -3,9 +3,9 @@ require "test_helper"
 class CommitmentParticipantManagerTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @user = @global_user
-    @commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    @commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
   end
 
   # === Initialization Tests ===

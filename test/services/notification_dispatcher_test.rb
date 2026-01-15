@@ -2,19 +2,19 @@ require "test_helper"
 
 class NotificationDispatcherTest < ActiveSupport::TestCase
   test "handle_note_event creates notifications for mentioned users" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Create another user to mention
     mentioned_user = create_user(email: "mentioned@example.com", name: "Mentioned User")
     tenant.add_user!(mentioned_user)
-    studio.add_user!(mentioned_user)
+    superagent.add_user!(mentioned_user)
     mentioned_user.tenant_user.update!(handle: "mentioned")
 
     # Create a note with mention
     note = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
       text: "Hello @mentioned, check this out!",
     )
@@ -35,8 +35,8 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_note_event does not notify the actor" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Set handle for the user
     user.tenant_user.update!(handle: "selfmention")
@@ -46,7 +46,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     # Create a note where user mentions themselves
     create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
       text: "Hello @selfmention!",
     )
@@ -56,14 +56,14 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_note_event handles note with no mentions" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     initial_count = Notification.count
 
     create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
       text: "Hello world, no mentions here!",
     )
@@ -73,17 +73,17 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "dispatch routes to correct handler for note events" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     mentioned_user = create_user(email: "test-mentioned@example.com", name: "Test Mentioned User")
     tenant.add_user!(mentioned_user)
-    studio.add_user!(mentioned_user)
+    superagent.add_user!(mentioned_user)
     mentioned_user.tenant_user.update!(handle: "testuser")
 
     note = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
       text: "Hey @testuser!",
     )
@@ -96,12 +96,12 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "dispatch handles unrecognized event types gracefully" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     event = Event.create!(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       event_type: "unknown.event",
       actor: user,
     )
@@ -113,23 +113,23 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_commitment_join_event notifies commitment owner" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     commitment = create_commitment(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
     )
 
     joining_user = create_user(email: "joiner@example.com", name: "Joiner")
     tenant.add_user!(joining_user)
-    studio.add_user!(joining_user)
+    superagent.add_user!(joining_user)
 
     # Simulate a commitment.joined event
     event = Event.create!(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       event_type: "commitment.joined",
       actor: joining_user,
       subject: commitment,
@@ -147,12 +147,12 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_commitment_join_event does not notify if joiner is owner" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     commitment = create_commitment(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
     )
 
@@ -161,7 +161,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     # Simulate owner joining their own commitment
     event = Event.create!(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       event_type: "commitment.joined",
       actor: user,
       subject: commitment,
@@ -174,23 +174,23 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_decision_vote_event notifies decision owner" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     decision = create_decision(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
     )
 
     voter = create_user(email: "voter@example.com", name: "Voter")
     tenant.add_user!(voter)
-    studio.add_user!(voter)
+    superagent.add_user!(voter)
 
     # Simulate a decision.voted event
     event = Event.create!(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       event_type: "decision.voted",
       actor: voter,
       subject: decision,
@@ -218,8 +218,8 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "channels_for_user returns both channels for mention by default" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     channels = NotificationDispatcher.channels_for_user(user, "mention")
     assert_includes channels, "in_app"
@@ -227,16 +227,16 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "channels_for_user returns only in_app for comment by default" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     channels = NotificationDispatcher.channels_for_user(user, "comment")
     assert_equal ["in_app"], channels
   end
 
   test "channels_for_user respects user preferences" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Disable email for mentions
     user.tenant_user.set_notification_preference!("mention", "email", false)
@@ -246,15 +246,15 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "notify_user creates recipients for correct channels based on preferences" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Enable email for comments (disabled by default)
     user.tenant_user.set_notification_preference!("comment", "email", true)
 
     event = Event.create!(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       event_type: "comment.created",
       actor: user,
     )
@@ -277,19 +277,19 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_note_event creates email recipient for mentions when enabled" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Create another user to mention (with email enabled by default for mentions)
     mentioned_user = create_user(email: "mentioned-email@example.com", name: "Mentioned Email User")
     tenant.add_user!(mentioned_user)
-    studio.add_user!(mentioned_user)
+    superagent.add_user!(mentioned_user)
     mentioned_user.tenant_user.update!(handle: "emailuser")
 
     # Create a note with mention
     note = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
       text: "Hello @emailuser, check this out!",
     )
@@ -306,20 +306,20 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_note_event skips email when user disables it" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Create another user to mention and disable their email notifications
     mentioned_user = create_user(email: "noemail@example.com", name: "No Email User")
     tenant.add_user!(mentioned_user)
-    studio.add_user!(mentioned_user)
+    superagent.add_user!(mentioned_user)
     mentioned_user.tenant_user.update!(handle: "noemailuser")
     mentioned_user.tenant_user.set_notification_preference!("mention", "email", false)
 
     # Create a note with mention
     note = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
       text: "Hello @noemailuser, check this out!",
     )
@@ -337,18 +337,18 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   # Reply notification tests
 
   test "handle_note_event notifies note owner when someone replies" do
-    tenant, studio, author = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, author = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Create another user who will reply
     replier = create_user(email: "replier@example.com", name: "Replier User")
     tenant.add_user!(replier)
-    studio.add_user!(replier)
+    superagent.add_user!(replier)
 
     # Create the original note
     original_note = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: author,
       text: "Original note content",
     )
@@ -358,7 +358,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     # Create a reply to the note
     reply = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: replier,
       text: "This is a reply!",
       commentable: original_note,
@@ -380,13 +380,13 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_note_event does not notify author when they reply to their own note" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Create the original note
     original_note = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
       text: "My note",
     )
@@ -396,7 +396,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     # Create a reply to their own note
     reply = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: user,
       text: "Replying to myself",
       commentable: original_note,
@@ -408,25 +408,25 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   end
 
   test "handle_note_event notifies decision owner when someone comments on decision" do
-    tenant, studio, decision_owner = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, decision_owner = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     # Create another user who will comment
     commenter = create_user(email: "commenter@example.com", name: "Commenter User")
     tenant.add_user!(commenter)
-    studio.add_user!(commenter)
+    superagent.add_user!(commenter)
 
     # Create a decision
     decision = create_decision(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: decision_owner,
     )
 
     # Create a comment on the decision
     comment = create_note(
       tenant: tenant,
-      studio: studio,
+      superagent: superagent,
       created_by: commenter,
       text: "Great decision!",
       commentable: decision,

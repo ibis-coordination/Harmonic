@@ -2,8 +2,8 @@ require "test_helper"
 
 class WebhookDispatcherTest < ActiveSupport::TestCase
   setup do
-    @tenant, @studio, @user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    @tenant, @superagent, @user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
   end
 
   test "dispatch creates delivery for matching webhook" do
@@ -17,7 +17,7 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
     note = create_note(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
     )
 
@@ -42,7 +42,7 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
     note = create_note(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
     )
 
@@ -63,7 +63,7 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
     note = create_note(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
     )
 
@@ -84,7 +84,7 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
     note = create_note(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
     )
 
@@ -105,7 +105,7 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
     event = Event.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       event_type: "agent.started",
       actor: @user,
     )
@@ -118,9 +118,9 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
   test "dispatch matches studio-scoped webhooks" do
     # Create a studio-scoped webhook
-    studio_webhook = Webhook.create!(
+    superagent_webhook = Webhook.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Studio Webhook",
       url: "https://example.com/webhook",
       events: ["note.created"],
@@ -130,7 +130,7 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
     # Create a tenant-level webhook
     tenant_webhook = Webhook.create!(
       tenant: @tenant,
-      studio: nil,
+      superagent: nil,
       name: "Tenant Webhook",
       url: "https://example.com/tenant-webhook",
       events: ["note.created"],
@@ -139,27 +139,27 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
     note = create_note(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
     )
 
     event = Event.where(event_type: "note.created", subject: note).last
 
     # Both webhooks should receive the event
-    studio_delivery = WebhookDelivery.where(webhook: studio_webhook, event: event).first
+    superagent_delivery = WebhookDelivery.where(webhook: superagent_webhook, event: event).first
     tenant_delivery = WebhookDelivery.where(webhook: tenant_webhook, event: event).first
 
-    assert_not_nil studio_delivery
+    assert_not_nil superagent_delivery
     assert_not_nil tenant_delivery
   end
 
   test "dispatch does not match webhooks from different studios" do
-    other_studio = create_studio(tenant: @tenant, created_by: @user, name: "Other Studio", handle: "other-studio")
+    other_superagent = create_superagent(tenant: @tenant, created_by: @user, name: "Other Studio", handle: "other-studio")
 
     # Create a webhook for a different studio
     other_webhook = Webhook.create!(
       tenant: @tenant,
-      studio: other_studio,
+      superagent: other_superagent,
       name: "Other Studio Webhook",
       url: "https://example.com/webhook",
       events: ["note.created"],
@@ -168,7 +168,7 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
     note = create_note(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
     )
 
@@ -189,7 +189,7 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
 
     note = create_note(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @user,
     )
 
@@ -203,8 +203,8 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
     assert_not_nil payload["created_at"]
     assert_equal @tenant.id, payload["tenant"]["id"]
     assert_equal @tenant.subdomain, payload["tenant"]["subdomain"]
-    assert_equal @studio.id, payload["studio"]["id"]
-    assert_equal @studio.handle, payload["studio"]["handle"]
+    assert_equal @superagent.id, payload["studio"]["id"]
+    assert_equal @superagent.handle, payload["studio"]["handle"]
     assert_equal @user.id, payload["actor"]["id"]
     assert_not_nil payload["data"]["note"]
     assert_equal note.id, payload["data"]["note"]["id"]

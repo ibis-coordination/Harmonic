@@ -5,7 +5,7 @@ class StudiosController < ApplicationController
   def index
     @page_title = "Studios"
     if current_user
-      @studios = current_user.studios.where(studio_type: 'studio').order(created_at: :desc)
+      @studios = current_user.superagents.where(superagent_type: 'studio').order(created_at: :desc)
     else
       @studios = []
     end
@@ -25,9 +25,9 @@ class StudiosController < ApplicationController
   end
 
   def show
-    return render 'shared/404' unless @current_studio.studio_type == 'studio'
-    @page_title = @current_studio.name
-    @pinned_items = @current_studio.pinned_items
+    return render 'shared/404' unless @current_superagent.superagent_type == 'studio'
+    @page_title = @current_superagent.name
+    @pinned_items = @current_superagent.pinned_items
     @cycle = current_cycle
     @previous_cycle = previous_cycle
     @read_notes = @cycle.read_notes(@current_user)
@@ -40,14 +40,14 @@ class StudiosController < ApplicationController
     @open_commitments = @cycle.open_commitments
     @closed_commitments = @cycle.closed_commitments
     @prev_commitments = @previous_cycle.commitments_closed_within_cycle
-    @team = @current_studio.team
+    @team = @current_superagent.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle) - [current_heartbeat]
-    unless @current_user.studio_user.dismissed_notices.include?('studio-welcome')
-      @current_user.studio_user.dismiss_notice!('studio-welcome')
-      if @current_studio.created_by == @current_user
-        flash[:notice] = "Welcome to your new studio! [Click here to invite your team](#{@current_studio.url}/invite)"
+    unless @current_user.superagent_member.dismissed_notices.include?('studio-welcome')
+      @current_user.superagent_member.dismiss_notice!('studio-welcome')
+      if @current_superagent.created_by == @current_user
+        flash[:notice] = "Welcome to your new studio! [Click here to invite your team](#{@current_superagent.url}/invite)"
       else
-        flash[:notice] = "Welcome to #{@current_studio.name}! You can start creating notes, decisions, and commitments by clicking the plus icon to the right of the page header."
+        flash[:notice] = "Welcome to #{@current_superagent.name}! You can start creating notes, decisions, and commitments by clicking the plus icon to the right of the page header."
       end
     end
   end
@@ -86,34 +86,34 @@ class StudiosController < ApplicationController
   end
 
   def describe_send_heartbeat
-    render_action_description(ActionsHelper.action_description("send_heartbeat", resource: @current_studio))
+    render_action_description(ActionsHelper.action_description("send_heartbeat", resource: @current_superagent))
   end
 
   def send_heartbeat
-    return render_action_error({ action_name: 'send_heartbeat', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'send_heartbeat', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
 
     if current_heartbeat
-      return render_action_error({ action_name: 'send_heartbeat', resource: @current_studio, error: 'Heartbeat already exists for this cycle.' })
+      return render_action_error({ action_name: 'send_heartbeat', resource: @current_superagent, error: 'Heartbeat already exists for this cycle.' })
     end
 
     begin
       heartbeat = api_helper.create_heartbeat
       render_action_success({
         action_name: 'send_heartbeat',
-        resource: @current_studio,
-        result: "Heartbeat sent. You now have access to #{@current_studio.name} for this cycle.",
+        resource: @current_superagent,
+        result: "Heartbeat sent. You now have access to #{@current_superagent.name} for this cycle.",
       })
     rescue ActiveRecord::RecordInvalid => e
       render_action_error({
         action_name: 'send_heartbeat',
-        resource: @current_studio,
+        resource: @current_superagent,
         error: e.message,
       })
     end
   end
 
   def handle_available
-    render json: { available: Studio.handle_available?(params[:handle]) }
+    render json: { available: Superagent.handle_available?(params[:handle]) }
   end
 
   def create
@@ -122,16 +122,16 @@ class StudiosController < ApplicationController
   end
 
   def settings
-    if @current_user.studio_user.is_admin?
+    if @current_user.superagent_member.is_admin?
       @page_title = 'Studio Settings'
-      # Subagents in this studio (for display) - exclude archived memberships
-      @studio_subagents = @current_studio.users
+      # Subagents in this superagent (for display) - exclude archived memberships
+      @studio_subagents = @current_superagent.users
         .includes(:tenant_users)
-        .joins(:studio_users)
+        .joins(:superagent_members)
         .where(user_type: 'subagent')
-        .where(studio_users: { studio_id: @current_studio.id, archived_at: nil })
+        .where(superagent_members: { superagent_id: @current_superagent.id, archived_at: nil })
         .distinct
-      # Current user's subagents that are NOT active members of this studio (for adding)
+      # Current user's subagents that are NOT active members of this superagent (for adding)
       user_subagent_ids = @current_user.subagents.pluck(:id)
       active_studio_subagent_ids = @studio_subagents.pluck(:id)
       addable_ids = user_subagent_ids - active_studio_subagent_ids
@@ -142,19 +142,19 @@ class StudiosController < ApplicationController
   end
 
   def update_settings
-    if !@current_user.studio_user.is_admin?
+    if !@current_user.superagent_member.is_admin?
       return render status: 403, plain: '403 Unauthorized'
     end
-    @current_studio.name = params[:name]
-    # @current_studio.handle = params[:handle] if params[:handle]
-    @current_studio.description = params[:description]
-    @current_studio.timezone = params[:timezone]
-    @current_studio.tempo = params[:tempo]
-    @current_studio.synchronization_mode = params[:synchronization_mode]
-    @current_studio.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
-    @current_studio.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+    @current_superagent.name = params[:name]
+    # @current_superagent.handle = params[:handle] if params[:handle]
+    @current_superagent.description = params[:description]
+    @current_superagent.timezone = params[:timezone]
+    @current_superagent.tempo = params[:tempo]
+    @current_superagent.synchronization_mode = params[:synchronization_mode]
+    @current_superagent.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+    @current_superagent.settings['any_member_can_represent'] = params[:representation] == 'any_member'
     unless ENV['SAAS_MODE'] == 'true'
-      @current_studio.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
+      @current_superagent.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
     end
 
     # Handle feature flags via unified system
@@ -164,26 +164,26 @@ class StudiosController < ApplicationController
         # Accept both feature_api and api (legacy) param names
         value = params[param_key] || params[flag_name]
         enabled = value == "true" || value == "1" || value == true
-        @current_studio.settings["feature_flags"] ||= {}
-        @current_studio.settings["feature_flags"][flag_name] = enabled
+        @current_superagent.settings["feature_flags"] ||= {}
+        @current_superagent.settings["feature_flags"][flag_name] = enabled
       end
     end
 
-    @current_studio.updated_by = @current_user if @current_studio.changed?
-    @current_studio.save!
-    flash[:notice] = "Settings successfully updated. [Return to studio homepage.](#{@current_studio.url})"
+    @current_superagent.updated_by = @current_user if @current_superagent.changed?
+    @current_superagent.save!
+    flash[:notice] = "Settings successfully updated. [Return to studio homepage.](#{@current_superagent.url})"
     redirect_to request.referrer
   end
 
   def add_subagent
-    unless @current_user.studio_user&.is_admin?
+    unless @current_user.superagent_member&.is_admin?
       return render status: 403, json: { error: 'Unauthorized' }
     end
     subagent = User.find_by(id: params[:subagent_id])
     if subagent.nil? || !subagent.subagent? || subagent.parent_id != @current_user.id
       return render status: 403, json: { error: 'You can only add your own subagents' }
     end
-    @current_studio.add_user!(subagent)
+    @current_superagent.add_user!(subagent)
 
     respond_to do |format|
       format.json do
@@ -196,14 +196,14 @@ class StudiosController < ApplicationController
         }
       end
       format.html do
-        flash[:notice] = "#{subagent.display_name} has been added to #{@current_studio.name}"
-        redirect_to "#{@current_studio.path}/settings"
+        flash[:notice] = "#{subagent.display_name} has been added to #{@current_superagent.name}"
+        redirect_to "#{@current_superagent.path}/settings"
       end
     end
   end
 
   def remove_subagent
-    unless @current_user.studio_user&.is_admin?
+    unless @current_user.superagent_member&.is_admin?
       return render status: 403, json: { error: 'Unauthorized' }
     end
     subagent = User.find_by(id: params[:subagent_id])
@@ -211,12 +211,12 @@ class StudiosController < ApplicationController
       return render status: 404, json: { error: 'Subagent not found' }
     end
 
-    studio_user = StudioUser.find_by(studio: @current_studio, user: subagent)
-    if studio_user.nil? || studio_user.archived?
+    superagent_member = SuperagentMember.find_by(superagent: @current_superagent, user: subagent)
+    if superagent_member.nil? || superagent_member.archived?
       return render status: 404, json: { error: 'Subagent not in this studio' }
     end
 
-    studio_user.archive!
+    superagent_member.archive!
     can_readd = subagent.parent_id == @current_user.id
 
     respond_to do |format|
@@ -228,8 +228,8 @@ class StudiosController < ApplicationController
         }
       end
       format.html do
-        flash[:notice] = "#{subagent.display_name} has been removed from #{@current_studio.name}"
-        redirect_to "#{@current_studio.path}/settings"
+        flash[:notice] = "#{subagent.display_name} has been removed from #{@current_superagent.name}"
+        redirect_to "#{@current_superagent.path}/settings"
       end
     end
   end
@@ -240,11 +240,11 @@ class StudiosController < ApplicationController
   end
 
   def describe_update_studio_settings
-    render_action_description(ActionsHelper.action_description("update_studio_settings", resource: @current_studio))
+    render_action_description(ActionsHelper.action_description("update_studio_settings", resource: @current_superagent))
   end
 
   def update_studio_settings_action
-    return render_action_error({ action_name: 'update_studio_settings', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'update_studio_settings', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
 
     begin
       studio = api_helper.update_studio_settings
@@ -256,7 +256,7 @@ class StudiosController < ApplicationController
     rescue StandardError => e
       render_action_error({
         action_name: 'update_studio_settings',
-        resource: @current_studio,
+        resource: @current_superagent,
         error: e.message,
       })
     end
@@ -265,54 +265,54 @@ class StudiosController < ApplicationController
   def describe_add_subagent_to_studio
     return render status: 403, plain: '403 Unauthorized - Only person accounts can manage subagents' unless current_user&.person?
     # Get list of addable subagents for context
-    addable_subagents = current_user.subagents.includes(:tenant_users, :studio_users)
+    addable_subagents = current_user.subagents.includes(:tenant_users, :superagent_members)
       .where(tenant_users: { tenant_id: @current_tenant.id })
-      .reject { |s| s.studios.include?(@current_studio) }
+      .reject { |s| s.superagents.include?(@current_superagent) }
 
     # Use dynamic params to include available subagent IDs
     dynamic_params = [
       { name: 'subagent_id', type: 'integer', description: "ID of the subagent to add. Your available subagents: #{addable_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
     ]
-    render_action_description(ActionsHelper.action_description("add_subagent_to_studio", resource: @current_studio, params_override: dynamic_params))
+    render_action_description(ActionsHelper.action_description("add_subagent_to_studio", resource: @current_superagent, params_override: dynamic_params))
   end
 
   def execute_add_subagent_to_studio
-    return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
-    return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_studio, error: 'Only person accounts can manage subagents.' }) unless current_user.person?
+    return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_superagent, error: 'Only person accounts can manage subagents.' }) unless current_user.person?
 
     begin
       subagent = User.find(params[:subagent_id])
       unless subagent.subagent? && subagent.parent_id == current_user.id
         return render_action_error({
           action_name: 'add_subagent_to_studio',
-          resource: @current_studio,
+          resource: @current_superagent,
           error: 'You can only add your own subagents.',
         })
       end
-      unless current_user.can_add_subagent_to_studio?(subagent, @current_studio)
+      unless current_user.can_add_subagent_to_superagent?(subagent, @current_superagent)
         return render_action_error({
           action_name: 'add_subagent_to_studio',
-          resource: @current_studio,
+          resource: @current_superagent,
           error: 'You do not have permission to add subagents to this studio.',
         })
       end
 
-      @current_studio.add_user!(subagent)
+      @current_superagent.add_user!(subagent)
       render_action_success({
         action_name: 'add_subagent_to_studio',
-        resource: @current_studio,
-        result: "#{subagent.display_name} has been added to #{@current_studio.name}.",
+        resource: @current_superagent,
+        result: "#{subagent.display_name} has been added to #{@current_superagent.name}.",
       })
     rescue ActiveRecord::RecordNotFound
       render_action_error({
         action_name: 'add_subagent_to_studio',
-        resource: @current_studio,
+        resource: @current_superagent,
         error: 'Subagent not found.',
       })
     rescue StandardError => e
       render_action_error({
         action_name: 'add_subagent_to_studio',
-        resource: @current_studio,
+        resource: @current_superagent,
         error: e.message,
       })
     end
@@ -321,7 +321,7 @@ class StudiosController < ApplicationController
   def describe_remove_subagent_from_studio
     return render status: 403, plain: '403 Unauthorized - Only person accounts can manage subagents' unless current_user&.person?
     # Get list of removable subagents for context
-    studio_subagents = @current_studio.studio_users.includes(:user)
+    studio_subagents = @current_superagent.superagent_members.includes(:user)
       .reject(&:archived?)
       .map(&:user)
       .select { |u| u.subagent? && u.parent_id == current_user.id }
@@ -330,48 +330,48 @@ class StudiosController < ApplicationController
     dynamic_params = [
       { name: 'subagent_id', type: 'integer', description: "ID of the subagent to remove. Your subagents in this studio: #{studio_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
     ]
-    render_action_description(ActionsHelper.action_description("remove_subagent_from_studio", resource: @current_studio, params_override: dynamic_params))
+    render_action_description(ActionsHelper.action_description("remove_subagent_from_studio", resource: @current_superagent, params_override: dynamic_params))
   end
 
   def execute_remove_subagent_from_studio
-    return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
-    return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_studio, error: 'Only person accounts can manage subagents.' }) unless current_user.person?
+    return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_superagent, error: 'Only person accounts can manage subagents.' }) unless current_user.person?
 
     begin
       subagent = User.find(params[:subagent_id])
       unless subagent.subagent? && subagent.parent_id == current_user.id
         return render_action_error({
           action_name: 'remove_subagent_from_studio',
-          resource: @current_studio,
+          resource: @current_superagent,
           error: 'You can only remove your own subagents.',
         })
       end
 
-      studio_user = StudioUser.find_by(studio: @current_studio, user: subagent)
-      if studio_user.nil? || studio_user.archived?
+      superagent_member = SuperagentMember.find_by(superagent: @current_superagent, user: subagent)
+      if superagent_member.nil? || superagent_member.archived?
         return render_action_error({
           action_name: 'remove_subagent_from_studio',
-          resource: @current_studio,
+          resource: @current_superagent,
           error: 'Subagent is not a member of this studio.',
         })
       end
 
-      studio_user.archive!
+      superagent_member.archive!
       render_action_success({
         action_name: 'remove_subagent_from_studio',
-        resource: @current_studio,
-        result: "#{subagent.display_name} has been removed from #{@current_studio.name}.",
+        resource: @current_superagent,
+        result: "#{subagent.display_name} has been removed from #{@current_superagent.name}.",
       })
     rescue ActiveRecord::RecordNotFound
       render_action_error({
         action_name: 'remove_subagent_from_studio',
-        resource: @current_studio,
+        resource: @current_superagent,
         error: 'Subagent not found.',
       })
     rescue StandardError => e
       render_action_error({
         action_name: 'remove_subagent_from_studio',
-        resource: @current_studio,
+        resource: @current_superagent,
         error: e.message,
       })
     end
@@ -383,25 +383,25 @@ class StudiosController < ApplicationController
   end
 
   def describe_join_studio
-    render_action_description(ActionsHelper.action_description("join_studio", resource: @current_studio))
+    render_action_description(ActionsHelper.action_description("join_studio", resource: @current_superagent))
   end
 
   def join_studio_action
-    return render_action_error({ action_name: 'join_studio', resource: @current_studio, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'join_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
 
     begin
-      invite = StudioInvite.find_by(code: params[:code]) if params[:code]
-      invite ||= StudioInvite.find_by(invited_user: current_user, studio: @current_studio)
+      invite = Invite.find_by(code: params[:code]) if params[:code]
+      invite ||= Invite.find_by(invited_user: current_user, superagent: @current_superagent)
       api_helper.join_studio(invite: invite)
       render_action_success({
         action_name: 'join_studio',
-        resource: @current_studio,
-        result: "You have joined #{@current_studio.name}.",
+        resource: @current_superagent,
+        result: "You have joined #{@current_superagent.name}.",
       })
     rescue StandardError => e
       render_action_error({
         action_name: 'join_studio',
-        resource: @current_studio,
+        resource: @current_superagent,
         error: e.message,
       })
     end
@@ -412,22 +412,22 @@ class StudiosController < ApplicationController
   end
 
   def invite
-    unless @current_user.studio_user.can_invite?
+    unless @current_user.superagent_member.can_invite?
       return render layout: 'application', html: 'You do not have permission to invite members to this studio.'
     end
     @page_title = 'Invite to Studio'
-    @invite = @current_studio.find_or_create_shareable_invite(@current_user)
+    @invite = @current_superagent.find_or_create_shareable_invite(@current_user)
   end
 
   def join
-    if current_user && current_user.studios.include?(@current_studio)
+    if current_user && current_user.superagents.include?(@current_superagent)
       @current_user_is_member = true
       return
     end
-    invite = StudioInvite.find_by(code: params[:code]) if params[:code]
-    invite ||= StudioInvite.find_by(invited_user: current_user, studio: @current_studio)
+    invite = Invite.find_by(code: params[:code]) if params[:code]
+    invite ||= Invite.find_by(invited_user: current_user, superagent: @current_superagent)
     if invite && current_user
-      if invite.studio == @current_studio
+      if invite.superagent == @current_superagent
         @invite = invite
       else
         return render plain: '404 invite code not found', status: 404
@@ -438,25 +438,25 @@ class StudiosController < ApplicationController
   end
 
   def accept_invite
-    if current_user && current_user.studios.include?(@current_studio)
+    if current_user && current_user.superagents.include?(@current_superagent)
       return render status: 400, text: 'You are already a member of this studio'
-    elsif current_user && @current_studio.is_scene? && !params[:code]
-      @current_studio.add_user!(current_user)
-      return redirect_to @current_studio.path
+    elsif current_user && @current_superagent.is_scene? && !params[:code]
+      @current_superagent.add_user!(current_user)
+      return redirect_to @current_superagent.path
     end
-    invite = StudioInvite.find_by(code: params[:code]) if params[:code]
-    invite ||= StudioInvite.find_by(invited_user: current_user, studio: @current_studio)
+    invite = Invite.find_by(code: params[:code]) if params[:code]
+    invite ||= Invite.find_by(invited_user: current_user, superagent: @current_superagent)
     if invite && current_user
-      if invite.studio == @current_studio
+      if invite.superagent == @current_superagent
         @current_user.accept_invite!(invite)
-        redirect_to @current_studio.path
+        redirect_to @current_superagent.path
       else
         return render plain: '404 invite code not found', status: 404
       end
     elsif invite && !current_user
       redirect_to "/login?code=#{invite.code}"
     else
-      # TODO - check studio settings to see if public join is allowed
+      # TODO - check superagent settings to see if public join is allowed
       return render plain: '404 invite code not found', status: 404
     end
   end
@@ -465,12 +465,12 @@ class StudiosController < ApplicationController
   end
 
   def pinned_items_partial
-    @pinned_items = @current_studio.pinned_items
+    @pinned_items = @current_superagent.pinned_items
     render partial: 'shared/pinned', locals: { pinned_items: @pinned_items }
   end
 
   def team_partial
-    @team = @current_studio.team
+    @team = @current_superagent.team
     render partial: 'shared/team', locals: { team: @team }
   end
 
@@ -479,22 +479,22 @@ class StudiosController < ApplicationController
     # TODO - make this more efficient
     @backlinks = Link.where(
       tenant_id: @current_tenant.id,
-      studio_id: @current_studio.id,
+      superagent_id: @current_superagent.id,
     ).includes(:to_linkable).group_by(&:to_linkable)
     .sort_by { |k, v| -v.count }
     .map { |k, v| [k, v.count] }
   end
 
   def update_image
-    if @current_user.studio_user.is_admin?
+    if @current_user.superagent_member.is_admin?
       if params[:image].present?
-        @current_studio.image = params[:image]
+        @current_superagent.image = params[:image]
       elsif params[:cropped_image_data].present?
-        @current_studio.cropped_image_data = params[:cropped_image_data]
+        @current_superagent.cropped_image_data = params[:cropped_image_data]
       else
         return render status: 400, plain: '400 Bad Request'
       end
-      @current_studio.save!
+      @current_superagent.save!
     end
     redirect_to request.referrer
   end
@@ -507,7 +507,7 @@ class StudiosController < ApplicationController
     @cycle = Cycle.new(
       name: params[:cycle] || 'today',
       tenant: @current_tenant,
-      studio: @current_studio,
+      superagent: @current_superagent,
       current_user: @current_user,
       params: {
         filters: params[:filters] || params[:filter],

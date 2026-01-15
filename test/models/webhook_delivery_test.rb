@@ -2,8 +2,8 @@ require "test_helper"
 
 class WebhookDeliveryTest < ActiveSupport::TestCase
   setup do
-    @tenant, @studio, @user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    @tenant, @superagent, @user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
 
     @webhook = Webhook.create!(
       tenant: @tenant,
@@ -15,7 +15,7 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
 
     @event = Event.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       event_type: "note.created",
       actor: @user,
     )

@@ -2,7 +2,7 @@ require "test_helper"
 
 class FeatureFlagServiceTest < ActiveSupport::TestCase
   setup do
-    @tenant, @studio, @user = create_tenant_studio_user
+    @tenant, @superagent, @user = create_tenant_superagent_user
   end
 
   test "config loads feature flags from yaml" do
@@ -55,22 +55,22 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert FeatureFlagService.tenant_enabled?(@tenant, "api")
   end
 
-  test "studio_enabled? returns false when tenant level is disabled" do
+  test "superagent_enabled? returns false when tenant level is disabled" do
     @tenant.set_feature_flag!("api", false)
-    @studio.set_feature_flag!("api", true)
-    assert_not FeatureFlagService.studio_enabled?(@studio, "api")
+    @superagent.set_feature_flag!("api", true)
+    assert_not FeatureFlagService.superagent_enabled?(@superagent, "api")
   end
 
-  test "studio_enabled? returns true when tenant and studio are enabled" do
+  test "superagent_enabled? returns true when tenant and studio are enabled" do
     @tenant.set_feature_flag!("api", true)
-    @studio.set_feature_flag!("api", true)
-    assert FeatureFlagService.studio_enabled?(@studio, "api")
+    @superagent.set_feature_flag!("api", true)
+    assert FeatureFlagService.superagent_enabled?(@superagent, "api")
   end
 
-  test "studio_enabled? returns false when studio is disabled even if tenant is enabled" do
+  test "superagent_enabled? returns false when studio is disabled even if tenant is enabled" do
     @tenant.set_feature_flag!("api", true)
-    @studio.set_feature_flag!("api", false)
-    assert_not FeatureFlagService.studio_enabled?(@studio, "api")
+    @superagent.set_feature_flag!("api", false)
+    assert_not FeatureFlagService.superagent_enabled?(@superagent, "api")
   end
 
   test "enabled? with no tenant or studio checks app level" do
@@ -87,21 +87,21 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
 
   test "enabled? with studio checks studio level" do
     @tenant.set_feature_flag!("api", true)
-    @studio.set_feature_flag!("api", true)
-    assert FeatureFlagService.enabled?("api", tenant: @tenant, studio: @studio)
+    @superagent.set_feature_flag!("api", true)
+    assert FeatureFlagService.enabled?("api", tenant: @tenant, superagent: @superagent)
 
-    @studio.set_feature_flag!("api", false)
-    assert_not FeatureFlagService.enabled?("api", tenant: @tenant, studio: @studio)
+    @superagent.set_feature_flag!("api", false)
+    assert_not FeatureFlagService.enabled?("api", tenant: @tenant, superagent: @superagent)
   end
 
   test "cascade: tenant disabled overrides studio enabled" do
     @tenant.set_feature_flag!("api", false)
-    @studio.set_feature_flag!("api", true)
+    @superagent.set_feature_flag!("api", true)
 
     # Studio has it enabled locally, but tenant is disabled
-    assert @studio.feature_flag_enabled_locally?("api")
+    assert @superagent.feature_flag_enabled_locally?("api")
     # But effective check returns false due to cascade
-    assert_not FeatureFlagService.studio_enabled?(@studio, "api")
+    assert_not FeatureFlagService.superagent_enabled?(@superagent, "api")
   end
 
   test "default_for_tenant returns config default" do
@@ -111,10 +111,10 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert FeatureFlagService.default_for_tenant("file_attachments")
   end
 
-  test "default_for_studio returns config default" do
+  test "default_for_superagent returns config default" do
     # api default_studio is false in config
-    assert_not FeatureFlagService.default_for_studio("api")
+    assert_not FeatureFlagService.default_for_superagent("api")
     # file_attachments default_studio is true in config
-    assert FeatureFlagService.default_for_studio("file_attachments")
+    assert FeatureFlagService.default_for_superagent("file_attachments")
   end
 end

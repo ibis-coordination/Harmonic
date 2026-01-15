@@ -3,7 +3,7 @@
 class ApiHelper
   extend T::Sig
 
-  attr_reader :current_user, :current_studio, :current_tenant,
+  attr_reader :current_user, :current_superagent, :current_tenant,
               :current_representation_session, :current_resource_model,
               :current_resource, :current_note, :current_decision,
               :current_commitment, :current_decision_participant,
@@ -13,7 +13,7 @@ class ApiHelper
   sig do
     params(
       current_user: User,
-      current_studio: Studio,
+      current_superagent: Superagent,
       current_tenant: Tenant,
       current_resource_model: T.nilable(T::Class[T.anything]),
       current_resource: T.untyped,
@@ -31,7 +31,7 @@ class ApiHelper
     ).void
   end
   def initialize(
-    current_user:, current_studio:, current_tenant:,
+    current_user:, current_superagent:, current_tenant:,
     current_resource_model: nil,  current_resource: nil, current_note: nil,
     current_decision: nil, current_commitment: nil,
     current_decision_participant: nil, current_commitment_participant: nil,
@@ -39,7 +39,7 @@ class ApiHelper
     current_representation_session: nil, current_cycle: nil, current_heartbeat: nil
   )
     @current_user = current_user
-    @current_studio = current_studio
+    @current_superagent = current_superagent
     @current_tenant = current_tenant
     @current_representation_session = current_representation_session
     @current_cycle = current_cycle
@@ -67,12 +67,12 @@ class ApiHelper
     end
   end
 
-  sig { returns(Studio) }
+  sig { returns(Superagent) }
   def create_studio
-    studio = T.let(nil, T.nilable(Studio))
+    studio = T.let(nil, T.nilable(Superagent))
     note = nil
     ActiveRecord::Base.transaction do
-      studio = Studio.create!(
+      studio = Superagent.create!(
         name: params[:name],
         handle: params[:handle],
         description: params[:description],
@@ -100,19 +100,19 @@ class ApiHelper
 
       # This is needed to ensure that all the models created in this transaction
       # are associated with the correct tenant and studio
-      Studio.scope_thread_to_studio(handle: studio.handle, subdomain: T.must(studio.tenant).subdomain)
+      Superagent.scope_thread_to_superagent(handle: studio.handle, subdomain: T.must(studio.tenant).subdomain)
       studio.add_user!(current_user, roles: ['admin', 'representative'])
     end
     T.must(studio)
   end
 
-  sig { returns(Studio) }
+  sig { returns(Superagent) }
   def create_scene
-    scene = T.let(nil, T.nilable(Studio))
+    scene = T.let(nil, T.nilable(Superagent))
     note = nil
     ActiveRecord::Base.transaction do
-      scene = Studio.create!(
-        studio_type: 'scene',
+      scene = Superagent.create!(
+        superagent_type: 'scene',
         name: params[:name],
         handle: params[:handle],
         description: params[:description],
@@ -124,7 +124,7 @@ class ApiHelper
       )
       # This is needed to ensure that all the models created in this transaction
       # are associated with the correct tenant and scene
-      Studio.scope_thread_to_studio(handle: scene.handle, subdomain: T.must(scene.tenant).subdomain)
+      Superagent.scope_thread_to_superagent(handle: scene.handle, subdomain: T.must(scene.tenant).subdomain)
       scene.add_user!(current_user, roles: ['admin', 'representative'])
     end
     T.must(scene)
@@ -136,7 +136,7 @@ class ApiHelper
     ActiveRecord::Base.transaction do
       association_params = {
         tenant: current_tenant,
-        studio: current_studio,
+        superagent: current_superagent,
         user: current_user
       }
       existing_heartbeat = Heartbeat.where(
@@ -154,7 +154,7 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'create',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Heartbeat',
               id: heartbeat.id,
@@ -185,7 +185,7 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'create',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Note',
               id: note.id,
@@ -216,7 +216,7 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'create',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Decision',
               id: decision.id,
@@ -250,7 +250,7 @@ class ApiHelper
     # note.deadline = Cycle.new_from_end_of_cycle_option(
     #   end_of_cycle: params[:end_of_cycle],
     #   tenant: current_tenant,
-    #   studio: current_studio,
+    #   superagent: current_superagent,
     # ).end_date
     if note.changed? || T.unsafe(note).files_changed?
       note.updated_by = current_user
@@ -262,7 +262,7 @@ class ApiHelper
             semantic_event: {
               timestamp: Time.current,
               event_type: 'update',
-              studio_id: current_studio.id,
+              superagent_id: current_superagent.id,
               main_resource: {
                 type: 'Note',
                 id: note.id,
@@ -290,7 +290,7 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'confirm',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Note',
               id: note.id,
@@ -330,7 +330,7 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'add_option',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Decision',
               id: T.must(current_decision).id,
@@ -353,7 +353,7 @@ class ApiHelper
   def vote
     associations = {
       tenant: current_tenant,
-      studio: current_studio,
+      superagent: current_superagent,
       decision: current_decision,
       option: current_option,
       decision_participant: current_decision_participant,
@@ -371,7 +371,7 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'vote',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Decision',
               id: T.must(current_decision).id,
@@ -477,20 +477,20 @@ class ApiHelper
     @current_option
   end
 
-  sig { params(invite: T.nilable(StudioInvite)).returns(StudioUser) }
+  sig { params(invite: T.nilable(Invite)).returns(SuperagentMember) }
   def join_studio(invite: nil)
-    raise 'User is already a member of this studio' if current_user.studios.include?(current_studio)
+    raise 'User is already a member of this studio' if current_user.superagents.include?(current_superagent)
 
-    studio_user = T.let(nil, T.nilable(StudioUser))
+    superagent_member = T.let(nil, T.nilable(SuperagentMember))
     ActiveRecord::Base.transaction do
       if invite
-        raise 'Invite does not match studio' unless invite.studio == current_studio
+        raise 'Invite does not match studio' unless invite.superagent == current_superagent
         current_user.accept_invite!(invite)
-        studio_user = current_user.studio_users.find_by(studio: current_studio)
-      elsif current_studio.is_scene?
+        superagent_member = current_user.superagent_members.find_by(superagent: current_superagent)
+      elsif current_superagent.is_scene?
         # Scenes allow direct join without invite
-        current_studio.add_user!(current_user)
-        studio_user = current_user.studio_users.find_by(studio: current_studio)
+        current_superagent.add_user!(current_user)
+        superagent_member = current_user.superagent_members.find_by(superagent: current_superagent)
       else
         raise 'Valid invite required to join this studio'
       end
@@ -501,51 +501,51 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'join',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Studio',
-              id: current_studio.id,
-              truncated_id: current_studio.truncated_id,
+              id: current_superagent.id,
+              truncated_id: current_superagent.truncated_id,
             },
             sub_resources: [],
           }
         )
       end
     end
-    T.must(studio_user)
+    T.must(superagent_member)
   end
 
-  sig { returns(Studio) }
+  sig { returns(Superagent) }
   def update_studio_settings
-    raise 'Unauthorized: must be admin' unless current_user.studio_user&.is_admin?
+    raise 'Unauthorized: must be admin' unless current_user.superagent_member&.is_admin?
 
     ActiveRecord::Base.transaction do
-      current_studio.name = params[:name] if params[:name].present?
-      current_studio.description = params[:description] if params[:description].present?
-      current_studio.timezone = params[:timezone] if params[:timezone].present?
-      current_studio.tempo = params[:tempo] if params[:tempo].present?
-      current_studio.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
+      current_superagent.name = params[:name] if params[:name].present?
+      current_superagent.description = params[:description] if params[:description].present?
+      current_superagent.timezone = params[:timezone] if params[:timezone].present?
+      current_superagent.tempo = params[:tempo] if params[:tempo].present?
+      current_superagent.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
 
       # Handle settings stored in JSON column
       if params.has_key?(:invitations)
-        current_studio.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+        current_superagent.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
       end
       if params.has_key?(:representation)
-        current_studio.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+        current_superagent.settings['any_member_can_represent'] = params[:representation] == 'any_member'
       end
       if params.has_key?(:file_uploads)
         # Use unified feature flag system
         enabled = params[:file_uploads] == true || params[:file_uploads] == "true" || params[:file_uploads] == "1"
-        current_studio.settings["feature_flags"] ||= {}
-        current_studio.settings["feature_flags"]["file_attachments"] = enabled
+        current_superagent.settings["feature_flags"] ||= {}
+        current_superagent.settings["feature_flags"]["file_attachments"] = enabled
       end
       # api_enabled is intentionally not changeable via API:
       # - Can't enable if already disabled (no API access)
       # - Can't disable (would lock out the caller)
       # Use HTML UI to change this setting
 
-      current_studio.updated_by = current_user
-      current_studio.save!
+      current_superagent.updated_by = current_user
+      current_superagent.save!
 
       if current_representation_session
         current_representation_session.record_activity!(
@@ -553,18 +553,18 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'update',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Studio',
-              id: current_studio.id,
-              truncated_id: current_studio.truncated_id,
+              id: current_superagent.id,
+              truncated_id: current_superagent.truncated_id,
             },
             sub_resources: [],
           }
         )
       end
     end
-    current_studio
+    current_superagent
   end
 
   sig { returns(Decision) }
@@ -586,7 +586,7 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'update',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Decision',
               id: decision.id,
@@ -626,7 +626,7 @@ class ApiHelper
           semantic_event: {
             timestamp: Time.current,
             event_type: 'update',
-            studio_id: current_studio.id,
+            superagent_id: current_superagent.id,
             main_resource: {
               type: 'Commitment',
               id: commitment.id,

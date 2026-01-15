@@ -8,10 +8,10 @@ It expires at <%= @current_heartbeat.expires_at %>.
 You have not sent a heartbeat for this cycle.
 <% end -%>
 
-## [Actions](<%= @current_studio.path %>/heartbeats/actions)
+## [Actions](<%= @current_superagent.path %>/heartbeats/actions)
 
 <% if @current_heartbeat -%>
 * No actions available (heartbeat already sent).
 <% else -%>
-* [`create_heartbeat()`](<%= @current_studio.path %>/heartbeats/actions/create_heartbeat) - Send a heartbeat
+* [`create_heartbeat()`](<%= @current_superagent.path %>/heartbeats/actions/create_heartbeat) - Send a heartbeat
 <% end -%>

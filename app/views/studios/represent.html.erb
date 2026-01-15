@@ -1,36 +1,36 @@
 <h4 style="margin-top:0px;margin-bottom:0;">
   <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
-  <%= link_to @current_studio.name, @current_studio.path %>
-  / <%= link_to 'Representation', @current_studio.path + '/representation' %>
+  <%= link_to @current_superagent.name, @current_superagent.path %>
+  / <%= link_to 'Representation', @current_superagent.path + '/representation' %>
   / Represent
 </h4>
-<h1 style="margin-top:0;">Represent <%= @current_studio.name %></h1>
+<h1 style="margin-top:0;">Represent <%= @current_superagent.name %></h1>
 <p>
-  Through representation, studio <strong><%= @current_studio.name %></strong> can act as a singular unified entity and participate as a member of other studios.
+  Through representation, studio <strong><%= @current_superagent.name %></strong> can act as a singular unified entity and participate as a member of other studios.
 </p>
 
 <p>
-  Because you have been assigned the <code>representative</code> role in <%= @current_studio.name %>, you are able to act on <%= @current_studio.name %>'s behalf through representation sessions.
+  Because you have been assigned the <code>representative</code> role in <%= @current_superagent.name %>, you are able to act on <%= @current_superagent.name %>'s behalf through representation sessions.
 </p>
 
 <h2>What to Expect</h2>
 <ul>
   <li>
-    When you click the button below, you will assume the identity of <%= @current_studio.name %> itself and begin a representation session.
+    When you click the button below, you will assume the identity of <%= @current_superagent.name %> itself and begin a representation session.
   </li>
   <li>
-    During a representation session, your actions will be recorded and will be visible to all members of <%= @current_studio.name %> (both current and future) because you are acting on their behalf.
+    During a representation session, your actions will be recorded and will be visible to all members of <%= @current_superagent.name %> (both current and future) because you are acting on their behalf.
   </li>
   <li>
-    The set of studios that <%= @current_studio.name %> is a member of will be different than the set of studios that you yourself are a member of.
+    The set of studios that <%= @current_superagent.name %> is a member of will be different than the set of studios that you yourself are a member of.
   </li>
   <li>
-    The actions you can perform as <%= @current_studio.name %> include most of the normal actions that you are familiar with.
+    The actions you can perform as <%= @current_superagent.name %> include most of the normal actions that you are familiar with.
     You can create notes, vote on decisions, join commitments, and so on.
-    However, these actions will be attributed to <%= @current_studio.name %> as a whole rather than just you.
+    However, these actions will be attributed to <%= @current_superagent.name %> as a whole rather than just you.
   </li>
   <li>
-    You will not be able to perform actions that <%= @current_studio.name %> itself does not have permission to perform, even if you yourself would otherwise be able to perform those actions.
+    You will not be able to perform actions that <%= @current_superagent.name %> itself does not have permission to perform, even if you yourself would otherwise be able to perform those actions.
     For example, a studio cannot be a member of itself or create new studios.
   </li>
   <li>
@@ -40,13 +40,13 @@
     After you finish the session, you will return to your own identity and resume your normal mode of interaction.
   </li>
   <li>
-    A log of your session activity will then be available to all members of <%= @current_studio.name %>, and your individual identity will be visibly linked to that session log.
+    A log of your session activity will then be available to all members of <%= @current_superagent.name %>, and your individual identity will be visibly linked to that session log.
   </li>
 </ul>
 <h2>Begin a Representation Session</h2>
-<%= form_with url: @current_studio.path + '/represent', method: :post do |f| %>
+<%= form_with url: @current_superagent.path + '/represent', method: :post do |f| %>
   <p>
-    <%= f.check_box :understand, id: 'i-understand-checkbox' %> I understand that my actions during this session will be recorded and made visible to all members of <%= @current_studio.name %>.
+    <%= f.check_box :understand, id: 'i-understand-checkbox' %> I understand that my actions during this session will be recorded and made visible to all members of <%= @current_superagent.name %>.
   </p>
   <%= f.submit "Begin Session", class: 'button' %>
 <% end %>

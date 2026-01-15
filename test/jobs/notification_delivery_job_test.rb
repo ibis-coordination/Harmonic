@@ -2,10 +2,10 @@ require "test_helper"
 
 class NotificationDeliveryJobTest < ActiveSupport::TestCase
   test "perform marks in_app recipient as delivered" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    event = Event.create!(tenant: tenant, studio: studio, event_type: "note.created")
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -28,10 +28,10 @@ class NotificationDeliveryJobTest < ActiveSupport::TestCase
   end
 
   test "perform marks email recipient as delivered" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    event = Event.create!(tenant: tenant, studio: studio, event_type: "note.created")
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -54,10 +54,10 @@ class NotificationDeliveryJobTest < ActiveSupport::TestCase
   end
 
   test "perform sends email for email recipient" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    event = Event.create!(tenant: tenant, studio: studio, event_type: "note.created")
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -90,10 +90,10 @@ class NotificationDeliveryJobTest < ActiveSupport::TestCase
   end
 
   test "perform does nothing if recipient already delivered" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    event = Event.create!(tenant: tenant, studio: studio, event_type: "note.created")
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,

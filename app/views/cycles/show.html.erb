@@ -1,12 +1,12 @@
-<%= render 'shared/more_button', studio: @current_studio, options: [] %>
+<%= render 'shared/more_button', studio: @current_superagent, options: [] %>
 <%= render 'shared/show_resource_breadcrumbs' do %>
-  <a href="<%= @current_studio.path || '/' %>/cycles">Cycles</a> /
+  <a href="<%= @current_superagent.path || '/' %>/cycles">Cycles</a> /
   <%= @cycle.display_name %>
 <% end %>
 <h1 style="margin-top:0;"><%= @cycle.display_window %></h1>
 
 <p>
-  <span style="font-size: 0.8em;" title="<%= @current_studio.timezone.name %>">
+  <span style="font-size: 0.8em;" title="<%= @current_superagent.timezone.name %>">
     <%= @cycle.display_duration %>,
     <% if @cycle.start_date > @cycle.now %>
       starting <%= timeago(@cycle.start_date) %>

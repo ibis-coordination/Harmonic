@@ -356,6 +356,34 @@ class User
     sig { params(value: T::Enumerable[::NoteHistoryEvent]).void }
     def note_history_events=(value); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def notification_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def notification_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def notification_recipient_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def notification_recipient_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :notification_recipients`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::NotificationRecipient::PrivateCollectionProxy) }
+    def notification_recipients; end
+
+    sig { params(value: T::Enumerable[::NotificationRecipient]).void }
+    def notification_recipients=(value); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :notifications, through: :notification_recipients`.
+    # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
+    sig { returns(::Notification::PrivateCollectionProxy) }
+    def notifications; end
+
+    sig { params(value: T::Enumerable[::Notification]).void }
+    def notifications=(value); end
+
     # This method is created by ActiveRecord on the `User` class because it declared `has_many :oauth_identities`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::OauthIdentity::PrivateCollectionProxy) }
@@ -383,46 +411,46 @@ class User
     def reset_image_blob; end
 
     sig { returns(T::Array[T.untyped]) }
-    def simulated_user_ids; end
+    def subagent_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def simulated_user_ids=(ids); end
+    def subagent_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `User` class because it declared `has_many :simulated_users`.
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :subagents`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::User::PrivateCollectionProxy) }
-    def simulated_users; end
+    def subagents; end
 
     sig { params(value: T::Enumerable[::User]).void }
-    def simulated_users=(value); end
+    def subagents=(value); end
 
     sig { returns(T::Array[T.untyped]) }
-    def studio_ids; end
+    def superagent_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def studio_ids=(ids); end
+    def superagent_ids=(ids); end
 
     sig { returns(T::Array[T.untyped]) }
-    def studio_user_ids; end
+    def superagent_member_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def studio_user_ids=(ids); end
+    def superagent_member_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `User` class because it declared `has_many :studio_users`.
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :superagent_members`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::StudioUser::PrivateCollectionProxy) }
-    def studio_users; end
+    sig { returns(::SuperagentMember::PrivateCollectionProxy) }
+    def superagent_members; end
 
-    sig { params(value: T::Enumerable[::StudioUser]).void }
-    def studio_users=(value); end
+    sig { params(value: T::Enumerable[::SuperagentMember]).void }
+    def superagent_members=(value); end
 
-    # This method is created by ActiveRecord on the `User` class because it declared `has_many :studios, through: :studio_users`.
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :superagents, through: :superagent_members`.
     # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
-    sig { returns(::Studio::PrivateCollectionProxy) }
-    def studios; end
+    sig { returns(::Superagent::PrivateCollectionProxy) }
+    def superagents; end
 
-    sig { params(value: T::Enumerable[::Studio]).void }
-    def studios=(value); end
+    sig { params(value: T::Enumerable[::Superagent]).void }
+    def superagents=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def tenant_ids; end

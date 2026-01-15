@@ -69,11 +69,11 @@ Click image to upload a new image.<br/>
     </p>
     <% if @subagents.any? %>
       <% @subagents.each do |subagent| %>
-        <% active_studio_users = subagent.studio_users.reject(&:archived?) %>
-        <% all_subagent_studios = active_studio_users.map(&:studio) %>
-        <% subagent_studios = all_subagent_studios.reject { |s| s == @current_tenant.main_studio } %>
-        <% available_studios = (@invitable_studios - all_subagent_studios).reject { |s| s == @current_tenant.main_studio } %>
-        <div class="subagent-card" data-controller="subagent-studio-adder" data-subagent-studio-adder-remove-url-value="<%= subagent.path %>/remove_from_studio">
+        <% active_superagent_members = subagent.superagent_members.reject(&:archived?) %>
+        <% all_subagent_studios = active_superagent_members.map(&:superagent) %>
+        <% subagent_studios = all_subagent_studios.reject { |s| s == @current_tenant.main_superagent } %>
+        <% available_studios = (@invitable_studios - all_subagent_studios).reject { |s| s == @current_tenant.main_superagent } %>
+        <div class="subagent-card" data-controller="subagent-superagent-adder" data-subagent-superagent-adder-remove-url-value="<%= subagent.path %>/remove_from_studio">
           <div class="subagent-card-image">
             <img src="<%= subagent.image_url %>" alt="<%= subagent.name %>">
           </div>
@@ -92,15 +92,15 @@ Click image to upload a new image.<br/>
             </p>
 
             <h4>Studio Memberships</h4>
-            <ul class="studio-membership-list" data-subagent-studio-adder-target="studioList">
+            <ul class="studio-membership-list" data-subagent-superagent-adder-target="superagentList">
               <% if subagent_studios.any? %>
                 <% subagent_studios.each do |s| %>
-                  <li class="studio-item" data-studio-id="<%= s.id %>">
+                  <li class="studio-item" data-superagent-id="<%= s.id %>">
                     <%= link_to s.name, s.path %>
                     <button type="button" class="button-small button-danger"
-                            data-action="subagent-studio-adder#remove"
-                            data-studio-id="<%= s.id %>"
-                            data-studio-name="<%= s.name %>">
+                            data-action="subagent-superagent-adder#remove"
+                            data-superagent-id="<%= s.id %>"
+                            data-superagent-name="<%= s.name %>">
                       Remove from studio
                     </button>
                   </li>
@@ -111,9 +111,9 @@ Click image to upload a new image.<br/>
             </ul>
 
             <% if !subagent.archived? %>
-              <form data-subagent-studio-adder-target="form" data-action="submit->subagent-studio-adder#add" action="<%= subagent.path %>/add_to_studio" method="post" class="add-to-studio-form" style="<%= available_studios.empty? ? 'display:none;' : '' %>">
+              <form data-subagent-superagent-adder-target="form" data-action="submit->subagent-superagent-adder#add" action="<%= subagent.path %>/add_to_studio" method="post" class="add-to-studio-form" style="<%= available_studios.empty? ? 'display:none;' : '' %>">
                 <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
-                <select name="studio_id" data-subagent-studio-adder-target="select">
+                <select name="superagent_id" data-subagent-superagent-adder-target="select">
                   <option value="">Add to studio...</option>
                   <% available_studios.each do |s| %>
                     <option value="<%= s.id %>"><%= s.name %></option>

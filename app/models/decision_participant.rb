@@ -6,8 +6,8 @@ class DecisionParticipant < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :studio
-  before_validation :set_studio_id
+  belongs_to :superagent
+  before_validation :set_superagent_id
   belongs_to :decision
   belongs_to :user, optional: true
 
@@ -20,8 +20,8 @@ class DecisionParticipant < ApplicationRecord
   end
 
   sig { void }
-  def set_studio_id
-    self.studio_id = T.must(decision).studio_id if studio_id.nil?
+  def set_superagent_id
+    self.superagent_id = T.must(decision).superagent_id if superagent_id.nil?
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }

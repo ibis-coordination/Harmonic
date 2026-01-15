@@ -4,12 +4,12 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @studio = @global_studio
-    @studio.enable_api!
+    @superagent = @global_superagent
+    @superagent.enable_api!
     @user = @global_user
     # Make user an admin of the studio
-    @studio_user = StudioUser.find_by(studio: @studio, user: @user)
-    @studio_user.add_role!('admin')
+    @superagent_member = SuperagentMember.find_by(superagent: @superagent, user: @user)
+    @superagent_member.add_role!('admin')
 
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -29,21 +29,21 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
   end
 
   test "GET webhooks index returns markdown" do
-    get "/studios/#{@studio.handle}/settings/webhooks", headers: @headers
+    get "/studios/#{@superagent.handle}/settings/webhooks", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_match(/# Webhooks/, response.body)
   end
 
   test "GET new webhook returns markdown" do
-    get "/studios/#{@studio.handle}/settings/webhooks/new", headers: @headers
+    get "/studios/#{@superagent.handle}/settings/webhooks/new", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_match(/# New Webhook/, response.body)
   end
 
   test "POST create_webhook creates a webhook" do
-    post "/studios/#{@studio.handle}/settings/webhooks/new/actions/create_webhook",
+    post "/studios/#{@superagent.handle}/settings/webhooks/new/actions/create_webhook",
       params: { name: "Test Webhook", url: "https://example.com/webhook", events: "*" }.to_json,
       headers: @headers
 
@@ -61,14 +61,14 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
   test "GET webhook show returns markdown" do
     webhook = Webhook.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Show Test Webhook",
       url: "https://example.com/show",
       events: ["note.created"],
       created_by: @user,
     )
 
-    get "/studios/#{@studio.handle}/settings/webhooks/#{webhook.id}", headers: @headers
+    get "/studios/#{@superagent.handle}/settings/webhooks/#{webhook.id}", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_match(/# Webhook: Show Test Webhook/, response.body)
@@ -77,14 +77,14 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
   test "POST update_webhook updates a webhook" do
     webhook = Webhook.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Update Test Webhook",
       url: "https://example.com/update",
       events: ["*"],
       created_by: @user,
     )
 
-    post "/studios/#{@studio.handle}/settings/webhooks/#{webhook.id}/actions/update_webhook",
+    post "/studios/#{@superagent.handle}/settings/webhooks/#{webhook.id}/actions/update_webhook",
       params: { name: "Updated Webhook Name" }.to_json,
       headers: @headers
 
@@ -99,7 +99,7 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
   test "POST delete_webhook deletes a webhook" do
     webhook = Webhook.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Delete Test Webhook",
       url: "https://example.com/delete",
       events: ["*"],
@@ -107,7 +107,7 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
     )
     webhook_id = webhook.id
 
-    post "/studios/#{@studio.handle}/settings/webhooks/#{webhook.id}/actions/delete_webhook",
+    post "/studios/#{@superagent.handle}/settings/webhooks/#{webhook.id}/actions/delete_webhook",
       headers: @headers
 
     assert_response :success
@@ -120,14 +120,14 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
   test "POST test_webhook sends a test" do
     webhook = Webhook.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       name: "Test Webhook Send",
       url: "https://example.com/test",
       events: ["*"],
       created_by: @user,
     )
 
-    post "/studios/#{@studio.handle}/settings/webhooks/#{webhook.id}/actions/test_webhook",
+    post "/studios/#{@superagent.handle}/settings/webhooks/#{webhook.id}/actions/test_webhook",
       headers: @headers
 
     assert_response :success
@@ -145,14 +145,14 @@ class WebhooksUiTest < ActionDispatch::IntegrationTest
 
   test "non-admin cannot access webhooks" do
     # Remove admin status
-    @studio_user.remove_role!('admin')
+    @superagent_member.remove_role!('admin')
 
-    get "/studios/#{@studio.handle}/settings/webhooks", headers: @headers
+    get "/studios/#{@superagent.handle}/settings/webhooks", headers: @headers
     assert_response :forbidden
   end
 
   test "webhook requires HTTPS URL" do
-    post "/studios/#{@studio.handle}/settings/webhooks/new/actions/create_webhook",
+    post "/studios/#{@superagent.handle}/settings/webhooks/new/actions/create_webhook",
       params: { name: "HTTP Webhook", url: "http://example.com/webhook", events: "*" }.to_json,
       headers: @headers
 

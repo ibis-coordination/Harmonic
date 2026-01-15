@@ -5,7 +5,7 @@ class Webhook < ApplicationRecord
   include HasTruncatedId
 
   belongs_to :tenant
-  belongs_to :studio, optional: true
+  belongs_to :superagent, optional: true
   belongs_to :created_by, class_name: "User"
   has_many :webhook_deliveries, dependent: :destroy
 
@@ -26,7 +26,7 @@ class Webhook < ApplicationRecord
 
   sig { returns(String) }
   def path
-    s = Studio.unscoped.find_by(id: studio_id)
+    s = Superagent.unscoped.find_by(id: superagent_id)
     "/studios/#{s&.handle}/settings/webhooks/#{truncated_id}"
   end
 

@@ -1,5 +1,5 @@
 <span data-controller="cycle-filters">
-<%= form_with url: "#{@current_studio.path}/view", method: :get, local: true, id: 'sort-filter-form' do |form| %>
+<%= form_with url: "#{@current_superagent.path}/view", method: :get, local: true, id: 'sort-filter-form' do |form| %>
   <div style="display:inline-block;width:fit-content;">
     <h4>Cycle</h4>
     <%= form.select :cycle, options_for_select(@cycle.cycle_options, @cycle.name), {}, { id: 'cycle-select' } %>

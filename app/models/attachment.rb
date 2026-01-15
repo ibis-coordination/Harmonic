@@ -19,8 +19,8 @@ class Attachment < ApplicationRecord
 
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :studio
-  before_validation :set_studio_id
+  belongs_to :superagent
+  before_validation :set_superagent_id
   belongs_to :attachable, polymorphic: true
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
@@ -37,8 +37,8 @@ class Attachment < ApplicationRecord
   end
 
   sig { void }
-  def set_studio_id
-    self.studio_id = T.must(studio_id.presence || Studio.current_id)
+  def set_superagent_id
+    self.superagent_id = T.must(superagent_id.presence || Superagent.current_id)
   end
 
   sig { void }

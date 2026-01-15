@@ -273,8 +273,8 @@ class Event
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_actor(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def build_studio(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def build_superagent(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
@@ -285,11 +285,11 @@ class Event
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_actor!(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def create_studio(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def create_superagent(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def create_studio!(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def create_superagent!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -314,11 +314,11 @@ class Event
     sig { returns(T.nilable(::User)) }
     def reload_actor; end
 
-    sig { returns(T.nilable(::Studio)) }
-    def reload_studio; end
-
     sig { returns(T.untyped) }
     def reload_subject; end
+
+    sig { returns(T.nilable(::Superagent)) }
+    def reload_superagent; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -327,25 +327,25 @@ class Event
     def reset_actor; end
 
     sig { void }
-    def reset_studio; end
-
-    sig { void }
     def reset_subject; end
 
     sig { void }
+    def reset_superagent; end
+
+    sig { void }
     def reset_tenant; end
-
-    sig { returns(T.nilable(::Studio)) }
-    def studio; end
-
-    sig { params(value: T.nilable(::Studio)).void }
-    def studio=(value); end
 
     sig { returns(T.untyped) }
     def subject; end
 
     sig { params(value: T.untyped).void }
     def subject=(value); end
+
+    sig { returns(T.nilable(::Superagent)) }
+    def superagent; end
+
+    sig { params(value: T.nilable(::Superagent)).void }
+    def superagent=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -799,13 +799,13 @@ class Event
     def restore_metadata!; end
 
     sig { void }
-    def restore_studio_id!; end
-
-    sig { void }
     def restore_subject_id!; end
 
     sig { void }
     def restore_subject_type!; end
+
+    sig { void }
+    def restore_superagent_id!; end
 
     sig { void }
     def restore_tenant_id!; end
@@ -843,12 +843,6 @@ class Event
     sig { returns(T::Boolean) }
     def saved_change_to_metadata?; end
 
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_studio_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_studio_id?; end
-
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_subject_id; end
 
@@ -862,6 +856,12 @@ class Event
     def saved_change_to_subject_type?; end
 
     sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_superagent_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_superagent_id?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
     sig { returns(T::Boolean) }
@@ -872,51 +872,6 @@ class Event
 
     sig { returns(T::Boolean) }
     def saved_change_to_updated_at?; end
-
-    sig { returns(::String) }
-    def studio_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def studio_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def studio_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def studio_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def studio_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def studio_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def studio_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_was; end
-
-    sig { void }
-    def studio_id_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def subject_id; end
@@ -1007,6 +962,51 @@ class Event
 
     sig { void }
     def subject_type_will_change!; end
+
+    sig { returns(::String) }
+    def superagent_id; end
+
+    sig { params(value: ::String).returns(::String) }
+    def superagent_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def superagent_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def superagent_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def superagent_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def superagent_id_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def superagent_id_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def superagent_id_change_to_be_saved; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def superagent_id_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def superagent_id_previous_change; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def superagent_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def superagent_id_was; end
+
+    sig { void }
+    def superagent_id_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1114,13 +1114,13 @@ class Event
     def will_save_change_to_metadata?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_studio_id?; end
-
-    sig { returns(T::Boolean) }
     def will_save_change_to_subject_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_subject_type?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

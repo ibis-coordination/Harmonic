@@ -3,10 +3,10 @@ require "test_helper"
 class MarkdownRendererTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     # Set thread context for display_references
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
   end
 
   # === Basic Rendering Tests ===
@@ -286,8 +286,8 @@ class MarkdownRendererTest < ActiveSupport::TestCase
   test "render with display_references true processes internal links" do
     # Create a note to link to
     user = @global_user
-    note = create_note(tenant: @tenant, studio: @studio, created_by: user, title: "Target", text: "Content")
-    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@studio.handle}/n/#{note.truncated_id}"
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: user, title: "Target", text: "Content")
+    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@superagent.handle}/n/#{note.truncated_id}"
 
     markdown = "[#{link_url}](#{link_url})"
     html = MarkdownRenderer.render(markdown, display_references: true)
@@ -298,8 +298,8 @@ class MarkdownRendererTest < ActiveSupport::TestCase
 
   test "render with display_references false does not process internal links" do
     user = @global_user
-    note = create_note(tenant: @tenant, studio: @studio, created_by: user, title: "Target", text: "Content")
-    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@studio.handle}/n/#{note.truncated_id}"
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: user, title: "Target", text: "Content")
+    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@superagent.handle}/n/#{note.truncated_id}"
 
     markdown = "[Click here](#{link_url})"
     html = MarkdownRenderer.render(markdown, display_references: false)

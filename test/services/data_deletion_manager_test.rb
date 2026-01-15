@@ -3,17 +3,17 @@ require "test_helper"
 class DataDeletionManagerTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @user = @global_user
-    @note = create_note(tenant: @tenant, studio: @studio, created_by: @user)
-    @decision = create_decision(tenant: @tenant, studio: @studio, created_by: @user)
-    @commitment = create_commitment(tenant: @tenant, studio: @studio, created_by: @user)
+    @note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    @decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    @commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
     @ddm = DataDeletionManager.new(user: @user)
   end
 
   test "DataDeletionManager does not delete anything unless correct confirmation_token is provided" do
-    assert_raises { @ddm.delete_studio!(studio: @studio, confirmation_token: 'incorrect token') }
-    assert_not @studio.reload.nil?
+    assert_raises { @ddm.delete_superagent!(superagent: @superagent, confirmation_token: 'incorrect token') }
+    assert_not @superagent.reload.nil?
     assert_raises { @ddm.delete_note!(note: @note, confirmation_token: 'incorrect token') }
     assert_not @note.reload.nil?
     assert_raises { @ddm.delete_decision!(decision: @decision, confirmation_token: 'incorrect token') }
@@ -26,8 +26,8 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
 
   test "DataDeletionManager deletes studio with correct confirmation_token" do
     confirmation_token = @ddm.confirmation_token
-    assert_difference -> { Studio.count }, -1 do
-      @ddm.delete_studio!(studio: @studio, confirmation_token: confirmation_token)
+    assert_difference -> { Superagent.count }, -1 do
+      @ddm.delete_superagent!(superagent: @superagent, confirmation_token: confirmation_token)
     end
   end
 
@@ -82,8 +82,8 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
         # Verify API tokens are marked as deleted
         assert ApiToken.unscoped.where(user_id: @user.id).all? { |token| token.deleted_at.present? }
 
-        # Verify StudioUser records are archived
-        assert StudioUser.unscoped.where(user_id: @user.id).all? { |studio_user| studio_user.archived_at.present? }
+        # Verify SuperagentMember records are archived
+        assert SuperagentMember.unscoped.where(user_id: @user.id).all? { |superagent_member| superagent_member.archived_at.present? }
 
         # Verify TenantUser records are updated and archived
         TenantUser.unscoped.where(user_id: @user.id).each do |tenant_user|

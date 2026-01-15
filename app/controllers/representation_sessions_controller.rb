@@ -3,7 +3,7 @@
 class RepresentationSessionsController < ApplicationController
 
   def index
-    @representatives = current_studio.representatives
+    @representatives = current_superagent.representatives
     @page_title = 'Representation'
     @representation_sessions = current_tenant.representation_sessions.where.not(ended_at: nil).order(ended_at: :desc).limit(100)
     @active_sessions = current_tenant.representation_sessions.where(ended_at: nil).order(began_at: :desc).limit(100)
@@ -21,7 +21,7 @@ class RepresentationSessionsController < ApplicationController
   def show
     @page_title = 'Representation Session'
     column = params[:id].length == 8 ? 'truncated_id' : 'id'
-    @representation_session = current_studio.representation_sessions.find_by!(column => params[:id])
+    @representation_session = current_superagent.representation_sessions.find_by!(column => params[:id])
     respond_to do |format|
       format.html
       format.md
@@ -29,8 +29,8 @@ class RepresentationSessionsController < ApplicationController
   end
 
   def represent
-    if @current_user.studio_user.can_represent?
-      @page_title = "Represent #{current_studio.name}"
+    if @current_user.superagent_member.can_represent?
+      @page_title = "Represent #{current_superagent.name}"
     else
       # TODO - design a better solution for this
       return render layout: 'application', html: 'You do not have permission to access this page.'
@@ -42,16 +42,16 @@ class RepresentationSessionsController < ApplicationController
       flash[:alert] = 'You have already started a representation session. You must end it before starting a new one.'
       return redirect_to request.referrer
     end
-    return render status: 403, plain: '403 Unauthorized' unless current_user.studio_user.can_represent?
+    return render status: 403, plain: '403 Unauthorized' unless current_user.superagent_member.can_represent?
     confirmed_understanding = params[:understand] == 'true' || params[:understand] == '1'
     unless confirmed_understanding
       flash[:alert] = 'You must check the box to confirm you understand.'
       return redirect_to request.referrer
     end
-    trustee = current_studio.trustee_user
+    trustee = current_superagent.trustee_user
     rep_session = RepresentationSession.create!(
       tenant: current_tenant,
-      studio: current_studio,
+      superagent: current_superagent,
       representative_user: current_user,
       trustee_user: trustee,
       confirmed_understanding: confirmed_understanding,
@@ -59,7 +59,7 @@ class RepresentationSessionsController < ApplicationController
     )
     rep_session.begin!
     # NOTE - both cookies need to be set for ApplicationController#current_user
-    # to find the current RepresentationSession outside the scope of current_studio
+    # to find the current RepresentationSession outside the scope of current_superagent
     session[:trustee_user_id] = trustee.id
     session[:representation_session_id] = rep_session.id
     redirect_to '/representing'
@@ -69,8 +69,8 @@ class RepresentationSessionsController < ApplicationController
     @page_title = 'Representing'
     @representation_session = current_representation_session
     return redirect_to root_path unless @representation_session
-    @studio = @representation_session.studio
-    @other_studios = current_user.studios.where.not(id: @current_tenant.main_studio_id)
+    @studio = @representation_session.superagent
+    @other_studios = current_user.superagents.where.not(id: @current_tenant.main_superagent_id)
   end
 
   def stop_representing
@@ -93,7 +93,7 @@ class RepresentationSessionsController < ApplicationController
     else
       flash[:alert] = 'Could not find representation session.'
     end
-    redirect_to current_studio.path
+    redirect_to current_superagent.path
   end
 
   private
@@ -106,7 +106,7 @@ class RepresentationSessionsController < ApplicationController
     return @current_resource if defined?(@current_resource)
     if params[:representation_session_id]
       column = params[:representation_session_id].length == 8 ? 'truncated_id' : 'id'
-      @current_resource = current_studio.representation_sessions.find_by!(column => params[:representation_session_id])
+      @current_resource = current_superagent.representation_sessions.find_by!(column => params[:representation_session_id])
     else
       super
     end

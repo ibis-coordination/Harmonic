@@ -3,7 +3,7 @@ require "test_helper"
 class ImpersonationTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @parent = @global_user
     @subagent = User.create!(
       email: "subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
@@ -12,7 +12,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
       parent_id: @parent.id,
     )
     @tenant.add_user!(@subagent)
-    @studio.add_user!(@subagent)
+    @superagent.add_user!(@subagent)
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
@@ -33,7 +33,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   test "parent cannot impersonate another user's subagent user" do
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
-    @studio.add_user!(other_parent)
+    @superagent.add_user!(other_parent)
     other_subagent = User.create!(
       email: "other-subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
       name: "Other Subagent",
@@ -41,7 +41,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
       parent_id: other_parent.id,
     )
     @tenant.add_user!(other_subagent)
-    @studio.add_user!(other_subagent)
+    @superagent.add_user!(other_subagent)
 
     sign_in_as(@parent, tenant: @tenant)
 
@@ -64,7 +64,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   test "parent cannot impersonate a regular person user" do
     other_person = create_user(name: "Other Person")
     @tenant.add_user!(other_person)
-    @studio.add_user!(other_person)
+    @superagent.add_user!(other_person)
 
     sign_in_as(@parent, tenant: @tenant)
 
@@ -101,7 +101,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     # Create a note while impersonating
-    post "/studios/#{@studio.handle}/note", params: {
+    post "/studios/#{@superagent.handle}/note", params: {
       note: {
         title: "Note from subagent user",
         text: "This should be attributed to the subagent user",
@@ -123,7 +123,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     assert_difference "Note.count", 1 do
-      post "/studios/#{@studio.handle}/note", params: {
+      post "/studios/#{@superagent.handle}/note", params: {
         note: {
           title: "Subagent user's note",
           text: "Created by subagent user",
@@ -141,7 +141,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     # Create a decision first
     decision = Decision.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       created_by: @parent,
       question: "Test Decision?",
       description: "Testing voting while impersonating",
@@ -150,7 +150,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     )
     option = Option.create!(
       tenant: @tenant,
-      studio: @studio,
+      superagent: @superagent,
       decision: decision,
       decision_participant: DecisionParticipantManager.new(decision: decision, user: @parent).find_or_create_participant,
       title: "Option A",
@@ -160,7 +160,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     post "/u/#{@subagent.handle}/impersonate"
     follow_redirect!
 
-    post "/studios/#{@studio.handle}/d/#{decision.truncated_id}/actions/vote", params: {
+    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/vote", params: {
       option_id: option.id,
       value: 1,
     }
@@ -190,18 +190,18 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     # Create a note while impersonating
-    post "/studios/#{@studio.handle}/note", params: {
+    post "/studios/#{@superagent.handle}/note", params: {
       note: { title: "Before stop", text: "Impersonating" },
     }
     note_while_impersonating = Note.last
     assert_equal @subagent.id, note_while_impersonating.created_by_id
 
     # Stop impersonating
-    delete "/u/#{@subagent.handle}/impersonate", headers: { "HTTP_REFERER" => "/studios/#{@studio.handle}" }
+    delete "/u/#{@subagent.handle}/impersonate", headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}" }
     follow_redirect!
 
     # Create another note after stopping
-    post "/studios/#{@studio.handle}/note", params: {
+    post "/studios/#{@superagent.handle}/note", params: {
       note: { title: "After stop", text: "No longer impersonating" },
     }
     note_after_stopping = Note.last
@@ -222,7 +222,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     @subagent.archive!
 
     # Access a page - should no longer be impersonating
-    get "/studios/#{@studio.handle}"
+    get "/studios/#{@superagent.handle}"
 
     assert_response :success
     # The session should have cleared the impersonation since can_impersonate? returns false for archived users
@@ -239,7 +239,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     @subagent.update_column(:parent_id, other_user.id)
 
     # Access a page - impersonation should be cleared
-    get "/studios/#{@studio.handle}"
+    get "/studios/#{@superagent.handle}"
 
     assert_response :success
     # Session should clear impersonation since @parent can no longer impersonate @subagent
@@ -259,14 +259,14 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     # Make multiple requests
-    get "/studios/#{@studio.handle}"
+    get "/studios/#{@superagent.handle}"
     assert_response :success
 
-    get "/studios/#{@studio.handle}/cycles/today"
+    get "/studios/#{@superagent.handle}/cycles/today"
     assert_response :success
 
     # Create content on third request
-    post "/studios/#{@studio.handle}/note", params: {
+    post "/studios/#{@superagent.handle}/note", params: {
       note: { title: "Third request note", text: "Still impersonating" },
     }
 

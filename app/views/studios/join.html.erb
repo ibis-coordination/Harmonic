@@ -1,20 +1,20 @@
 <%= render 'studio_title' %>
-<% scene_or_studio = @current_studio.studio_type %>
+<% scene_or_studio = @current_superagent.superagent_type %>
 <h2>Join</h2>
-<% if @current_studio.is_scene? && @current_studio.scene_is_open? && !@current_user_is_member %>
+<% if @current_superagent.is_scene? && @current_superagent.scene_is_open? && !@current_user_is_member %>
   <p>
-    <%= button_to 'Join Scene', "#{@current_studio.path}/join", method: :post %>
+    <%= button_to 'Join Scene', "#{@current_superagent.path}/join", method: :post %>
   </p>
 <% elsif @invite %>
   <p>
-    Click the button below to join <%= scene_or_studio %> <strong><%= @current_studio.name %></strong>.
+    Click the button below to join <%= scene_or_studio %> <strong><%= @current_superagent.name %></strong>.
   </p>
   <p>
-    <%= button_to "Join #{scene_or_studio.titleize}", "#{@current_studio.path}/join", method: :post, params: { code: @invite.code } %>
+    <%= button_to "Join #{scene_or_studio.titleize}", "#{@current_superagent.path}/join", method: :post, params: { code: @invite.code } %>
   </p>
 <% elsif @current_user_is_member %>
   <p>
-    You are already a member of this <%= scene_or_studio %>. <a href="<%= @current_studio.path %>">View <%= scene_or_studio %> homepage</a>.
+    You are already a member of this <%= scene_or_studio %>. <a href="<%= @current_superagent.path %>">View <%= scene_or_studio %> homepage</a>.
   </p>
 <% else %>
   <p>

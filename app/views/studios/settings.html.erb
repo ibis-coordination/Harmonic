@@ -2,17 +2,17 @@
 <h1 style="margin-top:0;">Settings</h1>
 
 <h2>Studio Image</h2>
-<%= render 'shared/profile_image_upload', resource: @current_studio, size: 83 %>
+<%= render 'shared/profile_image_upload', resource: @current_superagent, size: 83 %>
 
-<%= form_with(url: "#{@current_studio.path}/settings", id: "studio-settings-form") do |form| %>
+<%= form_with(url: "#{@current_superagent.path}/settings", id: "studio-settings-form") do |form| %>
   <h2>Studio Name</h2>
   <p>
-    <%= form.text_field :name, placeholder: 'Studio Name', value: @current_studio.name %>
+    <%= form.text_field :name, placeholder: 'Studio Name', value: @current_superagent.name %>
   </p>
 
   <h2>Studio Description</h2>
   <p>
-    <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_studio.description %>
+    <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_superagent.description %>
   </p>
 
   <h2>Time Zone</h2>
@@ -20,7 +20,7 @@
     The studio time zone determines when cycles begin and end.
   </p>
   <p>
-    <%= form.time_zone_select :timezone, ActiveSupport::TimeZone.all, default: @current_studio.timezone.name %>
+    <%= form.time_zone_select :timezone, ActiveSupport::TimeZone.all, default: @current_superagent.timezone.name %>
   </p>
 
   <h2>Tempo</h2>
@@ -32,7 +32,7 @@
     This determines the primary cycle duration.
   </p>
   <p>
-    <%= form.select :tempo, [['Daily', 'daily'], ['Weekly', 'weekly'], ['Monthly', 'monthly']], selected: @current_studio.tempo %>
+    <%= form.select :tempo, [['Daily', 'daily'], ['Weekly', 'weekly'], ['Monthly', 'monthly']], selected: @current_superagent.tempo %>
   </p>
 
   <h2>Synchronization Mode</h2>
@@ -43,12 +43,12 @@
   <p>
     <fieldset>
       <label>
-        <%= form.radio_button :synchronization_mode, 'improv', checked: @current_studio.improv? %>
+        <%= form.radio_button :synchronization_mode, 'improv', checked: @current_superagent.improv? %>
         <strong>Improv</strong> (no formal leadership roles)
       </label>
       <br/>
       <label>
-        <%= form.radio_button :synchronization_mode, 'orchestra', checked: @current_studio.orchestra? %>
+        <%= form.radio_button :synchronization_mode, 'orchestra', checked: @current_superagent.orchestra? %>
         <strong>Orchestra</strong> (has formal leadership roles)
       </label>
     </fieldset>
@@ -57,18 +57,18 @@
   <h2>Invitations</h2>
   <fieldset>
     <legend>Who can invite new members?</legend>
-    <%= form.radio_button :invitations, 'all_members', checked: @current_studio.all_members_can_invite? %>
+    <%= form.radio_button :invitations, 'all_members', checked: @current_superagent.all_members_can_invite? %>
     <%= form.label :invitations_all_members, 'All members can invite' %><br>
-    <%= form.radio_button :invitations, 'only_admins', checked: !@current_studio.all_members_can_invite? %>
+    <%= form.radio_button :invitations, 'only_admins', checked: !@current_superagent.all_members_can_invite? %>
     <%= form.label :invitations_only_admins, 'Only admins can invite' %>
   </fieldset>
 
   <h2>Representation</h2>
   <fieldset>
-    <legend>Who can act as a representative of <%= @current_studio.name %> within other studios?</legend>
-    <%= form.radio_button :representation, 'any_member', checked: @current_studio.any_member_can_represent? %>
+    <legend>Who can act as a representative of <%= @current_superagent.name %> within other studios?</legend>
+    <%= form.radio_button :representation, 'any_member', checked: @current_superagent.any_member_can_represent? %>
     <%= form.label :representation_any_member, 'Any member can represent the studio' %><br>
-    <%= form.radio_button :representation, 'only_representatives', checked: !@current_studio.any_member_can_represent? %>
+    <%= form.radio_button :representation, 'only_representatives', checked: !@current_superagent.any_member_can_represent? %>
     <%= form.label :representation_only_representatives, 'Only designated representatives can represent the studio' %>
   </fieldset>
 
@@ -78,7 +78,7 @@
 
     <% available_flags.each do |flag_name| %>
       <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
-      <% studio_enabled_locally = @current_studio.feature_flag_enabled_locally?(flag_name) %>
+      <% studio_enabled_locally = @current_superagent.feature_flag_enabled_locally?(flag_name) %>
 
       <div style="margin-bottom: 1rem; padding: 0.75rem; border: 1px solid var(--color-border-default);">
         <strong><%= metadata['name'] %></strong>
@@ -89,12 +89,12 @@
         <% if flag_name == 'file_attachments' && studio_enabled_locally %>
           <p style="margin: 0.5rem 0; font-size: 0.9em; color: var(--color-fg-muted);">
             Current usage:
-            <%= @current_studio.file_storage_usage_in_human_size %> of <%= @current_studio.file_storage_limit_in_human_size %>
+            <%= @current_superagent.file_storage_usage_in_human_size %> of <%= @current_superagent.file_storage_limit_in_human_size %>
             <% if ENV['SAAS_MODE'] == 'true' %>
               <%= button_to 'Purchase more space', '/billing', method: :get %>
             <% else %>
               <br/>
-              Increase limit: <%= form.number_field :file_storage_limit, value: @current_studio.file_storage_limit / 1.megabyte, style: 'width: 100px;' %> MB
+              Increase limit: <%= form.number_field :file_storage_limit, value: @current_superagent.file_storage_limit / 1.megabyte, style: 'width: 100px;' %> MB
             <% end %>
           </p>
         <% end %>
@@ -104,8 +104,8 @@
 
 <% end %>
 
-<% if @current_studio.feature_enabled?('api') %>
-  <div data-controller="subagent-manager" data-subagent-manager-remove-url-value="<%= @current_studio.path %>/settings/remove_subagent">
+<% if @current_superagent.feature_enabled?('api') %>
+  <div data-controller="subagent-manager" data-subagent-manager-remove-url-value="<%= @current_superagent.path %>/settings/remove_subagent">
     <h2>Subagents in this Studio</h2>
     <p>
       Subagents are virtual identities managed by their parent user.
@@ -136,7 +136,7 @@
                         data-action="subagent-manager#remove"
                         data-subagent-id="<%= subagent.id %>"
                         data-subagent-name="<%= subagent.display_name %>"
-                        data-remove-url="<%= @current_studio.path %>/settings/remove_subagent">
+                        data-remove-url="<%= @current_superagent.path %>/settings/remove_subagent">
                   Remove
                 </button>
               </td>
@@ -151,7 +151,7 @@
 
     <% if @addable_subagents.any? %>
       <h3>Add your subagents to this studio</h3>
-      <form data-subagent-manager-target="addForm" data-action="submit->subagent-manager#add" action="<%= @current_studio.path %>/settings/add_subagent" method="post">
+      <form data-subagent-manager-target="addForm" data-action="submit->subagent-manager#add" action="<%= @current_superagent.path %>/settings/add_subagent" method="post">
         <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
         <select name="subagent_id" data-subagent-manager-target="select">
           <option value="">Select a subagent...</option>
@@ -169,7 +169,7 @@
     Webhooks allow external services to receive real-time notifications when events occur in this studio.
   </p>
   <p>
-    <a href="<%= @current_studio.path %>/settings/webhooks" class="btn">
+    <a href="<%= @current_superagent.path %>/settings/webhooks" class="btn">
       <%= octicon 'gear' %> Manage Webhooks
     </a>
   </p>

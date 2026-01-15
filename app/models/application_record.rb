@@ -6,14 +6,14 @@ class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
 
   before_validation :set_tenant_id
-  before_validation :set_studio_id
+  before_validation :set_superagent_id
   before_validation :set_updated_by
 
   default_scope do
     if belongs_to_tenant? && Tenant.current_id
       s = where(tenant_id: Tenant.current_id)
-      if belongs_to_studio? && Studio.current_id
-        s = s.where(studio_id: Studio.current_id)
+      if belongs_to_superagent? && Superagent.current_id
+        s = s.where(superagent_id: Superagent.current_id)
       end
       s
     else
@@ -34,15 +34,15 @@ class ApplicationRecord < ActiveRecord::Base
   end
 
   sig { returns(T::Boolean) }
-  def self.belongs_to_studio?
-    return false if self == StudioUser # This is a special case
-    self.column_names.include?("studio_id")
+  def self.belongs_to_superagent?
+    return false if self == SuperagentMember # This is a special case
+    self.column_names.include?("superagent_id")
   end
 
   sig { void }
-  def set_studio_id
-    if self.class.belongs_to_studio?
-      T.unsafe(self).studio_id ||= Studio.current_id
+  def set_superagent_id
+    if self.class.belongs_to_superagent?
+      T.unsafe(self).superagent_id ||= Superagent.current_id
     end
   end
 
@@ -90,7 +90,7 @@ class ApplicationRecord < ActiveRecord::Base
 
   sig { returns(T.nilable(String)) }
   def path
-    "#{T.unsafe(self).studio.path}/#{T.unsafe(self).path_prefix}/#{T.unsafe(self).truncated_id}"
+    "#{T.unsafe(self).superagent.path}/#{T.unsafe(self).path_prefix}/#{T.unsafe(self).truncated_id}"
   end
 
   sig { returns(T.nilable(String)) }

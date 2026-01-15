@@ -5,13 +5,13 @@ class RepresentationSessionAssociation < ApplicationRecord
 
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :studio
-  before_validation :set_studio_id
+  belongs_to :superagent
+  before_validation :set_superagent_id
   belongs_to :representation_session
   belongs_to :resource, polymorphic: true
-  belongs_to :resource_studio, class_name: 'Studio'
+  belongs_to :resource_superagent, class_name: 'Superagent'
 
-  validate :resource_studio_matches_resource
+  validate :resource_superagent_matches_resource
   validates :resource_type, inclusion: { in: %w[Heartbeat Note Decision Commitment NoteHistoryEvent Option Vote CommitmentParticipant] }
 
   sig { void }
@@ -20,14 +20,14 @@ class RepresentationSessionAssociation < ApplicationRecord
   end
 
   sig { void }
-  def set_studio_id
-    self.studio_id = T.must(representation_session).studio_id
+  def set_superagent_id
+    self.superagent_id = T.must(representation_session).superagent_id
   end
 
   sig { void }
-  def resource_studio_matches_resource
-    return if resource_studio_id == T.unsafe(resource).studio_id
-    errors.add(:resource_studio, "must match resource's studio")
+  def resource_superagent_matches_resource
+    return if resource_superagent_id == T.unsafe(resource).superagent_id
+    errors.add(:resource_superagent, "must match resource's superagent")
   end
 
 end

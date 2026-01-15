@@ -7,7 +7,7 @@ class RepresentationSession < ApplicationRecord
   include Commentable
   include HasTruncatedId
   belongs_to :tenant
-  belongs_to :studio
+  belongs_to :superagent
   belongs_to :representative_user, class_name: 'User'
   belongs_to :trustee_user, class_name: 'User'
   has_many :representation_session_associations, dependent: :destroy
@@ -31,7 +31,7 @@ class RepresentationSession < ApplicationRecord
       ended_at: ended_at,
       elapsed_time: elapsed_time,
       activity_log: activity_log,
-      studio_id: studio_id,
+      superagent_id: superagent_id,
       representative_user_id: representative_user_id,
       trustee_user_id: trustee_user_id,
     }
@@ -94,7 +94,7 @@ class RepresentationSession < ApplicationRecord
     #     },
     #   ],
     # }
-    valid_keys = [:timestamp, :event_type, :studio_id, :main_resource, :sub_resources].sort
+    valid_keys = [:timestamp, :event_type, :superagent_id, :main_resource, :sub_resources].sort
     raise "Invalid semantic event keys #{semantic_event.keys}" unless semantic_event.keys.sort == valid_keys
     valid_event_types = %w(create update confirm add_option vote commit pin unpin).sort
     raise "Invalid event type #{semantic_event[:event_type]}" unless valid_event_types.include?(semantic_event[:event_type])
@@ -120,20 +120,20 @@ class RepresentationSession < ApplicationRecord
       association = RepresentationSessionAssociation.unscoped.find_or_create_by!(
         representation_session: self,
         tenant_id: tenant_id,
-        studio_id: studio_id,
+        superagent_id: superagent_id,
         resource_type: semantic_event[:main_resource][:type],
         resource_id: semantic_event[:main_resource][:id],
-        resource_studio_id: semantic_event[:studio_id],
+        resource_superagent_id: semantic_event[:superagent_id],
       )
       semantic_event[:main_resource]['association_id'] = association.id
       semantic_event[:sub_resources].each do |sub_resource|
         RepresentationSessionAssociation.unscoped.find_or_create_by!(
           representation_session: self,
           tenant_id: tenant_id,
-          studio_id: studio_id,
+          superagent_id: superagent_id,
           resource_type: sub_resource[:type],
           resource_id: sub_resource[:id],
-          resource_studio_id: semantic_event[:studio_id],
+          resource_superagent_id: semantic_event[:superagent_id],
         )
         sub_resource[:association_id] = association.id
       end
@@ -161,7 +161,7 @@ class RepresentationSession < ApplicationRecord
 
   sig { returns(String) }
   def path
-    "/studios/#{T.must(studio).handle}/r/#{truncated_id}"
+    "/studios/#{T.must(superagent).handle}/r/#{truncated_id}"
   end
 
   sig { returns(String) }
@@ -185,11 +185,11 @@ class RepresentationSession < ApplicationRecord
       resource_model = semantic_event['main_resource']['type'].constantize
       main_resource = resource_model.unscoped.find_by(id: semantic_event['main_resource']['id'])
       main_resource ||= DeletedRecordProxy.new
-      studio = main_resource.studio
+      superagent = main_resource.superagent
       {
         happened_at: happened_at,
         verb_phrase: verb_phrase,
-        studio: studio,
+        superagent: superagent,
         main_resource: main_resource,
       }
     end.compact, T.nilable(T::Array[T::Hash[Symbol, T.untyped]]))

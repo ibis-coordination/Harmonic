@@ -1,12 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
 
-export default class SubagentStudioAdderController extends Controller {
-  static targets = ["form", "select", "studioList"]
+export default class SubagentSuperagentAdderController extends Controller {
+  static targets = ["form", "select", "superagentList"]
   static values = { removeUrl: String }
 
   declare readonly formTarget: HTMLFormElement
   declare readonly selectTarget: HTMLSelectElement
-  declare readonly studioListTarget: HTMLElement
+  declare readonly superagentListTarget: HTMLElement
   declare readonly hasSelectTarget: boolean
   declare readonly hasFormTarget: boolean
   declare readonly removeUrlValue: string
@@ -21,8 +21,8 @@ export default class SubagentStudioAdderController extends Controller {
 
     if (!this.hasSelectTarget) return
 
-    const studioId = this.selectTarget.value
-    if (!studioId) return
+    const superagentId = this.selectTarget.value
+    if (!superagentId) return
 
     const url = this.formTarget.action
 
@@ -33,17 +33,17 @@ export default class SubagentStudioAdderController extends Controller {
         "X-CSRF-Token": this.csrfToken,
         "Accept": "application/json",
       },
-      body: JSON.stringify({ studio_id: studioId }),
+      body: JSON.stringify({ superagent_id: superagentId }),
     })
       .then((response) => {
         if (response.ok) return response.json()
         throw new Error("Failed to add to studio")
       })
-      .then((data: { studio_id: number; studio_name: string; studio_path: string }) => {
+      .then((data: { superagent_id: number; superagent_name: string; superagent_path: string }) => {
         // Add studio to the list
-        this.addStudioToList(data)
+        this.addSuperagentToList(data)
         // Remove option from select
-        this.removeOptionFromSelect(String(data.studio_id))
+        this.removeOptionFromSelect(String(data.superagent_id))
       })
       .catch((error) => {
         console.error("Error adding to studio:", error)
@@ -55,13 +55,13 @@ export default class SubagentStudioAdderController extends Controller {
     event.preventDefault()
 
     const button = event.currentTarget as HTMLButtonElement
-    const studioId = button.dataset.studioId
-    const studioName = button.dataset.studioName || "this studio"
+    const superagentId = button.dataset.superagentId
+    const superagentName = button.dataset.superagentName || "this studio"
     const url = this.removeUrlValue
 
-    if (!studioId || !url) return
+    if (!superagentId || !url) return
 
-    if (!confirm(`Remove this subagent from ${studioName}?`)) return
+    if (!confirm(`Remove this subagent from ${superagentName}?`)) return
 
     fetch(url, {
       method: "DELETE",
@@ -70,18 +70,18 @@ export default class SubagentStudioAdderController extends Controller {
         "X-CSRF-Token": this.csrfToken,
         "Accept": "application/json",
       },
-      body: JSON.stringify({ studio_id: studioId }),
+      body: JSON.stringify({ superagent_id: superagentId }),
     })
       .then((response) => {
         if (response.ok) return response.json()
         throw new Error("Failed to remove from studio")
       })
-      .then((data: { studio_id: number; studio_name: string }) => {
+      .then((data: { superagent_id: number; superagent_name: string }) => {
         // Remove studio from list
-        this.removeStudioFromList(String(data.studio_id))
+        this.removeSuperagentFromList(String(data.superagent_id))
         // Add option back to select if it exists
         if (this.hasSelectTarget) {
-          this.addOptionToSelect(String(data.studio_id), data.studio_name)
+          this.addOptionToSelect(String(data.superagent_id), data.superagent_name)
         }
       })
       .catch((error) => {
@@ -90,34 +90,34 @@ export default class SubagentStudioAdderController extends Controller {
       })
   }
 
-  private addStudioToList(data: { studio_id: number; studio_name: string; studio_path: string }): void {
+  private addSuperagentToList(data: { superagent_id: number; superagent_name: string; superagent_path: string }): void {
     // Remove "None" message if present
-    const noneMessage = this.studioListTarget.querySelector(".none-message")
+    const noneMessage = this.superagentListTarget.querySelector(".none-message")
     if (noneMessage) noneMessage.remove()
 
     // Create new studio item as <li>
     const item = document.createElement("li")
     item.className = "studio-item"
-    item.dataset.studioId = String(data.studio_id)
-    item.innerHTML = `<a href="${data.studio_path}">${data.studio_name}</a> <button type="button" class="button-small button-danger" data-action="subagent-studio-adder#remove" data-studio-id="${data.studio_id}" data-studio-name="${data.studio_name}">Remove from studio</button>`
+    item.dataset.superagentId = String(data.superagent_id)
+    item.innerHTML = `<a href="${data.superagent_path}">${data.superagent_name}</a> <button type="button" class="button-small button-danger" data-action="subagent-superagent-adder#remove" data-superagent-id="${data.superagent_id}" data-superagent-name="${data.superagent_name}">Remove from studio</button>`
 
     // Add to the list
-    this.studioListTarget.appendChild(item)
+    this.superagentListTarget.appendChild(item)
   }
 
-  private removeStudioFromList(studioId: string): void {
-    const item = this.studioListTarget.querySelector(`.studio-item[data-studio-id="${studioId}"]`)
+  private removeSuperagentFromList(superagentId: string): void {
+    const item = this.superagentListTarget.querySelector(`.studio-item[data-superagent-id="${superagentId}"]`)
     if (item) {
       item.remove()
     }
 
     // Show "None" if no studios left
-    const remainingItems = this.studioListTarget.querySelectorAll(".studio-item")
+    const remainingItems = this.superagentListTarget.querySelectorAll(".studio-item")
     if (remainingItems.length === 0) {
       const noneMessage = document.createElement("li")
       noneMessage.className = "none-message"
       noneMessage.innerHTML = "<em>Not a member of any studios</em>"
-      this.studioListTarget.appendChild(noneMessage)
+      this.superagentListTarget.appendChild(noneMessage)
     }
 
     // Show the form if it was hidden
@@ -126,9 +126,9 @@ export default class SubagentStudioAdderController extends Controller {
     }
   }
 
-  private removeOptionFromSelect(studioId: string): void {
+  private removeOptionFromSelect(superagentId: string): void {
     if (!this.hasSelectTarget) return
-    const option = this.selectTarget.querySelector(`option[value="${studioId}"]`)
+    const option = this.selectTarget.querySelector(`option[value="${superagentId}"]`)
     if (option) option.remove()
     this.selectTarget.value = ""
 
@@ -138,11 +138,11 @@ export default class SubagentStudioAdderController extends Controller {
     }
   }
 
-  private addOptionToSelect(studioId: string, studioName: string): void {
+  private addOptionToSelect(superagentId: string, superagentName: string): void {
     if (!this.hasSelectTarget) return
     const option = document.createElement("option")
-    option.value = studioId
-    option.text = studioName
+    option.value = superagentId
+    option.text = superagentName
     this.selectTarget.appendChild(option)
   }
 }

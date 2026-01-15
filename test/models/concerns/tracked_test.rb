@@ -2,11 +2,11 @@ require "test_helper"
 
 class TrackedTest < ActiveSupport::TestCase
   test "creating a note creates a note.created event" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     assert_difference "Event.count", 1 do
-      create_note(tenant: tenant, studio: studio, created_by: user, text: "Test note")
+      create_note(tenant: tenant, superagent: superagent, created_by: user, text: "Test note")
     end
 
     event = Event.last
@@ -16,10 +16,10 @@ class TrackedTest < ActiveSupport::TestCase
   end
 
   test "updating a note creates a note.updated event" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    note = create_note(tenant: tenant, studio: studio, created_by: user, text: "Original text")
+    note = create_note(tenant: tenant, superagent: superagent, created_by: user, text: "Original text")
 
     assert_difference "Event.count", 1 do
       note.update!(text: "Updated text")
@@ -32,10 +32,10 @@ class TrackedTest < ActiveSupport::TestCase
   end
 
   test "updating only updated_at does not create an event" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    note = create_note(tenant: tenant, studio: studio, created_by: user, text: "Test")
+    note = create_note(tenant: tenant, superagent: superagent, created_by: user, text: "Test")
 
     assert_no_difference "Event.count" do
       note.update_column(:updated_at, Time.current)
@@ -43,10 +43,10 @@ class TrackedTest < ActiveSupport::TestCase
   end
 
   test "deleting a note creates a note.deleted event" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    note = create_note(tenant: tenant, studio: studio, created_by: user, text: "Test note")
+    note = create_note(tenant: tenant, superagent: superagent, created_by: user, text: "Test note")
     note_id = note.id
 
     assert_difference "Event.count", 1 do
@@ -60,11 +60,11 @@ class TrackedTest < ActiveSupport::TestCase
   end
 
   test "creating a decision creates a decision.created event" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     assert_difference "Event.count", 1 do
-      create_decision(tenant: tenant, studio: studio, created_by: user)
+      create_decision(tenant: tenant, superagent: superagent, created_by: user)
     end
 
     event = Event.last
@@ -73,11 +73,11 @@ class TrackedTest < ActiveSupport::TestCase
   end
 
   test "creating a commitment creates a commitment.created event" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
     assert_difference "Event.count", 1 do
-      create_commitment(tenant: tenant, studio: studio, created_by: user)
+      create_commitment(tenant: tenant, superagent: superagent, created_by: user)
     end
 
     event = Event.last
@@ -86,10 +86,10 @@ class TrackedTest < ActiveSupport::TestCase
   end
 
   test "event metadata includes truncated_id and text" do
-    tenant, studio, user = create_tenant_studio_user
-    Studio.scope_thread_to_studio(subdomain: tenant.subdomain, handle: studio.handle)
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    note = create_note(tenant: tenant, studio: studio, created_by: user, text: "Hello world")
+    note = create_note(tenant: tenant, superagent: superagent, created_by: user, text: "Hello world")
 
     event = Event.last
     assert_equal note.truncated_id, event.metadata["truncated_id"]

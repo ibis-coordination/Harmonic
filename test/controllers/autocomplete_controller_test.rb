@@ -3,7 +3,7 @@ require "test_helper"
 class AutocompleteControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
@@ -11,7 +11,7 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
   # === Unauthenticated Access Tests ===
 
   test "unauthenticated user gets 401 for users autocomplete" do
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: "test" }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: "test" }, headers: { "Accept" => "application/json" }
     assert_response :unauthorized
   end
 
@@ -19,7 +19,7 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
 
   test "authenticated user can search users in studio" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: @user.tenant_user.handle[0, 2] }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: @user.tenant_user.handle[0, 2] }, headers: { "Accept" => "application/json" }
     assert_response :success
     json_response = JSON.parse(response.body)
     assert json_response.is_a?(Array)
@@ -29,14 +29,14 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
     # Create additional users to test sorting
     alice = create_user(email: "alice@example.com", name: "Alice Testperson")
     @tenant.add_user!(alice)
-    @studio.add_user!(alice)
+    @superagent.add_user!(alice)
 
     bob = create_user(email: "bob@example.com", name: "Bob Testperson")
     @tenant.add_user!(bob)
-    @studio.add_user!(bob)
+    @superagent.add_user!(bob)
 
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: "" }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: "" }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -53,7 +53,7 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
 
     # Get the first few characters of the user's handle to search
     search_term = @user.tenant_user.handle[0, 2]
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -74,7 +74,7 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
 
     # Search by display name
     search_term = @user.tenant_user.display_name[0, 2].downcase
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -86,13 +86,13 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
 
     # Search with uppercase
     search_term = @user.tenant_user.handle[0, 2].upcase
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response_upper = JSON.parse(response.body)
 
     # Search with lowercase
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: search_term.downcase }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: search_term.downcase }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response_lower = JSON.parse(response.body)
@@ -106,7 +106,7 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
 
     # Search for the user
     search_term = @user.tenant_user.handle[0, 3]
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -123,7 +123,7 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     # Use a very common search term that might match many users
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: "a" }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: "a" }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -134,13 +134,13 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
     # Create a second user who is a member of a different studio
     other_user = create_user(email: "other@example.com", name: "Otheruser Testperson")
     @tenant.add_user!(other_user) # handle will be "otheruser-testperson" based on name
-    other_studio = create_studio(tenant: @tenant, created_by: @user, name: "Other Studio", handle: "other-studio")
-    other_studio.add_user!(other_user)
+    other_superagent = create_superagent(tenant: @tenant, created_by: @user, name: "Other Studio", handle: "other-studio")
+    other_superagent.add_user!(other_user)
 
     sign_in_as(@user, tenant: @tenant)
 
     # Search for "otheruser" which should match the other user's handle
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: "otheruser" }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: "otheruser" }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -154,12 +154,12 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
     # Create another user who IS a member of the studio
     member_user = create_user(email: "member@example.com", name: "Memberuser Testperson")
     @tenant.add_user!(member_user) # handle will be "memberuser-testperson" based on name
-    @studio.add_user!(member_user)
+    @superagent.add_user!(member_user)
 
     sign_in_as(@user, tenant: @tenant)
 
     # Search for "memberuser" which should match the member user's handle
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: "memberuser" }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: "memberuser" }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -175,7 +175,7 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
 
     # Search for the current user's handle - they should NOT appear in results
     search_term = @user.tenant_user.handle
-    get "/studios/#{@studio.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
+    get "/studios/#{@superagent.handle}/autocomplete/users", params: { q: search_term }, headers: { "Accept" => "application/json" }
     assert_response :success
 
     json_response = JSON.parse(response.body)

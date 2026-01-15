@@ -317,8 +317,8 @@ class CycleDataRow
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def build_studio(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def build_superagent(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
@@ -332,11 +332,11 @@ class CycleDataRow
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by!(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def create_studio(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def create_superagent(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Studio) }
-    def create_studio!(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
+    def create_superagent!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -368,8 +368,8 @@ class CycleDataRow
     sig { returns(T.untyped) }
     def reload_item; end
 
-    sig { returns(T.nilable(::Studio)) }
-    def reload_studio; end
+    sig { returns(T.nilable(::Superagent)) }
+    def reload_superagent; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -384,7 +384,7 @@ class CycleDataRow
     def reset_item; end
 
     sig { void }
-    def reset_studio; end
+    def reset_superagent; end
 
     sig { void }
     def reset_tenant; end
@@ -392,11 +392,11 @@ class CycleDataRow
     sig { void }
     def reset_updated_by; end
 
-    sig { returns(T.nilable(::Studio)) }
-    def studio; end
+    sig { returns(T.nilable(::Superagent)) }
+    def superagent; end
 
-    sig { params(value: T.nilable(::Studio)).void }
-    def studio=(value); end
+    sig { params(value: T.nilable(::Superagent)).void }
+    def superagent=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -1093,7 +1093,7 @@ class CycleDataRow
     def restore_participant_count!; end
 
     sig { void }
-    def restore_studio_id!; end
+    def restore_superagent_id!; end
 
     sig { void }
     def restore_tenant_id!; end
@@ -1171,10 +1171,10 @@ class CycleDataRow
     def saved_change_to_participant_count?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_studio_id; end
+    def saved_change_to_superagent_id; end
 
     sig { returns(T::Boolean) }
-    def saved_change_to_studio_id?; end
+    def saved_change_to_superagent_id?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_tenant_id; end
@@ -1207,49 +1207,49 @@ class CycleDataRow
     def saved_change_to_voter_count?; end
 
     sig { returns(T.nilable(::String)) }
-    def studio_id; end
+    def superagent_id; end
 
     sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def studio_id=(value); end
+    def superagent_id=(value); end
 
     sig { returns(T::Boolean) }
-    def studio_id?; end
+    def superagent_id?; end
 
     sig { returns(T.nilable(::String)) }
-    def studio_id_before_last_save; end
+    def superagent_id_before_last_save; end
 
     sig { returns(T.untyped) }
-    def studio_id_before_type_cast; end
+    def superagent_id_before_type_cast; end
 
     sig { returns(T::Boolean) }
-    def studio_id_came_from_user?; end
+    def superagent_id_came_from_user?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def studio_id_change; end
+    def superagent_id_change; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def studio_id_change_to_be_saved; end
+    def superagent_id_change_to_be_saved; end
 
     sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def studio_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
-    def studio_id_in_database; end
+    def superagent_id_in_database; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def studio_id_previous_change; end
+    def superagent_id_previous_change; end
 
     sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def studio_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
-    def studio_id_previously_was; end
+    def superagent_id_previously_was; end
 
     sig { returns(T.nilable(::String)) }
-    def studio_id_was; end
+    def superagent_id_was; end
 
     sig { void }
-    def studio_id_will_change!; end
+    def superagent_id_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def tenant_id; end
@@ -1517,7 +1517,7 @@ class CycleDataRow
     def will_save_change_to_participant_count?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_studio_id?; end
+    def will_save_change_to_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

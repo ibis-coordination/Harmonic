@@ -1,6 +1,6 @@
 # typed: false
 
-module HasRoles # TenantUser, StudioUser, ...
+module HasRoles # TenantUser, SuperagentMember, ...
   extend ActiveSupport::Concern
 
   def roles

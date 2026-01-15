@@ -3,52 +3,52 @@ require "test_helper"
 class StudiosControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @studio = @global_studio
+    @superagent = @global_superagent
     @user = @global_user
-    # Make user an admin of the studio
-    studio_user = @studio.studio_users.find_by(user: @user)
-    studio_user.add_role!('admin') if studio_user
+    # Make user an admin of the superagent
+    superagent_member = @superagent.superagent_members.find_by(user: @user)
+    superagent_member.add_role!('admin') if superagent_member
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
-  def create_test_studio(name: "Test Studio", handle: "test-studio-#{SecureRandom.hex(4)}")
+  def create_test_superagent(name: "Test Studio", handle: "test-superagent-#{SecureRandom.hex(4)}")
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
-    studio = Studio.create!(
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    superagent = Superagent.create!(
       tenant: @tenant,
       created_by: @user,
       name: name,
       handle: handle
     )
-    studio.add_user!(@user)
-    Studio.clear_thread_scope
+    superagent.add_user!(@user)
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
-    studio
+    superagent
   end
 
   # === Unauthenticated Access Tests ===
 
-  test "unauthenticated user is redirected from studio homepage" do
-    get "/studios/#{@studio.handle}"
+  test "unauthenticated user is redirected from superagent homepage" do
+    get "/studios/#{@superagent.handle}"
     assert_response :redirect
   end
 
-  test "unauthenticated user is redirected from new studio form" do
+  test "unauthenticated user is redirected from new superagent form" do
     get "/studios/new"
     assert_response :redirect
   end
 
   # === Show Studio Tests ===
 
-  test "authenticated user can view studio homepage" do
+  test "authenticated user can view superagent homepage" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@studio.handle}"
+    get "/studios/#{@superagent.handle}"
     assert_response :success
   end
 
   # === New Studio Tests ===
 
-  test "authenticated user can access new studio form" do
+  test "authenticated user can access new superagent form" do
     sign_in_as(@user, tenant: @tenant)
     get "/studios/new"
     assert_response :success
@@ -56,11 +56,11 @@ class StudiosControllerTest < ActionDispatch::IntegrationTest
 
   # === Create Studio Tests ===
 
-  test "authenticated user can create a studio" do
+  test "authenticated user can create a superagent" do
     sign_in_as(@user, tenant: @tenant)
     unique_handle = "new-studio-#{SecureRandom.hex(4)}"
 
-    assert_difference "Studio.count", 1 do
+    assert_difference "Superagent.count", 1 do
       post "/studios", params: {
         name: "New Studio",
         handle: unique_handle,
@@ -68,29 +68,29 @@ class StudiosControllerTest < ActionDispatch::IntegrationTest
       }
     end
 
-    studio = Studio.find_by(handle: unique_handle)
-    assert_not_nil studio
-    assert_equal "New Studio", studio.name
-    assert_equal @user, studio.created_by
+    superagent = Superagent.find_by(handle: unique_handle)
+    assert_not_nil superagent
+    assert_equal "New Studio", superagent.name
+    assert_equal @user, superagent.created_by
     assert_response :redirect
   end
 
   # === Settings Tests ===
 
-  test "studio admin can access settings" do
+  test "superagent admin can access settings" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@studio.handle}/settings"
+    get "/studios/#{@superagent.handle}/settings"
     assert_response :success
   end
 
-  test "non-admin cannot access studio settings" do
+  test "non-admin cannot access superagent settings" do
     other_user = create_user(name: "Regular User")
     @tenant.add_user!(other_user)
-    @studio.add_user!(other_user)
+    @superagent.add_user!(other_user)
     # Don't add admin role
 
     sign_in_as(other_user, tenant: @tenant)
-    get "/studios/#{@studio.handle}/settings"
+    get "/studios/#{@superagent.handle}/settings"
     # Should show an error message (rendered with 200)
     assert_response :success
     assert_match /admin/i, response.body
@@ -98,47 +98,47 @@ class StudiosControllerTest < ActionDispatch::IntegrationTest
 
   # === Update Settings Tests ===
 
-  test "studio admin can update settings" do
+  test "superagent admin can update settings" do
     sign_in_as(@user, tenant: @tenant)
     # Settings update uses POST, redirects to referrer so we need to set that header
-    post "/studios/#{@studio.handle}/settings",
+    post "/studios/#{@superagent.handle}/settings",
       params: {
         name: "Updated Studio Name",
         description: "Updated description",
         timezone: "America/New_York",
         tempo: "weekly"
       },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@studio.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@superagent.handle}/settings" }
 
-    @studio.reload
-    assert_equal "Updated Studio Name", @studio.name
-    assert_equal "Updated description", @studio.description
+    @superagent.reload
+    assert_equal "Updated Studio Name", @superagent.name
+    assert_equal "Updated description", @superagent.description
     assert_response :redirect
   end
 
-  test "non-admin cannot update studio settings" do
+  test "non-admin cannot update superagent settings" do
     other_user = create_user(name: "Regular User")
     @tenant.add_user!(other_user)
-    @studio.add_user!(other_user)
+    @superagent.add_user!(other_user)
 
-    original_name = @studio.name
+    original_name = @superagent.name
 
     sign_in_as(other_user, tenant: @tenant)
-    post "/studios/#{@studio.handle}/settings",
+    post "/studios/#{@superagent.handle}/settings",
       params: { name: "Hacked Name" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@studio.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@superagent.handle}/settings" }
 
-    @studio.reload
-    assert_equal original_name, @studio.name
+    @superagent.reload
+    assert_equal original_name, @superagent.name
     assert_response :forbidden
   end
 
   # === Team Tests ===
 
-  test "authenticated user can view studio team" do
-    skip "BUG: studios/team.html.erb template is missing - route and controller action exist but no template"
+  test "authenticated user can view superagent team" do
+    skip "BUG: superagents/team.html.erb template is missing - route and controller action exist but no template"
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@studio.handle}/team"
+    get "/studios/#{@superagent.handle}/team"
     assert_response :success
   end
 
@@ -146,7 +146,7 @@ class StudiosControllerTest < ActionDispatch::IntegrationTest
 
   test "admin can access invite page" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@studio.handle}/invite"
+    get "/studios/#{@superagent.handle}/invite"
     assert_response :success
   end
 
@@ -163,7 +163,7 @@ class StudiosControllerTest < ActionDispatch::IntegrationTest
 
   test "handle_available returns false for taken handle" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/available", params: { handle: @studio.handle }
+    get "/studios/available", params: { handle: @superagent.handle }
     assert_response :success
 
     json = JSON.parse(response.body)
@@ -173,48 +173,48 @@ class StudiosControllerTest < ActionDispatch::IntegrationTest
   # === Join Studio Tests ===
 
   test "user can view join page with valid invite code" do
-    # Create a new studio for this test to avoid member conflicts
+    # Create a new superagent for this test to avoid member conflicts
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
-    test_studio = Studio.create!(
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    test_superagent = Superagent.create!(
       tenant: @tenant,
       created_by: @user,
       name: "Join Test Studio",
       handle: "join-test-#{SecureRandom.hex(4)}"
     )
-    test_studio.add_user!(@user)
-    Studio.clear_thread_scope
+    test_superagent.add_user!(@user)
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
 
     sign_in_as(@user, tenant: @tenant)
-    invite = test_studio.find_or_create_shareable_invite(@user)
+    invite = test_superagent.find_or_create_shareable_invite(@user)
 
-    # Create a new user who is NOT a member of test_studio
+    # Create a new user who is NOT a member of test_superagent
     new_user = create_user(name: "New Member")
     @tenant.add_user!(new_user)
-    # Don't add to test_studio
+    # Don't add to test_superagent
 
     sign_in_as(new_user, tenant: @tenant)
-    get "/studios/#{test_studio.handle}/join", params: { code: invite.code }
+    get "/studios/#{test_superagent.handle}/join", params: { code: invite.code }
     assert_response :success
   end
 
   # === Scene Tests ===
 
-  test "scene type studio uses scenes route" do
+  test "scene type superagent uses scenes route" do
     # Create the scene before signing in
     scene_handle = "test-scene-#{SecureRandom.hex(4)}"
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Studio.scope_thread_to_studio(subdomain: @tenant.subdomain, handle: @studio.handle)
-    scene = Studio.create!(
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    scene = Superagent.create!(
       tenant: @tenant,
       created_by: @user,
       name: "Test Scene",
       handle: scene_handle,
-      studio_type: "scene"
+      superagent_type: "scene"
     )
     scene.add_user!(@user)
-    Studio.clear_thread_scope
+    Superagent.clear_thread_scope
     Tenant.clear_thread_scope
 
     sign_in_as(@user, tenant: @tenant)

@@ -21,7 +21,7 @@ module Api::V1
             semantic_event: {
               timestamp: Time.current,
               event_type: 'create',
-              studio_id: current_studio.id,
+              superagent_id: current_superagent.id,
               main_resource: {
                 type: 'Commitment',
                 id: commitment.id,
@@ -56,7 +56,7 @@ module Api::V1
               semantic_event: {
                 timestamp: Time.current,
                 event_type: 'update',
-                studio_id: current_studio.id,
+                superagent_id: current_superagent.id,
                 main_resource: {
                   type: 'Commitment',
                   id: commitment.id,
@@ -88,7 +88,7 @@ module Api::V1
             semantic_event: {
               timestamp: Time.current,
               event_type: 'commit',
-              studio_id: current_studio.id,
+              superagent_id: current_superagent.id,
               main_resource: {
                 type: 'Commitment',
                 id: commitment.id,
