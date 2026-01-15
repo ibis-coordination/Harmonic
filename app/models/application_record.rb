@@ -2,6 +2,7 @@
 
 class ApplicationRecord < ActiveRecord::Base
   extend T::Sig
+  include SingleTenantMode
 
   primary_abstract_class
 

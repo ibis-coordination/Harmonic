@@ -47,6 +47,7 @@ services:
   # Uncomment the Caddy service and comment out the Ngrok service to use Caddy, and vice versa.
   caddy:
     image: caddy:2-alpine
+    profiles: ["caddy"]  # Only starts with --profile caddy or HOST_MODE != direct
     command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
     ports:
       - "80:80"

@@ -232,4 +232,78 @@ class TenantTest < ActiveSupport::TestCase
 
     assert_equal "A test tenant", tenant.description
   end
+
+  # === Single Tenant Mode Tests ===
+
+  test "Tenant.single_tenant_mode? returns false by default" do
+    ENV.delete('SINGLE_TENANT_MODE')
+    assert_not Tenant.single_tenant_mode?
+  end
+
+  test "Tenant.single_tenant_mode? returns true when env var set" do
+    ENV['SINGLE_TENANT_MODE'] = 'true'
+    assert Tenant.single_tenant_mode?
+  ensure
+    ENV.delete('SINGLE_TENANT_MODE')
+  end
+
+  test "Tenant.scope_thread_to_tenant handles empty subdomain in single-tenant mode" do
+    ENV['SINGLE_TENANT_MODE'] = 'true'
+    tenant = create_tenant(subdomain: ENV['PRIMARY_SUBDOMAIN'])
+
+    # Empty subdomain should resolve to PRIMARY_SUBDOMAIN tenant
+    result = Tenant.scope_thread_to_tenant(subdomain: "")
+    assert_equal tenant.id, result.id
+    assert_equal tenant.id, Tenant.current_id
+  ensure
+    ENV.delete('SINGLE_TENANT_MODE')
+  end
+
+  test "Tenant.scope_thread_to_tenant raises for empty subdomain in multi-tenant mode" do
+    ENV.delete('SINGLE_TENANT_MODE')
+
+    assert_raises RuntimeError, "Invalid subdomain" do
+      Tenant.scope_thread_to_tenant(subdomain: "")
+    end
+  end
+
+  test "Tenant.domain returns hostname without subdomain in single-tenant mode" do
+    ENV['SINGLE_TENANT_MODE'] = 'true'
+    tenant = create_tenant(subdomain: "example")
+
+    assert_equal ENV['HOSTNAME'], tenant.domain
+  ensure
+    ENV.delete('SINGLE_TENANT_MODE')
+  end
+
+  test "Tenant.domain returns subdomain.hostname in multi-tenant mode" do
+    ENV.delete('SINGLE_TENANT_MODE')
+    tenant = create_tenant(subdomain: "example")
+
+    assert_equal "example.#{ENV['HOSTNAME']}", tenant.domain
+  end
+
+  test "Tenant.url returns http for localhost in single-tenant mode" do
+    ENV['SINGLE_TENANT_MODE'] = 'true'
+    original_hostname = ENV['HOSTNAME']
+    ENV['HOSTNAME'] = 'localhost:3000'
+    tenant = create_tenant(subdomain: "example")
+
+    assert_equal "http://localhost:3000", tenant.url
+  ensure
+    ENV.delete('SINGLE_TENANT_MODE')
+    ENV['HOSTNAME'] = original_hostname
+  end
+
+  test "Tenant.url returns https for non-localhost in single-tenant mode" do
+    ENV['SINGLE_TENANT_MODE'] = 'true'
+    original_hostname = ENV['HOSTNAME']
+    ENV['HOSTNAME'] = 'app.example.com'
+    tenant = create_tenant(subdomain: "example")
+
+    assert_equal "https://app.example.com", tenant.url
+  ensure
+    ENV.delete('SINGLE_TENANT_MODE')
+    ENV['HOSTNAME'] = original_hostname
+  end
 end

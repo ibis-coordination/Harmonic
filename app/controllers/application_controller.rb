@@ -8,9 +8,14 @@ class ApplicationController < ActionController::Base
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
   def check_auth_subdomain
+    return if single_tenant_mode?
     if request.subdomain == auth_subdomain && !is_auth_controller?
       redirect_to '/login'
     end
+  end
+
+  def single_tenant_mode?
+    ENV['SINGLE_TENANT_MODE'] == 'true'
   end
 
   def current_app

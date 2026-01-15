@@ -78,4 +78,50 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "New User", new_user.name
     assert_equal "person", new_user.user_type
   end
+
+  # === Single Tenant Mode Tests ===
+
+  test "login works without subdomain in single-tenant mode" do
+    skip "Honor system routes not loaded" unless honor_system_routes_available?
+
+    ENV['SINGLE_TENANT_MODE'] = 'true'
+
+    # Create tenant matching PRIMARY_SUBDOMAIN
+    tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN']) ||
+             Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
+    user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
+    tenant.add_user!(user)
+    tenant.create_main_superagent!(created_by: user) unless tenant.main_superagent
+
+    # Use localhost without subdomain
+    host! ENV['HOSTNAME']
+
+    post "/login", params: { email: user.email }
+
+    assert_response :redirect
+  ensure
+    ENV.delete('SINGLE_TENANT_MODE')
+  end
+
+  test "login creates session correctly in single-tenant mode" do
+    skip "Honor system routes not loaded" unless honor_system_routes_available?
+
+    ENV['SINGLE_TENANT_MODE'] = 'true'
+
+    tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN']) ||
+             Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
+    user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
+    tenant.add_user!(user)
+    tenant.create_main_superagent!(created_by: user) unless tenant.main_superagent
+
+    host! ENV['HOSTNAME']
+
+    post "/login", params: { email: user.email }
+
+    # Verify we can access protected resource
+    get "/"
+    assert_response :success
+  ensure
+    ENV.delete('SINGLE_TENANT_MODE')
+  end
 end

@@ -37,6 +37,11 @@ class Superagent < ApplicationRecord
 
   sig { params(subdomain: String, handle: T.nilable(String)).returns(Superagent) }
   def self.scope_thread_to_superagent(subdomain:, handle:)
+    # In single-tenant mode, treat empty/blank subdomain as PRIMARY_SUBDOMAIN
+    if Tenant.single_tenant_mode? && subdomain.blank?
+      subdomain = Tenant.single_tenant_subdomain.to_s
+    end
+
     tenant = Tenant.scope_thread_to_tenant(subdomain: subdomain)
     superagent = handle ? tenant.superagents.find_by!(handle: handle) : tenant.main_superagent
     if superagent.nil? && subdomain == ENV['AUTH_SUBDOMAIN']

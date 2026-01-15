@@ -80,5 +80,15 @@ Rails.application.configure do
   # Add Docker container IP subnet to the list of allowed networks
   config.web_console.allowed_ips = ['127.0.0.0/8', '::1', '172.16.0.0/12']
 
-  config.hosts << Regexp.new(".*\.#{ENV['HOSTNAME']}")
+  # Host validation configuration
+  config.hosts << ENV['HOSTNAME'] if ENV['HOSTNAME'].present?
+  config.hosts << 'localhost'
+  config.hosts << /localhost:\d+/
+  config.hosts << '127.0.0.1'
+  config.hosts << /127\.0\.0\.1:\d+/
+
+  # Only add subdomain pattern in multi-tenant mode
+  unless ENV['SINGLE_TENANT_MODE'] == 'true'
+    config.hosts << Regexp.new(".*\.#{ENV['HOSTNAME']}") if ENV['HOSTNAME'].present?
+  end
 end
