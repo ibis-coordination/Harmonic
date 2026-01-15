@@ -10,7 +10,15 @@ class Webhook < ApplicationRecord
   has_many :webhook_deliveries, dependent: :destroy
 
   validates :name, presence: true
-  validates :url, presence: true, format: { with: /\Ahttps:\/\//, message: "must use HTTPS" }
+  validates :url, presence: true
+  validate :url_must_use_https_in_production
+
+  sig { void }
+  def url_must_use_https_in_production
+    return if Rails.env.development? || Rails.env.test?
+    return if url.blank?
+    errors.add(:url, "must use HTTPS") unless url.start_with?("https://")
+  end
   validates :secret, presence: true
   validates :events, presence: true
 

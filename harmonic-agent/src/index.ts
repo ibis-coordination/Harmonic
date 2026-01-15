@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Effect } from "effect";
 import { loadConfig } from "./config/Config.js";
 import { createAppLayer, runApp } from "./main.js";
