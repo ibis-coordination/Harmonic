@@ -1,4 +1,4 @@
-\restrict xIodjCCJ8EPSCnY6H7Yhnp1hBDzLd32tQ3Xg8KhDnvoFfazuvF8QXXUc8WC4FyF
+\restrict QODWV0R4KVmghKtV1E24dIiUMAjzYrv8XEqJZEApNB3mUBEUg2gBvkK4t7l6Kpy
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -2690,7 +2690,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xIodjCCJ8EPSCnY6H7Yhnp1hBDzLd32tQ3Xg8KhDnvoFfazuvF8QXXUc8WC4FyF
+\unrestrict QODWV0R4KVmghKtV1E24dIiUMAjzYrv8XEqJZEApNB3mUBEUg2gBvkK4t7l6Kpy
 
 SET search_path TO "$user", public;
 
@@ -2795,6 +2795,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260111113916'),
 ('20260111124237'),
 ('20260112131013'),
-('20260115044701');
+('20260115044701'),
+('20260115180000');
 
 
