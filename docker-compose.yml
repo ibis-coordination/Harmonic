@@ -10,7 +10,6 @@ services:
       # In production, the web container is behind a reverse proxy (Caddy).
       - "3000:3000"
     depends_on:
-      - db
       - js
     env_file:
       - .env
@@ -28,26 +27,18 @@ services:
     volumes:
       - .:/app
     depends_on:
-      - db
       - redis
-    env_file:
-      - .env
-  db:
-    image: postgres:13
-    volumes:
-      - pg_data:/var/lib/postgresql/data
     env_file:
       - .env
   redis:
     image: redis:6.2-alpine
     volumes:
       - redis_data:/data
-  # Use either Caddy or Ngrok but not both at the same time.
-  # Set HOST_MODE to "caddy" or "ngrok" in the .env file.
-  # Uncomment the Caddy service and comment out the Ngrok service to use Caddy, and vice versa.
+  # Reverse proxy options - set HOST_MODE in .env to "caddy", "ngrok", or "direct"
+  # Only one runs at a time based on the profile selected by start.sh
   caddy:
     image: caddy:2-alpine
-    profiles: ["caddy"]  # Only starts with --profile caddy or HOST_MODE != direct
+    profiles: ["caddy"]
     command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
     ports:
       - "80:80"
@@ -62,35 +53,19 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - ./Caddyfile:/etc/caddy/Caddyfile
-  # ngrok:
-  #   image: ngrok/ngrok:latest
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - web
-  #   command: http web:3000
-  #   env_file:
-  #     # Make sure your NGROK_AUTHTOKEN is set in the .env file, and HOST_MODE is set to "ngrok".
-  #     - .env
-  clamav:
-    image: clamav/clamav:stable
-    platform: linux/amd64
-    volumes:
-      - clamav_data:/var/lib/clamav
-    # ClamAV exposes clamd on port 3310
-    # No need to expose externally, just for internal docker network
-
-  # # For development only
-  mailcatcher:
-    image: sj26/mailcatcher
-    ports: ["1080:1080"]
-    environment:
-      MAILCATCHER_SMTP_PORT: 1025
-      MAILCATCHER_HTTP_PORT: 1080
+  ngrok:
+    image: ngrok/ngrok:latest
+    profiles: ["ngrok"]
+    restart: unless-stopped
+    depends_on:
+      - web
+    command: http web:3000
+    env_file:
+      # Make sure NGROK_AUTHTOKEN is set in .env
+      - .env
 
 volumes:
-  pg_data:
   redis_data:
   caddy_data:
   caddy_config:
   node_modules:
-  clamav_data:

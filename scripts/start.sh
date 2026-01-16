@@ -6,15 +6,28 @@ set -e
 # remove server.pid if exists to avoid error
 rm -f tmp/pids/server.pid
 
-# Load HOST_MODE from .env
+# Load environment variables from .env
 HOST_MODE=$(grep -E "^HOST_MODE=" .env | cut -d'=' -f2 | cut -d'#' -f1 | tr -d ' ')
+RAILS_ENV=$(grep -E "^RAILS_ENV=" .env | cut -d'=' -f2 | cut -d'#' -f1 | tr -d ' ')
 
-# Start with caddy profile if HOST_MODE is caddy
-if [ "$HOST_MODE" = "caddy" ]; then
-    docker compose --profile caddy up -d
+# Build compose command with appropriate files
+COMPOSE_FILES="-f docker-compose.yml"
+
+if [ "$RAILS_ENV" = "production" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.prod.yml"
 else
-    docker compose up -d
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.dev.yml"
 fi
 
-echo -e "Harmonic Team is now running on http://localhost:3000"
-echo -e "To stop Harmonic Team, run ./scripts/stop.sh"
+# Add profile for reverse proxy based on HOST_MODE
+PROFILES=""
+if [ "$HOST_MODE" = "caddy" ]; then
+    PROFILES="--profile caddy"
+elif [ "$HOST_MODE" = "ngrok" ]; then
+    PROFILES="--profile ngrok"
+fi
+
+docker compose $COMPOSE_FILES $PROFILES up -d
+
+echo -e "Harmonic is now running on http://localhost:3000"
+echo -e "To stop Harmonic, run ./scripts/stop.sh"

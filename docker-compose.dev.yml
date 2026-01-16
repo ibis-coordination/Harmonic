@@ -1,0 +1,33 @@
+# Development-only services
+# Used with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  # Local PostgreSQL database (production uses managed database)
+  db:
+    image: postgres:13
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+
+  # Add database dependency to web and sidekiq
+  web:
+    depends_on:
+      - db
+      - js
+
+  sidekiq:
+    depends_on:
+      - db
+      - redis
+
+  # Email catcher for development (view emails at http://localhost:1080)
+  mailcatcher:
+    image: sj26/mailcatcher
+    ports: ["1080:1080"]
+    environment:
+      MAILCATCHER_SMTP_PORT: 1025
+      MAILCATCHER_HTTP_PORT: 1080
+
+volumes:
+  pg_data:

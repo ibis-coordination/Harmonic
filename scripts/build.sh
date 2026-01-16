@@ -3,10 +3,7 @@ cd "$(dirname "$0")/.."
 
 set -e
 
-echo -e "Stopping Harmonic..."
-
 # Load environment variables from .env
-HOST_MODE=$(grep -E "^HOST_MODE=" .env | cut -d'=' -f2 | cut -d'#' -f1 | tr -d ' ')
 RAILS_ENV=$(grep -E "^RAILS_ENV=" .env | cut -d'=' -f2 | cut -d'#' -f1 | tr -d ' ')
 
 # Build compose command with appropriate files
@@ -18,14 +15,6 @@ else
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.dev.yml"
 fi
 
-# Add profile for reverse proxy based on HOST_MODE
-PROFILES=""
-if [ "$HOST_MODE" = "caddy" ]; then
-    PROFILES="--profile caddy"
-elif [ "$HOST_MODE" = "ngrok" ]; then
-    PROFILES="--profile ngrok"
-fi
-
-docker compose $COMPOSE_FILES $PROFILES down --remove-orphans
-
-echo -e "Harmonic is now stopped."
+echo -e "Building Harmonic images..."
+docker compose $COMPOSE_FILES build "$@"
+echo -e "Build complete."
