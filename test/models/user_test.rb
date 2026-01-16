@@ -408,5 +408,65 @@ class UserTest < ActiveSupport::TestCase
     assert_not test_user.valid?
     assert_includes test_user.errors[:parent_id], "user cannot be its own parent"
   end
+
+  # === Global Roles Tests (HasGlobalRoles concern) ===
+
+  test "app_admin? returns false by default" do
+    assert_not @user.app_admin?
+  end
+
+  test "app_admin? returns true when app_admin column is true" do
+    @user.update!(app_admin: true)
+    assert @user.app_admin?
+  end
+
+  test "sys_admin? returns false by default" do
+    assert_not @user.sys_admin?
+  end
+
+  test "sys_admin? returns true when sys_admin column is true" do
+    @user.update!(sys_admin: true)
+    assert @user.sys_admin?
+  end
+
+  test "add_global_role! sets app_admin to true" do
+    assert_not @user.app_admin?
+    @user.add_global_role!("app_admin")
+    assert @user.app_admin?
+  end
+
+  test "add_global_role! sets sys_admin to true" do
+    assert_not @user.sys_admin?
+    @user.add_global_role!("sys_admin")
+    assert @user.sys_admin?
+  end
+
+  test "add_global_role! raises error for invalid role" do
+    error = assert_raises(RuntimeError) do
+      @user.add_global_role!("invalid_role")
+    end
+    assert_match /Invalid global role/, error.message
+  end
+
+  test "remove_global_role! sets app_admin to false" do
+    @user.update!(app_admin: true)
+    assert @user.app_admin?
+    @user.remove_global_role!("app_admin")
+    assert_not @user.app_admin?
+  end
+
+  test "remove_global_role! sets sys_admin to false" do
+    @user.update!(sys_admin: true)
+    assert @user.sys_admin?
+    @user.remove_global_role!("sys_admin")
+    assert_not @user.sys_admin?
+  end
+
+  test "remove_global_role! raises error for invalid role" do
+    error = assert_raises(RuntimeError) do
+      @user.remove_global_role!("invalid_role")
+    end
+    assert_match /Invalid global role/, error.message
+  end
 end
 

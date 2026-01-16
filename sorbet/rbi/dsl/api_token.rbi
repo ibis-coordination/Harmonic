@@ -488,6 +488,51 @@ class ApiToken
   end
 
   module GeneratedAttributeMethods
+    sig { returns(T::Boolean) }
+    def app_admin; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def app_admin=(value); end
+
+    sig { returns(T::Boolean) }
+    def app_admin?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def app_admin_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def app_admin_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def app_admin_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def app_admin_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def app_admin_change_to_be_saved; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def app_admin_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def app_admin_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def app_admin_previous_change; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def app_admin_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def app_admin_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def app_admin_was; end
+
+    sig { void }
+    def app_admin_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -789,6 +834,9 @@ class ApiToken
     def name_will_change!; end
 
     sig { void }
+    def restore_app_admin!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -810,6 +858,12 @@ class ApiToken
     def restore_scopes!; end
 
     sig { void }
+    def restore_sys_admin!; end
+
+    sig { void }
+    def restore_tenant_admin!; end
+
+    sig { void }
     def restore_tenant_id!; end
 
     sig { void }
@@ -820,6 +874,12 @@ class ApiToken
 
     sig { void }
     def restore_user_id!; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_app_admin; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_app_admin?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -862,6 +922,18 @@ class ApiToken
 
     sig { returns(T::Boolean) }
     def saved_change_to_scopes?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_sys_admin; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_sys_admin?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_tenant_admin; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_tenant_admin?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
@@ -931,6 +1003,96 @@ class ApiToken
 
     sig { void }
     def scopes_will_change!; end
+
+    sig { returns(T::Boolean) }
+    def sys_admin; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def sys_admin=(value); end
+
+    sig { returns(T::Boolean) }
+    def sys_admin?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def sys_admin_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def sys_admin_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def sys_admin_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def sys_admin_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def sys_admin_change_to_be_saved; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def sys_admin_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def sys_admin_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def sys_admin_previous_change; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def sys_admin_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def sys_admin_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def sys_admin_was; end
+
+    sig { void }
+    def sys_admin_will_change!; end
+
+    sig { returns(T::Boolean) }
+    def tenant_admin; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def tenant_admin=(value); end
+
+    sig { returns(T::Boolean) }
+    def tenant_admin?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def tenant_admin_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def tenant_admin_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def tenant_admin_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def tenant_admin_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def tenant_admin_change_to_be_saved; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def tenant_admin_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def tenant_admin_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def tenant_admin_previous_change; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def tenant_admin_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def tenant_admin_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def tenant_admin_was; end
+
+    sig { void }
+    def tenant_admin_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1113,6 +1275,9 @@ class ApiToken
     def user_id_will_change!; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_app_admin?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_created_at?; end
 
     sig { returns(T::Boolean) }
@@ -1132,6 +1297,12 @@ class ApiToken
 
     sig { returns(T::Boolean) }
     def will_save_change_to_scopes?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_sys_admin?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_tenant_admin?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

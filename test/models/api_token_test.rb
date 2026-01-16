@@ -248,4 +248,84 @@ class ApiTokenTest < ActiveSupport::TestCase
 
     assert_equal 3, @user.api_tokens.count
   end
+
+  # === Admin Flag Tests ===
+
+  test "sys_admin? returns false by default" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    assert_not token.sys_admin?
+  end
+
+  test "sys_admin? returns true when sys_admin flag is set" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+      sys_admin: true
+    )
+    assert token.sys_admin?
+  end
+
+  test "app_admin? returns false by default" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    assert_not token.app_admin?
+  end
+
+  test "app_admin? returns true when app_admin flag is set" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+      app_admin: true
+    )
+    assert token.app_admin?
+  end
+
+  test "tenant_admin? returns false by default" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    assert_not token.tenant_admin?
+  end
+
+  test "tenant_admin? returns true when tenant_admin flag is set" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+      tenant_admin: true
+    )
+    assert token.tenant_admin?
+  end
+
+  test "admin flags can be combined" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+      sys_admin: true,
+      app_admin: true,
+      tenant_admin: true
+    )
+    assert token.sys_admin?
+    assert token.app_admin?
+    assert token.tenant_admin?
+  end
 end

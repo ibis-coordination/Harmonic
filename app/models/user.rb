@@ -4,6 +4,7 @@ class User < ApplicationRecord
   extend T::Sig
 
   include HasImage
+  include HasGlobalRoles
   self.implicit_order_column = "created_at"
   has_many :oauth_identities
   has_many :decision_participants

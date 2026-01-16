@@ -282,6 +282,25 @@ class Tenant < ApplicationRecord
     save!
   end
 
+  sig { returns(T::Boolean) }
+  def suspended?
+    suspended_at.present?
+  end
+
+  sig { params(reason: T.nilable(String)).void }
+  def suspend!(reason: nil)
+    self.suspended_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
+    self.suspended_reason = reason
+    save!
+  end
+
+  sig { void }
+  def activate!
+    self.suspended_at = nil
+    self.suspended_reason = nil
+    save!
+  end
+
   private
 
   sig { params(subdomain: T.nilable(String)).void }

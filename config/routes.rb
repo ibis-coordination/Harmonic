@@ -48,6 +48,16 @@ Rails.application.routes.draw do
         resources :api_tokens, path: 'tokens'
       end
     end
+
+    # Admin API for cross-tenant management (used by Harmonic Admin App)
+    namespace :app_admin do
+      resources :tenants, only: [:index, :create, :show, :update, :destroy] do
+        member do
+          post :suspend
+          post :activate
+        end
+      end
+    end
   end
   # Defines the root path route ("/")
   root 'home#index'

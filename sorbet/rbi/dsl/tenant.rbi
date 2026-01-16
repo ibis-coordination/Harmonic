@@ -977,51 +977,6 @@ class Tenant
     def id_will_change!; end
 
     sig { returns(T.nilable(::String)) }
-    def main_studio_id; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def main_studio_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def main_studio_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def main_studio_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def main_studio_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def main_studio_id_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def main_studio_id_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def main_studio_id_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def main_studio_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def main_studio_id_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def main_studio_id_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def main_studio_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def main_studio_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def main_studio_id_was; end
-
-    sig { void }
-    def main_studio_id_will_change!; end
-
-    sig { returns(T.nilable(::String)) }
     def main_superagent_id; end
 
     sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
@@ -1121,9 +1076,6 @@ class Tenant
     def restore_id!; end
 
     sig { void }
-    def restore_main_studio_id!; end
-
-    sig { void }
     def restore_main_superagent_id!; end
 
     sig { void }
@@ -1134,6 +1086,12 @@ class Tenant
 
     sig { void }
     def restore_subdomain!; end
+
+    sig { void }
+    def restore_suspended_at!; end
+
+    sig { void }
+    def restore_suspended_reason!; end
 
     sig { void }
     def restore_updated_at!; end
@@ -1155,12 +1113,6 @@ class Tenant
 
     sig { returns(T::Boolean) }
     def saved_change_to_id?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_main_studio_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_main_studio_id?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_main_superagent_id; end
@@ -1185,6 +1137,18 @@ class Tenant
 
     sig { returns(T::Boolean) }
     def saved_change_to_subdomain?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_suspended_at; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_suspended_at?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_suspended_reason; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_suspended_reason?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
@@ -1282,6 +1246,106 @@ class Tenant
     sig { void }
     def subdomain_will_change!; end
 
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def suspended_at; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def suspended_at=(value); end
+
+    sig { returns(T::Boolean) }
+    def suspended_at?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def suspended_at_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def suspended_at_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def suspended_at_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def suspended_at_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def suspended_at_change_to_be_saved; end
+
+    sig do
+      params(
+        from: T.nilable(::ActiveSupport::TimeWithZone),
+        to: T.nilable(::ActiveSupport::TimeWithZone)
+      ).returns(T::Boolean)
+    end
+    def suspended_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def suspended_at_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def suspended_at_previous_change; end
+
+    sig do
+      params(
+        from: T.nilable(::ActiveSupport::TimeWithZone),
+        to: T.nilable(::ActiveSupport::TimeWithZone)
+      ).returns(T::Boolean)
+    end
+    def suspended_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def suspended_at_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def suspended_at_was; end
+
+    sig { void }
+    def suspended_at_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def suspended_reason; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def suspended_reason=(value); end
+
+    sig { returns(T::Boolean) }
+    def suspended_reason?; end
+
+    sig { returns(T.nilable(::String)) }
+    def suspended_reason_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def suspended_reason_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def suspended_reason_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def suspended_reason_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def suspended_reason_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def suspended_reason_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def suspended_reason_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def suspended_reason_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def suspended_reason_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def suspended_reason_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def suspended_reason_was; end
+
+    sig { void }
+    def suspended_reason_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
 
@@ -1337,9 +1401,6 @@ class Tenant
     def will_save_change_to_id?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_main_studio_id?; end
-
-    sig { returns(T::Boolean) }
     def will_save_change_to_main_superagent_id?; end
 
     sig { returns(T::Boolean) }
@@ -1350,6 +1411,12 @@ class Tenant
 
     sig { returns(T::Boolean) }
     def will_save_change_to_subdomain?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_suspended_at?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_suspended_reason?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_updated_at?; end
