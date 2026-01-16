@@ -115,6 +115,21 @@ class ApiToken < ApplicationRecord
     !deleted_at.nil?
   end
 
+  sig { returns(T::Boolean) }
+  def sys_admin?
+    sys_admin == true
+  end
+
+  sig { returns(T::Boolean) }
+  def app_admin?
+    app_admin == true
+  end
+
+  sig { returns(T::Boolean) }
+  def tenant_admin?
+    tenant_admin == true
+  end
+
   sig { void }
   def delete!
     self.deleted_at ||= T.cast(Time.current, ActiveSupport::TimeWithZone)

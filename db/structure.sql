@@ -1,4 +1,4 @@
-\restrict QODWV0R4KVmghKtV1E24dIiUMAjzYrv8XEqJZEApNB3mUBEUg2gBvkK4t7l6Kpy
+\restrict pILnlhWkhD8tPR8ZhnfcSn1j9Gwou7HrwotyiUOub8IqOAhZTQRpjGzbU9xSRll
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -96,7 +96,10 @@ CREATE TABLE public.api_tokens (
     scopes jsonb DEFAULT '[]'::jsonb,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    deleted_at timestamp(6) without time zone
+    deleted_at timestamp(6) without time zone,
+    sys_admin boolean DEFAULT false NOT NULL,
+    app_admin boolean DEFAULT false NOT NULL,
+    tenant_admin boolean DEFAULT false NOT NULL
 );
 
 
@@ -658,7 +661,9 @@ CREATE TABLE public.tenants (
     updated_at timestamp(6) without time zone NOT NULL,
     settings jsonb DEFAULT '{}'::jsonb,
     main_superagent_id uuid,
-    archived_at timestamp(6) without time zone
+    archived_at timestamp(6) without time zone,
+    suspended_at timestamp(6) without time zone,
+    suspended_reason character varying
 );
 
 
@@ -693,7 +698,9 @@ CREATE TABLE public.users (
     updated_at timestamp(6) without time zone NOT NULL,
     image_url character varying,
     parent_id uuid,
-    user_type character varying DEFAULT 'person'::character varying
+    user_type character varying DEFAULT 'person'::character varying,
+    app_admin boolean DEFAULT false NOT NULL,
+    sys_admin boolean DEFAULT false NOT NULL
 );
 
 
@@ -2690,7 +2697,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict QODWV0R4KVmghKtV1E24dIiUMAjzYrv8XEqJZEApNB3mUBEUg2gBvkK4t7l6Kpy
+\unrestrict pILnlhWkhD8tPR8ZhnfcSn1j9Gwou7HrwotyiUOub8IqOAhZTQRpjGzbU9xSRll
 
 SET search_path TO "$user", public;
 
@@ -2796,6 +2803,9 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260111124237'),
 ('20260112131013'),
 ('20260115044701'),
-('20260115180000');
+('20260115180000'),
+('20260116180713'),
+('20260116180721'),
+('20260116180725');
 
 
