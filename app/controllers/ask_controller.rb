@@ -27,40 +27,6 @@ class AskController < ApplicationController
         if question.blank?
           render json: { success: false, error: "Please enter a question." }, status: :unprocessable_entity
         else
-          answer = ask_harmonic(question)
-          render json: { success: true, question: question, answer: answer }
-        end
-      end
-    end
-  end
-
-  def experiment
-    @page_title = "Ask Harmonic (Experimental)"
-    @question = nil
-    @answer = nil
-  end
-
-  def experiment_create
-    question = params[:question]
-
-    respond_to do |format|
-      format.html do
-        @page_title = "Ask Harmonic (Experimental)"
-        @question = question
-        if question.blank?
-          @answer = nil
-          flash.now[:alert] = "Please enter a question."
-        else
-          @answer = ask_harmonic(question)
-        end
-        render :experiment
-      end
-
-      format.json do
-        if question.blank?
-          render json: { success: false, error: "Please enter a question." }, status: :unprocessable_entity
-        else
-          # Skip system prompt for experiment to speed up responses
           result = trio_client.ask_with_details(question)
           voting = result.voting_details
           render json: {

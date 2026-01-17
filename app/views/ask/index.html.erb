@@ -1,10 +1,10 @@
 <h1>Ask Harmonic</h1>
 
-<p>Ask a question about how to use Harmonic. The AI assistant will help you understand the platform's features.</p>
+<p>Multiple AI models generate responses, then vote using acceptance voting to select the best answer.</p>
 
 <div data-controller="ask-chat" class="ask-chat-container">
   <%# Input form - works without JS as fallback %>
-  <%= form_with url: ask_path, method: :post, local: true, data: { action: "submit->ask-chat#submit" } do |form| %>
+  <%= form_with url: ask_path, method: :post, local: true, data: { action: "submit->ask-chat#submit", "ask-chat-target": "form" } do |form| %>
     <div class="ask-chat-input-container">
       <%= form.text_area :question,
           placeholder: "Ask a question about Harmonic...",
@@ -21,7 +21,7 @@
   <%# Loading indicator %>
   <div data-ask-chat-target="loading" class="ask-chat-loading" style="display: none;">
     <div class="ask-chat-spinner"></div>
-    <span>Thinking...</span>
+    <span>Generating responses and voting...</span>
   </div>
 
   <%# Result area - shows one Q&A pair %>
