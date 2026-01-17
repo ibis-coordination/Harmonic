@@ -152,4 +152,52 @@ class LlmClientTest < ActiveSupport::TestCase
         system_message["content"].include?("helpful assistant for Harmonic")
     end
   end
+
+  test "ask strips thinking tags from response" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: "<thinking>\nThe user is asking about notes.\nLet me explain how to create one.\n</thinking>\nTo create a note, click the 'New Note' button.",
+              },
+            },
+          ],
+        }.to_json,
+      )
+
+    client = LlmClient.new
+    response = client.ask("How do I create a note?")
+
+    assert_equal "To create a note, click the 'New Note' button.", response
+    assert_not_includes response, "<thinking>"
+    assert_not_includes response, "</thinking>"
+  end
+
+  test "ask handles response with no thinking tags" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: "This is a simple response without thinking tags.",
+              },
+            },
+          ],
+        }.to_json,
+      )
+
+    client = LlmClient.new
+    response = client.ask("Simple question")
+
+    assert_equal "This is a simple response without thinking tags.", response
+  end
 end
