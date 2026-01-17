@@ -21,6 +21,7 @@ This document describes the technical architecture of Harmonic. For design philo
 ├─────────────────────────────────────────────────────────────────────┤
 │  Services Layer                                                      │
 │  ├── ApiHelper (business logic)                                     │
+│  ├── MarkdownUiService (internal markdown UI for AI agents)         │
 │  ├── *ParticipantManager (participation logic)                      │
 │  └── LinkParser, MarkdownRenderer, etc.                             │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -256,6 +257,24 @@ Methods:
 Handle participation logic:
 - `DecisionParticipantManager` - voting
 - `CommitmentParticipantManager` - joining commitments
+
+### MarkdownUiService
+Renders the markdown UI without requiring a controller/HTTP request context.
+Enables AI agents to navigate the app internally from chat sessions.
+
+```ruby
+service = MarkdownUiService.new(tenant: tenant, superagent: superagent, user: user)
+result = service.navigate("/studios/team")
+result = service.execute_action("create_note", { text: "Hello" })
+```
+
+Components:
+- `MarkdownUiService` - main service with `navigate`, `set_path`, `execute_action`
+- `ViewContext` - provides template instance variables
+- `ResourceLoader` - loads resources based on routes
+- `ActionExecutor` - executes actions via ApiHelper
+
+See [docs/plans/MARKDOWN_UI_SERVICE_PLAN.md](plans/MARKDOWN_UI_SERVICE_PLAN.md) for full documentation.
 
 ### Other Services
 - `LinkParser` - parses content for links to other content
