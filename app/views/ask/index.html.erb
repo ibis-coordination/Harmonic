@@ -1,0 +1,23 @@
+<h1>Ask Harmonic</h1>
+
+<p>Ask questions about how to use Harmonic. The AI assistant will help you understand the platform's features.</p>
+
+<%= form_with url: ask_path, method: :post, local: true do |form| %>
+  <div style="margin-bottom: 1em;">
+    <%= form.text_area :question,
+        value: @question,
+        placeholder: "Ask a question about Harmonic...",
+        rows: 3,
+        style: "width: 100%; background: none; border: 1px solid var(--border-color); padding: 0.5em;",
+        autofocus: true %>
+  </div>
+  <%= form.submit "Ask", style: "cursor: pointer;" %>
+<% end %>
+
+<% if @answer %>
+  <hr style="margin: 1.5em 0;" />
+  <h2>Answer</h2>
+  <div class="answer" style="background: var(--bg-secondary); padding: 1em; border-radius: 4px;">
+    <%= simple_format @answer %>
+  </div>
+<% end %>

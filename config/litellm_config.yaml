@@ -1,0 +1,18 @@
+model_list:
+  # Default: Local Ollama model (1B params - lightweight)
+  - model_name: default
+    litellm_params:
+      model: ollama/llama3.2:1b
+      api_base: http://ollama:11434
+
+  # Optional: Anthropic Claude (requires ANTHROPIC_API_KEY env var)
+  - model_name: claude
+    litellm_params:
+      model: claude-sonnet-4-20250514
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # Optional: OpenAI (requires OPENAI_API_KEY env var)
+  - model_name: gpt-4
+    litellm_params:
+      model: gpt-4o
+      api_key: os.environ/OPENAI_API_KEY

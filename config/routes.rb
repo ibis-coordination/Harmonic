@@ -70,6 +70,10 @@ Rails.application.routes.draw do
   get 'help' => 'home#help'
   get 'contact' => 'home#contact'
 
+  # LLM Chat - Ask Harmonic
+  get 'ask' => 'ask#index'
+  post 'ask' => 'ask#create'
+
   # Notifications
   get 'notifications' => 'notifications#index'
   get 'notifications/unread_count' => 'notifications#unread_count'
