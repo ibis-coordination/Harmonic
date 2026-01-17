@@ -89,6 +89,21 @@ services:
       resources:
         limits:
           memory: 512M
+  trio:
+    build: ./trio
+    profiles: ["llm"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      - litellm
+    environment:
+      TRIO_MODELS: "default,default,default"  # 3x same model for local dev voting
+      TRIO_BACKEND_URL: "http://litellm:4000"
+      TRIO_TIMEOUT: "120"  # Longer timeout for large system prompts
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
 volumes:
   redis_data:

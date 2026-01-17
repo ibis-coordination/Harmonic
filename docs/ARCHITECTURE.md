@@ -283,6 +283,72 @@ See [docs/plans/MARKDOWN_UI_SERVICE_PLAN.md](plans/MARKDOWN_UI_SERVICE_PLAN.md) 
 - `DataDeletionManager` - handles data deletion
 - `ActionsHelper` - describes available API actions for LLM interface
 
+## LLM Services (Optional)
+
+Harmonic includes optional LLM-powered features. These run as separate Docker services under the `llm` profile.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Rails Application                                                   │
+│  ├── AskController (/ask)                                           │
+│  └── TrioClient (app/services/trio_client.rb)                       │
+└────────┬────────────────────────────────────────────────────────────┘
+         │ HTTP (OpenAI-compatible API)
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Trio (port 8000)                                                    │
+│  Voting ensemble service - queries multiple models, picks best      │
+└────────┬────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  LiteLLM (port 4000)                                                 │
+│  Unified gateway - routes to Ollama, Claude, OpenAI, etc.           │
+└────────┬────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Ollama (port 11434)          │  Claude API  │  OpenAI API          │
+│  Local models (llama, etc.)   │  (optional)  │  (optional)          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `TrioClient` | `app/services/trio_client.rb` | Ruby client for Trio API |
+| `HarmonicAssistant` | `app/services/concerns/harmonic_assistant.rb` | System prompt and response processing |
+| Trio | `trio/` | Python voting ensemble service |
+| LiteLLM config | `config/litellm_config.yaml` | Model routing configuration |
+
+### Starting LLM Services
+
+```bash
+# Start LLM services
+docker compose --profile llm up -d
+
+# Pull required Ollama models
+docker compose exec ollama ollama pull llama3.2:1b
+
+# Verify Trio is running
+curl http://localhost:8000/health
+```
+
+### Environment Variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `TRIO_BASE_URL` | `http://trio:8000` | Trio service URL |
+| `TRIO_TIMEOUT` | `120` | Request timeout in seconds |
+| `TRIO_MODELS` | `default,default,default` | Comma-separated model list for ensemble |
+| `ANTHROPIC_API_KEY` | - | For Claude models via LiteLLM |
+| `OPENAI_API_KEY` | - | For OpenAI models via LiteLLM |
+
+See [trio/README.md](../trio/README.md) for full Trio documentation.
+
 ## Frontend Architecture
 
 ### Hotwire (Turbo + Stimulus)

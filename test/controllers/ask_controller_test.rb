@@ -7,7 +7,7 @@ class AskControllerTest < ActionDispatch::IntegrationTest
     @superagent = @global_superagent
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
-    @base_url = ENV.fetch("LITELLM_BASE_URL", "http://litellm:4000")
+    @base_url = ENV.fetch("TRIO_BASE_URL", "http://trio:8000")
   end
 
   # === Index (GET /ask) Tests ===

@@ -5,6 +5,22 @@ model_list:
       model: ollama/llama3.2:1b
       api_base: http://ollama:11434
 
+  # Additional Ollama models for voting ensemble
+  - model_name: llama3.2-3b
+    litellm_params:
+      model: ollama/llama3.2:3b
+      api_base: http://ollama:11434
+
+  - model_name: mistral
+    litellm_params:
+      model: ollama/mistral
+      api_base: http://ollama:11434
+
+  - model_name: gemma2
+    litellm_params:
+      model: ollama/gemma2:2b
+      api_base: http://ollama:11434
+
   # Optional: Anthropic Claude (requires ANTHROPIC_API_KEY env var)
   - model_name: claude
     litellm_params:

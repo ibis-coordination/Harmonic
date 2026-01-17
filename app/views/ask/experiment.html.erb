@@ -1,0 +1,33 @@
+<h1>Ask Harmonic (Experimental)</h1>
+
+<p>Experimental multi-model voting: Multiple AI models generate responses, then vote using acceptance voting (accepted + preferred).</p>
+
+<div data-controller="ask-chat" class="ask-chat-container">
+  <%# Input form - works without JS as fallback %>
+  <%= form_with url: ask_experiment_path, method: :post, local: true, data: { action: "submit->ask-chat#submit", "ask-chat-target": "form" } do |form| %>
+    <div class="ask-chat-input-container">
+      <%= form.text_area :question,
+          placeholder: "Ask a question about Harmonic...",
+          rows: 2,
+          class: "ask-chat-input",
+          data: { "ask-chat-target": "input", action: "keydown->ask-chat#keydown" },
+          autofocus: true %>
+      <%= form.submit "Ask",
+          class: "ask-chat-submit",
+          data: { "ask-chat-target": "submitButton" } %>
+    </div>
+  <% end %>
+
+  <%# Loading indicator %>
+  <div data-ask-chat-target="loading" class="ask-chat-loading" style="display: none;">
+    <div class="ask-chat-spinner"></div>
+    <span>Generating responses and voting...</span>
+  </div>
+
+  <%# Result area - shows one Q&A pair %>
+  <div data-ask-chat-target="result" class="ask-chat-result"></div>
+</div>
+
+<p style="margin-top: 2rem; font-size: 0.9rem; color: var(--text-secondary);">
+  <a href="<%= ask_path %>">Back to standard Ask</a>
+</p>

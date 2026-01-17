@@ -74,6 +74,10 @@ Rails.application.routes.draw do
   get 'ask' => 'ask#index'
   post 'ask' => 'ask#create'
 
+  # Experimental voting completion
+  get 'ask/experiment' => 'ask#experiment'
+  post 'ask/experiment' => 'ask#experiment_create'
+
   # Notifications
   get 'notifications' => 'notifications#index'
   get 'notifications/unread_count' => 'notifications#unread_count'

@@ -1,10 +1,19 @@
 import { Controller } from "@hotwired/stimulus"
 
+interface Candidate {
+  model: string
+  response: string
+  accepted: number
+  preferred: number
+}
+
 interface AskResponse {
   success: boolean
   question?: string
   answer?: string
   error?: string
+  winner_index?: number
+  candidates?: Candidate[]
 }
 
 /**
@@ -22,20 +31,32 @@ interface AskResponse {
  * </div>
  */
 export default class AskChatController extends Controller<HTMLElement> {
-  static targets = ["result", "input", "submitButton", "loading"]
+  static targets = ["result", "input", "submitButton", "loading", "form"]
 
   declare readonly resultTarget: HTMLElement
   declare readonly inputTarget: HTMLTextAreaElement
   declare readonly submitButtonTarget: HTMLButtonElement
   declare readonly loadingTarget: HTMLElement
+  declare readonly formTarget: HTMLFormElement
   declare readonly hasLoadingTarget: boolean
   declare readonly hasResultTarget: boolean
+  declare readonly hasFormTarget: boolean
 
   private isSubmitting = false
 
   private get csrfToken(): string {
     const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
     return meta?.content ?? ""
+  }
+
+  private get formAction(): string {
+    // Use form's action URL if available, otherwise default to /ask
+    if (this.hasFormTarget) {
+      return this.formTarget.action
+    }
+    // Fallback: find form in element
+    const form = this.element.querySelector("form") as HTMLFormElement | null
+    return form?.action ?? "/ask"
   }
 
   keydown(event: KeyboardEvent): void {
@@ -62,7 +83,7 @@ export default class AskChatController extends Controller<HTMLElement> {
     this.clearResult()
 
     try {
-      const response = await fetch("/ask", {
+      const response = await fetch(this.formAction, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -75,7 +96,7 @@ export default class AskChatController extends Controller<HTMLElement> {
       const data: AskResponse = await response.json()
 
       if (data.success && data.answer) {
-        this.showResult(data.answer)
+        this.showResult(data)
       } else {
         this.showError(data.error || "An error occurred. Please try again.")
       }
@@ -103,14 +124,92 @@ export default class AskChatController extends Controller<HTMLElement> {
     }
   }
 
-  private showResult(answer: string): void {
+  private showResult(data: AskResponse): void {
     if (!this.hasResultTarget) return
 
-    this.resultTarget.innerHTML = `
-      <div class="ask-chat-message ask-chat-answer">
-        ${this.formatText(answer)}
-      </div>
-    `
+    // If we have candidates (experimental voting), show winner first with expandable others
+    if (data.candidates && data.candidates.length > 0 && data.winner_index !== undefined && data.winner_index >= 0) {
+      const winner = data.candidates[data.winner_index]
+      const otherCandidates = data.candidates.filter((_, index) => index !== data.winner_index)
+
+      // Winner card
+      const winnerHtml = `
+        <div class="ask-chat-candidate ask-chat-winner">
+          <div class="ask-chat-candidate-header">
+            <strong>${this.escapeHtml(winner.model)}</strong>
+            <span class="ask-chat-badge">WINNER</span>
+            <span class="ask-chat-votes">
+              Accepted: ${winner.accepted} | Preferred: ${winner.preferred}
+            </span>
+          </div>
+          <div class="ask-chat-candidate-response">
+            ${this.formatText(winner.response)}
+          </div>
+        </div>
+      `
+
+      // Other candidates (collapsible)
+      let otherCandidatesHtml = ""
+      if (otherCandidates.length > 0) {
+        const othersHtml = otherCandidates
+          .map((candidate) => `
+            <div class="ask-chat-candidate">
+              <div class="ask-chat-candidate-header">
+                <strong>${this.escapeHtml(candidate.model)}</strong>
+                <span class="ask-chat-votes">
+                  Accepted: ${candidate.accepted} | Preferred: ${candidate.preferred}
+                </span>
+              </div>
+              <div class="ask-chat-candidate-response">
+                ${this.formatText(candidate.response)}
+              </div>
+            </div>
+          `)
+          .join("")
+
+        otherCandidatesHtml = `
+          <div class="ask-chat-other-toggle" data-action="click->ask-chat#toggleOtherCandidates">
+            <span class="ask-chat-toggle-icon">&#9654;</span>
+            Show ${otherCandidates.length} other response${otherCandidates.length > 1 ? "s" : ""}
+          </div>
+          <div class="ask-chat-other-candidates" style="display: none;">
+            ${othersHtml}
+          </div>
+        `
+      }
+
+      this.resultTarget.innerHTML = `
+        <div class="ask-chat-candidates">
+          ${winnerHtml}
+          ${otherCandidatesHtml}
+        </div>
+      `
+    } else {
+      // Simple response (non-voting)
+      this.resultTarget.innerHTML = `
+        <div class="ask-chat-message ask-chat-answer">
+          ${this.formatText(data.answer || "")}
+        </div>
+      `
+    }
+  }
+
+  toggleOtherCandidates(event: Event): void {
+    const toggle = event.currentTarget as HTMLElement
+    const container = toggle.nextElementSibling as HTMLElement
+    const icon = toggle.querySelector(".ask-chat-toggle-icon") as HTMLElement
+
+    if (container && container.classList.contains("ask-chat-other-candidates")) {
+      const isHidden = container.style.display === "none"
+      container.style.display = isHidden ? "block" : "none"
+      if (icon) {
+        icon.innerHTML = isHidden ? "&#9660;" : "&#9654;"
+      }
+      toggle.innerHTML = toggle.innerHTML.replace(
+        isHidden ? "Show" : "Hide",
+        isHidden ? "Hide" : "Show"
+      )
+    }
   }
 
   private showError(error: string): void {
