@@ -1,7 +1,7 @@
 require "test_helper"
 require "webmock/minitest"
 
-class AskControllerTest < ActionDispatch::IntegrationTest
+class TrioControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @superagent = @global_superagent
@@ -10,23 +10,23 @@ class AskControllerTest < ActionDispatch::IntegrationTest
     @base_url = ENV.fetch("TRIO_BASE_URL", "http://trio:8000")
   end
 
-  # === Index (GET /ask) Tests ===
+  # === Index (GET /trio) Tests ===
 
-  test "unauthenticated user is redirected from ask page" do
-    get "/ask"
+  test "unauthenticated user is redirected from trio page" do
+    get "/trio"
     assert_response :redirect
   end
 
-  test "authenticated user can access ask page" do
+  test "authenticated user can access trio page" do
     sign_in_as(@user, tenant: @tenant)
-    get "/ask"
+    get "/trio"
     assert_response :success
-    assert_select "h1", "Ask Harmonic"
+    assert_select "h1", "Trio"
     assert_select "form"
-    assert_select "[data-controller='ask-chat']"
+    assert_select "[data-controller='trio-chat']"
   end
 
-  # === Create (POST /ask) HTML Tests ===
+  # === Create (POST /trio) HTML Tests ===
 
   test "HTML: authenticated user can submit a question and receive an answer" do
     stub_request(:post, "#{@base_url}/v1/chat/completions")
@@ -46,26 +46,26 @@ class AskControllerTest < ActionDispatch::IntegrationTest
       )
 
     sign_in_as(@user, tenant: @tenant)
-    post "/ask", params: { question: "How do I create a note?" }
+    post "/trio", params: { question: "How do I create a note?" }
 
     assert_response :success
     # HTML fallback still works (renders the index template)
-    assert_select "h1", "Ask Harmonic"
+    assert_select "h1", "Trio"
   end
 
   test "HTML: submitting empty question shows alert" do
     sign_in_as(@user, tenant: @tenant)
-    post "/ask", params: { question: "" }
+    post "/trio", params: { question: "" }
 
     assert_response :success
   end
 
   test "HTML: unauthenticated user cannot submit question" do
-    post "/ask", params: { question: "Test question" }
+    post "/trio", params: { question: "Test question" }
     assert_response :redirect
   end
 
-  # === Create (POST /ask) JSON API Tests ===
+  # === Create (POST /trio) JSON API Tests ===
 
   test "JSON: returns success with question and answer" do
     stub_request(:post, "#{@base_url}/v1/chat/completions")
@@ -85,7 +85,7 @@ class AskControllerTest < ActionDispatch::IntegrationTest
       )
 
     sign_in_as(@user, tenant: @tenant)
-    post "/ask",
+    post "/trio",
       params: { question: "How do I create a note?" },
       headers: { "Accept" => "application/json" },
       as: :json
@@ -99,7 +99,7 @@ class AskControllerTest < ActionDispatch::IntegrationTest
 
   test "JSON: returns error for empty question" do
     sign_in_as(@user, tenant: @tenant)
-    post "/ask",
+    post "/trio",
       params: { question: "" },
       headers: { "Accept" => "application/json" },
       as: :json
@@ -115,7 +115,7 @@ class AskControllerTest < ActionDispatch::IntegrationTest
       .to_return(status: 500, body: "Internal Server Error")
 
     sign_in_as(@user, tenant: @tenant)
-    post "/ask",
+    post "/trio",
       params: { question: "Test question" },
       headers: { "Accept" => "application/json" },
       as: :json
@@ -131,7 +131,7 @@ class AskControllerTest < ActionDispatch::IntegrationTest
       .to_raise(Faraday::ConnectionFailed.new("Connection refused"))
 
     sign_in_as(@user, tenant: @tenant)
-    post "/ask",
+    post "/trio",
       params: { question: "Test question" },
       headers: { "Accept" => "application/json" },
       as: :json
@@ -143,7 +143,7 @@ class AskControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "JSON: unauthenticated user cannot submit question" do
-    post "/ask",
+    post "/trio",
       params: { question: "Test question" },
       headers: { "Accept" => "application/json" },
       as: :json

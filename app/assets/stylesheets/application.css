@@ -841,10 +841,10 @@ ul.attachments-list {
 }
 
 /* =========================================
-   Ask Chat Styles
+   Trio Chat Styles
    ========================================= */
 
-.ask-header {
+.trio-header {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -860,58 +860,58 @@ ul.attachments-list {
   display: block;
 }
 
-.ask-header-text h1 {
+.trio-header-text h1 {
   margin: 0 0 0.25rem 0;
 }
 
-.ask-header-text p {
+.trio-header-text p {
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
-.ask-chat-container {
+.trio-chat-container {
   display: flex;
   flex-direction: column;
   gap: 1em;
 }
 
-.ask-chat-result {
+.trio-chat-result {
   display: flex;
   flex-direction: column;
   gap: 1em;
 }
 
-.ask-chat-message {
+.trio-chat-message {
   padding: 0.75em;
   border-radius: 4px;
 }
 
-.ask-chat-question {
+.trio-chat-question {
   background: var(--bg-color);
   border: 1px solid var(--border-color);
 }
 
-.ask-chat-answer {
+.trio-chat-answer {
   background: var(--bg-secondary);
   border-left: 3px solid var(--color-accent-fg);
 }
 
-.ask-chat-answer p {
+.trio-chat-answer p {
   margin: 0 0 0.5em 0;
 }
 
-.ask-chat-answer p:last-child {
+.trio-chat-answer p:last-child {
   margin-bottom: 0;
 }
 
-.ask-chat-error {
+.trio-chat-error {
   color: var(--color-danger);
   background: var(--bg-color);
   border: 1px solid var(--color-danger);
 }
 
-.ask-chat-loading {
+.trio-chat-loading {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -920,28 +920,28 @@ ul.attachments-list {
   font-size: 14px;
 }
 
-.ask-chat-spinner {
+.trio-chat-spinner {
   width: 16px;
   height: 16px;
   border: 2px solid var(--color-border-default);
   border-top-color: var(--color-accent-fg);
   border-radius: 50%;
-  animation: ask-chat-spin 0.8s linear infinite;
+  animation: trio-chat-spin 0.8s linear infinite;
 }
 
-@keyframes ask-chat-spin {
+@keyframes trio-chat-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.ask-chat-input-container {
+.trio-chat-input-container {
   display: flex;
   gap: 0.5em;
   align-items: flex-end;
 }
 
-.ask-chat-input {
+.trio-chat-input {
   flex: 1;
   background: none;
   border: 1px solid var(--border-color);
@@ -950,24 +950,24 @@ ul.attachments-list {
   min-height: 60px;
 }
 
-.ask-chat-submit {
+.trio-chat-submit {
   cursor: pointer;
   padding: 0.5em 1em;
 }
 
-.ask-chat-submit:disabled {
+.trio-chat-submit:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
 
 /* Experimental voting candidates display */
-.ask-chat-candidates h3 {
+.trio-chat-candidates h3 {
   margin: 0 0 1rem 0;
   font-size: 1rem;
   color: var(--text-secondary);
 }
 
-.ask-chat-candidate {
+.trio-chat-candidate {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
@@ -975,13 +975,13 @@ ul.attachments-list {
   background: var(--bg-secondary);
 }
 
-.ask-chat-candidate.ask-chat-winner {
+.trio-chat-candidate.trio-chat-winner {
   border-color: var(--accent-color);
   border-width: 2px;
   background: var(--bg-accent-subtle, var(--bg-secondary));
 }
 
-.ask-chat-candidate-header {
+.trio-chat-candidate-header {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -989,11 +989,11 @@ ul.attachments-list {
   flex-wrap: wrap;
 }
 
-.ask-chat-candidate-header strong {
+.trio-chat-candidate-header strong {
   font-size: 0.9rem;
 }
 
-.ask-chat-badge {
+.trio-chat-badge {
   background: var(--accent-color);
   color: white;
   font-size: 0.7rem;
@@ -1003,26 +1003,26 @@ ul.attachments-list {
   text-transform: uppercase;
 }
 
-.ask-chat-votes {
+.trio-chat-votes {
   font-size: 0.8rem;
   color: var(--text-secondary);
   margin-left: auto;
 }
 
-.ask-chat-candidate-response {
+.trio-chat-candidate-response {
   font-size: 0.95rem;
   line-height: 1.5;
 }
 
-.ask-chat-candidate-response p {
+.trio-chat-candidate-response p {
   margin: 0 0 0.5rem 0;
 }
 
-.ask-chat-candidate-response p:last-child {
+.trio-chat-candidate-response p:last-child {
   margin-bottom: 0;
 }
 
-.ask-chat-other-toggle {
+.trio-chat-other-toggle {
   cursor: pointer;
   padding: 0.75rem 1rem;
   margin: 1rem 0;
@@ -1033,18 +1033,18 @@ ul.attachments-list {
   transition: background-color 0.15s, color 0.15s;
 }
 
-.ask-chat-other-toggle:hover {
+.trio-chat-other-toggle:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-.ask-chat-toggle-icon {
+.trio-chat-toggle-icon {
   display: inline-block;
   margin-right: 0.5rem;
   font-size: 0.7rem;
   transition: transform 0.15s;
 }
 
-.ask-chat-other-candidates {
+.trio-chat-other-candidates {
   margin-top: 0.5rem;
 }

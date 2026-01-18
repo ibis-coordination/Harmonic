@@ -70,9 +70,9 @@ Rails.application.routes.draw do
   get 'help' => 'home#help'
   get 'contact' => 'home#contact'
 
-  # LLM Chat - Ask Harmonic (with voting ensemble)
-  get 'ask' => 'ask#index'
-  post 'ask' => 'ask#create'
+  # LLM Chat - Trio (with voting ensemble)
+  get 'trio' => 'trio#index'
+  post 'trio' => 'trio#create'
 
   # Notifications
   get 'notifications' => 'notifications#index'

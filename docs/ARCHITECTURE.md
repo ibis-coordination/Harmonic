@@ -292,7 +292,7 @@ Harmonic includes optional LLM-powered features. These run as separate Docker se
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Rails Application                                                   │
-│  ├── AskController (/ask)                                           │
+│  ├── TrioController (/trio)                                           │
 │  └── TrioClient (app/services/trio_client.rb)                       │
 └────────┬────────────────────────────────────────────────────────────┘
          │ HTTP (OpenAI-compatible API)

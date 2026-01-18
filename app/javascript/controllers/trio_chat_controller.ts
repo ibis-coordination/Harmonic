@@ -7,7 +7,7 @@ interface Candidate {
   preferred: number
 }
 
-interface AskResponse {
+interface TrioResponse {
   success: boolean
   question?: string
   answer?: string
@@ -17,20 +17,20 @@ interface AskResponse {
 }
 
 /**
- * AskChatController handles the async Q&A interface for the Ask Harmonic feature.
+ * TrioChatController handles the async Q&A interface for the Trio feature.
  * Shows one question and one response at a time.
  *
  * Usage:
- * <div data-controller="ask-chat">
- *   <div data-ask-chat-target="result"></div>
- *   <form data-action="submit->ask-chat#submit">
- *     <textarea data-ask-chat-target="input"></textarea>
- *     <button data-ask-chat-target="submitButton">Ask</button>
+ * <div data-controller="trio-chat">
+ *   <div data-trio-chat-target="result"></div>
+ *   <form data-action="submit->trio-chat#submit">
+ *     <textarea data-trio-chat-target="input"></textarea>
+ *     <button data-trio-chat-target="submitButton">Ask</button>
  *   </form>
- *   <div data-ask-chat-target="loading" style="display: none;">...</div>
+ *   <div data-trio-chat-target="loading" style="display: none;">...</div>
  * </div>
  */
-export default class AskChatController extends Controller<HTMLElement> {
+export default class TrioChatController extends Controller<HTMLElement> {
   static targets = ["result", "input", "submitButton", "loading", "loadingText", "form"]
 
   declare readonly resultTarget: HTMLElement
@@ -54,13 +54,13 @@ export default class AskChatController extends Controller<HTMLElement> {
   }
 
   private get formAction(): string {
-    // Use form's action URL if available, otherwise default to /ask
+    // Use form's action URL if available, otherwise default to /trio
     if (this.hasFormTarget) {
       return this.formTarget.action
     }
     // Fallback: find form in element
     const form = this.element.querySelector("form") as HTMLFormElement | null
-    return form?.action ?? "/ask"
+    return form?.action ?? "/trio"
   }
 
   keydown(event: KeyboardEvent): void {
@@ -97,7 +97,7 @@ export default class AskChatController extends Controller<HTMLElement> {
         body: JSON.stringify({ question }),
       })
 
-      const data: AskResponse = await response.json()
+      const data: TrioResponse = await response.json()
 
       if (data.success && data.answer) {
         this.showResult(data)
@@ -159,7 +159,7 @@ export default class AskChatController extends Controller<HTMLElement> {
     }
   }
 
-  private showResult(data: AskResponse): void {
+  private showResult(data: TrioResponse): void {
     if (!this.hasResultTarget) return
 
     // If we have candidates (experimental voting), show winner first with expandable others
@@ -169,15 +169,15 @@ export default class AskChatController extends Controller<HTMLElement> {
 
       // Winner card
       const winnerHtml = `
-        <div class="ask-chat-candidate ask-chat-winner">
-          <div class="ask-chat-candidate-header">
+        <div class="trio-chat-candidate trio-chat-winner">
+          <div class="trio-chat-candidate-header">
             <strong>${this.escapeHtml(winner.model)}</strong>
-            <span class="ask-chat-badge">WINNER</span>
-            <span class="ask-chat-votes">
+            <span class="trio-chat-badge">WINNER</span>
+            <span class="trio-chat-votes">
               Accepted: ${winner.accepted} | Preferred: ${winner.preferred}
             </span>
           </div>
-          <div class="ask-chat-candidate-response">
+          <div class="trio-chat-candidate-response">
             ${this.formatText(winner.response)}
           </div>
         </div>
@@ -188,14 +188,14 @@ export default class AskChatController extends Controller<HTMLElement> {
       if (otherCandidates.length > 0) {
         const othersHtml = otherCandidates
           .map((candidate) => `
-            <div class="ask-chat-candidate">
-              <div class="ask-chat-candidate-header">
+            <div class="trio-chat-candidate">
+              <div class="trio-chat-candidate-header">
                 <strong>${this.escapeHtml(candidate.model)}</strong>
-                <span class="ask-chat-votes">
+                <span class="trio-chat-votes">
                   Accepted: ${candidate.accepted} | Preferred: ${candidate.preferred}
                 </span>
               </div>
-              <div class="ask-chat-candidate-response">
+              <div class="trio-chat-candidate-response">
                 ${this.formatText(candidate.response)}
               </div>
             </div>
@@ -203,18 +203,18 @@ export default class AskChatController extends Controller<HTMLElement> {
           .join("")
 
         otherCandidatesHtml = `
-          <div class="ask-chat-other-toggle" data-action="click->ask-chat#toggleOtherCandidates">
-            <span class="ask-chat-toggle-icon">&#9654;</span>
+          <div class="trio-chat-other-toggle" data-action="click->trio-chat#toggleOtherCandidates">
+            <span class="trio-chat-toggle-icon">&#9654;</span>
             Show ${otherCandidates.length} other response${otherCandidates.length > 1 ? "s" : ""}
           </div>
-          <div class="ask-chat-other-candidates" style="display: none;">
+          <div class="trio-chat-other-candidates" style="display: none;">
             ${othersHtml}
           </div>
         `
       }
 
       this.resultTarget.innerHTML = `
-        <div class="ask-chat-candidates">
+        <div class="trio-chat-candidates">
           ${winnerHtml}
           ${otherCandidatesHtml}
         </div>
@@ -222,7 +222,7 @@ export default class AskChatController extends Controller<HTMLElement> {
     } else {
       // Simple response (non-voting)
       this.resultTarget.innerHTML = `
-        <div class="ask-chat-message ask-chat-answer">
+        <div class="trio-chat-message trio-chat-answer">
           ${this.formatText(data.answer || "")}
         </div>
       `
@@ -232,9 +232,9 @@ export default class AskChatController extends Controller<HTMLElement> {
   toggleOtherCandidates(event: Event): void {
     const toggle = event.currentTarget as HTMLElement
     const container = toggle.nextElementSibling as HTMLElement
-    const icon = toggle.querySelector(".ask-chat-toggle-icon") as HTMLElement
+    const icon = toggle.querySelector(".trio-chat-toggle-icon") as HTMLElement
 
-    if (container && container.classList.contains("ask-chat-other-candidates")) {
+    if (container && container.classList.contains("trio-chat-other-candidates")) {
       const isHidden = container.style.display === "none"
       container.style.display = isHidden ? "block" : "none"
       if (icon) {
@@ -251,7 +251,7 @@ export default class AskChatController extends Controller<HTMLElement> {
     if (!this.hasResultTarget) return
 
     this.resultTarget.innerHTML = `
-      <div class="ask-chat-message ask-chat-error">
+      <div class="trio-chat-message trio-chat-error">
         <em>${this.escapeHtml(error)}</em>
       </div>
     `

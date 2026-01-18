@@ -1,6 +1,6 @@
 # typed: false
 
-class AskController < ApplicationController
+class TrioController < ApplicationController
   def index
     @page_title = "Ask Harmonic"
     @question = nil

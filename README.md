@@ -32,9 +32,9 @@ To stop, run
 
 ## Optional Features
 
-### LLM Chat (Ask Harmonic)
+### LLM Chat (Trio)
 
-Harmonic includes an optional LLM-powered chat feature at `/ask`. This uses **Trio**, a voting ensemble service that queries multiple models and selects the best response.
+Harmonic includes an optional LLM-powered chat feature at `/trio`. This uses **Trio**, a voting ensemble service that queries multiple models and selects the best response.
 
 To enable LLM features, start the LLM services:
 
