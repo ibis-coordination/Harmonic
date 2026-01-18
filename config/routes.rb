@@ -70,6 +70,10 @@ Rails.application.routes.draw do
   get 'help' => 'home#help'
   get 'contact' => 'home#contact'
 
+  # LLM Chat - Trio (with voting ensemble)
+  get 'trio' => 'trio#index'
+  post 'trio' => 'trio#create'
+
   # Notifications
   get 'notifications' => 'notifications#index'
   get 'notifications/unread_count' => 'notifications#unread_count'

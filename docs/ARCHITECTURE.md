@@ -21,6 +21,7 @@ This document describes the technical architecture of Harmonic. For design philo
 ├─────────────────────────────────────────────────────────────────────┤
 │  Services Layer                                                      │
 │  ├── ApiHelper (business logic)                                     │
+│  ├── MarkdownUiService (internal markdown UI for AI agents)         │
 │  ├── *ParticipantManager (participation logic)                      │
 │  └── LinkParser, MarkdownRenderer, etc.                             │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -257,12 +258,96 @@ Handle participation logic:
 - `DecisionParticipantManager` - voting
 - `CommitmentParticipantManager` - joining commitments
 
+### MarkdownUiService
+Renders the markdown UI without requiring a controller/HTTP request context.
+Enables AI agents to navigate the app internally from chat sessions.
+
+```ruby
+service = MarkdownUiService.new(tenant: tenant, superagent: superagent, user: user)
+result = service.navigate("/studios/team")
+result = service.execute_action("create_note", { text: "Hello" })
+```
+
+Components:
+- `MarkdownUiService` - main service with `navigate`, `set_path`, `execute_action`
+- `ViewContext` - provides template instance variables
+- `ResourceLoader` - loads resources based on routes
+- `ActionExecutor` - executes actions via ApiHelper
+
+See [docs/plans/MARKDOWN_UI_SERVICE_PLAN.md](plans/MARKDOWN_UI_SERVICE_PLAN.md) for full documentation.
+
 ### Other Services
 - `LinkParser` - parses content for links to other content
 - `MarkdownRenderer` - renders markdown to HTML
 - `DataMarkdownSerializer` - serializes data for markdown views
 - `DataDeletionManager` - handles data deletion
 - `ActionsHelper` - describes available API actions for LLM interface
+
+## LLM Services (Optional)
+
+Harmonic includes optional LLM-powered features. These run as separate Docker services under the `llm` profile.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Rails Application                                                   │
+│  ├── TrioController (/trio)                                           │
+│  └── TrioClient (app/services/trio_client.rb)                       │
+└────────┬────────────────────────────────────────────────────────────┘
+         │ HTTP (OpenAI-compatible API)
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Trio (port 8000)                                                    │
+│  Voting ensemble service - queries multiple models, picks best      │
+└────────┬────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  LiteLLM (port 4000)                                                 │
+│  Unified gateway - routes to Ollama, Claude, OpenAI, etc.           │
+└────────┬────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Ollama (port 11434)          │  Claude API  │  OpenAI API          │
+│  Local models (llama, etc.)   │  (optional)  │  (optional)          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `TrioClient` | `app/services/trio_client.rb` | Ruby client for Trio API |
+| `HarmonicAssistant` | `app/services/concerns/harmonic_assistant.rb` | System prompt and response processing |
+| Trio | `trio/` | Python voting ensemble service |
+| LiteLLM config | `config/litellm_config.yaml` | Model routing configuration |
+
+### Starting LLM Services
+
+```bash
+# Start LLM services
+docker compose --profile llm up -d
+
+# Pull required Ollama models
+docker compose exec ollama ollama pull llama3.2:1b
+
+# Verify Trio is running
+curl http://localhost:8000/health
+```
+
+### Environment Variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `TRIO_BASE_URL` | `http://trio:8000` | Trio service URL |
+| `TRIO_TIMEOUT` | `120` | Request timeout in seconds |
+| `TRIO_MODELS` | `default,default,default` | Comma-separated model list for ensemble |
+| `ANTHROPIC_API_KEY` | - | For Claude models via LiteLLM |
+| `OPENAI_API_KEY` | - | For OpenAI models via LiteLLM |
+
+See [trio/README.md](../trio/README.md) for full Trio documentation.
 
 ## Frontend Architecture
 

@@ -58,4 +58,8 @@ Caddyfile
 
 # Sorbet RBI files are committed to the repo (faster CI, no generation step needed)
 
+# Python cache (Trio)
+__pycache__/
+*.pyc
+
 ignore/

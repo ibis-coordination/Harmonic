@@ -11,13 +11,15 @@
   "dependencies": {
     "@hotwired/stimulus": "^3.2.2",
     "@hotwired/turbo-rails": "^8.0.12",
+    "@types/three": "^0.182.0",
     "cropperjs": "^1.6.2",
     "date-fns": "^3.6.0",
     "hotkeys-js": "^3.13.9",
     "stimulus-clipboard": "^4.0.1",
     "stimulus-dropdown": "^2.1.0",
     "stimulus-timeago": "^4.1.0",
-    "stimulus-use": "^0.52.3"
+    "stimulus-use": "^0.52.3",
+    "three": "^0.182.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.6",

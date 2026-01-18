@@ -1,0 +1,40 @@
+<div class="trio-header">
+  <div data-controller="trio-logo"
+       data-trio-logo-size-value="56"
+       class="trio-logo-container">
+  </div>
+  <div class="trio-header-text">
+    <h1>Trio</h1>
+    <p>Trio is Harmonic's AI ensemble that composes multiple AI models into one system.</p>
+  </div>
+</div>
+
+<div data-controller="trio-chat" class="trio-chat-container">
+  <%# Input form - works without JS as fallback %>
+  <%= form_with url: trio_path, method: :post, local: true, data: { action: "submit->trio-chat#submit", "trio-chat-target": "form" } do |form| %>
+    <div class="trio-chat-input-container">
+      <%= form.text_area :question,
+          placeholder: "Ask a question about Harmonic...",
+          rows: 2,
+          class: "trio-chat-input",
+          data: { "trio-chat-target": "input", action: "keydown->trio-chat#keydown" },
+          autofocus: true %>
+      <%= form.submit "Ask",
+          class: "trio-chat-submit",
+          data: { "trio-chat-target": "submitButton" } %>
+    </div>
+  <% end %>
+
+  <%# Loading indicator %>
+  <div data-trio-chat-target="loading" class="trio-chat-loading" style="display: none;">
+    <div data-controller="trio-logo"
+         data-trio-logo-size-value="32"
+         data-trio-logo-rotation-speed-value="2"
+         class="trio-logo-container">
+    </div>
+    <span data-trio-chat-target="loadingText">Generating responses and voting.</span>
+  </div>
+
+  <%# Result area - shows one Q&A pair %>
+  <div data-trio-chat-target="result" class="trio-chat-result"></div>
+</div>

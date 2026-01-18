@@ -839,3 +839,212 @@ ul.attachments-list {
   font-size: 14px;
   text-align: center;
 }
+
+/* =========================================
+   Trio Chat Styles
+   ========================================= */
+
+.trio-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.trio-logo-container {
+  flex-shrink: 0;
+  color: var(--color-fg-default);
+}
+
+.trio-logo {
+  display: block;
+}
+
+.trio-header-text h1 {
+  margin: 0 0 0.25rem 0;
+}
+
+.trio-header-text p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.trio-chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+.trio-chat-result {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+.trio-chat-message {
+  padding: 0.75em;
+  border-radius: 4px;
+}
+
+.trio-chat-question {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+}
+
+.trio-chat-answer {
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--color-accent-fg);
+}
+
+.trio-chat-answer p {
+  margin: 0 0 0.5em 0;
+}
+
+.trio-chat-answer p:last-child {
+  margin-bottom: 0;
+}
+
+.trio-chat-error {
+  color: var(--color-danger);
+  background: var(--bg-color);
+  border: 1px solid var(--color-danger);
+}
+
+.trio-chat-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.5em;
+  color: var(--color-fg-muted);
+  font-size: 14px;
+}
+
+.trio-chat-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border-default);
+  border-top-color: var(--color-accent-fg);
+  border-radius: 50%;
+  animation: trio-chat-spin 0.8s linear infinite;
+}
+
+@keyframes trio-chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.trio-chat-input-container {
+  display: flex;
+  gap: 0.5em;
+  align-items: flex-end;
+}
+
+.trio-chat-input {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--border-color);
+  padding: 0.5em;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.trio-chat-submit {
+  cursor: pointer;
+  padding: 0.5em 1em;
+}
+
+.trio-chat-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Experimental voting candidates display */
+.trio-chat-candidates h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.trio-chat-candidate {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: var(--bg-secondary);
+}
+
+.trio-chat-candidate.trio-chat-winner {
+  border-color: var(--accent-color);
+  border-width: 2px;
+  background: var(--bg-accent-subtle, var(--bg-secondary));
+}
+
+.trio-chat-candidate-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.trio-chat-candidate-header strong {
+  font-size: 0.9rem;
+}
+
+.trio-chat-badge {
+  background: var(--accent-color);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 0.15em 0.5em;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.trio-chat-votes {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.trio-chat-candidate-response {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.trio-chat-candidate-response p {
+  margin: 0 0 0.5rem 0;
+}
+
+.trio-chat-candidate-response p:last-child {
+  margin-bottom: 0;
+}
+
+.trio-chat-other-toggle {
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.trio-chat-other-toggle:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.trio-chat-toggle-icon {
+  display: inline-block;
+  margin-right: 0.5rem;
+  font-size: 0.7rem;
+  transition: transform 0.15s;
+}
+
+.trio-chat-other-candidates {
+  margin-top: 0.5rem;
+}

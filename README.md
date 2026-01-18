@@ -29,3 +29,34 @@ To stop, run
 ```bash
 ./scripts/stop.sh
 ```
+
+## Optional Features
+
+### LLM Chat (Trio)
+
+Harmonic includes an optional LLM-powered chat feature at `/trio`. This uses **Trio**, a voting ensemble service that queries multiple models and selects the best response.
+
+To enable LLM features, start the LLM services:
+
+```bash
+docker compose --profile llm up -d
+```
+
+This starts:
+- **Trio** (port 8000) - Voting ensemble service
+- **LiteLLM** (port 4000) - Unified LLM gateway
+- **Ollama** (port 11434) - Local model runner
+
+On first run, pull the default Ollama model:
+
+```bash
+docker compose exec ollama ollama pull llama3.2:1b
+```
+
+To stop only the LLM services:
+
+```bash
+docker compose --profile llm stop
+```
+
+See [trio/README.md](trio/README.md) for more details on the Trio service.

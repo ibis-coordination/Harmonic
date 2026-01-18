@@ -11,6 +11,7 @@ application.debug = false
 window.Stimulus = application
 
 // Import all controllers
+import TrioChatController from "./trio_chat_controller"
 import ClipboardController from "./clipboard_controller"
 import CollapsableSectionController from "./collapseable_section_controller"
 import CommitmentController from "./commitment_controller"
@@ -38,8 +39,10 @@ import TimeagoController from "./timeago_controller"
 import TooltipController from "./tooltip_controller"
 import TopLeftMenuController from "./top_left_menu_controller"
 import TopRightMenuController from "./top_right_menu_controller"
+import TrioLogoController from "./trio_logo_controller"
 
 // Register all controllers
+application.register("trio-chat", TrioChatController)
 application.register("clipboard", ClipboardController)
 application.register("collapseable-section", CollapsableSectionController)
 application.register("commitment", CommitmentController)
@@ -67,5 +70,6 @@ application.register("timeago", TimeagoController)
 application.register("tooltip", TooltipController)
 application.register("top-left-menu", TopLeftMenuController)
 application.register("top-right-menu", TopRightMenuController)
+application.register("trio-logo", TrioLogoController)
 
 export { application }
