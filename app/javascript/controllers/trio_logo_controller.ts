@@ -8,15 +8,15 @@ import { insertTrefoilLogo3D, TrefoilScene } from "../utils/trefoil_logo_3d"
  * Usage:
  * <div data-controller="trio-logo"
  *      data-trio-logo-size-value="56"
- *      data-trio-logo-tube-radius-value="0.25"
+ *      data-trio-logo-tube-radius-value="1.2"
  *      data-trio-logo-animate-value="true">
  * </div>
  */
 export default class TrioLogoController extends Controller<HTMLElement> {
   static values = {
     size: { type: Number, default: 56 },
-    tubeRadius: { type: Number, default: 0.25 },
-    outlineWidth: { type: Number, default: 0.08 },
+    tubeRadius: { type: Number, default: 0.6 },
+    outlineWidth: { type: Number, default: 0.3 },
     animate: { type: Boolean, default: true },
     rotationSpeed: { type: Number, default: 0.5 },
   }

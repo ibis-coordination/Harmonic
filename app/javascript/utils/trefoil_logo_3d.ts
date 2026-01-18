@@ -1,12 +1,34 @@
 /**
  * Generates a 3D trefoil knot logo using Three.js.
- * A trefoil knot is a (2,3) torus knot - Three.js has built-in support for this.
+ * Uses the TrefoilKnot curve from Three.js addons for a proper trefoil shape
+ * with Z-depth variation (more dimensional than TorusKnotGeometry).
  *
  * Rendered with flat colors and bold outlines (cel-shading style).
  * Supports animation with a gentle wobble effect.
  */
 
 import * as THREE from "three"
+
+/**
+ * TrefoilKnot curve - generates a proper 3D trefoil knot with Z-depth variation.
+ * Classic parametric trefoil knot formula.
+ */
+class TrefoilKnotCurve extends THREE.Curve<THREE.Vector3> {
+  private scale: number
+
+  constructor(scale = 1) {
+    super()
+    this.scale = scale
+  }
+
+  getPoint(t: number, optionalTarget = new THREE.Vector3()): THREE.Vector3 {
+    const angle = t * Math.PI * 2
+    const x = Math.sin(angle) + 2 * Math.sin(2 * angle)
+    const y = Math.cos(angle) - 2 * Math.cos(2 * angle)
+    const z = -Math.sin(3 * angle)
+    return optionalTarget.set(x, y, z).multiplyScalar(this.scale)
+  }
+}
 
 interface Trefoil3DOptions {
   size?: number
@@ -28,19 +50,15 @@ export class TrefoilScene {
   private camera: THREE.OrthographicCamera
   private group: THREE.Group
   private animationId: number | null = null
-  private startTime: number = 0
   private rotationSpeed: number
-  // View angle for the trefoil knot
-  private baseRotationX: number = Math.PI / 6
-  private baseRotationY: number = Math.PI / 4
 
   constructor(options: Trefoil3DOptions = {}) {
     const {
       size = 56,
-      tubeRadius = 0.3,
-      color = "#000000",
+      tubeRadius = 0.6,
+      color = "#ffffff",
       outlineColor = "#000000",
-      outlineWidth = 0.06,
+      outlineWidth = 0.3,
       backgroundColor = "transparent",
       rotationSpeed = 0.5,
     } = options
@@ -51,7 +69,8 @@ export class TrefoilScene {
     this.scene = new THREE.Scene()
 
     // Create camera - orthographic for consistent sizing
-    const frustumSize = 4
+    // Frustum size 14 to fit the full trefoil knot with tube radius
+    const frustumSize = 14
     const aspect = 1
     this.camera = new THREE.OrthographicCamera(
       (frustumSize * aspect) / -2,
@@ -61,7 +80,7 @@ export class TrefoilScene {
       0.1,
       100
     )
-    this.camera.position.z = 5
+    this.camera.position.z = 12
 
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -75,26 +94,25 @@ export class TrefoilScene {
       this.renderer.setClearColor(new THREE.Color(backgroundColor), 1)
     }
 
-    // Create trefoil knot geometry with high resolution for smooth curves
-    const geometry = new THREE.TorusKnotGeometry(1, tubeRadius, 256, 32, 2, 3)
+    // Create trefoil knot curve and geometry using TubeGeometry
+    // Scale 1.5 matches the HTML example proportions
+    const curve = new TrefoilKnotCurve(1.5)
 
-    // Create outline geometry (slightly larger)
-    const outlineGeometry = new THREE.TorusKnotGeometry(
-      1,
+    // Black outline (slightly larger tube, back-faces only)
+    const outlineGeometry = new THREE.TubeGeometry(
+      curve,
+      200,
       tubeRadius + outlineWidth,
-      256,
       32,
-      2,
-      3
+      true
     )
-
-    // Outline material - renders back faces only
     const outlineMaterial = new THREE.MeshBasicMaterial({
       color: new THREE.Color(outlineColor),
       side: THREE.BackSide,
     })
 
-    // Main material - flat color
+    // White fill (front faces)
+    const geometry = new THREE.TubeGeometry(curve, 200, tubeRadius, 32, true)
     const mainMaterial = new THREE.MeshBasicMaterial({
       color: new THREE.Color(color),
     })
@@ -105,9 +123,9 @@ export class TrefoilScene {
     this.group.add(new THREE.Mesh(geometry, mainMaterial))
     this.scene.add(this.group)
 
-    // Set initial rotation
-    this.group.rotation.x = this.baseRotationX
-    this.group.rotation.y = this.baseRotationY
+    // Set initial rotation (no tilt - start flat like HTML example)
+    this.group.rotation.x = 0
+    this.group.rotation.y = 0
 
     // Initial render
     this.renderer.render(this.scene, this.camera)
@@ -120,15 +138,12 @@ export class TrefoilScene {
   startAnimation(): void {
     if (this.animationId !== null) return
 
-    this.startTime = performance.now()
     const animate = () => {
       this.animationId = requestAnimationFrame(animate)
 
-      const elapsed = (performance.now() - this.startTime) / 1000
-
-      // Continuous rotation
-      this.group.rotation.x = this.baseRotationX
-      this.group.rotation.y = this.baseRotationY + elapsed * this.rotationSpeed
+      // Simple continuous rotation matching the HTML example
+      this.group.rotation.x += 0.003 * this.rotationSpeed
+      this.group.rotation.y += 0.005 * this.rotationSpeed
 
       this.renderer.render(this.scene, this.camera)
     }
