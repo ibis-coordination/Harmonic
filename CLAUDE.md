@@ -53,6 +53,11 @@ docker compose exec js npm test
 
 # Generate ERD diagram
 ./scripts/generate-erd.sh
+
+# Trio (Python) - run from trio/ directory
+cd trio && pip install -e ".[dev]"  # Install dependencies
+cd trio && pytest                    # Run tests
+cd trio && mypy src/                 # Run type checker
 ```
 
 ## Code Style
@@ -116,6 +121,12 @@ The app serves two parallel interfaces:
 - Test files: `app/javascript/**/*.test.ts`
 - Run tests: `docker compose exec js npm test`
 - Watch mode: `docker compose exec js npm run test:watch`
+
+### Trio (Python)
+- Framework: pytest with pytest-asyncio
+- Test files: `trio/tests/test_*.py`
+- Run tests: `cd trio && pytest`
+- Type checker: `cd trio && mypy src/`
 
 ### Manual testing
 - Framework: checklists
