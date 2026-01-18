@@ -96,10 +96,8 @@ services:
       - "8000:8000"
     depends_on:
       - litellm
-    environment:
-      TRIO_MODELS: "default,default,default"  # 3x same model for local dev voting
-      TRIO_BACKEND_URL: "http://litellm:4000"
-      TRIO_TIMEOUT: "120"  # Longer timeout for large system prompts
+    env_file:
+      - .env
     deploy:
       resources:
         limits:
