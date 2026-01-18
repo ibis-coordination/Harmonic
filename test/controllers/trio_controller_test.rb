@@ -8,6 +8,8 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
     @base_url = ENV.fetch("TRIO_BASE_URL", "http://trio:8000")
+    # Enable trio feature flag for tests
+    @tenant.set_feature_flag!("trio", true)
   end
 
   # === Index (GET /trio) Tests ===
@@ -150,5 +152,52 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
 
     # JSON requests return 401 instead of redirect
     assert_response :unauthorized
+  end
+
+  # === Feature Flag Tests ===
+
+  test "HTML: returns 403 when trio is disabled for tenant" do
+    @tenant.set_feature_flag!("trio", false)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/trio"
+
+    assert_response :forbidden
+  end
+
+  test "JSON: returns 403 when trio is disabled for tenant" do
+    @tenant.set_feature_flag!("trio", false)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/trio",
+      headers: { "Accept" => "application/json" },
+      as: :json
+
+    assert_response :forbidden
+    json = JSON.parse(response.body)
+    assert_equal "Trio AI is not enabled for this tenant", json["error"]
+  end
+
+  test "POST HTML: returns 403 when trio is disabled for tenant" do
+    @tenant.set_feature_flag!("trio", false)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/trio", params: { question: "Test question" }
+
+    assert_response :forbidden
+  end
+
+  test "POST JSON: returns 403 when trio is disabled for tenant" do
+    @tenant.set_feature_flag!("trio", false)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/trio",
+      params: { question: "Test question" },
+      headers: { "Accept" => "application/json" },
+      as: :json
+
+    assert_response :forbidden
+    json = JSON.parse(response.body)
+    assert_equal "Trio AI is not enabled for this tenant", json["error"]
   end
 end

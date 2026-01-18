@@ -25,3 +25,10 @@ feature_flags:
     app_enabled: true
     default_tenant: true
     default_studio: true
+
+  trio:
+    name: "Trio AI Assistant"
+    description: "Enables the Trio AI ensemble chat feature for answering questions"
+    app_enabled: true
+    default_tenant: false
+    default_studio: true

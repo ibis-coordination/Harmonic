@@ -164,6 +164,11 @@ class Superagent < ApplicationRecord
     FeatureFlagService.superagent_enabled?(self, "api")
   end
 
+  sig { returns(T::Boolean) }
+  def trio_enabled?
+    FeatureFlagService.superagent_enabled?(self, "trio")
+  end
+
   sig { void }
   def enable_api!
     enable_feature_flag!("api")

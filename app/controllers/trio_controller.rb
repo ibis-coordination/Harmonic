@@ -1,6 +1,8 @@
 # typed: false
 
 class TrioController < ApplicationController
+  before_action :require_trio_enabled
+
   def index
     @page_title = "Ask Harmonic"
     @question = nil
@@ -42,6 +44,16 @@ class TrioController < ApplicationController
   end
 
   private
+
+  def require_trio_enabled
+    return if @current_tenant&.trio_enabled?
+
+    respond_to do |format|
+      format.html { render "shared/403", status: :forbidden }
+      format.md { render "shared/403", status: :forbidden }
+      format.json { render json: { error: "Trio AI is not enabled for this tenant" }, status: :forbidden }
+    end
+  end
 
   def trio_client
     @trio_client ||= TrioClient.new

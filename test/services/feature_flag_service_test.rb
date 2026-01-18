@@ -10,12 +10,14 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert config.is_a?(Hash)
     assert config.key?("api")
     assert config.key?("file_attachments")
+    assert config.key?("trio")
   end
 
   test "all_flags returns list of flag names" do
     flags = FeatureFlagService.all_flags
     assert flags.include?("api")
     assert flags.include?("file_attachments")
+    assert flags.include?("trio")
   end
 
   test "flag_metadata returns metadata hash for valid flag" do
@@ -109,6 +111,8 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not FeatureFlagService.default_for_tenant("api")
     # file_attachments default_tenant is true in config
     assert FeatureFlagService.default_for_tenant("file_attachments")
+    # trio default_tenant is false in config
+    assert_not FeatureFlagService.default_for_tenant("trio")
   end
 
   test "default_for_superagent returns config default" do
@@ -116,5 +120,29 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not FeatureFlagService.default_for_superagent("api")
     # file_attachments default_studio is true in config
     assert FeatureFlagService.default_for_superagent("file_attachments")
+    # trio default_studio is true in config
+    assert FeatureFlagService.default_for_superagent("trio")
+  end
+
+  test "trio flag is app enabled" do
+    assert FeatureFlagService.app_enabled?("trio")
+  end
+
+  test "trio_enabled? on tenant uses feature flag service" do
+    @tenant.set_feature_flag!("trio", true)
+    assert @tenant.trio_enabled?
+
+    @tenant.set_feature_flag!("trio", false)
+    assert_not @tenant.trio_enabled?
+  end
+
+  test "trio_enabled? on superagent respects cascade" do
+    @tenant.set_feature_flag!("trio", true)
+    @superagent.set_feature_flag!("trio", true)
+    assert @superagent.trio_enabled?
+
+    # Disabling at tenant level should disable at superagent level
+    @tenant.set_feature_flag!("trio", false)
+    assert_not @superagent.trio_enabled?
   end
 end
