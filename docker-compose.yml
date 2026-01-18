@@ -90,7 +90,7 @@ services:
         limits:
           memory: 512M
   trio:
-    build: ./trio
+    image: ghcr.io/ibis-coordination/trio:latest
     profiles: ["llm"]
     ports:
       - "8000:8000"
