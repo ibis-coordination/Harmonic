@@ -31,18 +31,22 @@ interface AskResponse {
  * </div>
  */
 export default class AskChatController extends Controller<HTMLElement> {
-  static targets = ["result", "input", "submitButton", "loading", "form"]
+  static targets = ["result", "input", "submitButton", "loading", "loadingText", "form"]
 
   declare readonly resultTarget: HTMLElement
   declare readonly inputTarget: HTMLTextAreaElement
   declare readonly submitButtonTarget: HTMLButtonElement
   declare readonly loadingTarget: HTMLElement
+  declare readonly loadingTextTarget: HTMLElement
   declare readonly formTarget: HTMLFormElement
   declare readonly hasLoadingTarget: boolean
+  declare readonly hasLoadingTextTarget: boolean
   declare readonly hasResultTarget: boolean
   declare readonly hasFormTarget: boolean
 
   private isSubmitting = false
+  private dotsAnimationId: number | null = null
+  private dotsCount = 0
 
   private get csrfToken(): string {
     const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
@@ -116,6 +120,37 @@ export default class AskChatController extends Controller<HTMLElement> {
     }
     this.submitButtonTarget.disabled = loading
     this.inputTarget.disabled = loading
+
+    if (loading) {
+      this.startDotsAnimation()
+    } else {
+      this.stopDotsAnimation()
+    }
+  }
+
+  private startDotsAnimation(): void {
+    if (!this.hasLoadingTextTarget) return
+
+    this.dotsCount = 1
+    this.updateDotsText()
+
+    this.dotsAnimationId = window.setInterval(() => {
+      this.dotsCount = (this.dotsCount % 3) + 1
+      this.updateDotsText()
+    }, 400)
+  }
+
+  private stopDotsAnimation(): void {
+    if (this.dotsAnimationId !== null) {
+      clearInterval(this.dotsAnimationId)
+      this.dotsAnimationId = null
+    }
+  }
+
+  private updateDotsText(): void {
+    if (!this.hasLoadingTextTarget) return
+    const dots = ".".repeat(this.dotsCount)
+    this.loadingTextTarget.textContent = `Generating responses and voting${dots}`
   }
 
   private clearResult(): void {

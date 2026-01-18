@@ -1,6 +1,14 @@
-<h1>Ask Harmonic</h1>
-
-<p>Multiple AI models generate responses, then vote using acceptance voting to select the best answer.</p>
+<div class="ask-header">
+  <div data-controller="trio-logo"
+       data-trio-logo-size-value="56"
+       data-trio-logo-tube-radius-value="0.25"
+       class="trio-logo-container">
+  </div>
+  <div class="ask-header-text">
+    <h1>Trio</h1>
+    <p>Trio is Harmonic's ensemble AI model that selects from multiple LLM responses.</p>
+  </div>
+</div>
 
 <div data-controller="ask-chat" class="ask-chat-container">
   <%# Input form - works without JS as fallback %>
@@ -20,8 +28,13 @@
 
   <%# Loading indicator %>
   <div data-ask-chat-target="loading" class="ask-chat-loading" style="display: none;">
-    <div class="ask-chat-spinner"></div>
-    <span>Generating responses and voting...</span>
+    <div data-controller="trio-logo"
+         data-trio-logo-size-value="32"
+         data-trio-logo-tube-radius-value="0.25"
+         data-trio-logo-rotation-speed-value="2"
+         class="trio-logo-container">
+    </div>
+    <span data-ask-chat-target="loadingText">Generating responses and voting.</span>
   </div>
 
   <%# Result area - shows one Q&A pair %>

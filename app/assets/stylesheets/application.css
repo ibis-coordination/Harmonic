@@ -844,6 +844,32 @@ ul.attachments-list {
    Ask Chat Styles
    ========================================= */
 
+.ask-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.trio-logo-container {
+  flex-shrink: 0;
+  color: var(--color-fg-default);
+}
+
+.trio-logo {
+  display: block;
+}
+
+.ask-header-text h1 {
+  margin: 0 0 0.25rem 0;
+}
+
+.ask-header-text p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
 .ask-chat-container {
   display: flex;
   flex-direction: column;
