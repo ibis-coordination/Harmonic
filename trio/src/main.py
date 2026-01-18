@@ -106,7 +106,21 @@ async def chat_completions(request: ChatCompletionRequest, response: Response) -
             detail=f"Ensemble size {len(ensemble)} exceeds maximum of {MAX_ENSEMBLE_SIZE} models",
         )
 
-    logger.info(f"Chat completion request: {len(request.messages)} messages, ensemble: {[e.model for e in ensemble]}")
+    # Determine aggregation method (request param overrides settings default)
+    aggregation_method = request.trio_aggregation_method or settings.trio_aggregation_method
+    judge_model = request.trio_judge_model or settings.trio_judge_model
+
+    # Validate judge method has a judge_model
+    if aggregation_method == "judge" and not judge_model:
+        raise HTTPException(
+            status_code=400,
+            detail="trio_judge_model is required when using 'judge' aggregation method",
+        )
+
+    logger.info(
+        f"Chat completion request: {len(request.messages)} messages, "
+        f"ensemble: {[e.model for e in ensemble]}, aggregation: {aggregation_method}"
+    )
 
     # Use httpx client with timeout
     async with httpx.AsyncClient(timeout=settings.trio_timeout) as client:
@@ -117,6 +131,8 @@ async def chat_completions(request: ChatCompletionRequest, response: Response) -
             ensemble,
             request.max_tokens,
             request.temperature,
+            aggregation_method,
+            judge_model,
         )
 
     # Build OpenAI-compatible response

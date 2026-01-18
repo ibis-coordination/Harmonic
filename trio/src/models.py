@@ -37,6 +37,10 @@ class ChatCompletionRequest(BaseModel):
     user: str | None = None
     # Trio-specific: specify ensemble members with optional per-model system prompts
     trio_ensemble: list[EnsembleMember] | None = None
+    # Trio-specific: aggregation method ("acceptance_voting", "random", or "judge")
+    trio_aggregation_method: str | None = None
+    # Trio-specific: model to use for judge aggregation
+    trio_judge_model: str | None = None
 
 
 class ChatCompletionChoice(BaseModel):
@@ -96,3 +100,4 @@ class VotingDetails(BaseModel):
 
     winner_index: int
     candidates: list[Candidate]
+    aggregation_method: str = "acceptance_voting"

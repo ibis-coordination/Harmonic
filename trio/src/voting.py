@@ -221,6 +221,8 @@ async def voting_completion(
     ensemble: list[EnsembleMember],
     max_tokens: int = 500,
     temperature: float = 0.7,
+    aggregation_method: str = "acceptance_voting",
+    judge_model: str | None = None,
 ) -> tuple[str, VotingDetails]:
     """Run the full voting completion pipeline.
 
@@ -231,6 +233,8 @@ async def voting_completion(
         ensemble: List of ensemble members with models and optional custom prompts
         max_tokens: Maximum tokens per response
         temperature: Sampling temperature
+        aggregation_method: Method for selecting winner ("acceptance_voting", "random", "judge")
+        judge_model: Model to use for judge aggregation (required if method is "judge")
 
     Returns:
         Tuple of (winning_response, voting_details)
@@ -261,12 +265,13 @@ async def voting_completion(
 
         if not response:
             return "Sorry, I couldn't generate a response.", VotingDetails(
-                winner_index=-1, candidates=[]
+                winner_index=-1, candidates=[], aggregation_method="none"
             )
 
         return response, VotingDetails(
             winner_index=0,
             candidates=[Candidate(model=member.model, response=response, accepted=0, preferred=0)],
+            aggregation_method="none",
         )
 
     # Phase 1: Generate responses from all models
@@ -280,7 +285,7 @@ async def voting_completion(
 
     if not valid_responses:
         return "Sorry, I couldn't generate a response.", VotingDetails(
-            winner_index=-1, candidates=[]
+            winner_index=-1, candidates=[], aggregation_method="none"
         )
 
     logger.debug(f"Generated {len(valid_responses)} valid responses")
@@ -291,6 +296,7 @@ async def voting_completion(
         return response, VotingDetails(
             winner_index=0,
             candidates=[Candidate(model=model, response=response, accepted=0, preferred=0)],
+            aggregation_method="none",
         )
 
     # Extract the user's question from messages
@@ -300,33 +306,38 @@ async def voting_completion(
             question = msg.content
             break
 
-    # Phase 2: Run acceptance voting
-    logger.debug("Running acceptance voting...")
-    acceptance_counts, preference_counts = await run_acceptance_voting(
-        client, settings, question, valid_responses
+    # Import here to avoid circular import at module level
+    from .aggregation import aggregate
+
+    # Phase 2: Run aggregation to select winner
+    logger.debug(f"Running {aggregation_method} aggregation...")
+    result = await aggregate(
+        method=aggregation_method,
+        responses=valid_responses,
+        question=question,
+        client=client,
+        settings=settings,
+        judge_model=judge_model,
     )
 
-    logger.debug(f"Acceptance counts: {acceptance_counts}")
-    logger.debug(f"Preference counts: {preference_counts}")
-
-    # Pick winner
-    winner_index = pick_winner(valid_responses, acceptance_counts, preference_counts)
+    winner_index = result.winner_index
     winner_model, winner_response = valid_responses[winner_index]
 
-    logger.debug(
-        f"Winner ({acceptance_counts[winner_index]} accepted, "
-        f"{preference_counts[winner_index]} preferred): {winner_response[:50]}..."
-    )
+    logger.debug(f"Winner (method={result.method}): {winner_response[:50]}...")
 
-    # Build candidates list
+    # Build candidates list with vote counts
     candidates = [
         Candidate(
             model=model,
             response=response,
-            accepted=acceptance_counts[i],
-            preferred=preference_counts[i],
+            accepted=result.acceptance_counts[i] if result.acceptance_counts else 0,
+            preferred=result.preference_counts[i] if result.preference_counts else 0,
         )
         for i, (model, response) in enumerate(valid_responses)
     ]
 
-    return winner_response, VotingDetails(winner_index=winner_index, candidates=candidates)
+    return winner_response, VotingDetails(
+        winner_index=winner_index,
+        candidates=candidates,
+        aggregation_method=result.method,
+    )

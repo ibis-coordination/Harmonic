@@ -13,11 +13,37 @@ Because Trio acts as a singular model from the client perspective, Trio can actu
 ## How It Works
 
 1. **Generate**: Trio sends the prompt to N configured models in parallel
-2. **Vote**: Each model evaluates all responses using acceptance voting:
-   - ACCEPTED: Responses that adequately answer the question
-   - PREFERRED: The single best response from accepted ones
-3. **Rank**: Responses are ranked by acceptance count DESC, then preference count DESC
-4. **Return**: The winning response is returned in OpenAI format
+2. **Aggregate**: Select the winning response using one of three methods:
+   - **acceptance_voting** (default): Each model votes on all responses, winner has most acceptances
+   - **random**: Randomly select one response
+   - **judge**: A separate judge model evaluates and picks the best response
+3. **Return**: The winning response is returned in OpenAI format
+
+## Aggregation Methods
+
+Trio supports multiple methods for selecting the best response from the ensemble:
+
+### Acceptance Voting (default)
+
+Each model evaluates all responses:
+- **ACCEPTED**: Responses that adequately answer the question
+- **PREFERRED**: The single best response from accepted ones
+
+Winner is ranked by acceptance count DESC, then preference count DESC. This is the most thorough method but requires 2N model calls (N responses + N voting rounds).
+
+### Random Selection
+
+Randomly selects one of the generated responses. Fast and cheap (only N model calls), useful for:
+- A/B testing different ensemble configurations
+- When you want diversity over consistency
+- Baseline comparisons against voting methods
+
+### Judge Model
+
+A separate "judge" model evaluates all responses and picks the best one. Requires N+1 model calls (N responses + 1 judge call). Good when:
+- You have a high-quality model available as judge
+- You want faster aggregation than acceptance voting
+- The judge model is different from the ensemble models
 
 ## Pass-Through Mode
 
@@ -123,15 +149,41 @@ If you just want to specify models without custom prompts, omit `system_prompt`:
 
 **X-Trio-Details Header:**
 
-The response includes a custom header with voting details:
+The response includes a custom header with aggregation details:
 ```json
 {
   "winner_index": 0,
+  "aggregation_method": "acceptance_voting",
   "candidates": [
     {"model": "default", "response": "4", "accepted": 3, "preferred": 2},
     {"model": "llama3.2-3b", "response": "The answer is 4.", "accepted": 3, "preferred": 1},
     {"model": "mistral", "response": "2+2=4", "accepted": 2, "preferred": 0}
   ]
+}
+```
+
+**With aggregation method:**
+
+Use `trio_aggregation_method` to specify how to select the winner:
+
+```json
+{
+  "model": "trio-1.0",
+  "messages": [{"role": "user", "content": "What is 2+2?"}],
+  "trio_aggregation_method": "random"
+}
+```
+
+**With judge model:**
+
+When using `judge` aggregation, specify the judge model:
+
+```json
+{
+  "model": "trio-1.0",
+  "messages": [{"role": "user", "content": "Explain quantum computing"}],
+  "trio_aggregation_method": "judge",
+  "trio_judge_model": "claude-sonnet"
 }
 ```
 
@@ -152,7 +204,9 @@ Environment variables:
 | `TRIO_MODELS` | Comma-separated model names | `default,llama3.2-3b,mistral` |
 | `TRIO_BACKEND_URL` | LiteLLM/Ollama URL | `http://litellm:4000` |
 | `TRIO_PORT` | Service port | `8000` |
-| `TRIO_TIMEOUT` | Request timeout (seconds) | `60` |
+| `TRIO_TIMEOUT` | Request timeout (seconds) | `120` |
+| `TRIO_AGGREGATION_METHOD` | Default aggregation method | `acceptance_voting` |
+| `TRIO_JUDGE_MODEL` | Model for judge aggregation | (none) |
 
 ## Using with OpenAI Clients
 
