@@ -12,7 +12,7 @@ class TrioClientTest < ActiveSupport::TestCase
         status: 200,
         headers: {
           "Content-Type" => "application/json",
-          "X-Trio-Details" => { winner_index: 0, candidates: [] }.to_json,
+          "X-Trio-Details" => { winner_index: 0, aggregation_method: "acceptance_voting", candidates: [] }.to_json,
         },
         body: {
           choices: [
@@ -35,6 +35,7 @@ class TrioClientTest < ActiveSupport::TestCase
           "Content-Type" => "application/json",
           "X-Trio-Details" => {
             winner_index: 1,
+            aggregation_method: "acceptance_voting",
             candidates: [
               { "model" => "model1", "response" => "4", "accepted" => 2, "preferred" => 0 },
               { "model" => "model2", "response" => "The answer is 4.", "accepted" => 3, "preferred" => 2 },
@@ -54,6 +55,7 @@ class TrioClientTest < ActiveSupport::TestCase
     assert_equal "The answer is 4.", result.content
     assert_not_nil result.voting_details
     assert_equal 1, result.voting_details.winner_index
+    assert_equal "acceptance_voting", result.voting_details.aggregation_method
     assert_equal 2, result.voting_details.candidates.length
     assert_equal "model2", result.voting_details.candidates[1]["model"]
   end
@@ -71,7 +73,10 @@ class TrioClientTest < ActiveSupport::TestCase
 
     assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
       body = JSON.parse(req.body)
-      body["model"] == "trio-1.0" &&
+      body["model"].is_a?(Hash) &&
+        body["model"]["ensemble"].is_a?(Array) &&
+        body["model"]["ensemble"].all? { |m| m.is_a?(Hash) && m["model"].present? } &&
+        body["model"]["aggregation_method"] == "acceptance_voting" &&
         body["messages"].is_a?(Array) &&
         body["messages"].length == 1 &&
         body["messages"][0]["role"] == "user" &&
@@ -100,7 +105,7 @@ class TrioClientTest < ActiveSupport::TestCase
     end
   end
 
-  test "ask_with_details sends trio_ensemble when specified" do
+  test "ask_with_details sends ensemble in model config when specified" do
     stub_request(:post, "#{@base_url}/v1/chat/completions")
       .to_return(
         status: 200,
@@ -117,10 +122,11 @@ class TrioClientTest < ActiveSupport::TestCase
 
     assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
       body = JSON.parse(req.body)
-      body["trio_ensemble"].is_a?(Array) &&
-        body["trio_ensemble"].length == 2 &&
-        body["trio_ensemble"][0]["model"] == "llama3.2:1b" &&
-        body["trio_ensemble"][0]["system_prompt"] == "Be concise"
+      body["model"].is_a?(Hash) &&
+        body["model"]["ensemble"].is_a?(Array) &&
+        body["model"]["ensemble"].length == 2 &&
+        body["model"]["ensemble"][0]["model"] == "llama3.2:1b" &&
+        body["model"]["ensemble"][0]["system_prompt"] == "Be concise"
     end
   end
 
@@ -140,7 +146,7 @@ class TrioClientTest < ActiveSupport::TestCase
 
     assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
       body = JSON.parse(req.body)
-      body["trio_ensemble"].present?
+      body["model"].is_a?(Hash) && body["model"]["ensemble"].present?
     end
   end
 

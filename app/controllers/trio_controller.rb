@@ -35,6 +35,7 @@ class TrioController < ApplicationController
             success: true,
             question: question,
             answer: result.content,
+            aggregation_method: voting&.aggregation_method,
             winner_index: voting&.winner_index,
             candidates: voting&.candidates,
           }

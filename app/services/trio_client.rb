@@ -10,6 +10,7 @@ class TrioClient
   # Voting details returned from Trio
   class VotingDetails < T::Struct
     const :winner_index, Integer
+    const :aggregation_method, String
     const :candidates, T::Array[T::Hash[String, T.untyped]]
   end
 
@@ -23,6 +24,14 @@ class TrioClient
   def initialize
     @base_url = T.let(ENV.fetch("TRIO_BASE_URL", "http://trio:8000"), String)
     @timeout = T.let(ENV.fetch("TRIO_TIMEOUT", "120").to_i, Integer)
+    @default_models = T.let(
+      ENV.fetch("TRIO_MODELS", "default,default,default").split(",").map(&:strip),
+      T::Array[String],
+    )
+    @default_aggregation = T.let(
+      ENV.fetch("TRIO_AGGREGATION_METHOD", "acceptance_voting"),
+      String,
+    )
   end
 
   # Simple ask - returns just the response content
@@ -86,15 +95,22 @@ class TrioClient
     ).returns(T::Hash[Symbol, T.untyped])
   end
   def build_request_body(messages, ensemble)
-    body = T.let({
-      model: "trio-1.0",
+    # Build the model config - either custom ensemble or default from env
+    # Ensemble members must be objects with a "model" key, not bare strings
+    ensemble_members = if ensemble.present?
+      ensemble
+    else
+      @default_models.map { |m| { model: m } }
+    end
+
+    {
+      model: {
+        ensemble: ensemble_members,
+        aggregation_method: @default_aggregation,
+      },
       messages: messages,
       max_tokens: 2048,
-    }, T::Hash[Symbol, T.untyped])
-
-    body[:trio_ensemble] = ensemble if ensemble.present?
-
-    body
+    }
   end
 
   sig { params(body: T::Hash[Symbol, T.untyped]).returns(Faraday::Response) }
@@ -126,6 +142,7 @@ class TrioClient
     parsed = T.cast(JSON.parse(header_value), T::Hash[String, T.untyped])
     VotingDetails.new(
       winner_index: T.cast(parsed["winner_index"], Integer),
+      aggregation_method: T.cast(parsed["aggregation_method"], String),
       candidates: T.cast(parsed["candidates"], T::Array[T::Hash[String, T.untyped]]),
     )
   rescue JSON::ParserError
