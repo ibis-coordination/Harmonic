@@ -56,6 +56,10 @@ Caddyfile
 # Test coverage reports
 /coverage/
 
+# Playwright test artifacts
+/playwright-report/
+/test-results/
+
 # Sorbet RBI files are committed to the repo (faster CI, no generation step needed)
 
 # Python cache (Trio)
