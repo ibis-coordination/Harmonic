@@ -78,14 +78,20 @@ export async function loginViaForm(
 }
 
 /**
- * Logs out the current user by clearing cookies and verifying logged out state.
+ * Logs out the current user by clearing cookies and navigating to login.
  * This bypasses any Turbo Drive interception issues.
  */
-export async function logout(page: Page): Promise<void> {
+export async function logout(page: Page, subdomain: string = "app"): Promise<void> {
   // Clear cookies to end the session
   await page.context().clearCookies()
-  // Reload to verify we're logged out (should redirect to login or show login prompt)
-  await page.reload({ waitUntil: "networkidle" })
+  // Clear local and session storage as well
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+  // Navigate to login page explicitly (more reliable than reloading)
+  const baseUrl = buildBaseUrl(subdomain)
+  await page.goto(`${baseUrl}/login`, { waitUntil: "networkidle" })
 }
 
 /**

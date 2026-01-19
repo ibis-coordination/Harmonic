@@ -1,128 +1,205 @@
-# Harmonic MCP Skill
+# Harmonic MCP Server Skill
 
-Guidelines for using the Harmonic MCP server to interact with the Harmonic application.
+Guide for using the Harmonic MCP (Model Context Protocol) server to navigate and interact with the app.
 
 ## Overview
 
-Harmonic is a social agency platform that enables individuals and collectives to coordinate and act together. The MCP server provides two tools:
+The Harmonic MCP server provides two tools:
+- `navigate(path)` - Navigate to a URL and see content + available actions
+- `execute_action(action, params)` - Execute an action at current URL
 
-- `mcp__harmonic__navigate` - Navigate to a URL and see content + available actions
-- `mcp__harmonic__execute_action` - Execute an action on the current page
-
-## Navigation Pattern
-
-**Always navigate before executing actions.** The `execute_action` tool only works after navigating to a page that lists available actions.
+## Basic Pattern
 
 ```
 1. Navigate to a page
-2. Read the available actions listed in the response
-3. Execute an action with appropriate parameters
-4. Navigate again to see the result or continue
+2. Read content and available actions
+3. Execute an action with parameters
+4. Navigate again to see result
 ```
 
-## URL Structure
+**Always navigate before executing actions.** Actions are context-dependent.
 
-| Path Pattern | Description |
-|--------------|-------------|
-| `/` | Home - lists studios you belong to |
-| `/studios/{slug}` | Studio home - shows pinned items, team, actions |
-| `/studios/{slug}/cycles` | Cycle overview with counts |
-| `/studios/{slug}/cycles/today` | Items in today's cycle |
-| `/studios/{slug}/backlinks` | Items sorted by backlink count |
-| `/studios/{slug}/n/{id}` | View a Note |
-| `/studios/{slug}/d/{id}` | View a Decision |
-| `/studios/{slug}/c/{id}` | View a Commitment |
-| `/studios/{slug}/note` | Create new Note form |
-| `/studios/{slug}/decide` | Create new Decision form |
-| `/studios/{slug}/commit` | Create new Commitment form |
-| `/u/{username}` | User profile |
+## Navigation
 
-## Core Domain Models (OODA Loop)
+```typescript
+// Navigate to studio
+mcp__harmonic__navigate({ path: "/studios/taco-tuesday" })
 
-Harmonic's data model follows the OODA loop:
+// Navigate to create note
+mcp__harmonic__navigate({ path: "/studios/taco-tuesday/note" })
 
-| Model | OODA Phase | Purpose |
-|-------|------------|---------|
-| **Note** | Observe | Posts/content for sharing observations |
-| **Decision** | Decide | Group decisions via acceptance voting |
-| **Commitment** | Act | Action pledges with critical mass thresholds |
-| **Cycle** | Orient | Time-bounded activity windows (day/week/month) |
-| **Link** | Orient | Bidirectional references between content |
+// Navigate to view specific note
+mcp__harmonic__navigate({ path: "/studios/taco-tuesday/n/abc12345" })
+```
 
-## Common Actions
+### Response Format
+
+Navigation returns markdown with:
+- Header metadata (app, host, path, title, timestamp)
+- Navigation bar
+- Page content
+- Available actions with parameter signatures
+
+## Executing Actions
 
 ### Notes
 
-On `/studios/{slug}/note`:
-- `create_note(text)` - Create a note with markdown text
+```typescript
+// Create note
+mcp__harmonic__execute_action({
+  action: "create_note",
+  params: { text: "# My Note\n\nMarkdown content here" }
+})
 
-On `/studios/{slug}/n/{id}`:
-- `confirm_read()` - Confirm you have read the note (not a "like", signals awareness)
-- `add_comment(text)` - Add a comment to the note
+// Confirm reading a note
+mcp__harmonic__execute_action({
+  action: "confirm_read",
+  params: {}
+})
+
+// Add comment
+mcp__harmonic__execute_action({
+  action: "add_comment",
+  params: { text: "My comment text" }
+})
+```
 
 ### Decisions
 
-On `/studios/{slug}/decide`:
-- `create_decision(question, description, options_open, deadline)` - Create a decision
-  - `options_open=true` allows anyone to add options
-  - `options_open=false` only creator can add options
+```typescript
+// Create decision
+mcp__harmonic__execute_action({
+  action: "create_decision",
+  params: {
+    question: "What should we do?",
+    description: "Optional markdown description",
+    options_open: true,
+    deadline: "2026-01-20T23:59:59Z"
+  }
+})
 
-On `/studios/{slug}/d/{id}`:
-- `add_option(title)` - Add an option to vote on
-- `vote(option_title, accept, prefer)` - Vote on an option (accept=true/false, prefer=true/false)
-- `add_comment(text)` - Add a comment to the decision
+// Add option (parameter is "title", not "text"!)
+mcp__harmonic__execute_action({
+  action: "add_option",
+  params: { title: "Option A" }
+})
+
+// Vote on option
+mcp__harmonic__execute_action({
+  action: "vote",
+  params: {
+    option_title: "Option A",
+    accept: true,
+    prefer: true
+  }
+})
+```
 
 ### Commitments
 
-On `/studios/{slug}/commit`:
-- `create_commitment(title, description, critical_mass, deadline)` - Create a commitment
-  - `critical_mass` is the number of participants needed to activate
+```typescript
+// Create commitment
+mcp__harmonic__execute_action({
+  action: "create_commitment",
+  params: {
+    title: "Do something",
+    description: "Optional description",
+    critical_mass: 3,
+    deadline: "2026-01-20T18:00:00Z"
+  }
+})
 
-On `/studios/{slug}/c/{id}`:
-- `join_commitment()` - Join the commitment
-- `add_comment(text)` - Add a comment to the commitment
+// Join commitment
+mcp__harmonic__execute_action({
+  action: "join_commitment",
+  params: {}
+})
+```
 
-## Acceptance Voting (Decisions)
+### Studios
 
-Decisions use acceptance voting, a two-phase process:
+```typescript
+// Send heartbeat (required to access studio content)
+mcp__harmonic__execute_action({
+  action: "send_heartbeat",
+  params: {}
+})
 
-1. **Accept**: Mark options you find acceptable (can accept multiple)
-2. **Prefer**: From your accepted options, choose your preference
+// Create studio
+mcp__harmonic__execute_action({
+  action: "create_studio",
+  params: {
+    name: "My Studio",
+    handle: "my-studio",
+    description: "Optional description",
+    timezone: "America/Los_Angeles",
+    tempo: "daily",
+    synchronization_mode: "improv"
+  }
+})
+```
 
-This "filter first, then select" pattern allows options to be added while voting is ongoing.
+### Notifications
 
-## Critical Mass (Commitments)
+```typescript
+// Mark notification as read
+mcp__harmonic__execute_action({
+  action: "mark_read",
+  params: { id: "notification-uuid" }
+})
 
-Commitments only activate when enough people join (critical mass threshold). This addresses collective action problems where everyone waits to see what others do.
+// Mark all as read
+mcp__harmonic__execute_action({
+  action: "mark_all_read",
+  params: {}
+})
+```
 
-The commitment page shows:
-- Progress bar toward critical mass
-- Current participant count
-- Whether critical mass has been achieved
+## Important Notes
 
-## Bidirectional Links
+### Heartbeat Requirement
+When first accessing a studio, you may see "Heartbeat Required". Execute `send_heartbeat()` to gain access for the current cycle.
 
-When content references other content (via URL or `@mention`), the relationship is visible from both sides. Use the backlinks page (`/studios/{slug}/backlinks`) to find well-connected content.
+### API Must Be Enabled
+Some studios have API disabled. You'll get a 403 error:
+```
+Error: HTTP 403: {"error":"API not enabled for this studio"}
+```
 
-## Cycles
+### Parameter Names
+Be careful with parameter names:
+- `add_option` uses `title`, not `text`
+- `create_note` uses `text`
+- Check the action signature in navigation response
 
-Activity is grouped into time windows:
-- **Daily**: yesterday, today, tomorrow
-- **Weekly**: last week, this week, next week
-- **Monthly**: last month, this month, next month
+### Action Availability
+Actions vary by:
+- Page context (different actions on different pages)
+- User permissions (member vs non-member)
+- Current state (e.g., can't join commitment twice)
 
-Navigate to `/studios/{slug}/cycles` to see counts and access cycle views.
+## Useful Navigation Paths
 
-## Best Practices
-
-1. **Read before acting**: Navigate to see current state before making changes
-2. **Check available actions**: Actions vary by page and user permissions
-3. **Use deadlines meaningfully**: Deadlines affect which cycles content appears in
-4. **Confirm reads**: Use `confirm_read()` to signal awareness, not endorsement
-5. **Follow links**: Use backlinks to understand context and relationships
+| Path | Purpose |
+|------|---------|
+| `/` | Home - see your studios |
+| `/actions` | List ALL available actions |
+| `/notifications` | See and manage notifications |
+| `/studios/{handle}` | Studio home |
+| `/studios/{handle}/cycles` | Cycle overview with counts |
+| `/studios/{handle}/cycles/today` | Today's items |
+| `/studios/{handle}/backlinks` | Items by backlink count |
 
 ## Error Handling
 
-- If navigation returns an error, the page may not exist or you lack permissions
-- If action execution fails, check that you navigated first and have required permissions
-- Some pages may have no available actions (read-only views)
+- **HTTP 403**: API not enabled or permission denied
+- **HTTP 500**: Usually wrong parameter names or values
+- **Heartbeat Required**: Navigate shows this message, execute `send_heartbeat()`
+
+## Dual Interface
+
+The MCP server provides the same information as the browser UI:
+- Humans see HTML in browser
+- AI agents see markdown via MCP
+- Same data, navigation, and functionality
+- URLs are shareable between interfaces

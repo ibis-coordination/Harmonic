@@ -81,21 +81,32 @@ await logout(page)  // Clears cookies and reloads
 
 ## Logout Behavior
 
-The app uses Turbo Drive which intercepts navigation. The logout helper clears cookies instead of navigating:
+The app uses Turbo Drive which intercepts navigation. The logout helper clears cookies, local/session storage, and navigates to login:
 
 ```typescript
-export async function logout(page: Page): Promise<void> {
+export async function logout(page: Page, subdomain: string = "app"): Promise<void> {
+  // Clear cookies to end the session
   await page.context().clearCookies()
-  await page.reload({ waitUntil: "networkidle" })
+  // Clear local and session storage as well
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+  // Navigate to login page explicitly (more reliable than reloading)
+  const baseUrl = buildBaseUrl(subdomain)
+  await page.goto(`${baseUrl}/login`, { waitUntil: "networkidle" })
 }
 ```
 
-After logout, verify logged-out state by checking for login button:
+After logout, verify logged-out state by checking for login form or button:
 
 ```typescript
 const loginButton = page.locator('button:has-text("Log in"), a:has-text("Log in")')
-await expect(loginButton.first()).toBeVisible()
+const loginPage = page.locator('input[placeholder="email address"]')
+await expect(loginButton.or(loginPage).first()).toBeVisible()
 ```
+
+**Important:** Simply clearing cookies and reloading doesn't work reliably - the page may still show cached logged-in state. Always navigate explicitly to `/login` after clearing cookies.
 
 ## Environment Variables
 
