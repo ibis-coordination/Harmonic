@@ -6,7 +6,7 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @superagent = @global_superagent
     @user = @global_user
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
     @base_url = ENV.fetch("TRIO_BASE_URL", "http://trio:8000")
     # Enable trio feature flag for tests
     @tenant.set_feature_flag!("trio", true)
@@ -44,7 +44,7 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
               },
             },
           ],
-        }.to_json,
+        }.to_json
       )
 
     sign_in_as(@user, tenant: @tenant)
@@ -83,14 +83,14 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
               },
             },
           ],
-        }.to_json,
+        }.to_json
       )
 
     sign_in_as(@user, tenant: @tenant)
     post "/trio",
-      params: { question: "How do I create a note?" },
-      headers: { "Accept" => "application/json" },
-      as: :json
+         params: { question: "How do I create a note?" },
+         headers: { "Accept" => "application/json" },
+         as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
@@ -102,9 +102,9 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
   test "JSON: returns error for empty question" do
     sign_in_as(@user, tenant: @tenant)
     post "/trio",
-      params: { question: "" },
-      headers: { "Accept" => "application/json" },
-      as: :json
+         params: { question: "" },
+         headers: { "Accept" => "application/json" },
+         as: :json
 
     assert_response :unprocessable_entity
     json = JSON.parse(response.body)
@@ -118,9 +118,9 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/trio",
-      params: { question: "Test question" },
-      headers: { "Accept" => "application/json" },
-      as: :json
+         params: { question: "Test question" },
+         headers: { "Accept" => "application/json" },
+         as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
@@ -134,9 +134,9 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/trio",
-      params: { question: "Test question" },
-      headers: { "Accept" => "application/json" },
-      as: :json
+         params: { question: "Test question" },
+         headers: { "Accept" => "application/json" },
+         as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
@@ -146,12 +146,93 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
 
   test "JSON: unauthenticated user cannot submit question" do
     post "/trio",
-      params: { question: "Test question" },
-      headers: { "Accept" => "application/json" },
-      as: :json
+         params: { question: "Test question" },
+         headers: { "Accept" => "application/json" },
+         as: :json
 
     # JSON requests return 401 instead of redirect
     assert_response :unauthorized
+  end
+
+  # === Aggregation Method Tests ===
+
+  test "JSON: accepts aggregation_method parameter" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: {
+          "Content-Type" => "application/json",
+          "X-Trio-Details" => { winner_index: 0, aggregation_method: "random", candidates: [] }.to_json,
+        },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json
+      )
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/trio",
+         params: { question: "Test", aggregation_method: "random" },
+         headers: { "Accept" => "application/json" },
+         as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "random", json["aggregation_method"]
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "random"
+    end
+  end
+
+  test "JSON: accepts judge_model parameter when using judge aggregation" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: {
+          "Content-Type" => "application/json",
+          "X-Trio-Details" => { winner_index: 0, aggregation_method: "judge", candidates: [] }.to_json,
+        },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json
+      )
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/trio",
+         params: { question: "Test", aggregation_method: "judge", judge_model: "claude-sonnet-4" },
+         headers: { "Accept" => "application/json" },
+         as: :json
+
+    assert_response :success
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "judge" &&
+        body["model"]["judge_model"] == "claude-sonnet-4"
+    end
+  end
+
+  test "JSON: accepts synthesize_model parameter when using synthesize aggregation" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: {
+          "Content-Type" => "application/json",
+          "X-Trio-Details" => { winner_index: 0, aggregation_method: "synthesize", candidates: [] }.to_json,
+        },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json
+      )
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/trio",
+         params: { question: "Test", aggregation_method: "synthesize", synthesize_model: "claude-sonnet-4" },
+         headers: { "Accept" => "application/json" },
+         as: :json
+
+    assert_response :success
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "synthesize" &&
+        body["model"]["synthesize_model"] == "claude-sonnet-4"
+    end
   end
 
   # === Feature Flag Tests ===
@@ -170,8 +251,8 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     get "/trio",
-      headers: { "Accept" => "application/json" },
-      as: :json
+        headers: { "Accept" => "application/json" },
+        as: :json
 
     assert_response :forbidden
     json = JSON.parse(response.body)
@@ -192,9 +273,9 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/trio",
-      params: { question: "Test question" },
-      headers: { "Accept" => "application/json" },
-      as: :json
+         params: { question: "Test question" },
+         headers: { "Accept" => "application/json" },
+         as: :json
 
     assert_response :forbidden
     json = JSON.parse(response.body)

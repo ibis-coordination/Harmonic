@@ -23,6 +23,42 @@
           class: "trio-chat-submit",
           data: { "trio-chat-target": "submitButton" } %>
     </div>
+
+    <%# Aggregation options %>
+    <details class="trio-chat-options">
+      <summary>Options</summary>
+      <div class="trio-chat-options-content">
+        <div class="trio-chat-option-row">
+          <%= form.label :aggregation_method, "Aggregation method", class: "trio-chat-option-label" %>
+          <%= form.select :aggregation_method,
+              options_for_select([
+                ["Acceptance Voting", "acceptance_voting"],
+                ["Random", "random"],
+                ["Judge", "judge"],
+                ["Synthesize", "synthesize"],
+                ["Concat", "concat"],
+              ], "acceptance_voting"),
+              {},
+              { class: "trio-chat-option-select", data: { "trio-chat-target": "aggregationMethod", action: "change->trio-chat#aggregationChanged" } } %>
+        </div>
+
+        <div class="trio-chat-option-row" data-trio-chat-target="judgeModelRow" style="display: none;">
+          <%= form.label :judge_model, "Judge model", class: "trio-chat-option-label" %>
+          <%= form.text_field :judge_model,
+              placeholder: "e.g., claude-sonnet-4",
+              class: "trio-chat-option-input",
+              data: { "trio-chat-target": "judgeModel" } %>
+        </div>
+
+        <div class="trio-chat-option-row" data-trio-chat-target="synthesizeModelRow" style="display: none;">
+          <%= form.label :synthesize_model, "Synthesize model", class: "trio-chat-option-label" %>
+          <%= form.text_field :synthesize_model,
+              placeholder: "e.g., claude-sonnet-4",
+              class: "trio-chat-option-input",
+              data: { "trio-chat-target": "synthesizeModel" } %>
+        </div>
+      </div>
+    </details>
   <% end %>
 
   <%# Loading indicator %>
