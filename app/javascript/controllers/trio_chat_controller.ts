@@ -12,6 +12,7 @@ interface TrioResponse {
   question?: string
   answer?: string
   error?: string
+  aggregation_method?: string
   winner_index?: number
   candidates?: Candidate[]
 }
@@ -31,7 +32,19 @@ interface TrioResponse {
  * </div>
  */
 export default class TrioChatController extends Controller<HTMLElement> {
-  static targets = ["result", "input", "submitButton", "loading", "loadingText", "form"]
+  static targets = [
+    "result",
+    "input",
+    "submitButton",
+    "loading",
+    "loadingText",
+    "form",
+    "aggregationMethod",
+    "judgeModel",
+    "synthesizeModel",
+    "judgeModelRow",
+    "synthesizeModelRow",
+  ]
 
   declare readonly resultTarget: HTMLElement
   declare readonly inputTarget: HTMLTextAreaElement
@@ -39,10 +52,20 @@ export default class TrioChatController extends Controller<HTMLElement> {
   declare readonly loadingTarget: HTMLElement
   declare readonly loadingTextTarget: HTMLElement
   declare readonly formTarget: HTMLFormElement
+  declare readonly aggregationMethodTarget: HTMLSelectElement
+  declare readonly judgeModelTarget: HTMLInputElement
+  declare readonly synthesizeModelTarget: HTMLInputElement
+  declare readonly judgeModelRowTarget: HTMLElement
+  declare readonly synthesizeModelRowTarget: HTMLElement
   declare readonly hasLoadingTarget: boolean
   declare readonly hasLoadingTextTarget: boolean
   declare readonly hasResultTarget: boolean
   declare readonly hasFormTarget: boolean
+  declare readonly hasAggregationMethodTarget: boolean
+  declare readonly hasJudgeModelTarget: boolean
+  declare readonly hasSynthesizeModelTarget: boolean
+  declare readonly hasJudgeModelRowTarget: boolean
+  declare readonly hasSynthesizeModelRowTarget: boolean
 
   private isSubmitting = false
   private dotsAnimationId: number | null = null
@@ -71,6 +94,22 @@ export default class TrioChatController extends Controller<HTMLElement> {
     }
   }
 
+  aggregationChanged(): void {
+    if (!this.hasAggregationMethodTarget) return
+
+    const method = this.aggregationMethodTarget.value
+
+    // Show/hide judge model input
+    if (this.hasJudgeModelRowTarget) {
+      this.judgeModelRowTarget.style.display = method === "judge" ? "flex" : "none"
+    }
+
+    // Show/hide synthesize model input
+    if (this.hasSynthesizeModelRowTarget) {
+      this.synthesizeModelRowTarget.style.display = method === "synthesize" ? "flex" : "none"
+    }
+  }
+
   async submit(event: Event): Promise<void> {
     event.preventDefault()
     this.submitQuestion()
@@ -87,6 +126,19 @@ export default class TrioChatController extends Controller<HTMLElement> {
     this.clearResult()
 
     try {
+      const requestBody: Record<string, string> = { question }
+
+      // Include aggregation options if available
+      if (this.hasAggregationMethodTarget) {
+        requestBody.aggregation_method = this.aggregationMethodTarget.value
+      }
+      if (this.hasJudgeModelTarget && this.judgeModelTarget.value.trim()) {
+        requestBody.judge_model = this.judgeModelTarget.value.trim()
+      }
+      if (this.hasSynthesizeModelTarget && this.synthesizeModelTarget.value.trim()) {
+        requestBody.synthesize_model = this.synthesizeModelTarget.value.trim()
+      }
+
       const response = await fetch(this.formAction, {
         method: "POST",
         headers: {
@@ -94,7 +146,7 @@ export default class TrioChatController extends Controller<HTMLElement> {
           "X-CSRF-Token": this.csrfToken,
           Accept: "application/json",
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(requestBody),
       })
 
       const data: TrioResponse = await response.json()
@@ -162,6 +214,12 @@ export default class TrioChatController extends Controller<HTMLElement> {
   private showResult(data: TrioResponse): void {
     if (!this.hasResultTarget) return
 
+    // Format aggregation method for display
+    const methodLabel = this.formatAggregationMethod(data.aggregation_method)
+    const methodHtml = methodLabel
+      ? `<div class="trio-chat-aggregation-method">Method: ${this.escapeHtml(methodLabel)}</div>`
+      : ""
+
     // If we have candidates (experimental voting), show winner first with expandable others
     if (data.candidates && data.candidates.length > 0 && data.winner_index !== undefined && data.winner_index >= 0) {
       const winner = data.candidates[data.winner_index]
@@ -214,6 +272,7 @@ export default class TrioChatController extends Controller<HTMLElement> {
       }
 
       this.resultTarget.innerHTML = `
+        ${methodHtml}
         <div class="trio-chat-candidates">
           ${winnerHtml}
           ${otherCandidatesHtml}
@@ -222,11 +281,24 @@ export default class TrioChatController extends Controller<HTMLElement> {
     } else {
       // Simple response (non-voting)
       this.resultTarget.innerHTML = `
+        ${methodHtml}
         <div class="trio-chat-message trio-chat-answer">
           ${this.formatText(data.answer || "")}
         </div>
       `
     }
+  }
+
+  private formatAggregationMethod(method?: string): string {
+    if (!method) return ""
+    const labels: Record<string, string> = {
+      acceptance_voting: "Acceptance Voting",
+      random: "Random",
+      judge: "Judge",
+      synthesize: "Synthesize",
+      concat: "Concat",
+    }
+    return labels[method] || method
   }
 
   toggleOtherCandidates(event: Event): void {

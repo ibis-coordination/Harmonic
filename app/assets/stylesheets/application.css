@@ -1048,3 +1048,65 @@ ul.attachments-list {
 .trio-chat-other-candidates {
   margin-top: 0.5rem;
 }
+
+/* Aggregation options */
+.trio-chat-options {
+  margin-top: 0.5rem;
+}
+
+.trio-chat-options summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 0.25rem 0;
+}
+
+.trio-chat-options summary:hover {
+  color: var(--text-primary);
+}
+
+.trio-chat-options-content {
+  padding: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.trio-chat-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.trio-chat-option-label {
+  min-width: 140px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.trio-chat-option-select,
+.trio-chat-option-input {
+  flex: 1;
+  max-width: 300px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.9rem;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+.trio-chat-option-select:focus,
+.trio-chat-option-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* Aggregation method display in results */
+.trio-chat-aggregation-method {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--border-color);
+}

@@ -29,12 +29,18 @@ class TrioController < ApplicationController
         if question.blank?
           render json: { success: false, error: "Please enter a question." }, status: :unprocessable_entity
         else
-          result = trio_client.ask_with_details(question)
+          result = trio_client.ask_with_details(
+            question,
+            aggregation_method: params[:aggregation_method].presence,
+            judge_model: params[:judge_model].presence,
+            synthesize_model: params[:synthesize_model].presence
+          )
           voting = result.voting_details
           render json: {
             success: true,
             question: question,
             answer: result.content,
+            aggregation_method: voting&.aggregation_method,
             winner_index: voting&.winner_index,
             candidates: voting&.candidates,
           }

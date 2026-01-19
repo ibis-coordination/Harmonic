@@ -12,7 +12,7 @@ class TrioClientTest < ActiveSupport::TestCase
         status: 200,
         headers: {
           "Content-Type" => "application/json",
-          "X-Trio-Details" => { winner_index: 0, candidates: [] }.to_json,
+          "X-Trio-Details" => { winner_index: 0, aggregation_method: "acceptance_voting", candidates: [] }.to_json,
         },
         body: {
           choices: [
@@ -35,6 +35,7 @@ class TrioClientTest < ActiveSupport::TestCase
           "Content-Type" => "application/json",
           "X-Trio-Details" => {
             winner_index: 1,
+            aggregation_method: "acceptance_voting",
             candidates: [
               { "model" => "model1", "response" => "4", "accepted" => 2, "preferred" => 0 },
               { "model" => "model2", "response" => "The answer is 4.", "accepted" => 3, "preferred" => 2 },
@@ -54,6 +55,7 @@ class TrioClientTest < ActiveSupport::TestCase
     assert_equal "The answer is 4.", result.content
     assert_not_nil result.voting_details
     assert_equal 1, result.voting_details.winner_index
+    assert_equal "acceptance_voting", result.voting_details.aggregation_method
     assert_equal 2, result.voting_details.candidates.length
     assert_equal "model2", result.voting_details.candidates[1]["model"]
   end
@@ -71,7 +73,10 @@ class TrioClientTest < ActiveSupport::TestCase
 
     assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
       body = JSON.parse(req.body)
-      body["model"] == "trio-1.0" &&
+      body["model"].is_a?(Hash) &&
+        body["model"]["ensemble"].is_a?(Array) &&
+        body["model"]["ensemble"].all? { |m| m.is_a?(Hash) && m["model"].present? } &&
+        body["model"]["aggregation_method"] == "acceptance_voting" &&
         body["messages"].is_a?(Array) &&
         body["messages"].length == 1 &&
         body["messages"][0]["role"] == "user" &&
@@ -100,7 +105,7 @@ class TrioClientTest < ActiveSupport::TestCase
     end
   end
 
-  test "ask_with_details sends trio_ensemble when specified" do
+  test "ask_with_details sends ensemble in model config when specified" do
     stub_request(:post, "#{@base_url}/v1/chat/completions")
       .to_return(
         status: 200,
@@ -117,10 +122,11 @@ class TrioClientTest < ActiveSupport::TestCase
 
     assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
       body = JSON.parse(req.body)
-      body["trio_ensemble"].is_a?(Array) &&
-        body["trio_ensemble"].length == 2 &&
-        body["trio_ensemble"][0]["model"] == "llama3.2:1b" &&
-        body["trio_ensemble"][0]["system_prompt"] == "Be concise"
+      body["model"].is_a?(Hash) &&
+        body["model"]["ensemble"].is_a?(Array) &&
+        body["model"]["ensemble"].length == 2 &&
+        body["model"]["ensemble"][0]["model"] == "llama3.2:1b" &&
+        body["model"]["ensemble"][0]["system_prompt"] == "Be concise"
     end
   end
 
@@ -140,7 +146,7 @@ class TrioClientTest < ActiveSupport::TestCase
 
     assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
       body = JSON.parse(req.body)
-      body["trio_ensemble"].present?
+      body["model"].is_a?(Hash) && body["model"]["ensemble"].present?
     end
   end
 
@@ -237,5 +243,193 @@ class TrioClientTest < ActiveSupport::TestCase
     assert_requested :post, "http://custom-trio:9000/v1/chat/completions"
   ensure
     ENV["TRIO_BASE_URL"] = "http://trio:8000"
+  end
+
+  # === System Prompt Tests ===
+
+  test "default ensemble includes distinct system prompts for each model" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    client.ask("Test question")
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      ensemble = body["model"]["ensemble"]
+      # Each ensemble member should have a system_prompt
+      ensemble.all? { |m| m["system_prompt"].present? } &&
+        # System prompts should be distinct
+        ensemble.map { |m| m["system_prompt"] }.uniq.length == ensemble.length
+    end
+  end
+
+  test "uses TRIO_SYSTEM_PROMPTS env var when set" do
+    ENV["TRIO_SYSTEM_PROMPTS"] = "Prompt A|Prompt B|Prompt C"
+
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    client.ask("Test question")
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      ensemble = body["model"]["ensemble"]
+      ensemble[0]["system_prompt"] == "Prompt A" &&
+        ensemble[1]["system_prompt"] == "Prompt B" &&
+        ensemble[2]["system_prompt"] == "Prompt C"
+    end
+  ensure
+    ENV.delete("TRIO_SYSTEM_PROMPTS")
+  end
+
+  test "custom ensemble overrides default system prompts" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    ensemble = [
+      { model: "model1", system_prompt: "Custom prompt 1" },
+      { model: "model2", system_prompt: "Custom prompt 2" },
+    ]
+    client.ask_ensemble("Test question", ensemble)
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      ens = body["model"]["ensemble"]
+      ens[0]["system_prompt"] == "Custom prompt 1" &&
+        ens[1]["system_prompt"] == "Custom prompt 2"
+    end
+  end
+
+  # === Aggregation Method Tests ===
+
+  test "ask_with_details supports custom aggregation_method parameter" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    client.ask_with_details("Test", aggregation_method: "random")
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "random"
+    end
+  end
+
+  test "ask_with_details includes judge_model when using judge aggregation" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    client.ask_with_details("Test", aggregation_method: "judge", judge_model: "claude-sonnet-4")
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "judge" &&
+        body["model"]["judge_model"] == "claude-sonnet-4"
+    end
+  end
+
+  test "ask_with_details includes synthesize_model when using synthesize aggregation" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    client.ask_with_details("Test", aggregation_method: "synthesize", synthesize_model: "claude-sonnet-4")
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "synthesize" &&
+        body["model"]["synthesize_model"] == "claude-sonnet-4"
+    end
+  end
+
+  test "uses TRIO_AGGREGATION_METHOD env var as default" do
+    ENV["TRIO_AGGREGATION_METHOD"] = "concat"
+
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    client.ask("Test")
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "concat"
+    end
+  ensure
+    ENV["TRIO_AGGREGATION_METHOD"] = "acceptance_voting"
+  end
+
+  test "uses TRIO_JUDGE_MODEL env var when judge aggregation is set" do
+    ENV["TRIO_AGGREGATION_METHOD"] = "judge"
+    ENV["TRIO_JUDGE_MODEL"] = "default"
+
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    client.ask("Test")
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "judge" &&
+        body["model"]["judge_model"] == "default"
+    end
+  ensure
+    ENV["TRIO_AGGREGATION_METHOD"] = "acceptance_voting"
+    ENV.delete("TRIO_JUDGE_MODEL")
+  end
+
+  test "does not include judge_model when not using judge aggregation" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = TrioClient.new
+    client.ask_with_details("Test", aggregation_method: "random")
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"]["aggregation_method"] == "random" &&
+        !body["model"].key?("judge_model")
+    end
   end
 end

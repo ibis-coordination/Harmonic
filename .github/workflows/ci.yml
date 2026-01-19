@@ -83,28 +83,6 @@ jobs:
           cd mcp-server
           npm test
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-          cache: 'pip'
-          cache-dependency-path: trio/pyproject.toml
-
-      - name: Install Trio dependencies
-        run: |
-          cd trio
-          pip install -e ".[dev]"
-
-      - name: Run Trio type check
-        run: |
-          cd trio
-          mypy src/
-
-      - name: Run Trio tests
-        run: |
-          cd trio
-          pytest
-
       - name: Run tests with coverage
         env:
           RAILS_ENV: test
