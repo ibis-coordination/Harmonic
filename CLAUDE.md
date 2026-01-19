@@ -117,6 +117,16 @@ The app serves two parallel interfaces:
 - Run tests: `docker compose exec js npm test`
 - Watch mode: `docker compose exec js npm run test:watch`
 
+### End-to-End (Playwright)
+- Framework: Playwright
+- Test files: `e2e/tests/**/*.spec.ts`
+- Requires: App running with `AUTH_MODE=honor_system`
+- Run tests: `npm run test:e2e` or `./scripts/run-e2e.sh`
+- Run with UI: `npm run test:e2e:ui`
+- Run headed: `npm run test:e2e:headed`
+- Run specific test: `npm run test:e2e -- e2e/tests/auth/login.spec.ts`
+- Install browsers: `npm run playwright:install`
+
 ### Manual testing
 - Framework: checklists
 - Instruction/checklist files: `test/manual/**/*.manual_test.md`
