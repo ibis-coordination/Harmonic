@@ -9,7 +9,7 @@ import {
 } from "./errors"
 
 export interface HttpClientConfig {
-  baseUrl: string
+  baseUrl: string | (() => string)
   credentials?: RequestCredentials
 }
 
@@ -71,7 +71,12 @@ export function createHttpClient(config: HttpClientConfig) {
   ): Effect.Effect<T, HttpError> =>
     Effect.tryPromise({
       try: async () => {
-        const url = `${config.baseUrl}${path}`
+        // Compute base URL dynamically to handle studio context changes
+        const baseUrl =
+          typeof config.baseUrl === "function"
+            ? config.baseUrl()
+            : config.baseUrl
+        const url = `${baseUrl}${path}`
         const fetchOptions: RequestInit = {
           method,
           headers: {
@@ -119,7 +124,26 @@ export function createHttpClient(config: HttpClientConfig) {
   })
 }
 
+/**
+ * Get the API base path from the current URL.
+ * If we're in a studio context (URL includes /studios/{handle}),
+ * use the studio-scoped API path.
+ * This is called on each request to handle navigation between pages.
+ */
+function getApiBasePath(): string {
+  // Check if window is defined (for SSR/test compatibility)
+  if (typeof window === "undefined") {
+    return "/api/v1"
+  }
+  // Check if we're in a studio context by looking at the URL
+  const match = window.location.pathname.match(/\/studios\/([^/]+)/)
+  if (match) {
+    return `/studios/${match[1]}/api/v1`
+  }
+  return "/api/v1"
+}
+
 export const LiveHttpClient = createHttpClient({
-  baseUrl: "/api/v1",
+  baseUrl: getApiBasePath,
   credentials: "include",
 })

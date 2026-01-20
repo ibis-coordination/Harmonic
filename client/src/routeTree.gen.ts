@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudiosHandleRouteImport } from './routes/studios/$handle'
 import { Route as StudiosHandleIndexRouteImport } from './routes/studios/$handle/index'
+import { Route as StudiosHandleNoteRouteImport } from './routes/studios/$handle/note'
 import { Route as StudiosHandleMembersRouteImport } from './routes/studios/$handle/members'
+import { Route as StudiosHandleNIdRouteImport } from './routes/studios/$handle/n.$id'
 import { Route as StudiosHandleCyclesTodayRouteImport } from './routes/studios/$handle/cycles.today'
 
 const IndexRoute = IndexRouteImport.update({
@@ -30,9 +32,19 @@ const StudiosHandleIndexRoute = StudiosHandleIndexRouteImport.update({
   path: '/',
   getParentRoute: () => StudiosHandleRoute,
 } as any)
+const StudiosHandleNoteRoute = StudiosHandleNoteRouteImport.update({
+  id: '/note',
+  path: '/note',
+  getParentRoute: () => StudiosHandleRoute,
+} as any)
 const StudiosHandleMembersRoute = StudiosHandleMembersRouteImport.update({
   id: '/members',
   path: '/members',
+  getParentRoute: () => StudiosHandleRoute,
+} as any)
+const StudiosHandleNIdRoute = StudiosHandleNIdRouteImport.update({
+  id: '/n/$id',
+  path: '/n/$id',
   getParentRoute: () => StudiosHandleRoute,
 } as any)
 const StudiosHandleCyclesTodayRoute =
@@ -46,22 +58,28 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/studios/$handle': typeof StudiosHandleRouteWithChildren
   '/studios/$handle/members': typeof StudiosHandleMembersRoute
+  '/studios/$handle/note': typeof StudiosHandleNoteRoute
   '/studios/$handle/': typeof StudiosHandleIndexRoute
   '/studios/$handle/cycles/today': typeof StudiosHandleCyclesTodayRoute
+  '/studios/$handle/n/$id': typeof StudiosHandleNIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/studios/$handle/members': typeof StudiosHandleMembersRoute
+  '/studios/$handle/note': typeof StudiosHandleNoteRoute
   '/studios/$handle': typeof StudiosHandleIndexRoute
   '/studios/$handle/cycles/today': typeof StudiosHandleCyclesTodayRoute
+  '/studios/$handle/n/$id': typeof StudiosHandleNIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/studios/$handle': typeof StudiosHandleRouteWithChildren
   '/studios/$handle/members': typeof StudiosHandleMembersRoute
+  '/studios/$handle/note': typeof StudiosHandleNoteRoute
   '/studios/$handle/': typeof StudiosHandleIndexRoute
   '/studios/$handle/cycles/today': typeof StudiosHandleCyclesTodayRoute
+  '/studios/$handle/n/$id': typeof StudiosHandleNIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -69,21 +87,27 @@ export interface FileRouteTypes {
     | '/'
     | '/studios/$handle'
     | '/studios/$handle/members'
+    | '/studios/$handle/note'
     | '/studios/$handle/'
     | '/studios/$handle/cycles/today'
+    | '/studios/$handle/n/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/studios/$handle/members'
+    | '/studios/$handle/note'
     | '/studios/$handle'
     | '/studios/$handle/cycles/today'
+    | '/studios/$handle/n/$id'
   id:
     | '__root__'
     | '/'
     | '/studios/$handle'
     | '/studios/$handle/members'
+    | '/studios/$handle/note'
     | '/studios/$handle/'
     | '/studios/$handle/cycles/today'
+    | '/studios/$handle/n/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -114,11 +138,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudiosHandleIndexRouteImport
       parentRoute: typeof StudiosHandleRoute
     }
+    '/studios/$handle/note': {
+      id: '/studios/$handle/note'
+      path: '/note'
+      fullPath: '/studios/$handle/note'
+      preLoaderRoute: typeof StudiosHandleNoteRouteImport
+      parentRoute: typeof StudiosHandleRoute
+    }
     '/studios/$handle/members': {
       id: '/studios/$handle/members'
       path: '/members'
       fullPath: '/studios/$handle/members'
       preLoaderRoute: typeof StudiosHandleMembersRouteImport
+      parentRoute: typeof StudiosHandleRoute
+    }
+    '/studios/$handle/n/$id': {
+      id: '/studios/$handle/n/$id'
+      path: '/n/$id'
+      fullPath: '/studios/$handle/n/$id'
+      preLoaderRoute: typeof StudiosHandleNIdRouteImport
       parentRoute: typeof StudiosHandleRoute
     }
     '/studios/$handle/cycles/today': {
@@ -133,14 +171,18 @@ declare module '@tanstack/react-router' {
 
 interface StudiosHandleRouteChildren {
   StudiosHandleMembersRoute: typeof StudiosHandleMembersRoute
+  StudiosHandleNoteRoute: typeof StudiosHandleNoteRoute
   StudiosHandleIndexRoute: typeof StudiosHandleIndexRoute
   StudiosHandleCyclesTodayRoute: typeof StudiosHandleCyclesTodayRoute
+  StudiosHandleNIdRoute: typeof StudiosHandleNIdRoute
 }
 
 const StudiosHandleRouteChildren: StudiosHandleRouteChildren = {
   StudiosHandleMembersRoute: StudiosHandleMembersRoute,
+  StudiosHandleNoteRoute: StudiosHandleNoteRoute,
   StudiosHandleIndexRoute: StudiosHandleIndexRoute,
   StudiosHandleCyclesTodayRoute: StudiosHandleCyclesTodayRoute,
+  StudiosHandleNIdRoute: StudiosHandleNIdRoute,
 }
 
 const StudiosHandleRouteWithChildren = StudiosHandleRoute._addFileChildren(

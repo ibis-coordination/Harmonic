@@ -7,15 +7,37 @@ export interface User {
 }
 
 export interface Note {
-  id: number
+  id: string
   truncated_id: string
   title: string | null
   text: string
   deadline: string | null
+  confirmed_reads: number
   created_at: string
   updated_at: string
-  author: User
-  confirmed_users: User[]
+  created_by_id: string | null
+  updated_by_id: string | null
+  commentable_type: string | null
+  commentable_id: string | null
+  history_events?: NoteHistoryEvent[]
+  backlinks?: Backlink[]
+}
+
+export interface NoteHistoryEvent {
+  id: string
+  note_id: string
+  user_id: string | null
+  event_type: string
+  description: string
+  happened_at: string
+}
+
+export interface Backlink {
+  id: string
+  source_type: string
+  source_id: string
+  target_type: string
+  target_id: string
 }
 
 export interface Decision {

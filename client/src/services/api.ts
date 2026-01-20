@@ -11,6 +11,19 @@ import type {
 } from "./types"
 
 export const NotesService = {
+  get: (
+    id: string,
+    options?: { include?: ("history_events" | "backlinks")[] },
+  ): Effect.Effect<Note, HttpError, HttpClient> =>
+    Effect.flatMap(HttpClient, (client) => {
+      const params = new URLSearchParams()
+      if (options?.include) {
+        params.set("include", options.include.join(","))
+      }
+      const query = params.toString()
+      return client.get<Note>(`/notes/${id}${query ? `?${query}` : ""}`)
+    }),
+
   create: (data: {
     title?: string
     text: string
