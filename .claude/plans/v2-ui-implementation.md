@@ -123,6 +123,7 @@ Set up the infrastructure to serve a React app alongside Rails:
 
 ### Phase 2: Core Features (Future)
 
+- Main homepage and studio homepages
 - Note viewing and creation
 - Decision viewing and voting
 - Commitment viewing and joining

@@ -87,6 +87,11 @@ export const CyclesService = {
 }
 
 export const UsersService = {
+  list: (): Effect.Effect<User[], HttpError, HttpClient> =>
+    Effect.flatMap(HttpClient, (client) =>
+      client.get<User[]>("/users"),
+    ),
+
   me: (): Effect.Effect<User, HttpError, HttpClient> =>
     Effect.flatMap(HttpClient, (client) =>
       client.get<User>("/users/me"),
