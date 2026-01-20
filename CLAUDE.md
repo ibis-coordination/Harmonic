@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **For architecture details**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 **For detailed AI agent context**: Read [AGENTS.md](AGENTS.md)
 **For codebase patterns comparison**: Read [docs/CODEBASE_PATTERNS.md](docs/CODEBASE_PATTERNS.md)
+**For UI styling patterns**: Read [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md)
+**For Storybook component development**: Read [docs/STORYBOOK.md](docs/STORYBOOK.md)
 
 ## Common Commands
 
@@ -53,6 +55,12 @@ docker compose exec js npm test
 
 # Generate ERD diagram
 ./scripts/generate-erd.sh
+
+# V2 React Client (in client/ directory)
+cd client && npm run dev          # Start Vite dev server
+cd client && npm run storybook    # Start Storybook at localhost:6006
+cd client && npm test             # Run Vitest tests
+cd client && npm run typecheck    # TypeScript type check
 ```
 
 ## Code Style
@@ -102,6 +110,21 @@ Subdomain-based multi-tenancy using thread-local variables:
 The app serves two parallel interfaces:
 1. HTML/browser UI for humans
 2. Markdown + API actions for LLMs (same routes with `Accept: text/markdown`)
+
+### V2 React Client
+
+A modern React frontend in `client/` using:
+- **Vite** - Build tool and dev server
+- **TanStack Router** - Type-safe routing
+- **TanStack Query** - Data fetching and caching
+- **Tailwind CSS** - Utility-first styling
+- **Storybook** - Component development and documentation
+
+Component development workflow:
+1. Create component in `client/src/components/`
+2. Add story in `ComponentName.stories.tsx`
+3. Develop in isolation with `npm run storybook`
+4. Add tests in `ComponentName.test.tsx`
 
 ## Testing
 

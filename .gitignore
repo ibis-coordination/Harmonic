@@ -19,6 +19,7 @@
 /tmp/*
 !/log/.keep
 !/tmp/.keep
+/client/.tanstack/tmp
 
 # Ignore pidfiles, but keep the directory.
 /tmp/pids/*
@@ -71,3 +72,5 @@ __pycache__/
 *.pyc
 
 ignore/
+*storybook.log
+storybook-static
