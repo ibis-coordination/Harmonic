@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest"
+import { beforeEach } from "vitest"
 
 // Mock window.__HARMONIC_CONTEXT__ for tests
 beforeEach(() => {
-  window.__HARMONIC_CONTEXT__ = undefined
+  delete window.__HARMONIC_CONTEXT__
 })

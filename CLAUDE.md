@@ -61,14 +61,30 @@ cd client && npm run dev          # Start Vite dev server
 cd client && npm run storybook    # Start Storybook at localhost:6006
 cd client && npm test             # Run Vitest tests
 cd client && npm run typecheck    # TypeScript type check
+cd client && npm run lint         # Run ESLint
+cd client && npm run lint:fix     # Run ESLint with auto-fix
+cd client && npm run check        # Run lint + typecheck together
 ```
 
 ## Code Style
 
+### Ruby (Backend)
 - **Strings**: Use double quotes (`"string"`)
 - **Arrays/Hashes**: Use trailing commas in multiline literals
 - **Line length**: Max 150 characters
 - **Linter**: RuboCop with configuration in `.rubocop.yml`
+
+### TypeScript/React (V2 Client)
+- **Linter**: ESLint with strict functional programming rules
+- **Functional programming**: Strictly enforced via `eslint-plugin-functional`
+  - No classes (`functional/no-classes`)
+  - No `let` declarations (`functional/no-let`) - use `const` only
+  - No loops (`functional/no-loop-statements`) - use `map`, `filter`, `reduce`
+  - No `throw` statements (`functional/no-throw-statements`) - use Effect.js `Effect.fail`
+  - Immutable data (`functional/immutable-data`) - no mutations except React refs
+- **Error handling**: Use Effect.js tagged unions, not classes
+- **Pre-commit hooks**: Husky runs lint-staged on TypeScript files
+- **Configuration**: `client/eslint.config.js`
 
 ## Architecture Overview
 
@@ -119,12 +135,15 @@ A modern React frontend in `client/` using:
 - **TanStack Query** - Data fetching and caching
 - **Tailwind CSS** - Utility-first styling
 - **Storybook** - Component development and documentation
+- **Effect.js** - Functional error handling and effects
+- **ESLint** - Strict functional programming enforcement
 
 Component development workflow:
 1. Create component in `client/src/components/`
 2. Add story in `ComponentName.stories.tsx`
 3. Develop in isolation with `npm run storybook`
 4. Add tests in `ComponentName.test.tsx`
+5. Run `npm run check` before committing
 
 ## Testing
 
@@ -134,11 +153,18 @@ Component development workflow:
 - Test helpers: `create_tenant_studio_user`, `create_note`, `create_decision`, etc. in `test/test_helper.rb`
 - Integration tests use `sign_in_as(user, tenant:)` helper
 
-### Frontend (TypeScript)
+### Frontend (TypeScript - Legacy V1)
 - Framework: Vitest with jsdom
 - Test files: `app/javascript/**/*.test.ts`
 - Run tests: `docker compose exec js npm test`
 - Watch mode: `docker compose exec js npm run test:watch`
+
+### Frontend (TypeScript - V2 React Client)
+- Framework: Vitest with jsdom and React Testing Library
+- Test files: `client/src/**/*.test.ts`, `client/src/**/*.test.tsx`
+- Run tests: `cd client && npm test`
+- Watch mode: `cd client && npm run test:watch`
+- Linting: `cd client && npm run lint`
 
 ### End-to-End (Playwright)
 - Framework: Playwright

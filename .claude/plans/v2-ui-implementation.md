@@ -129,17 +129,6 @@ Set up the infrastructure to serve a React app alongside Rails:
 - [ ] Commitment viewing and joining
 - [ ] Cycle navigation
 
-### Phase 3: Rich Interactions (Future)
-
-- Drag-and-drop for pinning
-- Optimistic updates
-- Undo/redo
-
-### Phase 4: Real-time (Future)
-
-- Presence indicators
-- Live updates
-- Collaborative editing
 
 ## Key Files to Modify
 

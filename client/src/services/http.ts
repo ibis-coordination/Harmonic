@@ -9,28 +9,27 @@ import {
 } from "./errors"
 
 export interface HttpClientConfig {
-  baseUrl: string | (() => string)
-  credentials?: RequestCredentials
+  readonly baseUrl: string | (() => string)
+  readonly credentials?: RequestCredentials
 }
 
-export class HttpClient extends Context.Tag("HttpClient")<
-  HttpClient,
-  {
-    get: <T>(path: string) => Effect.Effect<T, HttpError>
-    post: <T>(path: string, body?: unknown) => Effect.Effect<T, HttpError>
-    put: <T>(path: string, body?: unknown) => Effect.Effect<T, HttpError>
-    patch: <T>(path: string, body?: unknown) => Effect.Effect<T, HttpError>
-    delete: <T>(path: string) => Effect.Effect<T, HttpError>
-  }
->() {}
+export interface HttpClientService {
+  readonly get: <T>(path: string) => Effect.Effect<T, HttpError>
+  readonly post: <T>(path: string, body?: unknown) => Effect.Effect<T, HttpError>
+  readonly put: <T>(path: string, body?: unknown) => Effect.Effect<T, HttpError>
+  readonly patch: <T>(path: string, body?: unknown) => Effect.Effect<T, HttpError>
+  readonly delete: <T>(path: string) => Effect.Effect<T, HttpError>
+}
 
-function mapStatusToError(
+export const HttpClient = Context.GenericTag<HttpClientService>("HttpClient")
+
+const mapStatusToError = (
   status: number,
   body: unknown,
   path: string,
-): HttpError {
+): HttpError => {
   if (status === 401) {
-    return new UnauthorizedError({
+    return UnauthorizedError({
       message:
         typeof body === "object" && body !== null && "error" in body
           ? String((body as { error: unknown }).error)
@@ -38,7 +37,7 @@ function mapStatusToError(
     })
   }
   if (status === 404) {
-    return new NotFoundError({
+    return NotFoundError({
       resource: path.split("/")[1] ?? "resource",
       id: path.split("/")[2] ?? "",
     })
@@ -48,7 +47,7 @@ function mapStatusToError(
       typeof body === "object" && body !== null && "errors" in body
         ? (body as { errors: Record<string, string[]> }).errors
         : undefined
-    return new ValidationError({
+    return ValidationError({
       message:
         typeof body === "object" && body !== null && "error" in body
           ? String((body as { error: unknown }).error)
@@ -56,72 +55,70 @@ function mapStatusToError(
       ...(errors !== undefined ? { errors } : {}),
     })
   }
-  return new ApiError({
+  return ApiError({
     status,
-    message: `API request failed with status ${status}`,
+    message: `API request failed with status ${String(status)}`,
     body,
   })
 }
 
-export function createHttpClient(config: HttpClientConfig) {
+export const createHttpClient = (config: HttpClientConfig): HttpClientService => {
   const request = <T>(
     method: string,
     path: string,
     body?: unknown,
   ): Effect.Effect<T, HttpError> =>
-    Effect.tryPromise({
-      try: async () => {
-        // Compute base URL dynamically to handle studio context changes
-        const baseUrl =
-          typeof config.baseUrl === "function"
-            ? config.baseUrl()
-            : config.baseUrl
-        const url = `${baseUrl}${path}`
-        const fetchOptions: RequestInit = {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          credentials: config.credentials ?? "include",
-        }
-        if (body !== undefined) {
-          fetchOptions.body = JSON.stringify(body)
-        }
-        const response = await fetch(url, fetchOptions)
+    Effect.gen(function* () {
+      // Compute base URL dynamically to handle studio context changes
+      const baseUrl =
+        typeof config.baseUrl === "function"
+          ? config.baseUrl()
+          : config.baseUrl
+      const url = `${baseUrl}${path}`
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      }
+      const fetchOptions: RequestInit = {
+        method,
+        headers,
+        credentials: config.credentials ?? "include",
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      }
 
-        const responseBody = (await response.json().catch(() => null)) as T
+      const response = yield* Effect.tryPromise({
+        try: () => fetch(url, fetchOptions),
+        catch: (error): HttpError =>
+          NetworkError({
+            message: error instanceof Error ? error.message : "Network error",
+            cause: error,
+          }),
+      })
 
-        if (!response.ok) {
-          throw mapStatusToError(response.status, responseBody, path)
-        }
+      const responseBody = yield* Effect.tryPromise({
+        try: () => response.json() as Promise<T>,
+        catch: (): HttpError =>
+          ApiError({
+            status: response.status,
+            message: "Failed to parse response body",
+            body: null,
+          }),
+      }).pipe(Effect.catchAll(() => Effect.succeed(null as T)))
 
-        return responseBody
-      },
-      catch: (error) => {
-        if (
-          error instanceof NetworkError ||
-          error instanceof ApiError ||
-          error instanceof NotFoundError ||
-          error instanceof UnauthorizedError ||
-          error instanceof ValidationError
-        ) {
-          return error
-        }
-        return new NetworkError({
-          message: error instanceof Error ? error.message : "Network error",
-          cause: error,
-        })
-      },
+      if (!response.ok) {
+        return yield* Effect.fail(mapStatusToError(response.status, responseBody, path))
+      }
+
+      return responseBody
     })
 
-  return HttpClient.of({
+  return {
     get: <T>(path: string) => request<T>("GET", path),
     post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
     put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
     patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
     delete: <T>(path: string) => request<T>("DELETE", path),
-  })
+  }
 }
 
 /**
@@ -130,14 +127,14 @@ export function createHttpClient(config: HttpClientConfig) {
  * use the studio-scoped API path.
  * This is called on each request to handle navigation between pages.
  */
-function getApiBasePath(): string {
+const getApiBasePath = (): string => {
   // Check if window is defined (for SSR/test compatibility)
   if (typeof window === "undefined") {
     return "/api/v1"
   }
   // Check if we're in a studio context by looking at the URL
-  const match = window.location.pathname.match(/\/studios\/([^/]+)/)
-  if (match) {
+  const match = /\/studios\/([^/]+)/.exec(window.location.pathname)
+  if (match?.[1] !== undefined) {
     return `/studios/${match[1]}/api/v1`
   }
   return "/api/v1"

@@ -108,7 +108,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockImplementation(() => new Promise(() => {}))
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -120,7 +120,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -137,7 +137,7 @@ describe("NoteDetail", () => {
       })
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -153,7 +153,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -167,7 +167,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -182,7 +182,7 @@ describe("NoteDetail", () => {
       })
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -194,7 +194,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -208,7 +208,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -224,7 +224,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -238,7 +238,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -254,7 +254,7 @@ describe("NoteDetail", () => {
       })
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -268,7 +268,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -282,7 +282,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockResolvedValueOnce(mockNote)
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="243bd083" />,
+        <NoteDetail noteId="243bd083" />,
       )
 
       await waitFor(() => {
@@ -298,7 +298,7 @@ describe("NoteDetail", () => {
       mockRunApiEffect.mockRejectedValueOnce(new Error("Note not found"))
 
       renderWithProviders(
-        <NoteDetail handle="taco-tuesday" noteId="invalid-id" />,
+        <NoteDetail noteId="invalid-id" />,
       )
 
       await waitFor(() => {

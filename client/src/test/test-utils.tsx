@@ -5,7 +5,6 @@ import {
   createMemoryHistory,
   createRouter,
   createRootRoute,
-  createRoute,
 } from "@tanstack/react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
@@ -62,16 +61,13 @@ function renderWithRouter(
   const queryClient = createTestQueryClient()
   const router = createTestRouter(ui)
 
-  function Wrapper({ children }: WrapperProps) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    )
-  }
-
-  // For router-based rendering, we render the RouterProvider directly
-  return render(<RouterProvider router={router} />, options)
+  // For router-based rendering, we render the RouterProvider wrapped in QueryClientProvider
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+    options,
+  )
 }
 
 export * from "@testing-library/react"

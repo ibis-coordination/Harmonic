@@ -17,7 +17,7 @@ export function NoteForm({ handle }: NoteFormProps) {
     mutationFn: (data: { text: string }) =>
       runApiEffect(NotesService.create(data)),
     onSuccess: (note: Note) => {
-      navigate({
+      void navigate({
         to: "/studios/$handle/n/$id",
         params: { handle, id: note.truncated_id },
       })
@@ -62,7 +62,7 @@ export function NoteForm({ handle }: NoteFormProps) {
           <textarea
             id="note-text"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => { setText(e.target.value); }}
             rows={10}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
             placeholder="Enter your note content (markdown supported)..."

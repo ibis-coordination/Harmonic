@@ -5,7 +5,7 @@ import type { HarmonicContext } from "@/lib/context"
 describe("useAppStore", () => {
   beforeEach(() => {
     // Reset the store and window context before each test
-    window.__HARMONIC_CONTEXT__ = undefined
+    delete window.__HARMONIC_CONTEXT__
     useAppStore.setState({
       currentUser: null,
       currentTenant: { subdomain: null, name: null },
@@ -110,13 +110,13 @@ describe("useAppStore", () => {
       // Re-import to get fresh store with new context
       // Note: In real app, the store is created once at module load time
       // This test documents that behavior
-      const { useAppStore: freshStore } = await import("./app")
+      await import("./app")
 
       // The store was already created with the previous context
       // So we need to manually verify the initialization logic
-      const context = window.__HARMONIC_CONTEXT__
-      expect(context?.currentUser?.id).toBe(42)
-      expect(context?.csrfToken).toBe("csrf-from-context")
+      expect(mockContext.currentUser).not.toBeNull()
+      expect(mockContext.currentUser?.id).toBe(42)
+      expect(mockContext.csrfToken).toBe("csrf-from-context")
     })
   })
 })

@@ -5,13 +5,22 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "eslint src/ && tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "check": "eslint src/ && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "prepare": "cd .. && husky client/.husky"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix"
+    ]
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
@@ -22,8 +31,16 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
     "@tanstack/router-devtools": "^1.93.1",
     "@tanstack/router-plugin": "^1.93.1",
+    "eslint": "^9.18.0",
+    "eslint-plugin-functional": "^7.2.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
+    "typescript-eslint": "^8.21.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.6.1",

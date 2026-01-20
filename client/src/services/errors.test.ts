@@ -7,17 +7,17 @@ import {
   ValidationError,
 } from "./errors"
 
-describe("Effect.js error types", () => {
+describe("Functional error types", () => {
   describe("NetworkError", () => {
     it("creates error with message", () => {
-      const error = new NetworkError({ message: "Connection failed" })
+      const error = NetworkError({ message: "Connection failed" })
       expect(error.message).toBe("Connection failed")
       expect(error._tag).toBe("NetworkError")
     })
 
     it("creates error with cause", () => {
       const cause = new Error("Original error")
-      const error = new NetworkError({
+      const error = NetworkError({
         message: "Connection failed",
         cause,
       })
@@ -28,7 +28,7 @@ describe("Effect.js error types", () => {
 
   describe("ApiError", () => {
     it("creates error with status and message", () => {
-      const error = new ApiError({
+      const error = ApiError({
         status: 500,
         message: "Internal server error",
       })
@@ -39,7 +39,7 @@ describe("Effect.js error types", () => {
 
     it("creates error with response body", () => {
       const body = { error: "Something went wrong" }
-      const error = new ApiError({
+      const error = ApiError({
         status: 500,
         message: "Internal server error",
         body,
@@ -50,7 +50,7 @@ describe("Effect.js error types", () => {
 
   describe("NotFoundError", () => {
     it("creates error with resource and id", () => {
-      const error = new NotFoundError({
+      const error = NotFoundError({
         resource: "note",
         id: "abc123",
       })
@@ -62,7 +62,7 @@ describe("Effect.js error types", () => {
 
   describe("UnauthorizedError", () => {
     it("creates error with message", () => {
-      const error = new UnauthorizedError({
+      const error = UnauthorizedError({
         message: "Invalid token",
       })
       expect(error.message).toBe("Invalid token")
@@ -72,7 +72,7 @@ describe("Effect.js error types", () => {
 
   describe("ValidationError", () => {
     it("creates error with message", () => {
-      const error = new ValidationError({
+      const error = ValidationError({
         message: "Validation failed",
       })
       expect(error.message).toBe("Validation failed")
@@ -84,7 +84,7 @@ describe("Effect.js error types", () => {
         title: ["is required", "must be at least 3 characters"],
         text: ["cannot be empty"],
       }
-      const error = new ValidationError({
+      const error = ValidationError({
         message: "Validation failed",
         errors,
       })
@@ -95,11 +95,11 @@ describe("Effect.js error types", () => {
   describe("error discrimination", () => {
     it("can discriminate between error types using _tag", () => {
       const errors = [
-        new NetworkError({ message: "Network error" }),
-        new ApiError({ status: 500, message: "Server error" }),
-        new NotFoundError({ resource: "note", id: "123" }),
-        new UnauthorizedError({ message: "Unauthorized" }),
-        new ValidationError({ message: "Invalid" }),
+        NetworkError({ message: "Network error" }),
+        ApiError({ status: 500, message: "Server error" }),
+        NotFoundError({ resource: "note", id: "123" }),
+        UnauthorizedError({ message: "Unauthorized" }),
+        ValidationError({ message: "Invalid" }),
       ]
 
       const tags = errors.map((e) => e._tag)

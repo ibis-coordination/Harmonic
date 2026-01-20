@@ -23,6 +23,6 @@ export const useAppStore = create<AppState>((set) => ({
   currentSuperagent: context.currentSuperagent,
   csrfToken: context.csrfToken,
 
-  setCurrentUser: (user) => set({ currentUser: user }),
-  setCurrentSuperagent: (superagent) => set({ currentSuperagent: superagent }),
+  setCurrentUser: (user) => { set({ currentUser: user }); },
+  setCurrentSuperagent: (superagent) => { set({ currentSuperagent: superagent }); },
 }))

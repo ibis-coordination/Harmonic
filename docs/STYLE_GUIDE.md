@@ -414,7 +414,69 @@ button:disabled {
 
 ## React/Tailwind (V2 UI)
 
-The V2 client uses Tailwind CSS. Common patterns:
+The V2 client uses Tailwind CSS with strict functional programming enforcement via ESLint.
+
+### Functional Programming Rules
+
+ESLint enforces functional programming via `eslint-plugin-functional`:
+
+| Rule | What it forbids | Alternative |
+|------|-----------------|-------------|
+| `no-classes` | `class Foo {}` | Factory functions, tagged unions |
+| `no-let` | `let x = 1` | `const` only |
+| `no-loop-statements` | `for`, `while` | `map`, `filter`, `reduce`, recursion |
+| `no-throw-statements` | `throw new Error()` | Effect.js `Effect.fail` |
+| `immutable-data` | `obj.x = 1`, `arr.push()` | Spread syntax, `.map()` |
+
+Configuration: `client/eslint.config.js`
+
+### Error Handling Pattern
+
+Use tagged unions instead of classes:
+
+```typescript
+// Define error types as interfaces
+interface NetworkError {
+  readonly _tag: "NetworkError"
+  readonly message: string
+  readonly cause?: unknown
+}
+
+// Factory function (not class)
+const NetworkError = (params: Omit<NetworkError, "_tag">): NetworkError => ({
+  _tag: "NetworkError",
+  ...params,
+})
+
+// Type guard
+const isNetworkError = (error: HttpError): error is NetworkError =>
+  error._tag === "NetworkError"
+```
+
+### Effect.js Patterns
+
+Use `Effect.gen` for sequential operations with error handling:
+
+```typescript
+const fetchData = (id: string): Effect.Effect<Data, HttpError> =>
+  Effect.gen(function* () {
+    const response = yield* Effect.tryPromise({
+      try: () => fetch(`/api/data/${id}`),
+      catch: (error): HttpError => NetworkError({ message: String(error), cause: error }),
+    })
+    if (!response.ok) {
+      return yield* Effect.fail(ApiError({ status: response.status, message: "Failed" }))
+    }
+    return yield* Effect.tryPromise({
+      try: () => response.json() as Promise<Data>,
+      catch: (): HttpError => ApiError({ status: 500, message: "Invalid JSON" }),
+    })
+  })
+```
+
+### Tailwind CSS Patterns
+
+Common patterns:
 
 ### Container
 

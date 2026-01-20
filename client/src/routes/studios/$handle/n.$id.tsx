@@ -6,6 +6,6 @@ export const Route = createFileRoute("/studios/$handle/n/$id")({
 })
 
 function NoteDetailRoute() {
-  const { handle, id } = Route.useParams()
-  return <NoteDetail handle={handle} noteId={id} />
+  const { id } = Route.useParams()
+  return <NoteDetail noteId={id} />
 }

@@ -3,11 +3,10 @@ import { NotesService, runApiEffect } from "@/services/api"
 import type { Note, NoteHistoryEvent } from "@/services/types"
 
 interface NoteDetailProps {
-  handle: string
   noteId: string
 }
 
-export function NoteDetail({ handle: _handle, noteId }: NoteDetailProps) {
+export function NoteDetail({ noteId }: NoteDetailProps) {
   const queryClient = useQueryClient()
 
   const {
@@ -23,7 +22,7 @@ export function NoteDetail({ handle: _handle, noteId }: NoteDetailProps) {
   const confirmReadMutation = useMutation({
     mutationFn: () => runApiEffect(NotesService.confirmRead(noteId)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["note", noteId] })
+      void queryClient.invalidateQueries({ queryKey: ["note", noteId] })
     },
   })
 
@@ -43,8 +42,8 @@ export function NoteDetail({ handle: _handle, noteId }: NoteDetailProps) {
     )
   }
 
-  const title = note.title || "(untitled)"
-  const historyEvents = note.history_events || []
+  const title = note.title ?? "(untitled)"
+  const historyEvents = note.history_events ?? []
 
   return (
     <div className="space-y-8">
@@ -78,7 +77,7 @@ export function NoteDetail({ handle: _handle, noteId }: NoteDetailProps) {
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Actions</h2>
         <div className="space-y-2">
           <button
-            onClick={() => confirmReadMutation.mutate()}
+            onClick={() => { confirmReadMutation.mutate(); }}
             disabled={confirmReadMutation.isPending}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >

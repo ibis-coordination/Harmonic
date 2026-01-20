@@ -3,7 +3,7 @@ import { getHarmonicContext, type HarmonicContext } from "./context"
 
 describe("getHarmonicContext", () => {
   beforeEach(() => {
-    window.__HARMONIC_CONTEXT__ = undefined
+    delete window.__HARMONIC_CONTEXT__
   })
 
   it("returns default context when window context is undefined", () => {

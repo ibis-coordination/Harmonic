@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { Effect } from "effect"
 import { createHttpClient, HttpClient } from "./http"
-import {
-  NetworkError,
+import type {
   ApiError,
+  NetworkError,
   NotFoundError,
-  UnauthorizedError,
   ValidationError,
 } from "./errors"
 
@@ -22,13 +21,11 @@ describe("createHttpClient", () => {
     global.fetch = originalFetch
   })
 
-  function createMockResponse(status: number, body: unknown) {
-    return {
-      ok: status >= 200 && status < 300,
-      status,
-      json: () => Promise.resolve(body),
-    }
-  }
+  const createMockResponse = (status: number, body: unknown) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: () => Promise.resolve(body),
+  })
 
   describe("successful requests", () => {
     it("makes GET request and returns data", async () => {
@@ -140,17 +137,14 @@ describe("createHttpClient", () => {
       const effect = HttpClient.pipe(
         Effect.flatMap((http) => http.get("/notes")),
         Effect.provideService(HttpClient, client),
+        Effect.either,
       )
 
-      const result = await Effect.runPromiseExit(effect)
+      const result = await Effect.runPromise(effect)
 
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure") {
-        const error = result.cause
-        // Extract the error from the cause
-        expect(Effect.runSync(Effect.flip(Effect.fail(error)))).toBeInstanceOf(
-          Object,
-        )
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") {
+        expect(result.left._tag).toBe("UnauthorizedError")
       }
     })
 
@@ -168,7 +162,7 @@ describe("createHttpClient", () => {
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(NotFoundError)
+        expect(result.left._tag).toBe("NotFoundError")
         expect((result.left as NotFoundError).resource).toBe("notes")
         expect((result.left as NotFoundError).id).toBe("123")
       }
@@ -191,7 +185,7 @@ describe("createHttpClient", () => {
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(ValidationError)
+        expect(result.left._tag).toBe("ValidationError")
         expect((result.left as ValidationError).errors).toEqual(errors)
       }
     })
@@ -212,7 +206,7 @@ describe("createHttpClient", () => {
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(ValidationError)
+        expect(result.left._tag).toBe("ValidationError")
       }
     })
 
@@ -232,7 +226,7 @@ describe("createHttpClient", () => {
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(ApiError)
+        expect(result.left._tag).toBe("ApiError")
         expect((result.left as ApiError).status).toBe(500)
       }
     })
@@ -251,7 +245,7 @@ describe("createHttpClient", () => {
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(NetworkError)
+        expect(result.left._tag).toBe("NetworkError")
         expect((result.left as NetworkError).message).toBe("Network failure")
       }
     })

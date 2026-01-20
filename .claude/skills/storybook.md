@@ -166,6 +166,31 @@ export const Mobile: Story = {
 }
 ```
 
+## Linting
+
+Story files follow the same ESLint rules as the rest of the V2 client, with some relaxations:
+
+- Storybook files (`*.stories.tsx`) have relaxed TypeScript `unsafe` rules for easier mocking
+- All functional programming rules still apply (no classes, no `let`, no loops, no `throw`)
+
+Run linting before committing:
+```bash
+cd client && npm run lint
+```
+
+ESLint configuration: `client/eslint.config.js`
+
+### Optional Props in Stories
+
+When defining props for stories, use `| undefined` for optional props to satisfy `exactOptionalPropertyTypes`:
+
+```typescript
+interface ButtonProps {
+  label: string
+  onClick?: (() => void) | undefined  // Not just onClick?: () => void
+}
+```
+
 ## Cleanup
 
 Remove example stories when ready:
