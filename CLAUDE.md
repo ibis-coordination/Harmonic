@@ -146,3 +146,11 @@ When modifying TODO comments, update `docs/TODO_INDEX.md`:
 ./scripts/check-todo-index.sh --list   # See all TODOs
 ./scripts/check-todo-index.sh --all    # Check sync status
 ```
+
+## Plan Documents
+
+When creating implementation plans, store them in `.claude/plans/` with descriptive names:
+- Active plans: `.claude/plans/v2-ui-implementation.md`
+- Completed plans: `.claude/plans/completed/YYYY/MM/PLAN_NAME.md`
+- Plans should document goals, architecture decisions, and implementation phases
+- When a plan is completed, move it to the appropriate `completed/YYYY/MM/` subdirectory
