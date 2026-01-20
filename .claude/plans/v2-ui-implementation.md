@@ -121,11 +121,39 @@ Set up the infrastructure to serve a React app alongside Rails:
    - Studio selector
    - Basic routing between major sections
 
-### Phase 2: Core Features (Future)
+### Phase 1.5: Storybook Integration (Completed)
+
+Component development environment and documentation:
+
+1. **Install Storybook dependencies**
+   - `@storybook/react-vite` - Core Storybook for Vite + React
+   - `@storybook/addon-docs` - Auto-generated component documentation
+   - `@storybook/addon-a11y` - Accessibility testing panel
+   - Vitest addon for test integration
+
+2. **Configure Storybook for V2 client**
+   - `.storybook/main.ts` - Storybook configuration
+   - `.storybook/preview.ts` - Global decorators (QueryClient, Router, CSS)
+   - Stories placed alongside components (`*.stories.tsx`)
+
+3. **Documentation**
+   - `docs/STORYBOOK.md` - Usage guide and patterns
+   - `docs/STYLE_GUIDE.md` - Updated with React/Tailwind patterns
+
+4. **ESLint integration**
+   - Story files follow functional programming rules
+   - Relaxed `unsafe` TypeScript rules for mocking
+
+5. **Verification**
+   - `npm run storybook` launches at localhost:6006
+   - `npm run build-storybook` produces static site
+   - E2E tests verify Storybook renders components correctly
+
+### Phase 2: Core Features (In Progress)
 
 - [x] Main homepage and studio homepages
 - [x] Note viewing and creation
-- [ ] Decision viewing and voting
+- [~] Decision viewing (voting UI pending)
 - [ ] Commitment viewing and joining
 - [ ] Cycle navigation
 

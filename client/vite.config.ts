@@ -5,7 +5,9 @@ import path from "path"
 
 export default defineConfig({
   plugins: [
-    tanstackRouter(),
+    tanstackRouter({
+      routeFileIgnorePattern: ".*\\.test\\.tsx?$",
+    }),
     react(),
   ],
   resolve: {
@@ -21,6 +23,12 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
+        target: "https://app.harmonic.local",
+        changeOrigin: true,
+        secure: false,
+      },
+      // Proxy studio-scoped API routes (used when on /studios/{handle} pages)
+      "^/studios/.*/api": {
         target: "https://app.harmonic.local",
         changeOrigin: true,
         secure: false,

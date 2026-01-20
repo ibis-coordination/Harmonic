@@ -43,40 +43,65 @@ export interface Backlink {
 export interface Decision {
   id: number
   truncated_id: string
-  title: string | null
-  text: string
+  question: string
+  description: string | null
+  options_open: boolean
   deadline: string | null
   created_at: string
   updated_at: string
-  author: User
-  options: Option[]
-  participants: Participant[]
-  results: DecisionResults | null
+  voter_count: number
+  // Included via ?include=options
+  options?: DecisionOption[]
+  // Included via ?include=participants
+  participants?: DecisionParticipant[]
+  // Included via ?include=votes
+  votes?: DecisionVote[]
+  // Included via ?include=results
+  results?: DecisionResult[]
+  // Included via ?include=backlinks
+  backlinks?: Backlink[]
 }
 
-export interface Option {
+export interface DecisionOption {
   id: number
-  truncated_id: string
-  text: string
-  position: number
+  random_id: string
+  title: string
+  description: string | null
+  decision_id: number
+  decision_participant_id: number
+  created_at: string
+  updated_at: string
 }
 
-export interface Participant {
+export interface DecisionParticipant {
   id: number
-  user: User
-  votes: Vote[]
+  decision_id: number
+  user_id: number | null
+  created_at: string
+  votes?: DecisionVote[]
 }
 
-export interface Vote {
+export interface DecisionVote {
   id: number
   option_id: number
-  rank: number
+  decision_id: number
+  decision_participant_id: number
+  accepted: 0 | 1
+  preferred: 0 | 1
+  created_at: string
+  updated_at: string
 }
 
-export interface DecisionResults {
-  method: string
-  winner: Option | null
-  rounds: unknown[]
+export interface DecisionResult {
+  position: number
+  decision_id: number
+  option_id: number
+  option_title: string
+  option_random_id: string
+  accepted_yes: number
+  accepted_no: number
+  vote_count: number
+  preferred: number
 }
 
 export interface Commitment {

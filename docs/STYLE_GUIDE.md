@@ -509,6 +509,88 @@ Common patterns:
 <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
 ```
 
+### Detail Page Layout
+
+```jsx
+<div className="space-y-8">
+  <h1 className="text-2xl font-bold text-gray-900">Decision: {title}</h1>
+  {/* metadata, content sections... */}
+</div>
+```
+
+### Metadata Grid
+
+```jsx
+<dl className="grid grid-cols-2 gap-4 text-sm">
+  <div>
+    <dt className="text-gray-500">Label</dt>
+    <dd className="text-gray-900">{value}</dd>
+  </div>
+</dl>
+```
+
+### Section Headings
+
+```jsx
+<h2 className="text-xl font-semibold text-gray-900 mb-4">Section Title</h2>
+```
+
+### Content Cards
+
+```jsx
+<div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+  <p className="text-gray-800">{content}</p>
+</div>
+```
+
+### List Items
+
+```jsx
+<ul className="space-y-3">
+  <li className="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 className="font-medium text-gray-900">{title}</h3>
+    <p className="text-sm text-gray-600 mt-1">{description}</p>
+  </li>
+</ul>
+```
+
+### Data Tables
+
+```jsx
+<div className="overflow-x-auto">
+  <table className="min-w-full divide-y divide-gray-200">
+    <thead className="bg-gray-50">
+      <tr>
+        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Column
+        </th>
+      </tr>
+    </thead>
+    <tbody className="bg-white divide-y divide-gray-200">
+      <tr>
+        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+          Value
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+### Loading States
+
+```jsx
+<div className="flex justify-center py-8">
+  <p className="text-gray-500">Loading...</p>
+</div>
+```
+
+### Empty States
+
+```jsx
+<p className="text-gray-500">No items yet.</p>
+```
+
 ---
 
 ## Quick Reference

@@ -23,6 +23,37 @@ export interface HttpClientService {
 
 export const HttpClient = Context.GenericTag<HttpClientService>("HttpClient")
 
+/**
+ * Type for the Harmonic context injected by Rails into window.
+ */
+interface HarmonicContext {
+  readonly csrfToken?: string
+}
+
+declare global {
+  interface Window {
+    readonly __HARMONIC_CONTEXT__?: HarmonicContext
+  }
+}
+
+/**
+ * Get the CSRF token from the Rails-injected window context.
+ * Falls back to reading from meta tag if context isn't available.
+ */
+const getCsrfToken = (): string | undefined => {
+  if (typeof window === "undefined") {
+    return undefined
+  }
+  // First try the injected context
+  const contextToken = window.__HARMONIC_CONTEXT__?.csrfToken
+  if (contextToken !== undefined) {
+    return contextToken
+  }
+  // Fall back to meta tag
+  const metaTag = document.querySelector('meta[name="csrf-token"]')
+  return metaTag?.getAttribute("content") ?? undefined
+}
+
 const mapStatusToError = (
   status: number,
   body: unknown,
@@ -75,9 +106,12 @@ export const createHttpClient = (config: HttpClientConfig): HttpClientService =>
           ? config.baseUrl()
           : config.baseUrl
       const url = `${baseUrl}${path}`
+      // Include CSRF token for mutating requests (POST, PUT, PATCH, DELETE)
+      const csrfToken = method !== "GET" ? getCsrfToken() : undefined
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         Accept: "application/json",
+        ...(csrfToken !== undefined ? { "X-CSRF-Token": csrfToken } : {}),
       }
       const fetchOptions: RequestInit = {
         method,
@@ -122,12 +156,12 @@ export const createHttpClient = (config: HttpClientConfig): HttpClientService =>
 }
 
 /**
- * Get the API base path from the current URL.
+ * Get the studio-scoped API base path from the current URL.
  * If we're in a studio context (URL includes /studios/{handle}),
  * use the studio-scoped API path.
  * This is called on each request to handle navigation between pages.
  */
-const getApiBasePath = (): string => {
+const getStudioScopedApiBasePath = (): string => {
   // Check if window is defined (for SSR/test compatibility)
   if (typeof window === "undefined") {
     return "/api/v1"
@@ -140,7 +174,20 @@ const getApiBasePath = (): string => {
   return "/api/v1"
 }
 
+/**
+ * HTTP client for studio-scoped resources (notes, decisions, commitments, cycles).
+ * Uses the studio handle from the current URL to scope API requests.
+ */
 export const LiveHttpClient = createHttpClient({
-  baseUrl: getApiBasePath,
+  baseUrl: getStudioScopedApiBasePath,
+  credentials: "include",
+})
+
+/**
+ * HTTP client for global resources (studios, users).
+ * Always uses /api/v1 regardless of current URL.
+ */
+export const GlobalHttpClient = createHttpClient({
+  baseUrl: "/api/v1",
   credentials: "include",
 })

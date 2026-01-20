@@ -1,5 +1,10 @@
 import { Effect, Layer } from "effect"
-import { HttpClient, LiveHttpClient, type HttpClientService } from "./http"
+import {
+  HttpClient,
+  LiveHttpClient,
+  GlobalHttpClient,
+  type HttpClientService,
+} from "./http"
 import type { HttpError } from "./errors"
 import type {
   Note,
@@ -29,9 +34,7 @@ export const NotesService = {
     text: string
     deadline?: string
   }): Effect.Effect<Note, HttpError, HttpClientService> =>
-    Effect.flatMap(HttpClient, (client) =>
-      client.post<Note>("/notes", { note: data }),
-    ),
+    Effect.flatMap(HttpClient, (client) => client.post<Note>("/notes", data)),
 
   update: (
     id: string,
@@ -48,22 +51,49 @@ export const NotesService = {
 }
 
 export const DecisionsService = {
+  get: (
+    id: string,
+    options?: {
+      include?: ("options" | "participants" | "votes" | "results" | "backlinks")[]
+    },
+  ): Effect.Effect<Decision, HttpError, HttpClientService> =>
+    Effect.flatMap(HttpClient, (client) => {
+      const params = new URLSearchParams()
+      if (options?.include) {
+        params.set("include", options.include.join(","))
+      }
+      const query = params.toString()
+      return client.get<Decision>(`/decisions/${id}${query ? `?${query}` : ""}`)
+    }),
+
   create: (data: {
-    title?: string
-    text: string
+    question: string
+    description?: string
     deadline?: string
-    options: string[]
+    options_open?: boolean
   }): Effect.Effect<Decision, HttpError, HttpClientService> =>
     Effect.flatMap(HttpClient, (client) =>
-      client.post<Decision>("/decisions", { decision: data }),
+      client.post<Decision>("/decisions", data),
+    ),
+
+  addOption: (
+    decisionId: string,
+    data: { title: string; description?: string },
+  ): Effect.Effect<unknown, HttpError, HttpClientService> =>
+    Effect.flatMap(HttpClient, (client) =>
+      client.post(`/decisions/${decisionId}/options`, data),
     ),
 
   vote: (
     decisionId: string,
-    votes: { option_id: number; rank: number }[],
+    optionId: number,
+    data: { accepted: 0 | 1; preferred: 0 | 1 },
   ): Effect.Effect<unknown, HttpError, HttpClientService> =>
     Effect.flatMap(HttpClient, (client) =>
-      client.post(`/decisions/${decisionId}/votes`, { votes }),
+      client.post(
+        `/decisions/${decisionId}/options/${String(optionId)}/votes`,
+        data,
+      ),
     ),
 }
 
@@ -75,7 +105,7 @@ export const CommitmentsService = {
     deadline?: string
   }): Effect.Effect<Commitment, HttpError, HttpClientService> =>
     Effect.flatMap(HttpClient, (client) =>
-      client.post<Commitment>("/commitments", { commitment: data }),
+      client.post<Commitment>("/commitments", data),
     ),
 
   join: (id: string): Effect.Effect<unknown, HttpError, HttpClientService> =>
@@ -99,28 +129,20 @@ export const CyclesService = {
     }),
 }
 
+// Global resources use GlobalHttpClient (not studio-scoped)
 export const UsersService = {
-  list: (): Effect.Effect<User[], HttpError, HttpClientService> =>
-    Effect.flatMap(HttpClient, (client) =>
-      client.get<User[]>("/users"),
-    ),
+  list: (): Effect.Effect<User[], HttpError> => GlobalHttpClient.get<User[]>("/users"),
 
-  me: (): Effect.Effect<User, HttpError, HttpClientService> =>
-    Effect.flatMap(HttpClient, (client) =>
-      client.get<User>("/users/me"),
-    ),
+  me: (): Effect.Effect<User, HttpError> => GlobalHttpClient.get<User>("/users/me"),
 }
 
+// Global resources use GlobalHttpClient (not studio-scoped)
 export const StudiosService = {
-  list: (): Effect.Effect<Studio[], HttpError, HttpClientService> =>
-    Effect.flatMap(HttpClient, (client) =>
-      client.get<Studio[]>("/studios"),
-    ),
+  list: (): Effect.Effect<Studio[], HttpError> =>
+    GlobalHttpClient.get<Studio[]>("/studios"),
 
-  get: (handle: string): Effect.Effect<Studio, HttpError, HttpClientService> =>
-    Effect.flatMap(HttpClient, (client) =>
-      client.get<Studio>(`/studios/${handle}`),
-    ),
+  get: (handle: string): Effect.Effect<Studio, HttpError> =>
+    GlobalHttpClient.get<Studio>(`/studios/${handle}`),
 }
 
 export const HttpClientLive: Layer.Layer<HttpClientService> = Layer.succeed(
@@ -128,7 +150,17 @@ export const HttpClientLive: Layer.Layer<HttpClientService> = Layer.succeed(
   LiveHttpClient,
 )
 
+/**
+ * Run an API effect. Handles both studio-scoped effects (that require HttpClientService)
+ * and global effects (that don't require any service).
+ */
 export const runApiEffect = <A, E>(
-  effect: Effect.Effect<A, E, HttpClientService>,
-): Promise<A> =>
-  Effect.runPromise(Effect.provide(effect, HttpClientLive))
+  effect: Effect.Effect<A, E, HttpClientService> | Effect.Effect<A, E>,
+): Promise<A> => {
+  // Provide the HttpClientService layer for studio-scoped resources
+  const providedEffect = Effect.provide(
+    effect as Effect.Effect<A, E, HttpClientService>,
+    HttpClientLive,
+  )
+  return Effect.runPromise(providedEffect)
+}
