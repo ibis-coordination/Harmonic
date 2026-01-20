@@ -16,6 +16,22 @@ Click image to upload a new image.<br/>
   <%= form.submit 'Update' %>
 <% end %>
 
+<h2>UI Version</h2>
+<p>Choose which version of the user interface to use.</p>
+<div style="display: flex; gap: 12px; margin-top: 8px;">
+  <%= form_with url: "#{@current_user.path}/settings/ui_version", method: :post, style: "display: inline;" do |form| %>
+    <%= form.hidden_field :ui_version, value: "v1" %>
+    <%= form.submit "v1 (Classic)", class: @current_user.ui_version == "v1" ? "button-primary" : "button", disabled: @current_user.ui_version == "v1" %>
+  <% end %>
+  <%= form_with url: "#{@current_user.path}/settings/ui_version", method: :post, style: "display: inline;" do |form| %>
+    <%= form.hidden_field :ui_version, value: "v2" %>
+    <%= form.submit "v2 (Beta)", class: @current_user.ui_version == "v2" ? "button-primary" : "button", disabled: @current_user.ui_version == "v2" %>
+  <% end %>
+</div>
+<% if @current_user.ui_version == "v2" %>
+  <p style="margin-top: 8px; color: #666;"><em>You're using the beta version of the new UI. Refresh the page after switching to see changes.</em></p>
+<% end %>
+
 <% if @current_user.external_oauth_identities.any? %>
   <h2>Connected Accounts</h2>
   <ul>
