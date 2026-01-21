@@ -7,6 +7,7 @@ import {
   ValidationError,
   type HttpError,
 } from "./errors"
+import { getHarmonicContext } from "@/lib/context"
 
 export interface HttpClientConfig {
   readonly baseUrl: string | (() => string)
@@ -24,19 +25,6 @@ export interface HttpClientService {
 export const HttpClient = Context.GenericTag<HttpClientService>("HttpClient")
 
 /**
- * Type for the Harmonic context injected by Rails into window.
- */
-interface HarmonicContext {
-  readonly csrfToken?: string
-}
-
-declare global {
-  interface Window {
-    readonly __HARMONIC_CONTEXT__?: HarmonicContext
-  }
-}
-
-/**
  * Get the CSRF token from the Rails-injected window context.
  * Falls back to reading from meta tag if context isn't available.
  */
@@ -45,8 +33,8 @@ const getCsrfToken = (): string | undefined => {
     return undefined
   }
   // First try the injected context
-  const contextToken = window.__HARMONIC_CONTEXT__?.csrfToken
-  if (contextToken !== undefined) {
+  const contextToken = getHarmonicContext().csrfToken
+  if (contextToken !== "") {
     return contextToken
   }
   // Fall back to meta tag
