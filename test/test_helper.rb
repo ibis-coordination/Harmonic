@@ -35,6 +35,19 @@ ENV["MAILER_FROM_ADDRESS"] ||= "test@example.com"
 require_relative "../config/environment"
 require "rails/test_help"
 
+# Check AUTH_MODE - Ruby tests require oauth mode
+if ENV["AUTH_MODE"] != "oauth"
+  raise <<~ERROR
+    ❌ Ruby tests require AUTH_MODE=oauth, but AUTH_MODE=#{ENV["AUTH_MODE"].inspect} is set.
+
+    The Ruby test suite expects OAuth authentication mode. Please:
+    1. Set AUTH_MODE: export AUTH_MODE=oauth
+    2. Restart the app: ./scripts/stop.sh && ./scripts/start.sh
+
+    Note: E2E tests currently require AUTH_MODE=honor_system, so you may need to switch modes.
+  ERROR
+end
+
 class ActiveSupport::TestCase
   # Run tests in parallel with specified workers
   # Note: When running with COVERAGE=true, consider using workers: 1 for accurate results

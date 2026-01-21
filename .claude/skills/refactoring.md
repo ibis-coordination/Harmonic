@@ -16,7 +16,14 @@ Prefer pure functions that take inputs and return outputs without side effects. 
 
 ## Code Style Requirements
 
+### Ruby (Backend)
 - **Linter**: Run RuboCop after refactoring to catch style issues
+
+### TypeScript/React (V2 Client)
+- **Linter**: Run ESLint after refactoring: `cd client && npm run lint`
+- **Functional programming**: Strictly enforced - no classes, no `let`, no loops, no `throw`
+- **Error handling**: Use tagged unions with factory functions, not classes
+- **Effects**: Use Effect.js `Effect.gen` with `Effect.fail` instead of throwing
 
 ## Multi-Tenancy Awareness
 
@@ -153,11 +160,76 @@ scope :recent, -> { where("created_at > ?", 1.week.ago) }
 - **Don't skip tests** - Refactoring without tests is risky
 - **Don't add unnecessary gems** - Prefer Ruby/Rails stdlib solutions
 
+## V2 React Client Refactoring
+
+When refactoring TypeScript/React code in `client/`:
+
+### Functional Programming Enforcement
+
+ESLint strictly enforces functional programming. Common refactoring patterns:
+
+```typescript
+// BEFORE: Class-based error
+class NetworkError extends Error {
+  constructor(message: string) {
+    super(message)
+  }
+}
+
+// AFTER: Tagged union with factory function
+interface NetworkError {
+  readonly _tag: "NetworkError"
+  readonly message: string
+}
+const NetworkError = (params: Omit<NetworkError, "_tag">): NetworkError => ({
+  _tag: "NetworkError",
+  ...params,
+})
+```
+
+```typescript
+// BEFORE: Throwing errors
+if (!response.ok) {
+  throw new Error("Request failed")
+}
+
+// AFTER: Effect.js error handling
+if (!response.ok) {
+  return yield* Effect.fail(ApiError({ status: response.status, message: "Failed" }))
+}
+```
+
+```typescript
+// BEFORE: let and mutation
+let total = 0
+for (const item of items) {
+  total += item.price
+}
+
+// AFTER: Functional reduce
+const total = items.reduce((sum, item) => sum + item.price, 0)
+```
+
+### Testing After V2 Client Refactoring
+
+1. Run ESLint: `cd client && npm run lint`
+2. Run TypeScript: `cd client && npm run typecheck`
+3. Run tests: `cd client && npm test`
+4. Or all at once: `cd client && npm run check`
+
 ## Checklist Before Completing Refactoring
 
+### Ruby (Backend)
 - [ ] Code follows style guide (double quotes, trailing commas)
 - [ ] RuboCop passes with no new offenses
 - [ ] All existing tests still pass
 - [ ] New code has appropriate test coverage
 - [ ] Multi-tenancy is preserved
 - [ ] Both HTML and Markdown responses work (if touching controllers)
+
+### TypeScript/React (V2 Client)
+- [ ] ESLint passes with no errors: `cd client && npm run lint`
+- [ ] TypeScript compiles: `cd client && npm run typecheck`
+- [ ] All tests pass: `cd client && npm test`
+- [ ] No classes, `let`, loops, or `throw` statements
+- [ ] Errors use tagged unions with factory functions

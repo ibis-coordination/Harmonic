@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **For architecture details**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 **For detailed AI agent context**: Read [AGENTS.md](AGENTS.md)
 **For codebase patterns comparison**: Read [docs/CODEBASE_PATTERNS.md](docs/CODEBASE_PATTERNS.md)
+**For UI styling patterns**: Read [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md)
+**For Storybook component development**: Read [docs/STORYBOOK.md](docs/STORYBOOK.md)
 
 ## Common Commands
 
@@ -53,14 +55,36 @@ docker compose exec js npm test
 
 # Generate ERD diagram
 ./scripts/generate-erd.sh
+
+# V2 React Client (in client/ directory)
+cd client && npm run dev          # Start Vite dev server
+cd client && npm run storybook    # Start Storybook at localhost:6006
+cd client && npm test             # Run Vitest tests
+cd client && npm run typecheck    # TypeScript type check
+cd client && npm run lint         # Run ESLint
+cd client && npm run lint:fix     # Run ESLint with auto-fix
+cd client && npm run check        # Run lint + typecheck together
 ```
 
 ## Code Style
 
+### Ruby (Backend)
 - **Strings**: Use double quotes (`"string"`)
 - **Arrays/Hashes**: Use trailing commas in multiline literals
 - **Line length**: Max 150 characters
 - **Linter**: RuboCop with configuration in `.rubocop.yml`
+
+### TypeScript/React (V2 Client)
+- **Linter**: ESLint with strict functional programming rules
+- **Functional programming**: Strictly enforced via `eslint-plugin-functional`
+  - No classes (`functional/no-classes`)
+  - No `let` declarations (`functional/no-let`) - use `const` only
+  - No loops (`functional/no-loop-statements`) - use `map`, `filter`, `reduce`
+  - No `throw` statements (`functional/no-throw-statements`) - use Effect.js `Effect.fail`
+  - Immutable data (`functional/immutable-data`) - no mutations except React refs
+- **Error handling**: Use Effect.js tagged unions, not classes
+- **Pre-commit hooks**: Husky runs lint-staged on TypeScript files
+- **Configuration**: `client/eslint.config.js`
 
 ## Architecture Overview
 
@@ -103,6 +127,24 @@ The app serves two parallel interfaces:
 1. HTML/browser UI for humans
 2. Markdown + API actions for LLMs (same routes with `Accept: text/markdown`)
 
+### V2 React Client
+
+A modern React frontend in `client/` using:
+- **Vite** - Build tool and dev server
+- **TanStack Router** - Type-safe routing
+- **TanStack Query** - Data fetching and caching
+- **Tailwind CSS** - Utility-first styling
+- **Storybook** - Component development and documentation
+- **Effect.js** - Functional error handling and effects
+- **ESLint** - Strict functional programming enforcement
+
+Component development workflow:
+1. Create component in `client/src/components/`
+2. Add story in `ComponentName.stories.tsx`
+3. Develop in isolation with `npm run storybook`
+4. Add tests in `ComponentName.test.tsx`
+5. Run `npm run check` before committing
+
 ## Testing
 
 ### Backend (Ruby)
@@ -111,11 +153,28 @@ The app serves two parallel interfaces:
 - Test helpers: `create_tenant_studio_user`, `create_note`, `create_decision`, etc. in `test/test_helper.rb`
 - Integration tests use `sign_in_as(user, tenant:)` helper
 
-### Frontend (TypeScript)
+### Frontend (TypeScript - Legacy V1)
 - Framework: Vitest with jsdom
 - Test files: `app/javascript/**/*.test.ts`
 - Run tests: `docker compose exec js npm test`
 - Watch mode: `docker compose exec js npm run test:watch`
+
+### Frontend (TypeScript - V2 React Client)
+- Framework: Vitest with jsdom and React Testing Library
+- Test files: `client/src/**/*.test.ts`, `client/src/**/*.test.tsx`
+- Run tests: `cd client && npm test`
+- Watch mode: `cd client && npm run test:watch`
+- Linting: `cd client && npm run lint`
+
+### End-to-End (Playwright)
+- Framework: Playwright
+- Test files: `e2e/tests/**/*.spec.ts`
+- Requires: App running with `AUTH_MODE=honor_system`
+- Run tests: `npm run test:e2e` or `./scripts/run-e2e.sh`
+- Run with UI: `npm run test:e2e:ui`
+- Run headed: `npm run test:e2e:headed`
+- Run specific test: `npm run test:e2e -- e2e/tests/auth/login.spec.ts`
+- Install browsers: `npm run playwright:install`
 
 ### Manual testing
 - Framework: checklists
@@ -136,3 +195,11 @@ When modifying TODO comments, update `docs/TODO_INDEX.md`:
 ./scripts/check-todo-index.sh --list   # See all TODOs
 ./scripts/check-todo-index.sh --all    # Check sync status
 ```
+
+## Plan Documents
+
+When creating implementation plans, store them in `.claude/plans/` with descriptive names:
+- Active plans: `.claude/plans/v2-ui-implementation.md`
+- Completed plans: `.claude/plans/completed/YYYY/MM/PLAN_NAME.md`
+- Plans should document goals, architecture decisions, and implementation phases
+- When a plan is completed, move it to the appropriate `completed/YYYY/MM/` subdirectory

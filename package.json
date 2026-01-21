@@ -6,7 +6,12 @@
     "build:watch": "esbuild app/javascript/application.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts --watch=forever",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "playwright:install": "playwright install chromium"
   },
   "dependencies": {
     "@hotwired/stimulus": "^3.2.2",
@@ -22,6 +27,7 @@
     "three": "^0.182.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/node": "^22.10.6",
     "esbuild": "^0.24.2",
     "jsdom": "^25.0.1",
