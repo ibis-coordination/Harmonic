@@ -51,6 +51,30 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     assert html.include?("Click here")
   end
 
+  test "render preserves relative links" do
+    markdown = "[Settings](/settings)"
+    html = MarkdownRenderer.render(markdown, display_references: false)
+
+    assert html.include?('href="/settings"'), "Expected relative link to be preserved in output: #{html}"
+    assert html.include?("Settings")
+  end
+
+  test "render preserves relative links with paths" do
+    markdown = "[User profile](/u/someuser)"
+    html = MarkdownRenderer.render(markdown, display_references: false)
+
+    assert html.include?('href="/u/someuser"'), "Expected relative link path to be preserved in output: #{html}"
+    assert html.include?("User profile")
+  end
+
+  test "render preserves anchor links" do
+    markdown = "[Jump to section](#section)"
+    html = MarkdownRenderer.render(markdown, display_references: false)
+
+    assert html.include?('href="#section"'), "Expected anchor link to be preserved in output: #{html}"
+    assert html.include?("Jump to section")
+  end
+
   test "render converts unordered lists" do
     markdown = "- Item 1\n- Item 2\n- Item 3"
     html = MarkdownRenderer.render(markdown)
@@ -104,8 +128,6 @@ class MarkdownRendererTest < ActiveSupport::TestCase
   end
 
   test "render converts tables to proper HTML table elements" do
-    skip "BUG: Tables are not rendering as HTML table elements - needs investigation"
-
     markdown = <<~MD
       | Header 1 | Header 2 |
       |----------|----------|
@@ -116,6 +138,20 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     assert html.include?("<table>"), "Expected <table> tag in output: #{html}"
     assert html.include?("<th>"), "Expected <th> tag in output: #{html}"
     assert html.include?("<td>"), "Expected <td> tag in output: #{html}"
+  end
+
+  test "render preserves table thead and tbody elements" do
+    markdown = <<~MD
+      | Name | Age |
+      |------|-----|
+      | Alice | 30 |
+      | Bob | 25 |
+    MD
+    html = MarkdownRenderer.render(markdown, display_references: false)
+
+    assert html.include?("<thead>"), "Expected <thead> tag in output: #{html}"
+    assert html.include?("<tbody>"), "Expected <tbody> tag in output: #{html}"
+    assert html.include?("<tr>"), "Expected <tr> tag in output: #{html}"
   end
 
   # === Header Shifting Tests ===
