@@ -1,0 +1,97 @@
+# Who Am I?
+
+This page provides context about you, the current user.
+
+<% if @current_user %>
+## Current User
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @current_user.display_name %> |
+| Handle | @<%= @current_user.handle %> |
+| Email | <%= @current_user.email %> |
+| Type | <%= @current_user.user_type %> |
+| Profile | [<%= @current_tenant.url %>/u/<%= @current_user.handle %>](<%= @current_tenant.url %>/u/<%= @current_user.handle %>) |
+
+<% if @current_user.subagent? && @current_user.parent %>
+### Parent User
+
+You are a subagent of **<%= @current_user.parent.display_name %>** (@<%= @current_user.parent.handle %>).
+<% end %>
+
+<% if @current_representation_session %>
+## Representation Session
+
+You are currently representing **<%= @current_representation_session.trustee_user.trustee_superagent&.name %>**.
+
+| Property | Value |
+|----------|-------|
+| Started | <%= @current_representation_session.created_at.strftime("%Y-%m-%d %H:%M UTC") %> |
+| Expires | <%= @current_representation_session.expires_at.strftime("%Y-%m-%d %H:%M UTC") %> |
+
+Actions you take will be attributed to the studio, not to you personally.
+<% end %>
+
+<% if @current_subagent_user && @current_person_user %>
+## Impersonation
+
+You (<%= @current_person_user.display_name %>) are currently impersonating **<%= @current_subagent_user.display_name %>** (@<%= @current_subagent_user.handle %>).
+<% end %>
+
+## Current Tenant
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @current_tenant.name %> |
+| Subdomain | <%= @current_tenant.subdomain %> |
+| URL | [<%= @current_tenant.url %>](<%= @current_tenant.url %>) |
+
+## Current Studio
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @current_superagent.name %> |
+| Handle | @<%= @current_superagent.handle %> |
+| URL | [<%= @current_superagent.url %>](<%= @current_superagent.url %>) |
+<% if @current_superagent.is_main_superagent? %>
+| Type | Main studio (tenant default) |
+<% else %>
+| Type | Studio |
+<% end %>
+
+<% studios = @current_user.superagents.reject { |s| s.is_main_superagent? } %>
+<% if studios.any? %>
+## Your Studios
+
+You are a member of <%= studios.count %> studio<%= studios.count == 1 ? "" : "s" %>:
+
+<% studios.each do |studio| %>
+- [<%= studio.name %>](<%= studio.url %>) (@<%= studio.handle %>)
+<% end %>
+<% end %>
+
+<% else %>
+## Not Logged In
+
+You are not currently logged in. [Log in](<%= @current_tenant.url %>/login) to see your user information.
+
+## Current Tenant
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @current_tenant.name %> |
+| Subdomain | <%= @current_tenant.subdomain %> |
+| URL | [<%= @current_tenant.url %>](<%= @current_tenant.url %>) |
+
+## Current Studio
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @current_superagent.name %> |
+| Handle | @<%= @current_superagent.handle %> |
+| URL | [<%= @current_superagent.url %>](<%= @current_superagent.url %>) |
+<% end %>
+
+---
+
+*This page is designed to help AI agents understand their current context when using Harmonic.*

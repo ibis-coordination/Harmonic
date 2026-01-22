@@ -89,6 +89,11 @@ Rails.application.routes.draw do
   get 'learn/awareness-indicators' => 'learn#awareness_indicators'
   get 'learn/acceptance-voting' => 'learn#acceptance_voting'
   get 'learn/reciprocal-commitment' => 'learn#reciprocal_commitment'
+  get 'learn/subagency' => 'learn#subagency'
+  get 'learn/superagency' => 'learn#superagency'
+
+  get 'whoami' => 'whoami#index'
+  get 'motto' => 'motto#index'
 
   get 'admin' => 'admin#admin'
   get 'admin/actions' => 'admin#actions_index'

@@ -25,6 +25,26 @@ class LearnController < ApplicationController
     show
   end
 
+  def subagency
+    @page_title = "Subagency"
+    respond_to do |format|
+      format.html do
+        render layout: "application", html: page_html_erb("subagency")
+      end
+      format.md { render "learn/subagency" }
+    end
+  end
+
+  def superagency
+    @page_title = "Superagency"
+    respond_to do |format|
+      format.html do
+        render layout: "application", html: page_html_erb("superagency")
+      end
+      format.md { render "learn/superagency" }
+    end
+  end
+
   private
 
   def show
@@ -39,6 +59,10 @@ class LearnController < ApplicationController
 
   def page_html
     markdown(page_text)
+  end
+
+  def page_html_erb(template)
+    markdown(render_to_string("learn/#{template}", layout: false, formats: [:md]))
   end
 
   def markdown(text)
