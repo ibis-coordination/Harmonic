@@ -1,0 +1,7 @@
+<div class="pulse-studio-info">
+  <div class="pulse-studio-name"><%= @current_superagent.name %></div>
+  <div class="pulse-studio-meta">
+    <%= @team.count %> <%= 'member'.pluralize(@team.count) %> &middot;
+    <%= @current_superagent.settings['invite_only'] ? 'Private' : 'Open' %> <%= @current_superagent.superagent_type.titleize %>
+  </div>
+</div>

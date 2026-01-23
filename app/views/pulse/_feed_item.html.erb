@@ -1,0 +1,147 @@
+<%
+  item = feed_item[:item]
+  type = feed_item[:type]
+  created_by = feed_item[:created_by]
+  created_at = feed_item[:created_at]
+
+  type_lower = type.downcase
+  icon_path = "/resource-icons/#{type_lower}-icon.svg"
+
+  # Get the appropriate title and content based on item type
+  item_title = case type
+    when 'Decision' then item.question
+    else item.title
+  end
+
+  item_content = case type
+    when 'Note' then item.text
+    else item.description
+  end
+
+  # For notes, only show title if it's different from the text
+  show_title = if type == 'Note'
+    item.title.to_s.strip != item.text.to_s.strip
+  else
+    true
+  end
+%>
+<article class="pulse-feed-item" data-pulse-filter-target="feedItem" data-item-type="<%= type %>">
+  <div class="pulse-feed-item-header">
+    <div class="pulse-feed-item-type">
+      <img src="<%= icon_path %>" alt="">
+      <span><%= type %></span>
+    </div>
+    <div class="pulse-feed-item-meta">
+      <% if created_by %>
+        <%
+          name = created_by.display_name || created_by.handle || "?"
+          parts = name.to_s.split(/[\s\-_]+/)
+          initials = parts.length >= 2 ? "#{parts[0][0]}#{parts[1][0]}".upcase : name[0..1].upcase
+        %>
+        <a href="<%= created_by.path %>" class="pulse-feed-item-author">
+          <div class="pulse-author-avatar" title="<%= created_by.display_name %>">
+            <span class="pulse-avatar-initials"><%= initials %></span>
+            <% if created_by.image_url.present? %>
+              <img src="<%= created_by.image_url %>" alt="<%= created_by.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
+            <% end %>
+          </div>
+          <span><%= created_by.display_name %></span>
+        </a>
+      <% else %>
+        <span>Anonymous</span>
+      <% end %>
+      &middot; <%= time_ago_in_words(created_at) %> ago
+    </div>
+  </div>
+  <div class="pulse-feed-item-body">
+    <% if type == 'Note' && item.is_comment? %>
+      <div class="pulse-feed-item-reply">
+        <%= octicon 'reply' %>
+        <span>Replying to</span>
+        <%= render 'shared/inline_resource_item', resource: item.commentable %>
+      </div>
+    <% end %>
+    <% if show_title %>
+      <div class="pulse-feed-item-title">
+        <a href="<%= item.path %>"><%= strip_tags(markdown(item_title)).presence || "(Untitled)" %></a>
+      </div>
+    <% end %>
+    <% if item_content.present? %>
+      <div class="pulse-feed-item-content<%= ' pulse-feed-item-content-clickable' unless show_title %>"<% unless show_title %> onclick="if (event.target.tagName !== 'A') window.location.href='<%= item.path %>'"<% end %>>
+        <%= truncate(sanitize(markdown(item_content), tags: %w[a strong em]), length: 200) %>
+      </div>
+    <% end %>
+
+    <% case type %>
+    <% when 'Decision' %>
+      <%= render 'pulse/feed_item_decision', item: item %>
+    <% when 'Commitment' %>
+      <%= render 'pulse/feed_item_commitment', item: item %>
+    <% when 'Note' %>
+      <%= render 'pulse/feed_item_note', item: item %>
+    <% end %>
+  </div>
+  <div class="pulse-feed-item-footer">
+    <% case type %>
+    <% when 'Note' %>
+      <%
+        user_has_read = @current_user && item.user_has_read?(@current_user)
+        read_confirmations = item.note_history_events.where(event_type: 'read_confirmation')
+        reads = read_confirmations.select(:user_id).distinct.count
+      %>
+      <% if user_has_read %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= octicon 'book' %> Confirmed</button>
+      <% else %>
+        <div data-controller="pulse-action" data-pulse-action-url-value="<%= item.path %>/actions/confirm_read" data-pulse-action-loading-text-value="Confirming..." data-pulse-action-confirmed-text-value="Confirmed">
+          <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= octicon 'book' %> Confirm read</button>
+        </div>
+      <% end %>
+      <% if reads > 0 %>
+        <div class="pulse-confirmed-reads">
+          <div class="pulse-confirmed-avatars">
+            <% read_confirmations.includes(:user).select(:user_id).distinct.limit(3).each do |event| %>
+              <%
+                user = event.user
+                name = user&.display_name || user&.handle || "?"
+                parts = name.to_s.split(/[\s\-_]+/)
+                initials = parts.length >= 2 ? "#{parts[0][0]}#{parts[1][0]}".upcase : name[0..1].upcase
+              %>
+              <div class="pulse-confirmed-avatar" title="<%= user&.display_name %>">
+                <span class="pulse-avatar-initials"><%= initials %></span>
+                <% if user&.image_url.present? %>
+                  <img src="<%= user.image_url %>" alt="<%= user.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
+                <% end %>
+              </div>
+            <% end %>
+            <% if reads > 3 %>
+              <div class="pulse-confirmed-avatar">+<%= reads - 3 %></div>
+            <% end %>
+          </div>
+          <span><%= reads %> confirmed</span>
+        </div>
+      <% end %>
+      <a href="<%= item.path %>" class="pulse-feed-action-link">View →</a>
+    <% when 'Decision' %>
+      <% if item.closed? %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= octicon 'check-circle' %> Closed <%= time_ago_in_words(item.deadline) %> ago</button>
+      <% else %>
+        <a href="<%= item.path %>" class="pulse-feed-action-btn-link"><%= octicon 'check-circle' %> Vote</a>
+      <% end %>
+      <a href="<%= item.path %>" class="pulse-feed-action-link">View →</a>
+    <% when 'Commitment' %>
+      <% if item.closed? %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= octicon 'person' %> Closed <%= time_ago_in_words(item.deadline) %> ago</button>
+      <% else %>
+        <% user_has_joined = @current_user && item.participants.where(user: @current_user).where.not(committed_at: nil).exists? %>
+        <% if user_has_joined %>
+          <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= octicon 'person' %> Joined</button>
+        <% else %>
+          <div data-controller="pulse-action" data-pulse-action-url-value="<%= item.path %>/actions/join_commitment" data-pulse-action-loading-text-value="Joining..." data-pulse-action-confirmed-text-value="Joined">
+            <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= octicon 'person' %> Join</button>
+          </div>
+        <% end %>
+      <% end %>
+      <a href="<%= item.path %>" class="pulse-feed-action-link">View →</a>
+    <% end %>
+  </div>
+</article>

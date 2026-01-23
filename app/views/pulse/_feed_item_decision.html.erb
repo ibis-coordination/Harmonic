@@ -1,0 +1,14 @@
+<% if item.options.any? %>
+  <div class="pulse-decision-options">
+    <% item.options.limit(5).each do |option| %>
+      <%
+        accepts = option.votes.where(accepted: 1).count
+        prefers = option.votes.where(preferred: 1).count
+      %>
+      <div class="pulse-decision-option">
+        <span><%= option.title %></span>
+        <span class="pulse-option-votes"><%= accepts %> accept &middot; <%= prefers %> prefer</span>
+      </div>
+    <% end %>
+  </div>
+<% end %>

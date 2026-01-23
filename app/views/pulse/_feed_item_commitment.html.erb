@@ -1,0 +1,19 @@
+<%
+  participant_count = item.participant_count
+  critical_mass = item.critical_mass
+  progress_percent = [(participant_count.to_f / critical_mass * 100).to_i, 100].min
+  remaining = [critical_mass - participant_count, 0].max
+%>
+<div class="pulse-commitment-progress">
+  <div class="pulse-progress-bar">
+    <div class="pulse-progress-fill" style="width: <%= progress_percent %>%"></div>
+  </div>
+  <div class="pulse-progress-label">
+    <span><%= participant_count %> of <%= critical_mass %> committed</span>
+    <% if remaining > 0 %>
+      <span><%= remaining %> more needed</span>
+    <% else %>
+      <span>Critical mass reached!</span>
+    <% end %>
+  </div>
+</div>

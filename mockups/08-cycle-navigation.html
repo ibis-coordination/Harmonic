@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cycle Navigation Options - Harmonic Pulse</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --color-fg-default: #24292f;
+      --color-fg-muted: #57606a;
+      --color-fg-subtle: #6e7781;
+      --color-canvas-default: #ffffff;
+      --color-canvas-subtle: #f6f8fa;
+      --color-border-default: #d0d7de;
+      --color-border-muted: hsla(210,18%,87%,1);
+      --color-neutral-muted: rgba(175,184,193,0.2);
+      --color-accent-fg: #0969da;
+      --color-accent-emphasis: #0969da;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-fg-default: #e6edf3;
+        --color-fg-muted: #8b949e;
+        --color-fg-subtle: #6e7681;
+        --color-canvas-default: #0d1117;
+        --color-canvas-subtle: #161b22;
+        --color-border-default: #30363d;
+        --color-border-muted: #21262d;
+        --color-neutral-muted: rgba(110,118,129,0.4);
+        --color-accent-fg: #58a6ff;
+        --color-accent-emphasis: #1f6feb;
+      }
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--color-canvas-default);
+      color: var(--color-fg-default);
+      line-height: 1.5;
+      padding: 40px;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--color-fg-muted);
+      margin-bottom: 40px;
+      font-size: 16px;
+    }
+
+    .option-section {
+      margin-bottom: 60px;
+      border: 1px solid var(--color-border-default);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .option-header {
+      background: var(--color-canvas-subtle);
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .option-header h2 {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .option-header p {
+      color: var(--color-fg-muted);
+      font-size: 14px;
+    }
+
+    .option-demo {
+      padding: 30px;
+      background: var(--color-canvas-default);
+    }
+
+    .pros-cons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 20px;
+      background: var(--color-canvas-subtle);
+      border-top: 1px solid var(--color-border-default);
+      font-size: 14px;
+    }
+
+    .pros h4, .cons h4 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .pros h4 { color: #1a7f37; }
+    .cons h4 { color: #cf222e; }
+
+    .pros ul, .cons ul {
+      list-style: none;
+      color: var(--color-fg-muted);
+    }
+
+    .pros li::before { content: "+ "; color: #1a7f37; }
+    .cons li::before { content: "- "; color: #cf222e; }
+
+    /* ============================================
+       OPTION A: Simple Previous/Next Arrows
+       ============================================ */
+    .nav-arrows {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-arrow-btn {
+      background: none;
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      color: var(--color-fg-default);
+      font-size: 14px;
+    }
+
+    .nav-arrow-btn:hover {
+      background: var(--color-canvas-subtle);
+    }
+
+    .nav-arrow-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .cycle-display {
+      font-weight: 600;
+      min-width: 140px;
+      text-align: center;
+    }
+
+    .cycle-dates {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+      font-weight: normal;
+    }
+
+    /* ============================================
+       OPTION B: Dropdown Selector
+       ============================================ */
+    .cycle-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-trigger {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--color-canvas-default);
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--color-fg-default);
+    }
+
+    .dropdown-trigger:hover {
+      background: var(--color-canvas-subtle);
+    }
+
+    .dropdown-arrow {
+      font-size: 10px;
+      color: var(--color-fg-muted);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: var(--color-canvas-default);
+      border: 1px solid var(--color-border-default);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      min-width: 200px;
+      z-index: 100;
+    }
+
+    .dropdown-section {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--color-border-muted);
+    }
+
+    .dropdown-section:last-child {
+      border-bottom: none;
+    }
+
+    .dropdown-section-label {
+      padding: 4px 12px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--color-fg-subtle);
+    }
+
+    .dropdown-item {
+      display: block;
+      padding: 8px 12px;
+      color: var(--color-fg-default);
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .dropdown-item:hover {
+      background: var(--color-canvas-subtle);
+    }
+
+    .dropdown-item.active {
+      background: var(--color-accent-emphasis);
+      color: white;
+    }
+
+    /* ============================================
+       OPTION C: Tabs / Segmented Control
+       ============================================ */
+    .cycle-tabs {
+      display: flex;
+      background: var(--color-canvas-subtle);
+      border-radius: 8px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .cycle-tab {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--color-fg-muted);
+      white-space: nowrap;
+    }
+
+    .cycle-tab:hover {
+      color: var(--color-fg-default);
+    }
+
+    .cycle-tab.active {
+      background: var(--color-canvas-default);
+      color: var(--color-fg-default);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* ============================================
+       OPTION D: Compact Inline with Arrows + Dropdown
+       ============================================ */
+    .cycle-compact {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .compact-arrow {
+      background: none;
+      border: none;
+      padding: 4px 8px;
+      cursor: pointer;
+      color: var(--color-fg-muted);
+      font-size: 16px;
+      border-radius: 4px;
+    }
+
+    .compact-arrow:hover {
+      background: var(--color-canvas-subtle);
+      color: var(--color-fg-default);
+    }
+
+    .compact-arrow:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .compact-dropdown {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-fg-default);
+      border-radius: 4px;
+    }
+
+    .compact-dropdown:hover {
+      background: var(--color-canvas-subtle);
+    }
+
+    /* ============================================
+       OPTION E: Sidebar Integration (Recommended)
+       ============================================ */
+    .sidebar-preview {
+      width: 280px;
+      border: 1px solid var(--color-border-default);
+      border-radius: 8px;
+      background: var(--color-canvas-default);
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .sidebar-section:last-child {
+      border-bottom: none;
+    }
+
+    .sidebar-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--color-fg-muted);
+      margin-bottom: 8px;
+    }
+
+    .cycle-nav-sidebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cycle-nav-arrows {
+      display: flex;
+      gap: 4px;
+    }
+
+    .cycle-nav-arrow {
+      background: none;
+      border: 1px solid var(--color-border-default);
+      border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      color: var(--color-fg-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cycle-nav-arrow:hover {
+      background: var(--color-canvas-subtle);
+      color: var(--color-fg-default);
+    }
+
+    .cycle-info-sidebar {
+      text-align: center;
+      flex: 1;
+    }
+
+    .cycle-name-sidebar {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .cycle-dates-sidebar {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    .today-btn {
+      font-size: 12px;
+      color: var(--color-accent-fg);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .today-btn:hover {
+      background: var(--color-canvas-subtle);
+    }
+
+    /* Recommendation banner */
+    .recommended {
+      background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+      border-color: #93c5fd;
+    }
+
+    .recommended .option-header {
+      background: rgba(255,255,255,0.5);
+    }
+
+    .badge {
+      display: inline-block;
+      background: var(--color-accent-emphasis);
+      color: white;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cycle Navigation UI Options</h1>
+  <p class="subtitle">Different approaches for allowing users to navigate between activity cycles (today, this week, last week, etc.)</p>
+
+  <!-- Option A: Simple Previous/Next -->
+  <section class="option-section">
+    <div class="option-header">
+      <h2>Option A: Previous/Next Arrows</h2>
+      <p>Simple arrow buttons to step through cycles one at a time</p>
+    </div>
+    <div class="option-demo">
+      <div class="nav-arrows">
+        <button class="nav-arrow-btn">&larr; Previous</button>
+        <div class="cycle-display">
+          This Week
+          <div class="cycle-dates">Jan 20 - Jan 26, 2026</div>
+        </div>
+        <button class="nav-arrow-btn" disabled>Next &rarr;</button>
+      </div>
+    </div>
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>Pros</h4>
+        <ul>
+          <li>Simple and intuitive</li>
+          <li>Minimal screen space</li>
+          <li>Clear mental model</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>Cons</h4>
+        <ul>
+          <li>Slow to jump multiple cycles</li>
+          <li>No quick overview of options</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Option B: Dropdown Selector -->
+  <section class="option-section">
+    <div class="option-header">
+      <h2>Option B: Dropdown Selector</h2>
+      <p>Dropdown menu with all cycle options organized by category</p>
+    </div>
+    <div class="option-demo">
+      <div class="cycle-dropdown">
+        <button class="dropdown-trigger">
+          <span>This Week</span>
+          <span class="dropdown-arrow">&#9662;</span>
+        </button>
+        <div class="dropdown-menu">
+          <div class="dropdown-section">
+            <div class="dropdown-section-label">Days</div>
+            <a href="#" class="dropdown-item">Today</a>
+            <a href="#" class="dropdown-item">Yesterday</a>
+          </div>
+          <div class="dropdown-section">
+            <div class="dropdown-section-label">Weeks</div>
+            <a href="#" class="dropdown-item active">This Week</a>
+            <a href="#" class="dropdown-item">Last Week</a>
+          </div>
+          <div class="dropdown-section">
+            <div class="dropdown-section-label">Months</div>
+            <a href="#" class="dropdown-item">This Month</a>
+            <a href="#" class="dropdown-item">Last Month</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>Pros</h4>
+        <ul>
+          <li>All options visible at once</li>
+          <li>Jump directly to any cycle</li>
+          <li>Grouped by time unit</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>Cons</h4>
+        <ul>
+          <li>Requires click to see options</li>
+          <li>More vertical space when open</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Option C: Tabs -->
+  <section class="option-section">
+    <div class="option-header">
+      <h2>Option C: Segmented Tabs</h2>
+      <p>Horizontal tabs showing recent cycles for quick switching</p>
+    </div>
+    <div class="option-demo">
+      <div class="cycle-tabs">
+        <button class="cycle-tab">Last Week</button>
+        <button class="cycle-tab active">This Week</button>
+        <button class="cycle-tab">Last Month</button>
+        <button class="cycle-tab">This Month</button>
+      </div>
+    </div>
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>Pros</h4>
+        <ul>
+          <li>Options always visible</li>
+          <li>Single-click navigation</li>
+          <li>Clear current selection</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>Cons</h4>
+        <ul>
+          <li>Takes more horizontal space</li>
+          <li>Limited number of options</li>
+          <li>Can be confusing with mixed units</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Option D: Compact Hybrid -->
+  <section class="option-section">
+    <div class="option-header">
+      <h2>Option D: Compact Hybrid</h2>
+      <p>Combines arrows for stepping with dropdown for jumping</p>
+    </div>
+    <div class="option-demo">
+      <div class="cycle-compact">
+        <button class="compact-arrow">&larr;</button>
+        <button class="compact-dropdown">
+          This Week
+          <span class="dropdown-arrow">&#9662;</span>
+        </button>
+        <button class="compact-arrow" disabled>&rarr;</button>
+      </div>
+    </div>
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>Pros</h4>
+        <ul>
+          <li>Best of both worlds</li>
+          <li>Very compact</li>
+          <li>Flexible navigation</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>Cons</h4>
+        <ul>
+          <li>More complex interaction</li>
+          <li>Two ways to do same thing</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Option E: Sidebar Integration (Recommended) -->
+  <section class="option-section recommended">
+    <div class="option-header">
+      <h2>Option E: Sidebar Integration <span class="badge">Recommended</span></h2>
+      <p>Navigation built into the existing sidebar cycle section</p>
+    </div>
+    <div class="option-demo">
+      <div class="sidebar-preview">
+        <div class="sidebar-section">
+          <div class="sidebar-label">Current Cycle</div>
+          <div class="cycle-nav-sidebar">
+            <div class="cycle-nav-arrows">
+              <button class="cycle-nav-arrow">&larr;</button>
+            </div>
+            <div class="cycle-info-sidebar">
+              <div class="cycle-name-sidebar">This Week</div>
+              <div class="cycle-dates-sidebar">Jan 20 - Jan 26, 2026</div>
+            </div>
+            <div class="cycle-nav-arrows">
+              <button class="cycle-nav-arrow" style="opacity:0.3">&rarr;</button>
+            </div>
+          </div>
+          <div style="text-align:center; margin-top:8px;">
+            <button class="today-btn" style="display:none;">Return to current cycle</button>
+          </div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-label">Heartbeats</div>
+          <div style="font-size:14px;"><strong>3</strong> heartbeats this cycle</div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px; margin-left:20px;">
+        <p style="font-size:13px; color:var(--color-fg-muted); margin-bottom:12px;"><strong>When viewing a past cycle:</strong></p>
+        <div class="sidebar-preview">
+          <div class="sidebar-section">
+            <div class="sidebar-label">Viewing Past Cycle</div>
+            <div class="cycle-nav-sidebar">
+              <div class="cycle-nav-arrows">
+                <button class="cycle-nav-arrow">&larr;</button>
+              </div>
+              <div class="cycle-info-sidebar">
+                <div class="cycle-name-sidebar">Last Week</div>
+                <div class="cycle-dates-sidebar">Jan 13 - Jan 19, 2026</div>
+              </div>
+              <div class="cycle-nav-arrows">
+                <button class="cycle-nav-arrow">&rarr;</button>
+              </div>
+            </div>
+            <div style="text-align:center; margin-top:8px;">
+              <button class="today-btn">Return to current cycle</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>Pros</h4>
+        <ul>
+          <li>Uses existing sidebar space</li>
+          <li>Context always visible</li>
+          <li>Clear "return to today" action</li>
+          <li>Consistent with existing design</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>Cons</h4>
+        <ul>
+          <li>Requires sidebar visible</li>
+          <li>Arrow-only (no jump to specific)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="option-section">
+    <div class="option-header">
+      <h2>Implementation Notes</h2>
+      <p>Technical considerations for cycle navigation</p>
+    </div>
+    <div class="option-demo" style="font-size:14px; line-height:1.8;">
+      <h3 style="font-size:16px; margin-bottom:12px;">URL Structure</h3>
+      <p>Navigation can use the existing <code>/cycles/:name</code> route pattern:</p>
+      <ul style="margin:12px 0 24px 20px; color:var(--color-fg-muted);">
+        <li><code>/studios/handle/pulse</code> - Current cycle (based on tempo)</li>
+        <li><code>/studios/handle/pulse?cycle=last-week</code> - Last week</li>
+        <li><code>/studios/handle/pulse?cycle=yesterday</code> - Yesterday</li>
+        <li><code>/studios/handle/pulse?cycle=this-month</code> - This month</li>
+      </ul>
+
+      <h3 style="font-size:16px; margin-bottom:12px;">Available Cycle Names</h3>
+      <p>From <code>Cycle#cycle_options</code>:</p>
+      <ul style="margin:12px 0 24px 20px; color:var(--color-fg-muted);">
+        <li><strong>Days:</strong> today, yesterday, tomorrow</li>
+        <li><strong>Weeks:</strong> this-week, last-week, next-week</li>
+        <li><strong>Months:</strong> this-month, last-month, next-month</li>
+        <li><strong>Years:</strong> this-year, last-year, next-year</li>
+      </ul>
+
+      <h3 style="font-size:16px; margin-bottom:12px;">Cycle Navigation Logic</h3>
+      <p>Use <code>Cycle#previous_cycle</code> method for backward navigation:</p>
+      <ul style="margin:12px 0 0 20px; color:var(--color-fg-muted);">
+        <li>today &rarr; yesterday</li>
+        <li>this-week &rarr; last-week</li>
+        <li>this-month &rarr; last-month</li>
+      </ul>
+    </div>
+  </section>
+
+</body>
+</html>

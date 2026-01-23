@@ -186,6 +186,7 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/cycles/actions" => 'cycles#actions_index_default'
     get "#{studios_or_scenes}/:superagent_handle/cycles/:cycle" => 'cycles#show'
     get "#{studios_or_scenes}/:superagent_handle/cycle/:cycle" => 'cycles#redirect_to_show'
+    get "#{studios_or_scenes}/:superagent_handle/pulse" => 'pulse#show'
     get "#{studios_or_scenes}/:superagent_handle/views" => 'studios#views'
     get "#{studios_or_scenes}/:superagent_handle/view" => 'studios#view'
     get "#{studios_or_scenes}/:superagent_handle/team" => 'studios#team'

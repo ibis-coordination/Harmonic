@@ -1,0 +1,20 @@
+<nav class="pulse-nav">
+  <button type="button" class="pulse-nav-item active" data-pulse-filter-target="navItem" data-action="click->pulse-filter#showAll">
+    <span>Activity</span>
+  </button>
+  <button type="button" class="pulse-nav-item" data-pulse-filter-target="navItem" data-filter-type="Note" data-action="click->pulse-filter#filter">
+    <img src="/resource-icons/note-icon.svg" alt="">
+    <span>Notes</span>
+  </button>
+  <button type="button" class="pulse-nav-item" data-pulse-filter-target="navItem" data-filter-type="Decision" data-action="click->pulse-filter#filter">
+    <img src="/resource-icons/decision-icon.svg" alt="">
+    <span>Decisions</span>
+  </button>
+  <button type="button" class="pulse-nav-item" data-pulse-filter-target="navItem" data-filter-type="Commitment" data-action="click->pulse-filter#filter">
+    <img src="/resource-icons/commitment-icon.svg" alt="">
+    <span>Commitments</span>
+  </button>
+  <a href="<%= @current_superagent.path %>/team" class="pulse-nav-item">
+    <span>Members</span>
+  </a>
+</nav>

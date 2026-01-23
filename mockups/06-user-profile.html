@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Profile - Harmonic</title>
+  <style>
+    :root {
+      --color-fg-default: #24292f;
+      --color-fg-muted: #57606a;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid #000;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+      font-size: 18px;
+    }
+
+    .logo img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+    }
+
+    .back-btn {
+      background: none;
+      border: 1px solid #000;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .back-btn:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    /* Main layout */
+    .main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    /* Profile header */
+    .profile-header {
+      display: flex;
+      gap: 24px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid #000;
+      margin-bottom: 32px;
+    }
+
+    .profile-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: #000;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .profile-info {
+      flex: 1;
+    }
+
+    .profile-name {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .profile-email {
+      font-size: 14px;
+      color: var(--color-fg-muted);
+      margin-bottom: 16px;
+    }
+
+    .profile-bio {
+      font-size: 14px;
+      margin-bottom: 16px;
+      max-width: 400px;
+    }
+
+    .profile-stats {
+      display: flex;
+      gap: 24px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .profile-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .profile-btn {
+      padding: 10px 20px;
+      border: 1px solid #000;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .profile-btn:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .profile-btn.primary {
+      background: #000;
+      color: #fff;
+    }
+
+    .profile-btn.primary:hover {
+      background: #fff;
+      color: #000;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #000;
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+
+    .tab:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .tab.active {
+      border-bottom-color: #000;
+      font-weight: 600;
+    }
+
+    /* Activity section */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .filter-btn {
+      padding: 6px 12px;
+      border: 1px solid #000;
+      background: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .filter-btn:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    /* Activity items */
+    .activity-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .activity-item {
+      border: 1px solid #000;
+    }
+
+    .activity-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .activity-type {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .activity-type img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+    }
+
+    .activity-meta {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    .activity-body {
+      padding: 16px;
+    }
+
+    .activity-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .activity-content {
+      font-size: 14px;
+      color: var(--color-fg-default);
+    }
+
+    .activity-studio {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    .activity-studio a {
+      color: #000;
+      text-decoration: underline;
+    }
+
+    /* Studios list */
+    .studios-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .studio-item {
+      border: 1px solid #000;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .studio-info h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .studio-info p {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+    }
+
+    .studio-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #000;
+    }
+
+    .status-dot.active {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Heartbeat history */
+    .heartbeat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .heartbeat-item {
+      border: 1px solid #000;
+      padding: 16px;
+    }
+
+    .heartbeat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .heartbeat-cycle {
+      font-weight: 600;
+    }
+
+    .heartbeat-date {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+    }
+
+    .heartbeat-content {
+      font-size: 14px;
+    }
+
+    .heartbeat-section {
+      margin-bottom: 12px;
+    }
+
+    .heartbeat-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .heartbeat-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--color-fg-muted);
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">
+        <img src="../public/tri-logo.svg" alt="Harmonic">
+        <span>Harmonic</span>
+      </div>
+    </div>
+    <button class="back-btn">Back to Studio</button>
+  </header>
+
+  <main class="main">
+    <!-- Profile Header -->
+    <div class="profile-header">
+      <div class="profile-avatar">AC</div>
+      <div class="profile-info">
+        <h1 class="profile-name">Alice Chen</h1>
+        <p class="profile-email">alice@example.com</p>
+        <p class="profile-bio">Product designer focused on collaboration tools and social software. Interested in how groups coordinate and make decisions together.</p>
+
+        <div class="profile-stats">
+          <div class="stat">
+            <div class="stat-value">47</div>
+            <div class="stat-label">Notes</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">12</div>
+            <div class="stat-label">Decisions</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">8</div>
+            <div class="stat-label">Commitments</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">23</div>
+            <div class="stat-label">Heartbeats</div>
+          </div>
+        </div>
+
+        <div class="profile-actions">
+          <button class="profile-btn primary">Edit Profile</button>
+          <button class="profile-btn">Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active">Activity</div>
+      <div class="tab">Studios</div>
+      <div class="tab">Heartbeats</div>
+    </div>
+
+    <!-- Activity Tab Content -->
+    <div class="section-header">
+      <h2 class="section-title">Recent Activity</h2>
+      <button class="filter-btn">Filter</button>
+    </div>
+
+    <div class="activity-list">
+      <!-- Note -->
+      <div class="activity-item">
+        <div class="activity-header">
+          <div class="activity-type">
+            <img src="../public/resource-icons/note-icon.svg" alt="">
+            <span>Note</span>
+          </div>
+          <div class="activity-meta">2 hours ago</div>
+        </div>
+        <div class="activity-body">
+          <h3 class="activity-title">Thoughts on the new onboarding flow</h3>
+          <p class="activity-content">After testing with a few people, I think we should simplify the initial setup. Most users don't need all the options we're showing them upfront.</p>
+          <p class="activity-studio">in <a href="#">Design Studio</a></p>
+        </div>
+      </div>
+
+      <!-- Decision -->
+      <div class="activity-item">
+        <div class="activity-header">
+          <div class="activity-type">
+            <img src="../public/resource-icons/decision-icon.svg" alt="">
+            <span>Decision</span>
+          </div>
+          <div class="activity-meta">Yesterday</div>
+        </div>
+        <div class="activity-body">
+          <h3 class="activity-title">Which icon style should we use?</h3>
+          <p class="activity-content">Created a decision with 3 options. Currently leading: "Mixed (context-dependent)" with 6 accepts.</p>
+          <p class="activity-studio">in <a href="#">Design Studio</a></p>
+        </div>
+      </div>
+
+      <!-- Commitment -->
+      <div class="activity-item">
+        <div class="activity-header">
+          <div class="activity-type">
+            <img src="../public/resource-icons/commitment-icon.svg" alt="">
+            <span>Commitment</span>
+          </div>
+          <div class="activity-meta">3 days ago</div>
+        </div>
+        <div class="activity-body">
+          <h3 class="activity-title">Design review session this Friday</h3>
+          <p class="activity-content">Joined commitment (3 of 4 committed)</p>
+          <p class="activity-studio">in <a href="#">Design Studio</a></p>
+        </div>
+      </div>
+
+      <!-- Note -->
+      <div class="activity-item">
+        <div class="activity-header">
+          <div class="activity-type">
+            <img src="../public/resource-icons/note-icon.svg" alt="">
+            <span>Note</span>
+          </div>
+          <div class="activity-meta">Last week</div>
+        </div>
+        <div class="activity-body">
+          <h3 class="activity-title">Inspiration: Signal's design approach</h3>
+          <p class="activity-content">Been looking at Signal's interface lately. They do a great job of keeping things minimal while still being functional.</p>
+          <p class="activity-studio">in <a href="#">Design Studio</a></p>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

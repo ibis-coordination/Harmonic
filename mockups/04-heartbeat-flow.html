@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heartbeat - Harmonic</title>
+  <style>
+    :root {
+      --color-fg-default: #24292f;
+      --color-fg-muted: #57606a;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid #000;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .close-btn {
+      background: none;
+      border: 1px solid #000;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .close-btn:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .header-info h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .header-info p {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--color-fg-muted);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #000;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Main */
+    .main {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    /* Progress */
+    .progress {
+      margin-bottom: 40px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .progress-step {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .progress-label {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: #fff;
+      border: 1px solid #000;
+      margin-bottom: 16px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #000;
+      transition: width 0.3s ease;
+    }
+
+    .progress-steps {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-number {
+      width: 24px;
+      height: 24px;
+      border: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .step-number.completed {
+      background: #000;
+      color: #fff;
+    }
+
+    .step-number.current {
+      background: #000;
+      color: #fff;
+    }
+
+    .step-text {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    .step-indicator.current .step-text {
+      color: #000;
+      font-weight: 600;
+    }
+
+    /* Question card */
+    .question-card {
+      border: 1px solid #000;
+      margin-bottom: 24px;
+    }
+
+    .question-header {
+      padding: 20px;
+      border-bottom: 1px solid #000;
+    }
+
+    .question-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .question-desc {
+      font-size: 14px;
+      color: var(--color-fg-muted);
+    }
+
+    .question-body {
+      padding: 20px;
+    }
+
+    .question-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 12px;
+      border: 1px solid #000;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .question-textarea:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #000;
+    }
+
+    .question-hint {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+      margin-top: 8px;
+    }
+
+    /* Quick suggestions */
+    .suggestions {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #000;
+    }
+
+    .suggestions-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .suggestion-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .suggestion-tag {
+      padding: 6px 12px;
+      border: 1px solid #000;
+      background: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .suggestion-tag:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    /* Completed step preview */
+    .completed-step {
+      border: 1px solid #000;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      background: #fff;
+    }
+
+    .completed-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .completed-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .completed-check {
+      width: 20px;
+      height: 20px;
+      background: #000;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .edit-btn {
+      font-size: 12px;
+      color: #000;
+      text-decoration: underline;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    .completed-content {
+      font-size: 14px;
+      color: var(--color-fg-muted);
+      margin-left: 28px;
+    }
+
+    /* Navigation */
+    .navigation {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav-btn {
+      padding: 12px 20px;
+      border: 1px solid #000;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-btn:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .nav-btn.primary {
+      background: #000;
+      color: #fff;
+    }
+
+    .nav-btn.primary:hover {
+      background: #fff;
+      color: #000;
+    }
+
+    .skip-btn {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+      text-decoration: underline;
+      border: none;
+      background: none;
+      cursor: pointer;
+      margin-top: 16px;
+      display: block;
+      text-align: center;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <button class="close-btn">× Close</button>
+      <div class="header-info">
+        <h1>Weekly Heartbeat</h1>
+        <p>Design Studio · Jan 20-26</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="pulse-dot"></div>
+      <span>6 others sent heartbeats</span>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Progress -->
+    <div class="progress">
+      <div class="progress-header">
+        <span class="progress-step">Step 2 of 4</span>
+        <span class="progress-label">What you're working on</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: 50%"></div>
+      </div>
+      <div class="progress-steps">
+        <div class="step-indicator completed">
+          <div class="step-number completed">✓</div>
+          <span class="step-text">Completed</span>
+        </div>
+        <div class="step-indicator current">
+          <div class="step-number current">2</div>
+          <span class="step-text">Working On</span>
+        </div>
+        <div class="step-indicator">
+          <div class="step-number">3</div>
+          <span class="step-text">Blockers</span>
+        </div>
+        <div class="step-indicator">
+          <div class="step-number">4</div>
+          <span class="step-text">Mood</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question Card -->
+    <div class="question-card">
+      <div class="question-header">
+        <h2 class="question-title">What are you working on this week?</h2>
+        <p class="question-desc">Share your current focus areas. This helps the studio understand what everyone's up to.</p>
+      </div>
+      <div class="question-body">
+        <textarea class="question-textarea" placeholder="e.g., Finishing the dashboard redesign, reviewing PRs, preparing for next sprint..."></textarea>
+        <p class="question-hint">Be specific about your current tasks - it helps others know how to coordinate with you.</p>
+
+        <div class="suggestions">
+          <div class="suggestions-label">Quick add from recent activity:</div>
+          <div class="suggestion-tags">
+            <button class="suggestion-tag">+ Dashboard components</button>
+            <button class="suggestion-tag">+ Icon library review</button>
+            <button class="suggestion-tag">+ Mobile nav prototype</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Completed step preview -->
+    <div class="completed-step">
+      <div class="completed-header">
+        <div class="completed-label">
+          <div class="completed-check">✓</div>
+          <span>What you completed</span>
+        </div>
+        <button class="edit-btn">Edit</button>
+      </div>
+      <p class="completed-content">Finished the mobile navigation prototype and reviewed 3 pull requests. Also wrapped up the accessibility audit for the forms.</p>
+    </div>
+
+    <!-- Navigation -->
+    <div class="navigation">
+      <button class="nav-btn">← Back</button>
+      <button class="nav-btn primary">Continue →</button>
+    </div>
+
+    <button class="skip-btn">Skip this step</button>
+  </main>
+</body>
+</html>

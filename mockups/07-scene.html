@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scene - Harmonic</title>
+  <style>
+    :root {
+      --color-fg-default: #24292f;
+      --color-fg-muted: #57606a;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      line-height: 1.5;
+    }
+
+    /* Layout */
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      border-right: 1px solid #000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #000;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+      font-size: 18px;
+    }
+
+    .logo img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+    }
+
+    .scene-info {
+      padding: 16px;
+      border-bottom: 1px solid #000;
+    }
+
+    .scene-name {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .scene-meta {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .public-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border: 1px solid #000;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .scene-desc {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--color-fg-default);
+    }
+
+    /* Participant count */
+    .participants-box {
+      padding: 16px;
+      border-bottom: 1px solid #000;
+    }
+
+    .participants-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .participants-count {
+      font-size: 14px;
+    }
+
+    .participants-count strong {
+      font-size: 24px;
+    }
+
+    .join-btn {
+      padding: 8px 16px;
+      border: 1px solid #000;
+      background: #000;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .join-btn:hover {
+      background: #fff;
+      color: #000;
+    }
+
+    .join-btn.joined {
+      background: #fff;
+      color: #000;
+    }
+
+    .join-btn.joined:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .participant-avatars {
+      display: flex;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: #000;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: -8px;
+    }
+
+    .avatar:first-child {
+      margin-left: 0;
+    }
+
+    /* Cycle indicator */
+    .cycle-box {
+      padding: 16px;
+      border-bottom: 1px solid #000;
+    }
+
+    .cycle-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--color-fg-muted);
+      margin-bottom: 8px;
+    }
+
+    .cycle-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .cycle-progress {
+      height: 4px;
+      background: #000;
+      position: relative;
+    }
+
+    .cycle-progress-fill {
+      height: 100%;
+      background: #fff;
+      border: 1px solid #000;
+      width: 40%;
+    }
+
+    .cycle-dates {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--color-fg-muted);
+      margin-top: 8px;
+    }
+
+    /* Navigation */
+    .nav {
+      padding: 16px;
+      flex: 1;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .nav-item.active {
+      background: #000;
+      color: #fff;
+    }
+
+    .nav-item img {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+    }
+
+    .nav-item.active img,
+    .nav-item:hover img {
+      filter: invert(1);
+    }
+
+    /* Share section */
+    .share-box {
+      padding: 16px;
+      border-top: 1px solid #000;
+    }
+
+    .share-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--color-fg-muted);
+      margin-bottom: 8px;
+    }
+
+    .share-url {
+      display: flex;
+      gap: 8px;
+    }
+
+    .share-input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #000;
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    .copy-btn {
+      padding: 8px 12px;
+      border: 1px solid #000;
+      background: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    /* Main content */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .action-btn {
+      background: #000;
+      color: #fff;
+      border: 1px solid #000;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .action-btn:hover {
+      background: #fff;
+      color: #000;
+    }
+
+    /* Feed */
+    .feed {
+      flex: 1;
+      padding: 24px;
+      max-width: 800px;
+    }
+
+    .feed-item {
+      border: 1px solid #000;
+      margin-bottom: 16px;
+    }
+
+    .feed-item-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .feed-item-type {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .feed-item-type img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+    }
+
+    .feed-item-meta {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    .feed-item-body {
+      padding: 16px;
+    }
+
+    .feed-item-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feed-item-content {
+      font-size: 14px;
+      color: var(--color-fg-default);
+    }
+
+    .feed-item-footer {
+      padding: 12px 16px;
+      border-top: 1px solid #000;
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+    }
+
+    .feed-action {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border: 1px solid transparent;
+    }
+
+    .feed-action:hover {
+      border-color: #000;
+    }
+
+    /* Decision options */
+    .decision-options {
+      margin-top: 12px;
+    }
+
+    .decision-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .decision-option:last-child {
+      border-bottom: none;
+    }
+
+    .option-votes {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    /* Commitment progress */
+    .commitment-progress {
+      margin-top: 12px;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: #fff;
+      border: 1px solid #000;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #000;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    /* Confirmed reads */
+    .confirmed-reads {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .confirmed-avatars {
+      display: flex;
+    }
+
+    .confirmed-avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #000;
+      color: #fff;
+      font-size: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: -4px;
+      border: 1px solid #fff;
+    }
+
+    .confirmed-avatar:first-child {
+      margin-left: 0;
+    }
+
+    /* Guest banner */
+    .guest-banner {
+      padding: 12px 24px;
+      background: #000;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .guest-banner p {
+      font-size: 14px;
+    }
+
+    .guest-banner-btn {
+      padding: 8px 16px;
+      border: 1px solid #fff;
+      background: transparent;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .guest-banner-btn:hover {
+      background: #fff;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <img src="../public/tri-logo.svg" alt="Harmonic">
+          <span>Harmonic</span>
+        </div>
+      </div>
+
+      <div class="scene-info">
+        <div class="scene-name">Local Climate Action</div>
+        <div class="scene-meta">
+          <span class="public-badge">Public</span>
+          <span>42 participants</span>
+        </div>
+        <p class="scene-desc">Coordinating grassroots climate initiatives in the Portland area. Open to anyone who wants to help.</p>
+      </div>
+
+      <div class="participants-box">
+        <div class="participants-header">
+          <div class="participants-count">
+            <strong>42</strong> participants
+          </div>
+          <button class="join-btn joined">Joined</button>
+        </div>
+        <div class="participant-avatars">
+          <div class="avatar">MJ</div>
+          <div class="avatar">KL</div>
+          <div class="avatar">RB</div>
+          <div class="avatar">ST</div>
+          <div class="avatar">+38</div>
+        </div>
+      </div>
+
+      <div class="cycle-box">
+        <div class="cycle-label">Current Cycle</div>
+        <div class="cycle-title">Week of Jan 20</div>
+        <div class="cycle-progress">
+          <div class="cycle-progress-fill"></div>
+        </div>
+        <div class="cycle-dates">
+          <span>Mon 20</span>
+          <span>Sun 26</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-item active">
+          <span>Activity</span>
+        </div>
+        <div class="nav-item">
+          <img src="../public/resource-icons/note-icon.svg" alt="">
+          <span>Notes</span>
+        </div>
+        <div class="nav-item">
+          <img src="../public/resource-icons/decision-icon.svg" alt="">
+          <span>Decisions</span>
+        </div>
+        <div class="nav-item">
+          <img src="../public/resource-icons/commitment-icon.svg" alt="">
+          <span>Commitments</span>
+        </div>
+        <div class="nav-item">
+          <span>Participants</span>
+        </div>
+      </nav>
+
+      <div class="share-box">
+        <div class="share-label">Share this scene</div>
+        <div class="share-url">
+          <input type="text" class="share-input" value="harmonic.social/s/climate-pdx" readonly>
+          <button class="copy-btn">Copy</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Guest banner (shown to non-members) -->
+      <!--
+      <div class="guest-banner">
+        <p>You're viewing this scene as a guest. Join to participate in decisions and commitments.</p>
+        <button class="guest-banner-btn">Join Scene</button>
+      </div>
+      -->
+
+      <header class="main-header">
+        <h1 class="page-title">Activity</h1>
+        <button class="action-btn">+ New</button>
+      </header>
+
+      <div class="feed">
+        <!-- Note -->
+        <article class="feed-item">
+          <div class="feed-item-header">
+            <div class="feed-item-type">
+              <img src="../public/resource-icons/note-icon.svg" alt="">
+              <span>Note</span>
+            </div>
+            <div class="feed-item-meta">Maya Johnson · 3h ago</div>
+          </div>
+          <div class="feed-item-body">
+            <div class="feed-item-title">City council meeting recap</div>
+            <div class="feed-item-content">
+              Good news from last night's meeting! The council voted to expand the bike lane network. Key points: 15 new miles planned for 2025, dedicated funding allocated, community input sessions starting next month.
+            </div>
+          </div>
+          <div class="feed-item-footer">
+            <div class="feed-action">
+              Confirm read
+            </div>
+            <div class="confirmed-reads">
+              <div class="confirmed-avatars">
+                <div class="confirmed-avatar">KL</div>
+                <div class="confirmed-avatar">RB</div>
+                <div class="confirmed-avatar">+8</div>
+              </div>
+              <span>10 confirmed</span>
+            </div>
+            <div class="feed-action">
+              Link
+            </div>
+          </div>
+        </article>
+
+        <!-- Decision -->
+        <article class="feed-item">
+          <div class="feed-item-header">
+            <div class="feed-item-type">
+              <img src="../public/resource-icons/decision-icon.svg" alt="">
+              <span>Decision</span>
+            </div>
+            <div class="feed-item-meta">Kevin Lee · Yesterday</div>
+          </div>
+          <div class="feed-item-body">
+            <div class="feed-item-title">Where should we hold the spring cleanup?</div>
+            <div class="feed-item-content">
+              We need to pick a location for our annual spring cleanup event. Vote on your preferences!
+            </div>
+            <div class="decision-options">
+              <div class="decision-option">
+                <span>Laurelhurst Park</span>
+                <span class="option-votes">18 accept · 12 prefer</span>
+              </div>
+              <div class="decision-option">
+                <span>Mt. Tabor</span>
+                <span class="option-votes">15 accept · 8 prefer</span>
+              </div>
+              <div class="decision-option">
+                <span>Forest Park (multiple sites)</span>
+                <span class="option-votes">22 accept · 14 prefer</span>
+              </div>
+            </div>
+          </div>
+          <div class="feed-item-footer">
+            <div class="feed-action">
+              Vote
+            </div>
+            <div class="feed-action">
+              Add option
+            </div>
+          </div>
+        </article>
+
+        <!-- Commitment -->
+        <article class="feed-item">
+          <div class="feed-item-header">
+            <div class="feed-item-type">
+              <img src="../public/resource-icons/commitment-icon.svg" alt="">
+              <span>Commitment</span>
+            </div>
+            <div class="feed-item-meta">Rachel Barnes · 2 days ago</div>
+          </div>
+          <div class="feed-item-body">
+            <div class="feed-item-title">Attend city council climate hearing Feb 5</div>
+            <div class="feed-item-content">
+              The city is holding a hearing on the new climate action plan. We need a strong showing to demonstrate community support. Can you make it?
+            </div>
+            <div class="commitment-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: 60%"></div>
+              </div>
+              <div class="progress-label">
+                <span>18 of 30 committed</span>
+                <span>12 more needed</span>
+              </div>
+            </div>
+          </div>
+          <div class="feed-item-footer">
+            <div class="feed-action">
+              Join commitment
+            </div>
+          </div>
+        </article>
+
+        <!-- Note -->
+        <article class="feed-item">
+          <div class="feed-item-header">
+            <div class="feed-item-type">
+              <img src="../public/resource-icons/note-icon.svg" alt="">
+              <span>Note</span>
+            </div>
+            <div class="feed-item-meta">Sam Torres · 3 days ago</div>
+          </div>
+          <div class="feed-item-body">
+            <div class="feed-item-title">Resources for talking to neighbors</div>
+            <div class="feed-item-content">
+              I put together a one-page guide for having conversations about climate action with neighbors who might be skeptical. Feel free to use and share.
+            </div>
+          </div>
+          <div class="feed-item-footer">
+            <div class="feed-action">
+              Confirm read
+            </div>
+            <div class="confirmed-reads">
+              <div class="confirmed-avatars">
+                <div class="confirmed-avatar">MJ</div>
+                <div class="confirmed-avatar">KL</div>
+                <div class="confirmed-avatar">RB</div>
+                <div class="confirmed-avatar">+15</div>
+              </div>
+              <span>18 confirmed</span>
+            </div>
+            <div class="feed-action">
+              Link
+            </div>
+          </div>
+        </article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -32,6 +32,8 @@ import NotificationBadgeController from "./notification_badge_controller"
 import NoteController from "./note_controller"
 import OptionController from "./option_controller"
 import PinController from "./pin_controller"
+import PulseActionController from "./pulse_action_controller"
+import PulseFilterController from "./pulse_filter_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
 import SubagentManagerController from "./subagent_manager_controller"
 import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
@@ -63,6 +65,8 @@ application.register("notification-badge", NotificationBadgeController)
 application.register("note", NoteController)
 application.register("option", OptionController)
 application.register("pin", PinController)
+application.register("pulse-action", PulseActionController)
+application.register("pulse-filter", PulseFilterController)
 application.register("scratchpad-links", ScratchpadLinksController)
 application.register("subagent-manager", SubagentManagerController)
 application.register("subagent-superagent-adder", SubagentSuperagentAdderController)

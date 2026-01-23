@@ -1,0 +1,64 @@
+<header class="pulse-main-header">
+  <h1 class="pulse-page-title">
+    Activity
+    <% if @current_superagent.is_scene? %>
+      <span class="pulse-visibility-icon" title="Scene activity is publicly visible"><%= octicon 'eye' %></span>
+    <% else %>
+      <span class="pulse-visibility-icon" title="Studio activity is only visible to studio members"><%= octicon 'lock' %></span>
+    <% end %>
+  </h1>
+  <a href="<%= @current_superagent.path %>/note" class="pulse-action-btn">+ New</a>
+</header>
+
+<% if @current_user && @current_heartbeat.nil? %>
+  <div class="pulse-heartbeat-section" data-controller="heartbeat">
+    <button
+      data-heartbeat-target="sendButton"
+      data-url="<%= @current_superagent.path %>/heartbeats"
+    >
+      <%= octicon 'heart' %>
+      <span data-heartbeat-target="sendButtonText">Send a Heartbeat</span>
+    </button>
+    <span data-heartbeat-target="fullHeart" class="pulse-heartbeat-full-heart" style="display:none;">
+      <%= octicon 'heart-fill' %>
+    </span>
+    <span data-heartbeat-target="heartbeatMessage">
+      to access <strong><%= @current_superagent.name %></strong> <%= @cycle.display_name.downcase %>.
+    </span>
+    <%= render 'shared/tooltip' do %>
+      <p>Every studio has a tempo (daily, weekly, or monthly) that defines how frequently members of the studio should check in to keep everyone in sync.</p>
+      <p><strong><%= @current_superagent.name %></strong>'s tempo is set to <code><%= @current_superagent.tempo %></code>.</p>
+      <p style="margin-bottom:0;">Sending a heartbeat each <%= @cycle.unit %> signals your continuing presence to the group.</p>
+    <% end %>
+    <button data-heartbeat-target="dismissButton" class="pulse-heartbeat-dismiss" style="display:none;" title="Dismiss">
+      <%= octicon 'x' %>
+    </button>
+    <span data-heartbeat-target="heartbeatsIndexLink" style="display:none;">
+      <a href="<%= @current_superagent.path %>/heartbeats">View all heartbeats</a>.
+    </span>
+  </div>
+<% end %>
+
+<div class="pulse-filter-indicator" data-pulse-filter-target="indicator" style="display: none;">
+  <span>Showing: <strong data-pulse-filter-target="indicatorLabel"></strong></span>
+  <button type="button" class="pulse-filter-remove" data-action="click->pulse-filter#showAll" title="Remove filter">
+    <%= octicon 'x' %>
+  </button>
+</div>
+
+<div class="pulse-feed<%= ' pulse-blur-if-no-heartbeat' if @current_user %><%= ' no-heartbeat' if @current_user && !@current_heartbeat %>">
+  <% if @feed_items.empty? %>
+    <div class="pulse-feed-empty">
+      <% if @is_viewing_current_cycle %>
+        <p>No activity this cycle yet.</p>
+        <a href="<%= @current_superagent.path %>/note" class="pulse-action-btn">Create the first note</a>
+      <% else %>
+        <p>No activity this cycle.</p>
+      <% end %>
+    </div>
+  <% else %>
+    <% @feed_items.each do |feed_item| %>
+      <%= render 'pulse/feed_item', feed_item: feed_item %>
+    <% end %>
+  <% end %>
+</div>

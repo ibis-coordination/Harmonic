@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title><%= @page_title || 'Pulse | Harmonic' %></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="/decisive-favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="/decisive-favicon-16x16.png" sizes="16x16">
+    <link rel="icon" href="/decisive-favicon.ico" type="image/x-icon">
+    <meta name="description" content="<%= @page_description || 'Studio Pulse - Harmonic' %>">
+
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= stylesheet_link_tag "studio_pulse", "data-turbo-track": "reload" %>
+    <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
+  </head>
+  <body>
+    <div id="expanding-heart">
+      <%= octicon 'heart' %>
+    </div>
+    <div class="pulse-container" data-controller="pulse-filter">
+      <%= render 'pulse/sidebar' %>
+      <main class="pulse-main">
+        <%= yield %>
+      </main>
+    </div>
+  </body>
+</html>
