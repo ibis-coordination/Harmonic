@@ -4,21 +4,25 @@ class NotificationsController < ApplicationController
   before_action :require_user
 
   def index
-    # Show immediate notifications (non-scheduled)
+    # Show immediate notifications and due reminders (not future scheduled)
     @notification_recipients = NotificationRecipient
       .where(user: current_user)
       .in_app
-      .immediate
+      .not_scheduled
       .where.not(status: "dismissed")
       .includes(notification: :event)
       .order(created_at: :desc)
       .limit(50)
 
-    # Load scheduled reminders separately
+    # Load future scheduled reminders separately
     @scheduled_reminders = ReminderService.scheduled_for(current_user)
 
     @unread_count = NotificationService.unread_count_for(current_user)
     @page_title = @unread_count > 0 ? "(#{@unread_count}) Notifications" : "Notifications"
+  end
+
+  def new
+    @page_title = "New Reminder"
   end
 
   def unread_count
@@ -124,7 +128,8 @@ class NotificationsController < ApplicationController
     title = params[:title]
     body = params[:body]
     url = params[:url]
-    scheduled_for = parse_scheduled_time(params[:scheduled_for])
+    timezone = params[:timezone]
+    scheduled_for = parse_scheduled_time(params[:scheduled_for], timezone: timezone)
 
     if title.blank?
       return render_reminder_error("Title is required")
@@ -214,7 +219,7 @@ class NotificationsController < ApplicationController
     end
   end
 
-  def parse_scheduled_time(value)
+  def parse_scheduled_time(value, timezone: nil)
     return nil if value.blank?
 
     case value.to_s
@@ -222,7 +227,12 @@ class NotificationsController < ApplicationController
       Time.at(value.to_i).utc
     when /^\d+[smhdw]$/i # Relative time: 30s, 5m, 1h, 2d, 1w
       parse_relative_time(value)
-    when /^\d{4}-\d{2}-\d{2}/ # ISO 8601 (starts with YYYY-MM-DD)
+    when /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/ # datetime-local format (no timezone): 2024-01-22T14:00
+      # Parse in provided timezone, or fall back to tenant's timezone, or UTC
+      tz = timezone.present? ? ActiveSupport::TimeZone[timezone] : nil
+      tz ||= @current_tenant&.timezone || ActiveSupport::TimeZone["UTC"]
+      tz.parse(value).utc
+    when /^\d{4}-\d{2}-\d{2}/ # ISO 8601 with timezone info
       Time.parse(value).utc
     else
       # Try parsing as a general datetime string

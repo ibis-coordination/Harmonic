@@ -11,7 +11,7 @@ base_path = "/u/#{@target_user.handle}/settings/webhooks"
 <% end %>
 
 <% if @webhooks.empty? %>
-  <p style="opacity:0.6;"><em>No webhooks configured yet.</em></p>
+  <p style="color:var(--color-fg-muted);"><em>No webhooks configured yet.</em></p>
   <p>Webhooks allow you to receive notifications (like reminders) at an external URL.</p>
 <% else %>
   <table class="table">
@@ -42,9 +42,9 @@ base_path = "/u/#{@target_user.handle}/settings/webhooks"
   </table>
 <% end %>
 
-<p><a href="<%= base_path %>/new" class="btn btn-primary">New Webhook</a></p>
+<p style="margin-top:16px;"><a href="<%= base_path %>/new" class="btn btn-primary">New Webhook</a></p>
 
-<hr>
+<hr style="margin:24px 0; border:none; border-top:1px solid var(--color-border-default);">
 <% if @target_user == @current_user %>
   <p><a href="/settings">&larr; Back to Settings</a></p>
 <% else %>

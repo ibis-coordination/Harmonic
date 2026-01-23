@@ -4,7 +4,7 @@ base_path = "/u/#{@target_user.handle}/settings/webhooks"
 
 <h1><%= octicon "webhook", height: 32 %> New Webhook</h1>
 
-<p>Create a new webhook to receive notifications (like reminders) at an external URL.</p>
+<p style="color:var(--color-fg-muted); margin-bottom:16px;">Create a new webhook to receive notifications (like reminders) at an external URL.</p>
 
 <%= form_tag "#{base_path}/new/actions/create_webhook", method: :post do %>
   <div class="form-group">
@@ -25,5 +25,5 @@ base_path = "/u/#{@target_user.handle}/settings/webhooks"
   <button type="submit" class="btn btn-primary">Create Webhook</button>
 <% end %>
 
-<hr>
+<hr style="margin:24px 0; border:none; border-top:1px solid var(--color-border-default);">
 <p><a href="<%= base_path %>">&larr; Back to Webhooks</a></p>

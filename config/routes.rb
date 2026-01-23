@@ -78,6 +78,7 @@ Rails.application.routes.draw do
 
   # Notifications
   get 'notifications' => 'notifications#index'
+  get 'notifications/new' => 'notifications#new'
   get 'notifications/unread_count' => 'notifications#unread_count'
   get 'notifications/actions' => 'notifications#actions_index'
   get 'notifications/actions/mark_read' => 'notifications#describe_mark_read'

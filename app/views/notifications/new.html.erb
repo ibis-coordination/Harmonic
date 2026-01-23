@@ -1,0 +1,42 @@
+<%
+  # Default to tenant timezone, or UTC if not set
+  default_timezone = @current_tenant&.timezone&.name || "UTC"
+%>
+
+<%= render 'shared/show_resource_breadcrumbs', resource: nil, hide_studio_path: true do %>
+  <%= octicon "clock" %> New Reminder
+<% end %>
+
+<p style="color:var(--color-fg-muted); margin-bottom:16px;">Schedule a reminder to be delivered to your notifications inbox at a specific time.</p>
+
+<%= form_tag "/notifications/actions/create_reminder", method: :post do %>
+  <div class="form-group">
+    <label for="title">Title *</label>
+    <input type="text" name="title" id="title" class="form-control" placeholder="e.g., Review pull request" required maxlength="255">
+  </div>
+
+  <div class="form-group">
+    <label for="scheduled_for">When *</label>
+    <div style="display:flex; gap:8px; align-items:flex-start;">
+      <input type="datetime-local" name="scheduled_for" id="scheduled_for" class="form-control" required style="flex:1;">
+      <%= time_zone_select nil, :timezone, nil, { default: default_timezone }, { class: "form-control", style: "flex:0 0 auto; max-width:250px;" } %>
+    </div>
+    <small class="form-text" style="color:var(--color-fg-muted);">Or use relative time like "1h" (1 hour), "2d" (2 days), "1w" (1 week)</small>
+  </div>
+
+  <div class="form-group">
+    <label for="body">Details (optional)</label>
+    <textarea name="body" id="body" class="form-control" rows="3" placeholder="Additional notes..." maxlength="200"></textarea>
+  </div>
+
+  <div class="form-group">
+    <label for="url">Link (optional)</label>
+    <input type="url" name="url" id="url" class="form-control" placeholder="https://...">
+    <small class="form-text" style="color:var(--color-fg-muted);">A URL to include with the reminder</small>
+  </div>
+
+  <button type="submit" class="btn btn-primary"><%= octicon "clock" %> Schedule Reminder</button>
+<% end %>
+
+<hr style="margin:24px 0; border:none; border-top:1px solid var(--color-border-default);">
+<p><a href="/notifications">&larr; Back to Notifications</a></p>

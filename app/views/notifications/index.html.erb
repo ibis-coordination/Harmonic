@@ -2,18 +2,22 @@
   <%= octicon "inbox" %> Notifications
 <% end %>
 
+<p style="margin-bottom:24px;">
+  <a href="/notifications/new" class="btn btn-secondary"><%= octicon "clock" %> Schedule Reminder</a>
+</p>
+
 <% if @scheduled_reminders.any? %>
-  <section class="scheduled-reminders" style="margin-bottom:2rem; padding:1rem; background:#f8f9fa; border-radius:8px;">
-    <h2 style="margin-top:0; font-size:1.1rem;"><%= octicon "clock" %> Scheduled Reminders</h2>
+  <section class="scheduled-reminders" style="margin-bottom:24px; padding:16px; border:1px solid var(--color-border-default);">
+    <h3 style="margin-top:0; margin-bottom:12px;"><%= octicon "clock" %> Scheduled Reminders</h3>
     <ul style="list-style:none; padding:0; margin:0;">
       <% @scheduled_reminders.each do |nr| %>
-        <li style="padding:0.5rem 0; border-bottom:1px solid #e9ecef; display:flex; justify-content:space-between; align-items:flex-start;">
+        <li style="padding:10px 0; border-bottom:1px solid var(--color-border-muted); display:flex; justify-content:space-between; align-items:flex-start;">
           <div>
             <strong><%= nr.notification.title %></strong>
             <% if nr.notification.body.present? %>
-              <p style="margin:0.25rem 0; font-size:0.9em;"><%= truncate(nr.notification.body, length: 150) %></p>
+              <p style="margin:4px 0; color:var(--color-fg-muted);"><%= truncate(nr.notification.body, length: 150) %></p>
             <% end %>
-            <small style="opacity:0.7;"><%= octicon "calendar" %> <%= nr.scheduled_for.strftime("%b %d, %Y at %I:%M %p") %></small>
+            <small style="color:var(--color-fg-muted);"><%= octicon "calendar" %> <%= nr.scheduled_for.strftime("%b %d, %Y at %I:%M %p") %></small>
           </div>
           <div>
             <%= button_to "Delete",
@@ -26,19 +30,16 @@
         </li>
       <% end %>
     </ul>
-    <p style="margin-top:0.5rem; font-size:0.9em;">
-      <a href="/notifications/actions/create_reminder">Schedule a new reminder</a>
-    </p>
   </section>
 <% end %>
 
 <div data-controller="notification-actions">
   <% if @notification_recipients.empty? %>
     <% unless @scheduled_reminders.any? %>
-      <p style="opacity:0.6;"><em>All caught up!</em></p>
+      <p style="color:var(--color-fg-muted);"><em>All caught up!</em></p>
     <% end %>
   <% else %>
-    <p>
+    <p style="margin-bottom:12px;">
       <span data-notification-summary>
         <% if @unread_count > 0 %>
           <strong data-notification-actions-target="unreadCount"><%= @unread_count %></strong> unread notifications
@@ -55,12 +56,12 @@
         </button>
       <% end %>
     </p>
-    <ul class="notification-list" style="list-style:none; padding:0;">
+    <ul class="notification-list" style="list-style:none; padding:0; margin:0;">
       <% @notification_recipients.each do |recipient| %>
         <li data-notification-item="<%= recipient.id %>"
-            style="padding:0.5rem 0; border-bottom:1px solid #eee; <%= recipient.read? ? 'opacity:0.6;' : '' %>">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
+            style="padding:10px 0; border-bottom:1px solid var(--color-border-muted); <%= recipient.read? ? 'opacity:0.6;' : '' %>">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
+            <div style="flex:1;">
               <% if recipient.notification.url.present? %>
                 <a href="<%= recipient.notification.url %>">
                   <strong><%= recipient.notification.title %></strong>
@@ -69,11 +70,11 @@
                 <strong><%= recipient.notification.title %></strong>
               <% end %>
               <% if recipient.notification.body.present? %>
-                <p style="margin:0.25rem 0; font-size:0.9em;"><%= truncate(recipient.notification.body, length: 200) %></p>
+                <p style="margin:4px 0; color:var(--color-fg-muted);"><%= truncate(recipient.notification.body, length: 200) %></p>
               <% end %>
-              <small style="opacity:0.6;"><%= time_ago_in_words(recipient.created_at) %> ago</small>
+              <small style="color:var(--color-fg-muted);"><%= time_ago_in_words(recipient.created_at) %> ago</small>
             </div>
-            <div style="display:flex; gap:0.5rem;">
+            <div style="display:flex; gap:8px; flex-shrink:0;">
               <% unless recipient.read? %>
                 <button type="button"
                         class="btn btn-small"

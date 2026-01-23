@@ -19,6 +19,8 @@ class NotificationRecipient < ApplicationRecord
   scope :scheduled, -> { where.not(scheduled_for: nil).where("scheduled_for > ?", Time.current) }
   scope :due, -> { where.not(scheduled_for: nil).where("scheduled_for <= ?", Time.current) }
   scope :immediate, -> { where(scheduled_for: nil) }
+  # All notifications that are not scheduled for the future (immediate + due reminders)
+  scope :not_scheduled, -> { where(scheduled_for: nil).or(where("scheduled_for <= ?", Time.current)) }
 
   sig { void }
   def read!

@@ -38,7 +38,7 @@ base_path = "/u/#{@target_user.handle}/settings/webhooks/#{@webhook.truncated_id
 <h2>Recent Deliveries</h2>
 
 <% if @recent_deliveries.empty? %>
-  <p style="opacity:0.6;"><em>No deliveries yet.</em></p>
+  <p style="color:var(--color-fg-muted);"><em>No deliveries yet.</em></p>
 <% else %>
   <table class="table">
     <thead>
@@ -67,15 +67,15 @@ base_path = "/u/#{@target_user.handle}/settings/webhooks/#{@webhook.truncated_id
 
 <h2>Actions</h2>
 
-<div style="display: flex; gap: 10px;">
-  <%= form_tag "#{base_path}/actions/test_webhook", method: :post, style: "display: inline;" do %>
+<div style="display:flex; gap:12px;">
+  <%= form_tag "#{base_path}/actions/test_webhook", method: :post, style: "display:inline;" do %>
     <button type="submit" class="btn btn-secondary">Send Test Webhook</button>
   <% end %>
 
-  <%= form_tag "#{base_path}/actions/delete_webhook", method: :post, style: "display: inline;" do %>
+  <%= form_tag "#{base_path}/actions/delete_webhook", method: :post, style: "display:inline;" do %>
     <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this webhook?')">Delete Webhook</button>
   <% end %>
 </div>
 
-<hr>
+<hr style="margin:24px 0; border:none; border-top:1px solid var(--color-border-default);">
 <p><a href="/u/<%= @target_user.handle %>/settings/webhooks">&larr; Back to Webhooks</a></p>
