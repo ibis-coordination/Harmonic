@@ -64,6 +64,7 @@ Caddyfile
 # Playwright test artifacts
 /playwright-report/
 /test-results/
+/.playwright-mcp/
 
 # Sorbet RBI files are committed to the repo (faster CI, no generation step needed)
 
