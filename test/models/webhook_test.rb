@@ -222,6 +222,6 @@ class WebhookTest < ActiveSupport::TestCase
       created_by: @user,
     )
 
-    assert_equal "/u/#{@user.handle}/webhooks", webhook.path
+    assert_equal "/u/#{@user.handle}/settings/webhooks", webhook.path
   end
 end

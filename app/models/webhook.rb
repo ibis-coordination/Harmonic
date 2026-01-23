@@ -42,7 +42,7 @@ class Webhook < ApplicationRecord
     if user_id.present?
       # Find the user's handle through tenant_users for this webhook's tenant
       tu = TenantUser.find_by(tenant_id: tenant_id, user_id: user_id)
-      "/u/#{tu&.handle}/webhooks"
+      "/u/#{tu&.handle}/settings/webhooks"
     else
       s = Superagent.unscoped.find_by(id: superagent_id)
       "/studios/#{s&.handle}/settings/webhooks/#{truncated_id}"

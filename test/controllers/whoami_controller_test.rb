@@ -11,6 +11,9 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   # === Index (GET /whoami) HTML Tests ===
 
   test "unauthenticated user can access whoami page" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/whoami"
     assert_response :success
     assert_includes response.body, "Who Am I"
@@ -65,6 +68,9 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "unauthenticated markdown whoami shows not logged in message" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/whoami", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "## Not Logged In"
@@ -73,6 +79,8 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   # === Subagent User Tests ===
 
   test "whoami shows subagent parent info" do
+    @tenant.enable_api!
+
     subagent = create_subagent(parent: @user, name: "Test Subagent")
     @tenant.add_user!(subagent)
 
@@ -82,7 +90,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       name: "Test Token",
       token: SecureRandom.hex(32),
-      scope: { "Note" => %w[read write], "Decision" => %w[read write], "Commitment" => %w[read write] },
+      scopes: %w[read:users],
     )
 
     get "/whoami", headers: {

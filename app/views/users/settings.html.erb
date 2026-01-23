@@ -80,6 +80,10 @@ Click image to upload a new image.<br/>
   <% end %>
   <%= button_to 'Create API Token', "#{@settings_user.path}/settings/tokens/new", method: :get, class: 'button' %>
 
+  <h2>Webhooks</h2>
+  <p>Webhooks allow you to receive notifications at an external URL when events occur.</p>
+  <%= link_to 'Manage Webhooks', "#{@settings_user.path}/settings/webhooks", class: 'button' %>
+
   <% if @settings_user.person? && is_own_settings %>
     <h2>Subagents</h2>
     <p>

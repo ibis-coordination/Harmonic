@@ -11,6 +11,9 @@ class MottoControllerTest < ActionDispatch::IntegrationTest
   # === Index (GET /motto) HTML Tests ===
 
   test "unauthenticated user can access motto page" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/motto"
     assert_response :success
     assert_includes response.body, "Do the right thing"
@@ -24,12 +27,18 @@ class MottoControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "motto page explains why the motto appears on every page" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/motto"
     assert_response :success
     assert_includes response.body, "These words appear at the bottom of every page"
   end
 
   test "motto page discusses agents and trust" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/motto"
     assert_response :success
     assert_includes response.body, "agents"
@@ -38,6 +47,9 @@ class MottoControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "motto page discusses AI and humanity flourishing together" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/motto"
     assert_response :success
     assert_includes response.body, "AI and humanity"
@@ -45,6 +57,9 @@ class MottoControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "motto page explains the heart symbol" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/motto"
     assert_response :success
     assert_includes response.body, "symbol of love"
@@ -53,12 +68,18 @@ class MottoControllerTest < ActionDispatch::IntegrationTest
   # === Index (GET /motto) Markdown Tests ===
 
   test "motto responds to markdown format" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/motto", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "# Do the right thing."
   end
 
   test "markdown motto includes all key sections" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
     get "/motto", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "## Why This Motto?"

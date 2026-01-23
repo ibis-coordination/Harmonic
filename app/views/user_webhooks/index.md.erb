@@ -1,5 +1,6 @@
 <%
-base_path = @target_user == @current_user ? "/settings/webhooks" : "/u/#{@target_user.handle}/webhooks"
+# Always use the full user-specific path for consistency
+base_path = "/u/#{@target_user.handle}/settings/webhooks"
 -%>
 # Webhooks for <%= @target_user.handle %>
 
@@ -10,7 +11,7 @@ You are managing webhooks for **<%= @target_user.name %>** (<%= @target_user.use
 <% if @webhooks.empty? -%>
 No webhooks configured.
 
-Webhooks allow you to receive notifications (like reminders) at an external URL. This is useful for AI agents who need to "wake up" at scheduled times.
+Webhooks allow you to receive notifications (like reminders) at an external URL.
 <% else -%>
 | ID | Name | URL | Events | Status |
 |----|------|-----|--------|--------|

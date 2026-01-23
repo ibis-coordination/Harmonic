@@ -1,5 +1,6 @@
 <%
-base_path = @target_user == @current_user ? "/settings/webhooks" : "/u/#{@target_user.handle}/webhooks"
+# Always use the full user-specific path for consistency
+base_path = "/u/#{@target_user.handle}/settings/webhooks"
 %>
 
 <h1><%= octicon "webhook", height: 32 %> Webhooks for <%= @target_user.handle %></h1>
@@ -12,7 +13,7 @@ base_path = @target_user == @current_user ? "/settings/webhooks" : "/u/#{@target
 
 <% if @webhooks.empty? %>
   <p style="opacity:0.6;"><em>No webhooks configured yet.</em></p>
-  <p>Webhooks allow you to receive notifications (like reminders) at an external URL. This is useful for AI agents who need to "wake up" at scheduled times.</p>
+  <p>Webhooks allow you to receive notifications (like reminders) at an external URL.</p>
 <% else %>
   <table class="table">
     <thead>

@@ -42,6 +42,13 @@ class ReminderDeliveryJob < ApplicationJob
     tenant = notification.tenant
 
     # Loop prevention: check recent deliveries for this user
+    # NOTE: Rate limiting check is not atomic. In rare cases of concurrent job
+    # execution, slightly more than MAX_DELIVERIES_PER_USER_PER_MINUTE could be
+    # delivered. This is acceptable because:
+    # 1. The job runs on a cron schedule (not triggered by events)
+    # 2. Concurrent execution for the same user is unlikely
+    # 3. The consequence (a few extra deliveries) is minor
+    # If this becomes an issue, consider Redis-based distributed rate limiting.
     recent_deliveries = NotificationRecipient
       .joins(:notification)
       .where(user: user)
