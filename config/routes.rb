@@ -91,6 +91,7 @@ Rails.application.routes.draw do
   get 'learn/reciprocal-commitment' => 'learn#reciprocal_commitment'
   get 'learn/subagency' => 'learn#subagency'
   get 'learn/superagency' => 'learn#superagency'
+  get 'learn/memory' => 'learn#memory'
 
   get 'whoami' => 'whoami#index'
   get 'motto' => 'motto#index'

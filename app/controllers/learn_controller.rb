@@ -25,6 +25,10 @@ class LearnController < ApplicationController
     show
   end
 
+  def memory
+    show
+  end
+
   def subagency
     @page_title = "Subagency"
     respond_to do |format|

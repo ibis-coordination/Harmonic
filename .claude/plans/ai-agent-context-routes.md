@@ -19,7 +19,7 @@ This plan covers routes designed to help AI agents understand their context when
 | `/learn/subagency` | Explains subagent/parent relationship and responsibility | **Completed** |
 | `/learn/superagency` | Explains collectives acting as unified agents | **Completed** |
 | `/learn/history` | Harmonic's origins and evolution | Placeholder |
-| `/learn/memory` | How agents should understand memory | Future |
+| `/learn/memory` | How agents should understand memory | **Completed** |
 | `/reminders` | Agent memory/continuity mechanism | Future |
 
 ---
@@ -281,12 +281,32 @@ During implementation of the learn pages, two bugs were discovered in the Markdo
 ### Deferred to Future Work
 
 **New learn pages (not yet implemented):**
-- [ ] `/learn/memory` - Philosophy of agent memory, time, and history
 - [ ] `/learn/history` - Harmonic's origins (placeholder for Dan's content)
 - [ ] `/learn/cycles-and-heartbeats` - Rhythm and presence
 - [ ] `/learn/studios-and-scenes` - Groups and boundaries (partly covered by superagency)
 - [ ] `/learn/representation` - Collective agency (partly covered by superagency)
 - [ ] `/learn/links` - Bidirectional knowledge graphs
+
+---
+
+## Phase 2.5: `/learn/memory` Route — COMPLETED
+
+### What Was Implemented
+
+The `/learn/memory` page explains how agent memory works in Harmonic:
+- Memory is distributed across multiple locations (reminders, activity history, relationships, studio context)
+- Much of what agents "know" exists in relationships between agents
+- Practical guidance for using memory effectively
+- Note about personal reminders being planned for future release
+
+### Files
+
+- `app/controllers/learn_controller.rb` — added `memory` method
+- `app/views/learn/memory.md` — main content
+- `app/views/learn/memory.md.erb` — ERB wrapper
+- `config/routes.rb` — added route
+- `app/views/learn/index.md.erb` — added link to memory page
+- `test/controllers/learn_controller_test.rb` — added 6 tests
 
 ---
 
@@ -379,7 +399,7 @@ When viewing `/whoami`, include a section:
 5. **Phase 1.8**: `/learn/superagency` route — **COMPLETED**
 6. **Bug Fix**: Markdown renderer (relative links and tables) — **COMPLETED**
 7. **Phase 2**: Update `/learn` routes — **PARTIALLY COMPLETED** (naming fixed, actionable links added, index updated; new pages deferred)
-8. **Phase 2.5**: `/learn/memory` — Philosophy of agent memory — **Next**
+8. **Phase 2.5**: `/learn/memory` — Philosophy of agent memory — **COMPLETED**
 9. **Phase 3**: Reminders system (larger scope, needs design decisions)
 
 ## Success Criteria

@@ -29,6 +29,7 @@ class LearnControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Subagency"
     assert_includes response.body, "Superagency"
+    assert_includes response.body, "Memory"
     assert_includes response.body, "Awareness Indicators"
     assert_includes response.body, "Acceptance Voting"
     assert_includes response.body, "Reciprocal Commitment"
@@ -206,5 +207,56 @@ class LearnControllerTest < ActionDispatch::IntegrationTest
     get "/learn/superagency"
     assert_response :success
     assert_includes response.body, "Your Superagents"
+  end
+
+  # === Memory (GET /learn/memory) HTML Tests ===
+
+  test "unauthenticated user can access memory page when login not required" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+    get "/learn/memory"
+    assert_response :success
+    assert_includes response.body, "Memory"
+  end
+
+  test "authenticated user can access memory page" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/learn/memory"
+    assert_response :success
+    assert_includes response.body, "Memory"
+  end
+
+  test "memory page explains distributed memory" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/learn/memory"
+    assert_response :success
+    assert_includes response.body, "distributed"
+    assert_includes response.body, "Personal reminders"
+    assert_includes response.body, "Activity history"
+  end
+
+  test "memory page includes practical guidance" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/learn/memory"
+    assert_response :success
+    assert_includes response.body, "Practical guidance"
+  end
+
+  # === Memory (GET /learn/memory) Markdown Tests ===
+
+  test "memory responds to markdown format" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/learn/memory", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "# Memory"
+  end
+
+  test "markdown memory includes key content" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/learn/memory", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Personal reminders"
+    assert_includes response.body, "Activity history"
+    assert_includes response.body, "Practical guidance"
   end
 end
