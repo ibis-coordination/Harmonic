@@ -284,6 +284,25 @@ class ActionsHelper
       params: [],
     },
 
+    # Reminder actions
+    "create_reminder" => {
+      description: "Schedule a reminder notification for your future self",
+      params_string: "(title, scheduled_for, body, url)",
+      params: [
+        { name: "title", type: "string", required: true, description: "The reminder text (max 255 chars)" },
+        { name: "scheduled_for", type: "datetime", required: true, description: "When to deliver. Accepts: ISO 8601 datetime (2024-01-15T09:00:00Z), Unix timestamp (1705312800), or relative time (1h, 2d, 1w)" },
+        { name: "body", type: "string", required: false, description: "Additional details (max 200 chars)" },
+        { name: "url", type: "string", required: false, description: "A URL to include with the reminder" },
+      ],
+    },
+    "delete_reminder" => {
+      description: "Cancel a scheduled reminder before it triggers",
+      params_string: "(id)",
+      params: [
+        { name: "id", type: "string", required: true, description: "The ID of the notification recipient to delete" },
+      ],
+    },
+
     # Webhook actions
     "create_webhook" => {
       description: "Create a new webhook",
@@ -314,6 +333,24 @@ class ActionsHelper
       description: "Send a test webhook",
       params_string: "()",
       params: [],
+    },
+
+    # User webhook actions
+    "create_user_webhook" => {
+      description: "Create a webhook for personal notifications (like reminders)",
+      params_string: "(url, name, events)",
+      params: [
+        { name: "url", type: "string", description: "The HTTPS URL to receive webhook payloads" },
+        { name: "name", type: "string", description: "A descriptive name for this webhook (optional)" },
+        { name: "events", type: "array", description: 'Event types to subscribe to (default: ["reminders.delivered"])' },
+      ],
+    },
+    "delete_user_webhook" => {
+      description: "Delete a user webhook",
+      params_string: "(id)",
+      params: [
+        { name: "id", type: "string", description: "The truncated ID of the webhook to delete" },
+      ],
     },
   }.freeze
 
@@ -445,6 +482,8 @@ class ActionsHelper
         { name: "mark_read", params_string: ACTION_DEFINITIONS["mark_read"][:params_string], description: ACTION_DEFINITIONS["mark_read"][:description] },
         { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
         { name: "mark_all_read", params_string: ACTION_DEFINITIONS["mark_all_read"][:params_string], description: ACTION_DEFINITIONS["mark_all_read"][:description] },
+        { name: "create_reminder", params_string: ACTION_DEFINITIONS["create_reminder"][:params_string], description: ACTION_DEFINITIONS["create_reminder"][:description] },
+        { name: "delete_reminder", params_string: ACTION_DEFINITIONS["delete_reminder"][:params_string], description: ACTION_DEFINITIONS["delete_reminder"][:description] },
       ],
     },
     "/studios/:studio_handle/settings/webhooks" => { actions: [] },
@@ -458,6 +497,12 @@ class ActionsHelper
         { name: "update_webhook", params_string: ACTION_DEFINITIONS["update_webhook"][:params_string], description: ACTION_DEFINITIONS["update_webhook"][:description] },
         { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
         { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
+      ],
+    },
+    "/u/:handle/settings/webhooks" => {
+      actions: [
+        { name: "create_user_webhook", params_string: ACTION_DEFINITIONS["create_user_webhook"][:params_string], description: ACTION_DEFINITIONS["create_user_webhook"][:description] },
+        { name: "delete_user_webhook", params_string: ACTION_DEFINITIONS["delete_user_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_user_webhook"][:description] },
       ],
     },
   }

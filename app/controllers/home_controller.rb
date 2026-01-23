@@ -29,10 +29,6 @@ class HomeController < ApplicationController
     ).sort_by(&:subdomain)
   end
 
-  def settings
-    @page_title = 'Settings'
-  end
-
   def about
     @page_title = 'About'
   end

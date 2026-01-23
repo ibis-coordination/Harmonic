@@ -4,13 +4,19 @@ class NotificationsController < ApplicationController
   before_action :require_user
 
   def index
+    # Show immediate notifications (non-scheduled)
     @notification_recipients = NotificationRecipient
       .where(user: current_user)
       .in_app
+      .immediate
       .where.not(status: "dismissed")
       .includes(notification: :event)
       .order(created_at: :desc)
       .limit(50)
+
+    # Load scheduled reminders separately
+    @scheduled_reminders = ReminderService.scheduled_for(current_user)
+
     @unread_count = NotificationService.unread_count_for(current_user)
     @page_title = @unread_count > 0 ? "(#{@unread_count}) Notifications" : "Notifications"
   end
@@ -110,7 +116,144 @@ class NotificationsController < ApplicationController
     end
   end
 
+  def describe_create_reminder
+    render_action_description(ActionsHelper.action_description("create_reminder", resource: nil))
+  end
+
+  def execute_create_reminder
+    title = params[:title]
+    body = params[:body]
+    url = params[:url]
+    scheduled_for = parse_scheduled_time(params[:scheduled_for])
+
+    if title.blank?
+      return render_reminder_error("Title is required")
+    end
+
+    if scheduled_for.nil?
+      return render_reminder_error("scheduled_for is required and must be a valid time")
+    end
+
+    begin
+      notification = ReminderService.create!(
+        user: current_user,
+        title: title,
+        body: body,
+        scheduled_for: scheduled_for,
+        url: url,
+      )
+
+      respond_to do |format|
+        format.html { redirect_to notifications_path, notice: "Reminder scheduled" }
+        format.json { render json: { success: true, id: notification.id, scheduled_for: scheduled_for.iso8601 } }
+        format.md do
+          render_action_success({
+            action_name: "create_reminder",
+            resource: nil,
+            result: "Reminder scheduled for #{scheduled_for.strftime('%Y-%m-%d %H:%M %Z')}",
+          })
+        end
+      end
+    rescue ReminderService::ReminderLimitExceeded => e
+      render_reminder_error(e.message)
+    rescue ReminderService::ReminderRateLimitExceeded => e
+      render_reminder_error(e.message)
+    rescue ReminderService::ReminderSchedulingError => e
+      render_reminder_error(e.message)
+    rescue StandardError => e
+      render_reminder_error("Failed to create reminder: #{e.message}")
+    end
+  end
+
+  def describe_delete_reminder
+    render_action_description(ActionsHelper.action_description("delete_reminder", resource: nil))
+  end
+
+  def execute_delete_reminder
+    nr = current_user.notification_recipients
+      .joins(:notification)
+      .where(notifications: { notification_type: "reminder" })
+      .find_by(id: params[:id])
+
+    if nr.nil?
+      return render_reminder_error("Reminder not found", action_name: "delete_reminder")
+    end
+
+    begin
+      ReminderService.delete!(nr)
+
+      respond_to do |format|
+        format.html { redirect_to notifications_path, notice: "Reminder deleted" }
+        format.json { render json: { success: true } }
+        format.md do
+          render_action_success({
+            action_name: "delete_reminder",
+            resource: nil,
+            result: "Reminder deleted.",
+          })
+        end
+      end
+    rescue StandardError => e
+      render_reminder_error("Failed to delete reminder: #{e.message}", action_name: "delete_reminder")
+    end
+  end
+
   private
+
+  def render_reminder_error(message, action_name: "create_reminder")
+    respond_to do |format|
+      format.html { redirect_to notifications_path, alert: message }
+      format.json { render json: { success: false, error: message }, status: :unprocessable_entity }
+      format.md do
+        render_action_error({
+          action_name: action_name,
+          resource: nil,
+          error: message,
+        })
+      end
+    end
+  end
+
+  def parse_scheduled_time(value)
+    return nil if value.blank?
+
+    case value.to_s
+    when /^\d{10,}$/ # Unix timestamp (10+ digits)
+      Time.at(value.to_i).utc
+    when /^\d+[smhdw]$/i # Relative time: 30s, 5m, 1h, 2d, 1w
+      parse_relative_time(value)
+    when /^\d{4}-\d{2}-\d{2}/ # ISO 8601 (starts with YYYY-MM-DD)
+      Time.parse(value).utc
+    else
+      # Try parsing as a general datetime string
+      Time.parse(value).utc
+    end
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def parse_relative_time(value)
+    match = value.to_s.match(/^(\d+)([smhdw])$/i)
+    return nil unless match
+
+    amount = match[1].to_i
+    unit = match[2].downcase
+
+    case unit
+    when "s"
+      amount.seconds.from_now
+    when "m"
+      amount.minutes.from_now
+    when "h"
+      amount.hours.from_now
+    when "d"
+      amount.days.from_now
+    when "w"
+      amount.weeks.from_now
+    else
+      nil
+    end
+  end
 
   def require_user
     return if current_user

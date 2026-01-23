@@ -209,4 +209,98 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
     assert_not_nil payload["data"]["note"]
     assert_equal note.id, payload["data"]["note"]["id"]
   end
+
+  # User-level webhook tests
+
+  test "dispatch matches user-level webhook for reminder events" do
+    user_webhook = Webhook.unscoped.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "User Webhook",
+      url: "https://example.com/user-webhook",
+      events: ["reminders.delivered"],
+      created_by: @user,
+    )
+    # Ensure superagent_id is nil for user-level webhooks
+    assert_nil user_webhook.superagent_id
+
+    event = Event.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      event_type: "reminders.delivered",
+      actor: @user,
+      metadata: { count: 1 },
+    )
+
+    WebhookDispatcher.dispatch(event)
+
+    delivery = WebhookDelivery.unscoped.where(webhook: user_webhook, event: event).first
+    assert_not_nil delivery
+  end
+
+  test "dispatch does not match other user's webhook for reminder events" do
+    other_user = create_user(name: "Other Webhook User #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_user)
+
+    other_user_webhook = Webhook.unscoped.create!(
+      tenant: @tenant,
+      user: other_user,
+      name: "Other User Webhook",
+      url: "https://example.com/other-webhook",
+      events: ["reminders.delivered"],
+      created_by: other_user,
+    )
+
+    event = Event.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      event_type: "reminders.delivered",
+      actor: @user,  # Event is for @user, not other_user
+      metadata: { count: 1 },
+    )
+
+    WebhookDispatcher.dispatch(event)
+
+    delivery = WebhookDelivery.unscoped.where(webhook: other_user_webhook, event: event).first
+    assert_nil delivery
+  end
+
+  test "user_scoped_event? returns true for reminder events" do
+    assert WebhookDispatcher.user_scoped_event?("reminders.delivered")
+    assert_not WebhookDispatcher.user_scoped_event?("note.created")
+    assert_not WebhookDispatcher.user_scoped_event?("decision.voted")
+  end
+
+  test "dispatch matches tenant-level webhook for user-scoped events" do
+    # Tenant-level webhooks (no superagent_id, no user_id) should still receive all events
+    # We need to temporarily clear the superagent context to create a true tenant-level webhook
+    original_superagent_id = Thread.current[:superagent_id]
+    begin
+      Thread.current[:superagent_id] = nil
+      tenant_webhook = Webhook.create!(
+        tenant: @tenant,
+        name: "Tenant Webhook",
+        url: "https://example.com/tenant-webhook",
+        events: ["reminders.delivered"],
+        created_by: @user,
+      )
+      assert_nil tenant_webhook.superagent_id, "Tenant-level webhook should have no superagent_id"
+      assert_nil tenant_webhook.user_id, "Tenant-level webhook should have no user_id"
+    ensure
+      Thread.current[:superagent_id] = original_superagent_id
+    end
+
+    event = Event.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      event_type: "reminders.delivered",
+      actor: @user,
+      metadata: { count: 1 },
+    )
+
+    WebhookDispatcher.dispatch(event)
+
+    delivery = WebhookDelivery.unscoped.where(webhook: tenant_webhook, event: event).first
+    assert_not_nil delivery
+  end
 end

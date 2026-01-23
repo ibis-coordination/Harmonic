@@ -1,53 +1,57 @@
-<h1>Your Settings</h1>
+<h1><%= @page_title %></h1>
+
+<% is_own_settings = @settings_user == @current_user %>
 
 <h2>Profile</h2>
 <h3>Image</h3>
 Click image to upload a new image.<br/>
-<%= render 'shared/profile_image_upload', resource: @current_user, size: 64 %>
-<%= form_with url: "#{@current_user.path}/settings/profile" do |form| %>
+<%= render 'shared/profile_image_upload', resource: @settings_user, size: 64 %>
+<%= form_with url: "#{@settings_user.path}/settings/profile" do |form| %>
   <h3>Name</h3>
   <div style="margin-bottom:8px;">
-    <%= form.text_field :name, value: @current_user.name, placeholder: 'Name' %>
+    <%= form.text_field :name, value: @settings_user.name, placeholder: 'Name' %>
   </div>
   <h3>Handle</h3>
   <div style="margin-bottom:8px;">
-    <%= form.text_field :new_handle, value: @current_user.handle, placeholder: 'handle' %>
+    <%= form.text_field :new_handle, value: @settings_user.handle, placeholder: 'handle' %>
   </div>
   <%= form.submit 'Update' %>
 <% end %>
 
-<h2>UI Version</h2>
-<p>Choose which version of the user interface to use.</p>
-<div style="display: flex; gap: 12px; margin-top: 8px;">
-  <%= form_with url: "#{@current_user.path}/settings/ui_version", method: :post, style: "display: inline;" do |form| %>
-    <%= form.hidden_field :ui_version, value: "v1" %>
-    <%= form.submit "v1 (Classic)", class: @current_user.ui_version == "v1" ? "button-primary" : "button", disabled: @current_user.ui_version == "v1" %>
+<% if is_own_settings %>
+  <h2>UI Version</h2>
+  <p>Choose which version of the user interface to use.</p>
+  <div style="display: flex; gap: 12px; margin-top: 8px;">
+    <%= form_with url: "#{@settings_user.path}/settings/ui_version", method: :post, style: "display: inline;" do |form| %>
+      <%= form.hidden_field :ui_version, value: "v1" %>
+      <%= form.submit "v1 (Classic)", class: @settings_user.ui_version == "v1" ? "button-primary" : "button", disabled: @settings_user.ui_version == "v1" %>
+    <% end %>
+    <%= form_with url: "#{@settings_user.path}/settings/ui_version", method: :post, style: "display: inline;" do |form| %>
+      <%= form.hidden_field :ui_version, value: "v2" %>
+      <%= form.submit "v2 (Beta)", class: @settings_user.ui_version == "v2" ? "button-primary" : "button", disabled: @settings_user.ui_version == "v2" %>
+    <% end %>
+  </div>
+  <% if @settings_user.ui_version == "v2" %>
+    <p style="margin-top: 8px; color: #666;"><em>You're using the beta version of the new UI. Refresh the page after switching to see changes.</em></p>
   <% end %>
-  <%= form_with url: "#{@current_user.path}/settings/ui_version", method: :post, style: "display: inline;" do |form| %>
-    <%= form.hidden_field :ui_version, value: "v2" %>
-    <%= form.submit "v2 (Beta)", class: @current_user.ui_version == "v2" ? "button-primary" : "button", disabled: @current_user.ui_version == "v2" %>
-  <% end %>
-</div>
-<% if @current_user.ui_version == "v2" %>
-  <p style="margin-top: 8px; color: #666;"><em>You're using the beta version of the new UI. Refresh the page after switching to see changes.</em></p>
-<% end %>
 
-<% if @current_user.external_oauth_identities.any? %>
-  <h2>Connected Accounts</h2>
-  <ul>
-  <% @current_user.external_oauth_identities.each do |identity| %>
-    <li>
-      <%= identity.provider.titleize %> (<a href="<%= identity.url %>"><%= identity.username %></a>)
-      Connected <%= time_ago_in_words(identity.created_at) %> ago
-    </li>
+  <% if @settings_user.external_oauth_identities.any? %>
+    <h2>Connected Accounts</h2>
+    <ul>
+    <% @settings_user.external_oauth_identities.each do |identity| %>
+      <li>
+        <%= identity.provider.titleize %> (<a href="<%= identity.url %>"><%= identity.username %></a>)
+        Connected <%= time_ago_in_words(identity.created_at) %> ago
+      </li>
+    <% end %>
+    </ul>
   <% end %>
-  </ul>
 <% end %>
 
 <% if @current_tenant.api_enabled? %>
-  <h2>Personal API Tokens</h2>
-  <p>Personal API tokens are used to authenticate with the API using your own identity. Actions taken through the API using these tokens are attributed to you (<%= @current_user.name %>).</p>
-  <% if @current_user.api_tokens.any? %>
+  <h2>API Tokens</h2>
+  <p>API tokens are used to authenticate with the API. Actions taken through the API using these tokens are attributed to <%= @settings_user.name %>.</p>
+  <% if @settings_user.api_tokens.any? %>
     <table>
       <tr>
         <th>Name</th>
@@ -58,7 +62,7 @@ Click image to upload a new image.<br/>
         <th>Active</th>
         <th>View</th>
       </tr>
-      <% @current_user.api_tokens.each do |token| %>
+      <% @settings_user.api_tokens.each do |token| %>
         <tr>
           <td><%= token.name || 'Unnamed' %></td>
           <td>
@@ -74,9 +78,9 @@ Click image to upload a new image.<br/>
       <% end %>
     </table>
   <% end %>
-  <%= button_to 'Create Personal API Token', "#{@current_user.path}/settings/tokens/new", method: :get, class: 'button' %>
+  <%= button_to 'Create API Token', "#{@settings_user.path}/settings/tokens/new", method: :get, class: 'button' %>
 
-  <% if @current_user.person? %>
+  <% if @settings_user.person? && is_own_settings %>
     <h2>Subagents</h2>
     <p>
       Subagents are virtual identities that you manage.
@@ -99,6 +103,7 @@ Click image to upload a new image.<br/>
               <% if subagent.archived? %>
                 <span class="role-badge">Archived</span>
               <% end %>
+              &bull; <small><%= link_to 'Settings', "#{subagent.path}/settings" %></small>
             </h3>
             <p class="subagent-meta">
               Created <%= timeago(subagent.created_at) %>
@@ -141,7 +146,7 @@ Click image to upload a new image.<br/>
           </div>
         </div>
       <% end %>
-      <%= button_to 'Create Subagent', "#{@current_user.path}/settings/subagents/new", method: :get, class: 'button' %>
+      <%= button_to 'Create Subagent', "#{@settings_user.path}/settings/subagents/new", method: :get, class: 'button' %>
       <h2>Subagent API Tokens</h2>
       <p>Subagents have their own API tokens, which you as the owner are responsible for.</p>
       <% @subagents.each do |subagent| %>
@@ -179,7 +184,7 @@ Click image to upload a new image.<br/>
         <%= button_to "Create API Token for #{subagent.name}", "#{subagent.path}/settings/tokens/new", method: :get, class: 'button' %>
       <% end %>
     <% else %>
-      <%= button_to 'Create Subagent', "#{@current_user.path}/settings/subagents/new", method: :get, class: 'button' %>
+      <%= button_to 'Create Subagent', "#{@settings_user.path}/settings/subagents/new", method: :get, class: 'button' %>
     <% end %>
   <% end %>
 <% end %>

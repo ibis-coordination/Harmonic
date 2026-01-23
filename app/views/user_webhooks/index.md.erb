@@ -1,0 +1,33 @@
+<%
+base_path = @target_user == @current_user ? "/settings/webhooks" : "/u/#{@target_user.handle}/webhooks"
+-%>
+# Webhooks for <%= @target_user.handle %>
+
+<% if @target_user != @current_user -%>
+You are managing webhooks for **<%= @target_user.name %>** (<%= @target_user.user_type %>).
+<% end -%>
+
+<% if @webhooks.empty? -%>
+No webhooks configured.
+
+Webhooks allow you to receive notifications (like reminders) at an external URL. This is useful for AI agents who need to "wake up" at scheduled times.
+<% else -%>
+| ID | Name | URL | Events | Status |
+|----|------|-----|--------|--------|
+<% @webhooks.each do |webhook| -%>
+| `<%= webhook.truncated_id %>` | <%= webhook.name %> | `<%= truncate(webhook.url, length: 40) %>` | <%= webhook.events.join(", ") %> | <%= webhook.enabled? ? "Enabled" : "Disabled" %> |
+<% end -%>
+<% end -%>
+
+## [Actions](<%= base_path %>/actions)
+
+* [`create(<%= ActionsHelper::ACTION_DEFINITIONS["create_user_webhook"][:params_string] %>)`](<%= base_path %>/actions/create) - Create a new webhook
+* [`delete(<%= ActionsHelper::ACTION_DEFINITIONS["delete_user_webhook"][:params_string] %>)`](<%= base_path %>/actions/delete) - Delete a webhook
+
+## Navigation
+
+<% if @target_user == @current_user -%>
+* [Settings](/settings)
+<% else -%>
+* [<%= @target_user.handle %>'s Profile](/u/<%= @target_user.handle %>)
+<% end -%>

@@ -93,4 +93,61 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "subagent"
     assert_includes response.body, @user.display_name
   end
+
+  # === Scheduled Reminders Tests ===
+
+  test "whoami shows upcoming reminders section" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    ReminderService.create!(user: @user, title: "Upcoming reminder", scheduled_for: 1.day.from_now)
+    Superagent.clear_thread_scope
+
+    get "/whoami", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Upcoming Reminders"
+    assert_includes response.body, "Upcoming reminder"
+  end
+
+  test "whoami does not show reminders section when empty" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/whoami", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_not_includes response.body, "Upcoming Reminders"
+  end
+
+  test "whoami shows link to notifications page" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    ReminderService.create!(user: @user, title: "Test reminder", scheduled_for: 1.day.from_now)
+    Superagent.clear_thread_scope
+
+    get "/whoami", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "[View all reminders](/notifications)"
+  end
+
+  test "whoami limits displayed reminders to 5" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    7.times do |i|
+      ReminderService.create!(user: @user, title: "Reminder #{i}", scheduled_for: (i + 1).hours.from_now)
+    end
+    Superagent.clear_thread_scope
+
+    get "/whoami", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+
+    # Should show only 5 reminders
+    assert_includes response.body, "Reminder 0"
+    assert_includes response.body, "Reminder 4"
+    assert_not_includes response.body, "Reminder 5"
+    assert_not_includes response.body, "Reminder 6"
+  end
 end

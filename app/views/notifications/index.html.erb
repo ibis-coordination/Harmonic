@@ -2,9 +2,41 @@
   <%= octicon "inbox" %> Notifications
 <% end %>
 
+<% if @scheduled_reminders.any? %>
+  <section class="scheduled-reminders" style="margin-bottom:2rem; padding:1rem; background:#f8f9fa; border-radius:8px;">
+    <h2 style="margin-top:0; font-size:1.1rem;"><%= octicon "clock" %> Scheduled Reminders</h2>
+    <ul style="list-style:none; padding:0; margin:0;">
+      <% @scheduled_reminders.each do |nr| %>
+        <li style="padding:0.5rem 0; border-bottom:1px solid #e9ecef; display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <strong><%= nr.notification.title %></strong>
+            <% if nr.notification.body.present? %>
+              <p style="margin:0.25rem 0; font-size:0.9em;"><%= truncate(nr.notification.body, length: 150) %></p>
+            <% end %>
+            <small style="opacity:0.7;"><%= octicon "calendar" %> <%= nr.scheduled_for.strftime("%b %d, %Y at %I:%M %p") %></small>
+          </div>
+          <div>
+            <%= button_to "Delete",
+                notifications_actions_delete_reminder_path(id: nr.id),
+                method: :post,
+                class: "btn btn-small",
+                title: "Delete reminder",
+                data: { confirm: "Delete this reminder?" } %>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+    <p style="margin-top:0.5rem; font-size:0.9em;">
+      <a href="/notifications/actions/create_reminder">Schedule a new reminder</a>
+    </p>
+  </section>
+<% end %>
+
 <div data-controller="notification-actions">
   <% if @notification_recipients.empty? %>
-    <p style="opacity:0.6;"><em>All caught up!</em></p>
+    <% unless @scheduled_reminders.any? %>
+      <p style="opacity:0.6;"><em>All caught up!</em></p>
+    <% end %>
   <% else %>
     <p>
       <span data-notification-summary>

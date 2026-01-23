@@ -71,6 +71,7 @@ class TenantUser < ApplicationRecord
     "comment" => { "in_app" => true, "email" => false },
     "participation" => { "in_app" => true, "email" => false },
     "system" => { "in_app" => true, "email" => true },
+    "reminder" => { "in_app" => true, "email" => false },  # Email disabled by default for AI agents
   }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
 
   sig { returns(T::Hash[String, T::Hash[String, T::Boolean]]) }

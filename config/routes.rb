@@ -64,7 +64,9 @@ Rails.application.routes.draw do
   get '404' => 'home#page_not_found'
   get 'home' => 'home#index'
   get 'actions' => 'home#actions_index'
-  get 'settings' => 'home#settings'
+  # Redirect /settings to user-specific settings path
+  get 'settings' => 'users#redirect_to_settings'
+  get 'settings/webhooks' => 'users#redirect_to_settings_webhooks'
 
   get 'about' => 'home#about'
   get 'help' => 'home#help'
@@ -84,6 +86,10 @@ Rails.application.routes.draw do
   post 'notifications/actions/dismiss' => 'notifications#execute_dismiss'
   get 'notifications/actions/mark_all_read' => 'notifications#describe_mark_all_read'
   post 'notifications/actions/mark_all_read' => 'notifications#execute_mark_all_read'
+  get 'notifications/actions/create_reminder' => 'notifications#describe_create_reminder'
+  post 'notifications/actions/create_reminder' => 'notifications#execute_create_reminder'
+  get 'notifications/actions/delete_reminder' => 'notifications#describe_delete_reminder'
+  post 'notifications/actions/delete_reminder' => 'notifications#execute_delete_reminder'
 
   get 'learn' => 'learn#index'
   get 'learn/awareness-indicators' => 'learn#awareness_indicators'
@@ -146,6 +152,13 @@ Rails.application.routes.draw do
     get 'settings/subagents/new/actions' => 'subagents#actions_index', on: :member
     get 'settings/subagents/new/actions/create_subagent' => 'subagents#describe_create_subagent', on: :member
     post 'settings/subagents/new/actions/create_subagent' => 'subagents#execute_create_subagent', on: :member
+    # User/Subagent webhook routes (parent can manage subagent webhooks)
+    get 'settings/webhooks' => 'user_webhooks#index', on: :member
+    get 'settings/webhooks/actions' => 'user_webhooks#actions_index', on: :member
+    get 'settings/webhooks/actions/create' => 'user_webhooks#describe_create', on: :member
+    post 'settings/webhooks/actions/create' => 'user_webhooks#execute_create', on: :member
+    get 'settings/webhooks/actions/delete' => 'user_webhooks#describe_delete', on: :member
+    post 'settings/webhooks/actions/delete' => 'user_webhooks#execute_delete', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|

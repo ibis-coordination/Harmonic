@@ -70,6 +70,17 @@ You are a member of <%= studios.count %> studio<%= studios.count == 1 ? "" : "s"
 <% end %>
 <% end %>
 
+<% scheduled_reminders = ReminderService.scheduled_for(@current_user).limit(5) %>
+<% if scheduled_reminders.any? %>
+## Upcoming Reminders
+
+<% scheduled_reminders.each do |nr| %>
+- **<%= nr.scheduled_for.strftime("%b %d at %H:%M") %>**: <%= nr.notification.title %>
+<% end %>
+
+[View all reminders](/notifications)
+<% end %>
+
 <% else %>
 ## Not Logged In
 

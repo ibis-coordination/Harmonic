@@ -18,10 +18,36 @@ class WebhookDispatcher
 
   sig { params(event: Event).returns(T::Array[Webhook]) }
   def self.find_matching_webhooks(event)
-    Webhook.where(tenant_id: event.tenant_id, enabled: true)
-      .where("superagent_id IS NULL OR superagent_id = ?", event.superagent_id)
-      .to_a
-      .select { |webhook| webhook.subscribed_to?(event.event_type) }
+    # Use unscoped to bypass default_scope since we need to find webhooks with different superagent_id values
+    webhooks = Webhook.unscoped.where(tenant_id: event.tenant_id, enabled: true)
+
+    # For user-specific events (like reminders), also match user-level webhooks
+    if event.actor_id.present? && user_scoped_event?(event.event_type)
+      # Match:
+      # - Tenant-level webhooks (no superagent, no user)
+      # - Studio-level webhooks for this studio
+      # - User-level webhooks for the event actor
+      webhooks = webhooks.where(
+        "(superagent_id IS NULL AND user_id IS NULL) OR superagent_id = ? OR user_id = ?",
+        event.superagent_id,
+        event.actor_id,
+      )
+    else
+      # Match:
+      # - Tenant-level webhooks (no superagent, no user)
+      # - Studio-level webhooks for this studio
+      webhooks = webhooks.where(
+        "(superagent_id IS NULL AND user_id IS NULL) OR superagent_id = ?",
+        event.superagent_id,
+      )
+    end
+
+    webhooks.to_a.select { |webhook| webhook.subscribed_to?(event.event_type) }
+  end
+
+  sig { params(event_type: String).returns(T::Boolean) }
+  def self.user_scoped_event?(event_type)
+    event_type.start_with?("reminders")
   end
 
   sig { params(event: Event, webhook: Webhook).returns(WebhookDelivery) }
