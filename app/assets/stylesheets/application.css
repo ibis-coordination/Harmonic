@@ -145,7 +145,7 @@ button, input[type="submit"] {
   cursor: pointer;
 }
 
-input[type="text"], textarea {
+input[type="text"], input[type="url"], input[type="email"], textarea {
   min-width: 66%;
   width: 600px;
   max-width: 98%;
