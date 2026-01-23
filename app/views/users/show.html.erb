@@ -18,6 +18,11 @@
     </a>
   </p>
 <% end %>
+<% if @showing_user.person? && @subagent_count && @subagent_count > 0 %>
+  <p style="color: var(--color-fg-muted); font-size: 0.9em;">
+    Has <%= @subagent_count %> subagent<%= @subagent_count == 1 ? "" : "s" %>
+  </p>
+<% end %>
 
 <% if @current_user != @showing_user %>
   <% if @common_studios.count > 0 %>

@@ -17,7 +17,7 @@ This plan covers routes designed to help AI agents understand their context when
 | `/motto` | Big picture goal and necessary conditions for coordination | **Completed** |
 | `/learn` | Educational content about Harmonic concepts | Needs updating |
 | `/learn/subagency` | Explains subagent/parent relationship and responsibility | **Completed** |
-| `/learn/superagency` | Explains collectives acting as unified agents | Future |
+| `/learn/superagency` | Explains collectives acting as unified agents | **Completed** |
 | `/learn/history` | Harmonic's origins and evolution | Placeholder |
 | `/learn/memory` | How agents should understand memory | Future |
 | `/reminders` | Agent memory/continuity mechanism | Future |
@@ -73,7 +73,7 @@ The page also includes dynamic content:
 
 ---
 
-## Phase 1.6: Subagent Count on User Profiles
+## Phase 1.6: Subagent Count on User Profiles — COMPLETED
 
 ### Purpose
 
@@ -83,22 +83,32 @@ Show a count of subagents on parent user profiles (public), with an optional set
 
 After discussion, we decided:
 - **Count-only by default**: Parent profiles show "Has N subagents" but not the list
-- **Optional listing**: Parents can choose to make their subagent list public
+- **Optional listing**: Parents can choose to make their subagent list public (future)
 - **Asymmetric visibility**: Subagents always show their parent (accountability), but parents listing subagents is optional (privacy)
 
-### Rationale
-
-1. **Accountability is preserved**: The subagent → parent direction remains fully visible
-2. **Privacy protection**: Subagents are protected from unwanted attention by default
-3. **Parent choice**: Parents can decide when/if to showcase their subagents
-4. **Transparency via count**: Users still know "this person has subagents" even without the list
-
-### Implementation
+### What Was Implemented
 
 **User profile changes:**
-- [ ] Add subagent count to user profile view (HTML)
-- [ ] Add subagent count to user profile view (Markdown)
-- [ ] Show count for all person users (even if 0, or hide if 0?)
+- [x] Add subagent count to user profile view (HTML)
+- [x] Add subagent count to user profile view (Markdown)
+- [x] Hide section when count is 0 (cleaner UX)
+- [x] Count is scoped to subagents in the current tenant
+
+**Tests:**
+- [x] Test that count appears on profile (HTML and Markdown)
+- [x] Test singular vs plural ("1 subagent" vs "2 subagents")
+- [x] Test that count is hidden when 0
+- [x] Test that subagent profiles don't show subagent count
+- [x] Test that count only includes subagents in current tenant
+
+### Files
+
+- `app/controllers/users_controller.rb` — loads `@subagent_count` in `show` action
+- `app/views/users/show.html.erb` — displays subagent count
+- `app/views/users/show.md.erb` — displays subagent count
+- `test/controllers/users_controller_test.rb` — new test file with 9 tests
+
+### Deferred to Future Work
 
 **Optional listing feature:**
 - [ ] Add `show_subagents_publicly` boolean to TenantUser settings
@@ -106,14 +116,7 @@ After discussion, we decided:
 - [ ] Add setting toggle in user settings page
 - [ ] Add action for markdown UI to toggle setting
 
-**Tests:**
-- [ ] Test that count appears on profile
-- [ ] Test that list is hidden by default
-- [ ] Test that list appears when setting enabled
-
-### Open Questions
-
-- Should we show "Has 0 subagents" or hide the section entirely when count is 0?
+**Open Questions (for future work):**
 - Should subagents be able to opt-out of being listed even if parent enables listing?
 
 ---
@@ -200,119 +203,90 @@ The history page should cover:
 
 ---
 
-## Phase 1.8: `/learn/superagency` Route
+## Phase 1.8: `/learn/superagency` Route — COMPLETED
 
-### Purpose
+### What Was Implemented
 
-Explain how collectives of agents can act as unified agents through the superagency model.
-
-### Core Concepts
-
-**What is a Superagent?**
-
-A superagent is a collective of agents that can act as a single unified agent. While individual agents have their own identity and agency, superagents emerge when agents come together to coordinate as one.
-
-The relationship between agents and superagents is recursive: superagents are themselves agents, which means they can participate in larger superagents, creating nested structures of coordination.
-
-**Types of Superagents**
-
-| Type | Visibility | Description |
-|------|------------|-------------|
-| **Studio** | Private | Only members can see internal activity |
-| **Scene** | Public | Internal activity visible to everyone |
-
-- **Studios** provide a private space for a group to coordinate. Discussions, decisions, and commitments within a studio are visible only to members. This enables trust and candor within the group.
-
-- **Scenes** are transparent collectives. Anyone can observe what's happening inside a scene, even if they're not a member. Scenes are appropriate when the group's work benefits from or requires public accountability.
-
-**Representation**
-
-Superagents act through **representation**. Members of a superagent can serve as representatives, performing actions on behalf of the collective.
-
-Key aspects of representation:
-- **Authorized action**: Representatives can act in the superagent's name
-- **Recorded sessions**: Representation sessions are logged
-- **Member visibility**: Session records are visible to all members
-- **Accountability**: Transparency ensures representatives act in the collective's interest
-
-Representation solves a fundamental problem: how can a group act with the speed and decisiveness of an individual while maintaining collective accountability?
-
-**Why This Matters**
-
-The superagency model enables:
-- **Collective agency**: Groups can participate in contexts as unified actors
-- **Nested coordination**: Small groups can form, then coordinate with other groups
-- **Appropriate privacy**: Studios protect internal deliberation; scenes enable public participation
-- **Accountable representation**: Individual representatives, collective oversight
-
-### Content Outline
-
-The `/superagency` page should explain:
-1. What a superagent is (collective acting as unified agent)
-2. Studios vs. Scenes (private vs. public visibility)
-3. How representation works (authorized action, recorded sessions)
-4. Why this structure exists (collective agency with accountability)
+The `/learn/superagency` page explains:
+- What a superagent is (collective acting as unified agent)
+- Types of superagents: Studios (private) vs. Scenes (public)
+- How representation works (authorized action, recorded sessions)
+- Why this structure exists (collective agency with accountability)
 
 Dynamic content (if authenticated):
-- List of superagents the user is a member of
-- Which superagents the user can represent
-- Link to relevant settings/actions
+- Shows the user's superagents (studios/scenes they're members of)
+- Links to browse or create studios
 
-### Files to Create
+### Files
 
-- `app/controllers/learn_controller.rb` — add `superagency` method
+- `app/controllers/learn_controller.rb` — added `superagency` method
 - `app/views/learn/superagency.md.erb`
-- `test/controllers/learn_controller_test.rb` — add superagency tests
+- `test/controllers/learn_controller_test.rb` — added superagency tests
 - Route added to `config/routes.rb`
-
-### Status
-
-**Future** — To be implemented
 
 ---
 
-## Phase 2: Update `/learn` Routes
+## Bug Fix: Markdown Renderer — COMPLETED
 
-### Current State
+### Issue
 
-The `/learn` routes explain three core concepts:
-- Awareness Indicators
-- Acceptance Voting
-- Reciprocal Commitment
+During implementation of the learn pages, two bugs were discovered in the MarkdownRenderer service:
+1. **Relative links not rendering**: Links like `/settings` and `#section` were being removed
+2. **Tables not rendering**: Table HTML elements were stripped, leaving only text content
 
-### Issues to Address
+### Root Causes
 
-1. Content references "Harmonic Team" (old name) instead of "Harmonic"
-2. Content could be more actionable for AI agents (include links to create/use these features)
-3. Missing context about how these concepts work together
-4. No mention of Cycles, Heartbeats, Studios, or Representation
+1. **Relative links**: The sanitize method checked `!["http", "https", "mailto"].include?(uri.scheme)` but `URI.parse('/settings').scheme` returns `nil`, which isn't in the list, so relative links were incorrectly removed.
 
-### Proposed Updates
+2. **Tables**: Rails' default `sanitize` helper has an allowlist that doesn't include table elements (`table`, `thead`, `tbody`, `tr`, `th`, `td`), so Redcarpet's correct HTML output was stripped during sanitization.
 
-1. **Fix naming**: Replace "Harmonic Team" with "Harmonic"
+### Fixes Applied
 
-2. **Add actionable links**: Each concept page should link to:
-   - Where to create (e.g., `/note`, `/decide`, `/commit`)
-   - Example of existing items in the current studio
-   - Related API actions
+1. **Relative links**: Changed condition to `uri && uri.scheme && !["http", "https", "mailto"].include?(uri.scheme)` to allow `nil` scheme (relative paths)
 
-3. **Add new learn pages**:
-   - `/learn/memory` - How agents should understand memory, time, and history (from philosophical foundations above)
-   - `/learn/history` - Harmonic's origins (placeholder for Dan's content)
-   - `/learn/cycles-and-heartbeats` - Rhythm and presence
-   - `/learn/studios-and-scenes` - Groups and boundaries
-   - `/learn/representation` - Collective agency
-   - `/learn/links` - Bidirectional knowledge graphs
+2. **Tables**: Added explicit `ALLOWED_TAGS` constant including all table elements and passed to `sanitize(html, tags: ALLOWED_TAGS)`
 
-4. **Update index**: Reorganize as a coherent learning path
+### Files Modified
 
-### Implementation
+- `app/services/markdown_renderer.rb` — fixed sanitize method
+- `test/services/markdown_renderer_test.rb` — added 5 new tests for relative links and tables
 
-- [ ] Update existing content to say "Harmonic" not "Harmonic Team"
-- [ ] Add actionable links to each concept page
-- [ ] Create new learn pages for missing concepts
-- [ ] Update `/learn` index to present as coherent learning path
-- [ ] Add tests
+### Verification
+
+- All 38 markdown renderer tests pass
+- All 22 learn controller tests pass
+- Security still intact (javascript: and data: protocols still blocked)
+
+---
+
+## Phase 2: Update `/learn` Routes — PARTIALLY COMPLETED
+
+### What Was Implemented
+
+**Naming fixes:**
+- [x] Updated "Harmonic Team" to "Harmonic" in all concept pages
+
+**Index page updated:**
+- [x] Added "Start Here" section linking to `/motto`
+- [x] Added "How It All Connects" section explaining how concepts work together
+- [x] Simplified paths to use relative links
+
+### Files Modified
+
+- `app/views/learn/index.md.erb` — reorganized with learning path
+- `app/views/learn/awareness_indicators.md` — fixed "Harmonic Team" naming
+- `app/views/learn/acceptance_voting.md` — fixed "Harmonic Team" naming
+- `app/views/learn/reciprocal_commitment.md` — fixed "Harmonic Team" naming
+
+### Deferred to Future Work
+
+**New learn pages (not yet implemented):**
+- [ ] `/learn/memory` - Philosophy of agent memory, time, and history
+- [ ] `/learn/history` - Harmonic's origins (placeholder for Dan's content)
+- [ ] `/learn/cycles-and-heartbeats` - Rhythm and presence
+- [ ] `/learn/studios-and-scenes` - Groups and boundaries (partly covered by superagency)
+- [ ] `/learn/representation` - Collective agency (partly covered by superagency)
+- [ ] `/learn/links` - Bidirectional knowledge graphs
 
 ---
 
@@ -399,13 +373,14 @@ When viewing `/whoami`, include a section:
 ## Implementation Order
 
 1. **Phase 1**: `/motto` route — **COMPLETED**
-2. **Phase 1.5**: `/subagency` route — **COMPLETED**
-3. **Phase 1.6**: Subagent count on user profiles (small scope)
+2. **Phase 1.5**: `/learn/subagency` route — **COMPLETED**
+3. **Phase 1.6**: Subagent count on user profiles — **COMPLETED**
 4. **Phase 1.7**: Harmonic history — **Placeholder** (content to be written by Dan)
-5. **Phase 1.8**: `/superagency` route (moderate scope)
-6. **Phase 2**: Update `/learn` routes (moderate scope)
-7. **Phase 2.5**: `/learn/memory` — Philosophy of agent memory (can be derived from this plan)
-8. **Phase 3**: Reminders system (larger scope, needs design decisions)
+5. **Phase 1.8**: `/learn/superagency` route — **COMPLETED**
+6. **Bug Fix**: Markdown renderer (relative links and tables) — **COMPLETED**
+7. **Phase 2**: Update `/learn` routes — **PARTIALLY COMPLETED** (naming fixed, actionable links added, index updated; new pages deferred)
+8. **Phase 2.5**: `/learn/memory` — Philosophy of agent memory — **Next**
+9. **Phase 3**: Reminders system (larger scope, needs design decisions)
 
 ## Success Criteria
 

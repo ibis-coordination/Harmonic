@@ -25,6 +25,13 @@ class UsersController < ApplicationController
       @common_studios = current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
       @additional_common_studio_count = 0
     end
+    # Load subagent count for person users
+    if @showing_user.person?
+      @subagent_count = @showing_user.subagents
+        .joins(:tenant_users)
+        .where(tenant_users: { tenant_id: current_tenant.id })
+        .count
+    end
     respond_to do |format|
       format.html
       format.md

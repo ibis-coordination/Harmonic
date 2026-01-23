@@ -8,6 +8,10 @@ Type: Subagent
 
 Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.path %>)
 <% end %>
+<% if @showing_user.person? && @subagent_count && @subagent_count > 0 %>
+
+Has <%= @subagent_count %> subagent<%= @subagent_count == 1 ? "" : "s" %>
+<% end %>
 
 <% if @current_user != @showing_user && @common_studios.length > 0 %>
 ## Common Studios
