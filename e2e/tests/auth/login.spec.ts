@@ -1,34 +1,40 @@
 import { test, expect } from "../../fixtures/test-fixtures"
-import { login, logout, buildBaseUrl } from "../../helpers/auth"
+import {
+  login,
+  logout,
+  buildBaseUrl,
+  E2E_TEST_EMAIL,
+  E2E_TEST_PASSWORD,
+} from "../../helpers/auth"
 
 test.describe("Authentication", () => {
-  test("user can log in via honor_system", async ({ page }) => {
-    const random = Math.random().toString(36).substring(2, 10)
-    const testEmail = `login-test-${Date.now()}-${random}@example.com`
-
-    await login(page, { email: testEmail, name: `TestUser${random}` })
+  test("user can log in via identity provider", async ({ page }) => {
+    await login(page, {
+      email: E2E_TEST_EMAIL,
+      password: E2E_TEST_PASSWORD,
+    })
 
     // Should be redirected to home page
     await expect(page).toHaveURL(/\/$/)
 
-    // Should see some indication of logged-in state (user name or logout link)
+    // Should see some indication of logged-in state
     const body = page.locator("body")
     await expect(body).toBeVisible()
   })
 
   test("user can log out", async ({ page }) => {
-    const random = Math.random().toString(36).substring(2, 10)
-    const testEmail = `logout-test-${Date.now()}-${random}@example.com`
-
-    await login(page, { email: testEmail, name: `LogoutUser${random}` })
+    await login(page, {
+      email: E2E_TEST_EMAIL,
+      password: E2E_TEST_PASSWORD,
+    })
     await logout(page)
 
-    // After logout, either redirected to login or see "Log in" button
-    const loginButton = page.locator('button:has-text("Log in"), a:has-text("Log in")')
-    const loginPage = page.locator('input[placeholder="email address"]')
+    // After logout, should see login form (redirected to auth subdomain)
+    const emailInput = page.locator('input[name="auth_key"]')
+    const loginPage = page.locator('input[type="email"]')
 
     // Either should be visible after logout
-    await expect(loginButton.or(loginPage).first()).toBeVisible()
+    await expect(emailInput.or(loginPage).first()).toBeVisible()
   })
 
   test("unauthenticated user is redirected to login", async ({ page }) => {
@@ -40,20 +46,36 @@ test.describe("Authentication", () => {
     // Try to access protected page (studios list requires auth)
     await page.goto(`${baseUrl}/studios`)
 
-    // Should be redirected to login
+    // Should be redirected to login (may end up on auth subdomain)
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test("login creates new user if not exists", async ({ page }) => {
-    // Use unique email and name to ensure new user
-    const random = Math.random().toString(36).substring(2, 10)
-    const uniqueEmail = `new-user-${Date.now()}-${random}@example.com`
-    const userName = `NewUser${random}`
+  test("invalid credentials show error", async ({ page }) => {
+    const baseUrl = buildBaseUrl()
+    await page.goto(`${baseUrl}/login`)
 
-    await login(page, { email: uniqueEmail, name: userName })
+    // Wait for redirect to auth subdomain
+    await page.waitForLoadState("networkidle")
 
-    // Should be logged in successfully
-    await expect(page).toHaveURL(/\/$/)
+    // Fill in invalid credentials
+    await page.locator('input[name="auth_key"]').fill("invalid@example.com")
+    await page.locator('input[name="password"]').fill("wrongpassword123")
+    await page.locator('input[type="submit"][value="Log in"], button:has-text("Log in")').first().click()
+
+    // Should see an error message or remain on login/failure page
+    await page.waitForLoadState("networkidle")
+
+    // Check various ways the error might be displayed:
+    // 1. Redirected back to login page
+    // 2. OmniAuth failure page (/auth/failure)
+    // 3. OmniAuth error page in development (shows "OmniAuth::Error" heading)
+    // 4. Flash message or error class
+    const isOnLoginPage = page.url().includes("/login")
+    const isOnFailurePage = page.url().includes("/auth/failure")
+    const omniAuthError = await page.locator('h1:has-text("OmniAuth::Error")').isVisible().catch(() => false)
+    const errorVisible = await page.locator(".error, .alert, .flash").isVisible().catch(() => false)
+
+    expect(isOnLoginPage || isOnFailurePage || omniAuthError || errorVisible).toBe(true)
   })
 
   test("authenticated page fixture provides logged in state", async ({
