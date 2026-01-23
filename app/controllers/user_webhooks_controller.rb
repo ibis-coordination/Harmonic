@@ -4,6 +4,11 @@ class UserWebhooksController < ApplicationController
   before_action :require_login
   before_action :set_target_user
   before_action :authorize_webhook_management
+  before_action :set_webhook, only: [
+    :show, :actions_index_show,
+    :describe_delete, :execute_delete,
+    :describe_test, :execute_test,
+  ]
 
   # Override to avoid model lookup issues (UserWebhook model doesn't exist)
   def current_resource_model
@@ -16,12 +21,30 @@ class UserWebhooksController < ApplicationController
     @webhooks = Webhook.unscoped.for_user(@target_user).where(tenant: @current_tenant)
   end
 
-  def actions_index
-    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/webhooks"))
+  def new
+    @page_title = "New Webhook"
+  end
+
+  def show
+    @page_title = "Webhook: #{@webhook.name}"
+    # Use unscoped to avoid superagent_id filtering on events
+    # (user webhook events may have been created in various superagent contexts)
+    @recent_deliveries = @webhook.webhook_deliveries.order(created_at: :desc).limit(20)
+    # Preload events without scope to avoid "unknown" event type in view
+    event_ids = @recent_deliveries.map(&:event_id).compact
+    @events_by_id = Event.unscoped.where(id: event_ids).index_by(&:id)
+  end
+
+  def actions_index_new
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/webhooks/new"))
+  end
+
+  def actions_index_show
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/webhooks/:id"))
   end
 
   def describe_create
-    render_action_description(ActionsHelper.action_description("create_user_webhook", resource: nil))
+    render_action_description(ActionsHelper.action_description("create_webhook", resource: nil))
   end
 
   def execute_create
@@ -30,7 +53,7 @@ class UserWebhooksController < ApplicationController
 
     if url.blank?
       return render_action_error({
-        action_name: "create_user_webhook",
+        action_name: "create_webhook",
         resource: nil,
         error: "URL is required",
       })
@@ -48,14 +71,14 @@ class UserWebhooksController < ApplicationController
 
     if webhook.save
       render_action_success({
-        action_name: "create_user_webhook",
+        action_name: "create_webhook",
         resource: webhook,
         result: "Webhook created with ID: #{webhook.truncated_id}",
-        redirect_to: webhook_index_path,
+        redirect_to: webhook_show_path(webhook),
       })
     else
       render_action_error({
-        action_name: "create_user_webhook",
+        action_name: "create_webhook",
         resource: nil,
         error: webhook.errors.full_messages.join(", "),
       })
@@ -63,30 +86,32 @@ class UserWebhooksController < ApplicationController
   end
 
   def describe_delete
-    render_action_description(ActionsHelper.action_description("delete_user_webhook", resource: nil))
+    render_action_description(ActionsHelper.action_description("delete_webhook", resource: @webhook))
   end
 
   def execute_delete
-    # User webhooks have superagent_id = nil, so we must use unscoped to bypass the default_scope
-    webhook = Webhook.unscoped.for_user(@target_user)
-      .where(tenant: @current_tenant)
-      .find_by(truncated_id: params[:id])
-
-    if webhook.nil?
-      return render_action_error({
-        action_name: "delete_user_webhook",
-        resource: nil,
-        error: "Webhook not found",
-      })
-    end
-
-    webhook.destroy!
+    @webhook.destroy!
 
     render_action_success({
-      action_name: "delete_user_webhook",
+      action_name: "delete_webhook",
       resource: nil,
       result: "Webhook deleted",
       redirect_to: webhook_index_path,
+    })
+  end
+
+  def describe_test
+    render_action_description(ActionsHelper.action_description("test_webhook", resource: @webhook))
+  end
+
+  def execute_test
+    WebhookTestService.send_test!(@webhook, @current_user)
+
+    render_action_success({
+      action_name: "test_webhook",
+      resource: @webhook,
+      result: "Test webhook sent. Check the delivery status shortly.",
+      redirect_to: webhook_show_path(@webhook),
     })
   end
 
@@ -112,6 +137,13 @@ class UserWebhooksController < ApplicationController
     end
   end
 
+  def set_webhook
+    # User webhooks have superagent_id = nil, so we must use unscoped to bypass the default_scope
+    @webhook = Webhook.unscoped.for_user(@target_user)
+      .where(tenant: @current_tenant)
+      .find_by!(truncated_id: params[:webhook_id])
+  end
+
   def authorize_webhook_management
     # User can manage their own webhooks
     return if @target_user == @current_user
@@ -130,15 +162,19 @@ class UserWebhooksController < ApplicationController
     "/u/#{@target_user.handle}/settings/webhooks"
   end
 
+  def webhook_show_path(webhook)
+    "/u/#{@target_user.handle}/settings/webhooks/#{webhook.truncated_id}"
+  end
+
   def parse_events(events_param)
-    return ["reminders.delivered"] if events_param.blank?
+    return ["notifications.delivered"] if events_param.blank?
 
     if events_param.is_a?(Array)
       events_param
     elsif events_param.is_a?(String)
       events_param.split(",").map(&:strip).reject(&:blank?)
     else
-      ["reminders.delivered"]
+      ["notifications.delivered"]
     end
   end
 end

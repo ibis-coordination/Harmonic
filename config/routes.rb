@@ -154,11 +154,16 @@ Rails.application.routes.draw do
     post 'settings/subagents/new/actions/create_subagent' => 'subagents#execute_create_subagent', on: :member
     # User/Subagent webhook routes (parent can manage subagent webhooks)
     get 'settings/webhooks' => 'user_webhooks#index', on: :member
-    get 'settings/webhooks/actions' => 'user_webhooks#actions_index', on: :member
-    get 'settings/webhooks/actions/create' => 'user_webhooks#describe_create', on: :member
-    post 'settings/webhooks/actions/create' => 'user_webhooks#execute_create', on: :member
-    get 'settings/webhooks/actions/delete' => 'user_webhooks#describe_delete', on: :member
-    post 'settings/webhooks/actions/delete' => 'user_webhooks#execute_delete', on: :member
+    get 'settings/webhooks/new' => 'user_webhooks#new', on: :member
+    get 'settings/webhooks/new/actions' => 'user_webhooks#actions_index_new', on: :member
+    get 'settings/webhooks/new/actions/create_webhook' => 'user_webhooks#describe_create', on: :member
+    post 'settings/webhooks/new/actions/create_webhook' => 'user_webhooks#execute_create', on: :member
+    get 'settings/webhooks/:webhook_id' => 'user_webhooks#show', on: :member
+    get 'settings/webhooks/:webhook_id/actions' => 'user_webhooks#actions_index_show', on: :member
+    get 'settings/webhooks/:webhook_id/actions/delete_webhook' => 'user_webhooks#describe_delete', on: :member
+    post 'settings/webhooks/:webhook_id/actions/delete_webhook' => 'user_webhooks#execute_delete', on: :member
+    get 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#describe_test', on: :member
+    post 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#execute_test', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|

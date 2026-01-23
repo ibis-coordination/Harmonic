@@ -334,24 +334,6 @@ class ActionsHelper
       params_string: "()",
       params: [],
     },
-
-    # User webhook actions
-    "create_user_webhook" => {
-      description: "Create a webhook for personal notifications (like reminders)",
-      params_string: "(url, name, events)",
-      params: [
-        { name: "url", type: "string", description: "The HTTPS URL to receive webhook payloads" },
-        { name: "name", type: "string", description: "A descriptive name for this webhook (optional)" },
-        { name: "events", type: "array", description: 'Event types to subscribe to (default: ["reminders.delivered"])' },
-      ],
-    },
-    "delete_user_webhook" => {
-      description: "Delete a user webhook",
-      params_string: "(id)",
-      params: [
-        { name: "id", type: "string", description: "The truncated ID of the webhook to delete" },
-      ],
-    },
   }.freeze
 
   # Route to actions mapping for actions index pages
@@ -499,10 +481,16 @@ class ActionsHelper
         { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
       ],
     },
-    "/u/:handle/settings/webhooks" => {
+    "/u/:handle/settings/webhooks" => { actions: [] },
+    "/u/:handle/settings/webhooks/new" => {
       actions: [
-        { name: "create_user_webhook", params_string: ACTION_DEFINITIONS["create_user_webhook"][:params_string], description: ACTION_DEFINITIONS["create_user_webhook"][:description] },
-        { name: "delete_user_webhook", params_string: ACTION_DEFINITIONS["delete_user_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_user_webhook"][:description] },
+        { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string], description: ACTION_DEFINITIONS["create_webhook"][:description] },
+      ],
+    },
+    "/u/:handle/settings/webhooks/:id" => {
+      actions: [
+        { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
+        { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
       ],
     },
   }

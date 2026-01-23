@@ -1,0 +1,81 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/webhooks/#{@webhook.truncated_id}"
+%>
+
+<h1><%= octicon "webhook", height: 32 %> Webhook: <%= @webhook.name %></h1>
+
+<h2>Details</h2>
+
+<table class="table">
+  <tr>
+    <th>URL</th>
+    <td><code><%= @webhook.url %></code></td>
+  </tr>
+  <tr>
+    <th>Status</th>
+    <td>
+      <% if @webhook.enabled? %>
+        <span class="label label-success">Enabled</span>
+      <% else %>
+        <span class="label label-default">Disabled</span>
+      <% end %>
+    </td>
+  </tr>
+  <tr>
+    <th>Events</th>
+    <td><%= @webhook.events.join(", ") %></td>
+  </tr>
+  <tr>
+    <th>Secret</th>
+    <td><code><%= @webhook.secret.first(8) %>...</code> (partial)</td>
+  </tr>
+  <tr>
+    <th>Created</th>
+    <td><%= @webhook.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+  </tr>
+</table>
+
+<h2>Recent Deliveries</h2>
+
+<% if @recent_deliveries.empty? %>
+  <p style="opacity:0.6;"><em>No deliveries yet.</em></p>
+<% else %>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Event</th>
+        <th>Status</th>
+        <th>Response</th>
+        <th>Attempts</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @recent_deliveries.each do |delivery| %>
+        <% event = @events_by_id[delivery.event_id] %>
+        <tr>
+          <td><code><%= event&.event_type || "unknown" %></code></td>
+          <td><%= delivery.status %></td>
+          <td><%= delivery.response_code || (delivery.error_message ? truncate(delivery.error_message, length: 30) : "-") %></td>
+          <td><%= delivery.attempt_count %></td>
+          <td><%= time_ago_in_words(delivery.created_at) %> ago</td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
+
+<h2>Actions</h2>
+
+<div style="display: flex; gap: 10px;">
+  <%= form_tag "#{base_path}/actions/test_webhook", method: :post, style: "display: inline;" do %>
+    <button type="submit" class="btn btn-secondary">Send Test Webhook</button>
+  <% end %>
+
+  <%= form_tag "#{base_path}/actions/delete_webhook", method: :post, style: "display: inline;" do %>
+    <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this webhook?')">Delete Webhook</button>
+  <% end %>
+</div>
+
+<hr>
+<p><a href="/u/<%= @target_user.handle %>/settings/webhooks">&larr; Back to Webhooks</a></p>

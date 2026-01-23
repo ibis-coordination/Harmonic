@@ -1,5 +1,4 @@
 <%
-# Always use the full user-specific path for consistency
 base_path = "/u/#{@target_user.handle}/settings/webhooks"
 -%>
 # Webhooks for <%= @target_user.handle %>
@@ -13,20 +12,20 @@ No webhooks configured.
 
 Webhooks allow you to receive notifications (like reminders) at an external URL.
 <% else -%>
-| ID | Name | URL | Events | Status |
-|----|------|-----|--------|--------|
+| Name | URL | Events | Status |
+|------|-----|--------|--------|
 <% @webhooks.each do |webhook| -%>
-| `<%= webhook.truncated_id %>` | <%= webhook.name %> | `<%= truncate(webhook.url, length: 40) %>` | <%= webhook.events.join(", ") %> | <%= webhook.enabled? ? "Enabled" : "Disabled" %> |
+| [<%= webhook.name %>](<%= base_path %>/<%= webhook.truncated_id %>) | `<%= truncate(webhook.url, length: 40) %>` | <%= webhook.events.join(", ") %> | <%= webhook.enabled? ? "Enabled" : "Disabled" %> |
 <% end -%>
 <% end -%>
 
-## [Actions](<%= base_path %>/actions)
+## [Actions](<%= base_path %>/new/actions)
 
-* [`create(<%= ActionsHelper::ACTION_DEFINITIONS["create_user_webhook"][:params_string] %>)`](<%= base_path %>/actions/create) - Create a new webhook
-* [`delete(<%= ActionsHelper::ACTION_DEFINITIONS["delete_user_webhook"][:params_string] %>)`](<%= base_path %>/actions/delete) - Delete a webhook
+* [`create_webhook(url, name, events)`](<%= base_path %>/new/actions/create_webhook) - Create a new webhook
 
 ## Navigation
 
+* [New Webhook](<%= base_path %>/new)
 <% if @target_user == @current_user -%>
 * [Settings](/settings)
 <% else -%>

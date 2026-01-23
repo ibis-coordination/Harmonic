@@ -47,7 +47,7 @@ class WebhookDispatcher
 
   sig { params(event_type: String).returns(T::Boolean) }
   def self.user_scoped_event?(event_type)
-    event_type.start_with?("reminders")
+    event_type.start_with?("reminders") || event_type.start_with?("notifications")
   end
 
   sig { params(event: Event, webhook: Webhook).returns(WebhookDelivery) }

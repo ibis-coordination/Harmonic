@@ -238,6 +238,72 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
     assert_not_nil delivery
   end
 
+  test "dispatch matches user-level webhook for notification events" do
+    user_webhook = Webhook.unscoped.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Notifications Webhook",
+      url: "https://example.com/notifications-webhook",
+      events: ["notifications.delivered"],
+      created_by: @user,
+    )
+    assert_nil user_webhook.superagent_id
+
+    event = Event.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      event_type: "notifications.delivered",
+      actor: @user,
+      metadata: { notification_type: "mention", title: "Someone mentioned you" },
+    )
+
+    WebhookDispatcher.dispatch(event)
+
+    delivery = WebhookDelivery.unscoped.where(webhook: user_webhook, event: event).first
+    assert_not_nil delivery
+  end
+
+  test "notifications.delivered webhook receives all notification types" do
+    # User subscribes to all notifications
+    all_notifications_webhook = Webhook.unscoped.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "All Notifications",
+      url: "https://example.com/all-notifications",
+      events: ["notifications.delivered"],
+      created_by: @user,
+    )
+
+    # User also has a reminders-only webhook
+    reminders_only_webhook = Webhook.unscoped.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Reminders Only",
+      url: "https://example.com/reminders-only",
+      events: ["reminders.delivered"],
+      created_by: @user,
+    )
+
+    # Fire a notification event (non-reminder)
+    notification_event = Event.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      event_type: "notifications.delivered",
+      actor: @user,
+      metadata: { notification_type: "comment", title: "Someone commented" },
+    )
+
+    WebhookDispatcher.dispatch(notification_event)
+
+    # All notifications webhook should receive it
+    all_delivery = WebhookDelivery.unscoped.where(webhook: all_notifications_webhook, event: notification_event).first
+    assert_not_nil all_delivery
+
+    # Reminders-only webhook should NOT receive it
+    reminders_delivery = WebhookDelivery.unscoped.where(webhook: reminders_only_webhook, event: notification_event).first
+    assert_nil reminders_delivery
+  end
+
   test "dispatch does not match other user's webhook for reminder events" do
     other_user = create_user(name: "Other Webhook User #{SecureRandom.hex(4)}")
     @tenant.add_user!(other_user)
@@ -265,8 +331,9 @@ class WebhookDispatcherTest < ActiveSupport::TestCase
     assert_nil delivery
   end
 
-  test "user_scoped_event? returns true for reminder events" do
+  test "user_scoped_event? returns true for reminder and notification events" do
     assert WebhookDispatcher.user_scoped_event?("reminders.delivered")
+    assert WebhookDispatcher.user_scoped_event?("notifications.delivered")
     assert_not WebhookDispatcher.user_scoped_event?("note.created")
     assert_not WebhookDispatcher.user_scoped_event?("decision.voted")
   end
