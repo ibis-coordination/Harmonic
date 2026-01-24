@@ -1,0 +1,14 @@
+<%# Pulse-styled pin button with Stimulus controller %>
+<%# Usage: render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %>
+<span
+  data-controller="pin"
+  data-pin-url="<%= resource.path %>/pin"
+  data-pin-target="pinButton"
+  data-is-pinned="<%= is_pinned %>"
+  class="pulse-action-btn-secondary pulse-pin-btn"
+  title="<%= is_pinned ? 'Click to unpin' : 'Click to pin' %>"
+  >
+  <span data-pin-target="iconPin" style="<%= 'display:none;' if is_pinned %>"><%= octicon 'pin', height: 14 %></span>
+  <span data-pin-target="iconUnpin" style="<%= 'display:none;' unless is_pinned %>"><%= octicon 'pin-slash', height: 14 %></span>
+  <span data-pin-target="label"><%= is_pinned ? 'Unpin' : 'Pin' %></span>
+</span>

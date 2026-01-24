@@ -3,6 +3,8 @@
 class NotesController < ApplicationController
   include AttachmentActions
 
+  layout 'pulse', only: [:show]
+
   def new
     @page_title = "Note"
     @page_description = "Make a note for your team"
@@ -91,6 +93,8 @@ class NotesController < ApplicationController
     return render '404', status: 404 unless @note
     @page_title = @note.title.present? ? @note.title : "Note #{@note.truncated_id}"
     @page_description = "Note page"
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     set_pin_vars
     @note_reader = NoteReader.new(note: @note, user: current_user)
   end

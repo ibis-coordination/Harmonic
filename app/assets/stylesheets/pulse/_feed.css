@@ -59,16 +59,6 @@
   background: var(--color-canvas-default);
 }
 
-/* Closed state for decisions and commitments */
-.pulse-feed-item-closed {
-  opacity: 0.7;
-  border-color: var(--color-border-muted);
-}
-
-.pulse-feed-item-closed .pulse-feed-item-header {
-  background: var(--color-canvas-subtle);
-}
-
 /* Feed Item Header */
 .pulse-feed-item-header {
   padding: 12px 16px;
@@ -319,6 +309,14 @@
 
 .pulse-decision-option:last-child {
   border-bottom: none;
+}
+
+.pulse-decision-option-winner {
+  background: var(--color-attention-subtle);
+  font-weight: 600;
+  padding: 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
 }
 
 .pulse-option-votes {

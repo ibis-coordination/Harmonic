@@ -1,41 +1,51 @@
 <% if @current_user %>
   <% if @note_reader.confirmed_read_but_note_updated? %>
-    <p style="margin-bottom:0;">
-      <em>Note updated since you last confirmed reading. Reconfirm to acknowledge the changes.</em>
+    <div class="pulse-section-label">
+      <%= octicon 'book', height: 14 %>
+      Confirm Read
+    </div>
+    <p class="pulse-confirm-message">
+      Note updated since you last confirmed reading. Reconfirm to acknowledge the changes.
     </p>
-    <p>
-      <br/>
+    <div class="pulse-confirm-action">
       <button
+        class="pulse-action-btn"
         data-action="click->note#confirm mouseenter->note#confirmButtonMouseEnter mouseleave->note#confirmButtonMouseLeave"
         data-note-target="confirmButton"
         data-url="<%= @note.path + '/confirm.html' %>"
         >
-        <%= octicon 'book', height: 16 %> Confirm
+        <%= octicon 'check-circle', height: 14 %>
+        <span data-note-target="confirmButtonMessage">Confirm Read</span>
       </button>
-      <span
-        data-note-target="confirmButtonMessage"
-        >Confirm that you have read the updated note.
-      </span>
-    </p>
+    </div>
   <% elsif @note_reader.confirmed_read? %>
     <%= render 'history' %>
   <% else %>
-    <p>
+    <div class="pulse-section-label">
+      <%= octicon 'book', height: 14 %>
+      Confirm Read
+    </div>
+    <p class="pulse-confirm-message">
+      Confirm that you have read this note to access comments and backlinks.
+    </p>
+    <div class="pulse-confirm-action">
       <button
+        class="pulse-action-btn"
         data-action="click->note#confirm mouseenter->note#confirmButtonMouseEnter mouseleave->note#confirmButtonMouseLeave"
         data-note-target="confirmButton"
         data-url="<%= @note.path + '/confirm.html' %>"
         >
-        <%= octicon 'book', height: 16 %> Confirm
+        <%= octicon 'check-circle', height: 14 %>
+        <span data-note-target="confirmButtonMessage">Confirm Read</span>
       </button>
-      <span
-        data-note-target="confirmButtonMessage"
-        >Confirm that you have read this note to access comments and backlinks.
-      </span>
-    </p>
+    </div>
   <% end %>
 <% else %>
-  <div class="auth-required-message">
-    <%= button_to 'Log in', '/login', method: :get, data: { redirect_to_resource: @note.path } %> to confirm reading this note.
+  <div class="pulse-section-label">
+    <%= octicon 'book', height: 14 %>
+    Confirm Read
+  </div>
+  <div class="pulse-auth-required">
+    <%= link_to 'Log in', '/login', data: { redirect_to_resource: @note.path }, class: 'pulse-action-btn-secondary' %> to confirm reading this note.
   </div>
 <% end %>

@@ -4,20 +4,20 @@
       <%= button_to 'Log in', '/login', method: :get, data: { redirect_to_resource: @decision.path } %> to participate.
     </div>
   <% else %>
-    <span>Check all options you would accept. Star options you prefer.</span>
+    <span class="pulse-section-hint">Check all options you would accept. Star options you prefer.</span>
     <%= render 'acceptance_voting_tooltip' %>
 
-    <ul class="options-list">
+    <ul class="pulse-options-list">
       <span data-decision-target="list">
         <%= render 'options_list_items' %>
       </span>
-      <li style="display:<%= @decision.can_add_options?(@participant) ? 'block': 'none' %>;">
-        <input type="checkbox"/>
-        <input type="checkbox" class="star-button"/>
-        <label class="star-button"></label>
-        <form style="display:inline;" data-action="submit->decision#add">
-          <input type="text" data-decision-target="input" data-decision-id="<%= @decision.id %>" placeholder="Add an option" style="width:66%;">
-          <button type="submit">Add</button>
+      <li class="pulse-option-item pulse-add-option" style="display:<%= @decision.can_add_options?(@participant) ? 'flex': 'none' %>;">
+        <input type="checkbox" class="pulse-acceptance-checkbox" disabled>
+        <input type="checkbox" class="pulse-star-checkbox" id="star-add-option" disabled>
+        <label for="star-add-option" class="pulse-star-label pulse-star-disabled"></label>
+        <form style="display:contents;" data-action="submit->decision#add">
+          <input type="text" class="pulse-add-option-input" data-decision-target="input" data-decision-id="<%= @decision.id %>" placeholder="Add an option">
+          <button type="submit" class="pulse-action-btn-small">Add</button>
         </form>
       </li>
     </ul>

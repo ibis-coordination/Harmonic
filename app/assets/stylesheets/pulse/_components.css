@@ -29,7 +29,7 @@
 .pulse-action-btn {
   background: var(--color-fg-default);
   color: var(--color-canvas-default);
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-fg-default);
   padding: 8px 16px;
   font-size: 14px;
   font-weight: 500;
@@ -40,19 +40,22 @@
 .pulse-action-btn:hover {
   background: var(--color-canvas-default);
   color: var(--color-fg-default);
+  border-color: var(--color-border-default);
   text-decoration: none;
 }
 
 .pulse-action-btn-disabled,
 .pulse-action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  background: var(--color-neutral-muted);
+  color: var(--color-fg-muted);
+  border-color: var(--color-neutral-muted);
+  cursor: default;
 }
 
 .pulse-action-btn-disabled:hover,
 .pulse-action-btn:disabled:hover {
-  background: var(--color-fg-default);
-  color: var(--color-canvas-default);
+  background: var(--color-neutral-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-action-btn .octicon {
@@ -489,7 +492,9 @@ a.pulse-resource-title:hover {
 .pulse-action-btn-secondary {
   background: var(--color-canvas-default);
   color: var(--color-fg-default);
-  border: 1px solid var(--color-border-default);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--color-border-default);
   padding: 8px 16px;
   font-size: 14px;
   font-weight: 500;
@@ -498,6 +503,9 @@ a.pulse-resource-title:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .pulse-action-btn-secondary:hover {
@@ -572,6 +580,14 @@ a.pulse-resource-title:hover {
 .pulse-resource-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+/* Reset form styling for button_to helpers */
+.pulse-resource-actions form {
+  margin: 0;
+  padding: 0;
+  display: inline-flex;
 }
 
 .pulse-resource-actions .pulse-action-btn,
@@ -581,10 +597,29 @@ a.pulse-resource-title:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: 32px;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+/* Ensure consistent border on all secondary buttons in actions */
+.pulse-resource-actions button.pulse-action-btn-secondary,
+.pulse-resource-actions a.pulse-action-btn-secondary {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--color-border-default);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .pulse-resource-actions .octicon {
   fill: currentColor;
+}
+
+/* Pin Button */
+.pulse-pin-btn {
+  cursor: pointer;
 }
 
 .pulse-resource-title {
@@ -987,6 +1022,63 @@ a.pulse-resource-title:hover {
 
 .pulse-join-action {
   margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pulse-join-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pulse-join-message {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  font-style: italic;
+}
+
+.pulse-join-closed {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-join-info {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pulse-show-more {
+  cursor: pointer;
+  color: var(--color-accent-fg);
+}
+
+.pulse-show-more:hover {
+  text-decoration: underline;
+}
+
+.pulse-no-participants {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  padding: 8px 0;
+}
+
+.pulse-critical-mass-achieved {
+  font-size: 14px;
+  color: var(--color-success-fg);
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.pulse-progress-fill-inactive {
+  background-color: var(--color-fg-muted) !important;
 }
 
 /* Critical Mass Section */
@@ -1494,4 +1586,200 @@ a.pulse-activity-title:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Reply Context (for comments) */
+.pulse-reply-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--color-canvas-subtle);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-reply-context:hover {
+  background: var(--color-canvas-inset);
+}
+
+/* Empty Content */
+.pulse-empty-content {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Confirmed Reads Section */
+.pulse-confirmed-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.pulse-confirm-message {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin: 8px 0 16px 0;
+}
+
+.pulse-confirm-action {
+  margin-top: 12px;
+}
+
+.pulse-auth-required {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin-top: 8px;
+}
+
+/* Readers List */
+.pulse-readers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pulse-reader-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pulse-reader-name {
+  color: var(--color-fg-default);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.pulse-reader-name:hover {
+  text-decoration: underline;
+}
+
+/* Backlinks */
+.pulse-backlinks-hint {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin: 0 0 12px 0;
+}
+
+.pulse-backlinks-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pulse-backlinks-item {
+  padding: 0;
+}
+
+/* Deadline Info */
+.pulse-deadline-info {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin-top: 8px;
+}
+
+.pulse-deadline-info strong {
+  color: var(--color-fg-default);
+}
+
+/* Status Badges */
+.pulse-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+}
+
+.pulse-status-open {
+  background: var(--color-success-subtle);
+  color: var(--color-success-fg);
+}
+
+.pulse-status-closed {
+  background: var(--color-canvas-subtle);
+  color: var(--color-fg-muted);
+}
+
+/* Acceptance Voting Section */
+.pulse-acceptance-voting-section {
+  margin-top: 24px;
+}
+
+/* Results Table Section */
+.pulse-results-table-section {
+  margin-top: 16px;
+}
+
+/* Results Table Styles */
+.pulse-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.pulse-results-table th,
+.pulse-results-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-results-table th {
+  font-weight: 500;
+  color: var(--color-fg-muted);
+  font-size: 16px;
+}
+
+.pulse-results-explanation {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin: 0;
+}
+
+/* Participation Section (Commitments) - overrides earlier definition */
+.pulse-participation-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--color-canvas-subtle);
+  border-radius: 0;
+}
+
+.pulse-participation-section p {
+  font-size: 14px;
+  margin: 12px 0 0 0;
+}
+
+/* Join Section (Commitments) */
+.pulse-join-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.pulse-join-section p {
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+
+/* Participants Section (Commitments) */
+.pulse-participants-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-default);
 }

@@ -1,5 +1,5 @@
 <span id="results" data-header="<%= @results_header %>">
-  <table class="results-table">
+  <table class="pulse-results-table">
     <thead>
       <tr>
         <th title="place"></th>
@@ -16,22 +16,19 @@
         </tr>
       <% end %>
       <% ([nil] + @decision.results + [nil]).each_cons(3).with_index do |(prev_result, result, next_result), index| %>
-        <tr style="<%= index == 0 ? 'box-shadow: inset 0 0 5px yellow;font-weight:bold;' : '' %>">
+        <tr class="<%= (index == 0 && @decision.closed?) ? 'pulse-results-winner' : '' %>">
           <td><%= index + 1 %></td>
           <td><%= markdown_inline(result.option_title) %></td>
           <td style="opacity:<%= (result.accepted_yes || 0) > 0 ? 1 : 0.2 %>;"><%= (result.accepted_yes || 0) %></td>
           <td style="opacity:<%= (result.preferred || 0) > 0 ? 1 : 0.2 %>;"><%= (result.preferred || 0) %></td>
           <% random_id_is_relevant = result.is_sorting_factor?(prev_result, 'random_id') || result.is_sorting_factor?(next_result, 'random_id') %>
           <% random_id = result.random_id %>
-          <td style="font-size:0.8em;"
-              title="<%= random_id %>"
-              ><%= random_id_is_relevant ?  (random_id.slice(0, 3) + "...") : "" %>
-          </td>
+          <td class="pulse-results-random" title="<%= random_id %>"><%= random_id_is_relevant ? (random_id.slice(0, 3) + "...") : "" %></td>
         </tr>
       <% end %>
     </tbody>
   </table>
-  <p>
+  <p class="pulse-results-explanation">
     Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
   </p>
 </span>

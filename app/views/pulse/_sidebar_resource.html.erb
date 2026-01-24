@@ -1,7 +1,12 @@
 <%# Resource sidebar variant - for Note, Decision, Commitment detail pages %>
-<%# Shows studio context and navigation links, without cycle/heartbeat sections %>
+<%# Shows only studio info and back link, like the settings sidebar %>
 <aside class="pulse-sidebar" data-mode="resource">
   <%= render 'pulse/sidebar_studio_info' %>
-  <%= render 'pulse/sidebar_nav' %>
-  <%= render 'pulse/sidebar_links' %>
+
+  <nav class="pulse-nav">
+    <a href="<%= @current_superagent.path %>" class="pulse-nav-item">
+      <%= octicon 'arrow-left', height: 16 %>
+      <span>Back to <%= @current_superagent.superagent_type.titleize %></span>
+    </a>
+  </nav>
 </aside>

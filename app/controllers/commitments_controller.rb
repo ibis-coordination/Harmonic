@@ -3,6 +3,8 @@
 class CommitmentsController < ApplicationController
   include AttachmentActions
 
+  layout 'pulse', only: [:show]
+
   def new
     @page_title = "Commit"
     @page_description = "Start a group commitment"
@@ -67,6 +69,8 @@ class CommitmentsController < ApplicationController
     @participants_list_limit = 10
     @page_title = @commitment.title
     @page_description = "Coordinate with your team"
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     set_pin_vars
   end
 

@@ -2,11 +2,13 @@
 <%# Usage: render 'shared/pulse_accordion', title: 'Details', open: false do %>
 <%#   <p>Content here</p> %>
 <%# end %>
+<%# Optional: title_data: { 'decision-results-target': 'header' } to add data attributes to title %>
 <% open ||= false %>
 <% count ||= nil %>
+<% title_data ||= {} %>
 <details class="pulse-accordion" <%= 'open' if open %>>
   <summary class="pulse-accordion-header">
-    <span class="pulse-accordion-title">
+    <span class="pulse-accordion-title" <%= title_data.map { |k, v| "data-#{k}=\"#{v}\"" }.join(' ').html_safe %>>
       <%= title %>
       <% if count.present? %>
         <span class="pulse-accordion-count">(<%= count %>)</span>

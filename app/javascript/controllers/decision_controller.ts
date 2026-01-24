@@ -90,11 +90,11 @@ export default class DecisionController extends Controller {
     const decisionId = this.inputTarget.dataset.decisionId
 
     const target = event.target as HTMLElement
-    const optionItem = target.closest(".option-item") as HTMLElement | null
+    const optionItem = target.closest(".pulse-option-item") as HTMLElement | null
     if (!optionItem) return
 
-    const checkbox = optionItem.querySelector("input.acceptance-button") as HTMLInputElement | null
-    const starButton = optionItem.querySelector("input.star-button") as HTMLInputElement | null
+    const checkbox = optionItem.querySelector("input.pulse-acceptance-checkbox") as HTMLInputElement | null
+    const starButton = optionItem.querySelector("input.pulse-star-checkbox") as HTMLInputElement | null
     if (!checkbox || !starButton) return
 
     const isToggleClick = target === checkbox || target === starButton

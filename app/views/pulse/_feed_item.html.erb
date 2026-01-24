@@ -152,7 +152,7 @@
           <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= octicon 'person' %> Joined</button>
         <% else %>
           <div data-controller="pulse-action" data-pulse-action-url-value="<%= item.path %>/actions/join_commitment" data-pulse-action-loading-text-value="Joining..." data-pulse-action-confirmed-text-value="Joined">
-            <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= octicon 'person' %> Join</button>
+            <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= octicon 'person-add' %> Join</button>
           </div>
         <% end %>
       <% end %>

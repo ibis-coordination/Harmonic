@@ -1,29 +1,32 @@
 <%# Pulse-styled author display %>
 <%# Usage: render 'shared/pulse_author', resource: @note %>
 <% verb ||= nil %>
-<div class="pulse-feed-item-author">
-  <div class="pulse-author-avatar">
-    <% if resource.created_by.profile_picture.attached? %>
-      <img src="<%= rails_blob_path(resource.created_by.profile_picture, only_path: true) %>" alt="" class="pulse-avatar-img">
+<% author = resource.created_by %>
+<% if author %>
+  <div class="pulse-feed-item-author">
+    <div class="pulse-author-avatar">
+      <% if author.image_url.present? %>
+        <img src="<%= author.image_url %>" alt="" class="pulse-avatar-img">
+      <% end %>
+      <span class="pulse-avatar-initials"><%= author.display_name.to_s.first&.upcase || '?' %></span>
+    </div>
+    <a href="<%= author.path %>" class="pulse-feed-item-author">
+      <strong><%= author.display_name %></strong>
+    </a>
+    <% if author.subagent? && author.parent %>
+      <span class="pulse-subagent-label">(via <%= link_to author.parent.display_name, author.parent.path %>)</span>
     <% end %>
-    <span class="pulse-avatar-initials"><%= resource.created_by.display_name.first.upcase %></span>
-  </div>
-  <a href="<%= resource.created_by.path %>" class="pulse-feed-item-author">
-    <strong><%= resource.created_by.display_name %></strong>
-  </a>
-  <% if resource.created_by.subagent? && resource.created_by.parent %>
-    <span class="pulse-subagent-label">(via <%= link_to resource.created_by.parent.display_name, resource.created_by.parent.path %>)</span>
-  <% end %>
-  <% if verb.present? %>
-    <span><%= verb %></span>
-  <% end %>
-  <span class="pulse-timestamp"><%= timeago(resource.created_at) %></span>
-</div>
-<% if resource.updated_at > resource.created_at + 1.minute %>
-  <div class="pulse-feed-item-updated">
-    <span>Updated <%= timeago(resource.updated_at) %></span>
-    <% if resource.updated_by != resource.created_by %>
-      <span>by <%= link_to resource.updated_by.display_name, resource.updated_by.path %></span>
+    <% if verb.present? %>
+      <span><%= verb %></span>
     <% end %>
+    <span class="pulse-timestamp"><%= timeago(resource.created_at) %></span>
   </div>
+  <% if resource.updated_at > resource.created_at + 1.minute %>
+    <div class="pulse-feed-item-updated">
+      <span>Updated <%= timeago(resource.updated_at) %></span>
+      <% if resource.updated_by && resource.updated_by != author %>
+        <span>by <%= link_to resource.updated_by.display_name, resource.updated_by.path %></span>
+      <% end %>
+    </div>
+  <% end %>
 <% end %>

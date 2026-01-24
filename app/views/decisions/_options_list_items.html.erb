@@ -1,9 +1,9 @@
 <% @decision.options.order(:created_at).each do |option| %>
   <% vote = @votes.where(option: option).first || Vote.new(accepted: 0) %>
-  <li class="option-item" data-option-id="<%= option.id %>">
-    <input type="checkbox" class="acceptance-button" id="option<%= option.id %>" data-action="click->decision#toggleVoteValues" <%= vote.accepted == 1 ? 'checked' : '' %>/>
-    <input type="checkbox" class="star-button" id="star-option<%= option.id %>" data-action="click->decision#toggleVoteValues" <%= vote.preferred == 1 ? 'checked' : '' %>/>
-    <label for="star-option<%= option.id %>" class="star-button"></label>
-    <label for="option<%= option.id %>" id="option-label<%= option.id %>" data-action="click->decision#cycleVoteState"><%= markdown_inline(option.title) %></label>
+  <li class="pulse-option-item" data-option-id="<%= option.id %>">
+    <input type="checkbox" class="pulse-acceptance-checkbox" id="option<%= option.id %>" data-action="click->decision#toggleVoteValues" <%= vote.accepted == 1 ? 'checked' : '' %>/>
+    <input type="checkbox" class="pulse-star-checkbox" id="star-option<%= option.id %>" data-action="click->decision#toggleVoteValues" <%= vote.preferred == 1 ? 'checked' : '' %>/>
+    <label for="star-option<%= option.id %>" class="pulse-star-label"></label>
+    <label for="option<%= option.id %>" class="pulse-option-label" id="option-label<%= option.id %>" data-action="click->decision#cycleVoteState"><%= markdown_inline(option.title) %></label>
   </li>
 <% end %>

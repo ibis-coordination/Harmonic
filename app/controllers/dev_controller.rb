@@ -65,7 +65,8 @@ class DevController < ApplicationController
       username: "janedev",
       handle: "janedev",
       path: "#",
-      profile_picture: OpenStruct.new(attached?: false),
+      image: OpenStruct.new(attached?: false),
+      image_url: nil,
       subagent?: false,
       parent: nil
     )
@@ -75,7 +76,8 @@ class DevController < ApplicationController
       username: "alexc",
       handle: "alexc",
       path: "#",
-      profile_picture: OpenStruct.new(attached?: false),
+      image: OpenStruct.new(attached?: false),
+      image_url: nil,
       subagent?: false,
       parent: nil
     )

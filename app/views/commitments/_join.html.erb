@@ -1,44 +1,43 @@
 <% if @commitment.closed? && @current_user %>
   <% if @commitment_participant.committed? %>
-    <p>
-      <button style="background:#dfdfdf;color:#9f9f9f;cursor:default;">
-        Committed
+    <p class="pulse-join-status">
+      <button class="pulse-action-btn pulse-action-btn-disabled" disabled>
+        <%= octicon 'check', height: 14 %>
+        Joined
       </button>
-      <span style="font-style:italic;">Your commitment has been recorded.</span>
+      <span class="pulse-join-message">Your participation has been recorded.</span>
     </p>
   <% else %>
-    <p>
-      This commitment is closed.
-    </p>
+    <p class="pulse-join-closed">This commitment is closed.</p>
   <% end %>
 <% elsif @commitment.closed? %>
-  <p>
-    This commitment is closed.
-  </p>
+  <p class="pulse-join-closed">This commitment is closed.</p>
 <% elsif @current_user %>
   <% if @commitment_participant.committed? %>
-    <p>
-      <button style="background:#dfdfdf;color:#9f9f9f;cursor:default;">
-        Committed
+    <p class="pulse-join-status">
+      <button class="pulse-action-btn pulse-action-btn-disabled" disabled>
+        <%= octicon 'check', height: 14 %>
+        Joined
       </button>
-      <span style="font-style:italic;">Your commitment has been recorded.</span>
+      <span class="pulse-join-message">Your participation has been recorded.</span>
     </p>
   <% else %>
-    <p>
+    <p class="pulse-join-action">
       <button
+        class="pulse-action-btn"
         data-action="click->commitment#join mouseenter->commitment#joinButtonMouseEnter mouseleave->commitment#joinButtonMouseLeave"
         data-commitment-target="joinButton"
         data-url="<%= @commitment.path + '/join.html' %>"
         >
-        Commit to participating
+        <%= octicon 'person-add', height: 14 %>
+        Join
       </button>
-      <span
-        data-commitment-target="joinButtonMessage"
-        >Your commitment will be visible to all members of <%= @current_superagent.name %>.
+      <span class="pulse-join-message" data-commitment-target="joinButtonMessage">
+        Your participation will be visible to all members of <%= @current_superagent.name %>.
       </span>
     </p>
   <% end %>
-  <p>
+  <p class="pulse-join-info">
     Commitments only take effect if critical mass is achieved.
     <%= render 'reciprocal_commitment_tooltip' %>
   </p>

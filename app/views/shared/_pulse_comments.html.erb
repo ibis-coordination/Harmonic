@@ -12,8 +12,8 @@
         <div class="pulse-comment">
           <div class="pulse-comment-header">
             <div class="pulse-author-avatar">
-              <% if comment.created_by.profile_picture.attached? %>
-                <img src="<%= rails_blob_path(comment.created_by.profile_picture, only_path: true) %>" alt="" class="pulse-avatar-img">
+              <% if comment.created_by.image.attached? %>
+                <img src="<%= comment.created_by.image_path %>" alt="" class="pulse-avatar-img">
               <% end %>
               <span class="pulse-avatar-initials"><%= comment.created_by.display_name.first.upcase %></span>
             </div>

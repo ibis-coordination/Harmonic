@@ -3,6 +3,8 @@
 class DecisionsController < ApplicationController
   include AttachmentActions
 
+  layout 'pulse', only: [:show]
+
   def new
     @page_title = "Decide"
     @page_description = "Make a group decision with Harmonic Team"
@@ -134,6 +136,8 @@ class DecisionsController < ApplicationController
     @participant = current_decision_participant
     @page_title = @decision.question
     @page_description = "Decide as a group with Harmonic Team"
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
 
     @votes = current_votes

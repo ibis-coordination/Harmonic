@@ -1,43 +1,84 @@
 <span data-controller="decision" data-decision-id="<%= @decision.id %>">
-<%= render 'shared/more_button', resource: @decision, options: ['copy', 'pin', 'duplicate', @decision.can_edit_settings?(@current_user) ? 'settings' : nil].compact %>
-<%= render 'shared/show_resource_breadcrumbs', resource: @decision %>
-<h1 style="margin-top:0;"><%= @decision.question %></h1>
-<p style="font-size:0.8em;">
-  <%= render 'shared/created_by', resource: @decision %>
-  <br/>
-  <%= render 'shared/deadline_display', resource: @decision %>
-  <br/>
-</p>
-<%= render 'shared/attachments_section', resource: @decision %>
-<% if @decision.description && @decision.description.length > 0 %>
-  <h2>Description</h2>
-  <div class="user-generated-markdown"><%= markdown(@decision.description) %></div>
-<% end %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'Decision'
+] %>
 
-<% unless @decision.closed? %>
-  <%= render 'shared/collapseable_section', title: @options_header, hidden: false, header_level: 2 do %>
-    <%= render 'options_section' %>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/decision-icon.svg" class="pulse-resource-icon" alt="">
+        Decision
+        <% if @decision.closed? %>
+          <span class="pulse-status-badge pulse-status-closed">Closed</span>
+        <% else %>
+          <span class="pulse-status-badge pulse-status-open">Open</span>
+        <% end %>
+      </span>
+      <div class="pulse-resource-actions">
+        <%= render 'shared/copy_to_clipboard', text: request.original_url %>
+        <%= render 'shared/pulse_pin_button', resource: @decision, is_pinned: @is_pinned %>
+        <% if @decision.can_edit_settings?(@current_user) %>
+          <%= link_to "#{@decision.path}/settings", class: 'pulse-action-btn' do %>
+            <%= octicon 'gear', height: 14 %>
+            Settings
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+    <h1 class="pulse-resource-title"><%= @decision.question %></h1>
+  </header>
+
+  <div class="pulse-resource-meta">
+    <%= render 'shared/pulse_author', resource: @decision %>
+    <div class="pulse-deadline-info">
+      <%= render 'shared/deadline_display', resource: @decision %>
+    </div>
+  </div>
+
+  <%= render 'shared/pulse_attachments', resource: @decision %>
+
+  <% if @decision.description.present? %>
+    <div class="pulse-resource-body">
+      <div class="pulse-markdown-content">
+        <%= markdown(@decision.description) %>
+      </div>
+    </div>
   <% end %>
-<% end %>
 
-<span
-  data-controller="decision-results"
-  data-decision-results-url-value="<%= @decision.path %>/results.html"
-  >
-  <%= render 'shared/collapseable_section', target: {'decision-results' => 'header'}, title: @results_header, hidden: !@decision.closed?, header_level: 2 do %>
-    <span data-decision-results-target="content">
-      <%= render 'results' %>
-    </span>
+  <%# Voting Options Section (shown when decision is open) %>
+  <% unless @decision.closed? %>
+    <div class="pulse-acceptance-voting-section">
+      <%= render 'shared/pulse_accordion', title: @options_header, open: true do %>
+        <%= render 'options_section' %>
+      <% end %>
+    </div>
   <% end %>
-</span>
 
-<span
-  data-controller="decision-voters"
-  data-decision-voters-url-value="<%= @decision.path %>/voters.html"
-  >
-  <%= render 'voters' %>
-</span>
+  <%# Results Section %>
+  <span
+    data-controller="decision-results"
+    data-decision-results-url-value="<%= @decision.path %>/results.html"
+    >
+    <div class="pulse-results-table-section">
+      <%= render 'shared/pulse_accordion', title: @results_header, open: @decision.closed?, title_data: { 'decision-results-target': 'header' } do %>
+        <span data-decision-results-target="content">
+          <%= render 'results' %>
+        </span>
+      <% end %>
+    </div>
+  </span>
 
-<%= render 'shared/comments_section', commentable: @decision %>
-<%= render 'shared/backlinks_section', resource: @decision %>
+  <%# Voters Section %>
+  <span
+    data-controller="decision-voters"
+    data-decision-voters-url-value="<%= @decision.path %>/voters.html"
+    >
+    <%= render 'voters' %>
+  </span>
+
+  <%= render 'shared/pulse_comments', commentable: @decision %>
+  <%= render 'shared/pulse_backlinks', resource: @decision %>
+</article>
 </span>

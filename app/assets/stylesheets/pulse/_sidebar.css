@@ -63,6 +63,23 @@
   margin-bottom: 8px;
 }
 
+/* Sidebar studio name as a link */
+.pulse-sidebar-studio-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-sidebar-studio-name:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-sidebar-studio-name .pulse-visibility-icon .octicon,
 .pulse-studio-name .pulse-visibility-icon .octicon {
   width: 14px;
   height: 14px;

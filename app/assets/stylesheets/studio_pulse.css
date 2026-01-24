@@ -454,16 +454,6 @@ a:hover {
   background: var(--color-canvas-default);
 }
 
-/* Status differentiation for decisions and commitments */
-.pulse-feed-item-closed {
-  opacity: 0.7;
-  border-color: var(--color-border-muted);
-}
-
-.pulse-feed-item-closed .pulse-feed-item-header {
-  background: var(--color-canvas-subtle);
-}
-
 .pulse-feed-item-header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border-default);
