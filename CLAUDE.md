@@ -181,6 +181,32 @@ Component development workflow:
 - Instruction/checklist files: `test/manual/**/*.manual_test.md`
 - Run tests: use MCP server to connect to the app's markdown UI, follow instructions in test file, verify checklist items
 
+### Playwright MCP Browser Testing
+When using the Playwright MCP tools to interact with the app in a browser:
+- **Base URL**: Always use `https://app.harmonic.local` as the base domain
+- The app uses subdomain-based multi-tenancy, so `localhost:3000` will not work
+- **Do NOT use honor_system auth mode** - the e2e tests show how to properly log in
+
+**Setup (run once if needed):**
+```bash
+docker compose exec web bundle exec rake e2e:setup
+```
+This creates a test user with identity provider authentication.
+
+**Login credentials:**
+- Email: `e2e-test@example.com` (or `E2E_TEST_EMAIL` env var)
+- Password: `e2e-test-password-14chars` (or `E2E_TEST_PASSWORD` env var)
+
+**Login flow:**
+1. Navigate to `https://app.harmonic.local/login`
+2. Wait for redirect to auth subdomain
+3. Fill `input[name="auth_key"]` with email
+4. Fill `input[name="password"]` with password
+5. Click the Log in button
+6. Wait for redirect back to app subdomain
+
+**Reference:** See `e2e/helpers/auth.ts` for the canonical login implementation and `e2e/tests/` for examples.
+
 ## Environment Variables
 
 Key variables (see `.env.example`):

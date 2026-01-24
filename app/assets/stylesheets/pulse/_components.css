@@ -43,6 +43,18 @@
   text-decoration: none;
 }
 
+.pulse-action-btn-disabled,
+.pulse-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pulse-action-btn-disabled:hover,
+.pulse-action-btn:disabled:hover {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+}
+
 .pulse-action-btn .octicon {
   fill: currentColor;
 }
@@ -1257,4 +1269,229 @@ a.pulse-activity-title:hover {
 .pulse-notifications-load-more {
   text-align: center;
   padding: 16px;
+}
+
+/* Settings Form */
+.pulse-settings-form {
+  max-width: 600px;
+}
+
+.pulse-settings-section {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-settings-section:first-child {
+  padding-top: 0;
+}
+
+.pulse-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.pulse-section-description {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin: 0 0 12px 0;
+}
+
+.pulse-subsection-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 16px 0 12px 0;
+}
+
+/* Form Elements */
+.pulse-form-group {
+  margin-bottom: 12px;
+}
+
+.pulse-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-form-input,
+.pulse-form-textarea,
+.pulse-form-select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-form-input:focus,
+.pulse-form-textarea:focus,
+.pulse-form-select:focus {
+  outline: none;
+  border-color: var(--color-accent-fg);
+}
+
+.pulse-form-input-small {
+  width: 100px;
+}
+
+.pulse-form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Radio and Checkbox Groups */
+.pulse-radio-group {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pulse-fieldset-legend {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.pulse-radio-label,
+.pulse-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.pulse-radio-label:last-child,
+.pulse-checkbox-label:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-radio-input,
+.pulse-checkbox-input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+/* Feature Flag Items */
+.pulse-feature-flag-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--color-border-default);
+}
+
+.pulse-feature-flag-item:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-feature-usage {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin: 8px 0 0 0;
+}
+
+/* Tables */
+.pulse-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.pulse-table th,
+.pulse-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-table th {
+  font-weight: 600;
+  color: var(--color-fg-muted);
+}
+
+.pulse-table a {
+  color: var(--color-accent-fg);
+}
+
+/* Empty State */
+.pulse-empty-message {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  padding: 16px 0;
+}
+
+/* Inline Form */
+.pulse-inline-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pulse-inline-form .pulse-form-select {
+  width: auto;
+  min-width: 200px;
+}
+
+/* Form Actions */
+.pulse-form-actions {
+  display: flex;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+.pulse-form-actions-sticky {
+  position: sticky;
+  bottom: 0;
+  background: var(--color-canvas-default);
+  border-top: 1px solid var(--color-border-default);
+  margin-top: 16px;
+}
+
+/* Body Text */
+.pulse-body-text {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+}
+
+.pulse-body-text-muted {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin: 0 0 16px 0;
+}
+
+/* Invite Link Box */
+.pulse-invite-link-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--color-canvas-subtle);
+  border: 1px solid var(--color-border-default);
+  margin-bottom: 16px;
+}
+
+.pulse-invite-link {
+  flex: 1;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.pulse-invite-actions {
+  margin-bottom: 16px;
+}
+
+/* Copy Button */
+.pulse-copy-btn {
+  min-width: 180px;
+  justify-content: flex-start;
+}
+
+.pulse-copy-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }

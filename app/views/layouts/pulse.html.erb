@@ -69,6 +69,8 @@
         <%= render 'pulse/sidebar' %>
       <% when 'resource' %>
         <%= is_dev_mockup ? render('dev/mockup_sidebar_resource') : render('pulse/sidebar_resource') %>
+      <% when 'settings' %>
+        <%= render 'pulse/sidebar_settings' %>
       <% when 'minimal' %>
         <%= is_dev_mockup ? render('dev/mockup_sidebar_minimal') : render('pulse/sidebar_minimal') %>
       <% when 'none' %>

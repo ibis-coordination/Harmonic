@@ -19,6 +19,7 @@ import CountdownController from "./countdown_controller"
 import DeadlineOptionsController from "./deadline_options_controller"
 import DecisionController from "./decision_controller"
 import DecisionResultsController from "./decision_results_controller"
+import FormTrackerController from "./form_tracker_controller"
 import DecisionVotersController from "./decision_voters_controller"
 import HeartbeatController from "./heartbeat_controller"
 import HelloController from "./hello_controller"
@@ -52,6 +53,7 @@ application.register("countdown", CountdownController)
 application.register("deadline-options", DeadlineOptionsController)
 application.register("decision", DecisionController)
 application.register("decision-results", DecisionResultsController)
+application.register("form-tracker", FormTrackerController)
 application.register("decision-voters", DecisionVotersController)
 application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)

@@ -273,6 +273,10 @@
   color: var(--color-canvas-default);
 }
 
+.pulse-nav-item .octicon {
+  fill: currentColor;
+}
+
 .pulse-nav-item img {
   width: 20px;
   height: 20px;
