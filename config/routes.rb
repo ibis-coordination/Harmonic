@@ -1,8 +1,15 @@
 Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
 
-  # Development tools
-  get 'dev/pulse' => 'dev#pulse_components'
+  # Development tools - Pulse design mockups (only available in development)
+  if Rails.env.development?
+    get 'dev/pulse' => 'dev#pulse_components'
+    get 'dev/pulse/note' => 'dev#pulse_note'
+    get 'dev/pulse/decision' => 'dev#pulse_decision'
+    get 'dev/pulse/commitment' => 'dev#pulse_commitment'
+    get 'dev/pulse/user' => 'dev#pulse_user'
+    get 'dev/pulse/notifications' => 'dev#pulse_notifications'
+  end
 
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'

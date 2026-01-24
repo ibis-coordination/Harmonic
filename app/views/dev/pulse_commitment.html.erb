@@ -1,0 +1,136 @@
+<%# Commitment Detail Page Mockup - Uses resource sidebar mode %>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Component Library', '/dev/pulse'],
+  ['Design Team', @dummy_studio.path],
+  'Commitment'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/commitment-icon.svg" class="pulse-resource-icon" alt="">
+        Commitment
+        <span class="pulse-status-badge pulse-status-open">Open</span>
+      </span>
+      <div class="pulse-resource-actions">
+        <button class="pulse-action-btn-secondary">
+          <%= octicon 'copy', height: 14 %>
+          Copy Link
+        </button>
+        <button class="pulse-action-btn-secondary">
+          <%= octicon 'pin', height: 14 %>
+          Pin
+        </button>
+        <button class="pulse-action-btn">
+          <%= octicon 'pencil', height: 14 %>
+          Edit
+        </button>
+      </div>
+    </div>
+    <h1 class="pulse-resource-title"><%= @dummy_commitment.title %></h1>
+  </header>
+
+  <div class="pulse-resource-meta">
+    <%= render 'shared/pulse_author', resource: @dummy_commitment %>
+  </div>
+
+  <div class="pulse-resource-body">
+    <div class="pulse-markdown-content">
+      <%= markdown(@dummy_commitment.text) %>
+    </div>
+  </div>
+
+  <%# Participation Progress %>
+  <div class="pulse-participation-section">
+    <div class="pulse-section-label">
+      <%= octicon 'people', height: 14 %>
+      Participation
+    </div>
+    <div class="pulse-participation-progress">
+      <div class="pulse-progress-bar">
+        <% percentage = (@dummy_commitment.participant_count.to_f / @dummy_commitment.critical_mass * 100).round %>
+        <div class="pulse-progress-fill" style="width: <%= [percentage, 100].min %>%"></div>
+      </div>
+      <div class="pulse-progress-label">
+        <span><%= @dummy_commitment.participant_count %> of <%= @dummy_commitment.critical_mass %> needed</span>
+        <span><%= percentage %>%</span>
+      </div>
+    </div>
+  </div>
+
+  <%# Participants List %>
+  <div class="pulse-participants-section">
+    <div class="pulse-section-label">
+      <%= octicon 'person', height: 14 %>
+      Participants (<%= @dummy_commitment.participant_count %>)
+    </div>
+    <div class="pulse-participants-list">
+      <div class="pulse-participant">
+        <div class="pulse-author-avatar">
+          <span class="pulse-avatar-initials">JD</span>
+        </div>
+        <a href="#" class="pulse-participant-name">Jane Developer</a>
+        <span class="pulse-timestamp">Joined 3 days ago</span>
+      </div>
+      <div class="pulse-participant">
+        <div class="pulse-author-avatar">
+          <span class="pulse-avatar-initials">AC</span>
+        </div>
+        <a href="#" class="pulse-participant-name">Alex Contributor</a>
+        <span class="pulse-timestamp">Joined 2 days ago</span>
+      </div>
+    </div>
+    <div class="pulse-join-action">
+      <button class="pulse-action-btn">
+        <%= octicon 'person-add', height: 14 %>
+        Join Commitment
+      </button>
+    </div>
+  </div>
+
+  <%# Critical Mass Info %>
+  <div class="pulse-critical-mass-section">
+    <div class="pulse-section-label">
+      <%= octicon 'milestone', height: 14 %>
+      Critical Mass
+    </div>
+    <p class="pulse-critical-mass-info">
+      This commitment requires <strong><%= @dummy_commitment.critical_mass %> participants</strong> to activate.
+      <%= @dummy_commitment.critical_mass - @dummy_commitment.participant_count %> more needed.
+    </p>
+  </div>
+
+  <%# Comments Section %>
+  <div class="pulse-comments-section">
+    <div class="pulse-section-label">
+      <%= octicon 'comment', height: 14 %>
+      Discussion (<%= @dummy_comments.length %>)
+    </div>
+    <div class="pulse-comments-list">
+      <% @dummy_comments.each do |comment| %>
+        <div class="pulse-comment">
+          <div class="pulse-comment-header">
+            <div class="pulse-author-avatar">
+              <span class="pulse-avatar-initials"><%= comment.created_by.display_name.split.map(&:first).join %></span>
+            </div>
+            <a href="<%= comment.created_by.path %>" class="pulse-comment-author"><%= comment.created_by.display_name %></a>
+            <span class="pulse-comment-timestamp"><%= time_ago_in_words(comment.created_at) %> ago</span>
+          </div>
+          <div class="pulse-comment-body">
+            <%= comment.text %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    <div class="pulse-comment-form">
+      <div class="pulse-form-group">
+        <textarea class="pulse-form-textarea" placeholder="Add to the discussion..." rows="3"></textarea>
+      </div>
+      <div class="pulse-form-actions">
+        <button class="pulse-action-btn">Post Comment</button>
+      </div>
+    </div>
+  </div>
+</article>

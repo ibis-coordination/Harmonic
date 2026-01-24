@@ -1,0 +1,100 @@
+<%# Note Detail Page Mockup - Uses resource sidebar mode %>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Component Library', '/dev/pulse'],
+  ['Design Team', @dummy_studio.path],
+  'Note'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/note-icon.svg" class="pulse-resource-icon" alt="">
+        Note
+      </span>
+      <div class="pulse-resource-actions">
+        <button class="pulse-action-btn-secondary">
+          <%= octicon 'copy', height: 14 %>
+          Copy Link
+        </button>
+        <button class="pulse-action-btn-secondary">
+          <%= octicon 'pin', height: 14 %>
+          Pin
+        </button>
+        <button class="pulse-action-btn">
+          <%= octicon 'pencil', height: 14 %>
+          Edit
+        </button>
+      </div>
+    </div>
+    <h1 class="pulse-resource-title"><%= @dummy_note.title %></h1>
+  </header>
+
+  <div class="pulse-resource-meta">
+    <%= render 'shared/pulse_author', resource: @dummy_note %>
+  </div>
+
+  <div class="pulse-resource-body">
+    <div class="pulse-markdown-content">
+      <%= markdown(@dummy_note.text) %>
+    </div>
+  </div>
+
+  <%# Confirmed Reads Section %>
+  <div class="pulse-confirmed-section">
+    <div class="pulse-section-label">
+      <%= octicon 'book', height: 14 %>
+      Confirmed Reads
+    </div>
+    <div class="pulse-confirmed-reads">
+      <div class="pulse-confirmed-avatars">
+        <div class="pulse-confirmed-avatar">
+          <span class="pulse-avatar-initials">JD</span>
+        </div>
+        <div class="pulse-confirmed-avatar">
+          <span class="pulse-avatar-initials">AC</span>
+        </div>
+      </div>
+      <span class="pulse-timestamp">2 confirmed</span>
+    </div>
+    <div class="pulse-confirm-action">
+      <button class="pulse-action-btn">
+        <%= octicon 'check-circle', height: 14 %>
+        Confirm Read
+      </button>
+    </div>
+  </div>
+
+  <%# Comments Section %>
+  <div class="pulse-comments-section">
+    <div class="pulse-section-label">
+      <%= octicon 'comment', height: 14 %>
+      Comments (<%= @dummy_comments.length %>)
+    </div>
+    <div class="pulse-comments-list">
+      <% @dummy_comments.each do |comment| %>
+        <div class="pulse-comment">
+          <div class="pulse-comment-header">
+            <div class="pulse-author-avatar">
+              <span class="pulse-avatar-initials"><%= comment.created_by.display_name.split.map(&:first).join %></span>
+            </div>
+            <a href="<%= comment.created_by.path %>" class="pulse-comment-author"><%= comment.created_by.display_name %></a>
+            <span class="pulse-comment-timestamp"><%= time_ago_in_words(comment.created_at) %> ago</span>
+          </div>
+          <div class="pulse-comment-body">
+            <%= comment.text %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    <div class="pulse-comment-form">
+      <div class="pulse-form-group">
+        <textarea class="pulse-form-textarea" placeholder="Write a comment..." rows="3"></textarea>
+      </div>
+      <div class="pulse-form-actions">
+        <button class="pulse-action-btn">Post Comment</button>
+      </div>
+    </div>
+  </div>
+</article>

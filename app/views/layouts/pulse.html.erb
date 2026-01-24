@@ -62,14 +62,15 @@
     <% end %>
     <%# Sidebar modes: full (default), resource, minimal, none %>
     <% sidebar_mode = @sidebar_mode || 'full' %>
+    <% is_dev_mockup = controller_name == 'dev' %>
     <div class="pulse-container<%= ' no-sidebar' if sidebar_mode == 'none' %>" data-controller="pulse-filter">
       <% case sidebar_mode %>
       <% when 'full' %>
         <%= render 'pulse/sidebar' %>
       <% when 'resource' %>
-        <%= render 'pulse/sidebar_resource' %>
+        <%= is_dev_mockup ? render('dev/mockup_sidebar_resource') : render('pulse/sidebar_resource') %>
       <% when 'minimal' %>
-        <%= render 'pulse/sidebar_minimal' %>
+        <%= is_dev_mockup ? render('dev/mockup_sidebar_minimal') : render('pulse/sidebar_minimal') %>
       <% when 'none' %>
         <%# No sidebar %>
       <% end %>

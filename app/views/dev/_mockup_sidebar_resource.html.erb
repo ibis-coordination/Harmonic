@@ -1,0 +1,43 @@
+<%# Mockup resource sidebar for dev pages %>
+<aside class="pulse-sidebar" data-mode="resource">
+  <%# Studio Info %>
+  <div class="pulse-sidebar-section pulse-studio-info">
+    <div class="pulse-studio-header">
+      <div class="pulse-studio-avatar">
+        <span class="pulse-avatar-initials">DT</span>
+      </div>
+      <div class="pulse-studio-details">
+        <a href="#" class="pulse-studio-name">Design Team</a>
+        <div class="pulse-studio-meta">
+          <a href="#" class="pulse-member-link">5 members</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%# Navigation %>
+  <nav class="pulse-nav">
+    <a href="/dev/pulse" class="pulse-nav-item">
+      <%= octicon 'arrow-left', height: 16 %>
+      <span>Back to Library</span>
+    </a>
+  </nav>
+
+  <%# Links Section %>
+  <div class="pulse-sidebar-section pulse-links-section">
+    <div class="pulse-section-label">
+      <%= octicon 'link', height: 14 %>
+      Links
+    </div>
+    <div class="pulse-links-list">
+      <a href="#" class="pulse-link-item">
+        <img src="/resource-icons/note-icon.svg" class="pulse-resource-icon" alt="">
+        <span>Related Note</span>
+      </a>
+      <a href="#" class="pulse-link-item">
+        <img src="/resource-icons/decision-icon.svg" class="pulse-resource-icon" alt="">
+        <span>Related Decision</span>
+      </a>
+    </div>
+  </div>
+</aside>

@@ -1,0 +1,147 @@
+<%# Decision Detail Page Mockup - Uses resource sidebar mode %>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Component Library', '/dev/pulse'],
+  ['Design Team', @dummy_studio.path],
+  'Decision'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/decision-icon.svg" class="pulse-resource-icon" alt="">
+        Decision
+        <span class="pulse-status-badge pulse-status-open">Open</span>
+      </span>
+      <div class="pulse-resource-actions">
+        <button class="pulse-action-btn-secondary">
+          <%= octicon 'copy', height: 14 %>
+          Copy Link
+        </button>
+        <button class="pulse-action-btn-secondary">
+          <%= octicon 'pin', height: 14 %>
+          Pin
+        </button>
+        <button class="pulse-action-btn">
+          <%= octicon 'pencil', height: 14 %>
+          Edit
+        </button>
+      </div>
+    </div>
+    <h1 class="pulse-resource-title"><%= @dummy_decision.title %></h1>
+  </header>
+
+  <div class="pulse-resource-meta">
+    <%= render 'shared/pulse_author', resource: @dummy_decision %>
+  </div>
+
+  <div class="pulse-resource-body">
+    <div class="pulse-markdown-content">
+      <%= markdown(@dummy_decision.text) %>
+    </div>
+  </div>
+
+  <%# Acceptance Voting Options (shown when decision is open) %>
+  <div class="pulse-acceptance-voting-section">
+    <div class="pulse-section-header">
+      <div class="pulse-section-label">
+        Options
+      </div>
+      <span class="pulse-section-hint">Check options you would accept. Star options you prefer.</span>
+    </div>
+    <ul class="pulse-options-list">
+      <% @dummy_decision.options.each_with_index do |option, index| %>
+        <li class="pulse-option-item">
+          <input type="checkbox" class="pulse-acceptance-checkbox" id="option-<%= index %>" <%= index == 2 ? 'checked' : '' %>>
+          <input type="checkbox" class="pulse-star-checkbox" id="star-<%= index %>" <%= index == 2 ? 'checked' : '' %>>
+          <label for="star-<%= index %>" class="pulse-star-label"></label>
+          <label for="option-<%= index %>" class="pulse-option-label"><%= option.title %></label>
+        </li>
+      <% end %>
+      <li class="pulse-option-item pulse-add-option">
+        <input type="checkbox" class="pulse-acceptance-checkbox" disabled>
+        <input type="checkbox" class="pulse-star-checkbox" disabled>
+        <label class="pulse-star-label pulse-star-disabled"></label>
+        <input type="text" class="pulse-add-option-input" placeholder="Add an option">
+        <button class="pulse-action-btn-small">Add</button>
+      </li>
+    </ul>
+  </div>
+
+  <%# Results Table %>
+  <div class="pulse-results-table-section">
+    <div class="pulse-section-label">
+      Results
+    </div>
+    <table class="pulse-results-table">
+      <thead>
+        <tr>
+          <th title="place"></th>
+          <th title="option"></th>
+          <th title="acceptances">✅</th>
+          <th title="preferences">⭐</th>
+          <th title="random digits">🎲</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="pulse-results-winner">
+          <td>1</td>
+          <td>Migrate gradually</td>
+          <td>8</td>
+          <td>5</td>
+          <td class="pulse-results-random" title="a3f8c2b1">a3f...</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Yes, migrate everything</td>
+          <td>5</td>
+          <td>3</td>
+          <td class="pulse-results-random"></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>No, keep current design</td>
+          <td>2</td>
+          <td style="opacity: 0.2;">0</td>
+          <td class="pulse-results-random"></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="pulse-results-explanation">
+      Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
+    </p>
+  </div>
+
+  <%# Comments Section %>
+  <div class="pulse-comments-section">
+    <div class="pulse-section-label">
+      <%= octicon 'comment', height: 14 %>
+      Discussion (<%= @dummy_comments.length %>)
+    </div>
+    <div class="pulse-comments-list">
+      <% @dummy_comments.each do |comment| %>
+        <div class="pulse-comment">
+          <div class="pulse-comment-header">
+            <div class="pulse-author-avatar">
+              <span class="pulse-avatar-initials"><%= comment.created_by.display_name.split.map(&:first).join %></span>
+            </div>
+            <a href="<%= comment.created_by.path %>" class="pulse-comment-author"><%= comment.created_by.display_name %></a>
+            <span class="pulse-comment-timestamp"><%= time_ago_in_words(comment.created_at) %> ago</span>
+          </div>
+          <div class="pulse-comment-body">
+            <%= comment.text %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    <div class="pulse-comment-form">
+      <div class="pulse-form-group">
+        <textarea class="pulse-form-textarea" placeholder="Add to the discussion..." rows="3"></textarea>
+      </div>
+      <div class="pulse-form-actions">
+        <button class="pulse-action-btn">Post Comment</button>
+      </div>
+    </div>
+  </div>
+</article>

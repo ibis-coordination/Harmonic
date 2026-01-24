@@ -1,0 +1,74 @@
+<%# Notifications Page Mockup - Uses minimal sidebar mode %>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Component Library', '/dev/pulse'],
+  'Notifications'
+] %>
+
+<article class="pulse-notifications-page">
+  <header class="pulse-notifications-header">
+    <h1 class="pulse-page-title">Notifications</h1>
+    <div class="pulse-notifications-actions">
+      <button class="pulse-action-btn-secondary">Mark All Read</button>
+    </div>
+  </header>
+
+  <%# Unread Notifications %>
+  <section class="pulse-notifications-section">
+    <div class="pulse-section-label">
+      Unread (2)
+    </div>
+    <div class="pulse-notifications-list">
+      <% @dummy_notifications.reject(&:read).each do |notification| %>
+        <a href="<%= notification.path %>" class="pulse-notification pulse-notification-unread">
+          <div class="pulse-notification-indicator"></div>
+          <div class="pulse-notification-content">
+            <p class="pulse-notification-message"><%= notification.message %></p>
+            <span class="pulse-notification-time"><%= time_ago_in_words(notification.created_at) %> ago</span>
+          </div>
+          <div class="pulse-notification-actions">
+            <button class="pulse-action-btn-icon" title="Mark as read">
+              <%= octicon 'check', height: 14 %>
+            </button>
+          </div>
+        </a>
+      <% end %>
+    </div>
+  </section>
+
+  <%# Read Notifications %>
+  <section class="pulse-notifications-section">
+    <div class="pulse-section-label">
+      Earlier
+    </div>
+    <div class="pulse-notifications-list">
+      <% @dummy_notifications.select(&:read).each do |notification| %>
+        <a href="<%= notification.path %>" class="pulse-notification">
+          <div class="pulse-notification-content">
+            <p class="pulse-notification-message"><%= notification.message %></p>
+            <span class="pulse-notification-time"><%= time_ago_in_words(notification.created_at) %> ago</span>
+          </div>
+        </a>
+      <% end %>
+
+      <%# More example read notifications %>
+      <a href="#" class="pulse-notification">
+        <div class="pulse-notification-content">
+          <p class="pulse-notification-message">Your note "Weekly Standup Notes" was pinned by Design Team</p>
+          <span class="pulse-notification-time">3 days ago</span>
+        </div>
+      </a>
+      <a href="#" class="pulse-notification">
+        <div class="pulse-notification-content">
+          <p class="pulse-notification-message">New cycle started in Design Team</p>
+          <span class="pulse-notification-time">1 week ago</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <%# Load More %>
+  <div class="pulse-notifications-load-more">
+    <button class="pulse-action-btn-secondary">Load More</button>
+  </div>
+</article>

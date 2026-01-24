@@ -1,6 +1,34 @@
 <div class="pulse-feed" style="max-width: 900px; margin: 0 auto;">
   <h1 class="pulse-page-title" style="margin-bottom: 24px;">Pulse Component Library</h1>
 
+  <!-- Page Mockups Navigation -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Page Mockups</h2>
+    <p style="font-size: 14px; color: var(--color-fg-muted); margin-bottom: 16px;">Preview how different page types will look with the Pulse design system.</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+      <a href="/dev/pulse/note" class="pulse-action-btn-secondary" style="justify-content: center;">
+        <img src="/resource-icons/note-icon.svg" class="pulse-resource-icon" alt="">
+        Note Detail
+      </a>
+      <a href="/dev/pulse/decision" class="pulse-action-btn-secondary" style="justify-content: center;">
+        <img src="/resource-icons/decision-icon.svg" class="pulse-resource-icon" alt="">
+        Decision Detail
+      </a>
+      <a href="/dev/pulse/commitment" class="pulse-action-btn-secondary" style="justify-content: center;">
+        <img src="/resource-icons/commitment-icon.svg" class="pulse-resource-icon" alt="">
+        Commitment Detail
+      </a>
+      <a href="/dev/pulse/user" class="pulse-action-btn-secondary" style="justify-content: center;">
+        <%= octicon 'person', height: 14 %>
+        User Profile
+      </a>
+      <a href="/dev/pulse/notifications" class="pulse-action-btn-secondary" style="justify-content: center;">
+        <%= octicon 'bell', height: 14 %>
+        Notifications
+      </a>
+    </div>
+  </section>
+
   <!-- Color Tokens -->
   <section style="margin-bottom: 48px;">
     <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Color Tokens</h2>

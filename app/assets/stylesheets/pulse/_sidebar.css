@@ -2,6 +2,12 @@
  * Studio info, cycle, heartbeats, navigation, pinned items, links
  */
 
+/* Sidebar Sections */
+.pulse-sidebar-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
 /* Sidebar Header */
 .pulse-sidebar-header {
   padding: 16px;
@@ -16,6 +22,36 @@
 .pulse-studio-info {
   padding: 16px;
   border-bottom: 1px solid var(--color-border-default);
+}
+
+/* Studio Header (avatar + details layout) */
+.pulse-studio-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-studio-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.pulse-studio-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.pulse-studio-details .pulse-studio-name {
+  margin-bottom: 4px;
 }
 
 .pulse-studio-name {
@@ -343,5 +379,27 @@
 
 .pulse-links-list .octicon {
   fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Link Items (for resource links in sidebar) */
+.pulse-link-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-fg-default);
+  text-decoration: none;
+  padding: 6px 0;
+}
+
+.pulse-link-item:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-resource-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
   flex-shrink: 0;
 }
