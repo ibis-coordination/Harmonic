@@ -97,6 +97,7 @@
   height: 100%;
   object-fit: cover;
   z-index: 2;
+  border-radius: 50%;
 }
 
 /* Author Avatar (smaller) */
@@ -127,6 +128,7 @@
   height: 100%;
   object-fit: cover;
   z-index: 2;
+  border-radius: 50%;
 }
 
 /* Confirmed Avatar (even smaller) */
@@ -163,6 +165,7 @@
   height: 100%;
   object-fit: cover;
   z-index: 2;
+  border-radius: 50%;
 }
 
 /* Progress Bar */
@@ -1782,4 +1785,114 @@ a.pulse-activity-title:hover {
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid var(--color-border-default);
+}
+
+/* Mention Autocomplete */
+.mention-autocomplete-container {
+  position: relative;
+}
+
+.mention-dropdown {
+  position: absolute;
+  background-color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.mention-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  gap: 10px;
+}
+
+.mention-item:hover,
+.mention-item-selected {
+  background-color: var(--color-neutral-muted);
+}
+
+.mention-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--color-accent-emphasis);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-canvas-default);
+  flex-shrink: 0;
+}
+
+.mention-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.mention-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mention-display-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--color-fg-default);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mention-handle {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+.mention-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  color: var(--color-fg-muted);
+  font-size: 14px;
+}
+
+.mention-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border-default);
+  border-top-color: var(--color-accent-fg);
+  border-radius: 50%;
+  animation: mention-spin 0.8s linear infinite;
+}
+
+@keyframes mention-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mention-no-results {
+  padding: 12px 16px;
+  color: var(--color-fg-muted);
+  font-size: 14px;
+}
+
+/* Profile Picture (used in header, comments, etc.) */
+.profile-pic {
+  display: inline-block;
+  height: 2em;
+  border-radius: 50%;
+  margin-right: 8px;
+  background-color: var(--color-border-default);
+  text-align: center;
 }

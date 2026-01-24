@@ -2,7 +2,7 @@
   <% @commitment.committed_participants.order(committed_at: :desc).limit(@participants_list_limit).each do |participant| %>
     <div class="pulse-participant">
       <div class="pulse-author-avatar">
-        <% if participant.user&.image_url.present? %>
+        <% if participant.user&.image_url.present? && participant.user.image_url != '/placeholder.png' %>
           <img src="<%= participant.user.image_url %>" alt="" class="pulse-avatar-img">
         <% end %>
         <%

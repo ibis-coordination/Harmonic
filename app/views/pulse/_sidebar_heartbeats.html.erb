@@ -19,7 +19,7 @@
         %>
         <div class="pulse-avatar" title="<%= user.display_name %>">
           <span class="pulse-avatar-initials"><%= initials %></span>
-          <% if user.image_url.present? %>
+          <% if user.image_url.present? && user.image_url != '/placeholder.png' %>
             <img src="<%= user.image_url %>" alt="<%= user.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
           <% end %>
         </div>

@@ -5,7 +5,7 @@
 <% if author %>
   <div class="pulse-feed-item-author">
     <div class="pulse-author-avatar">
-      <% if author.image_url.present? %>
+      <% if author.image_url.present? && author.image_url != '/placeholder.png' %>
         <img src="<%= author.image_url %>" alt="" class="pulse-avatar-img">
       <% end %>
       <span class="pulse-avatar-initials"><%= author.display_name.to_s.first&.upcase || '?' %></span>
