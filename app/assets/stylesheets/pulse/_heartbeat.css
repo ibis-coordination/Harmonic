@@ -1,0 +1,103 @@
+/* Pulse Heartbeat Styles
+ * Heartbeat section, animations, blur effects
+ */
+
+/* Heartbeat Section (in main content) */
+.pulse-heartbeat-section {
+  text-align: center;
+  padding: 16px 24px;
+  font-size: 14px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-heartbeat-btn {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-heartbeat-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-heartbeat-btn .octicon {
+  fill: currentColor;
+}
+
+.pulse-heartbeat-section .pulse-heartbeat-full-heart {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pulse-heartbeat-section .pulse-heartbeat-full-heart .octicon {
+  fill: red;
+}
+
+.pulse-heartbeat-dismiss {
+  background: none;
+  border: none;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 8px;
+  opacity: 0.6;
+  vertical-align: middle;
+}
+
+.pulse-heartbeat-dismiss:hover {
+  opacity: 1;
+  color: var(--color-fg-default);
+}
+
+.pulse-heartbeat-dismiss .octicon {
+  fill: currentColor;
+  width: 12px;
+  height: 12px;
+}
+
+/* No Heartbeat Blur Effect */
+.pulse-blur-if-no-heartbeat.no-heartbeat {
+  filter: blur(4px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.pulse-blur-if-no-heartbeat {
+  transition: filter 0.8s ease-out, opacity 0.8s ease-out;
+}
+
+/* Expanding Heart Animation */
+#expanding-heart {
+  display: none;
+  position: absolute;
+  width: 100px;
+  height: 100px;
+}
+
+#expanding-heart svg {
+  display: block;
+  position: relative;
+  top: -33px;
+  left: -33px;
+  margin: 0 auto;
+  height: 100px;
+  width: 12px;
+  opacity: 1;
+  filter: blur(0px);
+  fill: red;
+  transition: all 0.8s ease-out;
+}
+
+#expanding-heart.expanded svg {
+  width: 100px;
+  opacity: 0;
+  filter: blur(4px);
+}

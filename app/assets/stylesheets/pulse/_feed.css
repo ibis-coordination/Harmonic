@@ -1,0 +1,332 @@
+/* Pulse Feed Styles
+ * Activity feed, cards, action buttons, notes, decisions, commitments
+ */
+
+/* Feed Container */
+.pulse-feed {
+  flex: 1;
+  padding: 24px;
+  max-width: 800px;
+}
+
+.pulse-feed-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-feed-empty p {
+  margin-bottom: 16px;
+}
+
+/* Filter Indicator */
+.pulse-filter-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  font-size: 14px;
+}
+
+.pulse-filter-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.pulse-filter-remove:hover {
+  opacity: 1;
+}
+
+.pulse-filter-remove .octicon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Feed Item (Card) */
+.pulse-feed-item {
+  border: 1px solid var(--color-border-default);
+  margin-bottom: 16px;
+  background: var(--color-canvas-default);
+}
+
+/* Closed state for decisions and commitments */
+.pulse-feed-item-closed {
+  opacity: 0.7;
+  border-color: var(--color-border-muted);
+}
+
+.pulse-feed-item-closed .pulse-feed-item-header {
+  background: var(--color-canvas-subtle);
+}
+
+/* Feed Item Header */
+.pulse-feed-item-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-feed-item-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pulse-feed-item-type img,
+.pulse-feed-item-type .octicon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.pulse-feed-item-meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-feed-item-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-fg-muted);
+  text-decoration: none;
+}
+
+.pulse-feed-item-author:hover {
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+/* Feed Item Body */
+.pulse-feed-item-body {
+  padding: 16px;
+}
+
+.pulse-feed-item-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pulse-feed-item-title a {
+  color: var(--color-fg-default);
+}
+
+.pulse-feed-item-title a:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-feed-item-content {
+  font-size: 14px;
+  color: var(--color-fg-default);
+}
+
+.pulse-feed-item-content-clickable {
+  cursor: pointer;
+}
+
+.pulse-feed-item-content a {
+  color: var(--color-accent-fg);
+  text-decoration: underline;
+}
+
+.pulse-feed-item-content a:hover {
+  color: var(--color-accent-emphasis);
+}
+
+/* Reply indicator for comments */
+.pulse-feed-item-reply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-feed-item-reply .octicon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.pulse-feed-item-reply a {
+  color: var(--color-accent-fg);
+}
+
+/* Feed Item Footer */
+.pulse-feed-item-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+/* Remove default form styling from button_to and Stimulus controller wrappers */
+.pulse-feed-item-footer form,
+.pulse-feed-item-footer [data-controller="pulse-action"] {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+/* Action Buttons (POST actions) */
+.pulse-feed-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+}
+
+.pulse-feed-action-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-feed-action-btn-disabled {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
+  border-color: var(--color-fg-muted);
+  cursor: default;
+  opacity: 0.7;
+}
+
+.pulse-feed-action-btn-disabled:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
+}
+
+/* Loading state for action buttons */
+.pulse-feed-action-btn-loading {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
+  border-color: var(--color-border-default);
+  cursor: wait;
+  position: relative;
+}
+
+.pulse-feed-action-btn-loading::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-fg-muted);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: pulse-spin 0.8s linear infinite;
+}
+
+@keyframes pulse-spin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+/* Octicons in action buttons should inherit text color */
+.pulse-feed-action-btn .octicon,
+.pulse-feed-action-btn-link .octicon {
+  fill: currentColor;
+}
+
+/* Button-styled links */
+.pulse-feed-action-btn-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pulse-feed-action-btn-link:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+/* Secondary link actions */
+.pulse-feed-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: var(--color-fg-muted);
+  font-size: 13px;
+}
+
+.pulse-feed-action-link:hover {
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+/* Decision Specific */
+.pulse-decision-options {
+  margin-top: 12px;
+}
+
+.pulse-decision-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-decision-option:last-child {
+  border-bottom: none;
+}
+
+.pulse-option-votes {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+/* Commitment Specific */
+.pulse-commitment-progress {
+  margin-top: 12px;
+}

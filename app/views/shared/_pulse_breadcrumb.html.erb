@@ -1,0 +1,14 @@
+<%# Pulse-styled breadcrumb navigation %>
+<%# Usage: render 'shared/pulse_breadcrumb', items: [['Home', '/'], ['Studio', '/studios/my-studio'], 'Current Page'] %>
+<nav class="pulse-breadcrumb" aria-label="Breadcrumb">
+  <% items.each_with_index do |item, index| %>
+    <% if item.is_a?(Array) %>
+      <a href="<%= item[1] %>"><%= item[0] %></a>
+    <% else %>
+      <span><%= item %></span>
+    <% end %>
+    <% unless index == items.length - 1 %>
+      <span class="pulse-breadcrumb-sep">/</span>
+    <% end %>
+  <% end %>
+</nav>

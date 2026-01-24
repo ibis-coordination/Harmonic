@@ -1,0 +1,470 @@
+/* Pulse Components
+ * Buttons, avatars, progress bars, visibility icons
+ */
+
+/* Page Title */
+.pulse-page-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Visibility Icon */
+.pulse-visibility-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-fg-muted);
+}
+
+.pulse-visibility-icon .octicon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Primary Action Button */
+.pulse-action-btn {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.pulse-action-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+/* Avatars */
+.pulse-avatar {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--color-canvas-default);
+  border-radius: 50%;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: -8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pulse-avatar:first-child {
+  margin-left: 0;
+}
+
+.pulse-avatar-initials {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-avatar-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+/* Author Avatar (smaller) */
+.pulse-author-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.pulse-author-avatar .pulse-avatar-initials {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-author-avatar .pulse-avatar-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+/* Confirmed Avatar (even smaller) */
+.pulse-confirmed-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -4px;
+  border: 1px solid var(--color-canvas-default);
+  overflow: hidden;
+  position: relative;
+}
+
+.pulse-confirmed-avatar:first-child {
+  margin-left: 0;
+}
+
+.pulse-confirmed-avatar .pulse-avatar-initials {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-confirmed-avatar .pulse-avatar-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+/* Progress Bar */
+.pulse-progress-bar {
+  height: 8px;
+  background: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+}
+
+.pulse-progress-fill {
+  height: 100%;
+  background: var(--color-success-emphasis);
+}
+
+.pulse-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Breadcrumb */
+.pulse-breadcrumb {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin-bottom: 12px;
+}
+
+.pulse-breadcrumb a {
+  color: var(--color-fg-muted);
+}
+
+.pulse-breadcrumb a:hover {
+  color: var(--color-fg-default);
+}
+
+.pulse-breadcrumb-sep {
+  margin: 0 4px;
+  opacity: 0.5;
+}
+
+/* Section Label */
+.pulse-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-fg-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-section-label .octicon {
+  fill: currentColor;
+}
+
+/* Confirmed Reads */
+.pulse-confirmed-reads {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pulse-confirmed-avatars {
+  display: flex;
+}
+
+/* Invite Button */
+.pulse-invite-section {
+  margin-top: 12px;
+}
+
+.pulse-invite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pulse-invite-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-invite-btn .octicon {
+  fill: currentColor;
+}
+
+/* Timestamp */
+.pulse-timestamp {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+/* Subagent Label */
+.pulse-subagent-label {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+/* Updated Info */
+.pulse-feed-item-updated {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin-top: 4px;
+}
+
+/* Resource Link */
+.pulse-resource-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-resource-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.pulse-resource-title {
+  color: var(--color-fg-default);
+}
+
+.pulse-resource-title:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-resource-metric {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+
+/* Attachments */
+.pulse-attachments {
+  margin-top: 16px;
+}
+
+.pulse-attachments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.pulse-attachment-preview {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.pulse-attachment-name {
+  color: var(--color-accent-fg);
+}
+
+/* Comments */
+.pulse-comments-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.pulse-comments-list {
+  margin-top: 12px;
+}
+
+.pulse-comment {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-comment:last-child {
+  border-bottom: none;
+}
+
+.pulse-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pulse-comment-author {
+  font-weight: 500;
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-comment-author:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-comment-timestamp {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-comment-body {
+  font-size: 14px;
+  color: var(--color-fg-default);
+}
+
+.pulse-comments-empty {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin-top: 8px;
+}
+
+.pulse-comment-form {
+  margin-top: 16px;
+}
+
+/* Accordion */
+.pulse-accordion {
+  border: 1px solid var(--color-border-default);
+  margin-bottom: 12px;
+}
+
+.pulse-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--color-canvas-subtle);
+  cursor: pointer;
+  list-style: none;
+}
+
+.pulse-accordion-header::-webkit-details-marker {
+  display: none;
+}
+
+.pulse-accordion-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.pulse-accordion-count {
+  font-weight: 400;
+  color: var(--color-fg-muted);
+}
+
+.pulse-accordion-icon {
+  color: var(--color-fg-muted);
+  transition: transform 0.2s;
+}
+
+.pulse-accordion-icon .octicon {
+  fill: currentColor;
+}
+
+.pulse-accordion[open] .pulse-accordion-icon {
+  transform: rotate(90deg);
+}
+
+.pulse-accordion-content {
+  padding: 16px;
+}
+
+/* Forms */
+.pulse-form-group {
+  margin-bottom: 16px;
+}
+
+.pulse-form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--color-fg-default);
+}
+
+.pulse-form-input,
+.pulse-form-textarea,
+.pulse-form-select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-form-input:focus,
+.pulse-form-textarea:focus,
+.pulse-form-select:focus {
+  outline: none;
+  border-color: var(--color-accent-fg);
+}
+
+.pulse-form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.pulse-form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pulse-form-hint {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin-top: 4px;
+}

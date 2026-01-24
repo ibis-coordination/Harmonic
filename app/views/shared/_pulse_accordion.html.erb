@@ -1,0 +1,20 @@
+<%# Pulse-styled accordion/collapsible section %>
+<%# Usage: render 'shared/pulse_accordion', title: 'Details', open: false do %>
+<%#   <p>Content here</p> %>
+<%# end %>
+<% open ||= false %>
+<% count ||= nil %>
+<details class="pulse-accordion" <%= 'open' if open %>>
+  <summary class="pulse-accordion-header">
+    <span class="pulse-accordion-title">
+      <%= title %>
+      <% if count.present? %>
+        <span class="pulse-accordion-count">(<%= count %>)</span>
+      <% end %>
+    </span>
+    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+  </summary>
+  <div class="pulse-accordion-content">
+    <%= yield %>
+  </div>
+</details>

@@ -1,6 +1,9 @@
 Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
 
+  # Development tools
+  get 'dev/pulse' => 'dev#pulse_components'
+
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'
     post 'login' => 'honor_system_sessions#create'

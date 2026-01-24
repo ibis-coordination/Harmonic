@@ -13,7 +13,7 @@
     <%= csp_meta_tag %>
 
     <%= stylesheet_link_tag "root_variables", "data-turbo-track": "reload" %>
-    <%= stylesheet_link_tag "studio_pulse", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "pulse", "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
   </head>
   <body>
@@ -60,8 +60,19 @@
         <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
       </div>
     <% end %>
-    <div class="pulse-container" data-controller="pulse-filter">
-      <%= render 'pulse/sidebar' %>
+    <%# Sidebar modes: full (default), resource, minimal, none %>
+    <% sidebar_mode = @sidebar_mode || 'full' %>
+    <div class="pulse-container<%= ' no-sidebar' if sidebar_mode == 'none' %>" data-controller="pulse-filter">
+      <% case sidebar_mode %>
+      <% when 'full' %>
+        <%= render 'pulse/sidebar' %>
+      <% when 'resource' %>
+        <%= render 'pulse/sidebar_resource' %>
+      <% when 'minimal' %>
+        <%= render 'pulse/sidebar_minimal' %>
+      <% when 'none' %>
+        <%# No sidebar %>
+      <% end %>
       <main class="pulse-main">
         <%= yield %>
       </main>

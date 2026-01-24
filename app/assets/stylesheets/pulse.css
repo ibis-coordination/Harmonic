@@ -1,0 +1,14 @@
+/*
+ * Pulse Design System
+ *
+ * Modular CSS for the Pulse UI. This manifest imports all component styles.
+ * Uses shared color variables from root_variables.css.
+ *
+ *= require pulse/_base
+ *= require pulse/_layout
+ *= require pulse/_components
+ *= require pulse/_sidebar
+ *= require pulse/_feed
+ *= require pulse/_heartbeat
+ *= require pulse/_responsive
+ */

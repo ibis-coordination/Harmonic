@@ -1,0 +1,21 @@
+<%# Pulse-styled attachments section %>
+<%# Usage: render 'shared/pulse_attachments', resource: @note %>
+<% if resource.attachments.any? %>
+  <div class="pulse-attachments">
+    <div class="pulse-section-label">
+      <%= octicon 'paperclip', height: 12 %> Attachments
+    </div>
+    <ul class="pulse-attachments-list">
+      <% resource.attachments.each do |attachment| %>
+        <li class="pulse-attachment-item">
+          <% if attachment.content_type.start_with?('image') %>
+            <img src="<%= rails_blob_path(attachment.file, only_path: true) %>" alt="" class="pulse-attachment-preview">
+          <% else %>
+            <%= octicon 'file', height: 14 %>
+          <% end %>
+          <a href="<%= attachment.path %>" class="pulse-attachment-name"><%= attachment.filename %></a>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

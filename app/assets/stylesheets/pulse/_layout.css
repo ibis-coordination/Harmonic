@@ -1,0 +1,208 @@
+/* Pulse Layout
+ * Container, sidebar structure, main content area, header, footer
+ */
+
+/* Main Container */
+.pulse-container {
+  display: flex;
+  flex: 1;
+}
+
+/* Sidebar */
+.pulse-sidebar {
+  width: 280px;
+  border-right: 1px solid var(--color-border-default);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: var(--color-canvas-default);
+}
+
+/* Sidebar variants via data attribute */
+.pulse-sidebar[data-mode="minimal"] {
+  /* Hide studio-specific sections in minimal mode */
+}
+
+.pulse-sidebar[data-mode="minimal"] .pulse-cycle-box,
+.pulse-sidebar[data-mode="minimal"] .pulse-heartbeat-box,
+.pulse-sidebar[data-mode="minimal"] .pulse-pinned-section {
+  display: none;
+}
+
+/* No sidebar layout */
+.pulse-container.no-sidebar {
+  justify-content: center;
+}
+
+.pulse-container.no-sidebar .pulse-sidebar {
+  display: none;
+}
+
+.pulse-container.no-sidebar .pulse-main {
+  max-width: 600px;
+  padding: 48px 24px;
+}
+
+/* Main content */
+.pulse-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Top Header Bar */
+.pulse-top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+  min-height: 56px;
+  box-sizing: border-box;
+}
+
+.pulse-top-header .pulse-logo {
+  font-size: 16px;
+}
+
+.pulse-top-header .pulse-logo img {
+  width: 28px;
+  height: 28px;
+}
+
+.pulse-top-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pulse-top-header-right .pulse-action-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.pulse-top-header-right .top-right-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Logo */
+.pulse-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 18px;
+  text-decoration: none;
+  color: var(--color-fg-default);
+}
+
+.pulse-logo:hover {
+  text-decoration: none;
+}
+
+.pulse-logo img {
+  width: 32px;
+  height: 32px;
+}
+
+/* Motto Footer */
+.pulse-motto-footer {
+  text-align: center;
+  padding: 16px;
+  margin: 0;
+  position: relative;
+}
+
+/* Continue sidebar border through footer */
+.pulse-motto-footer::before {
+  content: '';
+  position: absolute;
+  left: 279px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border-default);
+}
+
+/* Hide sidebar border line when no sidebar */
+.pulse-container.no-sidebar + .pulse-motto-footer::before {
+  display: none;
+}
+
+.pulse-motto-footer a {
+  text-decoration: none;
+  color: var(--color-fg-muted);
+}
+
+.pulse-motto-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Flash Messages */
+.pulse-flash-messages {
+  padding: 0;
+}
+
+.pulse-notice,
+.pulse-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.pulse-notice {
+  background: var(--color-canvas-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-alert {
+  background: var(--color-attention-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-dismiss-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--color-fg-muted);
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.pulse-dismiss-btn:hover {
+  color: var(--color-fg-default);
+}
+
+/* Session Banners */
+.pulse-session-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--color-attention-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+  font-size: 14px;
+}
+
+.pulse-banner-btn {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pulse-banner-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}

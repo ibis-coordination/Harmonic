@@ -109,14 +109,51 @@ Based on a 4px grid with common increments of 8px.
 ```
 
 ### Sidebar Modes
-1. **Full** (studio context): cycle, heartbeats, nav, pinned items, explore links
-2. **Modified** (resource detail): studio info, quick actions
-3. **Minimal** (user/admin): navigation only
-4. **None** (auth pages): centered content
+
+Set `@sidebar_mode` in your controller to control the sidebar variant:
+
+| Mode | Partial | Use Case |
+|------|---------|----------|
+| `full` (default) | `pulse/sidebar` | Studio Pulse page with cycle, heartbeats, nav, pinned items |
+| `resource` | `pulse/sidebar_resource` | Note/Decision/Commitment detail pages |
+| `minimal` | `pulse/sidebar_minimal` | User profile, settings, notifications |
+| `none` | (no sidebar) | Auth pages, centered forms |
+
+Example controller usage:
+```ruby
+class NotesController < ApplicationController
+  layout "pulse"
+
+  def show
+    @sidebar_mode = "resource"
+    # ...
+  end
+end
+
+class UsersController < ApplicationController
+  layout "pulse"
+
+  def settings
+    @sidebar_mode = "minimal"
+    # ...
+  end
+end
+
+class SessionsController < ApplicationController
+  layout "pulse"
+
+  def new
+    @sidebar_mode = "none"  # Centered login form
+  end
+end
+```
 
 ### CSS Classes
 - `.pulse-container` - Main flex wrapper
+- `.pulse-container.no-sidebar` - Centered layout without sidebar
 - `.pulse-sidebar` - Fixed 280px sidebar
+- `.pulse-sidebar[data-mode="resource"]` - Resource sidebar variant
+- `.pulse-sidebar[data-mode="minimal"]` - Minimal sidebar variant
 - `.pulse-main` - Flexible main content area
 
 ---
@@ -327,12 +364,51 @@ No manual toggle - respects `prefers-color-scheme` media query.
 
 ## File Organization
 
+### CSS Files
 ```
 app/assets/stylesheets/
 ├── root_variables.css      # Shared color tokens (light/dark)
-├── studio_pulse.css        # Pulse-specific component styles
+├── pulse.css               # Manifest that imports modular components
+├── pulse/
+│   ├── _base.css           # Reset, typography, links, tooltips
+│   ├── _layout.css         # Container, sidebar, main, header, footer
+│   ├── _components.css     # Buttons, avatars, progress bars
+│   ├── _sidebar.css        # Cycle, heartbeat, nav, pinned, links
+│   ├── _feed.css           # Feed items, action buttons, cards
+│   ├── _heartbeat.css      # Heartbeat section, animations
+│   └── _responsive.css     # Mobile breakpoints (768px)
 ├── application.css         # Legacy application styles
 └── ...
+```
+
+### View Partials
+```
+app/views/pulse/
+├── show.html.erb           # Main Pulse page
+├── _sidebar.html.erb       # Full sidebar (studio context)
+├── _sidebar_resource.html.erb  # Resource detail sidebar
+├── _sidebar_minimal.html.erb   # User/admin minimal sidebar
+├── _sidebar_studio_info.html.erb
+├── _sidebar_cycle.html.erb
+├── _sidebar_heartbeats.html.erb
+├── _sidebar_nav.html.erb
+├── _sidebar_pinned.html.erb
+├── _sidebar_links.html.erb
+├── _feed_item.html.erb
+├── _feed_item_note.html.erb
+├── _feed_item_decision.html.erb
+└── _feed_item_commitment.html.erb
+```
+
+### Shared Partials
+```
+app/views/shared/
+├── _pulse_author.html.erb      # Author info with avatar
+├── _pulse_resource_link.html.erb  # Inline resource link
+├── _pulse_attachments.html.erb # Attachments list
+├── _pulse_comments.html.erb    # Comments section with form
+├── _pulse_accordion.html.erb   # Collapsible section
+└── _pulse_breadcrumb.html.erb  # Breadcrumb navigation
 ```
 
 ---
@@ -361,10 +437,39 @@ end
 
 ### Creating a New Component
 
-1. Add styles to `studio_pulse.css` using shared color variables
+1. Add styles to the appropriate file in `app/assets/stylesheets/pulse/`:
+   - `_components.css` for reusable UI elements (buttons, avatars)
+   - `_feed.css` for feed-related components
+   - `_sidebar.css` for sidebar sections
+   - `_layout.css` for structural changes
 2. Use the `pulse-` prefix for all class names
-3. Include hover and dark mode states via CSS variables
-4. Test at 768px breakpoint for mobile
+3. Use shared color variables from `root_variables.css`
+4. Include hover and dark mode states via CSS variables
+5. Test at 768px breakpoint for mobile (add styles to `_responsive.css`)
+
+### Using Shared Partials
+
+```erb
+<%# Author info with avatar and timestamp %>
+<%= render 'shared/pulse_author', resource: @note %>
+
+<%# Inline resource link with icon and metrics %>
+<%= render 'shared/pulse_resource_link', resource: @decision %>
+
+<%# Attachments list %>
+<%= render 'shared/pulse_attachments', resource: @note %>
+
+<%# Comments section with form %>
+<%= render 'shared/pulse_comments', commentable: @note %>
+
+<%# Collapsible accordion %>
+<%= render 'shared/pulse_accordion', title: 'Details', open: false do %>
+  <p>Content here</p>
+<% end %>
+
+<%# Breadcrumb navigation %>
+<%= render 'shared/pulse_breadcrumb', items: [['Home', '/'], ['Studio', studio.path], 'Current Page'] %>
+```
 
 ---
 
