@@ -1896,3 +1896,105 @@ a.pulse-activity-title:hover {
   background-color: var(--color-border-default);
   text-align: center;
 }
+
+/* Form Sections */
+.pulse-form-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.pulse-form-section:first-of-type {
+  margin-top: 16px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.pulse-form-label-optional {
+  font-weight: normal;
+  color: var(--color-fg-muted);
+  font-size: 12px;
+}
+
+/* Narrow form inputs */
+.pulse-form-input-narrow {
+  width: 80px;
+  text-align: center;
+}
+
+.pulse-form-input-inline {
+  width: auto;
+  display: inline-block;
+}
+
+.pulse-form-select-narrow {
+  width: auto;
+  min-width: 150px;
+}
+
+/* Inline field layout */
+.pulse-inline-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Visibility hint in form actions */
+.pulse-visibility-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-visibility-hint .octicon {
+  fill: currentColor;
+}
+
+/* Secondary action button */
+.pulse-action-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-action-btn-secondary:hover {
+  background: var(--color-canvas-subtle);
+  text-decoration: none;
+}
+
+/* Resource ID in header */
+.pulse-resource-id {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  background: var(--color-canvas-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+/* Deadline Options */
+.pulse-deadline-options {
+  margin-top: 8px;
+}
+
+.pulse-deadline-datetime-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pulse-timezone-hint {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}

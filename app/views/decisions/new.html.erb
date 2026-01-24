@@ -1,39 +1,72 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: nil do %>
-  <i class='decision-icon'></i> Decision
-<% end %>
-<div style="height:16px"></div>
-<%= form_with do |form| %>
-  <div>
-    <%= form.text_field :question, placeholder: 'Question that this decision will answer', value: @decision.question %>
-  </div>
-  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
-    <%= form.text_area :description, placeholder: 'Description (optional, use @ to mention users)', value: @decision.description, data: { mention_autocomplete_target: "input" } %>
-    <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-  </div>
-  <%= render 'shared/multi_file_select', form: form %>
-  <h3>Options</h3>
-  <p>
-    <%= form.select :options_open, options_for_select([['Everyone', true], ['Just you', false]], selected: 'Everyone') %>
-    will be able to add options on the decision page.
-  </p>
-  <h3>Deadline</h3>
-  <p>
-    Voting will close at
-  </p>
-  <p>
-    <%= render 'shared/deadline_input_fields', form: form, deadline: Time.current + 1.week %>
-  </p>
-  <hr style="height:1px;" />
-  <%= form.submit 'Start Decision' %>
-  <% if @current_superagent.is_scene? %>
-    <span>
-      <%= octicon 'eye' %>
-      Decisions posted in scenes are publicly visible.
-    </span>
-  <% else %>
-    <span>
-      <%= octicon 'lock' %>
-      Only members of this studio can access this decision.
-    </span>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'New Decision'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/decision-icon.svg" class="pulse-resource-icon" alt="">
+        Decision
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">New Decision</h1>
+  </header>
+
+  <%= form_with(url: "#{@current_superagent.path}/decide", class: "pulse-form") do |form| %>
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Question</label>
+      <%= form.text_field :question,
+          placeholder: "What question will this decision answer?",
+          value: @decision.question,
+          class: "pulse-form-input",
+          autofocus: true %>
+    </div>
+
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Description <span class="pulse-form-label-optional">(optional)</span></label>
+      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+        <%= form.text_area :description,
+            placeholder: "Add context or background for this decision... (use @ to mention users)",
+            value: @decision.description,
+            class: "pulse-form-textarea",
+            rows: 4,
+            data: { mention_autocomplete_target: "input" } %>
+        <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+      </div>
+    </div>
+
+    <%= render 'shared/multi_file_select', form: form %>
+
+    <section class="pulse-form-section">
+      <h2 class="pulse-section-title">Options</h2>
+      <p class="pulse-section-description">Who can add options to this decision?</p>
+      <div class="pulse-form-group">
+        <%= form.select :options_open,
+            options_for_select([['Everyone', true], ['Just me', false]], selected: 'Everyone'),
+            {},
+            class: 'pulse-form-select pulse-form-select-narrow' %>
+      </div>
+    </section>
+
+    <section class="pulse-form-section">
+      <h2 class="pulse-section-title">Deadline</h2>
+      <p class="pulse-section-description">When should voting close?</p>
+      <%= render 'shared/pulse_deadline_input_fields', form: form, deadline: Time.current + 1.week %>
+    </section>
+
+    <div class="pulse-form-actions">
+      <%= form.submit 'Start Decision', class: 'pulse-action-btn' %>
+      <span class="pulse-visibility-hint">
+        <% if @current_superagent.is_scene? %>
+          <%= octicon 'eye', height: 14 %>
+          Decisions posted in scenes are publicly visible.
+        <% else %>
+          <%= octicon 'lock', height: 14 %>
+          Only members of this studio can access this decision.
+        <% end %>
+      </span>
+    </div>
   <% end %>
-<% end %>
+</article>

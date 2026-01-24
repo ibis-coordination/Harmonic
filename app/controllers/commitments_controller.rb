@@ -3,12 +3,14 @@
 class CommitmentsController < ApplicationController
   include AttachmentActions
 
-  layout 'pulse', only: [:show]
+  layout 'pulse', only: [:show, :new, :edit]
 
   def new
     @page_title = "Commit"
     @page_description = "Start a group commitment"
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     @commitment = Commitment.new(
       title: params[:title],
     )

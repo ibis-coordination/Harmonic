@@ -18,7 +18,11 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        // Use pre-authenticated state from global setup
+        storageState: "e2e/.auth/user.json",
+      },
     },
   ],
 })

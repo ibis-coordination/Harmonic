@@ -1,11 +1,17 @@
-import { FullConfig } from "@playwright/test"
+import { chromium, FullConfig } from "@playwright/test"
+import { login } from "./helpers/auth"
+import {
+  E2E_TEST_EMAIL,
+  E2E_TEST_PASSWORD,
+} from "./helpers/auth"
+
+const AUTH_STATE_PATH = "e2e/.auth/user.json"
 
 /**
  * Global setup for Playwright E2E tests.
  *
- * Performs health checks to ensure the app is running before tests execute.
- * Tests use identity provider (email/password) authentication with a
- * pre-configured test user created by `rake e2e:setup`.
+ * Performs health checks and authenticates once, saving the session
+ * for reuse across all tests. This dramatically speeds up test execution.
  */
 async function globalSetup(config: FullConfig) {
   console.log("E2E Global Setup: Starting...")
@@ -33,8 +39,28 @@ async function globalSetup(config: FullConfig) {
       throw new Error(`Login page error: ${loginResponse.status}`)
     }
     console.log("E2E Global Setup: Login page accessible")
+
+    // Authenticate and save session state
+    console.log("E2E Global Setup: Authenticating test user...")
+    const browser = await chromium.launch()
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: true,
+    })
+    const page = await context.newPage()
+
+    await login(page, {
+      email: E2E_TEST_EMAIL,
+      password: E2E_TEST_PASSWORD,
+      subdomain: "app",
+    })
+
+    // Save the authenticated state
+    await context.storageState({ path: AUTH_STATE_PATH })
+    console.log("E2E Global Setup: Authentication state saved")
+
+    await browser.close()
   } catch (error) {
-    console.error("E2E Global Setup: App is not running!")
+    console.error("E2E Global Setup: Failed!")
     console.error(
       "Please start the app with ./scripts/start.sh and run rake e2e:setup",
     )

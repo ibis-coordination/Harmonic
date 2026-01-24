@@ -1,9 +1,5 @@
 import { test as base, Page, expect } from "@playwright/test"
-import {
-  loginAsTestUser,
-  E2E_TEST_EMAIL,
-  E2E_TEST_PASSWORD,
-} from "../helpers/auth"
+import { E2E_TEST_EMAIL, E2E_TEST_PASSWORD } from "../helpers/auth"
 
 /**
  * Test user data
@@ -37,10 +33,12 @@ export const test = base.extend<{
   },
 
   /**
-   * Provides a page that is already authenticated with the test user
+   * Provides a page that is already authenticated with the test user.
+   * Authentication is handled by global setup - the storageState is
+   * pre-loaded, so no login is needed here.
    */
   authenticatedPage: async ({ page }, use) => {
-    await loginAsTestUser(page)
+    // Session is already authenticated via storageState from global setup
     await use(page)
   },
 })

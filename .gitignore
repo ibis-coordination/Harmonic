@@ -75,3 +75,4 @@ __pycache__/
 ignore/
 *storybook.log
 storybook-static
+e2e/.auth/

@@ -3,12 +3,14 @@
 class DecisionsController < ApplicationController
   include AttachmentActions
 
-  layout 'pulse', only: [:show]
+  layout 'pulse', only: [:show, :new, :edit]
 
   def new
     @page_title = "Decide"
     @page_description = "Make a group decision with Harmonic Team"
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     @decision = Decision.new(
       question: params[:question],
     )
