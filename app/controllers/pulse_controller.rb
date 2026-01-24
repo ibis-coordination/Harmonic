@@ -8,6 +8,13 @@ class PulseController < ApplicationController
     nil
   end
 
+  def actions_index
+    @page_title = "Actions | #{@current_superagent.name}"
+    render "shared/actions_index_studio", locals: {
+      base_path: @current_superagent.path,
+    }
+  end
+
   def show
     # Allow both studios and scenes
     return render "shared/404", status: :not_found unless ["studio", "scene"].include?(@current_superagent.superagent_type)
@@ -21,7 +28,7 @@ class PulseController < ApplicationController
 
     # Require heartbeat to view past cycles
     if @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil?
-      redirect_to "#{@current_superagent.path}/pulse", notice: "Send a heartbeat to view past cycles."
+      redirect_to @current_superagent.path, notice: "Send a heartbeat to view past cycles."
       return
     end
 

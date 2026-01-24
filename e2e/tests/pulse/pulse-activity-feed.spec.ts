@@ -29,8 +29,8 @@ async function navigateToPulse(
 
   const studioHandle = match[1]
 
-  // Navigate to pulse page
-  await page.goto(`${baseUrl}/studios/${studioHandle}/pulse`)
+  // Navigate to studio page (Pulse is now the default homepage)
+  await page.goto(`${baseUrl}/studios/${studioHandle}`)
   await page.waitForLoadState("networkidle")
 
   return studioHandle

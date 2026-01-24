@@ -176,8 +176,8 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}/new/actions/create_studio" => 'studios#create_studio'
     get "#{studios_or_scenes}/available" => 'studios#handle_available'
     post "#{studios_or_scenes}" => "#{studios_or_scenes}#create"
-    get "#{studios_or_scenes}/:superagent_handle" => "#{studios_or_scenes}#show"
-    get "#{studios_or_scenes}/:superagent_handle/actions" => 'studios#actions_index_default'
+    get "#{studios_or_scenes}/:superagent_handle" => 'pulse#show'
+    get "#{studios_or_scenes}/:superagent_handle/actions" => 'pulse#actions_index'
     get "#{studios_or_scenes}/:superagent_handle/actions/send_heartbeat" => 'studios#describe_send_heartbeat'
     post "#{studios_or_scenes}/:superagent_handle/actions/send_heartbeat" => 'studios#send_heartbeat'
     get "#{studios_or_scenes}/:superagent_handle/pinned.html" => 'studios#pinned_items_partial'
@@ -186,7 +186,7 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/cycles/actions" => 'cycles#actions_index_default'
     get "#{studios_or_scenes}/:superagent_handle/cycles/:cycle" => 'cycles#show'
     get "#{studios_or_scenes}/:superagent_handle/cycle/:cycle" => 'cycles#redirect_to_show'
-    get "#{studios_or_scenes}/:superagent_handle/pulse" => 'pulse#show'
+    get "#{studios_or_scenes}/:superagent_handle/classic" => 'studios#show'
     get "#{studios_or_scenes}/:superagent_handle/views" => 'studios#views'
     get "#{studios_or_scenes}/:superagent_handle/view" => 'studios#view'
     get "#{studios_or_scenes}/:superagent_handle/team" => 'studios#team'

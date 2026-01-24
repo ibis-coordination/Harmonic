@@ -1,44 +1,13 @@
-/* Studio Pulse - Isolated Stylesheet */
-
-/* CSS Variables */
-:root {
-  color-scheme: light;
-  --pulse-color-fg-default: #24292f;
-  --pulse-color-fg-muted: #57606a;
-  --pulse-color-fg-subtle: #6e7781;
-  --pulse-color-canvas-default: #ffffff;
-  --pulse-color-canvas-subtle: #f6f8fa;
-  --pulse-color-border-default: #d0d7de;
-  --pulse-color-border-muted: hsla(210,18%,87%,1);
-  --pulse-color-neutral-muted: rgba(175,184,193,0.2);
-  --pulse-color-accent-fg: #0969da;
-  --pulse-color-accent-emphasis: #0969da;
-  --pulse-color-attention-subtle: #fff8c5;
-  --pulse-color-danger-fg: #cf222e;
-  --pulse-color-success-fg: #1a7f37;
-  --pulse-color-success-emphasis: #2da44e;
-  --pulse-color-success-subtle: rgba(46, 160, 67, 0.15);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pulse-color-fg-default: #e6edf3;
-    --pulse-color-fg-muted: #8b949e;
-    --pulse-color-fg-subtle: #6e7681;
-    --pulse-color-canvas-default: #0d1117;
-    --pulse-color-canvas-subtle: #161b22;
-    --pulse-color-border-default: #30363d;
-    --pulse-color-border-muted: #21262d;
-    --pulse-color-neutral-muted: rgba(110,118,129,0.4);
-    --pulse-color-accent-fg: #58a6ff;
-    --pulse-color-accent-emphasis: #1f6feb;
-    --pulse-color-attention-subtle: rgba(187,128,9,0.15);
-    --pulse-color-danger-fg: #f85149;
-    --pulse-color-success-fg: #3fb950;
-    --pulse-color-success-emphasis: #238636;
-    --pulse-color-success-subtle: rgba(46, 160, 67, 0.15);
-  }
-}
+/* Studio Pulse Stylesheet
+ *
+ * Uses shared color variables from root_variables.css:
+ * --color-fg-default, --color-fg-muted, --color-fg-subtle
+ * --color-canvas-default, --color-canvas-subtle
+ * --color-border-default, --color-border-muted
+ * --color-neutral-muted, --color-accent-fg, --color-accent-emphasis
+ * --color-attention-subtle, --color-danger-fg
+ * --color-success-fg, --color-success-emphasis, --color-success-subtle
+ */
 
 /* Reset */
 * {
@@ -49,8 +18,8 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
   line-height: 1.5;
   display: flex;
   flex-direction: column;
@@ -62,16 +31,16 @@ body {
   position: absolute;
   display: inline-block;
   max-width: 400px;
-  background-color: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-default);
-  border: 1px solid var(--pulse-color-border-default);
+  background-color: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  border: 1px solid var(--color-border-default);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   z-index: 100;
   padding: 8px;
 }
 
 a {
-  color: var(--pulse-color-accent-fg);
+  color: var(--color-accent-fg);
   text-decoration: none;
 }
 
@@ -88,16 +57,16 @@ a:hover {
 /* Sidebar */
 .pulse-sidebar {
   width: 280px;
-  border-right: 1px solid var(--pulse-color-border-default);
+  border-right: 1px solid var(--color-border-default);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  background: var(--pulse-color-canvas-default);
+  background: var(--color-canvas-default);
 }
 
 .pulse-sidebar-header {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
   display: flex;
   align-items: center;
   min-height: 76px;
@@ -111,7 +80,7 @@ a:hover {
   font-weight: 600;
   font-size: 18px;
   text-decoration: none;
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
 }
 
 .pulse-logo:hover {
@@ -125,7 +94,7 @@ a:hover {
 
 .pulse-studio-info {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .pulse-studio-name {
@@ -144,21 +113,21 @@ a:hover {
 
 .pulse-studio-meta {
   font-size: 13px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 /* Cycle indicator */
 .pulse-cycle-box {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
-  background: var(--pulse-color-canvas-default);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
 }
 
 .pulse-cycle-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   margin-bottom: 8px;
 }
 
@@ -169,20 +138,20 @@ a:hover {
 
 .pulse-cycle-progress {
   height: 4px;
-  background: var(--pulse-color-border-default);
+  background: var(--color-border-default);
   position: relative;
 }
 
 .pulse-cycle-progress-fill {
   height: 100%;
-  background: var(--pulse-color-success-emphasis);
+  background: var(--color-success-emphasis);
 }
 
 .pulse-cycle-dates {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   margin-top: 8px;
 }
 
@@ -200,16 +169,16 @@ a:hover {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--pulse-color-border-default);
+  border: 1px solid var(--color-border-default);
   border-radius: 4px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   text-decoration: none;
   transition: background-color 0.15s, color 0.15s;
 }
 
 .pulse-cycle-nav-arrow:hover {
-  background: var(--pulse-color-canvas-subtle);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-subtle);
+  color: var(--color-fg-default);
 }
 
 .pulse-cycle-nav-arrow.disabled {
@@ -225,7 +194,7 @@ a:hover {
 
 .pulse-cycle-dates-inline {
   font-size: 12px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-cycle-return {
@@ -235,7 +204,7 @@ a:hover {
 
 .pulse-cycle-return-btn {
   font-size: 12px;
-  color: var(--pulse-color-accent-fg);
+  color: var(--color-accent-fg);
   background: none;
   border: none;
   cursor: pointer;
@@ -245,13 +214,13 @@ a:hover {
 }
 
 .pulse-cycle-return-btn:hover {
-  background: var(--pulse-color-canvas-subtle);
+  background: var(--color-canvas-subtle);
 }
 
 /* Heartbeat status */
 .pulse-heartbeat-box {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .pulse-heartbeat-box .pulse-section-label {
@@ -288,10 +257,10 @@ a:hover {
 .pulse-avatar {
   width: 32px;
   height: 32px;
-  border: 2px solid var(--pulse-color-canvas-default);
+  border: 2px solid var(--color-canvas-default);
   border-radius: 50%;
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -324,7 +293,7 @@ a:hover {
 /* Navigation */
 .pulse-nav {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .pulse-nav-item {
@@ -337,21 +306,21 @@ a:hover {
   cursor: pointer;
   border: 1px solid transparent;
   text-decoration: none;
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
   background: none;
   width: 100%;
   text-align: left;
 }
 
 .pulse-nav-item:hover {
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
   text-decoration: none;
 }
 
 .pulse-nav-item.active {
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
 }
 
 .pulse-nav-item img {
@@ -375,12 +344,12 @@ a:hover {
 .pulse-nav-count {
   margin-left: auto;
   font-size: 12px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-nav-item:hover .pulse-nav-count,
 .pulse-nav-item.active .pulse-nav-count {
-  color: var(--pulse-color-canvas-default);
+  color: var(--color-canvas-default);
 }
 
 /* Main content */
@@ -403,7 +372,7 @@ a:hover {
 .pulse-visibility-icon {
   display: inline-flex;
   align-items: center;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-visibility-icon .octicon {
@@ -413,9 +382,9 @@ a:hover {
 }
 
 .pulse-action-btn {
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
-  border: 1px solid var(--pulse-color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
   padding: 8px 16px;
   font-size: 14px;
   font-weight: 500;
@@ -424,8 +393,8 @@ a:hover {
 }
 
 .pulse-action-btn:hover {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
   text-decoration: none;
 }
 
@@ -435,8 +404,8 @@ a:hover {
   align-items: center;
   gap: 12px;
   padding: 12px 24px;
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
   font-size: 14px;
 }
 
@@ -472,7 +441,7 @@ a:hover {
 .pulse-feed-empty {
   text-align: center;
   padding: 48px 24px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-feed-empty p {
@@ -480,24 +449,24 @@ a:hover {
 }
 
 .pulse-feed-item {
-  border: 1px solid var(--pulse-color-border-default);
+  border: 1px solid var(--color-border-default);
   margin-bottom: 16px;
-  background: var(--pulse-color-canvas-default);
+  background: var(--color-canvas-default);
 }
 
 /* Status differentiation for decisions and commitments */
 .pulse-feed-item-closed {
   opacity: 0.7;
-  border-color: var(--pulse-color-border-muted);
+  border-color: var(--color-border-muted);
 }
 
 .pulse-feed-item-closed .pulse-feed-item-header {
-  background: var(--pulse-color-canvas-subtle);
+  background: var(--color-canvas-subtle);
 }
 
 .pulse-feed-item-header {
   padding: 12px 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -522,7 +491,7 @@ a:hover {
 .pulse-feed-item-meta {
   margin-left: auto;
   font-size: 12px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -532,12 +501,12 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   text-decoration: none;
 }
 
 .pulse-feed-item-author:hover {
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
   text-decoration: none;
 }
 
@@ -545,8 +514,8 @@ a:hover {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
   font-size: 9px;
   display: flex;
   align-items: center;
@@ -581,16 +550,16 @@ a:hover {
 }
 
 .pulse-feed-item-title a {
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
 }
 
 .pulse-feed-item-title a:hover {
-  color: var(--pulse-color-accent-fg);
+  color: var(--color-accent-fg);
 }
 
 .pulse-feed-item-content {
   font-size: 14px;
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
 }
 
 /* Note content that is clickable (when no separate title) */
@@ -600,12 +569,12 @@ a:hover {
 
 /* Links within note content should look like links */
 .pulse-feed-item-content a {
-  color: var(--pulse-color-accent-fg);
+  color: var(--color-accent-fg);
   text-decoration: underline;
 }
 
 .pulse-feed-item-content a:hover {
-  color: var(--pulse-color-accent-emphasis);
+  color: var(--color-accent-emphasis);
 }
 
 /* Reply indicator for comments */
@@ -615,7 +584,7 @@ a:hover {
   gap: 6px;
   margin-bottom: 12px;
   font-size: 13px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-feed-item-reply .octicon {
@@ -625,12 +594,12 @@ a:hover {
 }
 
 .pulse-feed-item-reply a {
-  color: var(--pulse-color-accent-fg);
+  color: var(--color-accent-fg);
 }
 
 .pulse-feed-item-footer {
   padding: 12px 16px;
-  border-top: 1px solid var(--pulse-color-border-default);
+  border-top: 1px solid var(--color-border-default);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -654,9 +623,9 @@ a:hover {
   gap: 6px;
   cursor: pointer;
   padding: 8px 16px;
-  border: 1px solid var(--pulse-color-border-default);
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
   text-decoration: none;
   font-size: 13px;
   font-weight: 500;
@@ -664,29 +633,29 @@ a:hover {
 }
 
 .pulse-feed-action-btn:hover {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
   text-decoration: none;
 }
 
 .pulse-feed-action-btn-disabled {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-muted);
-  border-color: var(--pulse-color-fg-muted);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
+  border-color: var(--color-fg-muted);
   cursor: default;
   opacity: 0.7;
 }
 
 .pulse-feed-action-btn-disabled:hover {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-muted);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
 }
 
 /* Loading state for action buttons */
 .pulse-feed-action-btn-loading {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-muted);
-  border-color: var(--pulse-color-border-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
+  border-color: var(--color-border-default);
   cursor: wait;
   position: relative;
 }
@@ -699,7 +668,7 @@ a:hover {
   transform: translateY(-50%);
   width: 12px;
   height: 12px;
-  border: 2px solid var(--pulse-color-fg-muted);
+  border: 2px solid var(--color-fg-muted);
   border-top-color: transparent;
   border-radius: 50%;
   animation: pulse-spin 0.8s linear infinite;
@@ -725,17 +694,17 @@ a:hover {
   gap: 6px;
   cursor: pointer;
   padding: 8px 16px;
-  border: 1px solid var(--pulse-color-border-default);
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
   text-decoration: none;
   font-size: 13px;
   font-weight: 500;
 }
 
 .pulse-feed-action-btn-link:hover {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
   text-decoration: none;
 }
 
@@ -748,12 +717,12 @@ a:hover {
   padding: 8px 12px;
   border: 1px solid transparent;
   text-decoration: none;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   font-size: 13px;
 }
 
 .pulse-feed-action-link:hover {
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
   text-decoration: none;
 }
 
@@ -768,7 +737,7 @@ a:hover {
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .pulse-decision-option:last-child {
@@ -777,7 +746,7 @@ a:hover {
 
 .pulse-option-votes {
   font-size: 12px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 /* Commitment specific */
@@ -787,13 +756,13 @@ a:hover {
 
 .pulse-progress-bar {
   height: 8px;
-  background: var(--pulse-color-canvas-default);
-  border: 1px solid var(--pulse-color-border-default);
+  background: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
 }
 
 .pulse-progress-fill {
   height: 100%;
-  background: var(--pulse-color-success-emphasis);
+  background: var(--color-success-emphasis);
 }
 
 .pulse-progress-label {
@@ -818,14 +787,14 @@ a:hover {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
   font-size: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-left: -4px;
-  border: 1px solid var(--pulse-color-canvas-default);
+  border: 1px solid var(--color-canvas-default);
   overflow: hidden;
   position: relative;
 }
@@ -896,13 +865,13 @@ a:hover {
   text-align: center;
   padding: 16px 24px;
   font-size: 14px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-heartbeat-btn {
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
-  border: 1px solid var(--pulse-color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
   cursor: pointer;
   font-size: 14px;
   font-family: inherit;
@@ -913,8 +882,8 @@ a:hover {
 }
 
 .pulse-heartbeat-btn:hover {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
 }
 
 .pulse-heartbeat-btn .octicon {
@@ -933,7 +902,7 @@ a:hover {
 .pulse-heartbeat-dismiss {
   background: none;
   border: none;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   cursor: pointer;
   padding: 2px;
   margin-left: 8px;
@@ -943,7 +912,7 @@ a:hover {
 
 .pulse-heartbeat-dismiss:hover {
   opacity: 1;
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
 }
 
 .pulse-heartbeat-dismiss .octicon {
@@ -958,8 +927,8 @@ a:hover {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
-  background: var(--pulse-color-canvas-default);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
   min-height: 56px;
   box-sizing: border-box;
 }
@@ -1005,15 +974,15 @@ a:hover {
 }
 
 .pulse-notice {
-  background: var(--pulse-color-canvas-subtle);
-  border-bottom: 1px solid var(--pulse-color-border-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-fg-default);
 }
 
 .pulse-alert {
-  background: var(--pulse-color-attention-subtle);
-  border-bottom: 1px solid var(--pulse-color-border-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-attention-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-fg-default);
 }
 
 .pulse-dismiss-btn {
@@ -1021,13 +990,13 @@ a:hover {
   border: none;
   font-size: 18px;
   cursor: pointer;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   padding: 0 4px;
   line-height: 1;
 }
 
 .pulse-dismiss-btn:hover {
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
 }
 
 /* Session Banners */
@@ -1036,23 +1005,23 @@ a:hover {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--pulse-color-attention-subtle);
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  background: var(--color-attention-subtle);
+  border-bottom: 1px solid var(--color-border-default);
   font-size: 14px;
 }
 
 .pulse-banner-btn {
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
-  border: 1px solid var(--pulse-color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
   padding: 4px 12px;
   font-size: 13px;
   cursor: pointer;
 }
 
 .pulse-banner-btn:hover {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
 }
 
 /* Motto Footer */
@@ -1071,12 +1040,12 @@ a:hover {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--pulse-color-border-default);
+  background: var(--color-border-default);
 }
 
 .pulse-motto-footer a {
   text-decoration: none;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-motto-footer a:hover {
@@ -1104,28 +1073,28 @@ a:hover {
 }
 
 .pulse-member-link {
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   text-decoration: none;
 }
 
 .pulse-member-link:hover {
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
   text-decoration: underline;
 }
 
 /* Breadcrumb */
 .pulse-breadcrumb {
   font-size: 12px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   margin-bottom: 12px;
 }
 
 .pulse-breadcrumb a {
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-breadcrumb a:hover {
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
 }
 
 .pulse-breadcrumb-sep {
@@ -1136,14 +1105,14 @@ a:hover {
 /* Pinned Items Section */
 .pulse-pinned-section {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .pulse-section-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -1173,13 +1142,13 @@ a:hover {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
   text-decoration: none;
   padding: 4px 0;
 }
 
 .pulse-pinned-list a:hover {
-  color: var(--pulse-color-accent-fg);
+  color: var(--color-accent-fg);
 }
 
 .pulse-pinned-icon {
@@ -1192,7 +1161,7 @@ a:hover {
 /* Links Section (Settings, Explore, etc.) */
 .pulse-links-section {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-border-default);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .pulse-links-list {
@@ -1214,13 +1183,13 @@ a:hover {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--pulse-color-fg-muted);
+  color: var(--color-fg-muted);
   text-decoration: none;
   padding: 6px 0;
 }
 
 .pulse-links-list a:hover {
-  color: var(--pulse-color-fg-default);
+  color: var(--color-fg-default);
 }
 
 .pulse-links-list .octicon {
@@ -1239,16 +1208,16 @@ a:hover {
   gap: 6px;
   font-size: 13px;
   padding: 8px 12px;
-  background: var(--pulse-color-fg-default);
-  color: var(--pulse-color-canvas-default);
-  border: 1px solid var(--pulse-color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
   text-decoration: none;
   cursor: pointer;
 }
 
 .pulse-invite-btn:hover {
-  background: var(--pulse-color-canvas-default);
-  color: var(--pulse-color-fg-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
   text-decoration: none;
 }
 
@@ -1265,7 +1234,7 @@ a:hover {
   .pulse-sidebar {
     width: 100%;
     border-right: none;
-    border-bottom: 1px solid var(--pulse-color-border-default);
+    border-bottom: 1px solid var(--color-border-default);
   }
 
   .pulse-nav {
