@@ -1,102 +1,121 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: nil, hide_studio_path: true do %>
-  <%= octicon "inbox" %> Notifications
-<% end %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  'Notifications'
+] %>
 
-<p style="margin-bottom:24px;">
-  <a href="/notifications/new" class="btn btn-secondary"><%= octicon "clock" %> Schedule Reminder</a>
-</p>
+<article class="pulse-notifications-page">
+  <header class="pulse-notifications-header">
+    <h1 class="pulse-page-title"><%= octicon 'inbox', height: 20 %> Notifications</h1>
+    <div class="pulse-notifications-actions">
+      <a href="/notifications/new" class="pulse-action-btn">
+        <%= octicon 'clock', height: 14 %>
+        Schedule Reminder
+      </a>
+    </div>
+  </header>
 
-<% if @scheduled_reminders.any? %>
-  <section class="scheduled-reminders" style="margin-bottom:24px; padding:16px; border:1px solid var(--color-border-default);">
-    <h3 style="margin-top:0; margin-bottom:12px;"><%= octicon "clock" %> Scheduled Reminders</h3>
-    <ul style="list-style:none; padding:0; margin:0;">
-      <% @scheduled_reminders.each do |nr| %>
-        <li style="padding:10px 0; border-bottom:1px solid var(--color-border-muted); display:flex; justify-content:space-between; align-items:flex-start;">
-          <div>
-            <strong><%= nr.notification.title %></strong>
-            <% if nr.notification.body.present? %>
-              <p style="margin:4px 0; color:var(--color-fg-muted);"><%= truncate(nr.notification.body, length: 150) %></p>
-            <% end %>
-            <small style="color:var(--color-fg-muted);"><%= octicon "calendar" %> <%= nr.scheduled_for.strftime("%b %d, %Y at %I:%M %p") %></small>
-          </div>
-          <div>
-            <%= button_to "Delete",
-                notifications_actions_delete_reminder_path(id: nr.id),
-                method: :post,
-                class: "btn btn-small",
-                title: "Delete reminder",
-                data: { confirm: "Delete this reminder?" } %>
-          </div>
-        </li>
-      <% end %>
-    </ul>
-  </section>
-<% end %>
-
-<div data-controller="notification-actions">
-  <% if @notification_recipients.empty? %>
-    <% unless @scheduled_reminders.any? %>
-      <p style="color:var(--color-fg-muted);"><em>All caught up!</em></p>
-    <% end %>
-  <% else %>
-    <p style="margin-bottom:12px;">
-      <span data-notification-summary>
-        <% if @unread_count > 0 %>
-          <strong data-notification-actions-target="unreadCount"><%= @unread_count %></strong> unread notifications
-        <% else %>
-          No unread notifications
+  <% if @scheduled_reminders.any? %>
+    <section class="pulse-scheduled-reminders">
+      <h3><%= octicon 'clock', height: 16 %> Scheduled Reminders</h3>
+      <ul class="pulse-reminder-list">
+        <% @scheduled_reminders.each do |nr| %>
+          <li class="pulse-reminder-item">
+            <div class="pulse-reminder-content">
+              <div class="pulse-reminder-title"><%= nr.notification.title %></div>
+              <% if nr.notification.body.present? %>
+                <p class="pulse-reminder-body"><%= truncate(nr.notification.body, length: 150) %></p>
+              <% end %>
+              <span class="pulse-reminder-time">
+                <%= octicon 'calendar', height: 12 %>
+                <%= nr.scheduled_for.strftime("%b %d, %Y at %I:%M %p") %>
+              </span>
+            </div>
+            <div class="pulse-reminder-actions">
+              <%= button_to "Delete",
+                  notifications_actions_delete_reminder_path(id: nr.id),
+                  method: :post,
+                  class: "pulse-action-btn-small pulse-action-btn-danger",
+                  title: "Delete reminder",
+                  data: { confirm: "Delete this reminder?" } %>
+            </div>
+          </li>
         <% end %>
-      </span>
-      <% if @unread_count > 0 %>
-        <button type="button"
-                class="btn btn-small"
-                data-action="click->notification-actions#markAllRead"
-                data-notification-actions-target="markAllReadButton">
-          Mark all read
-        </button>
+      </ul>
+    </section>
+  <% end %>
+
+  <div data-controller="notification-actions">
+    <% if @notification_recipients.empty? %>
+      <% unless @scheduled_reminders.any? %>
+        <div class="pulse-notifications-empty">
+          <p><em>All caught up!</em></p>
+        </div>
       <% end %>
-    </p>
-    <ul class="notification-list" style="list-style:none; padding:0; margin:0;">
-      <% @notification_recipients.each do |recipient| %>
-        <li data-notification-item="<%= recipient.id %>"
-            style="padding:10px 0; border-bottom:1px solid var(--color-border-muted); <%= recipient.read? ? 'opacity:0.6;' : '' %>">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
-            <div style="flex:1;">
+    <% else %>
+      <div class="pulse-notifications-summary">
+        <span class="pulse-notifications-count" data-notification-summary>
+          <% if @unread_count > 0 %>
+            <strong data-notification-actions-target="unreadCount"><%= @unread_count %></strong> unread notifications
+          <% else %>
+            No unread notifications
+          <% end %>
+        </span>
+        <% if @unread_count > 0 %>
+          <button type="button"
+                  class="pulse-action-btn-secondary"
+                  data-action="click->notification-actions#markAllRead"
+                  data-notification-actions-target="markAllReadButton">
+            Mark all read
+          </button>
+        <% end %>
+      </div>
+
+      <div class="pulse-notifications-list">
+        <% @notification_recipients.each do |recipient| %>
+          <div data-notification-item="<%= recipient.id %>"
+               class="pulse-notification <%= 'pulse-notification-unread' unless recipient.read? %>"
+               style="<%= 'opacity:0.6;' if recipient.read? %>">
+            <% unless recipient.read? %>
+              <div class="pulse-notification-indicator"></div>
+            <% end %>
+            <div class="pulse-notification-content">
               <% if recipient.notification.url.present? %>
-                <a href="<%= recipient.notification.url %>">
-                  <strong><%= recipient.notification.title %></strong>
+                <a href="<%= recipient.notification.url %>" class="pulse-notification-message">
+                  <%= recipient.notification.title %>
                 </a>
               <% else %>
-                <strong><%= recipient.notification.title %></strong>
+                <p class="pulse-notification-message"><%= recipient.notification.title %></p>
               <% end %>
               <% if recipient.notification.body.present? %>
-                <p style="margin:4px 0; color:var(--color-fg-muted);"><%= truncate(recipient.notification.body, length: 200) %></p>
+                <p class="pulse-notification-body" style="margin:4px 0 0 0; font-size:13px; color:var(--color-fg-muted);">
+                  <%= truncate(recipient.notification.body, length: 200) %>
+                </p>
               <% end %>
-              <small style="color:var(--color-fg-muted);"><%= time_ago_in_words(recipient.created_at) %> ago</small>
+              <span class="pulse-notification-time"><%= time_ago_in_words(recipient.created_at) %> ago</span>
             </div>
-            <div style="display:flex; gap:8px; flex-shrink:0;">
+            <div class="pulse-notification-actions">
               <% unless recipient.read? %>
                 <button type="button"
-                        class="btn btn-small"
+                        class="pulse-action-btn-icon"
                         title="Mark as read"
                         data-action="click->notification-actions#markRead"
                         data-notification-id="<%= recipient.id %>">
-                  <%= octicon "check" %>
+                  <%= octicon 'check', height: 14 %>
                 </button>
               <% end %>
               <% unless recipient.dismissed? %>
                 <button type="button"
-                        class="btn btn-small"
+                        class="pulse-action-btn-icon"
                         title="Dismiss"
                         data-action="click->notification-actions#dismiss"
                         data-notification-id="<%= recipient.id %>">
-                  <%= octicon "x" %>
+                  <%= octicon 'x', height: 14 %>
                 </button>
               <% end %>
             </div>
           </div>
-        </li>
-      <% end %>
-    </ul>
-  <% end %>
-</div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</article>

@@ -1,194 +1,310 @@
-<h1><%= @page_title %></h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  'Users',
+  [@settings_user.display_name, @settings_user.path],
+  'Settings'
+] %>
 
 <% is_own_settings = @settings_user == @current_user %>
 
-<h2>Profile</h2>
-<h3>Image</h3>
-Click image to upload a new image.<br/>
-<%= render 'shared/profile_image_upload', resource: @settings_user, size: 64 %>
-<%= form_with url: "#{@settings_user.path}/settings/profile" do |form| %>
-  <h3>Name</h3>
-  <div style="margin-bottom:8px;">
-    <%= form.text_field :name, value: @settings_user.name, placeholder: 'Name' %>
-  </div>
-  <h3>Handle</h3>
-  <div style="margin-bottom:8px;">
-    <%= form.text_field :new_handle, value: @settings_user.handle, placeholder: 'handle' %>
-  </div>
-  <%= form.submit 'Update' %>
-<% end %>
-
-<% if is_own_settings %>
-  <h2>UI Version</h2>
-  <p>Choose which version of the user interface to use.</p>
-  <div style="display:flex; gap:12px; margin-top:8px;">
-    <%= form_with url: "#{@settings_user.path}/settings/ui_version", method: :post, style: "display:inline;" do |form| %>
-      <%= form.hidden_field :ui_version, value: "v1" %>
-      <%= form.submit "v1 (Classic)", class: @settings_user.ui_version == "v1" ? "button-primary" : "button", disabled: @settings_user.ui_version == "v1" %>
-    <% end %>
-    <%= form_with url: "#{@settings_user.path}/settings/ui_version", method: :post, style: "display:inline;" do |form| %>
-      <%= form.hidden_field :ui_version, value: "v2" %>
-      <%= form.submit "v2 (Beta)", class: @settings_user.ui_version == "v2" ? "button-primary" : "button", disabled: @settings_user.ui_version == "v2" %>
-    <% end %>
-  </div>
-  <% if @settings_user.ui_version == "v2" %>
-    <p style="margin-top:8px; color:var(--color-fg-muted);"><em>You're using the beta version of the new UI. Refresh the page after switching to see changes.</em></p>
-  <% end %>
-
-  <% if @settings_user.external_oauth_identities.any? %>
-    <h2>Connected Accounts</h2>
-    <ul>
-    <% @settings_user.external_oauth_identities.each do |identity| %>
-      <li>
-        <%= identity.provider.titleize %> (<a href="<%= identity.url %>"><%= identity.username %></a>)
-        Connected <%= time_ago_in_words(identity.created_at) %> ago
-      </li>
-    <% end %>
-    </ul>
-  <% end %>
-<% end %>
-
-<% if @current_tenant.api_enabled? %>
-  <h2>API Tokens</h2>
-  <p>API tokens are used to authenticate with the API. Actions taken through the API using these tokens are attributed to <%= @settings_user.name %>.</p>
-  <% if @settings_user.api_tokens.any? %>
-    <table>
-      <tr>
-        <th>Name</th>
-        <th>Token</th>
-        <th>Created</th>
-        <th>Last Used</th>
-        <th>Expires</th>
-        <th>Active</th>
-        <th>View</th>
-      </tr>
-      <% @settings_user.api_tokens.each do |token| %>
-        <tr>
-          <td><%= token.name || 'Unnamed' %></td>
-          <td>
-            <code><%= token.obfuscated_token %></code>
-            <%= render 'shared/copy_button', text: token.token %>
-          </td>
-          <td><%= timeago(token.created_at) %></td>
-          <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
-          <td><%= timeago(token.expires_at) %></td>
-          <td><%= token.active? ? 'Yes' : 'No' %></td>
-          <td><%= link_to 'View', token.path %></td>
-        </tr>
+<article class="pulse-user-profile">
+  <header class="pulse-user-header">
+    <div class="pulse-user-avatar-large">
+      <img src="<%= @settings_user.image_url %>" alt="<%= @settings_user.display_name %>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+    </div>
+    <div class="pulse-user-info">
+      <h1 class="pulse-user-name"><%= @settings_user.display_name %></h1>
+      <p class="pulse-user-handle">@<%= @settings_user.handle %></p>
+      <% if @settings_user.subagent? %>
+        <span class="pulse-badge" title="This is a subagent managed by <%= @settings_user.parent&.display_name %>">subagent</span>
       <% end %>
-    </table>
+    </div>
+    <div class="pulse-user-actions">
+      <a href="<%= @settings_user.path %>" class="pulse-action-btn">
+        <%= octicon 'person', height: 14 %>
+        View Profile
+      </a>
+    </div>
+  </header>
+
+  <%# Profile Section %>
+  <%= render 'shared/pulse_accordion', title: 'Profile', open: true do %>
+    <%# Profile image upload has its own form so must be outside the main profile form %>
+    <div class="pulse-form-section">
+      <label class="pulse-form-label">Profile Image</label>
+      <p class="pulse-form-hint">Click the image to upload a new one</p>
+      <%= render 'shared/profile_image_upload', resource: @settings_user, size: 64 %>
+    </div>
+
+    <%= form_with url: "#{@settings_user.path}/settings/profile", class: 'pulse-form' do |form| %>
+      <div class="pulse-form-section">
+        <label class="pulse-form-label" for="name">Display Name</label>
+        <%= form.text_field :name, value: @settings_user.name, placeholder: 'Your name', class: 'pulse-input' %>
+      </div>
+
+      <div class="pulse-form-section">
+        <label class="pulse-form-label" for="new_handle">Handle</label>
+        <div class="pulse-input-prefix-wrapper">
+          <span class="pulse-input-prefix">@</span>
+          <%= form.text_field :new_handle, value: @settings_user.handle, placeholder: 'handle', class: 'pulse-input pulse-input-with-prefix' %>
+        </div>
+        <p class="pulse-form-hint">This is your unique identifier used in URLs and mentions</p>
+      </div>
+
+      <div class="pulse-form-actions">
+        <%= form.submit 'Save Changes', class: 'pulse-action-btn-primary' %>
+      </div>
+    <% end %>
   <% end %>
-  <%= button_to 'Create API Token', "#{@settings_user.path}/settings/tokens/new", method: :get, class: 'button' %>
 
-  <h2>Webhooks</h2>
-  <p>Webhooks allow you to receive notifications at an external URL when events occur.</p>
-  <%= link_to 'Manage Webhooks', "#{@settings_user.path}/settings/webhooks", class: 'button' %>
+  <% if is_own_settings %>
+    <%# UI Version Section %>
+    <%= render 'shared/pulse_accordion', title: 'Interface' do %>
+      <div class="pulse-form-section">
+        <label class="pulse-form-label">UI Version</label>
+        <p class="pulse-form-hint">Choose which version of the user interface to use</p>
+        <div class="pulse-button-group">
+          <%= form_with url: "#{@settings_user.path}/settings/ui_version", method: :post, style: "display:inline;" do |form| %>
+            <%= form.hidden_field :ui_version, value: "v1" %>
+            <%= form.submit "v1 (Classic)", class: @settings_user.ui_version == "v1" ? "pulse-action-btn-primary" : "pulse-action-btn", disabled: @settings_user.ui_version == "v1" %>
+          <% end %>
+          <%= form_with url: "#{@settings_user.path}/settings/ui_version", method: :post, style: "display:inline;" do |form| %>
+            <%= form.hidden_field :ui_version, value: "v2" %>
+            <%= form.submit "v2 (Beta)", class: @settings_user.ui_version == "v2" ? "pulse-action-btn-primary" : "pulse-action-btn", disabled: @settings_user.ui_version == "v2" %>
+          <% end %>
+        </div>
+        <% if @settings_user.ui_version == "v2" %>
+          <p class="pulse-form-hint" style="margin-top:12px;"><em>You're using the beta version of the new UI. Refresh the page after switching to see changes.</em></p>
+        <% end %>
+      </div>
+    <% end %>
 
-  <% if @settings_user.person? && is_own_settings %>
-    <h2>Subagents</h2>
-    <p>
-      Subagents are virtual identities that you manage.
-      These identities can be associated with AI agents and other automated systems that interact with the app through the API.
-      You can also impersonate subagents for testing and inspection purposes.
-    </p>
-    <% if @subagents.any? %>
-      <% @subagents.each do |subagent| %>
-        <% active_superagent_members = subagent.superagent_members.reject(&:archived?) %>
-        <% all_subagent_studios = active_superagent_members.map(&:superagent) %>
-        <% subagent_studios = all_subagent_studios.reject { |s| s == @current_tenant.main_superagent } %>
-        <% available_studios = (@invitable_studios - all_subagent_studios).reject { |s| s == @current_tenant.main_superagent } %>
-        <div class="subagent-card" data-controller="subagent-superagent-adder" data-subagent-superagent-adder-remove-url-value="<%= subagent.path %>/remove_from_studio">
-          <div class="subagent-card-image">
-            <img src="<%= subagent.image_url %>" alt="<%= subagent.name %>">
-          </div>
-          <div class="subagent-card-content">
-            <h3>
-              <%= link_to subagent.name, subagent.path %>
-              <% if subagent.archived? %>
-                <span class="role-badge">Archived</span>
-              <% end %>
-              &bull; <small><%= link_to 'Settings', "#{subagent.path}/settings" %></small>
-            </h3>
-            <p class="subagent-meta">
-              Created <%= timeago(subagent.created_at) %>
-              <% unless subagent.archived? %>
-                &bull; <%= button_to 'Impersonate', "#{subagent.path}/impersonate", method: :post, class: 'button-small' %>
-              <% end %>
-            </p>
-
-            <h4>Studio Memberships</h4>
-            <ul class="studio-membership-list" data-subagent-superagent-adder-target="superagentList">
-              <% if subagent_studios.any? %>
-                <% subagent_studios.each do |s| %>
-                  <li class="studio-item" data-superagent-id="<%= s.id %>">
-                    <%= link_to s.name, s.path %>
-                    <button type="button" class="button-small button-danger"
-                            data-action="subagent-superagent-adder#remove"
-                            data-superagent-id="<%= s.id %>"
-                            data-superagent-name="<%= s.name %>">
-                      Remove from studio
-                    </button>
-                  </li>
-                <% end %>
-              <% else %>
-                <li class="none-message"><em>Not a member of any studios</em></li>
-              <% end %>
-            </ul>
-
-            <% if !subagent.archived? %>
-              <form data-subagent-superagent-adder-target="form" data-action="submit->subagent-superagent-adder#add" action="<%= subagent.path %>/add_to_studio" method="post" class="add-to-studio-form" style="<%= available_studios.empty? ? 'display:none;' : '' %>">
-                <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
-                <select name="superagent_id" data-subagent-superagent-adder-target="select">
-                  <option value="">Add to studio...</option>
-                  <% available_studios.each do |s| %>
-                    <option value="<%= s.id %>"><%= s.name %></option>
-                  <% end %>
-                </select>
-                <button type="submit" class="button-small">Add</button>
-              </form>
-            <% end %>
-          </div>
+    <% if @settings_user.external_oauth_identities.any? %>
+      <%# Connected Accounts Section %>
+      <%= render 'shared/pulse_accordion', title: 'Connected Accounts', count: @settings_user.external_oauth_identities.count do %>
+        <div class="pulse-connected-accounts-list">
+          <% @settings_user.external_oauth_identities.each do |identity| %>
+            <div class="pulse-connected-account-item">
+              <div class="pulse-connected-account-info">
+                <span class="pulse-connected-account-provider"><%= identity.provider.titleize %></span>
+                <a href="<%= identity.url %>" class="pulse-connected-account-username">@<%= identity.username %></a>
+              </div>
+              <span class="pulse-connected-account-date">Connected <%= time_ago_in_words(identity.created_at) %> ago</span>
+            </div>
+          <% end %>
         </div>
       <% end %>
-      <%= button_to 'Create Subagent', "#{@settings_user.path}/settings/subagents/new", method: :get, class: 'button' %>
-      <h2>Subagent API Tokens</h2>
-      <p>Subagents have their own API tokens, which you as the owner are responsible for.</p>
-      <% @subagents.each do |subagent| %>
-        <% if subagent.api_tokens.any? %>
-          <h3><%= subagent.name %></h3>
-          <table>
-            <tr>
-              <th>Name</th>
-              <th>Token</th>
-              <th>Created</th>
-              <th>Last Used</th>
-              <th>Expires</th>
-              <th>Active</th>
-              <th>View</th>
-            </tr>
-            <% subagent.api_tokens.each do |token| %>
-              <tr>
-                <td><%= token.name || 'Unnamed' %></td>
-                <td>
-                  <code><%= token.obfuscated_token %></code>
-                  <%= render 'shared/copy_button', text: token.token %>
-                </td>
-                <td><%= timeago(token.created_at) %></td>
-                <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
-                <td><%= timeago(token.expires_at) %></td>
-                <td><%= token.active? ? 'Yes' : 'No' %></td>
-                <td><%= link_to 'View', token.path %></td>
-              </tr>
-            <% end %>
-          </table>
-        <% else %>
-          <h3><%= subagent.name %></h3>
-          <p><%= subagent.name %> has no API tokens.</p>
-        <% end %>
-        <%= button_to "Create API Token for #{subagent.name}", "#{subagent.path}/settings/tokens/new", method: :get, class: 'button' %>
-      <% end %>
-    <% else %>
-      <%= button_to 'Create Subagent', "#{@settings_user.path}/settings/subagents/new", method: :get, class: 'button' %>
     <% end %>
   <% end %>
-<% end %>
+
+  <% if @current_tenant.api_enabled? %>
+    <%# API Tokens Section %>
+    <%= render 'shared/pulse_accordion', title: 'API Tokens', count: @settings_user.api_tokens.count do %>
+      <p class="pulse-form-hint" style="margin-bottom:16px;">
+        API tokens authenticate requests to the API. Actions taken through the API using these tokens are attributed to <%= @settings_user.name %>.
+      </p>
+      <% if @settings_user.api_tokens.any? %>
+        <div class="pulse-table-wrapper">
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Token</th>
+                <th>Created</th>
+                <th>Last Used</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @settings_user.api_tokens.each do |token| %>
+                <tr>
+                  <td><%= token.name || 'Unnamed' %></td>
+                  <td>
+                    <code class="pulse-code"><%= token.obfuscated_token %></code>
+                    <%= render 'shared/copy_button', text: token.token %>
+                  </td>
+                  <td><%= timeago(token.created_at) %></td>
+                  <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
+                  <td><%= timeago(token.expires_at) %></td>
+                  <td>
+                    <% if token.active? %>
+                      <span class="pulse-badge pulse-badge-success">Active</span>
+                    <% else %>
+                      <span class="pulse-badge pulse-badge-muted">Inactive</span>
+                    <% end %>
+                  </td>
+                  <td><a href="<%= token.path %>" class="pulse-link">View</a></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+      <div class="pulse-form-actions" style="margin-top:16px;">
+        <a href="<%= @settings_user.path %>/settings/tokens/new" class="pulse-action-btn">
+          <%= octicon 'key', height: 14 %>
+          Create API Token
+        </a>
+      </div>
+    <% end %>
+
+    <%# Webhooks Section %>
+    <%= render 'shared/pulse_accordion', title: 'Webhooks' do %>
+      <p class="pulse-form-hint" style="margin-bottom:16px;">
+        Webhooks allow you to receive notifications at an external URL when events occur.
+      </p>
+      <div class="pulse-form-actions">
+        <a href="<%= @settings_user.path %>/settings/webhooks" class="pulse-action-btn">
+          <%= octicon 'webhook', height: 14 %>
+          Manage Webhooks
+        </a>
+      </div>
+    <% end %>
+
+    <% if @settings_user.person? && is_own_settings %>
+      <%# Subagents Section %>
+      <%= render 'shared/pulse_accordion', title: 'Subagents', count: @subagents.count do %>
+        <p class="pulse-form-hint" style="margin-bottom:16px;">
+          Subagents are virtual identities that you manage. These identities can be associated with AI agents and other automated systems that interact with the app through the API.
+        </p>
+
+        <% if @subagents.any? %>
+          <div class="pulse-subagents-list">
+            <% @subagents.each do |subagent| %>
+              <% active_superagent_members = subagent.superagent_members.reject(&:archived?) %>
+              <% all_subagent_studios = active_superagent_members.map(&:superagent) %>
+              <% subagent_studios = all_subagent_studios.reject { |s| s == @current_tenant.main_superagent } %>
+              <% available_studios = (@invitable_studios - all_subagent_studios).reject { |s| s == @current_tenant.main_superagent } %>
+
+              <div class="pulse-subagent-card" data-controller="subagent-superagent-adder" data-subagent-superagent-adder-remove-url-value="<%= subagent.path %>/remove_from_studio">
+                <div class="pulse-subagent-header">
+                  <img src="<%= subagent.image_url %>" alt="<%= subagent.name %>" class="pulse-subagent-avatar">
+                  <div class="pulse-subagent-info">
+                    <div class="pulse-subagent-name">
+                      <a href="<%= subagent.path %>"><%= subagent.name %></a>
+                      <% if subagent.archived? %>
+                        <span class="pulse-badge pulse-badge-muted">Archived</span>
+                      <% end %>
+                    </div>
+                    <span class="pulse-subagent-meta">Created <%= timeago(subagent.created_at) %></span>
+                  </div>
+                  <div class="pulse-subagent-actions">
+                    <% unless subagent.archived? %>
+                      <%= button_to 'Impersonate', "#{subagent.path}/impersonate", method: :post, class: 'pulse-action-btn-small' %>
+                    <% end %>
+                    <a href="<%= subagent.path %>/settings" class="pulse-action-btn-small">Settings</a>
+                  </div>
+                </div>
+
+                <div class="pulse-subagent-studios">
+                  <label class="pulse-form-label">Studio Memberships</label>
+                  <ul class="pulse-studio-membership-list" data-subagent-superagent-adder-target="superagentList">
+                    <% if subagent_studios.any? %>
+                      <% subagent_studios.each do |s| %>
+                        <li class="pulse-studio-membership-item" data-superagent-id="<%= s.id %>">
+                          <a href="<%= s.path %>"><%= s.name %></a>
+                          <button type="button" class="pulse-action-btn-small pulse-action-btn-danger"
+                                  data-action="subagent-superagent-adder#remove"
+                                  data-superagent-id="<%= s.id %>"
+                                  data-superagent-name="<%= s.name %>">
+                            Remove
+                          </button>
+                        </li>
+                      <% end %>
+                    <% else %>
+                      <li class="pulse-studio-membership-empty"><em>Not a member of any studios</em></li>
+                    <% end %>
+                  </ul>
+
+                  <% if !subagent.archived? && available_studios.any? %>
+                    <form data-subagent-superagent-adder-target="form" data-action="submit->subagent-superagent-adder#add" action="<%= subagent.path %>/add_to_studio" method="post" class="pulse-add-studio-form">
+                      <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+                      <select name="superagent_id" data-subagent-superagent-adder-target="select" class="pulse-select">
+                        <option value="">Add to studio...</option>
+                        <% available_studios.each do |s| %>
+                          <option value="<%= s.id %>"><%= s.name %></option>
+                        <% end %>
+                      </select>
+                      <button type="submit" class="pulse-action-btn-small">Add</button>
+                    </form>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <div class="pulse-form-actions" style="margin-top:16px;">
+          <a href="<%= @settings_user.path %>/settings/subagents/new" class="pulse-action-btn">
+            <%= octicon 'person-add', height: 14 %>
+            Create Subagent
+          </a>
+        </div>
+      <% end %>
+
+      <% if @subagents.any? %>
+        <%# Subagent API Tokens Section %>
+        <%= render 'shared/pulse_accordion', title: 'Subagent API Tokens' do %>
+          <p class="pulse-form-hint" style="margin-bottom:16px;">
+            Subagents have their own API tokens, which you as the owner are responsible for.
+          </p>
+
+          <% @subagents.each do |subagent| %>
+            <div class="pulse-subagent-tokens-section">
+              <h4 class="pulse-subsection-title"><%= subagent.name %></h4>
+              <% if subagent.api_tokens.any? %>
+                <div class="pulse-table-wrapper">
+                  <table class="pulse-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Token</th>
+                        <th>Created</th>
+                        <th>Last Used</th>
+                        <th>Expires</th>
+                        <th>Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% subagent.api_tokens.each do |token| %>
+                        <tr>
+                          <td><%= token.name || 'Unnamed' %></td>
+                          <td>
+                            <code class="pulse-code"><%= token.obfuscated_token %></code>
+                            <%= render 'shared/copy_button', text: token.token %>
+                          </td>
+                          <td><%= timeago(token.created_at) %></td>
+                          <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
+                          <td><%= timeago(token.expires_at) %></td>
+                          <td>
+                            <% if token.active? %>
+                              <span class="pulse-badge pulse-badge-success">Active</span>
+                            <% else %>
+                              <span class="pulse-badge pulse-badge-muted">Inactive</span>
+                            <% end %>
+                          </td>
+                          <td><a href="<%= token.path %>" class="pulse-link">View</a></td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+              <% else %>
+                <p class="pulse-form-hint"><%= subagent.name %> has no API tokens.</p>
+              <% end %>
+              <div class="pulse-form-actions" style="margin-top:12px;">
+                <a href="<%= subagent.path %>/settings/tokens/new" class="pulse-action-btn-small">
+                  <%= octicon 'key', height: 12 %>
+                  Create Token
+                </a>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+</article>

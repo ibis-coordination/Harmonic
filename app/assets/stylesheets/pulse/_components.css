@@ -1998,3 +1998,433 @@ a.pulse-activity-title:hover {
   font-size: 12px;
   color: var(--color-fg-muted);
 }
+
+/* Input with prefix (e.g., @ for handles) */
+.pulse-input-prefix-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.pulse-input-prefix {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-fg-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.pulse-input-with-prefix {
+  padding-left: 28px;
+}
+
+/* Button Group */
+.pulse-button-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Connected Accounts */
+.pulse-connected-accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pulse-connected-account-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 0;
+}
+
+.pulse-connected-account-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-connected-account-provider {
+  font-weight: 600;
+}
+
+.pulse-connected-account-username {
+  color: var(--color-accent-fg);
+}
+
+.pulse-connected-account-date {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+/* Code inline */
+.pulse-code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  padding: 2px 6px;
+  background: var(--color-canvas-subtle);
+  border-radius: 4px;
+}
+
+/* Link */
+.pulse-link {
+  color: var(--color-accent-fg);
+  text-decoration: none;
+}
+
+.pulse-link:hover {
+  text-decoration: underline;
+}
+
+/* Table Wrapper */
+.pulse-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+
+/* Badge Variants */
+.pulse-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pulse-badge-success {
+  background: var(--color-success-subtle);
+  color: var(--color-success-fg);
+}
+
+.pulse-badge-muted {
+  background: var(--color-canvas-subtle);
+  color: var(--color-fg-muted);
+}
+
+/* Subagent Cards */
+.pulse-subagents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pulse-subagent-card {
+  border: 1px solid var(--color-border-default);
+  padding: 16px;
+}
+
+.pulse-subagent-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.pulse-subagent-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pulse-subagent-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pulse-subagent-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.pulse-subagent-name a {
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-subagent-name a:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-subagent-meta {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-subagent-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pulse-subagent-studios {
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.pulse-studio-membership-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 12px 0;
+}
+
+.pulse-studio-membership-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+.pulse-studio-membership-item:last-child {
+  border-bottom: none;
+}
+
+.pulse-studio-membership-item a {
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-studio-membership-item a:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-studio-membership-empty {
+  padding: 8px 0;
+  color: var(--color-fg-muted);
+}
+
+.pulse-add-studio-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.pulse-select {
+  padding: 6px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  min-width: 150px;
+}
+
+.pulse-select:focus {
+  outline: none;
+  border-color: var(--color-accent-fg);
+}
+
+/* Small Action Buttons */
+.pulse-action-btn-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-action-btn-small:hover {
+  background: var(--color-canvas-subtle);
+  text-decoration: none;
+}
+
+.pulse-action-btn-danger {
+  color: var(--color-danger-fg);
+  border-color: var(--color-danger-fg);
+}
+
+.pulse-action-btn-danger:hover {
+  background: var(--color-danger-subtle);
+}
+
+/* Subagent Tokens Section */
+.pulse-subagent-tokens-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-subagent-tokens-section:last-child {
+  border-bottom: none;
+}
+
+/* Scheduled Reminders */
+.pulse-scheduled-reminders {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-scheduled-reminders h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pulse-reminder-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pulse-reminder-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+.pulse-reminder-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.pulse-reminder-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.pulse-reminder-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.pulse-reminder-body {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin: 4px 0;
+}
+
+.pulse-reminder-time {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pulse-reminder-actions {
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+/* Empty state for notifications */
+.pulse-notifications-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-notifications-empty p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Notification summary bar */
+.pulse-notifications-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-notifications-count {
+  font-size: 14px;
+}
+
+.pulse-notifications-count strong {
+  font-weight: 600;
+}
+
+/* User Profile Extra Elements */
+.pulse-user-parent-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.pulse-user-parent-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-user-parent-link:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-user-subagent-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin-bottom: 16px;
+}
+
+.pulse-user-subagent-count .octicon {
+  fill: currentColor;
+}
+
+/* Page Title (for standalone pages like notifications) */
+.pulse-page-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pulse-page-title .octicon {
+  fill: currentColor;
+}
+
+/* Icon-only Button */
+.pulse-action-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-action-btn-icon:hover {
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-action-btn-icon .octicon {
+  fill: currentColor;
+}

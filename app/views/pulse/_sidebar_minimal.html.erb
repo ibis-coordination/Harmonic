@@ -1,50 +1,9 @@
 <%# Minimal sidebar variant - for User and Admin pages %>
-<%# Shows only navigation links %>
+<%# Shows only a link back to home %>
 <aside class="pulse-sidebar" data-mode="minimal">
-  <% if @current_user %>
-    <div class="pulse-studio-info">
-      <div class="pulse-studio-info-row">
-        <% if @current_user.profile_picture.attached? %>
-          <img src="<%= rails_blob_path(@current_user.profile_picture, only_path: true) %>" alt="<%= @current_user.display_name %>" class="pulse-studio-image">
-        <% else %>
-          <div class="pulse-studio-image pulse-avatar" style="width: 56px; height: 56px; font-size: 20px;">
-            <span class="pulse-avatar-initials"><%= @current_user.display_name.first.upcase %></span>
-          </div>
-        <% end %>
-        <div class="pulse-studio-info-text">
-          <div class="pulse-studio-name">
-            <%= @current_user.display_name %>
-          </div>
-          <div class="pulse-studio-meta">
-            <%= @current_user.username %>
-          </div>
-        </div>
-      </div>
-    </div>
-  <% end %>
-
   <div class="pulse-nav">
-    <a href="<%= @current_user&.path %>" class="pulse-nav-item<%= ' active' if controller_name == 'users' && action_name == 'show' %>">
-      <%= octicon 'person', height: 20 %> Profile
+    <a href="/" class="pulse-nav-item">
+      <%= octicon 'home', height: 20 %> Home
     </a>
-    <a href="<%= @current_user&.path %>/settings" class="pulse-nav-item<%= ' active' if controller_name == 'users' && action_name == 'settings' %>">
-      <%= octicon 'gear', height: 20 %> Settings
-    </a>
-    <a href="<%= @current_user&.path %>/notifications" class="pulse-nav-item<%= ' active' if controller_name == 'users' && action_name == 'notifications' %>">
-      <%= octicon 'bell', height: 20 %> Notifications
-    </a>
-  </div>
-
-  <div class="pulse-links-section">
-    <div class="pulse-section-label">Studios</div>
-    <ul class="pulse-links-list">
-      <% @current_user&.studios&.limit(5)&.each do |studio| %>
-        <li>
-          <a href="<%= studio.path %>">
-            <%= octicon 'organization', height: 14 %> <%= studio.name %>
-          </a>
-        </li>
-      <% end %>
-    </ul>
   </div>
 </aside>

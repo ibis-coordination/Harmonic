@@ -60,7 +60,7 @@
         <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
       </div>
     <% end %>
-    <%# Sidebar modes: full (default), resource, minimal, none %>
+    <%# Sidebar modes: full (default), resource, minimal, settings, none %>
     <% sidebar_mode = @sidebar_mode || 'full' %>
     <% is_dev_mockup = controller_name == 'dev' %>
     <div class="pulse-container<%= ' no-sidebar' if sidebar_mode == 'none' %>" data-controller="pulse-filter">

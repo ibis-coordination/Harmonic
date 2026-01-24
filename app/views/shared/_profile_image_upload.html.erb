@@ -1,32 +1,49 @@
 <link rel="stylesheet" href="<%= asset_path 'image_cropper.css' %>">
 <% size ||= 64 %>
 
-<div class="profile-image-upload">
-  <div class="profile-image-container" id="profile-image-container">
-    <img src="<%= resource.image_url %>" id="profile-image" alt="<%= resource.respond_to?(:name) ? resource.name : 'Profile' %> image">
-    <div class="profile-image-overlay">
-      <span class="profile-image-overlay-text">Change Image</span>
+<div data-controller="image-cropper">
+  <div class="profile-image-upload">
+    <div class="profile-image-container"
+         data-image-cropper-target="container"
+         data-action="click->image-cropper#openFilePicker">
+      <img src="<%= resource.image_url %>"
+           data-image-cropper-target="image"
+           alt="<%= resource.respond_to?(:name) ? resource.name : 'Profile' %> image">
+      <div class="profile-image-overlay">
+        <span class="profile-image-overlay-text">Change Image</span>
+      </div>
     </div>
   </div>
-</div>
 
-<%= form_with url: "#{resource.path}/image", method: :patch, local: true, html: { multipart: true, id: 'profile-image-form' } do |form| %>
-  <%= form.file_field :profile_image, style: 'display: none;', id: 'profile-image-input', accept: 'image/*' %>
-  <%= form.hidden_field :cropped_image_data, id: 'cropped-image-data' %>
-<% end %>
+  <%= form_with url: "#{resource.path}/image", method: :patch, local: true, html: { multipart: true, data: { image_cropper_target: 'form' } } do |form| %>
+    <%= form.file_field :profile_image,
+        style: 'display: none;',
+        accept: 'image/*',
+        data: { image_cropper_target: 'input', action: 'change->image-cropper#handleFileSelect' } %>
+    <%= form.hidden_field :cropped_image_data, data: { image_cropper_target: 'croppedData' } %>
+  <% end %>
 
-<!-- Modal for cropping the image -->
-<div id="cropper-modal" class="cropper-modal-overlay">
-  <div class="cropper-modal-content">
-    <div class="cropper-modal-header">
-      <h3>Crop Image</h3>
-      <button type="button" id="cropper-cancel" class="cropper-cancel-btn">&times;</button>
-    </div>
-    <div class="cropper-modal-body">
-      <img id="cropper-image" src="" alt="Crop preview">
-    </div>
-    <div class="cropper-modal-footer">
-      <button type="button" id="crop-button" class="pulse-action-btn">Save Image</button>
+  <!-- Modal for cropping the image -->
+  <div data-image-cropper-target="modal"
+       data-action="click->image-cropper#closeOnOverlay"
+       class="cropper-modal-overlay">
+    <div class="cropper-modal-content">
+      <div class="cropper-modal-header">
+        <h3>Crop Image</h3>
+        <button type="button"
+                data-image-cropper-target="cancelButton"
+                data-action="click->image-cropper#cancel"
+                class="cropper-cancel-btn">&times;</button>
+      </div>
+      <div class="cropper-modal-body">
+        <img data-image-cropper-target="cropperImage" src="" alt="Crop preview">
+      </div>
+      <div class="cropper-modal-footer">
+        <button type="button"
+                data-image-cropper-target="cropButton"
+                data-action="click->image-cropper#crop"
+                class="pulse-action-btn">Save Image</button>
+      </div>
     </div>
   </div>
 </div>
@@ -55,7 +72,7 @@
     opacity: 1;
   }
 
-  #profile-image {
+  .profile-image-container img {
     width: 100%;
     height: 100%;
     object-fit: cover;

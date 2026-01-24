@@ -1,9 +1,11 @@
 # typed: false
 
 class NotificationsController < ApplicationController
+  layout 'pulse', only: [:index, :new]
   before_action :require_user
 
   def index
+    @sidebar_mode = 'minimal'
     # Show immediate notifications and due reminders (not future scheduled)
     @notification_recipients = NotificationRecipient
       .where(user: current_user)
@@ -22,6 +24,7 @@ class NotificationsController < ApplicationController
   end
 
   def new
+    @sidebar_mode = 'minimal'
     @page_title = "New Reminder"
   end
 

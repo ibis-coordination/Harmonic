@@ -1,6 +1,8 @@
 # typed: false
 
 class UsersController < ApplicationController
+  layout 'pulse', only: [:show, :settings]
+
   def index
     @users = current_tenant.tenant_users
   end
@@ -16,6 +18,7 @@ class UsersController < ApplicationController
   end
 
   def show
+    @sidebar_mode = 'minimal'
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404' if tu.nil?
     @showing_user = tu.user
@@ -49,6 +52,7 @@ class UsersController < ApplicationController
   end
 
   def settings
+    @sidebar_mode = 'minimal'
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404', status: 404 if tu.nil?
     @settings_user = tu.user

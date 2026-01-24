@@ -1,7 +1,8 @@
 // depends on image_cropper.css
 import Cropper from "cropperjs"
 
-document.addEventListener("DOMContentLoaded", function () {
+// Use turbo:load to handle both initial page load and Turbo navigations
+document.addEventListener("turbo:load", function () {
   // Support both new container-based UI and legacy image-only UI
   const profileImageContainer = document.getElementById("profile-image-container")
   const profileImage = document.getElementById("profile-image")

@@ -23,6 +23,7 @@ import FormTrackerController from "./form_tracker_controller"
 import DecisionVotersController from "./decision_voters_controller"
 import HeartbeatController from "./heartbeat_controller"
 import HelloController from "./hello_controller"
+import ImageCropperController from "./image_cropper_controller"
 import LogoutController from "./logout_controller"
 import MentionAutocompleteController from "./mention_autocomplete_controller"
 import MetricController from "./metric_controller"
@@ -57,6 +58,7 @@ application.register("form-tracker", FormTrackerController)
 application.register("decision-voters", DecisionVotersController)
 application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)
+application.register("image-cropper", ImageCropperController)
 application.register("logout", LogoutController)
 application.register("mention-autocomplete", MentionAutocompleteController)
 application.register("metric", MetricController)
