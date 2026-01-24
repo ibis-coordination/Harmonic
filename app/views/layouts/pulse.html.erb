@@ -19,11 +19,56 @@
     <div id="expanding-heart">
       <%= octicon 'heart' %>
     </div>
+    <header class="pulse-top-header">
+      <a href="/" class="pulse-logo">
+        <img src="/tri-logo.svg" alt="Harmonic">
+        <span>Harmonic</span>
+      </a>
+      <div class="pulse-top-header-right">
+        <%= yield :header_actions %>
+        <% unless @current_representation_session %>
+          <%= render 'layouts/top_right_menu' %>
+        <% end %>
+      </div>
+    </header>
+    <% if notice || alert %>
+      <div class="pulse-flash-messages">
+        <% if notice %>
+          <div class="pulse-notice" data-pulse-flash>
+            <%= markdown_inline(notice) %>
+            <button type="button" class="pulse-dismiss-btn" onclick="this.parentElement.remove()">&times;</button>
+          </div>
+        <% end %>
+        <% if alert %>
+          <div class="pulse-alert" data-pulse-flash>
+            <%= markdown_inline(alert) %>
+            <button type="button" class="pulse-dismiss-btn" onclick="this.parentElement.remove()">&times;</button>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+    <% if @current_subagent_user %>
+      <div class="pulse-session-banner pulse-alert">
+        <span>Acting as subagent <%= @current_subagent_user.display_name %>.</span>
+        <%= button_to "End Session", "#{@current_subagent_user.path}/impersonate", method: :delete, class: "pulse-banner-btn" %>
+      </div>
+    <% end %>
+    <% if @current_representation_session %>
+      <div class="pulse-session-banner pulse-alert">
+        <span><%= @current_subagent_user ? "As #{@current_subagent_user.display_name}, y" : "Y" %>ou are acting as a representative of <%= @current_user.display_name %>.</span>
+        <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
+      </div>
+    <% end %>
     <div class="pulse-container" data-controller="pulse-filter">
       <%= render 'pulse/sidebar' %>
       <main class="pulse-main">
         <%= yield %>
       </main>
     </div>
+    <p class="pulse-motto-footer">
+      <a href="/motto">
+        Do the right thing. ❤️
+      </a>
+    </p>
   </body>
 </html>

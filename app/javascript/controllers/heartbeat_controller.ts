@@ -60,6 +60,7 @@ export default class HeartbeatController extends Controller {
         this.updateMessage(responseBody)
         this.showBlurred()
         this.updateSidebarHeartbeatCount(responseBody.other_heartbeats + 1)
+        this.enableCycleNavigation()
         this.showDismissButton()
       })
   }
@@ -116,5 +117,21 @@ export default class HeartbeatController extends Controller {
     if (countElement) {
       countElement.textContent = String(newCount)
     }
+  }
+
+  enableCycleNavigation(): void {
+    const disabledArrow = document.getElementById("pulse-prev-cycle-arrow")
+    if (!disabledArrow) return
+
+    const href = disabledArrow.dataset.href
+    if (!href) return
+
+    // Replace the disabled span with an enabled anchor
+    const anchor = document.createElement("a")
+    anchor.href = href
+    anchor.className = "pulse-cycle-nav-arrow"
+    anchor.title = "Previous cycle"
+    anchor.innerHTML = disabledArrow.innerHTML
+    disabledArrow.replaceWith(anchor)
   }
 }

@@ -1,0 +1,17 @@
+<% if @pinned_items.any? %>
+  <div class="pulse-pinned-section">
+    <div class="pulse-section-label">
+      <%= octicon 'pin', height: 12 %> Pinned
+    </div>
+    <ul class="pulse-pinned-list">
+      <% @pinned_items.each do |pinned| %>
+        <li>
+          <a href="<%= pinned[:item].path %>">
+            <img src="/resource-icons/<%= pinned[:item].class.name.downcase %>-icon.svg" alt="" class="pulse-pinned-icon">
+            <%= truncate(pinned[:item].title.presence || pinned[:item].body&.truncate(50), length: 40) %>
+          </a>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

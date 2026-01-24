@@ -5,10 +5,11 @@
   progress_percent = [(elapsed / total_duration * 100).to_i, 100].min
   progress_percent = [progress_percent, 0].max
 
-  # Navigation
+  # Navigation - require heartbeat to view previous cycles
   prev_cycle_name = @cycle.previous_cycle
   next_cycle_name = @cycle.next_cycle
-  can_go_previous = prev_cycle_name && prev_cycle_name != @cycle.name
+  has_heartbeat = @current_heartbeat.present?
+  can_go_previous = has_heartbeat && prev_cycle_name && prev_cycle_name != @cycle.name
   can_go_next = next_cycle_name.present?
   pulse_path = "#{@current_superagent.path}/pulse"
 %>
@@ -20,6 +21,11 @@
       <a href="<%= pulse_path %>?cycle=<%= prev_cycle_name %>" class="pulse-cycle-nav-arrow" title="Previous cycle">
         <%= octicon 'chevron-left' %>
       </a>
+    <% elsif prev_cycle_name && prev_cycle_name != @cycle.name %>
+      <%# Disabled due to no heartbeat - include data-href so JS can enable it %>
+      <span id="pulse-prev-cycle-arrow" class="pulse-cycle-nav-arrow disabled" data-href="<%= pulse_path %>?cycle=<%= prev_cycle_name %>">
+        <%= octicon 'chevron-left' %>
+      </span>
     <% else %>
       <span class="pulse-cycle-nav-arrow disabled">
         <%= octicon 'chevron-left' %>

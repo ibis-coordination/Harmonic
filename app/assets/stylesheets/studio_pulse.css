@@ -15,6 +15,9 @@
   --pulse-color-accent-emphasis: #0969da;
   --pulse-color-attention-subtle: #fff8c5;
   --pulse-color-danger-fg: #cf222e;
+  --pulse-color-success-fg: #1a7f37;
+  --pulse-color-success-emphasis: #2da44e;
+  --pulse-color-success-subtle: rgba(46, 160, 67, 0.15);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +34,9 @@
     --pulse-color-accent-emphasis: #1f6feb;
     --pulse-color-attention-subtle: rgba(187,128,9,0.15);
     --pulse-color-danger-fg: #f85149;
+    --pulse-color-success-fg: #3fb950;
+    --pulse-color-success-emphasis: #238636;
+    --pulse-color-success-subtle: rgba(46, 160, 67, 0.15);
   }
 }
 
@@ -46,6 +52,9 @@ body {
   background: var(--pulse-color-canvas-default);
   color: var(--pulse-color-fg-default);
   line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 /* Tooltip (shared component) */
@@ -73,13 +82,13 @@ a:hover {
 /* Layout */
 .pulse-container {
   display: flex;
-  min-height: 100vh;
+  flex: 1;
 }
 
 /* Sidebar */
 .pulse-sidebar {
   width: 280px;
-  border-right: 1px solid var(--pulse-color-fg-default);
+  border-right: 1px solid var(--pulse-color-border-default);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -88,7 +97,7 @@ a:hover {
 
 .pulse-sidebar-header {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-fg-default);
+  border-bottom: 1px solid var(--pulse-color-border-default);
   display: flex;
   align-items: center;
   min-height: 76px;
@@ -116,13 +125,21 @@ a:hover {
 
 .pulse-studio-info {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-fg-default);
+  border-bottom: 1px solid var(--pulse-color-border-default);
 }
 
 .pulse-studio-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 20px;
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+.pulse-studio-name .pulse-visibility-icon .octicon {
+  width: 14px;
+  height: 14px;
 }
 
 .pulse-studio-meta {
@@ -133,7 +150,7 @@ a:hover {
 /* Cycle indicator */
 .pulse-cycle-box {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-fg-default);
+  border-bottom: 1px solid var(--pulse-color-border-default);
   background: var(--pulse-color-canvas-default);
 }
 
@@ -152,14 +169,13 @@ a:hover {
 
 .pulse-cycle-progress {
   height: 4px;
-  background: var(--pulse-color-fg-default);
+  background: var(--pulse-color-border-default);
   position: relative;
 }
 
 .pulse-cycle-progress-fill {
   height: 100%;
-  background: var(--pulse-color-canvas-default);
-  border: 1px solid var(--pulse-color-fg-default);
+  background: var(--pulse-color-success-emphasis);
 }
 
 .pulse-cycle-dates {
@@ -235,16 +251,34 @@ a:hover {
 /* Heartbeat status */
 .pulse-heartbeat-box {
   padding: 16px;
-  border-bottom: 1px solid var(--pulse-color-fg-default);
+  border-bottom: 1px solid var(--pulse-color-border-default);
+}
+
+.pulse-heartbeat-box .pulse-section-label {
+  margin-bottom: 8px;
 }
 
 .pulse-heartbeat-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   margin-bottom: 12px;
 }
 
 .pulse-heartbeat-count strong {
   font-size: 24px;
+}
+
+.pulse-heartbeat-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pulse-heartbeat-icon .octicon {
+  fill: red;
+  width: 18px;
+  height: 18px;
 }
 
 .pulse-heartbeat-avatars {
@@ -290,7 +324,7 @@ a:hover {
 /* Navigation */
 .pulse-nav {
   padding: 16px;
-  flex: 1;
+  border-bottom: 1px solid var(--pulse-color-border-default);
 }
 
 .pulse-nav-item {
@@ -338,15 +372,15 @@ a:hover {
   }
 }
 
-/* Sidebar footer */
-.pulse-sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid var(--pulse-color-fg-default);
+.pulse-nav-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--pulse-color-fg-muted);
 }
 
-.pulse-classic-link {
-  font-size: 13px;
-  color: var(--pulse-color-fg-muted);
+.pulse-nav-item:hover .pulse-nav-count,
+.pulse-nav-item.active .pulse-nav-count {
+  color: var(--pulse-color-canvas-default);
 }
 
 /* Main content */
@@ -357,22 +391,13 @@ a:hover {
   min-width: 0;
 }
 
-.pulse-main-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--pulse-color-fg-default);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-height: 76px;
-  box-sizing: border-box;
-}
-
 .pulse-page-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
+  margin: 0;
 }
 
 .pulse-visibility-icon {
@@ -390,8 +415,8 @@ a:hover {
 .pulse-action-btn {
   background: var(--pulse-color-fg-default);
   color: var(--pulse-color-canvas-default);
-  border: 1px solid var(--pulse-color-fg-default);
-  padding: 10px 20px;
+  border: 1px solid var(--pulse-color-border-default);
+  padding: 8px 16px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -455,13 +480,24 @@ a:hover {
 }
 
 .pulse-feed-item {
-  border: 1px solid var(--pulse-color-fg-default);
+  border: 1px solid var(--pulse-color-border-default);
   margin-bottom: 16px;
+  background: var(--pulse-color-canvas-default);
+}
+
+/* Status differentiation for decisions and commitments */
+.pulse-feed-item-closed {
+  opacity: 0.7;
+  border-color: var(--pulse-color-border-muted);
+}
+
+.pulse-feed-item-closed .pulse-feed-item-header {
+  background: var(--pulse-color-canvas-subtle);
 }
 
 .pulse-feed-item-header {
   padding: 12px 16px;
-  border-bottom: 1px solid var(--pulse-color-fg-default);
+  border-bottom: 1px solid var(--pulse-color-border-default);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -476,7 +512,8 @@ a:hover {
   letter-spacing: 0.5px;
 }
 
-.pulse-feed-item-type img {
+.pulse-feed-item-type img,
+.pulse-feed-item-type .octicon {
   width: 16px;
   height: 16px;
   object-fit: contain;
@@ -593,7 +630,7 @@ a:hover {
 
 .pulse-feed-item-footer {
   padding: 12px 16px;
-  border-top: 1px solid var(--pulse-color-fg-default);
+  border-top: 1px solid var(--pulse-color-border-default);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -617,7 +654,7 @@ a:hover {
   gap: 6px;
   cursor: pointer;
   padding: 8px 16px;
-  border: 1px solid var(--pulse-color-fg-default);
+  border: 1px solid var(--pulse-color-border-default);
   background: var(--pulse-color-fg-default);
   color: var(--pulse-color-canvas-default);
   text-decoration: none;
@@ -649,7 +686,7 @@ a:hover {
 .pulse-feed-action-btn-loading {
   background: var(--pulse-color-canvas-default);
   color: var(--pulse-color-fg-muted);
-  border-color: var(--pulse-color-fg-default);
+  border-color: var(--pulse-color-border-default);
   cursor: wait;
   position: relative;
 }
@@ -688,7 +725,7 @@ a:hover {
   gap: 6px;
   cursor: pointer;
   padding: 8px 16px;
-  border: 1px solid var(--pulse-color-fg-default);
+  border: 1px solid var(--pulse-color-border-default);
   background: var(--pulse-color-fg-default);
   color: var(--pulse-color-canvas-default);
   text-decoration: none;
@@ -751,12 +788,12 @@ a:hover {
 .pulse-progress-bar {
   height: 8px;
   background: var(--pulse-color-canvas-default);
-  border: 1px solid var(--pulse-color-fg-default);
+  border: 1px solid var(--pulse-color-border-default);
 }
 
 .pulse-progress-fill {
   height: 100%;
-  background: var(--pulse-color-fg-default);
+  background: var(--pulse-color-success-emphasis);
 }
 
 .pulse-progress-label {
@@ -819,7 +856,11 @@ a:hover {
   pointer-events: none;
 }
 
-.pulse-blur-if-no-heartbeat, #expanding-heart svg {
+.pulse-blur-if-no-heartbeat {
+  transition: filter 0.8s ease-out, opacity 0.8s ease-out;
+}
+
+#expanding-heart svg {
   transition: all 0.8s ease-out;
 }
 
@@ -858,25 +899,26 @@ a:hover {
   color: var(--pulse-color-fg-muted);
 }
 
-.pulse-heartbeat-section button {
-  background: none;
-  border: none;
-  color: var(--pulse-color-accent-fg);
+.pulse-heartbeat-btn {
+  background: var(--pulse-color-fg-default);
+  color: var(--pulse-color-canvas-default);
+  border: 1px solid var(--pulse-color-border-default);
   cursor: pointer;
-  font-size: inherit;
-  padding: 0;
-  text-decoration: underline;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 16px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-.pulse-heartbeat-section button:hover {
-  color: var(--pulse-color-accent-emphasis);
+.pulse-heartbeat-btn:hover {
+  background: var(--pulse-color-canvas-default);
+  color: var(--pulse-color-fg-default);
 }
 
-.pulse-heartbeat-section button .octicon {
-  fill: red;
+.pulse-heartbeat-btn .octicon {
+  fill: currentColor;
 }
 
 .pulse-heartbeat-section .pulse-heartbeat-full-heart {
@@ -910,6 +952,310 @@ a:hover {
   height: 12px;
 }
 
+/* Top Header Bar */
+.pulse-top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--pulse-color-border-default);
+  background: var(--pulse-color-canvas-default);
+  min-height: 56px;
+  box-sizing: border-box;
+}
+
+.pulse-top-header .pulse-logo {
+  font-size: 16px;
+}
+
+.pulse-top-header .pulse-logo img {
+  width: 28px;
+  height: 28px;
+}
+
+.pulse-top-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pulse-top-header-right .pulse-action-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.pulse-top-header-right .top-right-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Flash Messages */
+.pulse-flash-messages {
+  padding: 0;
+}
+
+.pulse-notice,
+.pulse-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.pulse-notice {
+  background: var(--pulse-color-canvas-subtle);
+  border-bottom: 1px solid var(--pulse-color-border-default);
+  color: var(--pulse-color-fg-default);
+}
+
+.pulse-alert {
+  background: var(--pulse-color-attention-subtle);
+  border-bottom: 1px solid var(--pulse-color-border-default);
+  color: var(--pulse-color-fg-default);
+}
+
+.pulse-dismiss-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--pulse-color-fg-muted);
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.pulse-dismiss-btn:hover {
+  color: var(--pulse-color-fg-default);
+}
+
+/* Session Banners */
+.pulse-session-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--pulse-color-attention-subtle);
+  border-bottom: 1px solid var(--pulse-color-border-default);
+  font-size: 14px;
+}
+
+.pulse-banner-btn {
+  background: var(--pulse-color-fg-default);
+  color: var(--pulse-color-canvas-default);
+  border: 1px solid var(--pulse-color-border-default);
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pulse-banner-btn:hover {
+  background: var(--pulse-color-canvas-default);
+  color: var(--pulse-color-fg-default);
+}
+
+/* Motto Footer */
+.pulse-motto-footer {
+  text-align: center;
+  padding: 16px;
+  margin: 0;
+  position: relative;
+}
+
+/* Continue sidebar border through footer */
+.pulse-motto-footer::before {
+  content: '';
+  position: absolute;
+  left: 279px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--pulse-color-border-default);
+}
+
+.pulse-motto-footer a {
+  text-decoration: none;
+  color: var(--pulse-color-fg-muted);
+}
+
+.pulse-motto-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Studio Info with Image */
+.pulse-studio-info-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-studio-image {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pulse-studio-info-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pulse-member-link {
+  color: var(--pulse-color-fg-muted);
+  text-decoration: none;
+}
+
+.pulse-member-link:hover {
+  color: var(--pulse-color-fg-default);
+  text-decoration: underline;
+}
+
+/* Breadcrumb */
+.pulse-breadcrumb {
+  font-size: 12px;
+  color: var(--pulse-color-fg-muted);
+  margin-bottom: 12px;
+}
+
+.pulse-breadcrumb a {
+  color: var(--pulse-color-fg-muted);
+}
+
+.pulse-breadcrumb a:hover {
+  color: var(--pulse-color-fg-default);
+}
+
+.pulse-breadcrumb-sep {
+  margin: 0 4px;
+  opacity: 0.5;
+}
+
+/* Pinned Items Section */
+.pulse-pinned-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--pulse-color-border-default);
+}
+
+.pulse-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--pulse-color-fg-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-section-label .octicon {
+  fill: currentColor;
+}
+
+.pulse-pinned-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-pinned-list li {
+  margin-bottom: 6px;
+}
+
+.pulse-pinned-list li:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-pinned-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--pulse-color-fg-default);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.pulse-pinned-list a:hover {
+  color: var(--pulse-color-accent-fg);
+}
+
+.pulse-pinned-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* Links Section (Settings, Explore, etc.) */
+.pulse-links-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--pulse-color-border-default);
+}
+
+.pulse-links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-links-list li {
+  margin-bottom: 4px;
+}
+
+.pulse-links-list li:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-links-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--pulse-color-fg-muted);
+  text-decoration: none;
+  padding: 6px 0;
+}
+
+.pulse-links-list a:hover {
+  color: var(--pulse-color-fg-default);
+}
+
+.pulse-links-list .octicon {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Invite Button */
+.pulse-invite-section {
+  margin-top: 12px;
+}
+
+.pulse-invite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: var(--pulse-color-fg-default);
+  color: var(--pulse-color-canvas-default);
+  border: 1px solid var(--pulse-color-border-default);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pulse-invite-btn:hover {
+  background: var(--pulse-color-canvas-default);
+  color: var(--pulse-color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-invite-btn .octicon {
+  fill: currentColor;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .pulse-container {
@@ -919,7 +1265,7 @@ a:hover {
   .pulse-sidebar {
     width: 100%;
     border-right: none;
-    border-bottom: 1px solid var(--pulse-color-fg-default);
+    border-bottom: 1px solid var(--pulse-color-border-default);
   }
 
   .pulse-nav {
@@ -937,7 +1283,21 @@ a:hover {
     padding: 16px;
   }
 
-  .pulse-main-header {
-    padding: 16px;
+  .pulse-top-header {
+    padding: 8px 12px;
+  }
+
+  .pulse-top-header-right .pulse-action-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .pulse-studio-image {
+    width: 48px;
+    height: 48px;
+  }
+
+  .pulse-motto-footer::before {
+    display: none;
   }
 }

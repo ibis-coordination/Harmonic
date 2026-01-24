@@ -4,8 +4,19 @@
   created_by = feed_item[:created_by]
   created_at = feed_item[:created_at]
 
+  # Check if this is a comment (note that is a reply)
+  is_comment = type == 'Note' && item.is_comment?
+
   type_lower = type.downcase
   icon_path = "/resource-icons/#{type_lower}-icon.svg"
+  display_type = is_comment ? 'Comment' : type
+
+  # Determine status for decisions and commitments
+  item_status = if type == 'Decision' || type == 'Commitment'
+    item.closed? ? 'closed' : 'open'
+  else
+    nil
+  end
 
   # Get the appropriate title and content based on item type
   item_title = case type
@@ -25,11 +36,15 @@
     true
   end
 %>
-<article class="pulse-feed-item" data-pulse-filter-target="feedItem" data-item-type="<%= type %>">
+<article class="pulse-feed-item<%= " pulse-feed-item-#{item_status}" if item_status %>" data-pulse-filter-target="feedItem" data-item-type="<%= type %>">
   <div class="pulse-feed-item-header">
     <div class="pulse-feed-item-type">
-      <img src="<%= icon_path %>" alt="">
-      <span><%= type %></span>
+      <% if is_comment %>
+        <%= octicon 'comment', height: 16 %>
+      <% else %>
+        <img src="<%= icon_path %>" alt="">
+      <% end %>
+      <span><%= display_type %></span>
     </div>
     <div class="pulse-feed-item-meta">
       <% if created_by %>

@@ -9,7 +9,8 @@ class PulseController < ApplicationController
   end
 
   def show
-    return render "shared/404", status: :not_found unless @current_superagent.superagent_type == "studio"
+    # Allow both studios and scenes
+    return render "shared/404", status: :not_found unless ["studio", "scene"].include?(@current_superagent.superagent_type)
 
     @page_title = "Pulse | #{@current_superagent.name}"
 
@@ -17,6 +18,12 @@ class PulseController < ApplicationController
     @cycle = cycle_from_param || current_cycle
     @default_cycle = current_cycle
     @is_viewing_current_cycle = @cycle.is_current_cycle?
+
+    # Require heartbeat to view past cycles
+    if @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil?
+      redirect_to "#{@current_superagent.path}/pulse", notice: "Send a heartbeat to view past cycles."
+      return
+    end
 
     # Content scoped to current cycle
     @unread_notes = @cycle.unread_notes(@current_user) if @current_user
@@ -33,6 +40,11 @@ class PulseController < ApplicationController
 
     # Build unified feed (sorted by created_at desc)
     build_unified_feed
+
+    # Counts for sidebar nav
+    @notes_count = @feed_items.count { |item| item[:type] == "Note" }
+    @decisions_count = @feed_items.count { |item| item[:type] == "Decision" }
+    @commitments_count = @feed_items.count { |item| item[:type] == "Commitment" }
   end
 
   private

@@ -1,18 +1,11 @@
-<header class="pulse-main-header">
-  <h1 class="pulse-page-title">
-    Activity
-    <% if @current_superagent.is_scene? %>
-      <span class="pulse-visibility-icon" title="Scene activity is publicly visible"><%= octicon 'eye' %></span>
-    <% else %>
-      <span class="pulse-visibility-icon" title="Studio activity is only visible to studio members"><%= octicon 'lock' %></span>
-    <% end %>
-  </h1>
+<% content_for :header_actions do %>
   <a href="<%= @current_superagent.path %>/note" class="pulse-action-btn">+ New</a>
-</header>
+<% end %>
 
 <% if @current_user && @current_heartbeat.nil? %>
   <div class="pulse-heartbeat-section" data-controller="heartbeat">
     <button
+      class="pulse-heartbeat-btn"
       data-heartbeat-target="sendButton"
       data-url="<%= @current_superagent.path %>/heartbeats"
     >

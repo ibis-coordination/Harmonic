@@ -1,7 +1,23 @@
 <div class="pulse-studio-info">
-  <div class="pulse-studio-name"><%= @current_superagent.name %></div>
-  <div class="pulse-studio-meta">
-    <%= @team.count %> <%= 'member'.pluralize(@team.count) %> &middot;
-    <%= @current_superagent.settings['invite_only'] ? 'Private' : 'Open' %> <%= @current_superagent.superagent_type.titleize %>
+  <div class="pulse-breadcrumb">
+    <a href="/"><%= @current_tenant.subdomain %></a>
+    <span class="pulse-breadcrumb-sep">/</span>
+    <span><%= @current_superagent.superagent_type.titleize %></span>
+  </div>
+  <div class="pulse-studio-info-row">
+    <img src="<%= @current_superagent.image_path %>" alt="<%= @current_superagent.name %>" class="pulse-studio-image">
+    <div class="pulse-studio-info-text">
+      <div class="pulse-studio-name">
+        <%= @current_superagent.name %>
+        <% if @current_superagent.is_scene? %>
+          <span class="pulse-visibility-icon" title="Scene activity is publicly visible"><%= octicon 'eye' %></span>
+        <% else %>
+          <span class="pulse-visibility-icon" title="Studio activity is only visible to studio members"><%= octicon 'lock' %></span>
+        <% end %>
+      </div>
+      <div class="pulse-studio-meta">
+        <a href="<%= @current_superagent.path %>/team" class="pulse-member-link"><%= @team.count %> <%= 'member'.pluralize(@team.count) %></a>
+      </div>
+    </div>
   </div>
 </div>

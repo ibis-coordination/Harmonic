@@ -4,8 +4,10 @@
   remaining_count = heartbeat_users.count - visible_users.count
 %>
 <div class="pulse-heartbeat-box" id="pulse-sidebar-heartbeats">
+  <div class="pulse-section-label">Heartbeats</div>
   <div class="pulse-heartbeat-count">
-    <strong id="pulse-heartbeat-count-number"><%= heartbeat_users.count %></strong> <%= 'heartbeat'.pluralize(heartbeat_users.count) %> this cycle
+    <span class="pulse-heartbeat-icon"><%= octicon 'heart-fill' %></span>
+    <strong id="pulse-heartbeat-count-number"><%= heartbeat_users.count %></strong> this cycle
   </div>
   <% if heartbeat_users.any? %>
     <div class="pulse-heartbeat-avatars">
