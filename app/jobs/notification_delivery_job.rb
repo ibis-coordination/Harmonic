@@ -59,7 +59,7 @@ class NotificationDeliveryJob < ApplicationJob
     user = recipient.user
 
     # Need tenant and superagent context to fire events
-    return unless event&.tenant_id && event&.superagent_id
+    return unless event&.tenant_id && event.superagent_id
 
     tenant = event.tenant
     return unless tenant

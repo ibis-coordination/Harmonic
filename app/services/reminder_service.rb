@@ -18,7 +18,7 @@ class ReminderService
     params(
       user: User,
       title: String,
-      scheduled_for: Time,
+      scheduled_for: ActiveSupport::TimeWithZone,
       body: T.nilable(String),
       url: T.nilable(String),
     ).returns(Notification)
@@ -58,7 +58,7 @@ class ReminderService
     notification_recipient.destroy!
 
     # If no recipients left, destroy the notification too
-    notification.destroy! if notification.notification_recipients.empty?
+    notification&.destroy! if notification&.notification_recipients&.empty?
   end
 
   sig { params(user: User).returns(ActiveRecord::Relation) }
@@ -72,7 +72,7 @@ class ReminderService
       .order(:scheduled_for)
   end
 
-  sig { params(user: User, scheduled_time: Time).void }
+  sig { params(user: User, scheduled_time: ActiveSupport::TimeWithZone).void }
   def self.validate_limits!(user, scheduled_time)
     # Check total reminder count
     current_count = scheduled_for(user).count

@@ -333,6 +333,9 @@ class NotificationRecipient
     sig { params(args: T.untyped, blk: T.untyped).returns(::Notification) }
     def build_notification(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
+    def build_tenant(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_user(*args, &blk); end
 
@@ -341,6 +344,12 @@ class NotificationRecipient
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Notification) }
     def create_notification!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
+    def create_tenant(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
+    def create_tenant!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_user(*args, &blk); end
@@ -357,6 +366,9 @@ class NotificationRecipient
     sig { returns(T.nilable(::Notification)) }
     def reload_notification; end
 
+    sig { returns(T.nilable(::Tenant)) }
+    def reload_tenant; end
+
     sig { returns(T.nilable(::User)) }
     def reload_user; end
 
@@ -364,7 +376,16 @@ class NotificationRecipient
     def reset_notification; end
 
     sig { void }
+    def reset_tenant; end
+
+    sig { void }
     def reset_user; end
+
+    sig { returns(T.nilable(::Tenant)) }
+    def tenant; end
+
+    sig { params(value: T.nilable(::Tenant)).void }
+    def tenant=(value); end
 
     sig { returns(T.nilable(::User)) }
     def user; end
@@ -954,6 +975,9 @@ class NotificationRecipient
     def restore_status!; end
 
     sig { void }
+    def restore_tenant_id!; end
+
+    sig { void }
     def restore_updated_at!; end
 
     sig { void }
@@ -1012,6 +1036,12 @@ class NotificationRecipient
 
     sig { returns(T::Boolean) }
     def saved_change_to_status?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_tenant_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_tenant_id?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
@@ -1124,6 +1154,51 @@ class NotificationRecipient
 
     sig { void }
     def status_will_change!; end
+
+    sig { returns(::String) }
+    def tenant_id; end
+
+    sig { params(value: ::String).returns(::String) }
+    def tenant_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def tenant_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def tenant_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def tenant_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def tenant_id_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def tenant_id_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def tenant_id_change_to_be_saved; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def tenant_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def tenant_id_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def tenant_id_previous_change; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def tenant_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def tenant_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def tenant_id_was; end
+
+    sig { void }
+    def tenant_id_will_change!; end
 
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
@@ -1241,6 +1316,9 @@ class NotificationRecipient
 
     sig { returns(T::Boolean) }
     def will_save_change_to_status?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_tenant_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_updated_at?; end

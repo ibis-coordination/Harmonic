@@ -39,7 +39,10 @@ class ReminderDeliveryJob < ApplicationJob
 
     user = first.user
     notification = first.notification
+    return unless user && notification
+
     tenant = notification.tenant
+    return unless tenant
 
     # Loop prevention: check recent deliveries for this user
     # NOTE: Rate limiting check is not atomic. In rare cases of concurrent job
@@ -82,11 +85,14 @@ class ReminderDeliveryJob < ApplicationJob
         actor: user,
         subject: notification,
         metadata: {
-          "reminders" => reminders.map do |nr|
+          "reminders" => reminders.filter_map do |nr|
+            notif = nr.notification
+            next unless notif
+
             {
-              "id" => nr.notification.id,
-              "title" => nr.notification.title,
-              "body" => nr.notification.body,
+              "id" => notif.id,
+              "title" => notif.title,
+              "body" => notif.body,
               "scheduled_for" => nr.scheduled_for&.iso8601,
             }
           end,

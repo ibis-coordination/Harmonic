@@ -16,8 +16,10 @@ class WebhookDelivery < ApplicationRecord
 
   sig { void }
   def tenant_matches_webhook_tenant
-    return if webhook.blank? || tenant_id.blank?
-    return if webhook.tenant_id == tenant_id
+    wh = webhook
+    tid = tenant_id
+    return if wh.blank? || tid.blank?
+    return if wh.tenant_id == tid
 
     errors.add(:tenant, "must match webhook tenant")
   end

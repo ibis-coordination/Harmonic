@@ -51,20 +51,24 @@ class NotificationRecipient < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def scheduled?
-    scheduled_for.present? && scheduled_for > Time.current
+    sched = scheduled_for
+    sched.present? && sched > Time.current
   end
 
   sig { returns(T::Boolean) }
   def due?
-    scheduled_for.present? && scheduled_for <= Time.current
+    sched = scheduled_for
+    sched.present? && sched <= Time.current
   end
 
   private
 
   sig { void }
   def tenant_matches_notification_tenant
-    return if notification.blank? || tenant_id.blank?
-    return if notification.tenant_id == tenant_id
+    notif = notification
+    tid = tenant_id
+    return if notif.blank? || tid.blank?
+    return if notif.tenant_id == tid
 
     errors.add(:tenant, "must match notification tenant")
   end
