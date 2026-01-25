@@ -54,7 +54,7 @@ class TrioController < ApplicationController
   private
 
   def set_sidebar_mode
-    @sidebar_mode = 'minimal'
+    @sidebar_mode = 'none'
   end
 
   def require_trio_enabled
