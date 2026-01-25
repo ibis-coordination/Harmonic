@@ -6,19 +6,32 @@ interface HeartbeatResponse {
 }
 
 export default class HeartbeatController extends Controller {
-  static targets = ["sendButton", "sendButtonText", "heartbeatMessage", "fullHeart", "heartbeatsIndexLink"]
+  static targets = [
+    "sendButton",
+    "sendButtonText",
+    "heartbeatMessage",
+    "fullHeart",
+    "heartbeatsIndexLink",
+    "dismissButton",
+  ]
 
   declare readonly sendButtonTarget: HTMLElement
   declare readonly sendButtonTextTarget: HTMLElement
   declare readonly heartbeatMessageTarget: HTMLElement
   declare readonly fullHeartTarget: HTMLElement
   declare readonly heartbeatsIndexLinkTarget: HTMLElement
+  declare readonly dismissButtonTarget: HTMLElement
+  declare readonly hasDismissButtonTarget: boolean
 
   private expandingHeart: HTMLElement | null = null
 
   connect(): void {
     this.sendButtonTarget.addEventListener("click", this.sendHeartbeat.bind(this))
     this.expandingHeart = document.getElementById("expanding-heart")
+
+    if (this.hasDismissButtonTarget) {
+      this.dismissButtonTarget.addEventListener("click", this.dismiss.bind(this))
+    }
   }
 
   get csrfToken(): string {
@@ -46,7 +59,15 @@ export default class HeartbeatController extends Controller {
       .then((responseBody: HeartbeatResponse) => {
         this.updateMessage(responseBody)
         this.showBlurred()
+        this.updateSidebarHeartbeatCount(responseBody.other_heartbeats + 1)
+        this.enableCycleNavigation()
+        this.showDismissButton()
       })
+  }
+
+  dismiss(): void {
+    const section = this.element as HTMLElement
+    section.style.display = "none"
   }
 
   animateExpandingHeart(): void {
@@ -79,7 +100,38 @@ export default class HeartbeatController extends Controller {
   }
 
   showBlurred(): void {
-    const blurs = document.querySelectorAll(".blur-if-no-heartbeat.no-heartbeat")
+    const blurs = document.querySelectorAll(
+      ".blur-if-no-heartbeat.no-heartbeat, .pulse-blur-if-no-heartbeat.no-heartbeat",
+    )
     blurs.forEach((b) => b.classList.remove("no-heartbeat"))
+  }
+
+  showDismissButton(): void {
+    if (this.hasDismissButtonTarget) {
+      this.dismissButtonTarget.style.display = "inline"
+    }
+  }
+
+  updateSidebarHeartbeatCount(newCount: number): void {
+    const countElement = document.getElementById("pulse-heartbeat-count-number")
+    if (countElement) {
+      countElement.textContent = String(newCount)
+    }
+  }
+
+  enableCycleNavigation(): void {
+    const disabledArrow = document.getElementById("pulse-prev-cycle-arrow")
+    if (!disabledArrow) return
+
+    const href = disabledArrow.dataset.href
+    if (!href) return
+
+    // Replace the disabled span with an enabled anchor
+    const anchor = document.createElement("a")
+    anchor.href = href
+    anchor.className = "pulse-cycle-nav-arrow"
+    anchor.title = "Previous cycle"
+    anchor.innerHTML = disabledArrow.innerHTML
+    disabledArrow.replaceWith(anchor)
   }
 }

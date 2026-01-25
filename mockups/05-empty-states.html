@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Empty States - Harmonic</title>
+  <style>
+    :root {
+      --color-fg-default: #24292f;
+      --color-fg-muted: #57606a;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      line-height: 1.5;
+      padding: 40px;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 40px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #000;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 24px;
+    }
+
+    .empty-state-demo {
+      border: 1px solid #000;
+    }
+
+    .demo-label {
+      padding: 12px 16px;
+      border-bottom: 1px solid #000;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      background: #000;
+      color: #fff;
+    }
+
+    .empty-state {
+      padding: 60px 40px;
+      text-align: center;
+    }
+
+    .empty-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 24px;
+      object-fit: contain;
+    }
+
+    .empty-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .empty-desc {
+      font-size: 14px;
+      color: var(--color-fg-muted);
+      margin-bottom: 24px;
+      max-width: 320px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .empty-action {
+      padding: 12px 24px;
+      border: 1px solid #000;
+      background: #000;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .empty-action:hover {
+      background: #fff;
+      color: #000;
+    }
+
+    .empty-action.secondary {
+      background: #fff;
+      color: #000;
+    }
+
+    .empty-action.secondary:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    /* Onboarding checklist */
+    .onboarding-list {
+      text-align: left;
+      max-width: 280px;
+      margin: 24px auto 0;
+    }
+
+    .onboarding-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #000;
+      font-size: 14px;
+    }
+
+    .onboarding-item:last-child {
+      border-bottom: none;
+    }
+
+    .onboarding-checkbox {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .onboarding-checkbox.done {
+      background: #000;
+      color: #fff;
+    }
+
+    .onboarding-item.done {
+      color: var(--color-fg-muted);
+      text-decoration: line-through;
+    }
+
+    /* Heartbeat prompt */
+    .heartbeat-prompt {
+      border: 1px solid #000;
+      padding: 20px;
+      max-width: 300px;
+      margin: 24px auto 0;
+      text-align: left;
+    }
+
+    .heartbeat-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .heartbeat-desc {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+      margin-bottom: 16px;
+    }
+
+    .heartbeat-btn {
+      padding: 10px 16px;
+      border: 1px solid #000;
+      background: #000;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .heartbeat-btn:hover {
+      background: #fff;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="page-title">Empty States</h1>
+
+  <div class="grid">
+    <!-- New Studio -->
+    <div class="empty-state-demo">
+      <div class="demo-label">New Studio</div>
+      <div class="empty-state">
+        <img src="../public/tri-logo.svg" alt="" class="empty-icon">
+        <h2 class="empty-title">Welcome to your new Studio</h2>
+        <p class="empty-desc">Studios are private spaces for coordination. Start by inviting members and sharing your first note.</p>
+
+        <div class="onboarding-list">
+          <div class="onboarding-item done">
+            <div class="onboarding-checkbox done">✓</div>
+            <span>Create your studio</span>
+          </div>
+          <div class="onboarding-item">
+            <div class="onboarding-checkbox"></div>
+            <span>Invite members</span>
+          </div>
+          <div class="onboarding-item">
+            <div class="onboarding-checkbox"></div>
+            <span>Post your first note</span>
+          </div>
+          <div class="onboarding-item">
+            <div class="onboarding-checkbox"></div>
+            <span>Send a heartbeat</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No Notes -->
+    <div class="empty-state-demo">
+      <div class="demo-label">No Notes</div>
+      <div class="empty-state">
+        <img src="../public/resource-icons/note-icon.svg" alt="" class="empty-icon">
+        <h2 class="empty-title">No notes yet</h2>
+        <p class="empty-desc">Notes are observations shared with the studio. Start a conversation by posting what's on your mind.</p>
+        <button class="empty-action">Create a note</button>
+      </div>
+    </div>
+
+    <!-- No Decisions -->
+    <div class="empty-state-demo">
+      <div class="demo-label">No Decisions</div>
+      <div class="empty-state">
+        <img src="../public/resource-icons/decision-icon.svg" alt="" class="empty-icon">
+        <h2 class="empty-title">No decisions yet</h2>
+        <p class="empty-desc">Decisions help groups reach consensus using acceptance voting. Propose a question when you need the studio's input.</p>
+        <button class="empty-action">Create a decision</button>
+      </div>
+    </div>
+
+    <!-- No Commitments -->
+    <div class="empty-state-demo">
+      <div class="demo-label">No Commitments</div>
+      <div class="empty-state">
+        <img src="../public/resource-icons/commitment-icon.svg" alt="" class="empty-icon">
+        <h2 class="empty-title">No commitments yet</h2>
+        <p class="empty-desc">Commitments coordinate action with critical mass thresholds. Create one when you need a certain number of people to participate.</p>
+        <button class="empty-action">Create a commitment</button>
+      </div>
+    </div>
+
+    <!-- Heartbeat Required -->
+    <div class="empty-state-demo">
+      <div class="demo-label">Heartbeat Required</div>
+      <div class="empty-state">
+        <img src="../public/tri-logo.svg" alt="" class="empty-icon">
+        <h2 class="empty-title">Send a heartbeat to enter</h2>
+        <p class="empty-desc">Heartbeats signal your presence for this cycle. They help the studio know who's active.</p>
+
+        <div class="heartbeat-prompt">
+          <div class="heartbeat-title">Week of Jan 20</div>
+          <div class="heartbeat-desc">4 members have already sent heartbeats this cycle.</div>
+          <button class="heartbeat-btn">Send heartbeat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- All Caught Up -->
+    <div class="empty-state-demo">
+      <div class="demo-label">All Caught Up</div>
+      <div class="empty-state">
+        <img src="../public/tri-logo.svg" alt="" class="empty-icon">
+        <h2 class="empty-title">You're all caught up</h2>
+        <p class="empty-desc">No new activity since you last visited. Check back later or start something new.</p>
+        <button class="empty-action secondary">Create something</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

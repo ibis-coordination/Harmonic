@@ -8,43 +8,43 @@ class Cycle
 
   sig { params(tempo: String).returns(T::Array[String]) }
   def self.end_of_cycle_options(tempo:)
-    full_list = [
-      'end of day today',
-      'end of day tomorrow',
-      'end of this week',
-      'end of next week',
-      'end of this month',
-      'end of next month',
-      'end of this year',
-      'end of next year',
+    [
+      "end of day today",
+      "end of day tomorrow",
+      "end of this week",
+      "end of next week",
+      "end of this month",
+      "end of next month",
+      "end of this year",
+      "end of next year",
     ]
   end
 
   sig { params(end_of_cycle: String, tenant: Tenant, superagent: Superagent).returns(Cycle) }
   def self.new_from_end_of_cycle_option(end_of_cycle:, tenant:, superagent:)
-    name = T.must(end_of_cycle.downcase.gsub(' ', '-').split(/end-of-(?:day-)?/).last)
+    name = T.must(end_of_cycle.downcase.gsub(" ", "-").split(/end-of-(?:day-)?/).last)
     new(name: name, tenant: tenant, superagent: superagent)
   end
 
   sig { params(tenant: Tenant, superagent: Superagent).returns(Cycle) }
   def self.new_from_tempo(tenant:, superagent:)
     case superagent.tempo
-    when 'daily'
-      new(name: 'today', tenant: tenant, superagent: superagent)
-    when 'weekly'
-      new(name: 'this-week', tenant: tenant, superagent: superagent)
-    when 'monthly'
-      new(name: 'this-month', tenant: tenant, superagent: superagent)
-    when 'yearly'
-      new(name: 'this-year', tenant: tenant, superagent: superagent)
+    when "daily"
+      new(name: "today", tenant: tenant, superagent: superagent)
+    when "weekly"
+      new(name: "this-week", tenant: tenant, superagent: superagent)
+    when "monthly"
+      new(name: "this-month", tenant: tenant, superagent: superagent)
+    when "yearly"
+      new(name: "this-year", tenant: tenant, superagent: superagent)
     else
-      raise 'Invalid tempo'
+      raise "Invalid tempo"
     end
   end
 
   sig { params(superagent: Superagent).returns(Cycle) }
   def self.new_from_superagent(superagent)
-    self.new_from_tempo(tenant: T.must(superagent.tenant), superagent: superagent)
+    new_from_tempo(tenant: T.must(superagent.tenant), superagent: superagent)
   end
 
   sig do
@@ -66,15 +66,91 @@ class Cycle
     raise "Invalid superagent" if @superagent.nil?
   end
 
+  # Returns the numeric offset for this cycle relative to "now"
+  # Negative = past, Positive = future, Zero = current
+  # e.g., today=0, yesterday=-1, 2-days-ago=-2, tomorrow=1
+  sig { returns(Integer) }
+  def offset
+    return @offset if defined?(@offset)
+
+    @offset = case @name
+              when "today", "this-week", "this-month", "this-year"
+                0
+              when "yesterday", "last-week", "last-month", "last-year"
+                -1
+              when "tomorrow", "next-week", "next-month", "next-year"
+                1
+              else
+                # Parse patterns like "2-days-ago", "3-weeks-ago", "2-months-ago"
+                if (match = @name.match(/^(\d+)-(days?|weeks?|months?|years?)-ago$/))
+                  -match[1].to_i
+                else
+                  0
+                end
+              end
+  end
+
   sig { returns(String) }
   def previous_cycle
-    case @name
-    when 'today' then 'yesterday'
-    when 'this-week' then 'last-week'
-    when 'this-month' then 'last-month'
+    current_offset = offset
+    u = unit
+    new_offset = current_offset - 1
+
+    case u
+    when "day"
+      new_offset == -1 ? "yesterday" : "#{-new_offset}-days-ago"
+    when "week"
+      new_offset == -1 ? "last-week" : "#{-new_offset}-weeks-ago"
+    when "month"
+      new_offset == -1 ? "last-month" : "#{-new_offset}-months-ago"
+    when "year"
+      new_offset == -1 ? "last-year" : "#{-new_offset}-years-ago"
     else
-      raise "Not implemented"
+      raise "Not implemented for unit: #{u}"
     end
+  end
+
+  sig { returns(T.nilable(String)) }
+  def next_cycle
+    current_offset = offset
+    u = unit
+
+    # Can't go to future from current cycle
+    return nil if current_offset >= 0
+
+    new_offset = current_offset + 1
+
+    case u
+    when "day"
+      if new_offset == 0
+        "today"
+      else
+        new_offset == -1 ? "yesterday" : "#{-new_offset}-days-ago"
+      end
+    when "week"
+      if new_offset == 0
+        "this-week"
+      else
+        new_offset == -1 ? "last-week" : "#{-new_offset}-weeks-ago"
+      end
+    when "month"
+      if new_offset == 0
+        "this-month"
+      else
+        new_offset == -1 ? "last-month" : "#{-new_offset}-months-ago"
+      end
+    when "year"
+      if new_offset == 0
+        "this-year"
+      else
+        new_offset == -1 ? "last-year" : "#{-new_offset}-years-ago"
+      end
+    end
+  end
+
+  sig { returns(T::Boolean) }
+  def is_current_cycle?
+    offset == 0
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
@@ -88,18 +164,10 @@ class Cycle
       end_date: end_date,
       counts: counts,
     }
-    if include.include?('notes')
-      response.merge!({ notes: notes.map(&:api_json) })
-    end
-    if include.include?('decisions')
-      response.merge!({ decisions: decisions.map(&:api_json) })
-    end
-    if include.include?('commitments')
-      response.merge!({ commitments: commitments.map(&:api_json) })
-    end
-    if include.include?('backlinks')
-      response.merge!({ backlinks: backlinks.map(&:api_json) })
-    end
+    response.merge!({ notes: notes.map(&:api_json) }) if include.include?("notes")
+    response.merge!({ decisions: decisions.map(&:api_json) }) if include.include?("decisions")
+    response.merge!({ commitments: commitments.map(&:api_json) }) if include.include?("commitments")
+    response.merge!({ backlinks: backlinks.map(&:api_json) }) if include.include?("backlinks")
     response
   end
 
@@ -116,13 +184,9 @@ class Cycle
   sig { returns(String) }
   def path_with_params
     p = {}
-    # TODO - group_by, selections, cycle_name
-    if params[:filters].present? && params[:filters] != 'none'
-      p[:filters] = params[:filters]
-    end
-    if params[:sort_by].present?
-      p[:sort_by] = params[:sort_by]
-    end
+    # TODO: - group_by, selections, cycle_name
+    p[:filters] = params[:filters] if params[:filters].present? && params[:filters] != "none"
+    p[:sort_by] = params[:sort_by] if params[:sort_by].present?
     if p.empty?
       path
     else
@@ -133,37 +197,37 @@ class Cycle
   sig { returns(T.nilable(String)) }
   def display_window
     case unit
-    when 'day'
-      start_date.strftime('%A, %B %-e, %Y')
-    when 'week'
-      "#{start_date.strftime('%B %-e')} - #{end_date.strftime('%B %-e, %Y')}"
-    when 'month'
-      start_date.strftime('%B %Y')
-    when 'year'
-      start_date.strftime('%Y')
-    when 'custom'
-      "#{start_date.strftime('%B %-e')} - #{end_date.strftime('%B %-e, %Y')}"
+    when "day"
+      start_date.strftime("%A, %B %-e, %Y")
+    when "week"
+      "#{start_date.strftime("%B %-e")} - #{end_date.strftime("%B %-e, %Y")}"
+    when "month"
+      start_date.strftime("%B %Y")
+    when "year"
+      start_date.strftime("%Y")
+    when "custom"
+      "#{start_date.strftime("%B %-e")} - #{end_date.strftime("%B %-e, %Y")}"
     end
   end
 
   sig { returns(T.nilable(String)) }
   def display_duration
     case unit
-    when 'day'
-      '1 day'
-    when 'week'
-      '1 week'
-    when 'month'
-      '1 month'
-    when 'year'
-      '1 year'
-    when 'custom'
+    when "day"
+      "1 day"
+    when "week"
+      "1 week"
+    when "month"
+      "1 month"
+    when "year"
+      "1 year"
+    when "custom"
       # Largest unit first, e.g. 1 year, 2 months, 3 days
       duration = []
       duration << "#{(end_date - start_date).to_i / 365} year(s)" if (end_date - start_date).to_i >= 365
       duration << "#{(end_date - start_date).to_i % 365 / 30} month(s)" if (end_date - start_date).to_i % 365 >= 30
       duration << "#{(end_date - start_date).to_i % 30} day(s)" if (end_date - start_date).to_i % 30 > 0
-      duration.join(', ')
+      duration.join(", ")
     end
   end
 
@@ -180,47 +244,43 @@ class Cycle
   sig { returns(T.nilable(String)) }
   def unit
     return @unit if defined?(@unit)
+
     @unit = case @name
-    when 'today'
-      'day'
-    when 'yesterday'
-      'day'
-    when 'tomorrow'
-      'day'
-    when 'this-week'
-      'week'
-    when 'last-week'
-      'week'
-    when 'next-week'
-      'week'
-    when 'this-month'
-      'month'
-    when 'last-month'
-      'month'
-    when 'next-month'
-      'month'
-    when 'this-year'
-      'year'
-    when 'last-year'
-      'year'
-    when 'next-year'
-      'year'
-    else
-      # TODO hand year, month, week, day
-      # e.g. 2020, 2020-01, 2020-week-1, 2020-01-01
-    end
+            when "today", "yesterday", "tomorrow"
+              "day"
+            when "this-week", "last-week", "next-week"
+              "week"
+            when "this-month", "last-month", "next-month"
+              "month"
+            when "this-year", "last-year", "next-year"
+              "year"
+            else
+              # Handle patterns like "2-days-ago", "3-weeks-ago", "2-months-ago"
+              if @name.match?(/^\d+-(days?)-ago$/)
+                "day"
+              elsif @name.match?(/^\d+-(weeks?)-ago$/)
+                "week"
+              elsif @name.match?(/^\d+-(months?)-ago$/)
+                "month"
+              elsif @name.match?(/^\d+-(years?)-ago$/)
+                "year"
+              end
+              # TODO: handle year, month, week, day
+              # e.g. 2020, 2020-01, 2020-week-1, 2020-01-01
+            end
   end
 
   sig { returns(String) }
   def unit_for_custom_date
     return @unit_for_custom_date if defined?(@unit_for_custom_date)
+
     is_month_name = [
-      'january', 'february', 'march',
-      'april', 'may', 'june', 'july',
-      'august', 'september', 'october',
-      'november', 'december'
+      "january", "february", "march",
+      "april", "may", "june", "july",
+      "august", "september", "october",
+      "november", "december",
     ].include?(@name)
-    @unit_for_custom_date = is_month_name ? 'month' : 'day'
+    @unit_for_custom_date = is_month_name ? "month" : "day"
   end
 
   sig { returns(ActiveSupport::TimeWithZone) }
@@ -231,21 +291,17 @@ class Cycle
   sig { returns(ActiveSupport::TimeWithZone) }
   def start_date
     return @start_date if defined?(@start_date)
+
     u = T.must(unit)
-    if @name.starts_with?('last-') || @name == 'yesterday'
-      relative_now = now - 1.send(u)
-    elsif @name.starts_with?('next-') || @name == 'tomorrow'
-      relative_now = now + 1.send(u)
-    else
-      relative_now = now
-    end
-    # @start_date = relative_now.in_time_zone(timezone).send("beginning_of_#{unit}")
+    # Use offset to calculate relative time (negative = past, positive = future)
+    relative_now = now + offset.send(u)
     @start_date = relative_now.send("beginning_of_#{u}")
   end
 
   sig { returns(ActiveSupport::TimeWithZone) }
   def end_date
     return @end_date if defined?(@end_date)
+
     # @end_date = start_date.in_time_zone(timezone).send("end_of_#{unit}")
     @end_date = start_date + 1.send(T.must(unit))
   end
@@ -259,8 +315,8 @@ class Cycle
   def resources(model)
     # What if updated_at is after deadline?
     rs = model.where(tenant_id: @tenant.id, superagent_id: @superagent.id)
-              .where("#{model.table_name}.created_at < ?", end_date)
-              .where("#{model.table_name}.deadline > ?", start_date)
+      .where("#{model.table_name}.created_at < ?", end_date)
+      .where("#{model.table_name}.deadline > ?", start_date)
     current_filters = filters
     if current_filters.present?
       current_filters.each do |filter|
@@ -271,44 +327,46 @@ class Cycle
   end
 
   sig { returns(T::Hash[Symbol, T.untyped]) }
-  def params
-    @params
-  end
+  attr_reader :params
 
   sig { returns(T::Array[String]) }
   def selections
-    @selections ||= params[:selections].present? ? params[:selections].split(',') : [
-      'title', 'created_at', 'created_by', 'deadline', 'backlink_count',
-    ]
+    @selections ||= if params[:selections].present?
+                      params[:selections].split(",")
+                    else
+                      [
+                        "title", "created_at", "created_by", "deadline", "backlink_count",
+                      ]
+                    end
   end
 
   sig { returns(T::Array[T::Array[String]]) }
   def cycle_options
     [
-      ['Today', 'today'],
-      ['Yesterday', 'yesterday'],
-      ['Tomorrow', 'tomorrow'],
-      ['This week', 'this-week'],
-      ['Last week', 'last-week'],
-      ['Next week', 'next-week'],
-      ['This month', 'this-month'],
-      ['Last month', 'last-month'],
-      ['Next month', 'next-month'],
-      ['This year', 'this-year'],
-      ['Last year', 'last-year'],
-      ['Next year', 'next-year'],
+      ["Today", "today"],
+      ["Yesterday", "yesterday"],
+      ["Tomorrow", "tomorrow"],
+      ["This week", "this-week"],
+      ["Last week", "last-week"],
+      ["Next week", "next-week"],
+      ["This month", "this-month"],
+      ["Last month", "last-month"],
+      ["Next month", "next-month"],
+      ["This year", "this-year"],
+      ["Last year", "last-year"],
+      ["Next year", "next-year"],
     ]
   end
 
   sig { returns(T::Array[T::Array[String]]) }
   def sort_by_options
     [
-      ['Deadline (earliest first)', 'deadline-asc'],
-      ['Deadline (latest first)', 'deadline-desc'],
-      ['Created (oldest first)', 'created_at-asc'],
-      ['Created (newest first)', 'created_at-desc'],
-      ['Updated (oldest first)', 'updated_at-asc'],
-      ['Updated (most recent first)', 'updated_at-desc'],
+      ["Deadline (earliest first)", "deadline-asc"],
+      ["Deadline (latest first)", "deadline-desc"],
+      ["Created (oldest first)", "created_at-asc"],
+      ["Created (newest first)", "created_at-desc"],
+      ["Updated (oldest first)", "updated_at-asc"],
+      ["Updated (most recent first)", "updated_at-desc"],
     ]
   end
 
@@ -329,16 +387,18 @@ class Cycle
   sig { returns(T::Hash[String, String]) }
   def sort_by
     return @sort_by if @sort_by
-    key, direction = (params[:sort_by] || 'created_at-desc').split('-')
-    key = 'created_at' unless CycleDataRow.valid_sort_bys.include?(key)
-    direction = 'desc' unless %w[asc desc].include?(direction)
+
+    key, direction = (params[:sort_by] || "created_at-desc").split("-")
+    key = "created_at" unless CycleDataRow.valid_sort_bys.include?(key)
+    direction = "desc" unless ["asc", "desc"].include?(direction)
     @sort_by = { key => direction }
   end
 
   sig { returns(String) }
   def group_by
     return @group_by if @group_by
-    @group_by = CycleDataRow.valid_group_bys.include?(params[:group_by]) ? params[:group_by] : 'item_type'
+
+    @group_by = CycleDataRow.valid_group_bys.include?(params[:group_by]) ? params[:group_by] : "item_type"
   end
 
   sig { returns(T::Array[T::Array[String]]) }
@@ -346,28 +406,28 @@ class Cycle
     dn = display_name.downcase
     past_cycle = end_date < now
     future_cycle = start_date > now
-    current_cycle = start_date <= now && end_date >= now
+    current_cycle = now.between?(start_date, end_date)
     [
-      ["None", 'none'],
+      ["None", "none"],
       # Created
-      ["Created by me", 'mine'],
-      ["Not created by me", 'not_mine'],
-      (past_cycle || current_cycle) ? ["Created #{dn}", 'new'] : nil,
-      (past_cycle || current_cycle) ? ["Created before #{dn}", 'old'] : nil,
+      ["Created by me", "mine"],
+      ["Not created by me", "not_mine"],
+      past_cycle || current_cycle ? ["Created #{dn}", "new"] : nil,
+      past_cycle || current_cycle ? ["Created before #{dn}", "old"] : nil,
       # Open
-      past_cycle ? ["Still open", 'open'] : nil,
-      current_cycle ? ["Open", 'open'] : nil,
-      current_cycle ? ["Open currently, closing #{dn}", 'closing_soon'] : nil,
+      past_cycle ? ["Still open", "open"] : nil,
+      current_cycle ? ["Open", "open"] : nil,
+      current_cycle ? ["Open currently, closing #{dn}", "closing_soon"] : nil,
       # Closed
-      (past_cycle || current_cycle) ? ["Closed", 'closed'] : nil,
-      current_cycle ? ["Closed or closing #{dn}", 'deadline_within_cycle'] : nil,
-      past_cycle ? ["Closed #{dn}", 'deadline_within_cycle'] : nil,
-      future_cycle ? ["Closing #{dn}", 'deadline_within_cycle'] : nil,
-      (current_cycle || future_cycle) ? ["Closing after #{dn}", 'deadline_after_cycle'] : nil,
+      past_cycle || current_cycle ? ["Closed", "closed"] : nil,
+      current_cycle ? ["Closed or closing #{dn}", "deadline_within_cycle"] : nil,
+      past_cycle ? ["Closed #{dn}", "deadline_within_cycle"] : nil,
+      future_cycle ? ["Closing #{dn}", "deadline_within_cycle"] : nil,
+      current_cycle || future_cycle ? ["Closing after #{dn}", "deadline_after_cycle"] : nil,
       # Updated
-      ["Updated", 'updated'],
-      (past_cycle || current_cycle) ? ["Updated #{dn}", 'updated_within_cycle'] : nil,
-      (past_cycle || current_cycle) ? ["Created or updated #{dn}", 'created_or_updated_within_cycle'] : nil,
+      ["Updated", "updated"],
+      past_cycle || current_cycle ? ["Updated #{dn}", "updated_within_cycle"] : nil,
+      past_cycle || current_cycle ? ["Created or updated #{dn}", "created_or_updated_within_cycle"] : nil,
     ].compact
   end
 
@@ -375,50 +435,54 @@ class Cycle
   def filters
     return @filters if defined?(@filters)
     return @filters = nil unless params[:filters].present?
-    valid_keys = %w[created_by created_at updated_at deadline] + filter_options.map(&:last)
-    @filters = params[:filters].split(',').map do |filter|
-      key, value = filter.split(':')
-      next if key == 'none'
+
+    valid_keys = ["created_by", "created_at", "updated_at", "deadline"] + filter_options.map(&:last)
+    @filters = params[:filters].split(",").map do |filter|
+      key, value = filter.split(":")
+      next if key == "none"
+
       if value.nil?
-        key, gt = key.split('>')
-        key, lt = key.split('<') if gt.nil?
+        key, gt = key.split(">")
+        key, lt = key.split("<") if gt.nil?
         next unless valid_keys.include?(key)
+
         if gt
           ["#{key} > ?", gt]
         elsif lt
           ["#{key} < ?", lt]
-        elsif key == 'not_mine'
-          ['created_by_id != ?', T.must(@current_user).id]
-        elsif key == 'mine'
-          ['created_by_id = ?', T.must(@current_user).id]
-        elsif key == 'open'
-          ['deadline > ?', Time.current]
-        elsif key == 'closed'
-          ['deadline < ?', Time.current]
-        elsif key == 'closing_soon'
-          ['deadline > ? and deadline <= ?', Time.current, self.end_date]
-        elsif key == 'deadline_within_cycle'
-          ['deadline > ? and deadline <= ?', self.start_date, self.end_date]
-        elsif key == 'deadline_after_cycle'
-          ['deadline > ?', self.end_date]
-        elsif key == 'new'
-          ['created_at > ?', self.start_date]
-        elsif key == 'old'
-          ['created_at < ?', self.start_date]
-        elsif key == 'updated'
-          ['updated_at != created_at']
-        elsif key == 'updated_within_cycle'
-          ['updated_at > ? and updated_at != created_at', self.start_date]
-        elsif key == 'created_or_updated_within_cycle'
-          ['created_at > ? or updated_at > ?', self.start_date, self.start_date]
+        elsif key == "not_mine"
+          ["created_by_id != ?", T.must(@current_user).id]
+        elsif key == "mine"
+          ["created_by_id = ?", T.must(@current_user).id]
+        elsif key == "open"
+          ["deadline > ?", Time.current]
+        elsif key == "closed"
+          ["deadline < ?", Time.current]
+        elsif key == "closing_soon"
+          ["deadline > ? and deadline <= ?", Time.current, end_date]
+        elsif key == "deadline_within_cycle"
+          ["deadline > ? and deadline <= ?", start_date, end_date]
+        elsif key == "deadline_after_cycle"
+          ["deadline > ?", end_date]
+        elsif key == "new"
+          ["created_at > ?", start_date]
+        elsif key == "old"
+          ["created_at < ?", start_date]
+        elsif key == "updated"
+          ["updated_at != created_at"]
+        elsif key == "updated_within_cycle"
+          ["updated_at > ? and updated_at != created_at", start_date]
+        elsif key == "created_or_updated_within_cycle"
+          ["created_at > ? or updated_at > ?", start_date, start_date]
         else
           raise "Invalid filter: #{key}"
         end
-      elsif key == 'created_by'
+      elsif key == "created_by"
         u = User.find_by(handle: value)
-        u ? ['created_by_id = ?', u.id] : nil
+        u ? ["created_by_id = ?", u.id] : nil
       else
         next unless valid_keys.include?(key)
+
         ["#{key} = ?", value]
       end
     end.compact
@@ -446,17 +510,17 @@ class Cycle
 
   sig { returns(ActiveRecord::Relation) }
   def open_decisions
-    @open_decisions ||= decisions.where('deadline > ?', Time.current)
+    @open_decisions ||= decisions.where("deadline > ?", Time.current)
   end
 
   sig { returns(ActiveRecord::Relation) }
   def closed_decisions
-    @closed_decisions ||= decisions.where('deadline < ?', Time.current)
+    @closed_decisions ||= decisions.where("deadline < ?", Time.current)
   end
 
   sig { returns(ActiveRecord::Relation) }
   def decisions_closed_within_cycle
-    @decisions_closed_within_cycle ||= decisions.where('deadline > ? and deadline <= ?', self.start_date, self.end_date)
+    @decisions_closed_within_cycle ||= decisions.where("deadline > ? and deadline <= ?", start_date, end_date)
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -466,22 +530,22 @@ class Cycle
 
   sig { returns(ActiveRecord::Relation) }
   def open_commitments
-    @open_commitments ||= commitments.where('deadline > ?', Time.current)
+    @open_commitments ||= commitments.where("deadline > ?", Time.current)
   end
 
   sig { returns(ActiveRecord::Relation) }
   def closed_commitments
-    @closed_commitments ||= commitments.where('deadline < ?', Time.current)
+    @closed_commitments ||= commitments.where("deadline < ?", Time.current)
   end
 
   sig { returns(ActiveRecord::Relation) }
   def commitments_closed_within_cycle
-    @commitments_closed_within_cycle ||= commitments.where('deadline > ? and deadline <= ?', self.start_date, self.end_date)
+    @commitments_closed_within_cycle ||= commitments.where("deadline > ? and deadline <= ?", start_date, end_date)
   end
 
   sig { returns(T::Hash[Symbol, Integer]) }
   def counts
-    # TODO - make this more efficient for homepage query. Ideally in one query.
+    # TODO: - make this more efficient for homepage query. Ideally in one query.
     @counts ||= {
       notes: notes.count,
       decisions: decisions.count,
@@ -498,16 +562,16 @@ class Cycle
   def backlinks
     # Link.backlink_leaderboard(start_date: start_date, end_date: end_date, tenant_id: @tenant.id)
     Link.where(tenant: @tenant, superagent: @superagent)
-        .where(from_linkable: [notes, decisions, commitments].flatten)
-        .includes(:to_linkable)
-        .map(&:to_linkable).uniq
+      .where(from_linkable: [notes, decisions, commitments].flatten)
+      .includes(:to_linkable)
+      .map(&:to_linkable).uniq
   end
 
   sig { returns(T::Array[T::Array[T.untyped]]) }
   def data_rows
-    rows =  CycleDataRow.where(tenant_id: @tenant.id, superagent_id: @superagent.id)
-                        .where('created_at < ?', end_date)
-                        .where('deadline > ?', start_date)
+    rows = CycleDataRow.where(tenant_id: @tenant.id, superagent_id: @superagent.id)
+      .where("created_at < ?", end_date)
+      .where("deadline > ?", start_date)
     current_filters = filters
     if current_filters.present?
       current_filters.each do |filter|
@@ -523,11 +587,9 @@ class Cycle
         row.send(selection)
       end
     end
-    groups = group_by == 'item_type' ? ['Note', 'Decision', 'Commitment'] : grouped_rows.keys.sort
+    groups = group_by == "item_type" ? ["Note", "Decision", "Commitment"] : grouped_rows.keys.sort
     groups.map do |key|
       [key, grouped_rows[key] || []]
     end
   end
-
-
 end

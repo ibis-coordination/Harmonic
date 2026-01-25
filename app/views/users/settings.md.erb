@@ -1,38 +1,44 @@
-# Your Settings
+# <%= @page_title %>
+
+<% is_own_settings = @settings_user == @current_user %>
 
 ## Profile
 
-Name: <%= raw @current_user.name %>
-Handle: `<%= @current_user.handle %>`
+Name: <%= raw @settings_user.name %>
+Handle: `<%= @settings_user.handle %>`
+<% if @settings_user.subagent? %>
+Type: Subagent (owned by <%= @settings_user.parent&.display_name || 'Unknown' %>)
+<% end %>
 
-<% if @current_user.external_oauth_identities.any? %>
+<% if is_own_settings && @settings_user.external_oauth_identities.any? %>
 ## Connected Accounts
 
-<% @current_user.external_oauth_identities.each do |identity| %>
+<% @settings_user.external_oauth_identities.each do |identity| %>
 * <%= identity.provider.titleize %> ([<%= identity.username %>](<%= identity.url %>)) - Connected <%= time_ago_in_words(identity.created_at) %> ago
 <% end %>
 <% end %>
 
 <% if @current_tenant.api_enabled? %>
-## Personal API Tokens
+## API Tokens
 
-<% if @current_user.api_tokens.any? %>
+<% if @settings_user.api_tokens.any? %>
 | Name | Created | Last Used | Expires | Active |
 |------|---------|-----------|---------|--------|
-<% @current_user.api_tokens.each do |token| %>
+<% @settings_user.api_tokens.each do |token| %>
 | <%= raw token.name || 'Unnamed' %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Yes' : 'No' %> |
 <% end %>
 <% else %>
-No personal API tokens.
+No API tokens.
 <% end %>
 
-<% if @current_user.person? && @subagents.any? %>
+<% if @settings_user.person? && is_own_settings && @subagents.any? %>
 ## Subagents
 
 <% @subagents.each do |subagent| %>
 ### <%= raw subagent.name %><%= subagent.archived? ? ' (Archived)' : '' %>
 
 * [View Profile](<%= subagent.path %>)
+* [Settings](<%= subagent.path %>/settings)
 * Created <%= time_ago_in_words(subagent.created_at) %> ago
 <% active_studios = subagent.superagent_members.reject(&:archived?).map(&:superagent).reject { |s| s == @current_tenant.main_superagent } %>
 <% if active_studios.any? %>
@@ -46,12 +52,13 @@ Studio memberships:
 <% end %>
 <% end %>
 
-## [Actions](<%= @current_user.path %>/settings/actions)
+## [Actions](<%= @settings_user.path %>/settings/actions)
 
-* [`update_profile(name, new_handle)`](<%= @current_user.path %>/settings/actions/update_profile) - Update your profile name and/or handle
+* [`update_profile(name, new_handle)`](<%= @settings_user.path %>/settings/actions/update_profile) - Update profile name and/or handle
 <% if @current_tenant.api_enabled? %>
-* [New API Token](<%= @current_user.path %>/settings/tokens/new) - Create a new API token
-<% if @current_user.person? %>
-* [New Subagent](<%= @current_user.path %>/settings/subagents/new) - Create a new subagent
+* [New API Token](<%= @settings_user.path %>/settings/tokens/new) - Create a new API token
+* [Webhooks](<%= @settings_user.path %>/settings/webhooks) - Manage personal webhooks for reminders and notifications
+<% if @settings_user.person? && is_own_settings %>
+* [New Subagent](<%= @settings_user.path %>/settings/subagents/new) - Create a new subagent
 <% end %>
 <% end %>

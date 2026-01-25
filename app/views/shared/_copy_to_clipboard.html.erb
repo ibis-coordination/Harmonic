@@ -1,11 +1,11 @@
-<span data-controller="clipboard">
+<button type="button" class="pulse-copy-btn pulse-action-btn-secondary" data-controller="clipboard" data-action="click->clipboard#copy">
   <input type="text" value="<%= text %>" data-clipboard-target="source" style="display:none;"/>
-  <span class="text-only-button" data-action="click->clipboard#copy" data-clipboard-target="button">
-    <%= octicon 'copy' %>
-    Copy link to clipboard
+  <span class="pulse-copy-btn-content" data-clipboard-target="button">
+    <%= octicon 'copy', height: 14 %>
+    <span>Copy link to clipboard</span>
   </span>
-  <span class="text-only-button" data-clipboard-target="successMessage" style="display:none;">
-    <%= octicon 'copy' %>
-    Copied!
+  <span class="pulse-copy-btn-content" data-clipboard-target="successMessage" style="display:none;">
+    <%= octicon 'check', height: 14 %>
+    <span>Copied!</span>
   </span>
-</span>
+</button>

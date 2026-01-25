@@ -1,21 +1,17 @@
-import { FullConfig } from "@playwright/test"
+import { chromium, FullConfig } from "@playwright/test"
+import { login } from "./helpers/auth"
+import {
+  E2E_TEST_EMAIL,
+  E2E_TEST_PASSWORD,
+} from "./helpers/auth"
+
+const AUTH_STATE_PATH = "e2e/.auth/user.json"
 
 /**
  * Global setup for Playwright E2E tests.
  *
- * TODO: Remove honor_system requirement
- * Currently, E2E tests require AUTH_MODE=honor_system because the tests use a simple
- * email-based login flow that bypasses OAuth. This is a temporary workaround.
- *
- * The goal is to get E2E tests working with AUTH_MODE=oauth so that:
- * 1. E2E tests can run in the same environment as production
- * 2. We don't need to switch AUTH_MODE between running Ruby tests and E2E tests
- * 3. The test environment more closely matches production behavior
- *
- * To achieve this, we'll need to either:
- * - Mock the OAuth flow in tests
- * - Use Playwright's authentication state storage to persist OAuth sessions
- * - Create a test-specific authentication bypass that works in oauth mode
+ * Performs health checks and authenticates once, saving the session
+ * for reuse across all tests. This dramatically speeds up test execution.
  */
 async function globalSetup(config: FullConfig) {
   console.log("E2E Global Setup: Starting...")
@@ -35,39 +31,39 @@ async function globalSetup(config: FullConfig) {
     }
     console.log("E2E Global Setup: App is healthy")
 
-    // TEMPORARY: Check if AUTH_MODE is honor_system by examining the login page.
-    // This requirement should be removed once E2E tests support oauth mode.
-    // See the TODO comment at the top of this file for more details.
-    // In honor_system mode, the login page has an email input field.
-    // In oauth mode, the login page redirects to OAuth provider.
+    // Verify we can reach the login page
     const loginResponse = await fetch(`${baseURL}/login`, {
-      redirect: "manual", // Don't follow redirects
+      redirect: "manual",
     })
-    const loginHtml = await loginResponse.text()
-
-    // Honor system login page has an email input field
-    const isHonorSystemMode = loginHtml.includes('name="email"')
-
-    if (!isHonorSystemMode) {
-      throw new Error(
-        `❌ E2E tests require AUTH_MODE=honor_system, but the app appears to be running in oauth mode.
-
-The E2E test suite requires honor system authentication mode. Please:
-1. Stop the app: ./scripts/stop.sh
-2. Set AUTH_MODE: export AUTH_MODE=honor_system
-3. Restart the app: ./scripts/start.sh
-
-Note: Ruby tests require AUTH_MODE=oauth, so you may need to switch modes.`
-      )
+    if (loginResponse.status >= 500) {
+      throw new Error(`Login page error: ${loginResponse.status}`)
     }
-    console.log("E2E Global Setup: AUTH_MODE=honor_system confirmed")
+    console.log("E2E Global Setup: Login page accessible")
+
+    // Authenticate and save session state
+    console.log("E2E Global Setup: Authenticating test user...")
+    const browser = await chromium.launch()
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: true,
+    })
+    const page = await context.newPage()
+
+    await login(page, {
+      email: E2E_TEST_EMAIL,
+      password: E2E_TEST_PASSWORD,
+      subdomain: "app",
+    })
+
+    // Save the authenticated state
+    await context.storageState({ path: AUTH_STATE_PATH })
+    console.log("E2E Global Setup: Authentication state saved")
+
+    await browser.close()
   } catch (error) {
-    if (error instanceof Error && error.message.includes("AUTH_MODE")) {
-      // Re-throw auth mode errors as-is
-      throw error
-    }
-    console.error("E2E Global Setup: App is not running!")
-    console.error("Please run ./scripts/start.sh with AUTH_MODE=honor_system")
+    console.error("E2E Global Setup: Failed!")
+    console.error(
+      "Please start the app with ./scripts/start.sh and run rake e2e:setup",
+    )
     throw error
   } finally {
     // Restore original value

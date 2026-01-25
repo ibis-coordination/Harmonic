@@ -1,0 +1,52 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/webhooks"
+%>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@target_user.display_name, "/u/#{@target_user.handle}"],
+  ['Settings', "/u/#{@target_user.handle}/settings"],
+  ['Webhooks', base_path],
+  'New'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'webhook', height: 14, class: 'pulse-resource-icon' %>
+        New Webhook
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">New Webhook</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>Create a new webhook to receive notifications (like reminders) at an external URL.</p>
+
+    <%= form_tag "#{base_path}/new/actions/create_webhook", method: :post, class: "pulse-form" do %>
+      <section class="pulse-settings-section">
+        <label for="url" class="pulse-label">Webhook URL *</label>
+        <input type="url" name="url" id="url" class="pulse-form-input" placeholder="https://example.com/webhook" required>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label for="name" class="pulse-label">Name (optional)</label>
+        <input type="text" name="name" id="name" class="pulse-form-input" placeholder="My webhook">
+      </section>
+
+      <section class="pulse-settings-section">
+        <label for="events" class="pulse-label">Events</label>
+        <select name="events" id="events" class="pulse-form-input">
+          <option value="notifications.delivered">All notifications (mentions, comments, reminders, etc.)</option>
+          <option value="reminders.delivered">Reminders only</option>
+        </select>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Create Webhook</button>
+        <a href="<%= base_path %>" class="pulse-action-btn">Cancel</a>
+      </section>
+    <% end %>
+  </div>
+</article>

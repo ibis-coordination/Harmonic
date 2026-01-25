@@ -1,0 +1,21 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['Learn', '/learn'],
+  @page_title == 'Learn' ? nil : @page_title
+].compact %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'book', height: 14, class: 'pulse-resource-icon' %>
+        Learn
+      </span>
+    </div>
+    <h1 class="pulse-resource-title"><%= @page_title %></h1>
+  </header>
+
+  <div class="pulse-resource-body pulse-prose">
+    <%= @content %>
+  </div>
+</article>

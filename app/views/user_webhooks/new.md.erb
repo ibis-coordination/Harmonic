@@ -1,0 +1,34 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/webhooks"
+-%>
+# New Webhook
+
+Create a new webhook to receive notifications (like reminders) at an external URL.
+
+## [Actions](<%= base_path %>/new/actions)
+
+* [`create_webhook(url, name, events)`](<%= base_path %>/new/actions/create_webhook) - Create a new webhook
+
+## Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| url | string | yes | The HTTPS URL to receive webhook payloads |
+| name | string | no | A descriptive name for this webhook |
+| events | array | no | Event types to subscribe to (default: notifications.delivered) |
+
+## Available Event Types
+
+| Event Type | Description |
+|------------|-------------|
+| `notifications.delivered` | Any notification was delivered (includes reminders, mentions, comments, etc.) |
+| `reminders.delivered` | A scheduled reminder was delivered (subset of notifications) |
+
+## Navigation
+
+* [All Webhooks](<%= base_path %>)
+<% if @target_user == @current_user -%>
+* [Settings](/settings)
+<% else -%>
+* [<%= @target_user.handle %>'s Profile](/u/<%= @target_user.handle %>)
+<% end -%>

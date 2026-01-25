@@ -1,0 +1,417 @@
+<div class="pulse-feed" style="max-width: 900px; margin: 0 auto;">
+  <h1 class="pulse-page-title" style="margin-bottom: 24px;">Pulse Component Library</h1>
+
+  <!-- Color Tokens -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Color Tokens</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
+      <% [
+        ['--color-fg-default', 'Foreground'],
+        ['--color-fg-muted', 'Muted'],
+        ['--color-fg-subtle', 'Subtle'],
+        ['--color-canvas-default', 'Canvas'],
+        ['--color-canvas-subtle', 'Canvas Subtle'],
+        ['--color-border-default', 'Border'],
+        ['--color-accent-fg', 'Accent'],
+        ['--color-success-fg', 'Success'],
+        ['--color-danger-fg', 'Danger'],
+      ].each do |var, label| %>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 32px; height: 32px; background: var(<%= var %>); border: 1px solid var(--color-border-default);"></div>
+          <span style="font-size: 12px;"><%= label %></span>
+        </div>
+      <% end %>
+    </div>
+  </section>
+
+  <!-- Buttons -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Buttons</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+      <a href="#" class="pulse-action-btn">Primary Action</a>
+      <a href="#" class="pulse-feed-action-btn">Feed Action</a>
+      <a href="#" class="pulse-feed-action-btn-link">Button Link</a>
+      <span class="pulse-feed-action-btn pulse-feed-action-btn-disabled">Disabled</span>
+      <a href="#" class="pulse-feed-action-link">Secondary Link</a>
+      <a href="#" class="pulse-invite-btn"><svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M10.5 5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm.061 3.073a4 4 0 1 0-5.123 0 6.004 6.004 0 0 0-3.431 5.142.75.75 0 0 0 1.498.07 4.5 4.5 0 0 1 8.99 0 .75.75 0 1 0 1.498-.07 6.005 6.005 0 0 0-3.432-5.142ZM15.5 5.5a.75.75 0 0 0-1.5 0v1.25h-1.25a.75.75 0 0 0 0 1.5H14v1.25a.75.75 0 0 0 1.5 0V8.25h1.25a.75.75 0 0 0 0-1.5H15.5V5.5Z"/></svg> Invite</a>
+    </div>
+  </section>
+
+  <!-- Avatars -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Avatars</h2>
+    <div style="display: flex; gap: 24px; align-items: center;">
+      <div>
+        <div class="pulse-section-label">Standard (32px)</div>
+        <div style="display: flex;">
+          <div class="pulse-avatar"><span class="pulse-avatar-initials">JD</span></div>
+          <div class="pulse-avatar"><span class="pulse-avatar-initials">AB</span></div>
+          <div class="pulse-avatar"><span class="pulse-avatar-initials">CD</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="pulse-section-label">Author (20px)</div>
+        <div style="display: flex; gap: 4px;">
+          <div class="pulse-author-avatar"><span class="pulse-avatar-initials">J</span></div>
+          <div class="pulse-author-avatar"><span class="pulse-avatar-initials">A</span></div>
+          <div class="pulse-author-avatar"><span class="pulse-avatar-initials">C</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="pulse-section-label">Confirmed (20px stacked)</div>
+        <div class="pulse-confirmed-avatars">
+          <div class="pulse-confirmed-avatar"><span class="pulse-avatar-initials">J</span></div>
+          <div class="pulse-confirmed-avatar"><span class="pulse-avatar-initials">A</span></div>
+          <div class="pulse-confirmed-avatar"><span class="pulse-avatar-initials">C</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Progress Bar -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Progress Bars</h2>
+    <div style="max-width: 300px;">
+      <div class="pulse-section-label">Cycle Progress (67%)</div>
+      <div class="pulse-progress-bar">
+        <div class="pulse-progress-fill" style="width: 67%;"></div>
+      </div>
+      <div class="pulse-progress-label">
+        <span>2 of 3 joined</span>
+        <span>67%</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feed Items -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Feed Items (Cards)</h2>
+
+    <!-- Note Card -->
+    <article class="pulse-feed-item">
+      <div class="pulse-feed-item-header">
+        <div class="pulse-feed-item-type">
+          <img src="/resource-icons/note-icon.svg" alt=""> NOTE
+        </div>
+        <div class="pulse-feed-item-meta">
+          <a href="#" class="pulse-feed-item-author">
+            <div class="pulse-author-avatar"><span class="pulse-avatar-initials">J</span></div>
+            Jane Developer
+          </a>
+          <span>&middot;</span>
+          <span>2 hours ago</span>
+        </div>
+      </div>
+      <div class="pulse-feed-item-body">
+        <div class="pulse-feed-item-title">
+          <a href="#">Example Note Title</a>
+        </div>
+        <div class="pulse-feed-item-content">
+          This is the note content with some preview text that gives context about what the note contains...
+        </div>
+      </div>
+      <div class="pulse-feed-item-footer">
+        <a href="#" class="pulse-feed-action-btn">
+          <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v9.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.573 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-9.5a.25.25 0 0 0-.25-.25Z"/></svg>
+          Comment
+        </a>
+        <a href="#" class="pulse-feed-action-link">
+          <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm11.748-1.97a.75.75 0 1 0-1.06-1.06l-4.47 4.47-1.405-1.406a.75.75 0 1 0-1.061 1.06l2.466 2.467 5.53-5.53Z"/></svg>
+          Confirm Read
+        </a>
+        <div class="pulse-confirmed-reads" style="margin-left: auto;">
+          <div class="pulse-confirmed-avatars">
+            <div class="pulse-confirmed-avatar"><span class="pulse-avatar-initials">A</span></div>
+            <div class="pulse-confirmed-avatar"><span class="pulse-avatar-initials">B</span></div>
+          </div>
+          <span style="font-size: 12px; color: var(--color-fg-muted);">2 confirmed</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Decision Card -->
+    <article class="pulse-feed-item">
+      <div class="pulse-feed-item-header">
+        <div class="pulse-feed-item-type">
+          <img src="/resource-icons/decision-icon.svg" alt=""> DECISION
+        </div>
+        <div class="pulse-feed-item-meta">
+          <a href="#" class="pulse-feed-item-author">
+            <div class="pulse-author-avatar"><span class="pulse-avatar-initials">J</span></div>
+            Jane Developer
+          </a>
+          <span>&middot;</span>
+          <span>1 day ago</span>
+        </div>
+      </div>
+      <div class="pulse-feed-item-body">
+        <div class="pulse-feed-item-title">
+          <a href="#">Should we adopt the new design system?</a>
+        </div>
+        <div class="pulse-feed-item-content">
+          Vote on whether to migrate all pages to Pulse.
+        </div>
+        <div class="pulse-decision-options">
+          <div class="pulse-decision-option">
+            <span>Yes, migrate everything</span>
+            <span class="pulse-option-votes">5 votes</span>
+          </div>
+          <div class="pulse-decision-option">
+            <span>Migrate gradually</span>
+            <span class="pulse-option-votes">8 votes</span>
+          </div>
+          <div class="pulse-decision-option">
+            <span>No, keep current design</span>
+            <span class="pulse-option-votes">2 votes</span>
+          </div>
+        </div>
+      </div>
+      <div class="pulse-feed-item-footer">
+        <a href="#" class="pulse-feed-action-btn">
+          <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm11.748-1.97a.75.75 0 1 0-1.06-1.06l-4.47 4.47-1.405-1.406a.75.75 0 1 0-1.061 1.06l2.466 2.467 5.53-5.53Z"/></svg>
+          Vote
+        </a>
+        <span style="font-size: 12px; color: var(--color-fg-muted); margin-left: auto;">Deadline: in 2 days</span>
+      </div>
+    </article>
+
+    <!-- Commitment Card -->
+    <article class="pulse-feed-item">
+      <div class="pulse-feed-item-header">
+        <div class="pulse-feed-item-type">
+          <img src="/resource-icons/commitment-icon.svg" alt=""> COMMITMENT
+        </div>
+        <div class="pulse-feed-item-meta">
+          <a href="#" class="pulse-feed-item-author">
+            <div class="pulse-author-avatar"><span class="pulse-avatar-initials">J</span></div>
+            Jane Developer
+          </a>
+          <span>&middot;</span>
+          <span>3 days ago</span>
+        </div>
+      </div>
+      <div class="pulse-feed-item-body">
+        <div class="pulse-feed-item-title">
+          <a href="#">Complete component library documentation</a>
+        </div>
+        <div class="pulse-feed-item-content">
+          Document all Pulse components with examples.
+        </div>
+        <div class="pulse-commitment-progress">
+          <div class="pulse-progress-bar">
+            <div class="pulse-progress-fill" style="width: 67%;"></div>
+          </div>
+          <div class="pulse-progress-label">
+            <span>2 of 3 needed</span>
+            <span>67%</span>
+          </div>
+        </div>
+      </div>
+      <div class="pulse-feed-item-footer">
+        <a href="#" class="pulse-feed-action-btn">
+          <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M10.5 5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm.061 3.073a4 4 0 1 0-5.123 0 6.004 6.004 0 0 0-3.431 5.142.75.75 0 0 0 1.498.07 4.5 4.5 0 0 1 8.99 0 .75.75 0 1 0 1.498-.07 6.005 6.005 0 0 0-3.432-5.142Z"/></svg>
+          Join
+        </a>
+        <div class="pulse-confirmed-avatars" style="margin-left: auto;">
+          <div class="pulse-confirmed-avatar"><span class="pulse-avatar-initials">A</span></div>
+          <div class="pulse-confirmed-avatar"><span class="pulse-avatar-initials">B</span></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Closed Card -->
+    <article class="pulse-feed-item pulse-feed-item-closed">
+      <div class="pulse-feed-item-header">
+        <div class="pulse-feed-item-type">
+          <img src="/resource-icons/decision-icon.svg" alt=""> DECISION (CLOSED)
+        </div>
+        <div class="pulse-feed-item-meta">
+          <span>Closed 1 week ago</span>
+        </div>
+      </div>
+      <div class="pulse-feed-item-body">
+        <div class="pulse-feed-item-title">
+          <a href="#">Closed decision example</a>
+        </div>
+        <div class="pulse-feed-item-content">
+          This decision has been resolved.
+        </div>
+      </div>
+      <div class="pulse-feed-item-footer">
+        <span style="font-size: 13px; color: var(--color-fg-muted);">Winner: Option A (12 votes)</span>
+      </div>
+    </article>
+  </section>
+
+  <!-- Accordion -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Accordion</h2>
+    <details class="pulse-accordion">
+      <summary class="pulse-accordion-header">
+        <span class="pulse-accordion-title">Collapsed Section <span class="pulse-accordion-count">(3 items)</span></span>
+        <span class="pulse-accordion-icon"><svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></svg></span>
+      </summary>
+      <div class="pulse-accordion-content">
+        <p>This is the accordion content. It can contain any HTML.</p>
+      </div>
+    </details>
+    <details class="pulse-accordion" open>
+      <summary class="pulse-accordion-header">
+        <span class="pulse-accordion-title">Expanded Section</span>
+        <span class="pulse-accordion-icon"><svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></svg></span>
+      </summary>
+      <div class="pulse-accordion-content">
+        <p>This accordion is open by default.</p>
+        <ul style="margin: 12px 0; padding-left: 20px;">
+          <li>Item one</li>
+          <li>Item two</li>
+          <li>Item three</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- Forms -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Form Elements</h2>
+    <div style="max-width: 500px;">
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Text Input</label>
+        <input type="text" class="pulse-form-input" placeholder="Enter text...">
+        <div class="pulse-form-hint">Helper text goes here</div>
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Textarea</label>
+        <textarea class="pulse-form-textarea" placeholder="Enter longer text..."></textarea>
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Select</label>
+        <select class="pulse-form-select">
+          <option>Option 1</option>
+          <option>Option 2</option>
+          <option>Option 3</option>
+        </select>
+      </div>
+      <div class="pulse-form-actions">
+        <button class="pulse-feed-action-btn">Submit</button>
+        <a href="#" class="pulse-feed-action-link">Cancel</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comments -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Comments Section</h2>
+    <div class="pulse-comments-section" style="border-top: none; margin-top: 0; padding-top: 0;">
+      <div class="pulse-section-label">
+        <svg class="octicon" viewBox="0 0 16 16" width="12" height="12"><path fill="currentColor" d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v9.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.573 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-9.5a.25.25 0 0 0-.25-.25Z"/></svg>
+        Comments (2)
+      </div>
+      <div class="pulse-comments-list">
+        <div class="pulse-comment">
+          <div class="pulse-comment-header">
+            <div class="pulse-author-avatar"><span class="pulse-avatar-initials">A</span></div>
+            <a href="#" class="pulse-comment-author">Alice Smith</a>
+            <span class="pulse-comment-timestamp">2 hours ago</span>
+          </div>
+          <div class="pulse-comment-body">
+            This looks great! I especially like the color system.
+          </div>
+        </div>
+        <div class="pulse-comment">
+          <div class="pulse-comment-header">
+            <div class="pulse-author-avatar"><span class="pulse-avatar-initials">B</span></div>
+            <a href="#" class="pulse-comment-author">Bob Jones</a>
+            <span class="pulse-comment-timestamp">1 hour ago</span>
+          </div>
+          <div class="pulse-comment-body">
+            Agreed! The dark mode support is really nice too.
+          </div>
+        </div>
+      </div>
+      <div class="pulse-comment-form">
+        <div class="pulse-form-group" style="margin-bottom: 0;">
+          <textarea class="pulse-form-textarea" placeholder="Add a comment..." rows="2"></textarea>
+        </div>
+        <div class="pulse-form-actions">
+          <button class="pulse-feed-action-btn">Add Comment</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Attachments -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Attachments</h2>
+    <div class="pulse-attachments" style="margin-top: 0;">
+      <div class="pulse-section-label">
+        <svg class="octicon" viewBox="0 0 16 16" width="12" height="12"><path fill="currentColor" d="M12.008 2.403a1.503 1.503 0 0 0-2.127 0L3.473 8.81a3.007 3.007 0 1 0 4.253 4.253l5.592-5.592a.75.75 0 1 1 1.061 1.06l-5.592 5.593a4.507 4.507 0 0 1-6.374-6.374L8.87 1.342a3.003 3.003 0 0 1 4.248 4.249l-6.4 6.4a1.503 1.503 0 0 1-2.127-2.127l5.312-5.311a.75.75 0 1 1 1.061 1.06L5.653 10.924a.003.003 0 0 0-.001.005c0 .002.002.003.004.003a.001.001 0 0 0 .001 0l6.4-6.4a1.504 1.504 0 0 0-2.127-2.127Z"/></svg>
+        Attachments
+      </div>
+      <ul class="pulse-attachments-list">
+        <li class="pulse-attachment-item">
+          <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M0 1.75A.75.75 0 0 1 .75 1h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 1.75ZM0 8a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8Zm.75 5.5a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5H.75Z"/></svg>
+          <a href="#" class="pulse-attachment-name">document.pdf</a>
+        </li>
+        <li class="pulse-attachment-item">
+          <div class="pulse-attachment-preview" style="background: var(--color-accent-fg);"></div>
+          <a href="#" class="pulse-attachment-name">screenshot.png</a>
+        </li>
+        <li class="pulse-attachment-item">
+          <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M0 1.75A.75.75 0 0 1 .75 1h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 1.75ZM0 8a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8Zm.75 5.5a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5H.75Z"/></svg>
+          <a href="#" class="pulse-attachment-name">spreadsheet.xlsx</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Breadcrumb -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Breadcrumb</h2>
+    <nav class="pulse-breadcrumb">
+      <a href="#">harmonic</a>
+      <span class="pulse-breadcrumb-sep">/</span>
+      <a href="#">Studio</a>
+      <span class="pulse-breadcrumb-sep">/</span>
+      <span>Current Page</span>
+    </nav>
+  </section>
+
+  <!-- Navigation Items -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Navigation Items</h2>
+    <div style="max-width: 280px; border: 1px solid var(--color-border-default);">
+      <div class="pulse-nav" style="border-bottom: none;">
+        <a href="#" class="pulse-nav-item active">
+          <img src="/resource-icons/note-icon.svg" alt="" style="width: 20px; height: 20px;">
+          Notes
+          <span class="pulse-nav-count">12</span>
+        </a>
+        <a href="#" class="pulse-nav-item">
+          <img src="/resource-icons/decision-icon.svg" alt="" style="width: 20px; height: 20px;">
+          Decisions
+          <span class="pulse-nav-count">5</span>
+        </a>
+        <a href="#" class="pulse-nav-item">
+          <img src="/resource-icons/commitment-icon.svg" alt="" style="width: 20px; height: 20px;">
+          Commitments
+          <span class="pulse-nav-count">3</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Flash Messages -->
+  <section style="margin-bottom: 48px;">
+    <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; border-bottom: 1px solid var(--color-border-default); padding-bottom: 8px;">Flash Messages</h2>
+    <div class="pulse-notice" style="margin-bottom: 8px;">
+      This is a notice message.
+      <button type="button" class="pulse-dismiss-btn">&times;</button>
+    </div>
+    <div class="pulse-alert">
+      This is an alert/warning message.
+      <button type="button" class="pulse-dismiss-btn">&times;</button>
+    </div>
+  </section>
+
+</div>

@@ -1,80 +1,142 @@
 <% if @current_user %>
-  <h1>
-    <%= render 'shared/three_icon_row', large: true %>
-    <span style="display:inline-block;width:5px;"></span>
-    <%= @current_tenant.subdomain %><span style="opacity:0.6;font-weight:normal;">.<%= ENV['HOSTNAME'] %></span>
-  </h1>
-  <% unless @current_representation_session %>
-    <a href="/scenes/new"><button style="float:right;margin-top:8px;">New Scene</button></a>
-  <% end %>
-  <h2><%= octicon 'eye', height: 24 %> Your <code><%= @current_tenant.subdomain %></code> Scenes</h2>
-  <p>Scenes are public groups that may or may not require invitation to join.</p>
-  <ul>
-    <% @scenes.each do |scene| %>
-      <li>
-        <a href="<%= scene.path %>">
-          <img src="<%= scene.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
-          <%= scene.name %>
-        </a>
-      </li>
-    <% end %>
-    <li><%= octicon 'telescope' %> Explore <a href="/scenes">other scenes</a> on <code><%= @current_tenant.subdomain %></code>
-  </ul>
-  <% unless @current_representation_session %>
-    <a href="/studios/new"><button style="float:right;margin-top:8px;">New Studio</button></a>
-  <% end %>
-  <h2>
-    <% if @studios.first&.has_heartbeat %>
-      <span title="heartbeats sent for all studios!">
-        <%= octicon 'heart-fill', height: 24 %>
-      </span>
-    <% else %>
-      <span title="heartbeats not yet sent for all studios">
-        <%= octicon 'heart', height: 24 %>
-      </span>
-    <% end %>
-    Your <code><%= @current_tenant.subdomain %></code> Studios
-  </h2>
-  <p>Studios are private groups that require invitation to join.</p>
-  <% if @studios.any? %>
-    <ul>
-      <% @studios.each.with_index do |studio, index| %>
-        <li>
-          <% if studio.has_heartbeat %>
-            <span title="heartbeat sent">
-              <%= octicon 'heart-fill' %>
-            </span>
-          <% else %>
-            <span title="heartbeat not yet sent">
-              <%= octicon 'heart' %>
-            </span>
-          <% end %>
-          <a href="<%= studio.path %>">
-            <img src="<%= studio.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
-            <%= studio.name %>
-          </a>
-        </li>
-      <% end %>
-    </ul>
-  <% else %>
-    <p>No studios yet.</p>
-  <% end %>
+  <article class="pulse-home">
+    <header class="pulse-page-header">
+      <h1 class="pulse-page-title"><span><%= @current_tenant.subdomain %><span class="pulse-subdomain-suffix">.<%= ENV['HOSTNAME'] %></span></span></h1>
+    </header>
 
-  <h2>
-    <%= octicon 'globe', height: 24 %>
-    Other Subdomains
-  </h2>
-  <p>Each subdomain contains a separate set of scenes and studios.</p>
-  <ul>
-    <li><code><%= @current_tenant.subdomain %></code> (current)</li>
-    <% @other_tenants.each do |t| %>
-      <li>
-        <a href="https://<%= t.subdomain %>.<%= ENV['HOSTNAME'] %>">
-          <code><%= t.subdomain %></code>
-        </a>
-      </li>
+    <%# Scenes Section %>
+    <%= render 'shared/pulse_accordion', title: 'Your Scenes', icon: 'eye', tooltip: 'Scenes are publicly visible groups.', count: @scenes.size, open: true do %>
+      <% if @scenes.any? %>
+        <% unless @current_representation_session %>
+          <div class="pulse-home-section-intro">
+            <a href="/scenes/new" class="pulse-action-btn-secondary">
+              <%= octicon 'plus', height: 14 %>
+              New Scene
+            </a>
+          </div>
+        <% end %>
+
+        <ul class="pulse-home-list" style="list-style-type: none;">
+          <% @scenes.each do |scene| %>
+            <li class="pulse-home-list-item" style="list-style-type: none;">
+              <a href="<%= scene.path %>" class="pulse-home-list-link">
+                <% if scene.image.attached? %>
+                  <img src="<%= scene.image_path %>" alt="" class="pulse-home-list-icon">
+                <% else %>
+                  <span class="pulse-home-list-icon pulse-default-icon">
+                    <%= octicon 'people', height: 14 %>
+                  </span>
+                <% end %>
+                <span class="pulse-home-list-name"><%= scene.name %></span>
+              </a>
+            </li>
+          <% end %>
+          <li class="pulse-home-list-item pulse-home-list-item-explore" style="list-style-type: none;">
+            <a href="/scenes" class="pulse-home-list-link pulse-home-list-link-muted">
+              <%= octicon 'telescope', height: 16 %>
+              <span>Explore other scenes on <code><%= @current_tenant.subdomain %></code></span>
+            </a>
+          </li>
+        </ul>
+      <% else %>
+        <div class="pulse-empty-state-action">
+          <p>You haven't joined any scenes yet.</p>
+          <p><a href="/scenes" class="pulse-link"><%= octicon 'telescope', height: 14 %> Explore scenes on <code><%= @current_tenant.subdomain %></code></a></p>
+          <% unless @current_representation_session %>
+            <a href="/scenes/new" class="pulse-action-btn-secondary">
+              <%= octicon 'plus', height: 14 %>
+              New Scene
+            </a>
+          <% end %>
+        </div>
+      <% end %>
     <% end %>
-  </ul>
+
+    <%# Studios Section %>
+    <%= render 'shared/pulse_accordion', title: 'Your Studios', icon: 'lock', tooltip: 'Studios are private groups.', count: @studios.size, open: true do %>
+      <% if @studios.any? %>
+        <% unless @current_representation_session %>
+          <div class="pulse-home-section-intro">
+            <a href="/studios/new" class="pulse-action-btn-secondary">
+              <%= octicon 'plus', height: 14 %>
+              New Studio
+            </a>
+          </div>
+        <% end %>
+
+        <ul class="pulse-home-list" style="list-style-type: none;">
+          <% @studios.each do |studio| %>
+            <li class="pulse-home-list-item" style="list-style-type: none;">
+              <a href="<%= studio.path %>" class="pulse-home-list-link">
+                <% if studio.has_heartbeat %>
+                  <span class="pulse-heartbeat-icon pulse-heartbeat-sent" title="Checked in this cycle">
+                    <%= octicon 'heart-fill', height: 16 %>
+                  </span>
+                <% else %>
+                  <span class="pulse-heartbeat-icon pulse-heartbeat-pending" title="Not yet checked in this cycle">
+                    <%= octicon 'heart', height: 16 %>
+                  </span>
+                <% end %>
+                <% if studio.image.attached? %>
+                  <img src="<%= studio.image_path %>" alt="" class="pulse-home-list-icon">
+                <% else %>
+                  <span class="pulse-home-list-icon pulse-default-icon">
+                    <%= octicon 'people', height: 14 %>
+                  </span>
+                <% end %>
+                <span class="pulse-home-list-name"><%= studio.name %></span>
+              </a>
+            </li>
+          <% end %>
+        </ul>
+      <% else %>
+        <div class="pulse-empty-state-action">
+          <p>You're not a member of any studios yet.</p>
+          <% unless @current_representation_session %>
+            <a href="/studios/new" class="pulse-action-btn-secondary">
+              <%= octicon 'plus', height: 14 %>
+              New Studio
+            </a>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+
+    <%# Subdomains Section %>
+    <%= render 'shared/pulse_accordion', title: 'Your Subdomains', icon: 'globe', tooltip: 'Each subdomain contains a separate set of scenes and studios.', count: @other_tenants.size + 1, open: true do %>
+      <div class="pulse-home-section-intro">
+        <% if @current_tenant.is_admin?(@current_user) && @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
+          <a href="/admin/tenants/new" class="pulse-action-btn-secondary">
+            <%= octicon 'plus', height: 14 %>
+            New Subdomain
+          </a>
+        <% else %>
+          <button type="button" class="pulse-action-btn-secondary" disabled title="Adding new subdomains requires admin permissions.">
+            <%= octicon 'plus', height: 14 %>
+            New Subdomain
+          </button>
+        <% end %>
+      </div>
+
+      <ul class="pulse-home-list" style="list-style-type: none;">
+        <li class="pulse-home-list-item pulse-home-list-item-current" style="list-style-type: none;">
+          <span class="pulse-home-list-link">
+            <code class="pulse-subdomain-code"><%= @current_tenant.subdomain %></code>
+            <span class="pulse-current-badge">current</span>
+          </span>
+        </li>
+        <% @other_tenants.each do |tenant| %>
+          <li class="pulse-home-list-item" style="list-style-type: none;">
+            <a href="https://<%= tenant.subdomain %>.<%= ENV['HOSTNAME'] %>" class="pulse-home-list-link">
+              <code class="pulse-subdomain-code"><%= tenant.subdomain %></code>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  </article>
 <% else %>
-  <p><a href="/login">Log in</a></p>
+  <div class="pulse-empty-state" style="text-align: center; padding: 48px;">
+    <p>Please <a href="/login" class="pulse-link">log in</a> to continue.</p>
+  </div>
 <% end %>

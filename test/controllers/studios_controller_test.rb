@@ -150,6 +150,22 @@ class StudiosControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "invite page has copy button separate from link box" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/studios/#{@superagent.handle}/invite"
+    assert_response :success
+
+    # Verify the invite link is in its own box
+    assert_select ".pulse-invite-link-box" do
+      assert_select "code.pulse-invite-link"
+    end
+
+    # Verify the copy button is in a separate actions section
+    assert_select ".pulse-invite-actions" do
+      assert_select "button.pulse-copy-btn.pulse-action-btn-secondary"
+    end
+  end
+
   # === Handle Available Tests ===
 
   test "handle_available returns true for available handle" do

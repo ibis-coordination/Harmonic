@@ -1,4 +1,4 @@
-\restrict pILnlhWkhD8tPR8ZhnfcSn1j9Gwou7HrwotyiUOub8IqOAhZTQRpjGzbU9xSRll
+\restrict sfYR9gXaHRZq1eGU0v4KqnZLSTJ3RX4CVCl6mB8ccWQbIg6l6vscyvxSucPBV49
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -476,7 +476,9 @@ CREATE TABLE public.notification_recipients (
     dismissed_at timestamp(6) without time zone,
     delivered_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    scheduled_for timestamp(6) without time zone,
+    tenant_id uuid NOT NULL
 );
 
 
@@ -486,7 +488,7 @@ CREATE TABLE public.notification_recipients (
 
 CREATE TABLE public.notifications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    event_id uuid NOT NULL,
+    event_id uuid,
     tenant_id uuid NOT NULL,
     notification_type character varying NOT NULL,
     title character varying NOT NULL,
@@ -739,7 +741,8 @@ CREATE TABLE public.webhook_deliveries (
     delivered_at timestamp(6) without time zone,
     next_retry_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    tenant_id uuid NOT NULL
 );
 
 
@@ -760,7 +763,8 @@ CREATE TABLE public.webhooks (
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
+    user_id uuid
 );
 
 
@@ -1505,10 +1509,24 @@ CREATE INDEX index_notification_recipients_on_notification_id ON public.notifica
 
 
 --
+-- Name: index_notification_recipients_on_scheduled_for; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_scheduled_for ON public.notification_recipients USING btree (scheduled_for) WHERE (scheduled_for IS NOT NULL);
+
+
+--
 -- Name: index_notification_recipients_on_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX index_notification_recipients_on_status ON public.notification_recipients USING btree (status);
+
+
+--
+-- Name: index_notification_recipients_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_tenant_id ON public.notification_recipients USING btree (tenant_id);
 
 
 --
@@ -1876,6 +1894,13 @@ CREATE INDEX index_webhook_deliveries_on_status_and_next_retry_at ON public.webh
 
 
 --
+-- Name: index_webhook_deliveries_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_tenant_id ON public.webhook_deliveries USING btree (tenant_id);
+
+
+--
 -- Name: index_webhook_deliveries_on_webhook_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1922,6 +1947,13 @@ CREATE INDEX index_webhooks_on_tenant_id_and_enabled ON public.webhooks USING bt
 --
 
 CREATE UNIQUE INDEX index_webhooks_on_truncated_id ON public.webhooks USING btree (truncated_id);
+
+
+--
+-- Name: index_webhooks_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhooks_on_user_id ON public.webhooks USING btree (user_id);
 
 
 --
@@ -2230,6 +2262,14 @@ ALTER TABLE ONLY public.notification_recipients
 
 
 --
+-- Name: webhooks fk_rails_51bf96d3bc; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhooks
+    ADD CONSTRAINT fk_rails_51bf96d3bc FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: superagent_members fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2323,6 +2363,14 @@ ALTER TABLE ONLY public.notes
 
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT fk_rails_78f4b5a537 FOREIGN KEY (event_id) REFERENCES public.events(id);
+
+
+--
+-- Name: webhook_deliveries fk_rails_7c0bbfdb0c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT fk_rails_7c0bbfdb0c FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -2670,6 +2718,14 @@ ALTER TABLE ONLY public.api_tokens
 
 
 --
+-- Name: notification_recipients fk_rails_f4bcceedb3; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_recipients
+    ADD CONSTRAINT fk_rails_f4bcceedb3 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: commitment_participants fk_rails_f513f0d5dd; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2697,7 +2753,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict pILnlhWkhD8tPR8ZhnfcSn1j9Gwou7HrwotyiUOub8IqOAhZTQRpjGzbU9xSRll
+\unrestrict sfYR9gXaHRZq1eGU0v4KqnZLSTJ3RX4CVCl6mB8ccWQbIg6l6vscyvxSucPBV49
 
 SET search_path TO "$user", public;
 
@@ -2806,6 +2862,11 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260115180000'),
 ('20260116180713'),
 ('20260116180721'),
-('20260116180725');
+('20260116180725'),
+('20260123021234'),
+('20260123023618'),
+('20260123023658'),
+('20260125063251'),
+('20260125064500');
 
 

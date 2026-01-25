@@ -1,11 +1,14 @@
 # typed: false
 
 class HomeController < ApplicationController
+  layout 'pulse'
 
   before_action :redirect_representing
 
   def index
     @page_title = 'Home'
+    @sidebar_mode = 'none'
+    @hide_breadcrumb = true
     @studios_and_scenes = @current_user.superagents
       .joins(
         "LEFT JOIN heartbeats ON heartbeats.superagent_id = superagents.id AND " +
@@ -29,16 +32,14 @@ class HomeController < ApplicationController
     ).sort_by(&:subdomain)
   end
 
-  def settings
-    @page_title = 'Settings'
-  end
-
   def about
     @page_title = 'About'
+    @sidebar_mode = 'minimal'
   end
 
   def help
     @page_title = 'Help'
+    @sidebar_mode = 'minimal'
     respond_to do |format|
       format.html
       format.md
@@ -46,6 +47,8 @@ class HomeController < ApplicationController
   end
 
   def contact
+    @page_title = 'Contact'
+    @sidebar_mode = 'minimal'
   end
 
   def actions_index

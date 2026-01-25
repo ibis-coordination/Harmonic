@@ -84,10 +84,7 @@ test.describe("Commitments", () => {
       if ((await joinButton.count()) > 0) {
         await joinButton.click()
 
-        // Wait for response
-        await page.waitForTimeout(500)
-
-        // Should still be on commitment page or show success
+        // Should still be on commitment page or show success (assertion waits)
         await expect(page.locator("body")).toBeVisible()
       }
     }

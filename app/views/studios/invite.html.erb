@@ -1,14 +1,36 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: "Invite" %>
-<h1 style="margin-top:0;">Invite to Studio</h1>
-<p>
-  Share this link with your team to invite them to studio <strong><%= @current_superagent.name %></strong>.
-  <br/>
-  Anyone with this link will be able to join.
-</p>
-<p>
-  <code><%= @invite.shareable_link %></code><br/>
-  <%= render 'shared/copy_to_clipboard', text: @invite.shareable_link %>
-</p>
-<p>
-  This link expires <%= timeago(@invite.expires_at) %>.
-</p>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.name, @current_tenant.path],
+  [@current_superagent.name, @current_superagent.path],
+  'Invite'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'person-add', height: 14, class: 'pulse-resource-icon' %>
+        Invite
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Invite to Studio</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p class="pulse-body-text">
+      Share this link with your team to invite them to studio <strong><%= @current_superagent.name %></strong>.
+      Anyone with this link will be able to join.
+    </p>
+
+    <div class="pulse-invite-link-box">
+      <code class="pulse-invite-link"><%= @invite.shareable_link %></code>
+    </div>
+
+    <div class="pulse-invite-actions">
+      <%= render 'shared/copy_to_clipboard', text: @invite.shareable_link %>
+    </div>
+
+    <p class="pulse-body-text-muted">
+      This link expires <%= timeago(@invite.expires_at) %>.
+    </p>
+  </div>
+</article>

@@ -1,123 +1,189 @@
-<h1><%= octicon "tools", height: 32 %> Admin</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  'Admin'
+] %>
 
-<code><%= @current_tenant.subdomain %><span style="opacity:0.6">.<%= ENV['HOSTNAME'] %></span></code>
+<h1 class="pulse-page-title">
+  <%= octicon 'tools', height: 24 %> Admin Dashboard
+</h1>
 
-<h3>Admin Users</h3>
-
-<ul>
-  <% @current_tenant.admin_users.each do |user| %>
-    <li>
-      <%= user.display_name %>
-      <a href="<%= user.path %>">
-        <code><%= user.handle %></code>
-      </a>
-    </li>
-  <% end %>
-</ul>
-
-<h2>Tenant Details</h2>
-
-<ul>
-  <li>
-    Name: <code><%= @current_tenant.name %></code>
-  </li>
-  <li>
-    Subdomain: <code><%= @current_tenant.subdomain %></code>
-  </li>
-  <li>
-    Created: <%= timeago(@current_tenant.created_at) %>
-  </li>
-  <li>
-    Updated: <%= timeago(@current_tenant.updated_at) %>
-  </li>
-</ul>
-
-<h3>Tenant Settings</h3>
-<%= link_to "Edit Settings", '/admin/settings' %>
-
-<pre>
-<%= JSON.pretty_generate(@current_tenant.settings) %>
-</pre>
-
-<h2>Main Studio</h2>
-
-<p>
-  The main studio is the default studio at the base path (i.e. <code><%= @current_tenant.domain %>/</code>).
-  When the app describes data as being "outside of a studio context", that means that the data is associated with the main studio.
+<p class="pulse-body-text-muted">
+  <code class="pulse-code"><%= @current_tenant.subdomain %><span style="opacity:0.6">.<%= ENV['HOSTNAME'] %></span></code>
 </p>
 
-<ul>
-  <li>
-    Name: <code><%= @current_tenant.main_superagent.name %></code>
-  </li>
-  <li>
-    ID: <code><%= @current_tenant.main_superagent.id %></code>
-    <%= render 'shared/copy_button', text: @current_tenant.main_superagent.id %>
-  </li>
-  <li>
-    Notes: <%= @current_tenant.main_superagent.notes.count %>
-  </li>
-  <li>
-    Decisions: <%= @current_tenant.main_superagent.decisions.count %>
-  </li>
-  <li>
-    Commitments: <%= @current_tenant.main_superagent.commitments.count %>
-  </li>
-</ul>
+<%= render 'shared/pulse_accordion', title: 'Admin Users', icon: 'people', count: @current_tenant.admin_users.count, open: true do %>
+  <div class="pulse-studios-list">
+    <% @current_tenant.admin_users.each do |tu| %>
+      <div class="pulse-studio-item">
+        <div class="pulse-author-avatar">
+          <img src="<%= tu.user.image_url %>" alt="<%= tu.display_name %>" class="pulse-avatar-img">
+        </div>
+        <div class="pulse-studio-info">
+          <a href="<%= tu.url %>" class="pulse-studio-name"><%= tu.display_name %></a>
+          <span class="pulse-studio-role">@<%= tu.handle %></span>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>
 
-<h3>Main Studio Settings</h3>
-<pre>
-<%= JSON.pretty_generate(@current_tenant.main_superagent.settings) %>
-</pre>
+<%= render 'shared/pulse_accordion', title: 'Tenant Details', icon: 'info', open: true do %>
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <tbody>
+        <tr>
+          <td><strong>Name</strong></td>
+          <td><code class="pulse-code"><%= @current_tenant.name %></code></td>
+        </tr>
+        <tr>
+          <td><strong>Subdomain</strong></td>
+          <td><code class="pulse-code"><%= @current_tenant.subdomain %></code></td>
+        </tr>
+        <tr>
+          <td><strong>Created</strong></td>
+          <td><%= timeago(@current_tenant.created_at) %></td>
+        </tr>
+        <tr>
+          <td><strong>Updated</strong></td>
+          <td><%= timeago(@current_tenant.updated_at) %></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-<h3>Other Studios</h3>
+  <div class="pulse-form-actions">
+    <a href="/admin/settings" class="pulse-action-btn">
+      <%= octicon 'gear', height: 14 %> Edit Settings
+    </a>
+  </div>
 
-<ul>
-  <% @current_tenant.superagents.order(created_at: :desc).each do |studio| %>
-    <% next if studio == @current_tenant.main_superagent %>
-    <li>
-      <a href="<%= studio.path %>">
-        <%= studio.name %>
-      </a>
-      created <%= timeago(studio.created_at) %>
-    </li>
+  <%= render 'shared/pulse_accordion', title: 'Raw Settings JSON', open: false do %>
+    <pre style="background:var(--color-canvas-subtle);padding:12px;overflow-x:auto;font-size:13px;"><%= JSON.pretty_generate(@current_tenant.settings) %></pre>
   <% end %>
-</ul>
+<% end %>
 
-<% if @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
-  <h2>
-    <%= octicon "tools", height: 32 %>
-    System Settings
+<%= render 'shared/pulse_accordion', title: 'Main Studio', icon: 'home', open: false do %>
+  <p class="pulse-form-hint" style="margin-bottom:16px;">
+    The main studio is the default studio at the base path (i.e. <code class="pulse-code"><%= @current_tenant.domain %>/</code>).
+    When the app describes data as being "outside of a studio context", that means that the data is associated with the main studio.
+  </p>
+
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <tbody>
+        <tr>
+          <td><strong>Name</strong></td>
+          <td><code class="pulse-code"><%= @current_tenant.main_superagent.name %></code></td>
+        </tr>
+        <tr>
+          <td><strong>ID</strong></td>
+          <td>
+            <code class="pulse-code"><%= @current_tenant.main_superagent.id %></code>
+            <%= render 'shared/copy_button', text: @current_tenant.main_superagent.id %>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Notes</strong></td>
+          <td><%= @current_tenant.main_superagent.notes.count %></td>
+        </tr>
+        <tr>
+          <td><strong>Decisions</strong></td>
+          <td><%= @current_tenant.main_superagent.decisions.count %></td>
+        </tr>
+        <tr>
+          <td><strong>Commitments</strong></td>
+          <td><%= @current_tenant.main_superagent.commitments.count %></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <%= render 'shared/pulse_accordion', title: 'Main Studio Settings JSON', open: false do %>
+    <pre style="background:var(--color-canvas-subtle);padding:12px;overflow-x:auto;font-size:13px;"><%= JSON.pretty_generate(@current_tenant.main_superagent.settings) %></pre>
+  <% end %>
+<% end %>
+
+<% other_studios = @current_tenant.superagents.order(created_at: :desc).reject { |s| s == @current_tenant.main_superagent } %>
+<%= render 'shared/pulse_accordion', title: 'Other Studios', icon: 'repo', count: other_studios.count, open: false do %>
+  <% if other_studios.any? %>
+    <div class="pulse-studios-list">
+      <% other_studios.each do |studio| %>
+        <div class="pulse-studio-item">
+          <div class="pulse-author-avatar" style="border-radius:6px;">
+            <img src="<%= studio.image_path %>" alt="<%= studio.name %>" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">
+          </div>
+          <div class="pulse-studio-info">
+            <a href="<%= studio.path %>" class="pulse-studio-name"><%= studio.name %></a>
+            <span class="pulse-studio-role">created <%= timeago(studio.created_at) %></span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No other studios yet.</p>
+  <% end %>
+<% end %>
+
+<% if is_main_tenant? %>
+  <h2 class="pulse-section-title" style="margin-top:32px;">
+    <%= octicon 'server', height: 20 %> System Settings
   </h2>
+  <p class="pulse-form-hint" style="margin-bottom:16px;">
+    Because <code class="pulse-code"><%= ENV['PRIMARY_SUBDOMAIN'] %></code> is the primary subdomain for this instance of Harmonic Team, you can see and create other tenants here.
+  </p>
 
-  <p>Because <code><%= ENV['PRIMARY_SUBDOMAIN'] %></code> is the primary subdomain for this instance of Harmonic Team, you can see and create other tenants here.</p>
+  <% other_tenants = Tenant.all.reject { |t| t.subdomain == ENV['PRIMARY_SUBDOMAIN'] || t.subdomain == ENV['AUTH_SUBDOMAIN'] } %>
+  <%= render 'shared/pulse_accordion', title: 'Other Tenants', icon: 'organization', count: other_tenants.count, open: true do %>
+    <% if other_tenants.any? %>
+      <div class="pulse-home-list">
+        <% other_tenants.each do |tenant| %>
+          <div class="pulse-home-list-item">
+            <a href="/admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+              <div class="pulse-default-icon pulse-home-list-icon">
+                <%= octicon 'organization', height: 14 %>
+              </div>
+              <span class="pulse-home-list-name"><%= tenant.name %></span>
+              <code class="pulse-code"><%= tenant.subdomain %></code>
+            </a>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="pulse-empty-message">No other tenants.</p>
+    <% end %>
 
-  <h3>Other Tenants</h3>
-  <ul>
-  <% Tenant.all.each do |tenant| %>
-    <% next if tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
-    <% next if tenant.subdomain == ENV['AUTH_SUBDOMAIN'] %>
-    <li>
-      <%= tenant.name %>
-      <a href="/admin/tenants/<%= tenant.subdomain %>">
-        <code><%= tenant.subdomain %></code>
+    <div class="pulse-form-actions">
+      <a href="/admin/tenants/new" class="pulse-action-btn">
+        <%= octicon 'plus', height: 14 %> New Tenant
       </a>
-    </li>
+    </div>
   <% end %>
-  </ul>
 
-  <h3>Person Users</h3>
-  <ul>
-  <% Tenant.all.order(created_at: :asc).each do |tenant| %>
-    <h4><code><%= tenant.subdomain %></code></h4>
+  <% all_person_users = [] %>
+  <% Tenant.order(created_at: :asc).each do |tenant| %>
     <% tenant.tenant_users.includes(:user).where(user: {user_type:'person'}).order(display_name: :asc).each do |tu| %>
-      <li>
-        <%= tu.display_name %>
-        <a href="<%= tu.url %>">
-          <code><%= tu.handle %></code>
-        </a>
-      </li>
+      <% all_person_users << { tenant: tenant, tu: tu } %>
     <% end %>
   <% end %>
-  </ul>
+  <%= render 'shared/pulse_accordion', title: 'Person Users', icon: 'people', count: all_person_users.count, open: false do %>
+    <% Tenant.order(created_at: :asc).each do |tenant| %>
+      <% users = tenant.tenant_users.includes(:user).where(user: {user_type:'person'}).order(display_name: :asc) %>
+      <% if users.any? %>
+        <h4 class="pulse-subsection-title"><code class="pulse-code"><%= tenant.subdomain %></code></h4>
+        <div class="pulse-studios-list">
+          <% users.each do |tu| %>
+            <div class="pulse-studio-item">
+              <div class="pulse-author-avatar">
+                <img src="<%= tu.user.image_url %>" alt="<%= tu.display_name %>" class="pulse-avatar-img">
+              </div>
+              <div class="pulse-studio-info">
+                <a href="<%= tu.url %>" class="pulse-studio-name"><%= tu.display_name %></a>
+                <span class="pulse-studio-role">@<%= tu.handle %></span>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
 <% end %>

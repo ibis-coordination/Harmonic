@@ -1,11 +1,26 @@
 # typed: false
 
 class UsersController < ApplicationController
+  layout 'pulse', only: [:index, :show, :settings]
+
   def index
+    @page_title = 'Users'
+    @sidebar_mode = 'minimal'
     @users = current_tenant.tenant_users
   end
 
+  # Redirect /settings to /u/:handle/settings
+  def redirect_to_settings
+    redirect_to "#{current_user.path}/settings"
+  end
+
+  # Redirect /settings/webhooks to /u/:handle/settings/webhooks
+  def redirect_to_settings_webhooks
+    redirect_to "#{current_user.path}/settings/webhooks"
+  end
+
   def show
+    @sidebar_mode = 'minimal'
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404' if tu.nil?
     @showing_user = tu.user
@@ -25,6 +40,13 @@ class UsersController < ApplicationController
       @common_studios = current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
       @additional_common_studio_count = 0
     end
+    # Load subagent count for person users
+    if @showing_user.person?
+      @subagent_count = @showing_user.subagents
+        .joins(:tenant_users)
+        .where(tenant_users: { tenant_id: current_tenant.id })
+        .count
+    end
     respond_to do |format|
       format.html
       format.md
@@ -32,14 +54,25 @@ class UsersController < ApplicationController
   end
 
   def settings
+    @sidebar_mode = 'minimal'
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404' if tu.nil?
-    return render plain: '403 Unauthorized' unless tu.user == current_user
-    @page_title = "Your Settings"
-    @current_user.tenant_user = tu
-    @subagents = @current_user.subagents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
-    # Superagents where current user has invite permission (for adding subagents)
-    @invitable_studios = @current_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
+    return render '404', status: 404 if tu.nil?
+    @settings_user = tu.user
+    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(@settings_user)
+
+    @settings_user.tenant_user = tu
+    @page_title = @settings_user == current_user ? "Your Settings" : "#{@settings_user.display_name}'s Settings"
+
+    # For person users, show their subagents
+    if @settings_user.person?
+      @subagents = @settings_user.subagents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
+      # Superagents where settings user has invite permission (for adding subagents)
+      @invitable_studios = @settings_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
+    else
+      @subagents = []
+      @invitable_studios = []
+    end
+
     respond_to do |format|
       format.html
       format.md
@@ -100,41 +133,27 @@ class UsersController < ApplicationController
 
   def update_profile
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404' if tu.nil?
-    return render plain: '403 Unauthorized' unless tu.user == current_user
+    return render '404', status: 404 if tu.nil?
+    settings_user = tu.user
+    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(settings_user)
+
     if params[:name].present?
-      current_user.name = params[:name]
-      current_user.save!
-      TenantUser.unscoped.where(user: current_user).update_all(
+      settings_user.name = params[:name]
+      settings_user.save!
+      TenantUser.unscoped.where(user: settings_user).update_all(
         display_name: params[:name]
       )
     end
     if params[:new_handle].present?
-      current_user.handle = params[:new_handle]
-      current_user.save!
-      TenantUser.unscoped.where(user: current_user).update_all(
+      tu.handle = params[:new_handle]
+      tu.save!
+      # Also update all other tenant_users for this user
+      TenantUser.unscoped.where(user: settings_user).where.not(id: tu.id).update_all(
         handle: params[:new_handle]
       )
     end
     flash[:notice] = 'Profile updated successfully'
-    redirect_to "#{current_user.path}/settings"
-  end
-
-  def update_ui_version
-    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404' if tu.nil?
-    return render plain: '403 Unauthorized', status: 403 unless tu.user == current_user
-
-    version = params[:ui_version]
-    unless TenantUser::UI_VERSIONS.include?(version)
-      flash[:alert] = 'Invalid UI version'
-      redirect_to "#{current_user.path}/settings"
-      return
-    end
-
-    current_user.set_ui_version!(version)
-    flash[:notice] = "UI version set to #{version}"
-    redirect_to "#{current_user.path}/settings"
+    redirect_to "#{settings_user.path}/settings"
   end
 
   def impersonate
@@ -153,17 +172,19 @@ class UsersController < ApplicationController
 
   def update_image
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404' if tu.nil?
-    return render plain: '403 Unauthorized' unless tu.user == current_user
+    return render '404', status: 404 if tu.nil?
+    settings_user = tu.user
+    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(settings_user)
+
     if params[:image].present?
-      current_user.image = params[:image]
+      settings_user.image = params[:image]
     elsif params[:cropped_image_data].present?
-      current_user.cropped_image_data = params[:cropped_image_data]
+      settings_user.cropped_image_data = params[:cropped_image_data]
     else
       return render status: 400, plain: '400 Bad Request'
     end
-    current_user.save!
-    redirect_to request.referrer
+    settings_user.save!
+    redirect_to request.referrer || "#{settings_user.path}/settings"
   end
 
   # Markdown API actions
@@ -171,44 +192,55 @@ class UsersController < ApplicationController
   def actions_index
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404', status: 404 if tu.nil?
-    return render plain: '403 Unauthorized', status: 403 unless tu.user == current_user
-    @page_title = "Actions | Your Settings"
+    @settings_user = tu.user
+    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(@settings_user)
+    @page_title = @settings_user == current_user ? "Actions | Your Settings" : "Actions | #{@settings_user.display_name}'s Settings"
     render_actions_index(ActionsHelper.actions_for_route('/u/:handle/settings'))
   end
 
   def describe_update_profile
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404', status: 404 if tu.nil?
-    return render plain: '403 Unauthorized', status: 403 unless tu.user == current_user
-    render_action_description(ActionsHelper.action_description("update_profile", resource: current_user))
+    @settings_user = tu.user
+    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(@settings_user)
+    render_action_description(ActionsHelper.action_description("update_profile", resource: @settings_user))
   end
 
   def execute_update_profile
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render '404', status: 404 if tu.nil?
-    return render plain: '403 Unauthorized', status: 403 unless tu.user == current_user
+    @settings_user = tu.user
+    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(@settings_user)
 
     if params[:name].present?
-      current_user.name = params[:name]
-      current_user.save!
-      TenantUser.unscoped.where(user: current_user).update_all(display_name: params[:name])
+      @settings_user.name = params[:name]
+      @settings_user.save!
+      TenantUser.unscoped.where(user: @settings_user).update_all(display_name: params[:name])
     end
     # Use new_handle to avoid conflict with path parameter :handle
     # Note: handle is a virtual attribute that delegates to tenant_user
     if params[:new_handle].present?
-      current_user.handle = params[:new_handle]
-      current_user.tenant_user.save!
+      tu.handle = params[:new_handle]
+      tu.save!
       # Also update all other tenant_users for this user
-      TenantUser.unscoped.where(user: current_user).where.not(id: current_user.tenant_user.id).update_all(handle: params[:new_handle])
+      TenantUser.unscoped.where(user: @settings_user).where.not(id: tu.id).update_all(handle: params[:new_handle])
     end
 
-    @page_title = "Your Settings"
-    @current_user.tenant_user = tu
-    @subagents = @current_user.subagents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
-    @invitable_studios = @current_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
+    @settings_user.tenant_user = tu
+    @page_title = @settings_user == current_user ? "Your Settings" : "#{@settings_user.display_name}'s Settings"
+
+    # For person users, show their subagents
+    if @settings_user.person?
+      @subagents = @settings_user.subagents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
+      @invitable_studios = @settings_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
+    else
+      @subagents = []
+      @invitable_studios = []
+    end
+
     respond_to do |format|
       format.md { render 'settings' }
-      format.html { redirect_to "#{current_user.path}/settings" }
+      format.html { redirect_to "#{@settings_user.path}/settings" }
     end
   end
 

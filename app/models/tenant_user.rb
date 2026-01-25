@@ -71,6 +71,7 @@ class TenantUser < ApplicationRecord
     "comment" => { "in_app" => true, "email" => false },
     "participation" => { "in_app" => true, "email" => false },
     "system" => { "in_app" => true, "email" => true },
+    "reminder" => { "in_app" => true, "email" => false },  # Email disabled by default for AI agents
   }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
 
   sig { returns(T::Hash[String, T::Hash[String, T::Boolean]]) }
@@ -110,34 +111,4 @@ class TenantUser < ApplicationRecord
     save!
   end
 
-  # UI Version preference for v1/v2 toggle
-  UI_VERSIONS = T.let(%w[v1 v2].freeze, T::Array[String])
-  DEFAULT_UI_VERSION = T.let("v1", String)
-
-  sig { returns(String) }
-  def ui_version
-    settings_hash = T.cast(settings, T.nilable(T::Hash[String, T.untyped]))
-    return DEFAULT_UI_VERSION unless settings_hash
-    version = settings_hash["ui_version"]
-    UI_VERSIONS.include?(version) ? T.cast(version, String) : DEFAULT_UI_VERSION
-  end
-
-  sig { params(version: String).void }
-  def ui_version=(version)
-    raise ArgumentError, "Invalid UI version: #{version}" unless UI_VERSIONS.include?(version)
-    self.settings ||= {}
-    settings_hash = T.cast(settings, T::Hash[String, T.untyped])
-    settings_hash["ui_version"] = version
-  end
-
-  sig { params(version: String).void }
-  def set_ui_version!(version)
-    self.ui_version = version
-    save!
-  end
-
-  sig { returns(T::Boolean) }
-  def ui_v2?
-    ui_version == "v2"
-  end
 end

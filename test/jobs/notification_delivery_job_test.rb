@@ -116,4 +116,96 @@ class NotificationDeliveryJobTest < ActiveSupport::TestCase
     # delivered_at should not have changed
     assert_equal original_time.to_i, recipient.delivered_at.to_i
   end
+
+  test "perform fires notifications.delivered event for non-reminder notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    notification = Notification.create!(
+      tenant: tenant,
+      event: event,
+      notification_type: "mention",
+      title: "Test Mention",
+    )
+
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+    )
+
+    initial_event_count = Event.where(event_type: "notifications.delivered").count
+
+    NotificationDeliveryJob.perform_now(recipient.id)
+
+    # Should fire one notifications.delivered event
+    assert_equal initial_event_count + 1, Event.where(event_type: "notifications.delivered").count
+  end
+
+  test "perform does NOT fire notifications.delivered event for reminder notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    notification = Notification.create!(
+      tenant: tenant,
+      event: event,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.ago,  # Due reminder
+    )
+
+    initial_event_count = Event.where(event_type: "notifications.delivered").count
+
+    NotificationDeliveryJob.perform_now(recipient.id)
+
+    # Should NOT fire notifications.delivered event (reminders already have reminders.delivered)
+    assert_equal initial_event_count, Event.where(event_type: "notifications.delivered").count
+  end
+
+  test "perform fires only ONE notifications.delivered event for multiple channels" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    notification = Notification.create!(
+      tenant: tenant,
+      event: event,
+      notification_type: "mention",
+      title: "Multi-channel Test",
+    )
+
+    # Create recipients for both channels (simulating what NotificationService does)
+    in_app_recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+    )
+
+    email_recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "email",
+      status: "pending",
+    )
+
+    initial_event_count = Event.where(event_type: "notifications.delivered").count
+
+    # Deliver both channels
+    NotificationDeliveryJob.perform_now(in_app_recipient.id)
+    NotificationDeliveryJob.perform_now(email_recipient.id)
+
+    # Should fire only ONE notifications.delivered event (from in_app channel only)
+    assert_equal initial_event_count + 1, Event.where(event_type: "notifications.delivered").count
+  end
 end

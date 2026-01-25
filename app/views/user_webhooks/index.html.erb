@@ -1,0 +1,72 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/webhooks"
+%>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@target_user.display_name, "/u/#{@target_user.handle}"],
+  ['Settings', "/u/#{@target_user.handle}/settings"],
+  'Webhooks'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'webhook', height: 14, class: 'pulse-resource-icon' %>
+        Webhooks
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Webhooks for <%= @target_user.handle %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @target_user != @current_user %>
+      <p class="pulse-notice">
+        You are managing webhooks for <strong><%= @target_user.name %></strong> (<%= @target_user.user_type %>).
+      </p>
+    <% end %>
+
+    <p class="pulse-action-row">
+      <a href="<%= base_path %>/new" class="pulse-action-btn pulse-action-btn-primary">
+        <%= octicon "plus" %> New Webhook
+      </a>
+    </p>
+
+    <% if @webhooks.empty? %>
+      <p class="pulse-empty-content"><em>No webhooks configured yet.</em></p>
+      <p>Webhooks allow you to receive notifications (like reminders) at an external URL.</p>
+    <% else %>
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>URL</th>
+            <th>Events</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @webhooks.each do |webhook| %>
+            <tr>
+              <td>
+                <a href="<%= base_path %>/<%= webhook.truncated_id %>" class="pulse-link">
+                  <%= webhook.name %>
+                </a>
+              </td>
+              <td class="pulse-monospace"><%= truncate(webhook.url, length: 50) %></td>
+              <td><%= webhook.events.join(", ") %></td>
+              <td>
+                <% if webhook.enabled? %>
+                  <span class="pulse-tag pulse-tag-success">Enabled</span>
+                <% else %>
+                  <span class="pulse-tag">Disabled</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
+</article>

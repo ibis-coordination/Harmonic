@@ -1,1 +1,20 @@
-<h1>Contact</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Contact'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'mail', height: 14, class: 'pulse-resource-icon' %>
+        Contact
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Contact</h1>
+  </header>
+
+  <div class="pulse-resource-body pulse-prose">
+    <p>Contact information will be added here.</p>
+  </div>
+</article>

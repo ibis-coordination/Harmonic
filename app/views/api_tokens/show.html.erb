@@ -1,51 +1,84 @@
-<h4 style="margin-bottom:0;">
-  <%= link_to @current_user.display_name, @current_user.path || '/' %>
-  /
-  <%= link_to 'Settings', "#{@current_user.path}/settings" %>
-  / API Token <code><%= @token.name || 'Unnamed' %></code>
-</h4>
-<h1 style="margin-top:0;">API Token</h1>
-<% if @current_user != @showing_user %>
-  <p>
-    This token belongs to subagent <a href="<%= @showing_user.path %>"><%= @showing_user.display_name %></a>, but you are able to view and edit this token because you are the owner of this subagent.
-  </p>
-<% end %>
-<ul>
-  <li>
-    <strong>Name:</strong>
-    <%= @token.name || 'Unnamed' %>
-  </li>
-  <li>
-    <strong>Token:</strong>
-    <code><%= @token.obfuscated_token %></code>
-    <span data-controller="clipboard">
-      <input type="text" value="<%= @token.token %>" data-clipboard-target="source" style="display:none;"/>
-      <span class="text-only-button" data-action="click->clipboard#copy" data-clipboard-target="button"><%= octicon 'copy' %> Copy token to clipboard</span>
-      <span class="text-only-button" data-clipboard-target="successMessage" style="display:none;"><%= octicon 'copy' %> Copied!</span>
-    </span>
-  </li>
-  <li>
-    <strong>Created:</strong>
-    <%= timeago(@token.created_at) %>
-  </li>
-  <li>
-    <strong>Last Used:</strong>
-    <%= @token.last_used_at ? timeago(@token.last_used_at) : 'Never' %>
-  </li>
-  <li>
-    <strong>Expires:</strong>
-    <%= timeago(@token.expires_at) %>
-  </li>
-  <li>
-    <strong>Active:</strong>
-    <%= @token.active? ? 'Yes' : 'No' %>
-  </li>
-</ul>
-<h2>Scopes</h2>
-<p>
-<% @token.scopes.each do |scope| %>
-  <span><%= scope %></span>
-<% end %>
-</p>
-<h2>Delete</h2>
-<%= button_to 'Delete Token', @token.path, method: :delete, data: { confirm: 'Are you sure?' }, class: 'button' %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@showing_user.display_name, @showing_user.path],
+  ['Settings', "#{@showing_user.path}/settings"],
+  @token.name || 'API Token'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'key', height: 14, class: 'pulse-resource-icon' %>
+        API Token
+      </span>
+    </div>
+    <h1 class="pulse-resource-title"><%= @token.name || 'Unnamed' %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @current_user != @showing_user %>
+      <p class="pulse-notice">
+        This token belongs to subagent <a href="<%= @showing_user.path %>" class="pulse-link"><%= @showing_user.display_name %></a>, but you are able to view and edit this token because you are the owner of this subagent.
+      </p>
+    <% end %>
+
+    <section class="pulse-settings-section">
+      <table class="pulse-table">
+        <tr>
+          <th style="width:100px;">Name</th>
+          <td><%= @token.name || 'Unnamed' %></td>
+        </tr>
+        <tr>
+          <th>Token</th>
+          <td>
+            <code class="pulse-monospace"><%= @token.obfuscated_token %></code>
+            <span data-controller="clipboard">
+              <input type="text" value="<%= @token.token %>" data-clipboard-target="source" style="display:none;"/>
+              <button class="pulse-action-btn pulse-action-btn-sm" data-action="click->clipboard#copy" data-clipboard-target="button">
+                <%= octicon 'copy' %> Copy
+              </button>
+              <span class="pulse-tag pulse-tag-success" data-clipboard-target="successMessage" style="display:none;">Copied!</span>
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <th>Created</th>
+          <td><%= timeago(@token.created_at) %></td>
+        </tr>
+        <tr>
+          <th>Last Used</th>
+          <td><%= @token.last_used_at ? timeago(@token.last_used_at) : 'Never' %></td>
+        </tr>
+        <tr>
+          <th>Expires</th>
+          <td><%= timeago(@token.expires_at) %></td>
+        </tr>
+        <tr>
+          <th>Active</th>
+          <td>
+            <% if @token.active? %>
+              <span class="pulse-tag pulse-tag-success">Yes</span>
+            <% else %>
+              <span class="pulse-tag">No</span>
+            <% end %>
+          </td>
+        </tr>
+      </table>
+    </section>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Scopes</h2>
+      <p>
+        <% @token.scopes.each do |scope| %>
+          <span class="pulse-tag"><%= scope %></span>
+        <% end %>
+      </p>
+    </section>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Delete</h2>
+      <%= button_to 'Delete Token', @token.path, method: :delete, data: { confirm: 'Are you sure?' }, class: 'pulse-action-btn pulse-action-btn-danger' %>
+    </section>
+  </div>
+</article>

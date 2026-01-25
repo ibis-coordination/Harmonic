@@ -157,4 +157,71 @@ class WebhookTest < ActiveSupport::TestCase
     assert_equal 1, enabled.count
     assert_equal "Enabled Webhook", enabled.first.name
   end
+
+  # User-level webhook tests
+
+  test "valid user webhook creation" do
+    webhook = Webhook.new(
+      tenant: @tenant,
+      user: @user,
+      name: "User Webhook",
+      url: "https://example.com/webhook",
+      events: ["reminders.delivered"],
+      created_by: @user,
+    )
+    assert webhook.valid?
+  end
+
+  test "user webhook automatically clears superagent_id when user_id is set" do
+    # When both user_id and superagent_id are set, user_id takes precedence
+    # and superagent_id is automatically cleared by the before_validation callback
+    webhook = Webhook.new(
+      tenant: @tenant,
+      user: @user,
+      superagent: @superagent,
+      name: "User Webhook With Superagent",
+      url: "https://example.com/webhook",
+      events: ["reminders.delivered"],
+      created_by: @user,
+    )
+    assert webhook.valid?, "Webhook should be valid after superagent_id is auto-cleared"
+    assert_nil webhook.superagent_id, "superagent_id should be cleared when user_id is present"
+    assert_equal @user.id, webhook.user_id
+  end
+
+  test "for_user scope returns user webhooks" do
+    user_webhook = Webhook.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "User Webhook",
+      url: "https://example.com/user-webhook",
+      events: ["reminders.delivered"],
+      created_by: @user,
+    )
+    studio_webhook = Webhook.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      name: "Studio Webhook",
+      url: "https://example.com/studio-webhook",
+      events: ["note.created"],
+      created_by: @user,
+    )
+
+    user_webhooks = Webhook.for_user(@user)
+    assert_includes user_webhooks, user_webhook
+    assert_not_includes user_webhooks, studio_webhook
+  end
+
+  test "path returns user path for user webhooks" do
+    webhook = Webhook.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "User Webhook",
+      url: "https://example.com/user-webhook",
+      events: ["reminders.delivered"],
+      created_by: @user,
+    )
+
+    assert_equal "/u/#{@user.handle}/settings/webhooks", webhook.path
+  end
 end

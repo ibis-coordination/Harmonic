@@ -1,6 +1,8 @@
 # typed: false
 
 class StudiosController < ApplicationController
+  layout 'pulse', only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view]
+  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view]
 
   def index
     @page_title = "Studios"
@@ -523,6 +525,17 @@ class StudiosController < ApplicationController
     @sort_by_options = @cycle.sort_by_options
     @group_by_options = @cycle.group_by_options
     @filter_options = @cycle.filter_options
+  end
+
+  private
+
+  def set_sidebar_mode
+    if action_name.in?(%w[index new])
+      @sidebar_mode = 'minimal'
+    else
+      @sidebar_mode = 'settings'
+      @team = @current_superagent.team
+    end
   end
 
 end

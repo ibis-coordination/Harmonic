@@ -1,23 +1,46 @@
-<%= render 'shared/show_resource_breadcrumbs', hide_studio_path: true, resource: 'Studios' %>
-<h1><%= octicon 'heart', height: 24 %> Studios</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Studios'
+] %>
 
-<% if @studios.any? %>
-  <ul>
-    <% @studios.each do |studio| %>
-      <li>
-        <a href="<%= studio.path %>">
-          <img src="<%= studio.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
-          <%= studio.name %>
-        </a>
-      </li>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'heart', height: 14, class: 'pulse-resource-icon' %>
+        Studios
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Your Studios</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @studios.any? %>
+      <ul class="pulse-list">
+        <% @studios.each do |studio| %>
+          <li class="pulse-list-item">
+            <a href="<%= studio.path %>" class="pulse-list-link">
+              <img src="<%= studio.image_path %>" class="pulse-avatar-small" alt="">
+              <%= studio.name %>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    <% elsif @current_user %>
+      <p class="pulse-empty-content"><em>You are not a member of any studios yet.</em></p>
+    <% else %>
+      <p class="pulse-empty-content">
+        <a href="/login" class="pulse-link">Log in</a> to see your studios.
+      </p>
     <% end %>
-  </ul>
-<% elsif @current_user %>
-  <p>You are not a member of any studios yet.</p>
-<% else %>
-  <p><a href="/login">Log in</a> to see your studios.</p>
-<% end %>
 
-<% if @current_user %>
-  <p><a href="/studios/new">Create a new studio</a></p>
-<% end %>
+    <% if @current_user %>
+      <div class="pulse-form-actions" style="margin-top: 1.5rem;">
+        <a href="/studios/new" class="pulse-action-btn">
+          <%= octicon 'plus', height: 14 %>
+          Create New Studio
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>

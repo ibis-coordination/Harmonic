@@ -39,16 +39,22 @@ class NotificationService
     notification
   end
 
-  sig { params(user: User).returns(Integer) }
-  def self.unread_count_for(user)
-    NotificationRecipient.where(user: user).in_app.unread.count
+  sig { params(user: User, tenant: Tenant).returns(Integer) }
+  def self.unread_count_for(user, tenant:)
+    # Exclude scheduled future reminders - they're not "unread" until their scheduled time
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .in_app.unread.not_scheduled.count
   end
 
-  sig { params(user: User).void }
-  def self.mark_all_read_for(user)
-    NotificationRecipient.where(user: user).in_app.unread.update_all(
-      read_at: Time.current,
-      status: "read"
-    )
+  sig { params(user: User, tenant: Tenant).void }
+  def self.mark_all_read_for(user, tenant:)
+    # Exclude scheduled future reminders - they shouldn't be marked as read before they trigger
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .in_app.unread.not_scheduled.update_all(
+        read_at: Time.current,
+        status: "read"
+      )
   end
 end

@@ -1,0 +1,62 @@
+<%
+  # Default to tenant timezone, or UTC if not set
+  default_timezone = @current_tenant&.timezone&.name || "UTC"
+%>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Notifications', '/notifications'],
+  'New Reminder'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-type-label">
+      <%= octicon 'clock', height: 16 %>
+      <span>Reminder</span>
+    </div>
+    <h1 class="pulse-resource-title">Schedule Reminder</h1>
+    <p class="pulse-form-hint">Schedule a reminder to be delivered to your notifications inbox at a specific time.</p>
+  </header>
+
+  <%= form_tag "/notifications/actions/create_reminder", method: :post, class: 'pulse-form' do %>
+    <div class="pulse-form-section">
+      <label class="pulse-form-label" for="title">Title</label>
+      <input type="text" name="title" id="title" placeholder="e.g., Review pull request" required maxlength="255" class="pulse-input">
+    </div>
+
+    <div class="pulse-form-section">
+      <label class="pulse-form-label" for="scheduled_for">When</label>
+      <div class="pulse-inline-field">
+        <input type="datetime-local" name="scheduled_for" id="scheduled_for" required class="pulse-input" style="flex:1; min-width:200px;">
+        <%= time_zone_select nil, :timezone, nil, { default: default_timezone }, { class: 'pulse-select', style: 'flex:0 0 auto;' } %>
+      </div>
+      <p class="pulse-form-hint">Or use relative time like "1h" (1 hour), "2d" (2 days), "1w" (1 week)</p>
+    </div>
+
+    <div class="pulse-form-section">
+      <label class="pulse-form-label" for="body">
+        Details
+        <span class="pulse-form-label-optional">(optional)</span>
+      </label>
+      <textarea name="body" id="body" rows="3" placeholder="Additional notes..." maxlength="200" class="pulse-textarea"></textarea>
+    </div>
+
+    <div class="pulse-form-section">
+      <label class="pulse-form-label" for="url">
+        Link
+        <span class="pulse-form-label-optional">(optional)</span>
+      </label>
+      <input type="url" name="url" id="url" placeholder="https://..." class="pulse-input">
+      <p class="pulse-form-hint">A URL to include with the reminder</p>
+    </div>
+
+    <div class="pulse-form-actions">
+      <button type="submit" class="pulse-action-btn-primary">
+        <%= octicon 'clock', height: 14 %>
+        Schedule Reminder
+      </button>
+      <a href="/notifications" class="pulse-action-btn">Cancel</a>
+    </div>
+  <% end %>
+</article>

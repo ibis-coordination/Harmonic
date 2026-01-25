@@ -1,0 +1,426 @@
+/* Pulse Sidebar Components
+ * Studio info, cycle, heartbeats, navigation, pinned items, links
+ */
+
+/* Sidebar Sections */
+.pulse-sidebar-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+/* Sidebar Header */
+.pulse-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  min-height: 76px;
+  box-sizing: border-box;
+}
+
+/* Studio Info */
+.pulse-studio-info {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+/* Studio Header (avatar + details layout) */
+.pulse-studio-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-studio-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.pulse-studio-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.pulse-studio-details .pulse-studio-name {
+  margin-bottom: 4px;
+}
+
+.pulse-studio-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Sidebar studio name as a link */
+.pulse-sidebar-studio-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-sidebar-studio-name:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-sidebar-studio-name .pulse-visibility-icon .octicon,
+.pulse-studio-name .pulse-visibility-icon .octicon {
+  width: 14px;
+  height: 14px;
+}
+
+.pulse-studio-meta {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-studio-info-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-studio-image {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pulse-studio-info-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pulse-member-link {
+  color: var(--color-fg-muted);
+  text-decoration: none;
+}
+
+.pulse-member-link:hover {
+  color: var(--color-fg-default);
+  text-decoration: underline;
+}
+
+/* Cycle Indicator */
+.pulse-cycle-box {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+}
+
+.pulse-cycle-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-fg-muted);
+  margin-bottom: 8px;
+}
+
+.pulse-cycle-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pulse-cycle-progress {
+  height: 4px;
+  background: var(--color-border-default);
+  position: relative;
+}
+
+.pulse-cycle-progress-fill {
+  height: 100%;
+  background: var(--color-success-emphasis);
+}
+
+.pulse-cycle-dates {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin-top: 8px;
+}
+
+.pulse-cycle-dates-inline {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+/* Cycle Navigation */
+.pulse-cycle-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.pulse-cycle-nav-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  color: var(--color-fg-muted);
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.pulse-cycle-nav-arrow:hover {
+  background: var(--color-canvas-subtle);
+  color: var(--color-fg-default);
+}
+
+.pulse-cycle-nav-arrow.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.pulse-cycle-info {
+  text-align: center;
+  flex: 1;
+  padding: 0 8px;
+}
+
+.pulse-cycle-return {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.pulse-cycle-return-btn {
+  font-size: 12px;
+  color: var(--color-accent-fg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.pulse-cycle-return-btn:hover {
+  background: var(--color-canvas-subtle);
+}
+
+/* Heartbeat Section */
+.pulse-heartbeat-box {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-heartbeat-box .pulse-section-label {
+  margin-bottom: 8px;
+}
+
+.pulse-heartbeat-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.pulse-heartbeat-count strong {
+  font-size: 24px;
+}
+
+.pulse-heartbeat-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pulse-heartbeat-icon .octicon {
+  fill: red;
+  width: 18px;
+  height: 18px;
+}
+
+.pulse-heartbeat-avatars {
+  display: flex;
+}
+
+/* Navigation */
+.pulse-nav {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: var(--color-fg-default);
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.pulse-nav-item:hover {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  text-decoration: none;
+}
+
+.pulse-nav-item.active {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+}
+
+.pulse-nav-item .octicon {
+  fill: currentColor;
+}
+
+.pulse-nav-item img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.pulse-nav-item.active img,
+.pulse-nav-item:hover img {
+  filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pulse-nav-item.active img,
+  .pulse-nav-item:hover img {
+    filter: none;
+  }
+}
+
+.pulse-nav-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-nav-item:hover .pulse-nav-count,
+.pulse-nav-item.active .pulse-nav-count {
+  color: var(--color-canvas-default);
+}
+
+/* Pinned Items */
+.pulse-pinned-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-pinned-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-pinned-list li {
+  margin-bottom: 6px;
+}
+
+.pulse-pinned-list li:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-pinned-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-fg-default);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.pulse-pinned-list a:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-pinned-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* Links Section (Settings, Explore, etc.) */
+.pulse-links-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-links-list li {
+  margin-bottom: 4px;
+}
+
+.pulse-links-list li:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-links-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  text-decoration: none;
+  padding: 6px 0;
+}
+
+.pulse-links-list a:hover {
+  color: var(--color-fg-default);
+}
+
+.pulse-links-list .octicon {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Link Items (for resource links in sidebar) */
+.pulse-link-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-fg-default);
+  text-decoration: none;
+  padding: 6px 0;
+}
+
+.pulse-link-item:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-resource-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
+}

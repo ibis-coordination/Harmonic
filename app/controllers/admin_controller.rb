@@ -2,6 +2,8 @@
 
 require 'sidekiq/api'
 class AdminController < ApplicationController
+  layout 'pulse'
+  before_action :set_admin_sidebar
   before_action :ensure_admin_user
   before_action :ensure_subagent_admin_access
   before_action :block_subagent_admin_writes_in_production
@@ -268,7 +270,8 @@ class AdminController < ApplicationController
 
   def ensure_admin_user
     unless @current_tenant.is_admin?(@current_user)
-      return render status: 403, layout: 'application', html: 'You must be an admin to access this page.'
+      @sidebar_mode = 'none'
+      return render status: 403, layout: 'pulse', template: 'admin/403_not_admin'
     end
   end
 
@@ -309,6 +312,11 @@ class AdminController < ApplicationController
 
   def is_main_tenant?
     @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN']
+  end
+  helper_method :is_main_tenant?
+
+  def set_admin_sidebar
+    @sidebar_mode = 'admin'
   end
 
   def current_resource_model

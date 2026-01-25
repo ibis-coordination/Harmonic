@@ -9,7 +9,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **For detailed AI agent context**: Read [AGENTS.md](AGENTS.md)
 **For codebase patterns comparison**: Read [docs/CODEBASE_PATTERNS.md](docs/CODEBASE_PATTERNS.md)
 **For UI styling patterns**: Read [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md)
-**For Storybook component development**: Read [docs/STORYBOOK.md](docs/STORYBOOK.md)
 
 ## Common Commands
 
@@ -55,15 +54,6 @@ docker compose exec js npm test
 
 # Generate ERD diagram
 ./scripts/generate-erd.sh
-
-# V2 React Client (in client/ directory)
-cd client && npm run dev          # Start Vite dev server
-cd client && npm run storybook    # Start Storybook at localhost:6006
-cd client && npm test             # Run Vitest tests
-cd client && npm run typecheck    # TypeScript type check
-cd client && npm run lint         # Run ESLint
-cd client && npm run lint:fix     # Run ESLint with auto-fix
-cd client && npm run check        # Run lint + typecheck together
 ```
 
 ## Code Style
@@ -73,18 +63,6 @@ cd client && npm run check        # Run lint + typecheck together
 - **Arrays/Hashes**: Use trailing commas in multiline literals
 - **Line length**: Max 150 characters
 - **Linter**: RuboCop with configuration in `.rubocop.yml`
-
-### TypeScript/React (V2 Client)
-- **Linter**: ESLint with strict functional programming rules
-- **Functional programming**: Strictly enforced via `eslint-plugin-functional`
-  - No classes (`functional/no-classes`)
-  - No `let` declarations (`functional/no-let`) - use `const` only
-  - No loops (`functional/no-loop-statements`) - use `map`, `filter`, `reduce`
-  - No `throw` statements (`functional/no-throw-statements`) - use Effect.js `Effect.fail`
-  - Immutable data (`functional/immutable-data`) - no mutations except React refs
-- **Error handling**: Use Effect.js tagged unions, not classes
-- **Pre-commit hooks**: Husky runs lint-staged on TypeScript files
-- **Configuration**: `client/eslint.config.js`
 
 ## Architecture Overview
 
@@ -127,24 +105,6 @@ The app serves two parallel interfaces:
 1. HTML/browser UI for humans
 2. Markdown + API actions for LLMs (same routes with `Accept: text/markdown`)
 
-### V2 React Client
-
-A modern React frontend in `client/` using:
-- **Vite** - Build tool and dev server
-- **TanStack Router** - Type-safe routing
-- **TanStack Query** - Data fetching and caching
-- **Tailwind CSS** - Utility-first styling
-- **Storybook** - Component development and documentation
-- **Effect.js** - Functional error handling and effects
-- **ESLint** - Strict functional programming enforcement
-
-Component development workflow:
-1. Create component in `client/src/components/`
-2. Add story in `ComponentName.stories.tsx`
-3. Develop in isolation with `npm run storybook`
-4. Add tests in `ComponentName.test.tsx`
-5. Run `npm run check` before committing
-
 ## Testing
 
 ### Backend (Ruby)
@@ -153,18 +113,11 @@ Component development workflow:
 - Test helpers: `create_tenant_studio_user`, `create_note`, `create_decision`, etc. in `test/test_helper.rb`
 - Integration tests use `sign_in_as(user, tenant:)` helper
 
-### Frontend (TypeScript - Legacy V1)
+### Frontend (TypeScript)
 - Framework: Vitest with jsdom
 - Test files: `app/javascript/**/*.test.ts`
 - Run tests: `docker compose exec js npm test`
 - Watch mode: `docker compose exec js npm run test:watch`
-
-### Frontend (TypeScript - V2 React Client)
-- Framework: Vitest with jsdom and React Testing Library
-- Test files: `client/src/**/*.test.ts`, `client/src/**/*.test.tsx`
-- Run tests: `cd client && npm test`
-- Watch mode: `cd client && npm run test:watch`
-- Linting: `cd client && npm run lint`
 
 ### End-to-End (Playwright)
 - Framework: Playwright
@@ -180,6 +133,32 @@ Component development workflow:
 - Framework: checklists
 - Instruction/checklist files: `test/manual/**/*.manual_test.md`
 - Run tests: use MCP server to connect to the app's markdown UI, follow instructions in test file, verify checklist items
+
+### Playwright MCP Browser Testing
+When using the Playwright MCP tools to interact with the app in a browser:
+- **Base URL**: Always use `https://app.harmonic.local` as the base domain
+- The app uses subdomain-based multi-tenancy, so `localhost:3000` will not work
+- **Do NOT use honor_system auth mode** - the e2e tests show how to properly log in
+
+**Setup (run once if needed):**
+```bash
+docker compose exec web bundle exec rake e2e:setup
+```
+This creates a test user with identity provider authentication.
+
+**Login credentials:**
+- Email: `e2e-test@example.com` (or `E2E_TEST_EMAIL` env var)
+- Password: `e2e-test-password-14chars` (or `E2E_TEST_PASSWORD` env var)
+
+**Login flow:**
+1. Navigate to `https://app.harmonic.local/login`
+2. Wait for redirect to auth subdomain
+3. Fill `input[name="auth_key"]` with email
+4. Fill `input[name="password"]` with password
+5. Click the Log in button
+6. Wait for redirect back to app subdomain
+
+**Reference:** See `e2e/helpers/auth.ts` for the canonical login implementation and `e2e/tests/` for examples.
 
 ## Environment Variables
 
@@ -199,7 +178,11 @@ When modifying TODO comments, update `docs/TODO_INDEX.md`:
 ## Plan Documents
 
 When creating implementation plans, store them in `.claude/plans/` with descriptive names:
-- Active plans: `.claude/plans/v2-ui-implementation.md`
+- Active plans: `.claude/plans/PLAN_NAME.md`
 - Completed plans: `.claude/plans/completed/YYYY/MM/PLAN_NAME.md`
 - Plans should document goals, architecture decisions, and implementation phases
 - When a plan is completed, move it to the appropriate `completed/YYYY/MM/` subdirectory
+
+## Other
+
+Do not use the term "pre-existing" when you encounter failing tests or failing type checks. If there are failures, those failures must be addressed properly.

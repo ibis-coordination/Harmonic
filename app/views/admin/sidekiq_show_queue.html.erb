@@ -1,9 +1,47 @@
-<h1>Queue: <%= @queue.name %></h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  ['Sidekiq', '/admin/sidekiq'],
+  "Queue: #{@queue.name}"
+] %>
 
-<ul>
-  <% @queue.each do |job| %>
-    <li>
-      <%= link_to job.jid, "/admin/sidekiq/jobs/#{job.jid}" %> (Enqueued At: <%= job.enqueued_at %>)
-    </li>
-  <% end %>
-</ul>
+<h1 class="pulse-page-title">
+  <%= octicon 'stack', height: 24 %> Queue: <%= @queue.name %>
+</h1>
+
+<p class="pulse-body-text-muted" style="margin-bottom:24px;">
+  <%= @queue.size %> job<%= @queue.size == 1 ? '' : 's' %> in queue
+</p>
+
+<% if @queue.any? %>
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Enqueued At</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @queue.each do |job| %>
+          <tr>
+            <td>
+              <a href="/admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
+                <code class="pulse-code"><%= job.jid %></code>
+              </a>
+            </td>
+            <td><%= job.enqueued_at %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% else %>
+  <p class="pulse-empty-message">No jobs in this queue.</p>
+<% end %>
+
+<div class="pulse-form-actions">
+  <a href="/admin/sidekiq" class="pulse-action-btn-secondary">
+    <%= octicon 'arrow-left', height: 14 %> Back to Sidekiq
+  </a>
+</div>

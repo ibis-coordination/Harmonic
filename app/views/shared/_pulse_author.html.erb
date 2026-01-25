@@ -1,0 +1,32 @@
+<%# Pulse-styled author display %>
+<%# Usage: render 'shared/pulse_author', resource: @note %>
+<% verb ||= nil %>
+<% author = resource.created_by %>
+<% if author %>
+  <div class="pulse-feed-item-author">
+    <div class="pulse-author-avatar">
+      <% if author.image_url.present? && author.image_url != '/placeholder.png' %>
+        <img src="<%= author.image_url %>" alt="" class="pulse-avatar-img">
+      <% end %>
+      <span class="pulse-avatar-initials"><%= author.display_name.to_s.first&.upcase || '?' %></span>
+    </div>
+    <a href="<%= author.path %>" class="pulse-feed-item-author">
+      <strong><%= author.display_name %></strong>
+    </a>
+    <% if author.subagent? && author.parent %>
+      <span class="pulse-subagent-label">(via <%= link_to author.parent.display_name, author.parent.path %>)</span>
+    <% end %>
+    <% if verb.present? %>
+      <span><%= verb %></span>
+    <% end %>
+    <span class="pulse-timestamp"><%= timeago(resource.created_at) %></span>
+  </div>
+  <% if resource.updated_at > resource.created_at + 1.minute %>
+    <div class="pulse-feed-item-updated">
+      <span>Updated <%= timeago(resource.updated_at) %></span>
+      <% if resource.updated_by && resource.updated_by != author %>
+        <span>by <%= link_to resource.updated_by.display_name, resource.updated_by.path %></span>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

@@ -1,28 +1,64 @@
 <span data-controller="note" data-note-id="<%= @note.id %>">
-<%= render 'shared/more_button', resource: @note, options: ['copy', (@current_superagent.is_scene? ? nil : 'pin'), (@note.user_can_edit?(@current_user) ? 'edit' : nil)].compact %>
-<%= render 'shared/show_resource_breadcrumbs', resource: @note %>
-<h1 style="margin-top:0;"><%= @note.persisted_title %></h1>
-<% if @note.is_comment? %>
-  <p onclick="location.href='<%= @note.commentable.path %>'" style="cursor:pointer;">
-    <%= octicon 'reply' %>
-    Replying to
-    <%= render 'shared/inline_resource_item', resource: @note.commentable %>
-  </p>
-<% end %>
-<p style="font-size:0.8em;">
-  <%= render 'shared/created_by', resource: @note %>
-</p>
-<%= render 'shared/attachments_section', resource: @note %>
-<div class="user-generated-markdown">
-  <% if @note.text.present? %>
-    <%= markdown(@note.text) %>
-  <% else %>
-    <p style="opacity:0.6;"><em>empty note</em></p>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  (@note.is_comment? ? 'Comment' : 'Note')
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <% if @note.is_comment? %>
+          <%= octicon 'comment', height: 14, class: 'pulse-resource-icon' %>
+          Comment
+        <% else %>
+          <img src="/resource-icons/note-icon.svg" class="pulse-resource-icon" alt="">
+          Note
+        <% end %>
+      </span>
+      <div class="pulse-resource-actions">
+        <%= render 'shared/copy_to_clipboard', text: request.original_url %>
+        <% unless @current_superagent.is_scene? %>
+          <%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %>
+        <% end %>
+        <% if @note.user_can_edit?(@current_user) %>
+          <%= link_to "#{@note.path}/edit", class: 'pulse-action-btn' do %>
+            <%= octicon 'pencil', height: 14 %>
+            Edit
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+    <h1 class="pulse-resource-title"><%= @note.persisted_title %></h1>
+  </header>
+
+  <% if @note.is_comment? %>
+    <div class="pulse-reply-context" onclick="location.href='<%= @note.commentable.path %>'" style="cursor:pointer;">
+      <%= octicon 'reply', height: 14 %>
+      Replying to
+      <%= render 'shared/pulse_resource_link', resource: @note.commentable %>
+    </div>
   <% end %>
-</div>
-<%= render 'shared/note_metrics', note: @note, metric_url: "#{@note.path}/metric" %>
-<hr/>
-<div data-note-target="confirmSection">
-  <%= render 'confirm' %>
-</div>
+
+  <div class="pulse-resource-meta">
+    <%= render 'shared/pulse_author', resource: @note %>
+  </div>
+
+  <%= render 'shared/pulse_attachments', resource: @note %>
+
+  <div class="pulse-resource-body">
+    <div class="pulse-markdown-content">
+      <% if @note.text.present? %>
+        <%= markdown(@note.text) %>
+      <% else %>
+        <p class="pulse-empty-content"><em>empty note</em></p>
+      <% end %>
+    </div>
+  </div>
+
+  <%# Confirmed Reads Section %>
+  <div class="pulse-confirmed-section" data-note-target="confirmSection">
+    <%= render 'confirm' %>
+  </div>
+</article>
 </span>

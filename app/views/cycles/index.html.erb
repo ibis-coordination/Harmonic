@@ -1,14 +1,37 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: 'Cycles' %>
-<h1 style="margin-top:0;">Cycles</h1>
-<p>Notes are counted in the cycle that they were created in.</p>
-<p>Decisions and Commitments are counted in cycles where their time window (creation date to deadline) has any overlap with the cycle. Decisions and commitments can span multiple cycles.</p>
-<p>Click on the cycle names to view the counted items.</p>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'Cycles'
+] %>
 
-<h2>Daily</h2>
-<%= render 'shared/cycle_count_table', cycles: @daily_cycles %>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'calendar', height: 14, class: 'pulse-resource-icon' %>
+        Cycles
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Cycles</h1>
+  </header>
 
-<h2>Weekly</h2>
-<%= render 'shared/cycle_count_table', cycles: @weekly_cycles %>
+  <div class="pulse-resource-body">
+    <p>Notes are counted in the cycle that they were created in.</p>
+    <p>Decisions and Commitments are counted in cycles where their time window (creation date to deadline) has any overlap with the cycle. Decisions and commitments can span multiple cycles.</p>
+    <p>Click on the cycle names to view the counted items.</p>
 
-<h2>Monthly</h2>
-<%= render 'shared/cycle_count_table', cycles: @monthly_cycles %>
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Daily</h2>
+      <%= render 'shared/cycle_count_table', cycles: @daily_cycles %>
+    </section>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Weekly</h2>
+      <%= render 'shared/cycle_count_table', cycles: @weekly_cycles %>
+    </section>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Monthly</h2>
+      <%= render 'shared/cycle_count_table', cycles: @monthly_cycles %>
+    </section>
+  </div>
+</article>

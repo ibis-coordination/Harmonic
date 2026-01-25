@@ -1,24 +1,21 @@
 import { test as base, Page, expect } from "@playwright/test"
-import { login } from "../helpers/auth"
+import { E2E_TEST_EMAIL, E2E_TEST_PASSWORD } from "../helpers/auth"
 
 /**
  * Test user data
  */
 export interface TestUser {
   email: string
-  name: string
+  password: string
 }
 
 /**
- * Generate a unique test user for each test
+ * Pre-configured E2E test user.
+ * Created by `rake e2e:setup` before running tests.
  */
-function generateTestUser(): TestUser {
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 10)
-  return {
-    email: `e2e-test-${timestamp}-${random}@example.com`,
-    name: `E2E User ${timestamp}${random}`,
-  }
+export const testUser: TestUser = {
+  email: E2E_TEST_EMAIL,
+  password: E2E_TEST_PASSWORD,
 }
 
 /**
@@ -29,18 +26,19 @@ export const test = base.extend<{
   testUser: TestUser
 }>({
   /**
-   * Generates a unique test user for each test
+   * Provides the pre-configured E2E test user
    */
   testUser: async ({}, use) => {
-    const user = generateTestUser()
-    await use(user)
+    await use(testUser)
   },
 
   /**
-   * Provides a page that is already authenticated with a test user
+   * Provides a page that is already authenticated with the test user.
+   * Authentication is handled by global setup - the storageState is
+   * pre-loaded, so no login is needed here.
    */
-  authenticatedPage: async ({ page, testUser }, use) => {
-    await login(page, { email: testUser.email, name: testUser.name })
+  authenticatedPage: async ({ page }, use) => {
+    // Session is already authenticated via storageState from global setup
     await use(page)
   },
 })

@@ -1,6 +1,28 @@
-<h1>Settings</h1>
-<p>Name: <%= @current_tenant.name %></p>
-<p>Subdomain: <%= @current_tenant.subdomain %></p>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  'Settings'
+] %>
 
-<h2>JSON</h2>
-<p><%= @current_tenant.settings.to_json %></p>
+<h1 class="pulse-page-title">
+  <%= octicon 'gear', height: 24 %> Settings
+</h1>
+
+<div class="pulse-table-wrapper" style="max-width:500px;">
+  <table class="pulse-table">
+    <tbody>
+      <tr>
+        <td><strong>Name</strong></td>
+        <td><%= @current_tenant.name %></td>
+      </tr>
+      <tr>
+        <td><strong>Subdomain</strong></td>
+        <td><code class="pulse-code"><%= @current_tenant.subdomain %></code></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<%= render 'shared/pulse_accordion', title: 'Settings JSON', open: false do %>
+  <pre style="background:var(--color-canvas-subtle);padding:12px;overflow-x:auto;font-size:13px;"><%= JSON.pretty_generate(@current_tenant.settings) %></pre>
+<% end %>

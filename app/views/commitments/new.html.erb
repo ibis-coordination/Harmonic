@@ -1,38 +1,73 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: nil do %>
-  <i class='commitment-icon'></i> Commitment
-<% end %>
-<div style="height:16px"></div>
-<%= form_with do |form| %>
-  <div>
-    <%= form.text_field :title, placeholder: 'Action that this commitment will initiate' %>
-  </div>
-  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
-    <%= form.text_area :description, placeholder: 'Description (markdown supported, use @ to mention users)', data: { mention_autocomplete_target: "input" } %>
-    <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-  </div>
-  <%= render 'shared/multi_file_select', form: form %>
-  <h2>Critical Mass</h2>
-  <p>
-    At least <%= form.number_field :critical_mass, value: 1, style: 'width:48px;' %> participant(s) required for this commitment to take effect.
-  </p>
-  <h2>Deadline</h2>
-  <p>
-    Critical mass must be reached by
-  </p>
-  <p>
-    <%= render 'shared/deadline_input_fields', form: form, deadline: Time.current + 1.week, close_at_critical_mass_option: true %>
-  </p>
-  <hr style="height:1px;" />
-  <%= form.submit 'Start Commitment' %>
-  <% if @current_superagent.is_scene? %>
-    <span>
-      <%= octicon 'eye' %>
-      Commitments posted in scenes are publicly visible.
-    </span>
-  <% else %>
-    <span>
-      <%= octicon 'lock' %>
-      Only members of this studio can access this commitment.
-    </span>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'New Commitment'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/commitment-icon.svg" class="pulse-resource-icon" alt="">
+        Commitment
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">New Commitment</h1>
+  </header>
+
+  <%= form_with(url: "#{@current_superagent.path}/commit", class: "pulse-form") do |form| %>
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Title</label>
+      <%= form.text_field :title,
+          placeholder: "What action will this commitment initiate?",
+          class: "pulse-form-input",
+          autofocus: true %>
+    </div>
+
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Description <span class="pulse-form-label-optional">(optional)</span></label>
+      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+        <%= form.text_area :description,
+            placeholder: "Describe what participants are committing to... (markdown supported, use @ to mention users)",
+            class: "pulse-form-textarea",
+            rows: 4,
+            data: { mention_autocomplete_target: "input" } %>
+        <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+      </div>
+    </div>
+
+    <%= render 'shared/multi_file_select', form: form %>
+
+    <section class="pulse-form-section">
+      <h2 class="pulse-section-title">Critical Mass</h2>
+      <p class="pulse-section-description">
+        How many participants are required for this commitment to take effect?
+      </p>
+      <div class="pulse-form-group">
+        <div class="pulse-inline-field">
+          <span>At least</span>
+          <%= form.number_field :critical_mass, value: 1, min: 1, class: 'pulse-form-input pulse-form-input-narrow' %>
+          <span>participant(s) required</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="pulse-form-section">
+      <h2 class="pulse-section-title">Deadline</h2>
+      <p class="pulse-section-description">When must critical mass be reached?</p>
+      <%= render 'shared/pulse_deadline_input_fields', form: form, deadline: Time.current + 1.week, close_at_critical_mass_option: true %>
+    </section>
+
+    <div class="pulse-form-actions">
+      <%= form.submit 'Start Commitment', class: 'pulse-action-btn' %>
+      <span class="pulse-visibility-hint">
+        <% if @current_superagent.is_scene? %>
+          <%= octicon 'eye', height: 14 %>
+          Commitments posted in scenes are publicly visible.
+        <% else %>
+          <%= octicon 'lock', height: 14 %>
+          Only members of this studio can access this commitment.
+        <% end %>
+      </span>
+    </div>
   <% end %>
-<% end %>
+</article>

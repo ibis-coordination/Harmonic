@@ -1,26 +1,44 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: 'Backlinks' %>
-<h1 style="margin-top:0;">Backlinks</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'Backlinks'
+] %>
 
-<% if @backlinks.empty? %>
-  <p>No backlinks yet.</p>
-<% else %>
-<p>
-  <table>
-    <tr style="border:none;">
-      <td style="border:none;"></td>
-      <td style="border:none;"></td>
-      <td>backlinks</td>
-    </tr>
-    <% @backlinks.each.with_index do |bl, i| %>
-      <% resource, count = bl %>
-      <tr>
-        <td><%= i + 1 %></td>
-        <td>
-          <%= render 'shared/inline_resource_item', resource: resource %>
-        </td>
-        <td><%= count %></td>
-      </tr>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'link', height: 14, class: 'pulse-resource-icon' %>
+        Backlinks
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Backlinks</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @backlinks.empty? %>
+      <p class="pulse-empty-content"><em>No backlinks yet.</em></p>
+    <% else %>
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Resource</th>
+            <th>Backlinks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @backlinks.each.with_index do |bl, i| %>
+            <% resource, count = bl %>
+            <tr>
+              <td><%= i + 1 %></td>
+              <td>
+                <%= render 'shared/pulse_resource_link', resource: resource %>
+              </td>
+              <td><%= count %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
     <% end %>
-  </table>
-</p>
-<% end %>
+  </div>
+</article>

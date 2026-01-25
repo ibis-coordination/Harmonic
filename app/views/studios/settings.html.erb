@@ -1,179 +1,214 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: 'Settings' %>
-<h1 style="margin-top:0;">Settings</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.name, @current_tenant.path],
+  [@current_superagent.name, @current_superagent.path],
+  'Settings'
+] %>
 
-<h2>Studio Image</h2>
-<%= render 'shared/profile_image_upload', resource: @current_superagent, size: 83 %>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'gear', height: 14, class: 'pulse-resource-icon' %>
+        Settings
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Studio Settings</h1>
+  </header>
 
-<%= form_with(url: "#{@current_superagent.path}/settings", id: "studio-settings-form") do |form| %>
-  <h2>Studio Name</h2>
-  <p>
-    <%= form.text_field :name, placeholder: 'Studio Name', value: @current_superagent.name %>
-  </p>
+  <div class="pulse-settings-form">
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Studio Image</h2>
+      <%= render 'shared/profile_image_upload', resource: @current_superagent, size: 83 %>
+    </section>
 
-  <h2>Studio Description</h2>
-  <p>
-    <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_superagent.description %>
-  </p>
+    <%= form_with(url: "#{@current_superagent.path}/settings", id: "studio-settings-form", class: "pulse-form", data: { controller: "form-tracker", action: "change->form-tracker#trackChange input->form-tracker#trackChange" }) do |form| %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Studio Name</h2>
+        <div class="pulse-form-group">
+          <%= form.text_field :name, placeholder: 'Studio Name', value: @current_superagent.name, class: 'pulse-form-input' %>
+        </div>
+      </section>
 
-  <h2>Time Zone</h2>
-  <p>
-    The studio time zone determines when cycles begin and end.
-  </p>
-  <p>
-    <%= form.time_zone_select :timezone, ActiveSupport::TimeZone.all, default: @current_superagent.timezone.name %>
-  </p>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Studio Description</h2>
+        <div class="pulse-form-group">
+          <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_superagent.description, class: 'pulse-form-textarea', rows: 4 %>
+        </div>
+      </section>
 
-  <h2>Tempo</h2>
-
-  <p>
-    How frequently should studio members check in (approximately)?
-  </p>
-  <p>
-    This determines the primary cycle duration.
-  </p>
-  <p>
-    <%= form.select :tempo, [['Daily', 'daily'], ['Weekly', 'weekly'], ['Monthly', 'monthly']], selected: @current_superagent.tempo %>
-  </p>
-
-  <h2>Synchronization Mode</h2>
-
-  <p>
-    Which metaphor best describes how this studio is organized?
-  </p>
-  <p>
-    <fieldset>
-      <label>
-        <%= form.radio_button :synchronization_mode, 'improv', checked: @current_superagent.improv? %>
-        <strong>Improv</strong> (no formal leadership roles)
-      </label>
-      <br/>
-      <label>
-        <%= form.radio_button :synchronization_mode, 'orchestra', checked: @current_superagent.orchestra? %>
-        <strong>Orchestra</strong> (has formal leadership roles)
-      </label>
-    </fieldset>
-  </p>
-
-  <h2>Invitations</h2>
-  <fieldset>
-    <legend>Who can invite new members?</legend>
-    <%= form.radio_button :invitations, 'all_members', checked: @current_superagent.all_members_can_invite? %>
-    <%= form.label :invitations_all_members, 'All members can invite' %><br>
-    <%= form.radio_button :invitations, 'only_admins', checked: !@current_superagent.all_members_can_invite? %>
-    <%= form.label :invitations_only_admins, 'Only admins can invite' %>
-  </fieldset>
-
-  <h2>Representation</h2>
-  <fieldset>
-    <legend>Who can act as a representative of <%= @current_superagent.name %> within other studios?</legend>
-    <%= form.radio_button :representation, 'any_member', checked: @current_superagent.any_member_can_represent? %>
-    <%= form.label :representation_any_member, 'Any member can represent the studio' %><br>
-    <%= form.radio_button :representation, 'only_representatives', checked: !@current_superagent.any_member_can_represent? %>
-    <%= form.label :representation_only_representatives, 'Only designated representatives can represent the studio' %>
-  </fieldset>
-
-  <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) } %>
-  <% if available_flags.any? %>
-    <h2>Features Enabled</h2>
-
-    <% available_flags.each do |flag_name| %>
-      <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
-      <% studio_enabled_locally = @current_superagent.feature_flag_enabled_locally?(flag_name) %>
-
-      <div style="margin-bottom: 1rem; padding: 0.75rem; border: 1px solid var(--color-border-default);">
-        <strong><%= metadata['name'] %></strong>
-        <p style="margin: 0.5rem 0;">
-          <%= form.check_box "feature_#{flag_name}", checked: studio_enabled_locally, id: "feature_#{flag_name}" %>
-          <label for="feature_<%= flag_name %>"><%= metadata['description'] %></label>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Time Zone</h2>
+        <p class="pulse-section-description">
+          The studio time zone determines when cycles begin and end.
         </p>
-        <% if flag_name == 'file_attachments' && studio_enabled_locally %>
-          <p style="margin: 0.5rem 0; font-size: 0.9em; color: var(--color-fg-muted);">
-            Current usage:
-            <%= @current_superagent.file_storage_usage_in_human_size %> of <%= @current_superagent.file_storage_limit_in_human_size %>
-            <% if ENV['SAAS_MODE'] == 'true' %>
-              <%= button_to 'Purchase more space', '/billing', method: :get %>
-            <% else %>
-              <br/>
-              Increase limit: <%= form.number_field :file_storage_limit, value: @current_superagent.file_storage_limit / 1.megabyte, style: 'width: 100px;' %> MB
-            <% end %>
-          </p>
-        <% end %>
+        <div class="pulse-form-group">
+          <%= form.time_zone_select :timezone, ActiveSupport::TimeZone.all, { default: @current_superagent.timezone.name }, class: 'pulse-form-select' %>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Tempo</h2>
+        <p class="pulse-section-description">
+          How frequently should studio members check in (approximately)?
+          This determines the primary cycle duration.
+        </p>
+        <div class="pulse-form-group">
+          <%= form.select :tempo, [['Daily', 'daily'], ['Weekly', 'weekly'], ['Monthly', 'monthly']], { selected: @current_superagent.tempo }, class: 'pulse-form-select' %>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Synchronization Mode</h2>
+        <p class="pulse-section-description">
+          Which metaphor best describes how this studio is organized?
+        </p>
+        <fieldset class="pulse-radio-group">
+          <label class="pulse-radio-label">
+            <%= form.radio_button :synchronization_mode, 'improv', checked: @current_superagent.improv?, class: 'pulse-radio-input' %>
+            <span><strong>Improv</strong> (no formal leadership roles)</span>
+          </label>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :synchronization_mode, 'orchestra', checked: @current_superagent.orchestra?, class: 'pulse-radio-input' %>
+            <span><strong>Orchestra</strong> (has formal leadership roles)</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Invitations</h2>
+        <fieldset class="pulse-radio-group">
+          <legend class="pulse-fieldset-legend">Who can invite new members?</legend>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :invitations, 'all_members', checked: @current_superagent.all_members_can_invite?, class: 'pulse-radio-input' %>
+            <span>All members can invite</span>
+          </label>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :invitations, 'only_admins', checked: !@current_superagent.all_members_can_invite?, class: 'pulse-radio-input' %>
+            <span>Only admins can invite</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Representation</h2>
+        <fieldset class="pulse-radio-group">
+          <legend class="pulse-fieldset-legend">Who can act as a representative of <%= @current_superagent.name %> within other studios?</legend>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :representation, 'any_member', checked: @current_superagent.any_member_can_represent?, class: 'pulse-radio-input' %>
+            <span>Any member can represent the studio</span>
+          </label>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :representation, 'only_representatives', checked: !@current_superagent.any_member_can_represent?, class: 'pulse-radio-input' %>
+            <span>Only designated representatives can represent the studio</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) } %>
+      <% if available_flags.any? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Features Enabled</h2>
+          <% available_flags.each do |flag_name| %>
+            <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
+            <% studio_enabled_locally = @current_superagent.feature_flag_enabled_locally?(flag_name) %>
+
+            <div class="pulse-feature-flag-item">
+              <strong><%= metadata['name'] %></strong>
+              <label class="pulse-checkbox-label">
+                <%= form.check_box "feature_#{flag_name}", checked: studio_enabled_locally, id: "feature_#{flag_name}", class: 'pulse-checkbox-input' %>
+                <span><%= metadata['description'] %></span>
+              </label>
+              <% if flag_name == 'file_attachments' && studio_enabled_locally %>
+                <p class="pulse-feature-usage">
+                  Current usage:
+                  <%= @current_superagent.file_storage_usage_in_human_size %> of <%= @current_superagent.file_storage_limit_in_human_size %>
+                  <% if ENV['SAAS_MODE'] == 'true' %>
+                    <%= button_to 'Purchase more space', '/billing', method: :get, class: 'pulse-action-btn-small' %>
+                  <% else %>
+                    <br/>
+                    Increase limit: <%= form.number_field :file_storage_limit, value: @current_superagent.file_storage_limit / 1.megabyte, class: 'pulse-form-input pulse-form-input-small' %> MB
+                  <% end %>
+                </p>
+              <% end %>
+            </div>
+          <% end %>
+        </section>
+      <% end %>
+
+      <div class="pulse-form-actions pulse-form-actions-sticky">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-disabled" disabled data-form-tracker-target="submit">Save Settings</button>
       </div>
     <% end %>
-  <% end %>
 
-<% end %>
-
-<% if @current_superagent.feature_enabled?('api') %>
-  <div data-controller="subagent-manager" data-subagent-manager-remove-url-value="<%= @current_superagent.path %>/settings/remove_subagent">
-    <h2>Subagents in this Studio</h2>
-    <p>
-      Subagents are virtual identities managed by their parent user.
-      Actions taken by subagents are the responsibility of their parent.
-    </p>
-    <div data-subagent-manager-target="list">
-      <table<%= @studio_subagents.empty? ? ' style="display:none;"'.html_safe : '' %>>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Managed by</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @studio_subagents.each do |subagent| %>
-            <tr data-subagent-id="<%= subagent.id %>">
-              <td><%= link_to subagent.display_name, subagent.path %></td>
-              <td>
-                <% if subagent.parent %>
-                  <%= link_to subagent.parent.display_name, subagent.parent.path %>
-                <% else %>
-                  <em>Unknown</em>
-                <% end %>
-              </td>
-              <td>
-                <button type="button" class="button-small button-danger"
-                        data-action="subagent-manager#remove"
-                        data-subagent-id="<%= subagent.id %>"
-                        data-subagent-name="<%= subagent.display_name %>"
-                        data-remove-url="<%= @current_superagent.path %>/settings/remove_subagent">
-                  Remove
-                </button>
-              </td>
-            </tr>
+    <% if @current_superagent.feature_enabled?('api') %>
+      <section class="pulse-settings-section" data-controller="subagent-manager" data-subagent-manager-remove-url-value="<%= @current_superagent.path %>/settings/remove_subagent">
+        <h2 class="pulse-section-title">Subagents in this Studio</h2>
+        <p class="pulse-section-description">
+          Subagents are virtual identities managed by their parent user.
+          Actions taken by subagents are the responsibility of their parent.
+        </p>
+        <div data-subagent-manager-target="list">
+          <table class="pulse-table"<%= @studio_subagents.empty? ? ' style="display:none;"'.html_safe : '' %>>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Managed by</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @studio_subagents.each do |subagent| %>
+                <tr data-subagent-id="<%= subagent.id %>">
+                  <td><%= link_to subagent.display_name, subagent.path %></td>
+                  <td>
+                    <% if subagent.parent %>
+                      <%= link_to subagent.parent.display_name, subagent.parent.path %>
+                    <% else %>
+                      <em>Unknown</em>
+                    <% end %>
+                  </td>
+                  <td>
+                    <button type="button" class="pulse-action-btn-danger"
+                            data-action="subagent-manager#remove"
+                            data-subagent-id="<%= subagent.id %>"
+                            data-subagent-name="<%= subagent.display_name %>"
+                            data-remove-url="<%= @current_superagent.path %>/settings/remove_subagent">
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+          <% if @studio_subagents.empty? %>
+            <p class="pulse-empty-message"><em>No subagents in this studio.</em></p>
           <% end %>
-        </tbody>
-      </table>
-      <% if @studio_subagents.empty? %>
-        <p class="empty-message"><em>No subagents in this studio.</em></p>
-      <% end %>
-    </div>
+        </div>
 
-    <% if @addable_subagents.any? %>
-      <h3>Add your subagents to this studio</h3>
-      <form data-subagent-manager-target="addForm" data-action="submit->subagent-manager#add" action="<%= @current_superagent.path %>/settings/add_subagent" method="post">
-        <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
-        <select name="subagent_id" data-subagent-manager-target="select">
-          <option value="">Select a subagent...</option>
-          <% @addable_subagents.each do |s| %>
-            <option value="<%= s.id %>"><%= s.display_name %></option>
-          <% end %>
-        </select>
-        <button type="submit" class="button">Add to Studio</button>
-      </form>
+        <% if @addable_subagents.any? %>
+          <h3 class="pulse-subsection-title">Add your subagents to this studio</h3>
+          <form data-subagent-manager-target="addForm" data-action="submit->subagent-manager#add" action="<%= @current_superagent.path %>/settings/add_subagent" method="post" class="pulse-inline-form">
+            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+            <select name="subagent_id" data-subagent-manager-target="select" class="pulse-form-select">
+              <option value="">Select a subagent...</option>
+              <% @addable_subagents.each do |s| %>
+                <option value="<%= s.id %>"><%= s.display_name %></option>
+              <% end %>
+            </select>
+            <button type="submit" class="pulse-action-btn">Add to Studio</button>
+          </form>
+        <% end %>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title"><%= octicon 'webhook', height: 16 %> Webhooks</h2>
+        <p class="pulse-section-description">
+          Webhooks allow external services to receive real-time notifications when events occur in this studio.
+        </p>
+        <a href="<%= @current_superagent.path %>/settings/webhooks" class="pulse-action-btn">
+          <%= octicon 'gear', height: 14 %> Manage Webhooks
+        </a>
+      </section>
     <% end %>
   </div>
-
-  <h2><%= octicon 'webhook' %> Webhooks</h2>
-  <p>
-    Webhooks allow external services to receive real-time notifications when events occur in this studio.
-  </p>
-  <p>
-    <a href="<%= @current_superagent.path %>/settings/webhooks" class="btn">
-      <%= octicon 'gear' %> Manage Webhooks
-    </a>
-  </p>
-<% end %>
-
-<hr style="height:1px;" />
-<button type="submit" form="studio-settings-form">Save</button>
+</article>

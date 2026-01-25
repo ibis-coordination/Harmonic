@@ -1,6 +1,11 @@
 Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
 
+  # Development tools - Pulse styleguide (only available in development)
+  if Rails.env.development?
+    get 'dev/pulse' => 'dev#pulse_components'
+  end
+
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'
     post 'login' => 'honor_system_sessions#create'
@@ -64,7 +69,9 @@ Rails.application.routes.draw do
   get '404' => 'home#page_not_found'
   get 'home' => 'home#index'
   get 'actions' => 'home#actions_index'
-  get 'settings' => 'home#settings'
+  # Redirect /settings to user-specific settings path
+  get 'settings' => 'users#redirect_to_settings'
+  get 'settings/webhooks' => 'users#redirect_to_settings_webhooks'
 
   get 'about' => 'home#about'
   get 'help' => 'home#help'
@@ -76,6 +83,7 @@ Rails.application.routes.draw do
 
   # Notifications
   get 'notifications' => 'notifications#index'
+  get 'notifications/new' => 'notifications#new'
   get 'notifications/unread_count' => 'notifications#unread_count'
   get 'notifications/actions' => 'notifications#actions_index'
   get 'notifications/actions/mark_read' => 'notifications#describe_mark_read'
@@ -84,11 +92,21 @@ Rails.application.routes.draw do
   post 'notifications/actions/dismiss' => 'notifications#execute_dismiss'
   get 'notifications/actions/mark_all_read' => 'notifications#describe_mark_all_read'
   post 'notifications/actions/mark_all_read' => 'notifications#execute_mark_all_read'
+  get 'notifications/actions/create_reminder' => 'notifications#describe_create_reminder'
+  post 'notifications/actions/create_reminder' => 'notifications#execute_create_reminder'
+  get 'notifications/actions/delete_reminder' => 'notifications#describe_delete_reminder'
+  post 'notifications/actions/delete_reminder' => 'notifications#execute_delete_reminder'
 
   get 'learn' => 'learn#index'
   get 'learn/awareness-indicators' => 'learn#awareness_indicators'
   get 'learn/acceptance-voting' => 'learn#acceptance_voting'
   get 'learn/reciprocal-commitment' => 'learn#reciprocal_commitment'
+  get 'learn/subagency' => 'learn#subagency'
+  get 'learn/superagency' => 'learn#superagency'
+  get 'learn/memory' => 'learn#memory'
+
+  get 'whoami' => 'whoami#index'
+  get 'motto' => 'motto#index'
 
   get 'admin' => 'admin#admin'
   get 'admin/actions' => 'admin#actions_index'
@@ -116,7 +134,6 @@ Rails.application.routes.draw do
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
     post 'settings/profile' => 'users#update_profile', on: :member
-    post 'settings/ui_version' => 'users#update_ui_version', on: :member
     patch 'image' => 'users#update_image', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
@@ -140,6 +157,18 @@ Rails.application.routes.draw do
     get 'settings/subagents/new/actions' => 'subagents#actions_index', on: :member
     get 'settings/subagents/new/actions/create_subagent' => 'subagents#describe_create_subagent', on: :member
     post 'settings/subagents/new/actions/create_subagent' => 'subagents#execute_create_subagent', on: :member
+    # User/Subagent webhook routes (parent can manage subagent webhooks)
+    get 'settings/webhooks' => 'user_webhooks#index', on: :member
+    get 'settings/webhooks/new' => 'user_webhooks#new', on: :member
+    get 'settings/webhooks/new/actions' => 'user_webhooks#actions_index_new', on: :member
+    get 'settings/webhooks/new/actions/create_webhook' => 'user_webhooks#describe_create', on: :member
+    post 'settings/webhooks/new/actions/create_webhook' => 'user_webhooks#execute_create', on: :member
+    get 'settings/webhooks/:webhook_id' => 'user_webhooks#show', on: :member
+    get 'settings/webhooks/:webhook_id/actions' => 'user_webhooks#actions_index_show', on: :member
+    get 'settings/webhooks/:webhook_id/actions/delete_webhook' => 'user_webhooks#describe_delete', on: :member
+    post 'settings/webhooks/:webhook_id/actions/delete_webhook' => 'user_webhooks#execute_delete', on: :member
+    get 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#describe_test', on: :member
+    post 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#execute_test', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|
@@ -151,8 +180,8 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}/new/actions/create_studio" => 'studios#create_studio'
     get "#{studios_or_scenes}/available" => 'studios#handle_available'
     post "#{studios_or_scenes}" => "#{studios_or_scenes}#create"
-    get "#{studios_or_scenes}/:superagent_handle" => "#{studios_or_scenes}#show"
-    get "#{studios_or_scenes}/:superagent_handle/actions" => 'studios#actions_index_default'
+    get "#{studios_or_scenes}/:superagent_handle" => 'pulse#show'
+    get "#{studios_or_scenes}/:superagent_handle/actions" => 'pulse#actions_index'
     get "#{studios_or_scenes}/:superagent_handle/actions/send_heartbeat" => 'studios#describe_send_heartbeat'
     post "#{studios_or_scenes}/:superagent_handle/actions/send_heartbeat" => 'studios#send_heartbeat'
     get "#{studios_or_scenes}/:superagent_handle/pinned.html" => 'studios#pinned_items_partial'
@@ -161,6 +190,7 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/cycles/actions" => 'cycles#actions_index_default'
     get "#{studios_or_scenes}/:superagent_handle/cycles/:cycle" => 'cycles#show'
     get "#{studios_or_scenes}/:superagent_handle/cycle/:cycle" => 'cycles#redirect_to_show'
+    get "#{studios_or_scenes}/:superagent_handle/classic" => 'studios#show'
     get "#{studios_or_scenes}/:superagent_handle/views" => 'studios#views'
     get "#{studios_or_scenes}/:superagent_handle/view" => 'studios#view'
     get "#{studios_or_scenes}/:superagent_handle/team" => 'studios#team'

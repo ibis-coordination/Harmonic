@@ -1,13 +1,13 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class CommitmentController extends Controller {
-  static targets = ["joinButton", "joinButtonMessage", "joinSection", "statusSection", "participantsList"]
+  static targets = ["joinButton", "joinButtonMessage", "joinSection", "statusSection", "participantsSection"]
 
   declare readonly joinButtonTarget: HTMLElement
   declare readonly joinButtonMessageTarget: HTMLElement
   declare readonly joinSectionTarget: HTMLElement
   declare readonly statusSectionTarget: HTMLElement
-  declare readonly participantsListTarget: HTMLElement
+  declare readonly participantsSectionTarget: HTMLElement
 
   private editingName = false
   private refreshing = false
@@ -78,26 +78,28 @@ export default class CommitmentController extends Controller {
 
   async refreshParticipantsList(event: Event): Promise<void> {
     event.preventDefault()
-    if (!this.currentParticipantsListLimit) {
-      this.currentParticipantsListLimit = +(this.participantsListTarget.dataset.limit ?? 0)
+    const limitDiv = this.participantsSectionTarget.querySelector("[data-limit]") as HTMLElement | null
+    if (!this.currentParticipantsListLimit && limitDiv) {
+      this.currentParticipantsListLimit = +(limitDiv.dataset.limit ?? 0)
     }
     const limit = this.currentParticipantsListLimit
-    const baseUrl = this.participantsListTarget.dataset.url
+    const baseUrl = this.participantsSectionTarget.dataset.url
     if (!baseUrl) return
 
     const url = `${baseUrl}?limit=${limit}`
     try {
       const response = await fetch(url)
       const html = await response.text()
-      this.participantsListTarget.innerHTML = html
+      this.participantsSectionTarget.innerHTML = html
     } catch (error) {
       console.error("Error showing more participants:", error)
     }
   }
 
   async showMoreParticipants(event: Event): Promise<void> {
-    if (!this.currentParticipantsListLimit) {
-      this.currentParticipantsListLimit = +(this.participantsListTarget.dataset.limit ?? 0)
+    const limitDiv = this.participantsSectionTarget.querySelector("[data-limit]") as HTMLElement | null
+    if (!this.currentParticipantsListLimit && limitDiv) {
+      this.currentParticipantsListLimit = +(limitDiv.dataset.limit ?? 0)
     }
     this.currentParticipantsListLimit += 10
     return this.refreshParticipantsList(event)

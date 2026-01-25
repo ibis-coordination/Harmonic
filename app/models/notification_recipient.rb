@@ -3,17 +3,26 @@
 class NotificationRecipient < ApplicationRecord
   extend T::Sig
 
+  belongs_to :tenant
   belongs_to :notification
   belongs_to :user
 
   validates :channel, presence: true, inclusion: { in: ["in_app", "email"] }
-  validates :status, presence: true, inclusion: { in: ["pending", "delivered", "read", "dismissed"] }
+  validates :status, presence: true, inclusion: { in: ["pending", "delivered", "read", "dismissed", "rate_limited"] }
+  validate :tenant_matches_notification_tenant
 
   scope :unread, -> { where(read_at: nil, dismissed_at: nil) }
   scope :in_app, -> { where(channel: "in_app") }
   scope :email, -> { where(channel: "email") }
   scope :pending, -> { where(status: "pending") }
   scope :delivered, -> { where(status: "delivered") }
+
+  # Scheduled reminder scopes
+  scope :scheduled, -> { where.not(scheduled_for: nil).where("scheduled_for > ?", Time.current) }
+  scope :due, -> { where.not(scheduled_for: nil).where("scheduled_for <= ?", Time.current) }
+  scope :immediate, -> { where(scheduled_for: nil) }
+  # All notifications that are not scheduled for the future (immediate + due reminders)
+  scope :not_scheduled, -> { where(scheduled_for: nil).or(where("scheduled_for <= ?", Time.current)) }
 
   sig { void }
   def read!
@@ -38,5 +47,29 @@ class NotificationRecipient < ApplicationRecord
   sig { returns(T::Boolean) }
   def dismissed?
     T.unsafe(self).dismissed_at.present?
+  end
+
+  sig { returns(T::Boolean) }
+  def scheduled?
+    sched = scheduled_for
+    sched.present? && sched > Time.current
+  end
+
+  sig { returns(T::Boolean) }
+  def due?
+    sched = scheduled_for
+    sched.present? && sched <= Time.current
+  end
+
+  private
+
+  sig { void }
+  def tenant_matches_notification_tenant
+    notif = notification
+    tid = tenant_id
+    return if notif.blank? || tid.blank?
+    return if notif.tenant_id == tid
+
+    errors.add(:tenant, "must match notification tenant")
   end
 end

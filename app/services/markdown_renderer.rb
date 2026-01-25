@@ -46,16 +46,29 @@ class MarkdownRenderer
 
   private
 
+  # HTML tags allowed through sanitization
+  ALLOWED_TAGS = %w[
+    p br hr
+    h1 h2 h3 h4 h5 h6
+    strong b em i u s strike del
+    a img
+    ul ol li
+    blockquote pre code
+    table thead tbody tfoot tr th td
+    div span
+  ].freeze
+
   sig { params(html: String).returns(String) }
   def self.sanitize(html)
-    sanitized_html = ActionController::Base.helpers.sanitize(html)
+    sanitized_html = ActionController::Base.helpers.sanitize(html, tags: ALLOWED_TAGS)
     doc = Nokogiri::HTML.fragment(sanitized_html)
 
     # Remove dangerous protocols from URLs
+    # Allow relative links (nil scheme) and anchor links, plus safe absolute schemes
     doc.search('a').each do |a|
       if a['href']
         uri = URI.parse(a['href']) rescue nil
-        if uri && !["http", "https", "mailto"].include?(uri.scheme)
+        if uri && uri.scheme && !["http", "https", "mailto"].include?(uri.scheme)
           a.remove
         else
           a['rel'] = 'noopener noreferrer'

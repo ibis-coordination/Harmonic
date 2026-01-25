@@ -1,6 +1,8 @@
 # typed: false
 
 class RepresentationSessionsController < ApplicationController
+  layout 'pulse', only: [:index, :show, :representing]
+  before_action :set_sidebar_mode, only: [:index, :show, :representing]
 
   def index
     @representatives = current_superagent.representatives
@@ -97,6 +99,11 @@ class RepresentationSessionsController < ApplicationController
   end
 
   private
+
+  def set_sidebar_mode
+    @sidebar_mode = 'settings'
+    @team = @current_superagent.team
+  end
 
   def current_resource_model
     RepresentationSession

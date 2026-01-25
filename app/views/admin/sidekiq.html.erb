@@ -1,40 +1,123 @@
-<h1>Sidekiq Dashboard</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  'Sidekiq'
+] %>
 
-<h2>Queues</h2>
-<ul>
-  <% @queues.each do |queue| %>
-    <li>
-      <%= link_to queue.name, "/admin/sidekiq/queues/#{queue.name}" %> (Size: <%= queue.size %>)
-    </li>
-  <% end %>
-</ul>
+<h1 class="pulse-page-title">
+  <%= octicon 'workflow', height: 24 %> Sidekiq Dashboard
+</h1>
 
-<h2>Retries</h2>
-<ul>
-  <% @retries.each do |job| %>
-    <li>
-      <%= link_to job.jid, "/admin/sidekiq/jobs/#{job.jid}" %> (Retry Count: <%= job.retry_count %>)
-    </li>
+<%= render 'shared/pulse_accordion', title: 'Queues', icon: 'stack', count: @queues.map(&:size).sum, open: true do %>
+  <% if @queues.any? %>
+    <div class="pulse-table-wrapper">
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Queue</th>
+            <th>Jobs</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @queues.each do |queue| %>
+            <tr>
+              <td>
+                <a href="/admin/sidekiq/queues/<%= queue.name %>" class="pulse-link"><%= queue.name %></a>
+              </td>
+              <td><%= queue.size %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No queues.</p>
   <% end %>
-</ul>
+<% end %>
 
-<h2>Scheduled</h2>
-<ul>
-  <% @scheduled.each do |job| %>
-    <li>
-      <span style="display:inline-block;width:250px;">
-        <%= link_to job.jid, "/admin/sidekiq/jobs/#{job.jid}" %>
-      </span>
-      <%= countdown(job.at) %>
-    </li>
+<%= render 'shared/pulse_accordion', title: 'Retries', icon: 'sync', count: @retries.size, open: @retries.any? do %>
+  <% if @retries.any? %>
+    <div class="pulse-table-wrapper">
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Job ID</th>
+            <th>Retry Count</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @retries.each do |job| %>
+            <tr>
+              <td>
+                <a href="/admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
+                  <code class="pulse-code"><%= job.jid %></code>
+                </a>
+              </td>
+              <td><%= job.retry_count %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No jobs waiting to retry.</p>
   <% end %>
-</ul>
+<% end %>
 
-<h2>Dead</h2>
-<ul>
-  <% @dead.each do |job| %>
-    <li>
-      <%= link_to job.jid, "/admin/sidekiq/jobs/#{job.jid}" %> (Failed <%= timeago(job.at) %>)
-    </li>
+<%= render 'shared/pulse_accordion', title: 'Scheduled', icon: 'clock', count: @scheduled.size, open: @scheduled.any? do %>
+  <% if @scheduled.any? %>
+    <div class="pulse-table-wrapper">
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Job ID</th>
+            <th>Scheduled For</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @scheduled.each do |job| %>
+            <tr>
+              <td>
+                <a href="/admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
+                  <code class="pulse-code"><%= job.jid %></code>
+                </a>
+              </td>
+              <td><%= countdown(job.at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No scheduled jobs.</p>
   <% end %>
-</ul>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Dead', icon: 'x-circle', count: @dead.size, open: @dead.any? do %>
+  <% if @dead.any? %>
+    <div class="pulse-table-wrapper">
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Job ID</th>
+            <th>Failed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @dead.each do |job| %>
+            <tr>
+              <td>
+                <a href="/admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
+                  <code class="pulse-code"><%= job.jid %></code>
+                </a>
+              </td>
+              <td><%= timeago(job.at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No dead jobs.</p>
+  <% end %>
+<% end %>

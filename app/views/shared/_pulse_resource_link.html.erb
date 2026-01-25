@@ -1,0 +1,30 @@
+<%# Pulse-styled inline resource link %>
+<%# Usage: render 'shared/pulse_resource_link', resource: @note %>
+<%
+  if resource.is_a?(Hash)
+    resource_type = resource[:type]&.downcase || 'note'
+    resource_path = resource[:path]
+    resource_title = resource[:title]
+    metric_value = resource[:metric_value]
+    metric_name = resource[:metric_name]
+    metric_icon = resource[:octicon_metric_icon_name]
+  else
+    resource_type = resource.class.to_s.downcase
+    resource_path = resource.path
+    resource_title = resource.title
+    if resource.respond_to?(:metric_value)
+      metric_value = resource.metric_value
+      metric_name = resource.metric_title
+      metric_icon = resource.octicon_metric_icon_name
+    end
+  end
+%>
+<span class="pulse-resource-link">
+  <img src="/resource-icons/<%= resource_type %>-icon.svg" alt="" class="pulse-resource-icon">
+  <a href="<%= resource_path %>" class="pulse-resource-title"><%= resource_title %></a>
+  <% if metric_value.present? %>
+    <span class="pulse-resource-metric" title="<%= metric_value %> <%= metric_name %>">
+      <%= octicon metric_icon, height: 12 %> <%= metric_value %>
+    </span>
+  <% end %>
+</span>

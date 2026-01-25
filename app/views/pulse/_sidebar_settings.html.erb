@@ -1,0 +1,12 @@
+<%# Settings sidebar variant - minimal sidebar for settings pages %>
+<%# Shows only studio info and back link %>
+<aside class="pulse-sidebar" data-mode="settings">
+  <%= render 'pulse/sidebar_studio_info' %>
+
+  <nav class="pulse-nav">
+    <a href="<%= @current_superagent.path %>" class="pulse-nav-item">
+      <%= octicon 'arrow-left', height: 16 %>
+      <span>Back to <%= @current_superagent.superagent_type.titleize %></span>
+    </a>
+  </nav>
+</aside>

@@ -283,21 +283,6 @@ class User < ApplicationRecord
     T.must(tenant_user).has_pinned?(item)
   end
 
-  sig { returns(String) }
-  def ui_version
-    T.must(tenant_user).ui_version
-  end
-
-  sig { params(version: String).void }
-  def set_ui_version!(version)
-    T.must(tenant_user).set_ui_version!(version)
-  end
-
-  sig { returns(T::Boolean) }
-  def ui_v2?
-    T.must(tenant_user).ui_v2?
-  end
-
   sig { params(limit: Integer).returns(T.untyped) }
   def confirmed_read_note_events(limit: 10)
     T.must(tenant_user).confirmed_read_note_events(limit: limit)

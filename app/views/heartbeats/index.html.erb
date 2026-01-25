@@ -1,3 +1,32 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: 'Heartbeats' %>
-<h1>Heartbeats</h1>
-<%= @current_heartbeat.nil? ? 'no heartbeat' : @current_heartbeat.created_at %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'Heartbeats'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'heart', height: 14, class: 'pulse-resource-icon' %>
+        Heartbeats
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Heartbeats</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>Heartbeats indicate that someone is currently active in this studio.</p>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Your Heartbeat</h2>
+      <% if @current_heartbeat.nil? %>
+        <p class="pulse-muted"><em>No active heartbeat.</em></p>
+      <% else %>
+        <p>
+          <span class="pulse-tag pulse-tag-success">Active</span>
+          Last sent <%= timeago(@current_heartbeat.created_at) %>
+        </p>
+      <% end %>
+    </section>
+  </div>
+</article>

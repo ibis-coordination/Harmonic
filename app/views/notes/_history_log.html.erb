@@ -1,14 +1,20 @@
-<% readers_title = "Readers #{octicon('book', height: 24)}".html_safe %>
-<%= render 'shared/collapseable_section', title: readers_title, title_superscript: "#{@note.confirmed_reads}", header_level: 2, hidden: true do %>
-  <ul>
-  <% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
-    <li>
-      <a href="<%= event.user.path %>" class="user-profile-link"><%= profile_pic(event.user, size: 25) %> <%= event.user.display_name %></a>
-      <%= event.description %> <strong><%= timeago(event.happened_at) %></strong>
-    </li>
-  <% end %>
-  </ul>
+<%# Confirmed Readers Section %>
+<%= render 'shared/pulse_accordion', title: 'Confirmed Readers', count: @note.confirmed_reads do %>
+  <div class="pulse-readers-list">
+    <% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
+      <div class="pulse-reader-item">
+        <div class="pulse-author-avatar">
+          <% if event.user.image.attached? %>
+            <img src="<%= event.user.image_path %>" alt="" class="pulse-avatar-img">
+          <% end %>
+          <span class="pulse-avatar-initials"><%= event.user.display_name.first.upcase %></span>
+        </div>
+        <a href="<%= event.user.path %>" class="pulse-reader-name"><%= event.user.display_name %></a>
+        <span class="pulse-timestamp"><%= timeago(event.happened_at) %></span>
+      </div>
+    <% end %>
+  </div>
 <% end %>
 
-<%= render 'shared/comments_section', commentable: @note %>
-<%= render 'shared/backlinks_section', resource: @note %>
+<%= render 'shared/pulse_comments', commentable: @note %>
+<%= render 'shared/pulse_backlinks', resource: @note %>

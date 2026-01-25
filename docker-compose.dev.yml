@@ -29,18 +29,5 @@ services:
       MAILCATCHER_SMTP_PORT: 1025
       MAILCATCHER_HTTP_PORT: 1080
 
-  # V2 React UI dev server (Vite)
-  v2-client:
-    build: .
-    command: sh -c "cd /app/client && npm run dev -- --host 0.0.0.0"
-    volumes:
-      - .:/app
-      - client_node_modules:/app/client/node_modules
-    ports:
-      - "5174:5174"
-    env_file:
-      - .env
-
 volumes:
   pg_data:
-  client_node_modules:

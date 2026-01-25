@@ -4,4 +4,4 @@ Acceptance voting is a voting method designed to mirror the way that groups natu
 
 Acceptance voting first narrows down the list of options to what people are willing to accept. If there are multiple options that everyone finds equally acceptable, then preference is taken into account to determine the outcome.
 
-__Decisions__ in Harmonic Team use acceptance voting in order to converge on the path of greatest acceptance as quickly as possible.
+__Decisions__ in Harmonic use acceptance voting in order to converge on the path of greatest acceptance as quickly as possible.

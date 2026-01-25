@@ -2,9 +2,15 @@ import { Page } from "@playwright/test"
 
 export interface LoginOptions {
   email: string
-  name?: string
+  password: string
   subdomain?: string
 }
+
+// Default test credentials (match the rake task defaults)
+export const E2E_TEST_EMAIL =
+  process.env.E2E_TEST_EMAIL || "e2e-test@example.com"
+export const E2E_TEST_PASSWORD =
+  process.env.E2E_TEST_PASSWORD || "e2e-test-password-14chars"
 
 const DEFAULT_HOSTNAME = process.env.E2E_HOSTNAME || "harmonic.local"
 const DEFAULT_PORT = process.env.E2E_PORT || ""
@@ -19,69 +25,54 @@ export function buildBaseUrl(subdomain: string = "app"): string {
 }
 
 /**
- * Signs in a user via honor_system authentication.
- * The app must be running with AUTH_MODE=honor_system.
- *
- * Fills the login form and submits it.
+ * Signs in a user via identity provider (email/password) authentication.
+ * Handles the redirect flow: tenant -> auth subdomain -> back to tenant.
  */
 export async function login(page: Page, options: LoginOptions): Promise<void> {
-  const { email, name, subdomain = "app" } = options
+  const { email, password, subdomain = "app" } = options
   const baseUrl = buildBaseUrl(subdomain)
 
-  // Navigate to login page
+  // Navigate to login page on tenant subdomain
   await page.goto(`${baseUrl}/login`)
 
-  // Fill the email field
-  await page.locator('input[placeholder="email address"]').fill(email)
+  // Wait for login form to be visible (handles redirect to auth subdomain)
+  await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
 
-  // Fill name if provided
-  if (name) {
-    await page.locator('input[placeholder="name (optional)"]').fill(name)
-  }
+  // Fill the identity provider form (email/password)
+  // Form field names from _email_password_form.html.erb
+  await page.locator('input[name="auth_key"]').fill(email)
+  await page.locator('input[name="password"]').fill(password)
 
-  // Click the Login button (it's an input[type=submit])
-  await page.locator('input[type="submit"][value="Login"]').click()
+  // Click the Login button (handle both input and button elements)
+  await page.locator('input[type="submit"][value="Log in"], button:has-text("Log in")').first().click()
 
-  // Wait for navigation to home page
-  await page.waitForURL(/\/$/)
+  // Wait for redirect back to tenant
+  await page.waitForURL(new RegExp(`${baseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`))
 }
 
 /**
- * Signs in via the UI form (alternative approach if available)
- * Falls back to direct POST if form is not found
+ * Signs in using the default E2E test user credentials.
+ * The test user must be set up via `rake e2e:setup` before running tests.
  */
-export async function loginViaForm(
+export async function loginAsTestUser(
   page: Page,
-  options: LoginOptions,
+  subdomain: string = "app",
 ): Promise<void> {
-  const { email, name, subdomain = "app" } = options
-  const baseUrl = buildBaseUrl(subdomain)
-
-  await page.goto(`${baseUrl}/login`)
-
-  // Check if there's an email input form (honor_system or identity provider)
-  const emailInput = page.locator('input[name="email"], input[type="email"]')
-  if ((await emailInput.count()) > 0) {
-    await emailInput.fill(email)
-
-    const nameInput = page.locator('input[name="name"]')
-    if (name && (await nameInput.count()) > 0) {
-      await nameInput.fill(name)
-    }
-
-    await page.click('button[type="submit"], input[type="submit"]')
-    await page.waitForURL(`${baseUrl}/`)
-  } else {
-    // No form found, use direct POST
-    await login(page, options)
-  }
+  await login(page, {
+    email: E2E_TEST_EMAIL,
+    password: E2E_TEST_PASSWORD,
+    subdomain,
+  })
 }
 
 /**
  * Logs out the current user by clearing cookies and navigating to login.
  * This bypasses any Turbo Drive interception issues.
  */
-export async function logout(page: Page, subdomain: string = "app"): Promise<void> {
+export async function logout(
+  page: Page,
+  subdomain: string = "app",
+): Promise<void> {
   // Clear cookies to end the session
   await page.context().clearCookies()
   // Clear local and session storage as well
@@ -91,7 +82,8 @@ export async function logout(page: Page, subdomain: string = "app"): Promise<voi
   })
   // Navigate to login page explicitly (more reliable than reloading)
   const baseUrl = buildBaseUrl(subdomain)
-  await page.goto(`${baseUrl}/login`, { waitUntil: "networkidle" })
+  await page.goto(`${baseUrl}/login`)
+  await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
 }
 
 /**

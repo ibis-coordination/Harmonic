@@ -1,0 +1,854 @@
+require "test_helper"
+
+class AdminControllerTest < ActionDispatch::IntegrationTest
+  def setup
+    # Create the primary tenant
+    @primary_tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN']) ||
+                      Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
+    @primary_tenant.create_main_superagent!(created_by: create_user(name: "System")) unless @primary_tenant.main_superagent
+
+    # Create a non-primary tenant
+    @other_tenant = Tenant.create!(subdomain: "other-#{SecureRandom.hex(4)}", name: "Other Tenant")
+    @other_tenant.create_main_superagent!(created_by: create_user(name: "System")) unless @other_tenant.main_superagent
+
+    # Create users
+    @admin_user = create_user(name: "Admin User")
+    @non_admin_user = create_user(name: "Non-Admin User")
+    @other_admin_user = create_user(name: "Other Tenant Admin")
+  end
+
+  # ============================================================================
+  # SECTION 1: Non-Admin Users Cannot Access Any Admin Pages
+  # ============================================================================
+
+  # --- Basic Admin Pages ---
+
+  test "non-admin user cannot access /admin dashboard" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin"
+    assert_response :forbidden
+    assert_match(/Admin Access Required|admin/i, response.body)
+  end
+
+  test "non-admin user cannot access /admin/actions" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/actions"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/settings" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/settings"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot POST to /admin/settings" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    post "/admin/settings", params: { name: "Hacked Tenant" }
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/settings/actions" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/settings/actions"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/settings/actions/update_tenant_settings (GET)" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/settings/actions/update_tenant_settings"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot POST /admin/settings/actions/update_tenant_settings" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    post "/admin/settings/actions/update_tenant_settings", params: { name: "Hacked" }
+    assert_response :forbidden
+  end
+
+  # --- Tenant Management Pages (Primary-Only, but still blocked for non-admins) ---
+
+  test "non-admin user cannot access /admin/tenants" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/tenants/new" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants/new"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot POST to /admin/tenants (create tenant)" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    assert_no_difference "Tenant.count" do
+      post "/admin/tenants", params: { subdomain: "new-tenant", name: "New Tenant" }
+    end
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/tenants/:subdomain (show tenant)" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants/#{@other_tenant.subdomain}"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/tenants/:subdomain/complete" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants/#{@other_tenant.subdomain}/complete"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/tenants/new/actions" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants/new/actions"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/tenants/new/actions/create_tenant (GET)" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants/new/actions/create_tenant"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot POST /admin/tenants/new/actions/create_tenant" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    assert_no_difference "Tenant.count" do
+      post "/admin/tenants/new/actions/create_tenant", params: { subdomain: "hacked", name: "Hacked" }
+    end
+    assert_response :forbidden
+  end
+
+  # --- Sidekiq Pages (Primary-Only, but still blocked for non-admins) ---
+
+  test "non-admin user cannot access /admin/sidekiq" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/sidekiq"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/sidekiq/queues/:name" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/sidekiq/queues/default"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/sidekiq/jobs/:jid" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/sidekiq/jobs/fake-jid-123"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot POST /admin/sidekiq/jobs/:jid/retry" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    post "/admin/sidekiq/jobs/fake-jid-123/retry"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/sidekiq/jobs/:jid/actions" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/sidekiq/jobs/fake-jid-123/actions"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job (GET)" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot POST /admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    post "/admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
+    assert_response :forbidden
+  end
+
+  # ============================================================================
+  # SECTION 2: Admin of Non-Primary Tenant CAN Access General Admin Pages
+  # ============================================================================
+
+  test "admin of non-primary tenant can access /admin dashboard" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin"
+    assert_response :success
+  end
+
+  test "admin of non-primary tenant can access /admin/settings" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/settings"
+    assert_response :success
+  end
+
+  test "admin of non-primary tenant can POST to /admin/settings" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    post "/admin/settings", params: { name: "Updated Tenant Name" }
+    assert_response :redirect
+    @other_tenant.reload
+    assert_equal "Updated Tenant Name", @other_tenant.name
+  end
+
+  # ============================================================================
+  # SECTION 3: Admin of Non-Primary Tenant CANNOT Access Primary-Only Pages
+  # ============================================================================
+
+  # --- Tenant Management ---
+
+  test "admin of non-primary tenant cannot access /admin/tenants" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/tenants"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/tenants/new" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/tenants/new"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot POST to /admin/tenants (create tenant)" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    assert_no_difference "Tenant.count" do
+      post "/admin/tenants", params: { subdomain: "new-tenant", name: "New Tenant" }
+    end
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/tenants/:subdomain (show tenant)" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/tenants/#{@primary_tenant.subdomain}"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/tenants/:subdomain/complete" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/tenants/#{@other_tenant.subdomain}/complete"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/tenants/new/actions" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/tenants/new/actions"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/tenants/new/actions/create_tenant (GET)" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/tenants/new/actions/create_tenant"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot POST /admin/tenants/new/actions/create_tenant" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    assert_no_difference "Tenant.count" do
+      post "/admin/tenants/new/actions/create_tenant", params: { subdomain: "hacked", name: "Hacked" }
+    end
+    assert_response :forbidden
+  end
+
+  # --- Sidekiq ---
+
+  test "admin of non-primary tenant cannot access /admin/sidekiq" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/sidekiq"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/sidekiq/queues/:name" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/sidekiq/queues/default"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/sidekiq/jobs/:jid" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/sidekiq/jobs/fake-jid-123"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot POST /admin/sidekiq/jobs/:jid/retry" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    post "/admin/sidekiq/jobs/fake-jid-123/retry"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/sidekiq/jobs/:jid/actions" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/sidekiq/jobs/fake-jid-123/actions"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job (GET)" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot POST /admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    post "/admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
+    assert_response :forbidden
+  end
+
+  # ============================================================================
+  # SECTION 4: Admin of Primary Tenant CAN Access All Pages
+  # ============================================================================
+
+  test "admin of primary tenant can access /admin dashboard" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/settings" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/settings"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/tenants" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/tenants/new" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants/new"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can create a tenant" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    new_subdomain = "new-tenant-#{SecureRandom.hex(4)}"
+    assert_difference "Tenant.count", 1 do
+      post "/admin/tenants", params: { subdomain: new_subdomain, name: "New Tenant" }
+    end
+    assert_response :redirect
+  end
+
+  test "admin of primary tenant can access /admin/tenants/:subdomain (show tenant)" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/tenants/#{@other_tenant.subdomain}"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/sidekiq" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/sidekiq"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/sidekiq/queues/:name" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/sidekiq/queues/default"
+    assert_response :success
+  end
+
+  # ============================================================================
+  # SECTION 5: Subagent Admin Access Restrictions
+  # ============================================================================
+
+  # Helper to create API token for subagent and make authenticated request
+  def subagent_api_request(method, path, subagent:, tenant:, params: {})
+    tenant.enable_api!
+    api_token = ApiToken.create!(
+      user: subagent,
+      tenant: tenant,
+      name: "Test Token #{SecureRandom.hex(4)}",
+      token: SecureRandom.hex(32),
+      scopes: %w[read:all create:all update:all delete:all],
+    )
+    host! "#{tenant.subdomain}.#{ENV['HOSTNAME']}"
+    send(method, path, params: params, headers: {
+      "Authorization" => "Bearer #{api_token.token}",
+      "Accept" => "text/markdown",
+    })
+  end
+
+  test "subagent without admin role cannot access admin pages" do
+    # Create parent user as admin
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    # Create subagent without admin role
+    subagent = create_subagent(parent: @admin_user, name: "Non-Admin Subagent")
+    @primary_tenant.add_user!(subagent)
+
+    subagent_api_request(:get, "/admin", subagent: subagent, tenant: @primary_tenant)
+    assert_response :forbidden
+  end
+
+  test "subagent with admin role but non-admin parent cannot access admin pages" do
+    # Create parent user without admin role
+    @primary_tenant.add_user!(@non_admin_user)
+
+    # Create subagent with admin role
+    subagent = create_subagent(parent: @non_admin_user, name: "Subagent With Admin Role")
+    @primary_tenant.add_user!(subagent)
+    subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
+    subagent_tenant_user.add_role!("admin")
+
+    subagent_api_request(:get, "/admin", subagent: subagent, tenant: @primary_tenant)
+    assert_response :forbidden
+    assert_match(/Subagent admin access requires both subagent and parent to be admins/, response.body)
+  end
+
+  test "subagent with admin role and admin parent can access admin pages (read)" do
+    # Create parent user as admin
+    @primary_tenant.add_user!(@admin_user)
+    parent_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    parent_tenant_user.add_role!("admin")
+
+    # Create subagent with admin role
+    subagent = create_subagent(parent: @admin_user, name: "Admin Subagent")
+    @primary_tenant.add_user!(subagent)
+    subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
+    subagent_tenant_user.add_role!("admin")
+
+    subagent_api_request(:get, "/admin", subagent: subagent, tenant: @primary_tenant)
+    assert_response :success
+  end
+
+  test "subagent cannot perform admin write operations in production" do
+    # Create parent user as admin
+    @primary_tenant.add_user!(@admin_user)
+    parent_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    parent_tenant_user.add_role!("admin")
+
+    # Create subagent with admin role
+    subagent = create_subagent(parent: @admin_user, name: "Admin Subagent")
+    @primary_tenant.add_user!(subagent)
+    subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
+    subagent_tenant_user.add_role!("admin")
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      subagent_api_request(:post, "/admin/settings", subagent: subagent, tenant: @primary_tenant, params: { name: "Changed By Subagent" })
+      assert_response :forbidden
+      assert_match(/Subagents cannot perform admin write operations in production/, response.body)
+
+      # Verify the tenant name was NOT changed
+      @primary_tenant.reload
+      refute_equal "Changed By Subagent", @primary_tenant.name
+    ensure
+      Thread.current[:simulate_production] = false
+    end
+  end
+
+  test "subagent can still read admin pages in production" do
+    # Create parent user as admin
+    @primary_tenant.add_user!(@admin_user)
+    parent_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    parent_tenant_user.add_role!("admin")
+
+    # Create subagent with admin role
+    subagent = create_subagent(parent: @admin_user, name: "Admin Subagent")
+    @primary_tenant.add_user!(subagent)
+    subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
+    subagent_tenant_user.add_role!("admin")
+
+    # Simulate production environment
+    Thread.current[:simulate_production] = true
+    begin
+      subagent_api_request(:get, "/admin", subagent: subagent, tenant: @primary_tenant)
+      assert_response :success
+
+      subagent_api_request(:get, "/admin/settings", subagent: subagent, tenant: @primary_tenant)
+      assert_response :success
+    ensure
+      Thread.current[:simulate_production] = false
+    end
+  end
+
+  # ============================================================================
+  # SECTION 6: Unauthenticated User Access
+  # ============================================================================
+
+  test "unauthenticated user cannot access /admin" do
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/admin"
+    # Should redirect to login or return unauthorized
+    assert_response :redirect
+  end
+
+  test "unauthenticated user cannot access /admin/settings" do
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/admin/settings"
+    assert_response :redirect
+  end
+
+  test "unauthenticated user cannot POST to /admin/settings" do
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    post "/admin/settings", params: { name: "Hacked" }
+    assert_response :redirect
+  end
+
+  test "unauthenticated user cannot access /admin/tenants" do
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/admin/tenants"
+    assert_response :redirect
+  end
+
+  test "unauthenticated user cannot access /admin/sidekiq" do
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/admin/sidekiq"
+    assert_response :redirect
+  end
+
+  test "unauthenticated user cannot POST to create tenant" do
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    assert_no_difference "Tenant.count" do
+      post "/admin/tenants", params: { subdomain: "hacked", name: "Hacked" }
+    end
+    assert_response :redirect
+  end
+
+  # ============================================================================
+  # SECTION 7: Cross-Tenant Access Prevention
+  # ============================================================================
+
+  test "admin of one tenant cannot access admin of another tenant" do
+    # Make admin_user an admin of other_tenant
+    @other_tenant.add_user!(@admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    # Add admin_user to primary_tenant but NOT as admin
+    @primary_tenant.add_user!(@admin_user)
+
+    # Sign in to primary_tenant (where user is NOT an admin)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    # Should be forbidden because user is not admin of THIS tenant
+    get "/admin"
+    assert_response :forbidden
+  end
+
+  test "admin of primary tenant viewing other tenant cannot modify it directly" do
+    # Make user admin of primary tenant only
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    # Admin can view other tenant's info
+    get "/admin/tenants/#{@other_tenant.subdomain}"
+    assert_response :success
+
+    # But the settings change would only affect the current tenant (primary)
+    # not the tenant being viewed - this is by design
+    original_other_name = @other_tenant.name
+    post "/admin/settings", params: { name: "Changed Name" }
+
+    @other_tenant.reload
+    assert_equal original_other_name, @other_tenant.name, "Other tenant's name should not change"
+  end
+
+  # ============================================================================
+  # SECTION 8: Data Isolation Verification
+  # ============================================================================
+
+  test "admin dashboard only shows current tenant admin users" do
+    # Test on non-primary tenant to avoid the "Person Users" cross-tenant section
+    # which is only shown on the primary tenant by design
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    # Create another user who is admin of primary tenant but not of other_tenant
+    primary_only_admin = create_user(name: "Primary Only Admin")
+    @primary_tenant.add_user!(primary_only_admin)
+    primary_tenant_user = @primary_tenant.tenant_users.find_by(user: primary_only_admin)
+    primary_tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin"
+    assert_response :success
+
+    # Verify the response contains other_tenant info and its admin
+    assert_match @other_tenant.subdomain, response.body
+    assert_match @other_admin_user.name, response.body
+
+    # Verify the response does NOT contain primary tenant's admin users
+    refute_match primary_only_admin.name, response.body, "Primary tenant's admin should not appear"
+  end
+
+  test "admin settings only affects current tenant" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    original_other_name = @other_tenant.name
+    original_primary_name = @primary_tenant.name
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    post "/admin/settings", params: { name: "Updated Primary Name" }
+    assert_response :redirect
+
+    @primary_tenant.reload
+    @other_tenant.reload
+
+    assert_equal "Updated Primary Name", @primary_tenant.name
+    assert_equal original_other_name, @other_tenant.name, "Other tenant should not be affected"
+  end
+end

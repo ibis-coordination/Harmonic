@@ -19,9 +19,11 @@ import CountdownController from "./countdown_controller"
 import DeadlineOptionsController from "./deadline_options_controller"
 import DecisionController from "./decision_controller"
 import DecisionResultsController from "./decision_results_controller"
+import FormTrackerController from "./form_tracker_controller"
 import DecisionVotersController from "./decision_voters_controller"
 import HeartbeatController from "./heartbeat_controller"
 import HelloController from "./hello_controller"
+import ImageCropperController from "./image_cropper_controller"
 import LogoutController from "./logout_controller"
 import MentionAutocompleteController from "./mention_autocomplete_controller"
 import MetricController from "./metric_controller"
@@ -32,6 +34,8 @@ import NotificationBadgeController from "./notification_badge_controller"
 import NoteController from "./note_controller"
 import OptionController from "./option_controller"
 import PinController from "./pin_controller"
+import PulseActionController from "./pulse_action_controller"
+import PulseFilterController from "./pulse_filter_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
 import SubagentManagerController from "./subagent_manager_controller"
 import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
@@ -50,9 +54,11 @@ application.register("countdown", CountdownController)
 application.register("deadline-options", DeadlineOptionsController)
 application.register("decision", DecisionController)
 application.register("decision-results", DecisionResultsController)
+application.register("form-tracker", FormTrackerController)
 application.register("decision-voters", DecisionVotersController)
 application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)
+application.register("image-cropper", ImageCropperController)
 application.register("logout", LogoutController)
 application.register("mention-autocomplete", MentionAutocompleteController)
 application.register("metric", MetricController)
@@ -63,6 +69,8 @@ application.register("notification-badge", NotificationBadgeController)
 application.register("note", NoteController)
 application.register("option", OptionController)
 application.register("pin", PinController)
+application.register("pulse-action", PulseActionController)
+application.register("pulse-filter", PulseFilterController)
 application.register("scratchpad-links", ScratchpadLinksController)
 application.register("subagent-manager", SubagentManagerController)
 application.register("subagent-superagent-adder", SubagentSuperagentAdderController)

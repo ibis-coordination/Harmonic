@@ -23,9 +23,10 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/trio"
     assert_response :success
-    assert_select "h1", "Trio"
-    assert_select "form"
-    assert_select "[data-controller='trio-chat']"
+    # Trio is now a "Coming Soon" placeholder page
+    assert_select ".trio-coming-soon"
+    assert_select ".trio-coming-soon-text", "Coming Soon"
+    assert_select "[data-controller='trio-logo']"
   end
 
   # === Create (POST /trio) HTML Tests ===
@@ -51,8 +52,8 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
     post "/trio", params: { question: "How do I create a note?" }
 
     assert_response :success
-    # HTML fallback still works (renders the index template)
-    assert_select "h1", "Trio"
+    # HTML fallback still works (renders the index template - now "Coming Soon" placeholder)
+    assert_select ".trio-coming-soon"
   end
 
   test "HTML: submitting empty question shows alert" do

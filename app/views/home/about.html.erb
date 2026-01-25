@@ -1,11 +1,32 @@
-<% if @current_tenant.description.present? %>
-<h1>About <%= @current_tenant.name %></h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'About'
+] %>
 
-<p><%= @current_tenant.description %></p>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'info', height: 14, class: 'pulse-resource-icon' %>
+        About
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">About</h1>
+  </header>
 
-<% end %>
-<h1>About Harmonic Team</h1>
+  <div class="pulse-resource-body pulse-prose">
+    <% if @current_tenant.description.present? %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">About <%= @current_tenant.name %></h2>
+        <p><%= @current_tenant.description %></p>
+      </section>
+    <% end %>
 
-<p>
-  Harmonic Team is an <a href="https://github.com/ibis-coordination/HarmonicTeam">open-source</a> web application for fast group coordination, built by <a href="https://ibis-coordination.com">Ibis Coordination</a>.
-</p>
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">About Harmonic Team</h2>
+      <p>
+        Harmonic Team is an <a href="https://github.com/ibis-coordination/HarmonicTeam" class="pulse-link">open-source</a> web application for fast group coordination, built by <a href="https://ibis-coordination.com" class="pulse-link">Ibis Coordination</a>.
+      </p>
+    </section>
+  </div>
+</article>

@@ -20,6 +20,14 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_match /#{ENV['AUTH_SUBDOMAIN']}/, response.location
   end
 
+  test "redirect to auth subdomain sets redirect_to_subdomain cookie" do
+    get "/login"
+    assert_response :redirect
+    # Verify the cookie was set with the tenant's subdomain
+    assert_equal @tenant.subdomain, cookies[:redirect_to_subdomain],
+      "Cookie should be set to the originating tenant subdomain"
+  end
+
   test "login page on auth subdomain shows login form" do
     host! auth_host
     # Set the redirect cookie to simulate coming from a tenant
@@ -27,6 +35,89 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
     get "/login"
     assert_response :success
+  end
+
+  # === Non-Primary Tenant Login Flow Tests ===
+  #
+  # NOTE: These tests verify the cookie-based subdomain tracking logic, but they
+  # pass even when the bug exists in real browsers. This is because Rails integration
+  # tests simulate cookies in memory, which works perfectly across "host!" switches.
+  #
+  # The actual bug manifests in real browsers where the cookie set with
+  # `domain: ".harmonic.local"` may not be properly shared across subdomains due to:
+  # - Browser security policies for .local domains
+  # - Cookie timing/persistence issues during redirects
+  #
+  # See e2e/tests/auth/non-primary-tenant-login.spec.ts for E2E tests that can
+  # reproduce the bug in a real browser environment.
+
+  test "non-primary tenant login flow preserves subdomain through redirect" do
+    # Create a non-primary tenant with required main superagent
+    secondary_tenant = create_tenant(subdomain: "secondary", name: "Secondary Tenant")
+    secondary_user = create_user(email: "secondary@example.com", name: "Secondary User")
+    secondary_tenant.add_user!(secondary_user)
+    secondary_tenant.create_main_superagent!(created_by: secondary_user)
+
+    # Step 1: User visits the secondary tenant's login page
+    host! "#{secondary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    get "/login"
+
+    # Should redirect to auth subdomain
+    assert_response :redirect
+    assert_match /#{ENV['AUTH_SUBDOMAIN']}/, response.location
+
+    # The cookie should be set to the secondary tenant's subdomain
+    assert_equal secondary_tenant.subdomain, cookies[:redirect_to_subdomain],
+      "Cookie should be set to 'secondary', not the primary subdomain"
+
+    # Step 2: Follow redirect to auth subdomain
+    host! auth_host
+    get "/login"
+
+    assert_response :success
+
+    # Verify the login page displays the correct tenant subdomain
+    assert_select "code", text: /#{secondary_tenant.subdomain}\.#{ENV['HOSTNAME']}/,
+      message: "Login page should display 'secondary.harmonic.local', not 'app.harmonic.local'"
+  end
+
+  test "login page on auth subdomain shows correct tenant when cookie is preserved" do
+    # Create a non-primary tenant
+    secondary_tenant = create_tenant(subdomain: "second", name: "Second Tenant")
+
+    # Simulate the cookie being properly set (this is what SHOULD happen)
+    host! auth_host
+    cookies[:redirect_to_subdomain] = secondary_tenant.subdomain
+
+    get "/login"
+
+    assert_response :success
+    # The @original_tenant should be the secondary tenant, not the primary
+    assert_select "code", text: /#{secondary_tenant.subdomain}\.#{ENV['HOSTNAME']}/,
+      message: "Login page should display the secondary tenant subdomain"
+  end
+
+  test "login page defaults to primary subdomain when cookie is missing" do
+    # This documents the CURRENT (buggy) behavior
+    # When no cookie is set, it defaults to PRIMARY_SUBDOMAIN
+    # First, ensure the primary tenant exists
+    primary_tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN'])
+    unless primary_tenant
+      primary_tenant = create_tenant(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
+      primary_user = create_user(email: "primary@example.com", name: "Primary User")
+      primary_tenant.add_user!(primary_user)
+      primary_tenant.create_main_superagent!(created_by: primary_user)
+    end
+
+    host! auth_host
+    # Explicitly ensure no cookie is set
+    cookies.delete(:redirect_to_subdomain)
+
+    get "/login"
+
+    assert_response :success
+    # Currently defaults to primary subdomain
+    assert_select "code", text: /#{ENV['PRIMARY_SUBDOMAIN']}\.#{ENV['HOSTNAME']}/
   end
 
   # === Logout Tests ===

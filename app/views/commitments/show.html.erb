@@ -1,29 +1,78 @@
 <span data-controller="commitment" data-commitment-id="<%= @commitment.id %>">
-<%= render 'shared/more_button', resource: @commitment, options: ['copy', 'pin', @commitment.can_edit_settings?(@current_user) ? 'settings' : nil].compact %>
-<%= render 'shared/show_resource_breadcrumbs', resource: @commitment %>
-<h1 style="margin-top:0;"><%= @commitment.title %></h1>
-<p style="font-size:0.8em;">
-  <%= render 'shared/created_by', resource: @commitment %>
-  <br/>
-  <%= render 'shared/deadline_display', resource: @commitment %>
-  <br/>
-</p>
-<span data-commitment-target="statusSection" data-url="<%= @commitment.path + '/status.html' %>">
-  <%= render 'status' %>
-</span>
-<%= render 'shared/attachments_section', resource: @commitment %>
-<% if @commitment.description && @commitment.description.length > 0 %>
-  <h2>Description</h2>
-  <div class="user-generated-markdown"><%= markdown(@commitment.description) %></div>
-<% end %>
-<% unless @commitment.closed? %>
-  <h2>Join</h2>
-  <div data-commitment-target="joinSection">
-    <%= render 'join' %>
-  </div>
-<% end %>
-<%= render 'participants' %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'Commitment'
+] %>
 
-<%= render 'shared/comments_section', commentable: @commitment %>
-<%= render 'shared/backlinks_section', resource: @commitment %>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/commitment-icon.svg" class="pulse-resource-icon" alt="">
+        Commitment
+        <% if @commitment.closed? %>
+          <span class="pulse-status-badge pulse-status-closed">Closed</span>
+        <% else %>
+          <span class="pulse-status-badge pulse-status-open">Open</span>
+        <% end %>
+      </span>
+      <div class="pulse-resource-actions">
+        <%= render 'shared/copy_to_clipboard', text: request.original_url %>
+        <%= render 'shared/pulse_pin_button', resource: @commitment, is_pinned: @is_pinned %>
+        <% if @commitment.can_edit_settings?(@current_user) %>
+          <%= link_to "#{@commitment.path}/settings", class: 'pulse-action-btn' do %>
+            <%= octicon 'gear', height: 14 %>
+            Settings
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+    <h1 class="pulse-resource-title"><%= @commitment.title %></h1>
+  </header>
+
+  <div class="pulse-resource-meta">
+    <%= render 'shared/pulse_author', resource: @commitment %>
+    <div class="pulse-deadline-info">
+      <%= render 'shared/deadline_display', resource: @commitment %>
+    </div>
+  </div>
+
+  <%# Participation Progress %>
+  <div class="pulse-participation-section" data-commitment-target="statusSection" data-url="<%= @commitment.path + '/status.html' %>">
+    <%= render 'status' %>
+  </div>
+
+  <%= render 'shared/pulse_attachments', resource: @commitment %>
+
+  <% if @commitment.description.present? %>
+    <div class="pulse-resource-body">
+      <div class="pulse-markdown-content">
+        <%= markdown(@commitment.description) %>
+      </div>
+    </div>
+  <% end %>
+
+  <%# Join Section (shown when commitment is open) %>
+  <% unless @commitment.closed? %>
+    <div class="pulse-join-section">
+      <div class="pulse-section-label">
+        Join
+      </div>
+      <div data-commitment-target="joinSection">
+        <%= render 'join' %>
+      </div>
+    </div>
+  <% end %>
+
+  <%# Participants List %>
+  <div class="pulse-participants-section"
+    data-commitment-target="participantsSection"
+    data-url="<%= @commitment.path + '/participants.html' %>"
+    >
+    <%= render 'participants' %>
+  </div>
+
+  <%= render 'shared/pulse_comments', commentable: @commitment %>
+  <%= render 'shared/pulse_backlinks', resource: @commitment %>
+</article>
 </span>

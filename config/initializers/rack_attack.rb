@@ -5,6 +5,13 @@ class Rack::Attack
     req.ip == '127.0.0.1' || req.ip == '::1'
   end
 
+  # Allow requests from Docker network (for e2e tests in development/test only)
+  if Rails.env.development? || Rails.env.test?
+    safelist('allow-docker-network') do |req|
+      req.ip&.start_with?('192.168.') || req.ip&.start_with?('172.')
+    end
+  end
+
   # Throttle login attempts by IP address
   throttle('login/ip', limit: 5, period: 20.minutes) do |req|
     if req.path == '/auth/identity/callback' && req.post?

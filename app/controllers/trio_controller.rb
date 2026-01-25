@@ -1,7 +1,9 @@
 # typed: false
 
 class TrioController < ApplicationController
+  layout 'pulse', only: [:index]
   before_action :require_trio_enabled
+  before_action :set_sidebar_mode, only: [:index]
 
   def index
     @page_title = "Ask Harmonic"
@@ -51,9 +53,14 @@ class TrioController < ApplicationController
 
   private
 
+  def set_sidebar_mode
+    @sidebar_mode = 'none'
+  end
+
   def require_trio_enabled
     return if @current_tenant&.trio_enabled?
 
+    @sidebar_mode = 'none'
     respond_to do |format|
       format.html { render "shared/403", status: :forbidden }
       format.md { render "shared/403", status: :forbidden }

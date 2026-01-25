@@ -1,82 +1,100 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: 'Scene' %>
-<h2><%= octicon 'eye', height: 24 %> New <code><%= @current_tenant.subdomain %></code> Scene</h2>
-<p>
-  Scenes are public groups.
-</p>
-<%= form_with(url: '/scenes') do |form| %>
-  <h3>Scene Name</h3>
-  <p>
-    <%= form.text_field :name, placeholder: 'Scene Name' %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['Scenes', '/scenes'],
+  'New Scene'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'eye', height: 14, class: 'pulse-resource-icon' %>
+        Scene
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">New Scene</h1>
+  </header>
+
+  <p class="pulse-section-description">
+    Scenes are public groups. Anyone can view content posted to a scene.
   </p>
 
-  <h3>Scene Handle</h3>
-  <p style="margin-bottom:0;">
-    The scene handle determines the scene's URL path: <code><%= request.protocol %><%= request.host %>/scenes/<strong id="handle-example">handle</strong></code>
-    <br/>
-    Only lowercase letters, numbers, and hyphens are allowed.
-  </p>
-  <p>
-    <span id="already-taken-message" style="display:block;opacity:0;height:1.6em;font-size:0.8em;color:red;">That handle is already taken.</span>
-    <%= form.text_field :handle, placeholder: 'handle', id: 'handle-input' %>
-  </p>
-  <script>
-    const handleInput = document.getElementById('handle-input');
-    const handleExample = document.getElementById('handle-example');
-    const alreadyTakenMessage = document.getElementById('already-taken-message');
-    const validateHandle = function(handle) {
-      return /^[a-z0-9-]+$/.test(handle);
-    };
-    const checkIfAvailable = function(handle) {
-      return fetch('/scenes/available?handle=' + handle)
-        .then(response => response.json())
-        .then(data => {
-          if (data.available && handleInput.value === handle) {
-            handleExample.innerText = handle;
-            handleExample.style.textDecoration = 'none';
-            alreadyTakenMessage.style.opacity = 0;
-            handleInput.style.backgroundColor = 'inherit';
-          } else if (!data.available && handleInput.value === handle) {
-            handleExample.innerText = handle;
-            handleExample.style.textDecoration = 'line-through';
-            alreadyTakenMessage.style.opacity = 1;
-            handleInput.style.backgroundColor = 'rgba(255,0,0,0.3)';
-          } else {
-            // noop
-          }
-        });
-    };
-    handleInput.addEventListener('input', function() {
-      const handle = handleInput.value;
-      if (validateHandle(handle)) {
-        checkIfAvailable(handle)
-      } else {
-        handleInput.value = handle.replace(/[^a-z0-9-]/g, '');
-      }
-    });
-  </script>
+  <%= form_with(url: '/scenes', class: "pulse-form") do |form| %>
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Scene Name</h2>
+      <div class="pulse-form-group">
+        <%= form.text_field :name, placeholder: 'Scene Name', class: 'pulse-form-input', autofocus: true %>
+      </div>
+    </section>
 
-  <h3>Who can join?</h3>
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Scene Handle</h2>
+      <p class="pulse-section-description">
+        The scene handle determines the scene's URL path: <code><%= request.protocol %><%= request.host %>/scenes/<strong id="handle-example">handle</strong></code>
+        <br/>
+        Only lowercase letters, numbers, and hyphens are allowed.
+      </p>
+      <div class="pulse-form-group">
+        <span id="already-taken-message" class="pulse-error-message" style="display:none;">That handle is already taken.</span>
+        <%= form.text_field :handle, placeholder: 'handle', id: 'handle-input', class: 'pulse-form-input' %>
+      </div>
+    </section>
 
-  <p>
-    Scenes are always publicly visible, but only individuals who have joined can post notes.
-  </p>
-  <p>
+    <script>
+      const handleInput = document.getElementById('handle-input');
+      const handleExample = document.getElementById('handle-example');
+      const alreadyTakenMessage = document.getElementById('already-taken-message');
+      const validateHandle = function(handle) {
+        return /^[a-z0-9-]+$/.test(handle);
+      };
+      const checkIfAvailable = function(handle) {
+        return fetch('/scenes/available?handle=' + handle)
+          .then(response => response.json())
+          .then(data => {
+            if (data.available && handleInput.value === handle) {
+              handleExample.innerText = handle;
+              handleExample.style.textDecoration = 'none';
+              alreadyTakenMessage.style.display = 'none';
+              handleInput.classList.remove('pulse-form-input-error');
+            } else if (!data.available && handleInput.value === handle) {
+              handleExample.innerText = handle;
+              handleExample.style.textDecoration = 'line-through';
+              alreadyTakenMessage.style.display = 'block';
+              handleInput.classList.add('pulse-form-input-error');
+            } else {
+              // noop
+            }
+          });
+      };
+      handleInput.addEventListener('input', function() {
+        const handle = handleInput.value;
+        if (validateHandle(handle)) {
+          checkIfAvailable(handle)
+        } else {
+          handleInput.value = handle.replace(/[^a-z0-9-]/g, '');
+        }
+      });
+    </script>
 
-  </p>
-  <p>
-    <fieldset>
-      <label>
-        <%= form.radio_button :invitation_mode, 'open', checked: true %>
-        Open to anyone. No invite required.
-      </label>
-      <br/>
-      <label>
-        <%= form.radio_button :invitation_mode, 'invite_only', checked: false %>
-        Invite from existing scene member is required to join.
-      </label>
-    </fieldset>
-  </p>
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Who can join?</h2>
+      <p class="pulse-section-description">
+        Scenes are always publicly visible, but only individuals who have joined can post notes.
+      </p>
+      <fieldset class="pulse-radio-group">
+        <label class="pulse-radio-label">
+          <%= form.radio_button :invitation_mode, 'open', checked: true, class: 'pulse-radio-input' %>
+          <span>Open to anyone. No invite required.</span>
+        </label>
+        <label class="pulse-radio-label">
+          <%= form.radio_button :invitation_mode, 'invite_only', checked: false, class: 'pulse-radio-input' %>
+          <span>Invite from existing scene member is required to join.</span>
+        </label>
+      </fieldset>
+    </section>
 
-  <hr style="height:1px;" />
-  <%= form.submit 'Start Scene' %>
-<% end %>
+    <div class="pulse-form-actions">
+      <%= form.submit 'Start Scene', class: 'pulse-action-btn' %>
+    </div>
+  <% end %>
+</article>

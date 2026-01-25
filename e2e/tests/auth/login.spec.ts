@@ -1,34 +1,46 @@
 import { test, expect } from "../../fixtures/test-fixtures"
-import { login, logout, buildBaseUrl } from "../../helpers/auth"
+import {
+  login,
+  logout,
+  buildBaseUrl,
+  E2E_TEST_EMAIL,
+  E2E_TEST_PASSWORD,
+} from "../../helpers/auth"
 
 test.describe("Authentication", () => {
-  test("user can log in via honor_system", async ({ page }) => {
-    const random = Math.random().toString(36).substring(2, 10)
-    const testEmail = `login-test-${Date.now()}-${random}@example.com`
+  test("user can log in via identity provider", async ({ page }) => {
+    // Clear authenticated state to test fresh login
+    await page.context().clearCookies()
 
-    await login(page, { email: testEmail, name: `TestUser${random}` })
+    await login(page, {
+      email: E2E_TEST_EMAIL,
+      password: E2E_TEST_PASSWORD,
+    })
 
     // Should be redirected to home page
     await expect(page).toHaveURL(/\/$/)
 
-    // Should see some indication of logged-in state (user name or logout link)
+    // Should see some indication of logged-in state
     const body = page.locator("body")
     await expect(body).toBeVisible()
   })
 
   test("user can log out", async ({ page }) => {
-    const random = Math.random().toString(36).substring(2, 10)
-    const testEmail = `logout-test-${Date.now()}-${random}@example.com`
+    // Clear authenticated state to test fresh login/logout cycle
+    await page.context().clearCookies()
 
-    await login(page, { email: testEmail, name: `LogoutUser${random}` })
+    await login(page, {
+      email: E2E_TEST_EMAIL,
+      password: E2E_TEST_PASSWORD,
+    })
     await logout(page)
 
-    // After logout, either redirected to login or see "Log in" button
-    const loginButton = page.locator('button:has-text("Log in"), a:has-text("Log in")')
-    const loginPage = page.locator('input[placeholder="email address"]')
+    // After logout, should see login form (redirected to auth subdomain)
+    const emailInput = page.locator('input[name="auth_key"]')
+    const loginPage = page.locator('input[type="email"]')
 
     // Either should be visible after logout
-    await expect(loginButton.or(loginPage).first()).toBeVisible()
+    await expect(emailInput.or(loginPage).first()).toBeVisible()
   })
 
   test("unauthenticated user is redirected to login", async ({ page }) => {
@@ -40,26 +52,45 @@ test.describe("Authentication", () => {
     // Try to access protected page (studios list requires auth)
     await page.goto(`${baseUrl}/studios`)
 
-    // Should be redirected to login
+    // Should be redirected to login (may end up on auth subdomain)
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test("login creates new user if not exists", async ({ page }) => {
-    // Use unique email and name to ensure new user
-    const random = Math.random().toString(36).substring(2, 10)
-    const uniqueEmail = `new-user-${Date.now()}-${random}@example.com`
-    const userName = `NewUser${random}`
+  test("invalid credentials show error", async ({ page }) => {
+    // Clear authenticated state to test login form
+    await page.context().clearCookies()
 
-    await login(page, { email: uniqueEmail, name: userName })
+    const baseUrl = buildBaseUrl()
+    await page.goto(`${baseUrl}/login`)
 
-    // Should be logged in successfully
-    await expect(page).toHaveURL(/\/$/)
+    // Wait for login form to be visible (handles redirect to auth subdomain)
+    await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
+
+    // Fill in invalid credentials
+    await page.locator('input[name="auth_key"]').fill("invalid@example.com")
+    await page.locator('input[name="password"]').fill("wrongpassword123")
+    await page.locator('input[type="submit"][value="Log in"], button:has-text("Log in")').first().click()
+
+    // Wait for response - check for various error indicators
+    // Could be: OmniAuth error page, login page with flash, or /auth/failure redirect
+    await expect(async () => {
+      const isOnLoginPage = page.url().includes("/login")
+      const isOnFailurePage = page.url().includes("/auth/failure") || page.url().includes("/auth/")
+      const omniAuthError = await page.locator('h1:has-text("OmniAuth::Error")').isVisible().catch(() => false)
+      const errorVisible = await page.locator(".error, .alert, .flash").isVisible().catch(() => false)
+
+      expect(isOnLoginPage || isOnFailurePage || omniAuthError || errorVisible).toBe(true)
+    }).toPass({ timeout: 10000 })
   })
 
   test("authenticated page fixture provides logged in state", async ({
     authenticatedPage,
     testUser,
   }) => {
+    // Navigate to home page - authenticatedPage has auth state from storage
+    const baseUrl = buildBaseUrl()
+    await authenticatedPage.goto(baseUrl)
+
     // The authenticatedPage fixture should already be logged in
     await expect(authenticatedPage).toHaveURL(/\/$/)
 

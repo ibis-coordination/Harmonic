@@ -1,0 +1,60 @@
+<%
+  # Calculate cycle progress percentage
+  total_duration = @cycle.end_date - @cycle.start_date
+  elapsed = Time.current - @cycle.start_date
+  progress_percent = [(elapsed / total_duration * 100).to_i, 100].min
+  progress_percent = [progress_percent, 0].max
+
+  # Navigation - require heartbeat to view previous cycles
+  prev_cycle_name = @cycle.previous_cycle
+  next_cycle_name = @cycle.next_cycle
+  has_heartbeat = @current_heartbeat.present?
+  can_go_previous = has_heartbeat && prev_cycle_name && prev_cycle_name != @cycle.name
+  can_go_next = next_cycle_name.present?
+  pulse_path = @current_superagent.path
+%>
+<div class="pulse-cycle-box">
+  <div class="pulse-cycle-label"><%= @is_viewing_current_cycle ? 'Current Cycle' : 'Viewing Past Cycle' %></div>
+
+  <div class="pulse-cycle-nav">
+    <% if can_go_previous %>
+      <a href="<%= pulse_path %>?cycle=<%= prev_cycle_name %>" class="pulse-cycle-nav-arrow" title="Previous cycle">
+        <%= octicon 'chevron-left' %>
+      </a>
+    <% elsif prev_cycle_name && prev_cycle_name != @cycle.name %>
+      <%# Disabled due to no heartbeat - include data-href so JS can enable it %>
+      <span id="pulse-prev-cycle-arrow" class="pulse-cycle-nav-arrow disabled" data-href="<%= pulse_path %>?cycle=<%= prev_cycle_name %>">
+        <%= octicon 'chevron-left' %>
+      </span>
+    <% else %>
+      <span class="pulse-cycle-nav-arrow disabled">
+        <%= octicon 'chevron-left' %>
+      </span>
+    <% end %>
+
+    <div class="pulse-cycle-info">
+      <div class="pulse-cycle-title"><%= @cycle.display_name %></div>
+      <div class="pulse-cycle-dates-inline"><%= @cycle.display_window %></div>
+    </div>
+
+    <% if can_go_next %>
+      <a href="<%= pulse_path %>?cycle=<%= next_cycle_name %>" class="pulse-cycle-nav-arrow" title="Next cycle">
+        <%= octicon 'chevron-right' %>
+      </a>
+    <% else %>
+      <span class="pulse-cycle-nav-arrow disabled">
+        <%= octicon 'chevron-right' %>
+      </span>
+    <% end %>
+  </div>
+
+  <% unless @is_viewing_current_cycle %>
+    <div class="pulse-cycle-return">
+      <a href="<%= pulse_path %>" class="pulse-cycle-return-btn">Return to current cycle</a>
+    </div>
+  <% end %>
+
+  <div class="pulse-cycle-progress">
+    <div class="pulse-cycle-progress-fill" style="width: <%= progress_percent %>%"></div>
+  </div>
+</div>

@@ -3,10 +3,14 @@
 class DecisionsController < ApplicationController
   include AttachmentActions
 
+  layout 'pulse', only: [:show, :new, :edit, :settings]
+
   def new
     @page_title = "Decide"
     @page_description = "Make a group decision with Harmonic Team"
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     @decision = Decision.new(
       question: params[:question],
     )
@@ -134,6 +138,8 @@ class DecisionsController < ApplicationController
     @participant = current_decision_participant
     @page_title = @decision.question
     @page_description = "Decide as a group with Harmonic Team"
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
 
     @votes = current_votes
@@ -144,9 +150,14 @@ class DecisionsController < ApplicationController
   def settings
     @decision = current_decision
     return render '404', status: 404 unless @decision
-    return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
+    unless @decision.can_edit_settings?(@current_user)
+      @sidebar_mode = 'none'
+      return render 'shared/403', status: 403
+    end
     @page_title = "Decision Settings"
     @page_description = "Change settings for this decision"
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     set_pin_vars
   end
 

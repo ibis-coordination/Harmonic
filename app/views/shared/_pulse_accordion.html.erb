@@ -1,0 +1,29 @@
+<%# Pulse-styled accordion/collapsible section %>
+<%# Usage: render 'shared/pulse_accordion', title: 'Details', open: false do %>
+<%#   <p>Content here</p> %>
+<%# end %>
+<%# Optional: icon: 'eye' to add an octicon before the title %>
+<%# Optional: tooltip: 'Tooltip text' to add a title attribute to the title area %>
+<%# Optional: title_data: { 'decision-results-target': 'header' } to add data attributes to title %>
+<% open ||= false %>
+<% count ||= nil %>
+<% icon ||= nil %>
+<% tooltip ||= nil %>
+<% title_data ||= {} %>
+<details class="pulse-accordion" <%= 'open' if open %>>
+  <summary class="pulse-accordion-header">
+    <span class="pulse-accordion-title"<%= " title=\"#{tooltip}\"".html_safe if tooltip.present? %> <%= title_data.map { |k, v| "data-#{k}=\"#{v}\"" }.join(' ').html_safe %>>
+      <% if icon.present? %>
+        <span class="pulse-accordion-title-icon"><%= octicon icon, height: 14 %></span>
+      <% end %>
+      <%= title %>
+      <% if count.present? %>
+        <span class="pulse-accordion-count">(<%= count %>)</span>
+      <% end %>
+    </span>
+    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+  </summary>
+  <div class="pulse-accordion-content">
+    <%= yield %>
+  </div>
+</details>

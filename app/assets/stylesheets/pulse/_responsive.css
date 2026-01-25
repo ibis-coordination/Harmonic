@@ -1,0 +1,53 @@
+/* Pulse Responsive Styles
+ * Mobile breakpoint: 768px
+ */
+
+@media (max-width: 768px) {
+  .pulse-container {
+    flex-direction: column;
+  }
+
+  .pulse-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .pulse-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .pulse-nav-item {
+    padding: 8px 12px;
+  }
+
+  .pulse-feed {
+    padding: 16px;
+  }
+
+  .pulse-top-header {
+    padding: 8px 12px;
+  }
+
+  .pulse-top-header-right .pulse-action-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .pulse-studio-image {
+    width: 48px;
+    height: 48px;
+  }
+
+  .pulse-motto-footer::before {
+    display: none;
+  }
+
+  /* No sidebar layout adjustments */
+  .pulse-container.no-sidebar .pulse-main {
+    padding: 24px 16px;
+  }
+}

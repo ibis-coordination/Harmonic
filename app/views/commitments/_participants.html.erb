@@ -1,7 +1,7 @@
-<div
-  data-commitment-target="participantsList"
-  data-url="<%= @commitment.path + '/participants.html' %>"
-  data-limit="<%= @participants_list_limit %>"
-  >
+<div class="pulse-section-label">
+  <%= octicon 'people', height: 14 %>
+  Participants (<%= @commitment.participant_count %>)
+</div>
+<div data-limit="<%= @participants_list_limit %>">
   <%= render 'participants_list_items' %>
 </div>

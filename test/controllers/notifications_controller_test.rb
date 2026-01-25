@@ -202,4 +202,379 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     get "/notifications/actions", headers: { "Accept" => "text/markdown" }
     assert_response :success
   end
+
+  # === Scheduled Reminders Tests ===
+
+  test "index shows scheduled reminders section" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    ReminderService.create!(user: @user, title: "Future reminder", scheduled_for: 1.day.from_now)
+    Superagent.clear_thread_scope
+
+    get "/notifications"
+    assert_response :success
+    assert_includes response.body, "Scheduled Reminders"
+    assert_includes response.body, "Future reminder"
+  end
+
+  test "index does not show scheduled reminders section when empty" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications"
+    assert_response :success
+    assert_not_includes response.body, "Scheduled Reminders"
+  end
+
+  test "index always shows Schedule Reminder button" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications"
+    assert_response :success
+    assert_includes response.body, "Schedule Reminder"
+    assert_includes response.body, "/notifications/new"
+  end
+
+  test "new page shows reminder creation form" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications/new"
+    assert_response :success
+    assert_includes response.body, "New Reminder"
+    assert_includes response.body, "title"
+    assert_includes response.body, "scheduled_for"
+  end
+
+  test "new page markdown shows action description" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications/new", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "# New Reminder"
+    assert_includes response.body, "create_reminder"
+  end
+
+  test "scheduled reminders do not appear in immediate notifications list" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    ReminderService.create!(user: @user, title: "Scheduled Only", scheduled_for: 1.day.from_now)
+    Superagent.clear_thread_scope
+
+    get "/notifications"
+    assert_response :success
+
+    # The reminder should appear in the scheduled section only
+    # Not in the main notification list (which shows immediate notifications)
+    assert_includes response.body, "Scheduled Only"
+  end
+
+  test "scheduled reminders do not count in unread notification count" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Start with zero unread notifications
+    get "/notifications/unread_count", headers: { "Accept" => "application/json" }
+    json = JSON.parse(response.body)
+    assert_equal 0, json["count"], "Should start with 0 unread"
+
+    # Create a scheduled reminder for the future
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    ReminderService.create!(user: @user, title: "Future reminder", scheduled_for: 1.day.from_now)
+    Superagent.clear_thread_scope
+
+    # The scheduled reminder should NOT count in unread count
+    get "/notifications/unread_count", headers: { "Accept" => "application/json" }
+    json = JSON.parse(response.body)
+    assert_equal 0, json["count"], "Scheduled future reminder should not count as unread"
+  end
+
+  test "mark_all_read does not affect scheduled reminders" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Create a scheduled reminder for the future
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(user: @user, title: "Future reminder", scheduled_for: 1.day.from_now)
+    nr = notification.notification_recipients.first
+    Superagent.clear_thread_scope
+
+    # Mark all as read
+    post "/notifications/actions/mark_all_read"
+    assert_response :success
+
+    # The scheduled reminder should still be in pending state
+    nr.reload
+    assert_equal "pending", nr.status, "Scheduled reminder should still be pending"
+    assert_nil nr.read_at, "Scheduled reminder should not be marked as read"
+  end
+
+  test "notifications page does not show mark all read button when only scheduled reminders exist" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Create a scheduled reminder for the future
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    ReminderService.create!(user: @user, title: "Future reminder", scheduled_for: 1.day.from_now)
+    Superagent.clear_thread_scope
+
+    get "/notifications"
+    assert_response :success
+
+    # Page title should NOT show unread count in parentheses
+    assert_not_includes response.body, "<title>(1) Notifications</title>"
+    # Should NOT show "Mark all read" button
+    assert_not_includes response.body, "Mark all read"
+    # Should show the scheduled reminder in the scheduled section
+    assert_includes response.body, "Scheduled Reminders"
+    assert_includes response.body, "Future reminder"
+  end
+
+  # === Create Reminder Action Tests ===
+
+  test "describe_create_reminder returns action description" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications/actions/create_reminder", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "create_reminder"
+    assert_includes response.body, "scheduled_for"
+  end
+
+  test "create_reminder action requires title" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/create_reminder",
+      params: { scheduled_for: 1.day.from_now.iso8601 },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "Title is required"
+  end
+
+  test "create_reminder action requires scheduled_for" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/create_reminder",
+      params: { title: "Test" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "scheduled_for is required"
+  end
+
+  test "create_reminder action creates reminder with ISO 8601 datetime" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "Notification.count" do
+      post "/notifications/actions/create_reminder",
+        params: {
+          title: "Remember this",
+          body: "Important details",
+          scheduled_for: 1.day.from_now.iso8601,
+        },
+        headers: { "Accept" => "text/markdown" }
+    end
+
+    notification = Notification.last
+    assert_equal "reminder", notification.notification_type
+    assert_equal "Remember this", notification.title
+  end
+
+  test "create_reminder action creates reminder with Unix timestamp" do
+    sign_in_as(@user, tenant: @tenant)
+
+    future_time = 1.day.from_now.to_i
+
+    assert_difference "Notification.count" do
+      post "/notifications/actions/create_reminder",
+        params: {
+          title: "Unix timestamp reminder",
+          scheduled_for: future_time.to_s,
+        },
+        headers: { "Accept" => "text/markdown" }
+    end
+
+    notification = Notification.last
+    assert_equal "Unix timestamp reminder", notification.title
+  end
+
+  test "create_reminder action uses timezone parameter for datetime-local values" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Submit a datetime-local value (no timezone info) with explicit timezone
+    # Use a time 1 day from now in a specific timezone
+    future_date = 1.day.from_now.strftime("%Y-%m-%dT%H:%M")
+
+    post "/notifications/actions/create_reminder",
+      params: {
+        title: "Timezone test",
+        scheduled_for: future_date,
+        timezone: "Pacific Time (US & Canada)",
+      },
+      headers: { "Accept" => "application/json" }
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert json["success"], "Expected success but got: #{response.body}"
+
+    notification = Notification.last
+    nr = notification.notification_recipients.first
+
+    # The time should be parsed in Pacific timezone and stored as UTC
+    expected_utc = ActiveSupport::TimeZone["Pacific Time (US & Canada)"].parse(future_date).utc
+    assert_equal expected_utc, nr.scheduled_for
+  end
+
+  test "create_reminder action creates reminder with relative time" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "Notification.count" do
+      post "/notifications/actions/create_reminder",
+        params: {
+          title: "Relative time reminder",
+          scheduled_for: "2h",
+        },
+        headers: { "Accept" => "text/markdown" }
+    end
+
+    notification = Notification.last
+    assert_equal "Relative time reminder", notification.title
+
+    nr = notification.notification_recipients.first
+    # Should be approximately 2 hours from now
+    assert_in_delta 2.hours.from_now, nr.scheduled_for, 5.seconds
+  end
+
+  test "create_reminder action supports various relative time formats" do
+    sign_in_as(@user, tenant: @tenant)
+
+    [
+      ["30m", 30.minutes],
+      ["1h", 1.hour],
+      ["2d", 2.days],
+      ["1w", 1.week],
+    ].each do |input, expected_duration|
+      expected_time = expected_duration.from_now
+      post "/notifications/actions/create_reminder",
+        params: { title: "Test #{input}", scheduled_for: input },
+        headers: { "Accept" => "text/markdown" }
+
+      # Find by title to ensure we get the right notification
+      notification = Notification.find_by(title: "Test #{input}")
+      nr = notification.notification_recipients.first
+      assert_in_delta expected_time, nr.scheduled_for, 5.seconds,
+        "Failed for input: #{input}"
+    end
+  end
+
+  test "create_reminder markdown response includes scheduled time" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/create_reminder",
+      params: { title: "Test", scheduled_for: 1.day.from_now.iso8601 },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "Reminder scheduled"
+  end
+
+  test "create_reminder JSON response includes id and scheduled_for" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/create_reminder",
+      params: { title: "Test", scheduled_for: 1.day.from_now.iso8601 },
+      headers: { "Accept" => "application/json" }
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert json["success"]
+    assert json["id"].present?
+    assert json["scheduled_for"].present?
+  end
+
+  # === Delete Reminder Action Tests ===
+
+  test "describe_delete_reminder returns action description" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications/actions/delete_reminder", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "delete_reminder"
+  end
+
+  test "delete_reminder removes the reminder" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(user: @user, title: "To delete", scheduled_for: 1.day.from_now)
+    nr = notification.notification_recipients.first
+    Superagent.clear_thread_scope
+
+    assert_difference "NotificationRecipient.count", -1 do
+      post "/notifications/actions/delete_reminder",
+        params: { id: nr.id },
+        headers: { "Accept" => "text/markdown" }
+    end
+
+    assert_includes response.body, "Reminder deleted"
+  end
+
+  test "delete_reminder returns error for non-existent reminder" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/delete_reminder",
+      params: { id: "nonexistent-uuid" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "Reminder not found"
+  end
+
+  test "delete_reminder cannot delete other user's reminder" do
+    other_user = create_user(name: "Other Notification User")
+    @tenant.add_user!(other_user)
+    @superagent.add_user!(other_user)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(user: other_user, title: "Other's reminder", scheduled_for: 1.day.from_now)
+    nr = notification.notification_recipients.first
+    Superagent.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "NotificationRecipient.count" do
+      post "/notifications/actions/delete_reminder",
+        params: { id: nr.id },
+        headers: { "Accept" => "text/markdown" }
+    end
+
+    assert_includes response.body, "Reminder not found"
+  end
+
+  # === Markdown Scheduled Reminders Tests ===
+
+  test "markdown index shows scheduled reminders table" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+    ReminderService.create!(user: @user, title: "MD Reminder", scheduled_for: 1.day.from_now)
+    Superagent.clear_thread_scope
+
+    get "/notifications", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "## Scheduled Reminders"
+    assert_includes response.body, "MD Reminder"
+  end
+
+  test "markdown actions list includes reminder actions" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "create_reminder"
+    assert_includes response.body, "delete_reminder"
+  end
 end

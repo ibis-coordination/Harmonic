@@ -1,26 +1,25 @@
 <% header_level ||= 3 %>
 <% if @active_sessions.any? %>
-<div class="active-sessions">
-  <h<%= header_level %>>Active Sessions</h<%= header_level %>>
+<div class="pulse-notice pulse-notice-info">
+  <h<%= header_level %> class="pulse-section-title">Active Sessions</h<%= header_level %>>
   <p>
     <%= @current_superagent.name %> is currently being represented in <%= @active_sessions.count %> active session<%= @active_sessions.count == 1 ? '' : 's' %>.
   </p>
-  <ul>
+  <ul class="pulse-list">
     <% @active_sessions.each do |session| %>
-      <li>
-        <%= link_to "Session <code>#{session.truncated_id}</code>".html_safe, session.path %>
-        <span class="timeago">began <%= timeago(session.began_at) %></span>
+      <li class="pulse-list-item">
+        <a href="<%= session.path %>" class="pulse-link">Session <code><%= session.truncated_id %></code></a>
+        <span class="pulse-muted">began <%= timeago(session.began_at) %></span>
       </li>
     <% end %>
   </ul>
 </div>
-<hr/>
 <% end %>
 
 <% if @current_user.superagent_member.can_represent? %>
-  <p>
-    <a href="<%= @current_superagent.path %>/represent">
-      <button>New Session</button>
+  <p class="pulse-action-row">
+    <a href="<%= @current_superagent.path %>/represent" class="pulse-action-btn pulse-action-btn-primary">
+      <%= octicon "play" %> New Session
     </a>
   </p>
 <% end %>
@@ -28,57 +27,61 @@
 <p>Representation allows this studio (<%= @current_superagent.name %>) to act as an individual member of other studios.</p>
 
 <% if @current_superagent.trustee_user.superagents.empty? %>
-  <p>
+  <p class="pulse-muted">
     <%= @current_superagent.name %> is not currently a member of any other studios.
   </p>
 <% else %>
   <p>
     <%= @current_superagent.name %> is currently a member of the following studios:
   </p>
-  <ul>
+  <ul class="pulse-list">
     <% @current_superagent.trustee_user.superagents.each do |studio| %>
-      <li>
-        <%= link_to studio.name, studio.path %>
+      <li class="pulse-list-item">
+        <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
       </li>
     <% end %>
   </ul>
 <% end %>
 
 
-<h<%= header_level %>>Representatives</h<%= header_level %>>
+<section class="pulse-settings-section">
+  <h<%= header_level %> class="pulse-section-title">Representatives</h<%= header_level %>>
 
-<p>Representatives act on behalf of <%= @current_superagent.name %> through sessions during which their actions are recorded and made visible here.</p>
+  <p>Representatives act on behalf of <%= @current_superagent.name %> through sessions during which their actions are recorded and made visible here.</p>
 
-<% if @current_superagent.any_member_can_represent? %>
-  <p><%= @current_superagent.name %> is configured to allow any member to represent the studio.</p>
-<% else %>
-  <p><%= @current_superagent.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.</p>
+  <% if @current_superagent.any_member_can_represent? %>
+    <p><%= @current_superagent.name %> is configured to allow any member to represent the studio.</p>
+  <% else %>
+    <p><%= @current_superagent.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.</p>
 
-  <ul>
-    <% @representatives.each do |representative| %>
-      <li>
-        <%= profile_pic(representative) %>
-        <%= link_to representative.display_name, representative.path %>
-        <span class="role-badge">representative</span>
-      </li>
-    <% end %>
-  </ul>
-<% end %>
+    <ul class="pulse-list">
+      <% @representatives.each do |representative| %>
+        <li class="pulse-list-item">
+          <%= profile_pic(representative) %>
+          <a href="<%= representative.path %>" class="pulse-link"><%= representative.display_name %></a>
+          <span class="pulse-tag">representative</span>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</section>
 
-<h<%= header_level %>>Representation Sessions</h<%= header_level %>>
+<section class="pulse-settings-section">
+  <h<%= header_level %> class="pulse-section-title">Representation Sessions</h<%= header_level %>>
 
-<% if @representation_sessions.empty? %>
-  <p>
-    No sessions have happened yet.
-  </p>
-<% else %>
-  <ul>
-    <% @representation_sessions.each do |representation_session| %>
-      <li>
-        <%= link_to "Session <code>#{representation_session.truncated_id}</code>".html_safe, representation_session.path %>
-        <%= representation_session.action_count %> action<%= representation_session.action_count == 1 ? '' : 's' %>,
-        <span class="timeago">ended <%= timeago(representation_session.ended_at) %></span>
-      </li>
-    <% end %>
-  </ul>
-<% end %>
+  <% if @representation_sessions.empty? %>
+    <p class="pulse-empty-content"><em>No sessions have happened yet.</em></p>
+  <% else %>
+    <ul class="pulse-list">
+      <% @representation_sessions.each do |representation_session| %>
+        <li class="pulse-list-item">
+          <a href="<%= representation_session.path %>" class="pulse-link">Session <code><%= representation_session.truncated_id %></code></a>
+          <span class="pulse-muted">
+            <%= representation_session.action_count %> action<%= representation_session.action_count == 1 ? '' : 's' %>,
+            ended <%= timeago(representation_session.ended_at) %>
+          </span>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</section>

@@ -3,10 +3,14 @@
 class NotesController < ApplicationController
   include AttachmentActions
 
+  layout 'pulse', only: [:show, :new, :edit]
+
   def new
     @page_title = "Note"
     @page_description = "Make a note for your team"
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     @note = Note.new(
       title: params[:title],
     )
@@ -91,16 +95,19 @@ class NotesController < ApplicationController
     return render '404', status: 404 unless @note
     @page_title = @note.title.present? ? @note.title : "Note #{@note.truncated_id}"
     @page_description = "Note page"
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     set_pin_vars
     @note_reader = NoteReader.new(note: @note, user: current_user)
   end
 
   def edit
     @note = current_note
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     return render '404', status: 404 unless @note
     return render 'shared/403', status: 403 unless @note.user_can_edit?(@current_user)
     @page_title = "Edit Note"
-    # Which cycle end date is this note deadline associated with?
   end
 
   def update

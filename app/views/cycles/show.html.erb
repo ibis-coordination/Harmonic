@@ -1,61 +1,73 @@
-<%= render 'shared/more_button', studio: @current_superagent, options: [] %>
-<%= render 'shared/show_resource_breadcrumbs' do %>
-  <a href="<%= @current_superagent.path || '/' %>/cycles">Cycles</a> /
-  <%= @cycle.display_name %>
-<% end %>
-<h1 style="margin-top:0;"><%= @cycle.display_window %></h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  ['Cycles', @current_superagent.path + '/cycles'],
+  @cycle.display_name
+] %>
 
-<p>
-  <span style="font-size: 0.8em;" title="<%= @current_superagent.timezone.name %>">
-    <%= @cycle.display_duration %>,
-    <% if @cycle.start_date > @cycle.now %>
-      starting <%= timeago(@cycle.start_date) %>
-    <% elsif @cycle.end_date < @cycle.now %>
-      ended <%= timeago(@cycle.end_date) %>
-    <% else %>
-      ending in <strong><%= countdown(@cycle.end_date) %></strong>
-    <% end %>
-  </span>
-  <br/>
-  <span id="last-sync-display" style="font-size: 0.8em;display:inline;">
-    <span style="opacity:0.6;">Last sync <%= timeago(Time.current) %></span>
-    <a href="<%= @cycle.path_with_params %>"><%= octicon 'sync' %></a>
-  </span>
-  <script>
-    setTimeout(function() {
-      document.getElementById('last-sync-display').style.display = 'inline';
-    }, 10 * 60 * 1000); // Show sync display after 10 minutes
-  </script>
-</p>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'calendar', height: 14, class: 'pulse-resource-icon' %>
+        Cycle
+      </span>
+    </div>
+    <h1 class="pulse-resource-title"><%= @cycle.display_window %></h1>
+  </header>
 
-<% ['Notes', 'Decisions', 'Commitments'].each do |resource_type| %>
-  <% resources = instance_variable_get("@#{resource_type.downcase.underscore}") %>
-  <%= render 'shared/collapseable_section', title: resource_type, header_level: 2, hidden: false do %>
-    <ul class="cycle-page-list">
-    <% resources.each do |resource| %>
-      <li>
-        <span class="item">
-          <%= render 'shared/inline_resource_item', resource: resource %>
-        </span>
-        <span class="item-time-section">
-          <div>
-            <span class="item-time-column-label">created</span>
-            <br/>
-            <%= timeago(resource.created_at) %>
-          </div>
-          <div>
-            <span class="item-time-column-label">deadline</span>
-            <br/>
-            <%= timeago(resource.deadline) %>
-          </div>
-          <div>
-            <span class="item-time-column-label">duration</span>
-            <br/>
-            <%= duration_in_words(resource.deadline - resource.created_at) %>
-          </div>
-        </span>
-      </li>
+  <div class="pulse-resource-meta">
+    <span title="<%= @current_superagent.timezone.name %>">
+      <%= @cycle.display_duration %>,
+      <% if @cycle.start_date > @cycle.now %>
+        starting <%= timeago(@cycle.start_date) %>
+      <% elsif @cycle.end_date < @cycle.now %>
+        ended <%= timeago(@cycle.end_date) %>
+      <% else %>
+        ending in <strong><%= countdown(@cycle.end_date) %></strong>
+      <% end %>
+    </span>
+    <span id="last-sync-display" class="pulse-muted" style="display:none;">
+      Last sync <%= timeago(Time.current) %>
+      <a href="<%= @cycle.path_with_params %>" class="pulse-link"><%= octicon 'sync' %></a>
+    </span>
+    <script>
+      setTimeout(function() {
+        document.getElementById('last-sync-display').style.display = 'inline';
+      }, 10 * 60 * 1000); // Show sync display after 10 minutes
+    </script>
+  </div>
+
+  <div class="pulse-resource-body">
+    <% ['Notes', 'Decisions', 'Commitments'].each do |resource_type| %>
+      <% resources = instance_variable_get("@#{resource_type.downcase.underscore}") %>
+      <%= render 'shared/pulse_accordion', title: resource_type, open: true, count: resources.length do %>
+        <% if resources.empty? %>
+          <p class="pulse-empty-content"><em>No <%= resource_type.downcase %> in this cycle.</em></p>
+        <% else %>
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Created</th>
+                <th>Deadline</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% resources.each do |resource| %>
+                <tr>
+                  <td>
+                    <%= render 'shared/pulse_resource_link', resource: resource %>
+                  </td>
+                  <td><%= timeago(resource.created_at) %></td>
+                  <td><%= timeago(resource.deadline) %></td>
+                  <td><%= duration_in_words(resource.deadline - resource.created_at) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      <% end %>
     <% end %>
-    </ul>
-  <% end %>
-<% end %>
+  </div>
+</article>

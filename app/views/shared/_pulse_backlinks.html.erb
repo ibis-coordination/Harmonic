@@ -1,0 +1,16 @@
+<%# Pulse-styled backlinks section %>
+<%# Usage: render 'shared/pulse_backlinks', resource: @note %>
+<% if resource.backlinks.any? %>
+  <%= render 'shared/pulse_accordion', title: 'Backlinks', count: resource.backlinks.count do %>
+    <p class="pulse-backlinks-hint">
+      Items that link to this <%= resource.class.name.downcase %>.
+    </p>
+    <ul class="pulse-backlinks-list">
+      <% resource.backlinks.each do |r| %>
+        <li class="pulse-backlinks-item">
+          <%= render 'shared/pulse_resource_link', resource: r %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+<% end %>

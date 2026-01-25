@@ -1,0 +1,12 @@
+---
+app: Harmonic
+host: <%= "#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}" %>
+path: <%= @current_path %>
+title: <%= raw @page_title %>
+timestamp: <%= Time.now.utc %>
+---
+nav: | [Home](/) <% if @current_superagent && @current_superagent != @current_tenant.main_superagent -%>| <%= @current_superagent.superagent_type.titleize %>: [<%= @current_superagent.name %>](<%= @current_superagent.path %>)<% end -%><% if @current_user -%>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>)<% end -%> | [<%= @unread_notification_count %>](/notifications) |
+
+<%= yield %>
+
+> [Do the right thing. ❤️](/motto)

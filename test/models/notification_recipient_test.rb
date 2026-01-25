@@ -188,4 +188,236 @@ class NotificationRecipientTest < ActiveSupport::TestCase
     assert_includes NotificationRecipient.unread.to_a, in_app_pending
     assert_includes NotificationRecipient.unread.to_a, email_delivered
   end
+
+  # === Scheduled Reminder Scopes ===
+
+  test "scheduled scope returns future scheduled notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    past = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.ago,
+    )
+
+    future = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.from_now,
+    )
+
+    immediate = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: nil,
+    )
+
+    assert_not_includes NotificationRecipient.scheduled.to_a, past
+    assert_includes NotificationRecipient.scheduled.to_a, future
+    assert_not_includes NotificationRecipient.scheduled.to_a, immediate
+  end
+
+  test "due scope returns past scheduled notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    past = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.ago,
+    )
+
+    future = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.from_now,
+    )
+
+    assert_includes NotificationRecipient.due.to_a, past
+    assert_not_includes NotificationRecipient.due.to_a, future
+  end
+
+  test "immediate scope returns non-scheduled notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    scheduled = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.from_now,
+    )
+
+    immediate = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: nil,
+    )
+
+    assert_not_includes NotificationRecipient.immediate.to_a, scheduled
+    assert_includes NotificationRecipient.immediate.to_a, immediate
+  end
+
+  test "scheduled? returns true for future scheduled notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    nr = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.from_now,
+    )
+
+    assert nr.scheduled?
+  end
+
+  test "scheduled? returns false for past scheduled notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    nr = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.ago,
+    )
+
+    assert_not nr.scheduled?
+  end
+
+  test "due? returns true for past scheduled notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    nr = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.ago,
+    )
+
+    assert nr.due?
+  end
+
+  test "due? returns false for future scheduled notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    nr = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.from_now,
+    )
+
+    assert_not nr.due?
+  end
+
+  test "rate_limited is a valid status" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    nr = NotificationRecipient.new(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "rate_limited",
+    )
+
+    assert nr.valid?
+  end
+
+  test "validates tenant matches notification tenant" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    other_tenant = Tenant.create!(
+      name: "Other Tenant",
+      subdomain: "other-tenant-#{SecureRandom.hex(4)}",
+    )
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    nr = NotificationRecipient.new(
+      tenant: other_tenant,
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+    )
+
+    assert_not nr.valid?
+    assert_includes nr.errors[:tenant], "must match notification tenant"
+  end
 end

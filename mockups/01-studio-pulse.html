@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Studio - Harmonic</title>
+  <style>
+    /* CSS Variables from root_variables.css */
+    :root {
+      color-scheme: light;
+      --color-fg-default: #24292f;
+      --color-fg-muted: #57606a;
+      --color-fg-subtle: #6e7781;
+      --color-canvas-default: #ffffff;
+      --color-canvas-subtle: #f6f8fa;
+      --color-border-default: #d0d7de;
+      --color-border-muted: hsla(210,18%,87%,1);
+      --color-neutral-muted: rgba(175,184,193,0.2);
+      --color-accent-fg: #0969da;
+      --color-accent-emphasis: #0969da;
+      --color-attention-subtle: #fff8c5;
+      --color-danger-fg: #cf222e;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      line-height: 1.5;
+    }
+
+    /* Layout */
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      border-right: 1px solid #000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #000;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+      font-size: 18px;
+    }
+
+    .logo img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .studio-info {
+      padding: 16px;
+      border-bottom: 1px solid #000;
+    }
+
+    .studio-name {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .studio-meta {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+    }
+
+    /* Cycle indicator */
+    .cycle-box {
+      padding: 16px;
+      border-bottom: 1px solid #000;
+      background: #fff;
+    }
+
+    .cycle-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--color-fg-muted);
+      margin-bottom: 8px;
+    }
+
+    .cycle-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .cycle-progress {
+      height: 4px;
+      background: #000;
+      position: relative;
+    }
+
+    .cycle-progress-fill {
+      height: 100%;
+      background: #fff;
+      border: 1px solid #000;
+      width: 65%;
+    }
+
+    .cycle-dates {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--color-fg-muted);
+      margin-top: 8px;
+    }
+
+    /* Heartbeat status */
+    .heartbeat-box {
+      padding: 16px;
+      border-bottom: 1px solid #000;
+    }
+
+    .heartbeat-count {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .heartbeat-count strong {
+      font-size: 24px;
+    }
+
+    .heartbeat-avatars {
+      display: flex;
+      gap: -8px;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: #000;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: -8px;
+    }
+
+    .avatar:first-child {
+      margin-left: 0;
+    }
+
+    /* Navigation */
+    .nav {
+      padding: 16px;
+      flex: 1;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .nav-item.active {
+      background: #000;
+      color: #fff;
+    }
+
+    .nav-item img {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+    }
+
+    .nav-item.active img {
+      filter: invert(1);
+    }
+
+    /* Main content */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .action-btn {
+      background: #000;
+      color: #fff;
+      border: 1px solid #000;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .action-btn:hover {
+      background: #fff;
+      color: #000;
+    }
+
+    /* Feed */
+    .feed {
+      flex: 1;
+      padding: 24px;
+      max-width: 800px;
+    }
+
+    .feed-item {
+      border: 1px solid #000;
+      margin-bottom: 16px;
+    }
+
+    .feed-item-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .feed-item-type {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .feed-item-type img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+    }
+
+    .feed-item-meta {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    .feed-item-body {
+      padding: 16px;
+    }
+
+    .feed-item-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feed-item-content {
+      font-size: 14px;
+      color: var(--color-fg-default);
+    }
+
+    .feed-item-footer {
+      padding: 12px 16px;
+      border-top: 1px solid #000;
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+    }
+
+    .feed-action {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border: 1px solid transparent;
+    }
+
+    .feed-action:hover {
+      border-color: #000;
+    }
+
+    /* Decision specific */
+    .decision-options {
+      margin-top: 12px;
+    }
+
+    .decision-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .decision-option:last-child {
+      border-bottom: none;
+    }
+
+    .option-votes {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    /* Commitment specific */
+    .commitment-progress {
+      margin-top: 12px;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: #fff;
+      border: 1px solid #000;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #000;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    /* Confirmed reads */
+    .confirmed-reads {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .confirmed-avatars {
+      display: flex;
+    }
+
+    .confirmed-avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #000;
+      color: #fff;
+      font-size: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: -4px;
+      border: 1px solid #fff;
+    }
+
+    .confirmed-avatar:first-child {
+      margin-left: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <img src="../public/tri-logo.svg" alt="Harmonic">
+          <span>Harmonic</span>
+        </div>
+      </div>
+
+      <div class="studio-info">
+        <div class="studio-name">Design Studio</div>
+        <div class="studio-meta">12 members · Private Studio</div>
+      </div>
+
+      <div class="cycle-box">
+        <div class="cycle-label">Current Cycle</div>
+        <div class="cycle-title">Week of Jan 20</div>
+        <div class="cycle-progress">
+          <div class="cycle-progress-fill"></div>
+        </div>
+        <div class="cycle-dates">
+          <span>Mon 20</span>
+          <span>Sun 26</span>
+        </div>
+      </div>
+
+      <div class="heartbeat-box">
+        <div class="heartbeat-count">
+          <strong>8</strong> heartbeats this cycle
+        </div>
+        <div class="heartbeat-avatars">
+          <div class="avatar">AC</div>
+          <div class="avatar">BM</div>
+          <div class="avatar">CK</div>
+          <div class="avatar">DL</div>
+          <div class="avatar">+4</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-item active">
+          <span>Activity</span>
+        </div>
+        <div class="nav-item">
+          <img src="../public/resource-icons/note-icon.svg" alt="">
+          <span>Notes</span>
+        </div>
+        <div class="nav-item">
+          <img src="../public/resource-icons/decision-icon.svg" alt="">
+          <span>Decisions</span>
+        </div>
+        <div class="nav-item">
+          <img src="../public/resource-icons/commitment-icon.svg" alt="">
+          <span>Commitments</span>
+        </div>
+        <div class="nav-item">
+          <span>Members</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <header class="main-header">
+        <h1 class="page-title">Activity</h1>
+        <button class="action-btn">+ New</button>
+      </header>
+
+      <div class="feed">
+        <!-- Note -->
+        <article class="feed-item">
+          <div class="feed-item-header">
+            <div class="feed-item-type">
+              <img src="../public/resource-icons/note-icon.svg" alt="">
+              <span>Note</span>
+            </div>
+            <div class="feed-item-meta">Alice Chen · 2h ago</div>
+          </div>
+          <div class="feed-item-body">
+            <div class="feed-item-title">Thoughts on the new onboarding flow</div>
+            <div class="feed-item-content">
+              After testing with a few people, I think we should simplify the initial setup. Most users don't need all the options we're showing them upfront.
+            </div>
+          </div>
+          <div class="feed-item-footer">
+            <div class="feed-action">
+              Confirm read
+            </div>
+            <div class="confirmed-reads">
+              <div class="confirmed-avatars">
+                <div class="confirmed-avatar">BM</div>
+                <div class="confirmed-avatar">CK</div>
+              </div>
+              <span>2 confirmed</span>
+            </div>
+            <div class="feed-action">
+              Link
+            </div>
+          </div>
+        </article>
+
+        <!-- Decision -->
+        <article class="feed-item">
+          <div class="feed-item-header">
+            <div class="feed-item-type">
+              <img src="../public/resource-icons/decision-icon.svg" alt="">
+              <span>Decision</span>
+            </div>
+            <div class="feed-item-meta">Bob Martinez · 4h ago</div>
+          </div>
+          <div class="feed-item-body">
+            <div class="feed-item-title">Which icon style should we use?</div>
+            <div class="feed-item-content">
+              We need to pick an icon style for the new interface.
+            </div>
+            <div class="decision-options">
+              <div class="decision-option">
+                <span>Outlined icons</span>
+                <span class="option-votes">5 accept · 3 prefer</span>
+              </div>
+              <div class="decision-option">
+                <span>Filled icons</span>
+                <span class="option-votes">4 accept · 2 prefer</span>
+              </div>
+              <div class="decision-option">
+                <span>Mixed (context-dependent)</span>
+                <span class="option-votes">6 accept · 4 prefer</span>
+              </div>
+            </div>
+          </div>
+          <div class="feed-item-footer">
+            <div class="feed-action">
+              Vote
+            </div>
+            <div class="feed-action">
+              Add option
+            </div>
+          </div>
+        </article>
+
+        <!-- Commitment -->
+        <article class="feed-item">
+          <div class="feed-item-header">
+            <div class="feed-item-type">
+              <img src="../public/resource-icons/commitment-icon.svg" alt="">
+              <span>Commitment</span>
+            </div>
+            <div class="feed-item-meta">Carol Kim · Yesterday</div>
+          </div>
+          <div class="feed-item-body">
+            <div class="feed-item-title">Design review session this Friday</div>
+            <div class="feed-item-content">
+              Let's do a group design review at 2pm Friday. Need at least 4 people to make it worthwhile.
+            </div>
+            <div class="commitment-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: 75%"></div>
+              </div>
+              <div class="progress-label">
+                <span>3 of 4 committed</span>
+                <span>1 more needed</span>
+              </div>
+            </div>
+          </div>
+          <div class="feed-item-footer">
+            <div class="feed-action">
+              Join commitment
+            </div>
+          </div>
+        </article>
+
+        <!-- Another Note -->
+        <article class="feed-item">
+          <div class="feed-item-header">
+            <div class="feed-item-type">
+              <img src="../public/resource-icons/note-icon.svg" alt="">
+              <span>Note</span>
+            </div>
+            <div class="feed-item-meta">David Lee · Yesterday</div>
+          </div>
+          <div class="feed-item-body">
+            <div class="feed-item-title">Inspiration: Signal's design approach</div>
+            <div class="feed-item-content">
+              Been looking at Signal's interface lately. They do a great job of keeping things minimal while still being functional. Worth studying.
+            </div>
+          </div>
+          <div class="feed-item-footer">
+            <div class="feed-action">
+              Confirm read
+            </div>
+            <div class="confirmed-reads">
+              <div class="confirmed-avatars">
+                <div class="confirmed-avatar">AC</div>
+                <div class="confirmed-avatar">BM</div>
+                <div class="confirmed-avatar">CK</div>
+                <div class="confirmed-avatar">+2</div>
+              </div>
+              <span>5 confirmed</span>
+            </div>
+            <div class="feed-action">
+              Link
+            </div>
+          </div>
+        </article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

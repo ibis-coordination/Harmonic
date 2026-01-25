@@ -1,0 +1,29 @@
+<%# Admin sidebar variant - for admin pages %>
+<%# Shows home link and admin navigation %>
+<aside class="pulse-sidebar" data-mode="admin">
+  <div class="pulse-nav">
+    <a href="/" class="pulse-nav-item">
+      <%= octicon 'home', height: 20 %> Home
+    </a>
+  </div>
+
+  <div class="pulse-nav-section">
+    <div class="pulse-section-label">
+      <%= octicon 'tools', height: 14 %> Admin
+    </div>
+    <a href="/admin" class="pulse-nav-item<%= ' active' if request.path == '/admin' %>">
+      <%= octicon 'meter', height: 16 %> Dashboard
+    </a>
+    <a href="/admin/settings" class="pulse-nav-item<%= ' active' if request.path == '/admin/settings' %>">
+      <%= octicon 'gear', height: 16 %> Tenant Settings
+    </a>
+    <% if is_main_tenant? %>
+      <a href="/admin/tenants" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/tenants') %>">
+        <%= octicon 'organization', height: 16 %> Tenants
+      </a>
+      <a href="/admin/sidekiq" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/sidekiq') %>">
+        <%= octicon 'workflow', height: 16 %> Sidekiq Jobs
+      </a>
+    <% end %>
+  </div>
+</aside>

@@ -5,6 +5,8 @@
 # then all tenants redirect to that one auth subdomain to authenticate, and once authenticated, the user is
 # redirected back to the original tenant subdomain with a token cookie that can be used to log in with the tenant.
 class SessionsController < ApplicationController
+  layout 'pulse', only: [:new, :logout_success]
+  before_action :set_auth_sidebar, only: [:new, :logout_success]
   skip_forgery_protection only: :oauth_callback
 
   # <login>
@@ -128,10 +130,10 @@ class SessionsController < ApplicationController
 
   def redirect_to_original_tenant
     raise 'Unexpected error. Wrong subdomain.' if request.subdomain != auth_subdomain
-    subdomain = cookies[:redirect_to_subdomain] || ENV['PRIMARY_SUBDOMAIN']
-    raise 'Unexpected error. Subdomain required.' unless subdomain
-    delete_redirect_to_subdomain_cookie
+    # IMPORTANT: Call original_tenant BEFORE deleting the cookie, since original_tenant
+    # reads from cookies[:redirect_to_subdomain]
     tenant = original_tenant
+    delete_redirect_to_subdomain_cookie
     # TODO check if user is allowed to access this tenant
     return redirect_to root_path unless tenant && current_user
     token = encrypt_token(tenant.id, current_user.id)
@@ -162,7 +164,8 @@ class SessionsController < ApplicationController
       redirect_to_resource_or_invite_or_root
     else
       # user is not allowed to access this tenant
-      render status: 403, layout: 'application', template: 'sessions/403_to_logout'
+      @sidebar_mode = 'none'
+      render status: 403, layout: 'pulse', template: 'sessions/403_to_logout'
     end
   end
 
@@ -242,6 +245,11 @@ class SessionsController < ApplicationController
 
   def delete_studio_invite_cookie
     delete_shared_domain_cookie(:studio_invite_code)
+  end
+
+  def set_auth_sidebar
+    @sidebar_mode = 'none'
+    @hide_header = true
   end
 
 end

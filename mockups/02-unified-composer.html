@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create - Harmonic</title>
+  <style>
+    :root {
+      --color-fg-default: #24292f;
+      --color-fg-muted: #57606a;
+      --color-fg-subtle: #6e7781;
+      --color-canvas-default: #ffffff;
+      --color-border-default: #d0d7de;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .composer {
+      width: 100%;
+      max-width: 600px;
+      border: 1px solid #000;
+    }
+
+    .composer-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .composer-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .close-btn {
+      background: none;
+      border: 1px solid #000;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .close-btn:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    /* Type selector */
+    .type-selector {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+
+    .type-option {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      border-right: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #fff;
+    }
+
+    .type-option:last-child {
+      border-right: none;
+    }
+
+    .type-option:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .type-option:hover img {
+      filter: invert(1);
+    }
+
+    .type-option.active {
+      background: #000;
+      color: #fff;
+    }
+
+    .type-option.active img {
+      filter: invert(1);
+    }
+
+    .type-option img {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+    }
+
+    /* Form */
+    .composer-form {
+      padding: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #000;
+      font-size: 16px;
+      font-family: inherit;
+    }
+
+    .form-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #000;
+    }
+
+    .form-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #000;
+      font-size: 14px;
+      font-family: inherit;
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .form-textarea:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #000;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: var(--color-fg-muted);
+      margin-top: 4px;
+    }
+
+    /* Decision options */
+    .options-section {
+      display: none;
+    }
+
+    .options-section.visible {
+      display: block;
+    }
+
+    .option-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .option-input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #000;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    .option-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #000;
+    }
+
+    .remove-option {
+      padding: 10px 12px;
+      border: 1px solid #000;
+      background: #fff;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .remove-option:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .add-option-btn {
+      padding: 8px 12px;
+      border: 1px dashed #000;
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      width: 100%;
+      text-align: left;
+    }
+
+    .add-option-btn:hover {
+      background: #000;
+      color: #fff;
+      border-style: solid;
+    }
+
+    /* Commitment critical mass */
+    .critical-mass-section {
+      display: none;
+    }
+
+    .critical-mass-section.visible {
+      display: block;
+    }
+
+    .critical-mass-input {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .number-input {
+      width: 80px;
+      padding: 10px 12px;
+      border: 1px solid #000;
+      font-size: 16px;
+      text-align: center;
+      font-family: inherit;
+    }
+
+    .number-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #000;
+    }
+
+    /* Actions */
+    .composer-actions {
+      padding: 16px 20px;
+      border-top: 1px solid #000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .secondary-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      padding: 8px 12px;
+      border: 1px solid #000;
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .action-btn:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .submit-btn {
+      padding: 12px 24px;
+      border: 1px solid #000;
+      background: #000;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .submit-btn:hover {
+      background: #fff;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="composer">
+    <div class="composer-header">
+      <div class="composer-title">Create</div>
+      <button class="close-btn">Cancel</button>
+    </div>
+
+    <div class="type-selector">
+      <div class="type-option active" onclick="selectType('note')">
+        <img src="../public/resource-icons/note-icon.svg" alt="">
+        <span>Note</span>
+      </div>
+      <div class="type-option" onclick="selectType('decision')">
+        <img src="../public/resource-icons/decision-icon.svg" alt="">
+        <span>Decision</span>
+      </div>
+      <div class="type-option" onclick="selectType('commitment')">
+        <img src="../public/resource-icons/commitment-icon.svg" alt="">
+        <span>Commitment</span>
+      </div>
+    </div>
+
+    <div class="composer-form">
+      <div class="form-group">
+        <label class="form-label" id="title-label">Title</label>
+        <input type="text" class="form-input" id="title-input" placeholder="What's on your mind?">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Content</label>
+        <textarea class="form-textarea" placeholder="Share your thoughts..."></textarea>
+        <div class="form-hint">Markdown supported</div>
+      </div>
+
+      <!-- Decision options -->
+      <div class="options-section" id="options-section">
+        <div class="form-group">
+          <label class="form-label">Options</label>
+          <div id="options-list">
+            <div class="option-row">
+              <input type="text" class="option-input" placeholder="Option 1">
+              <button class="remove-option">×</button>
+            </div>
+            <div class="option-row">
+              <input type="text" class="option-input" placeholder="Option 2">
+              <button class="remove-option">×</button>
+            </div>
+          </div>
+          <button class="add-option-btn">+ Add another option</button>
+          <div class="form-hint">Others can add options after you create the decision</div>
+        </div>
+      </div>
+
+      <!-- Commitment critical mass -->
+      <div class="critical-mass-section" id="critical-mass-section">
+        <div class="form-group">
+          <label class="form-label">Critical Mass</label>
+          <div class="critical-mass-input">
+            <input type="number" class="number-input" value="5" min="1">
+            <span>people needed to activate</span>
+          </div>
+          <div class="form-hint">The commitment only takes effect when enough people join</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer-actions">
+      <div class="secondary-actions">
+        <button class="action-btn">
+          Link
+        </button>
+        <button class="action-btn">
+          Attach
+        </button>
+      </div>
+      <button class="submit-btn" id="submit-btn">Post Note</button>
+    </div>
+  </div>
+
+  <script>
+    function selectType(type) {
+      // Reset all type options
+      document.querySelectorAll('.type-option').forEach(el => {
+        el.classList.remove('active');
+      });
+
+      // Activate selected type
+      event.currentTarget.classList.add('active');
+
+      // Hide all type-specific sections
+      document.getElementById('options-section').classList.remove('visible');
+      document.getElementById('critical-mass-section').classList.remove('visible');
+
+      // Update form based on type
+      const titleLabel = document.getElementById('title-label');
+      const titleInput = document.getElementById('title-input');
+      const submitBtn = document.getElementById('submit-btn');
+
+      if (type === 'note') {
+        titleLabel.textContent = 'Title';
+        titleInput.placeholder = "What's on your mind?";
+        submitBtn.textContent = 'Post Note';
+      } else if (type === 'decision') {
+        titleLabel.textContent = 'Question';
+        titleInput.placeholder = "What are we deciding?";
+        submitBtn.textContent = 'Create Decision';
+        document.getElementById('options-section').classList.add('visible');
+      } else if (type === 'commitment') {
+        titleLabel.textContent = 'Commitment';
+        titleInput.placeholder = "What are you committing to?";
+        submitBtn.textContent = 'Create Commitment';
+        document.getElementById('critical-mass-section').classList.add('visible');
+      }
+    }
+  </script>
+</body>
+</html>

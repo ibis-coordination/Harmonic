@@ -1,7 +1,9 @@
 # typed: false
 
 class ApiTokensController < ApplicationController
+  layout 'pulse', only: [:new, :show]
   before_action :set_user
+  before_action :set_sidebar_mode, only: [:new, :show]
 
   def new
     # Block subagents from creating their own tokens (parents can still create tokens for their subagents)
@@ -42,7 +44,7 @@ class ApiTokensController < ApplicationController
     @token = @showing_user.api_tokens.find_by(id: params[:id])
     return render status: 404, plain: '404 not token found' if @token.nil?
     @token.delete!
-    redirect_to "#{@current_user.path}/settings"
+    redirect_to "#{@showing_user.path}/settings"
   end
 
   # Markdown API actions
@@ -88,6 +90,10 @@ class ApiTokensController < ApplicationController
 
   private
 
+  def set_sidebar_mode
+    @sidebar_mode = 'minimal'
+  end
+
   def token_params
     # duration_param is defined in the ApplicationController
     params.require(:api_token).permit(:name, :read_write).merge(user: @showing_user)
@@ -98,7 +104,7 @@ class ApiTokensController < ApplicationController
     tu = current_tenant.tenant_users.find_by(handle: handle)
     tu ||= current_tenant.tenant_users.find_by(user_id: handle)
     return render status: 404, plain: '404 not user found' if tu.nil?
-    return render status: 403, plain: '403 Unauthorized' unless tu.user == current_user || current_user.can_impersonate?(tu.user)
+    return render status: 403, plain: '403 Unauthorized' unless current_user.can_edit?(tu.user)
     @showing_user = tu.user
     @showing_user.tenant_user = tu
   end

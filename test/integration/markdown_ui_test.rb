@@ -2025,6 +2025,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       title: "Test notification",
     )
     NotificationRecipient.create!(
+      tenant: @tenant,
       notification: notification,
       user: @user,
       channel: "in_app",
@@ -2086,6 +2087,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       title: "Test notification",
     )
     recipient = NotificationRecipient.create!(
+      tenant: @tenant,
       notification: notification,
       user: @user,
       channel: "in_app",

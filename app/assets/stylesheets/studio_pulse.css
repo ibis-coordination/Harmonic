@@ -1,0 +1,1262 @@
+/* Studio Pulse Stylesheet
+ *
+ * Uses shared color variables from root_variables.css:
+ * --color-fg-default, --color-fg-muted, --color-fg-subtle
+ * --color-canvas-default, --color-canvas-subtle
+ * --color-border-default, --color-border-muted
+ * --color-neutral-muted, --color-accent-fg, --color-accent-emphasis
+ * --color-attention-subtle, --color-danger-fg
+ * --color-success-fg, --color-success-emphasis, --color-success-subtle
+ */
+
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Tooltip (shared component) */
+.tooltip-info {
+  position: absolute;
+  display: inline-block;
+  max-width: 400px;
+  background-color: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  border: 1px solid var(--color-border-default);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  padding: 8px;
+}
+
+a {
+  color: var(--color-accent-fg);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Layout */
+.pulse-container {
+  display: flex;
+  flex: 1;
+}
+
+/* Sidebar */
+.pulse-sidebar {
+  width: 280px;
+  border-right: 1px solid var(--color-border-default);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: var(--color-canvas-default);
+}
+
+.pulse-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  min-height: 76px;
+  box-sizing: border-box;
+}
+
+.pulse-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 18px;
+  text-decoration: none;
+  color: var(--color-fg-default);
+}
+
+.pulse-logo:hover {
+  text-decoration: none;
+}
+
+.pulse-logo img {
+  width: 32px;
+  height: 32px;
+}
+
+.pulse-studio-info {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-studio-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pulse-studio-name .pulse-visibility-icon .octicon {
+  width: 14px;
+  height: 14px;
+}
+
+.pulse-studio-meta {
+  font-size: 13px;
+  color: var(--color-fg-muted);
+}
+
+/* Cycle indicator */
+.pulse-cycle-box {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+}
+
+.pulse-cycle-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-fg-muted);
+  margin-bottom: 8px;
+}
+
+.pulse-cycle-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pulse-cycle-progress {
+  height: 4px;
+  background: var(--color-border-default);
+  position: relative;
+}
+
+.pulse-cycle-progress-fill {
+  height: 100%;
+  background: var(--color-success-emphasis);
+}
+
+.pulse-cycle-dates {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin-top: 8px;
+}
+
+/* Cycle navigation */
+.pulse-cycle-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.pulse-cycle-nav-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  color: var(--color-fg-muted);
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.pulse-cycle-nav-arrow:hover {
+  background: var(--color-canvas-subtle);
+  color: var(--color-fg-default);
+}
+
+.pulse-cycle-nav-arrow.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.pulse-cycle-info {
+  text-align: center;
+  flex: 1;
+  padding: 0 8px;
+}
+
+.pulse-cycle-dates-inline {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-cycle-return {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.pulse-cycle-return-btn {
+  font-size: 12px;
+  color: var(--color-accent-fg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.pulse-cycle-return-btn:hover {
+  background: var(--color-canvas-subtle);
+}
+
+/* Heartbeat status */
+.pulse-heartbeat-box {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-heartbeat-box .pulse-section-label {
+  margin-bottom: 8px;
+}
+
+.pulse-heartbeat-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.pulse-heartbeat-count strong {
+  font-size: 24px;
+}
+
+.pulse-heartbeat-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pulse-heartbeat-icon .octicon {
+  fill: red;
+  width: 18px;
+  height: 18px;
+}
+
+.pulse-heartbeat-avatars {
+  display: flex;
+}
+
+.pulse-avatar {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--color-canvas-default);
+  border-radius: 50%;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: -8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pulse-avatar:first-child {
+  margin-left: 0;
+}
+
+.pulse-avatar-initials {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-avatar-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+/* Navigation */
+.pulse-nav {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: var(--color-fg-default);
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.pulse-nav-item:hover {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  text-decoration: none;
+}
+
+.pulse-nav-item.active {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+}
+
+.pulse-nav-item img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.pulse-nav-item.active img,
+.pulse-nav-item:hover img {
+  filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pulse-nav-item.active img,
+  .pulse-nav-item:hover img {
+    filter: none;
+  }
+}
+
+.pulse-nav-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-nav-item:hover .pulse-nav-count,
+.pulse-nav-item.active .pulse-nav-count {
+  color: var(--color-canvas-default);
+}
+
+/* Main content */
+.pulse-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pulse-page-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.pulse-visibility-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-fg-muted);
+}
+
+.pulse-visibility-icon .octicon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.pulse-action-btn {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.pulse-action-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+/* Filter indicator */
+.pulse-filter-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  font-size: 14px;
+}
+
+.pulse-filter-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.pulse-filter-remove:hover {
+  opacity: 1;
+}
+
+.pulse-filter-remove .octicon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Feed */
+.pulse-feed {
+  flex: 1;
+  padding: 24px;
+  max-width: 800px;
+}
+
+.pulse-feed-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-feed-empty p {
+  margin-bottom: 16px;
+}
+
+.pulse-feed-item {
+  border: 1px solid var(--color-border-default);
+  margin-bottom: 16px;
+  background: var(--color-canvas-default);
+}
+
+.pulse-feed-item-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-feed-item-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pulse-feed-item-type img,
+.pulse-feed-item-type .octicon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.pulse-feed-item-meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-feed-item-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-fg-muted);
+  text-decoration: none;
+}
+
+.pulse-feed-item-author:hover {
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-author-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.pulse-author-avatar .pulse-avatar-initials {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-author-avatar .pulse-avatar-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+.pulse-feed-item-body {
+  padding: 16px;
+}
+
+.pulse-feed-item-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pulse-feed-item-title a {
+  color: var(--color-fg-default);
+}
+
+.pulse-feed-item-title a:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-feed-item-content {
+  font-size: 14px;
+  color: var(--color-fg-default);
+}
+
+/* Note content that is clickable (when no separate title) */
+.pulse-feed-item-content-clickable {
+  cursor: pointer;
+}
+
+/* Links within note content should look like links */
+.pulse-feed-item-content a {
+  color: var(--color-accent-fg);
+  text-decoration: underline;
+}
+
+.pulse-feed-item-content a:hover {
+  color: var(--color-accent-emphasis);
+}
+
+/* Reply indicator for comments */
+.pulse-feed-item-reply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-feed-item-reply .octicon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.pulse-feed-item-reply a {
+  color: var(--color-accent-fg);
+}
+
+.pulse-feed-item-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+/* Remove default form styling from button_to and Stimulus controller wrappers */
+.pulse-feed-item-footer form,
+.pulse-feed-item-footer [data-controller="pulse-action"] {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+/* Action buttons (POST actions) */
+.pulse-feed-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+}
+
+.pulse-feed-action-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-feed-action-btn-disabled {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
+  border-color: var(--color-fg-muted);
+  cursor: default;
+  opacity: 0.7;
+}
+
+.pulse-feed-action-btn-disabled:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
+}
+
+/* Loading state for action buttons */
+.pulse-feed-action-btn-loading {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-muted);
+  border-color: var(--color-border-default);
+  cursor: wait;
+  position: relative;
+}
+
+.pulse-feed-action-btn-loading::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-fg-muted);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: pulse-spin 0.8s linear infinite;
+}
+
+@keyframes pulse-spin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+/* Octicons in action buttons should inherit text color */
+.pulse-feed-action-btn .octicon,
+.pulse-feed-action-btn-link .octicon {
+  fill: currentColor;
+}
+
+/* Button-styled links (for primary navigation actions) */
+.pulse-feed-action-btn-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pulse-feed-action-btn-link:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+/* Secondary link actions */
+.pulse-feed-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: var(--color-fg-muted);
+  font-size: 13px;
+}
+
+.pulse-feed-action-link:hover {
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+/* Decision specific */
+.pulse-decision-options {
+  margin-top: 12px;
+}
+
+.pulse-decision-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-decision-option:last-child {
+  border-bottom: none;
+}
+
+.pulse-option-votes {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+
+/* Commitment specific */
+.pulse-commitment-progress {
+  margin-top: 12px;
+}
+
+.pulse-progress-bar {
+  height: 8px;
+  background: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+}
+
+.pulse-progress-fill {
+  height: 100%;
+  background: var(--color-success-emphasis);
+}
+
+.pulse-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Confirmed reads */
+.pulse-confirmed-reads {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pulse-confirmed-avatars {
+  display: flex;
+}
+
+.pulse-confirmed-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -4px;
+  border: 1px solid var(--color-canvas-default);
+  overflow: hidden;
+  position: relative;
+}
+
+.pulse-confirmed-avatar:first-child {
+  margin-left: 0;
+}
+
+.pulse-confirmed-avatar .pulse-avatar-initials {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-confirmed-avatar .pulse-avatar-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+/* No heartbeat blur */
+.pulse-blur-if-no-heartbeat.no-heartbeat {
+  filter: blur(4px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.pulse-blur-if-no-heartbeat {
+  transition: filter 0.8s ease-out, opacity 0.8s ease-out;
+}
+
+#expanding-heart svg {
+  transition: all 0.8s ease-out;
+}
+
+/* Expanding heart animation */
+#expanding-heart {
+  display: none;
+  position: absolute;
+  width: 100px;
+  height: 100px;
+}
+
+#expanding-heart svg {
+  display: block;
+  position: relative;
+  top: -33px;
+  left: -33px;
+  margin: 0 auto;
+  height: 100px;
+  width: 12px;
+  opacity: 1;
+  filter: blur(0px);
+  fill: red;
+}
+
+#expanding-heart.expanded svg {
+  width: 100px;
+  opacity: 0;
+  filter: blur(4px);
+}
+
+/* Heartbeat section */
+.pulse-heartbeat-section {
+  text-align: center;
+  padding: 16px 24px;
+  font-size: 14px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-heartbeat-btn {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-heartbeat-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-heartbeat-btn .octicon {
+  fill: currentColor;
+}
+
+.pulse-heartbeat-section .pulse-heartbeat-full-heart {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pulse-heartbeat-section .pulse-heartbeat-full-heart .octicon {
+  fill: red;
+}
+
+.pulse-heartbeat-dismiss {
+  background: none;
+  border: none;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 8px;
+  opacity: 0.6;
+  vertical-align: middle;
+}
+
+.pulse-heartbeat-dismiss:hover {
+  opacity: 1;
+  color: var(--color-fg-default);
+}
+
+.pulse-heartbeat-dismiss .octicon {
+  fill: currentColor;
+  width: 12px;
+  height: 12px;
+}
+
+/* Top Header Bar */
+.pulse-top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+  min-height: 56px;
+  box-sizing: border-box;
+}
+
+.pulse-top-header .pulse-logo {
+  font-size: 16px;
+}
+
+.pulse-top-header .pulse-logo img {
+  width: 28px;
+  height: 28px;
+}
+
+.pulse-top-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pulse-top-header-right .pulse-action-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.pulse-top-header-right .top-right-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Flash Messages */
+.pulse-flash-messages {
+  padding: 0;
+}
+
+.pulse-notice,
+.pulse-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.pulse-notice {
+  background: var(--color-canvas-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-alert {
+  background: var(--color-attention-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-fg-default);
+}
+
+.pulse-dismiss-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--color-fg-muted);
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.pulse-dismiss-btn:hover {
+  color: var(--color-fg-default);
+}
+
+/* Session Banners */
+.pulse-session-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--color-attention-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+  font-size: 14px;
+}
+
+.pulse-banner-btn {
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pulse-banner-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+/* Motto Footer */
+.pulse-motto-footer {
+  text-align: center;
+  padding: 16px;
+  margin: 0;
+  position: relative;
+}
+
+/* Continue sidebar border through footer */
+.pulse-motto-footer::before {
+  content: '';
+  position: absolute;
+  left: 279px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border-default);
+}
+
+.pulse-motto-footer a {
+  text-decoration: none;
+  color: var(--color-fg-muted);
+}
+
+.pulse-motto-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Studio Info with Image */
+.pulse-studio-info-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-studio-image {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pulse-studio-info-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pulse-member-link {
+  color: var(--color-fg-muted);
+  text-decoration: none;
+}
+
+.pulse-member-link:hover {
+  color: var(--color-fg-default);
+  text-decoration: underline;
+}
+
+/* Breadcrumb */
+.pulse-breadcrumb {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin-bottom: 12px;
+}
+
+.pulse-breadcrumb a {
+  color: var(--color-fg-muted);
+}
+
+.pulse-breadcrumb a:hover {
+  color: var(--color-fg-default);
+}
+
+.pulse-breadcrumb-sep {
+  margin: 0 4px;
+  opacity: 0.5;
+}
+
+/* Pinned Items Section */
+.pulse-pinned-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-fg-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-section-label .octicon {
+  fill: currentColor;
+}
+
+.pulse-pinned-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-pinned-list li {
+  margin-bottom: 6px;
+}
+
+.pulse-pinned-list li:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-pinned-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-fg-default);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.pulse-pinned-list a:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-pinned-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* Links Section (Settings, Explore, etc.) */
+.pulse-links-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-links-list li {
+  margin-bottom: 4px;
+}
+
+.pulse-links-list li:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-links-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  text-decoration: none;
+  padding: 6px 0;
+}
+
+.pulse-links-list a:hover {
+  color: var(--color-fg-default);
+}
+
+.pulse-links-list .octicon {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Invite Button */
+.pulse-invite-section {
+  margin-top: 12px;
+}
+
+.pulse-invite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pulse-invite-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-invite-btn .octicon {
+  fill: currentColor;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pulse-container {
+    flex-direction: column;
+  }
+
+  .pulse-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .pulse-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .pulse-nav-item {
+    padding: 8px 12px;
+  }
+
+  .pulse-feed {
+    padding: 16px;
+  }
+
+  .pulse-top-header {
+    padding: 8px 12px;
+  }
+
+  .pulse-top-header-right .pulse-action-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .pulse-studio-image {
+    width: 48px;
+    height: 48px;
+  }
+
+  .pulse-motto-footer::before {
+    display: none;
+  }
+}

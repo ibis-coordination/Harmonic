@@ -1,32 +1,67 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: @commitment %>
-<br/>
-<%= form_with url: "#{@commitment.path}/settings" do |form| %>
-  <div>
-    <%= form.text_field :title, placeholder: 'Action that this commitment will initiate', value: @commitment.title %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  ['Commitment', @commitment.path],
+  'Settings'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/commitment-icon.svg" alt="" class="pulse-resource-icon">
+        Commitment Settings
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Edit Commitment</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <%= form_with url: "#{@commitment.path}/settings", class: "pulse-form" do |form| %>
+      <section class="pulse-settings-section">
+        <label for="title" class="pulse-label">Title</label>
+        <%= form.text_field :title, placeholder: 'Action that this commitment will initiate', value: @commitment.title, class: "pulse-form-input" %>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label for="description" class="pulse-label">Description</label>
+        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+          <%= form.text_area :description, placeholder: 'Description (markdown supported, use @ to mention users)', value: @commitment.description, class: "pulse-form-input", data: { mention_autocomplete_target: "input" } %>
+          <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <%= render 'shared/multi_file_select', form: form %>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Critical Mass</h2>
+        <div class="pulse-notice">
+          <p>
+            <% if @commitment.participant_count > 0 %>
+              <strong>Lowering</strong> critical mass is no longer allowed because the current participant count (<%= @commitment.participant_count %>) is greater than zero.
+            <% else %>
+              <strong>Lowering</strong> critical mass below <%= @commitment.critical_mass %> is only allowed if the current participant count is zero.
+            <% end %>
+          </p>
+          <p>
+            <strong>Raising</strong> critical mass is always allowed but <strong>cannot be undone</strong> if the participant count is above zero.
+          </p>
+        </div>
+        <p class="pulse-form-row">
+          At least <%= form.number_field :critical_mass, value: @commitment.critical_mass, class: "pulse-form-input", style: 'width:64px;' %> participant(s) required for this commitment to take effect.
+        </p>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Deadline</h2>
+        <%= render 'shared/deadline_input_fields', form: form, resource: @commitment, close_now_option: true, close_at_critical_mass_option: true %>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <%= form.submit 'Save', class: "pulse-action-btn pulse-action-btn-primary" %>
+        <a href="<%= @commitment.path %>" class="pulse-action-btn">Cancel</a>
+      </section>
+    <% end %>
   </div>
-  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
-    <%= form.text_area :description, placeholder: 'Description (markdown supported, use @ to mention users)', value: @commitment.description, data: { mention_autocomplete_target: "input" } %>
-    <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-  </div>
-  <%= render 'shared/multi_file_select', form: form %>
-  <h2>Critical Mass</h2>
-  <div class="notice">
-    <p>
-      <% if @commitment.participant_count > 0 %>
-        <strong>Lowering</strong> critical mass is no longer allowed because the current participant count (<%= @commitment.participant_count %>) is greater than zero.
-      <% else %>
-        <strong>Lowering</strong> critical mass below <%= @commitment.critical_mass %> is only allowed if the current participant count is zero.
-      <% end %>
-    </p>
-    <p style="margin-bottom:0;">
-      <strong>Raising</strong> critical mass is always allowed but <strong>cannot be undone</strong> if the participant count is above zero.
-    </p>
-  </div>
-  <p>
-    At least <%= form.number_field :critical_mass, value: @commitment.critical_mass, style: 'width:48px;' %> participant(s) required for this commitment to take effect.
-  </p>
-  <h2>Deadline</h2>
-  <%= render 'shared/deadline_input_fields', form: form, resource: @commitment, close_now_option: true, close_at_critical_mass_option: true %>
-  <hr style="height:1px;" />
-  <%= form.submit 'Save' %>
-<% end %>
+</article>

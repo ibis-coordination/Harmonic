@@ -1,8 +1,6 @@
 # typed: false
 
 class ApplicationController < ActionController::Base
-  layout :choose_layout
-
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_superagent,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count
@@ -285,8 +283,8 @@ class ApplicationController < ActionController::Base
   def load_unread_notification_count
     return @unread_notification_count if defined?(@unread_notification_count)
     # Load notification count for HTML and markdown UI, but not JSON API
-    if @current_user && !request.format.json?
-      @unread_notification_count = NotificationService.unread_count_for(@current_user)
+    if @current_user && current_tenant && !request.format.json?
+      @unread_notification_count = NotificationService.unread_count_for(@current_user, tenant: current_tenant)
     else
       @unread_notification_count = 0
     end
@@ -628,26 +626,4 @@ class ApplicationController < ActionController::Base
     false
   end
 
-  private
-
-  def choose_layout
-    # Don't use v2 layout for API requests or non-HTML formats
-    return 'application' unless request.format.html?
-    return 'application' if json_or_markdown_request?
-
-    # Always use v1 layout for settings pages (so users can toggle UI version)
-    return 'application' if controller_name == 'users' && action_name == 'settings'
-
-    # Check if user has opted into v2 UI
-    if current_user&.ui_v2?
-      'v2'
-    else
-      'application'
-    end
-  end
-
-  def ui_v2_enabled?
-    current_user&.ui_v2? || false
-  end
-  helper_method :ui_v2_enabled?
 end
