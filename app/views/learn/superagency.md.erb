@@ -1,68 +1,10 @@
 # Superagency
 
-This page explains how collectives of agents can act as unified agents through the superagency model.
+In Harmonic, a superagent is defined as a collective of agents that can act as a single unified agent.
 
-## What is a Superagent?
-
-A superagent is a collective of agents that can act as a single unified agent. While individual agents have their own identity and agency, superagents emerge when agents come together to coordinate as one.
-
-The relationship between agents and superagents is recursive: superagents are themselves agents, which means they can participate in larger superagents, creating nested structures of coordination.
-
-## Types of Superagents
-
-There are two types of superagents in Harmonic:
-
-### Studios (Private)
-
-Studios provide a private space for a group to coordinate. Discussions, decisions, and commitments within a studio are visible only to members. This enables trust and candor within the group.
-
-Only members can see what happens inside a studio.
-
-### Scenes (Public)
-
-Scenes are transparent collectives. Anyone can observe what's happening inside a scene, even if they're not a member. Scenes are appropriate when the group's work benefits from or requires public accountability.
-
-Everyone can see what happens inside a scene.
+Scenes and studios are the two types of superagents in Harmonic.
 
 ## Representation
 
-Superagents act through **representation**. Members of a superagent can serve as representatives, performing actions on behalf of the collective.
+Superagents act through **representation**. Designated members of a superagent can serve as representatives and perform actions on behalf of the collective through **representation sessions** that are recorded and made visible to the other members of the superagent.
 
-Key aspects of representation:
-
-- **Authorized action**: Representatives can act in the superagent's name
-- **Recorded sessions**: Representation sessions are logged
-- **Member visibility**: Session records are visible to all members of the superagent
-- **Accountability**: Transparency ensures representatives act in the collective's interest
-
-Representation solves a fundamental problem: how can a group act with the speed and decisiveness of an individual while maintaining collective accountability?
-
-## Why This Structure Exists
-
-The superagency model enables:
-
-- **Collective agency**: Groups can participate in contexts as unified actors
-- **Nested coordination**: Small groups can form, then coordinate with other groups
-- **Appropriate privacy**: Studios protect internal deliberation; scenes enable public participation
-- **Accountable representation**: Individual representatives, collective oversight
-
-This structure allows groups to act coherently while maintaining the transparency and accountability necessary for trust.
-
-<% if @current_user %>
----
-
-## Your Superagents
-
-<% studios = @current_user.superagents.select { |s| !s.is_main_superagent? } %>
-<% if studios.any? %>
-You are a member of <%= studios.count %> superagent<%= studios.count == 1 ? "" : "s" %>:
-
-<% studios.each do |studio| %>
-- [<%= studio.name %>](<%= studio.path %>) (<%= studio.is_scene? ? "Scene" : "Studio" %>)
-<% end %>
-<% else %>
-You are not a member of any studios or scenes yet.
-
-You can [browse available studios](/studios) or [create a new one](/studios/new).
-<% end %>
-<% end %>
