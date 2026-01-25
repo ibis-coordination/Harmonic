@@ -1,12 +1,13 @@
-<table>
+<table class="pulse-table">
   <thead>
-    <tr style="border:none;">
-      <th style="border:none;"></th>
+    <tr>
+      <th></th>
       <% cycles.each do |cycle| %>
         <th>
           <a
             title="<%= cycle.display_window %>"
             href="<%= cycle.path %>"
+            class="pulse-link"
           ><%= cycle.display_name %>
           </a>
         </th>
@@ -17,12 +18,15 @@
     <% ['Notes', 'Decisions', 'Commitments'].each do |type| %>
       <% count_key = type.downcase.to_sym %>
       <tr>
-        <td><i class="<%= type.singularize.downcase %>-icon"></i> <strong><%= type %></strong></td>
+        <td>
+          <img src="/resource-icons/<%= type.singularize.downcase %>-icon.svg" alt="" class="pulse-resource-icon">
+          <strong><%= type %></strong>
+        </td>
         <% cycles.each do |cycle| %>
           <% c = cycle.counts[count_key] %>
           <td>
             <% if c == 0 %>
-              <span style="opacity:0.2;">0</span>
+              <span class="pulse-muted">0</span>
             <% else %>
               <%= c %>
             <% end %>

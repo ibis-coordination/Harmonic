@@ -1,9 +1,11 @@
 # typed: false
 
 class UsersController < ApplicationController
-  layout 'pulse', only: [:show, :settings]
+  layout 'pulse', only: [:index, :show, :settings]
 
   def index
+    @page_title = 'Users'
+    @sidebar_mode = 'minimal'
     @users = current_tenant.tenant_users
   end
 

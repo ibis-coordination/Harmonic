@@ -1,6 +1,8 @@
 # typed: false
 
 class CyclesController < ApplicationController
+  layout 'pulse', only: [:index, :show]
+  before_action :set_sidebar_mode, only: [:index, :show]
 
   def index
     @page_title = 'Cycles'
@@ -51,4 +53,10 @@ class CyclesController < ApplicationController
     redirect_to "#{@current_superagent.path}/cycles/#{params[:cycle]}"
   end
 
+  private
+
+  def set_sidebar_mode
+    @sidebar_mode = 'settings'
+    @team = @current_superagent.team
+  end
 end

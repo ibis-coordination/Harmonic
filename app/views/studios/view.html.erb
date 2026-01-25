@@ -1,6 +1,74 @@
-<h4 style="margin-top:0px;margin-bottom:0;"><a href="<%= @current_superagent.path || '/' %>"><%= @current_superagent.name %></a> / <a href="<%= @current_superagent.path %>/views">Views</a> / View <code>...</code></h4>
-<!-- <h1 style="margin-top:0;">View</h1> -->
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  ['Views', @current_superagent.path + '/views'],
+  'View'
+] %>
 
-<%= render 'filters_section' %>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'table', height: 14, class: 'pulse-resource-icon' %>
+        View
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Custom View</h1>
+  </header>
 
-<%= render 'show_data' %>
+  <div class="pulse-resource-body">
+    <section class="pulse-settings-section">
+      <span data-controller="cycle-filters">
+        <%= form_with url: "#{@current_superagent.path}/view", method: :get, local: true, id: 'sort-filter-form', class: 'pulse-form pulse-filters-form' do |form| %>
+          <div class="pulse-form-row">
+            <div class="pulse-form-group">
+              <label class="pulse-form-label">Cycle</label>
+              <%= form.select :cycle, options_for_select(@cycle.cycle_options, @cycle.name), {}, { id: 'cycle-select', class: 'pulse-form-select' } %>
+            </div>
+            <div class="pulse-form-group">
+              <label class="pulse-form-label">Filter</label>
+              <%= form.select :filter, options_for_select(@filter_options, @filters), {}, { id: 'filter-select', class: 'pulse-form-select' } %>
+            </div>
+            <div class="pulse-form-group">
+              <label class="pulse-form-label">Sort By</label>
+              <%= form.select :sort_by, options_for_select(@sort_by_options, @sort_by), {}, { id: 'sort-select', class: 'pulse-form-select' } %>
+            </div>
+            <div class="pulse-form-group">
+              <label class="pulse-form-label">Group By</label>
+              <%= form.select :group_by, options_for_select(@group_by_options, @group_by), {}, { id: 'group-select', class: 'pulse-form-select' } %>
+            </div>
+            <div class="pulse-form-group pulse-form-group-submit">
+              <%= form.submit 'Apply', class: 'pulse-action-btn' %>
+            </div>
+          </div>
+        <% end %>
+      </span>
+    </section>
+
+    <section class="pulse-settings-section">
+      <% selections = @cycle.selections %>
+      <% @grouped_rows.each do |group_rows| %>
+        <% group, rows = group_rows %>
+        <%= render 'shared/pulse_accordion', title: group, open: true, count: rows.length do %>
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <% selections.each do |selection| %>
+                  <th><%= selection.titleize %></th>
+                <% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <% rows.each do |row| %>
+                <tr>
+                  <% row.each do |cell| %>
+                    <td><%= cell %></td>
+                  <% end %>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      <% end %>
+    </section>
+  </div>
+</article>

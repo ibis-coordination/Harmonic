@@ -1,7 +1,42 @@
-<%= render 'shared/show_resource_breadcrumbs', hide_studio_path: true, resource: 'Scenes' %>
-<h1><%= octicon 'eye', height: 24 %> Scenes</h1>
-<ul>
-  <% @scenes.each do |scene| %>
-    <li><a href="<%= scene.path %>"><%= scene.name %></a></li>
-  <% end %>
-</ul>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Scenes'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'eye', height: 14, class: 'pulse-resource-icon' %>
+        Scenes
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Scenes</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @scenes.any? %>
+      <ul class="pulse-list">
+        <% @scenes.each do |scene| %>
+          <li class="pulse-list-item">
+            <a href="<%= scene.path %>" class="pulse-list-link">
+              <%= octicon 'eye', height: 16 %>
+              <%= scene.name %>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="pulse-empty-content"><em>No scenes yet.</em></p>
+    <% end %>
+
+    <% if @current_user %>
+      <div class="pulse-form-actions" style="margin-top: 1.5rem;">
+        <a href="/scenes/new" class="pulse-action-btn">
+          <%= octicon 'plus', height: 14 %>
+          Create New Scene
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>

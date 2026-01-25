@@ -1,14 +1,63 @@
-<h4 style="margin-top:0px;margin-bottom:0;"><a href="<%= @current_superagent.path || '/' %>"><%= @current_superagent.name %></a> / Views</h4>
-<h1 style="margin-top:0;">Views</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'Views'
+] %>
 
-<ul>
-  <li><a href="<%= @current_superagent.path %>/view?filters=mine">Your items</a></li>
-  <li>Notes you have read</li>
-  <li>Notes you have not read</li>
-  <li>Decisions you have voted on</li>
-  <li>Decisions you have not voted on</li>
-  <li>Commitments you have joined</li>
-  <li>Commitments you have not joined</li>
-  <li>Closing soon</li>
-  <li>Recently updated</li>
-</ul>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'table', height: 14, class: 'pulse-resource-icon' %>
+        Views
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Views</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p class="pulse-section-description">
+      Views are filtered and sorted collections of studio content.
+    </p>
+
+    <ul class="pulse-list">
+      <li class="pulse-list-item">
+        <a href="<%= @current_superagent.path %>/view?filters=mine" class="pulse-list-link">
+          <%= octicon 'person', height: 16 %>
+          Your items
+        </a>
+      </li>
+      <li class="pulse-list-item pulse-list-item-disabled">
+        <%= octicon 'book', height: 16 %>
+        Notes you have read
+      </li>
+      <li class="pulse-list-item pulse-list-item-disabled">
+        <%= octicon 'eye-closed', height: 16 %>
+        Notes you have not read
+      </li>
+      <li class="pulse-list-item pulse-list-item-disabled">
+        <%= octicon 'check', height: 16 %>
+        Decisions you have voted on
+      </li>
+      <li class="pulse-list-item pulse-list-item-disabled">
+        <%= octicon 'question', height: 16 %>
+        Decisions you have not voted on
+      </li>
+      <li class="pulse-list-item pulse-list-item-disabled">
+        <%= octicon 'check-circle', height: 16 %>
+        Commitments you have joined
+      </li>
+      <li class="pulse-list-item pulse-list-item-disabled">
+        <%= octicon 'circle', height: 16 %>
+        Commitments you have not joined
+      </li>
+      <li class="pulse-list-item pulse-list-item-disabled">
+        <%= octicon 'clock', height: 16 %>
+        Closing soon
+      </li>
+      <li class="pulse-list-item pulse-list-item-disabled">
+        <%= octicon 'history', height: 16 %>
+        Recently updated
+      </li>
+    </ul>
+  </div>
+</article>

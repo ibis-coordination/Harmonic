@@ -1,6 +1,9 @@
 # typed: false
 
 class ScenesController < ApplicationController
+  layout 'pulse', only: [:index, :new]
+  before_action :set_sidebar_mode, only: [:index, :new]
+
   def index
     @page_title = "Scenes"
     @scenes = Superagent.where(superagent_type: 'scene').limit(20)
@@ -35,5 +38,11 @@ class ScenesController < ApplicationController
       format.html
       format.md
     end
+  end
+
+  private
+
+  def set_sidebar_mode
+    @sidebar_mode = 'minimal'
   end
 end

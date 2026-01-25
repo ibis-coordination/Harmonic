@@ -1,6 +1,34 @@
-<% @users.each do |user| %>
-  <div class="user">
-    <h2><%= user.display_name %></h2>
-    <p><%= user.handle %></p>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Users'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
+        Users
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Users</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @users.any? %>
+      <ul class="pulse-list">
+        <% @users.each do |user| %>
+          <li class="pulse-list-item">
+            <a href="<%= user.path %>" class="pulse-list-link">
+              <%= octicon 'person', height: 16 %>
+              <span><strong><%= user.display_name %></strong></span>
+              <span class="pulse-muted">@<%= user.handle %></span>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="pulse-empty-content"><em>No users found.</em></p>
+    <% end %>
   </div>
-<% end %>
+</article>
