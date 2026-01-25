@@ -285,8 +285,8 @@ class ApplicationController < ActionController::Base
   def load_unread_notification_count
     return @unread_notification_count if defined?(@unread_notification_count)
     # Load notification count for HTML and markdown UI, but not JSON API
-    if @current_user && !request.format.json?
-      @unread_notification_count = NotificationService.unread_count_for(@current_user)
+    if @current_user && current_tenant && !request.format.json?
+      @unread_notification_count = NotificationService.unread_count_for(@current_user, tenant: current_tenant)
     else
       @unread_notification_count = 0
     end

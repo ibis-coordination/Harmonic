@@ -170,7 +170,7 @@ class MarkdownUiService
     def load_initial_context
       # Load notification count
       if @current_user
-        @unread_notification_count = NotificationService.unread_count_for(@current_user)
+        @unread_notification_count = NotificationService.unread_count_for(@current_user, tenant: @current_tenant)
       end
 
       # Load current cycle

@@ -19,7 +19,7 @@ class NotificationsController < ApplicationController
     # Load future scheduled reminders separately
     @scheduled_reminders = ReminderService.scheduled_for(current_user)
 
-    @unread_count = NotificationService.unread_count_for(current_user)
+    @unread_count = NotificationService.unread_count_for(current_user, tenant: current_tenant)
     @page_title = @unread_count > 0 ? "(#{@unread_count}) Notifications" : "Notifications"
   end
 
@@ -29,7 +29,7 @@ class NotificationsController < ApplicationController
   end
 
   def unread_count
-    count = NotificationService.unread_count_for(current_user)
+    count = NotificationService.unread_count_for(current_user, tenant: current_tenant)
     render json: { count: count }
   end
 
@@ -108,7 +108,7 @@ class NotificationsController < ApplicationController
   end
 
   def execute_mark_all_read
-    NotificationService.mark_all_read_for(current_user)
+    NotificationService.mark_all_read_for(current_user, tenant: current_tenant)
 
     respond_to do |format|
       format.json { render json: { success: true, action: "mark_all_read" } }

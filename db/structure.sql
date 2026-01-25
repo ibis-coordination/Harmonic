@@ -1,4 +1,4 @@
-\restrict Wwks66idNhT1MEPDIXK2GcljwkqyFbQD9igUCUrguasZbCgKAiWX2Auk4WEwoLC
+\restrict beVez4iElDae3ht5JHhPAUu9Jflu2AhUJEcZF1HJv5I6IZKgIKd1Ng4gFQL1CNh
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -477,7 +477,8 @@ CREATE TABLE public.notification_recipients (
     delivered_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    scheduled_for timestamp(6) without time zone
+    scheduled_for timestamp(6) without time zone,
+    tenant_id uuid NOT NULL
 );
 
 
@@ -1518,6 +1519,13 @@ CREATE INDEX index_notification_recipients_on_scheduled_for ON public.notificati
 --
 
 CREATE INDEX index_notification_recipients_on_status ON public.notification_recipients USING btree (status);
+
+
+--
+-- Name: index_notification_recipients_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_tenant_id ON public.notification_recipients USING btree (tenant_id);
 
 
 --
@@ -2694,6 +2702,14 @@ ALTER TABLE ONLY public.api_tokens
 
 
 --
+-- Name: notification_recipients fk_rails_f4bcceedb3; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_recipients
+    ADD CONSTRAINT fk_rails_f4bcceedb3 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: commitment_participants fk_rails_f513f0d5dd; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2721,7 +2737,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Wwks66idNhT1MEPDIXK2GcljwkqyFbQD9igUCUrguasZbCgKAiWX2Auk4WEwoLC
+\unrestrict beVez4iElDae3ht5JHhPAUu9Jflu2AhUJEcZF1HJv5I6IZKgIKd1Ng4gFQL1CNh
 
 SET search_path TO "$user", public;
 
@@ -2833,6 +2849,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260116180725'),
 ('20260123021234'),
 ('20260123023618'),
-('20260123023658');
+('20260123023658'),
+('20260125063251');
 
 

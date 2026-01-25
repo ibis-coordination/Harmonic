@@ -3,6 +3,7 @@
 class NotificationRecipient < ApplicationRecord
   extend T::Sig
 
+  belongs_to :tenant
   belongs_to :notification
   belongs_to :user
 
