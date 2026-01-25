@@ -1,6 +1,9 @@
 # typed: false
 
 class HeartbeatsController < ApplicationController
+  layout 'pulse', only: [:index]
+  before_action :set_sidebar_mode, only: [:index]
+
   def index
     @page_title = 'Heartbeats'
     @current_heartbeat = current_heartbeat
@@ -46,5 +49,12 @@ class HeartbeatsController < ApplicationController
 
   def describe_create_heartbeat
     render_action_description(ActionsHelper.action_description("send_heartbeat"))
+  end
+
+  private
+
+  def set_sidebar_mode
+    @sidebar_mode = 'settings'
+    @team = @current_superagent.team
   end
 end

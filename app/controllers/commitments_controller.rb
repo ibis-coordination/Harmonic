@@ -3,7 +3,7 @@
 class CommitmentsController < ApplicationController
   include AttachmentActions
 
-  layout 'pulse', only: [:show, :new, :edit]
+  layout 'pulse', only: [:show, :new, :edit, :settings]
 
   def new
     @page_title = "Commit"
@@ -137,6 +137,8 @@ class CommitmentsController < ApplicationController
     return render 'shared/403', status: 403 unless @commitment.can_edit_settings?(@current_user)
     @page_title = "Commitment Settings"
     @page_description = "Change settings for this commitment"
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     set_pin_vars
   end
 

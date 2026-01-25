@@ -1,76 +1,93 @@
-<div class="trio-header">
-  <div data-controller="trio-logo"
-       data-trio-logo-size-value="56"
-       class="trio-logo-container">
-  </div>
-  <div class="trio-header-text">
-    <h1>Trio</h1>
-    <p>Trio is Harmonic's AI ensemble that composes multiple AI models into one system.</p>
-  </div>
-</div>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Ask Harmonic'
+] %>
 
-<div data-controller="trio-chat" class="trio-chat-container">
-  <%# Input form - works without JS as fallback %>
-  <%= form_with url: trio_path, method: :post, local: true, data: { action: "submit->trio-chat#submit", "trio-chat-target": "form" } do |form| %>
-    <div class="trio-chat-input-container">
-      <%= form.text_area :question,
-          placeholder: "Ask a question about Harmonic...",
-          rows: 2,
-          class: "trio-chat-input",
-          data: { "trio-chat-target": "input", action: "keydown->trio-chat#keydown" },
-          autofocus: true %>
-      <%= form.submit "Ask",
-          class: "trio-chat-submit",
-          data: { "trio-chat-target": "submitButton" } %>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'hubot', height: 14, class: 'pulse-resource-icon' %>
+        Trio AI
+      </span>
     </div>
-
-    <%# Aggregation options %>
-    <details class="trio-chat-options">
-      <summary>Options</summary>
-      <div class="trio-chat-options-content">
-        <div class="trio-chat-option-row">
-          <%= form.label :aggregation_method, "Aggregation method", class: "trio-chat-option-label" %>
-          <%= form.select :aggregation_method,
-              options_for_select([
-                ["Acceptance Voting", "acceptance_voting"],
-                ["Random", "random"],
-                ["Judge", "judge"],
-                ["Synthesize", "synthesize"],
-                ["Concat", "concat"],
-              ], "acceptance_voting"),
-              {},
-              { class: "trio-chat-option-select", data: { "trio-chat-target": "aggregationMethod", action: "change->trio-chat#aggregationChanged" } } %>
-        </div>
-
-        <div class="trio-chat-option-row" data-trio-chat-target="judgeModelRow" style="display: none;">
-          <%= form.label :judge_model, "Judge model", class: "trio-chat-option-label" %>
-          <%= form.text_field :judge_model,
-              placeholder: "e.g., claude-sonnet-4",
-              class: "trio-chat-option-input",
-              data: { "trio-chat-target": "judgeModel" } %>
-        </div>
-
-        <div class="trio-chat-option-row" data-trio-chat-target="synthesizeModelRow" style="display: none;">
-          <%= form.label :synthesize_model, "Synthesize model", class: "trio-chat-option-label" %>
-          <%= form.text_field :synthesize_model,
-              placeholder: "e.g., claude-sonnet-4",
-              class: "trio-chat-option-input",
-              data: { "trio-chat-target": "synthesizeModel" } %>
-        </div>
+    <div class="trio-header">
+      <div data-controller="trio-logo"
+           data-trio-logo-size-value="56"
+           class="trio-logo-container">
       </div>
-    </details>
-  <% end %>
-
-  <%# Loading indicator %>
-  <div data-trio-chat-target="loading" class="trio-chat-loading" style="display: none;">
-    <div data-controller="trio-logo"
-         data-trio-logo-size-value="32"
-         data-trio-logo-rotation-speed-value="2"
-         class="trio-logo-container">
+      <div class="trio-header-text">
+        <h1 class="pulse-resource-title">Trio</h1>
+        <p>Trio is Harmonic's AI ensemble that composes multiple AI models into one system.</p>
+      </div>
     </div>
-    <span data-trio-chat-target="loadingText">Generating responses and voting.</span>
-  </div>
+  </header>
 
-  <%# Result area - shows one Q&A pair %>
-  <div data-trio-chat-target="result" class="trio-chat-result"></div>
-</div>
+  <div class="pulse-resource-body">
+    <div data-controller="trio-chat" class="trio-chat-container">
+      <%# Input form - works without JS as fallback %>
+      <%= form_with url: trio_path, method: :post, local: true, data: { action: "submit->trio-chat#submit", "trio-chat-target": "form" } do |form| %>
+        <div class="trio-chat-input-container">
+          <%= form.text_area :question,
+              placeholder: "Ask a question about Harmonic...",
+              rows: 2,
+              class: "trio-chat-input",
+              data: { "trio-chat-target": "input", action: "keydown->trio-chat#keydown" },
+              autofocus: true %>
+          <%= form.submit "Ask",
+              class: "trio-chat-submit",
+              data: { "trio-chat-target": "submitButton" } %>
+        </div>
+
+        <%# Aggregation options %>
+        <details class="trio-chat-options">
+          <summary>Options</summary>
+          <div class="trio-chat-options-content">
+            <div class="trio-chat-option-row">
+              <%= form.label :aggregation_method, "Aggregation method", class: "trio-chat-option-label" %>
+              <%= form.select :aggregation_method,
+                  options_for_select([
+                    ["Acceptance Voting", "acceptance_voting"],
+                    ["Random", "random"],
+                    ["Judge", "judge"],
+                    ["Synthesize", "synthesize"],
+                    ["Concat", "concat"],
+                  ], "acceptance_voting"),
+                  {},
+                  { class: "trio-chat-option-select", data: { "trio-chat-target": "aggregationMethod", action: "change->trio-chat#aggregationChanged" } } %>
+            </div>
+
+            <div class="trio-chat-option-row" data-trio-chat-target="judgeModelRow" style="display: none;">
+              <%= form.label :judge_model, "Judge model", class: "trio-chat-option-label" %>
+              <%= form.text_field :judge_model,
+                  placeholder: "e.g., claude-sonnet-4",
+                  class: "trio-chat-option-input",
+                  data: { "trio-chat-target": "judgeModel" } %>
+            </div>
+
+            <div class="trio-chat-option-row" data-trio-chat-target="synthesizeModelRow" style="display: none;">
+              <%= form.label :synthesize_model, "Synthesize model", class: "trio-chat-option-label" %>
+              <%= form.text_field :synthesize_model,
+                  placeholder: "e.g., claude-sonnet-4",
+                  class: "trio-chat-option-input",
+                  data: { "trio-chat-target": "synthesizeModel" } %>
+            </div>
+          </div>
+        </details>
+      <% end %>
+
+      <%# Loading indicator %>
+      <div data-trio-chat-target="loading" class="trio-chat-loading" style="display: none;">
+        <div data-controller="trio-logo"
+             data-trio-logo-size-value="32"
+             data-trio-logo-rotation-speed-value="2"
+             class="trio-logo-container">
+        </div>
+        <span data-trio-chat-target="loadingText">Generating responses and voting.</span>
+      </div>
+
+      <%# Result area - shows one Q&A pair %>
+      <div data-trio-chat-target="result" class="trio-chat-result"></div>
+    </div>
+  </div>
+</article>

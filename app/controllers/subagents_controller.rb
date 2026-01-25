@@ -1,7 +1,9 @@
 # typed: false
 
 class SubagentsController < ApplicationController
+  layout 'pulse', only: [:new]
   before_action :verify_current_user_path
+  before_action :set_sidebar_mode, only: [:new]
 
   def new
     return render status: 403, plain: '403 Unauthorized - Only person accounts can create subagents' unless current_user&.person?
@@ -67,6 +69,10 @@ class SubagentsController < ApplicationController
   end
 
   private
+
+  def set_sidebar_mode
+    @sidebar_mode = 'minimal'
+  end
 
   def verify_current_user_path
     handle = params[:handle]

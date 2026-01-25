@@ -1,1 +1,20 @@
-<h1>Help</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Help'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'question', height: 14, class: 'pulse-resource-icon' %>
+        Help
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Help</h1>
+  </header>
+
+  <div class="pulse-resource-body pulse-prose">
+    <p>Help documentation will be added here. In the meantime, check out the <a href="/learn" class="pulse-link">Learn</a> section for educational content about how Harmonic works.</p>
+  </div>
+</article>

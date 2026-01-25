@@ -3,7 +3,7 @@
 class DecisionsController < ApplicationController
   include AttachmentActions
 
-  layout 'pulse', only: [:show, :new, :edit]
+  layout 'pulse', only: [:show, :new, :edit, :settings]
 
   def new
     @page_title = "Decide"
@@ -153,6 +153,8 @@ class DecisionsController < ApplicationController
     return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
     @page_title = "Decision Settings"
     @page_description = "Change settings for this decision"
+    @sidebar_mode = 'resource'
+    @team = @current_superagent.team
     set_pin_vars
   end
 

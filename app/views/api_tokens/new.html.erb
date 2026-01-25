@@ -1,24 +1,56 @@
-<h1>API Token</h1>
-<%= form_with(model: [@showing_user, @token]) do |form| %>
-  <h2>Name</h2>
-  <div style="margin-bottom:8px;">
-    <%= form.text_field :name, placeholder: 'Name', value: @token.name %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@showing_user.display_name, @showing_user.path],
+  ['Settings', "#{@showing_user.path}/settings"],
+  'New API Token'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'key', height: 14, class: 'pulse-resource-icon' %>
+        New Token
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">API Token</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <%= form_with(model: [@showing_user, @token], class: "pulse-form") do |form| %>
+      <section class="pulse-settings-section">
+        <label for="api_token_name" class="pulse-label">Name</label>
+        <input type="text" name="api_token[name]" id="api_token_name" class="pulse-form-input" placeholder="My API Token" value="<%= @token.name %>">
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Scopes</h2>
+        <div class="pulse-radio-group">
+          <label class="pulse-radio-label">
+            <%= form.radio_button :read_write, 'read', checked: true %>
+            Read only
+          </label>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :read_write, 'write' %>
+            Read + write
+          </label>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Expiration</h2>
+        <p class="pulse-form-row">
+          This will expire in
+          <%= form.number_field :duration, value: 12, class: "pulse-form-input", style: 'width:64px;' %>
+          <%= form.select :duration_unit, options_for_select(['hour(s)', 'day(s)', 'week(s)', 'month(s)'], selected: 'month(s)'), {}, class: "pulse-form-input" %>
+          <span class="pulse-muted">(max 12 months)</span>
+        </p>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <%= form.submit 'Create Token', class: "pulse-action-btn pulse-action-btn-primary" %>
+        <a href="<%= @showing_user.path %>/settings" class="pulse-action-btn">Cancel</a>
+      </section>
+    <% end %>
   </div>
-  <h2>Scopes</h2>
-  <p>
-    <%= form.radio_button :read_write, 'read', checked: true %>
-    <%= form.label :read_write, 'Read only' %>
-    <br/>
-    <%= form.radio_button :read_write, 'write' %>
-    <%= form.label :read_write, 'Read + write' %>
-  </p>
-  <h2>Expiration</h2>
-  <p>
-    This will expire in
-    <%= form.number_field :duration, value: 12, style: 'width:48px;' %>
-    <%= form.select :duration_unit, options_for_select(['hour(s)', 'day(s)', 'week(s)', 'month(s)'], selected: 'month(s)') %>
-    (max 12 months)
-  </p>
-  <hr style="height:1px;" />
-  <%= form.submit 'Create Token' %>
-<% end %>
+</article>

@@ -1,9 +1,11 @@
 # typed: false
 
 class UserWebhooksController < ApplicationController
+  layout 'pulse', only: [:index, :new, :show]
   before_action :require_login
   before_action :set_target_user
   before_action :authorize_webhook_management
+  before_action :set_sidebar_mode, only: [:index, :new, :show]
   before_action :set_webhook, only: [
     :show, :actions_index_show,
     :describe_delete, :execute_delete,
@@ -116,6 +118,10 @@ class UserWebhooksController < ApplicationController
   end
 
   private
+
+  def set_sidebar_mode
+    @sidebar_mode = 'minimal'
+  end
 
   def require_login
     return if @current_user

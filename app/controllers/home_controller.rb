@@ -34,10 +34,12 @@ class HomeController < ApplicationController
 
   def about
     @page_title = 'About'
+    @sidebar_mode = 'minimal'
   end
 
   def help
     @page_title = 'Help'
+    @sidebar_mode = 'minimal'
     respond_to do |format|
       format.html
       format.md
@@ -45,6 +47,8 @@ class HomeController < ApplicationController
   end
 
   def contact
+    @page_title = 'Contact'
+    @sidebar_mode = 'minimal'
   end
 
   def actions_index

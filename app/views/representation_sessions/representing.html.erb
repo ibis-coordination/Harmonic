@@ -1,33 +1,58 @@
-<h1>Representing <%= @studio.name %></h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@studio.name, @studio.path],
+  ['Representation', @studio.path + '/representation'],
+  'Active Session'
+] %>
 
-<p>
-  You are now representing <%= @studio.name %>. Your actions during this session are being recorded and will be visible to all members of <%= @studio.name %>.
-</p>
-<p>
-  The message box above will remain visible until you end the session.
-</p>
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'play', height: 14, class: 'pulse-resource-icon' %>
+        Active Session
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Representing <%= @studio.name %></h1>
+  </header>
 
-<h2>Other Studios</h2>
+  <div class="pulse-resource-body">
+    <div class="pulse-notice pulse-notice-info">
+      <p>
+        You are now representing <%= @studio.name %>. Your actions during this session are being recorded and will be visible to all members of <%= @studio.name %>.
+      </p>
+      <p class="pulse-muted">
+        The message box above will remain visible until you end the session.
+      </p>
+    </div>
 
-<% if @other_studios.empty? %>
-  <p>
-    <%= @studio.name %> is not a member of any other studios yet.
-    Once <%= @studio.name %> is invited to join other studios, they will appear here.
-  </p>
-  <p>
-    Since there are no other studios to participate in, there is nothing for you to do as a representative at this time.
-    You can end the session by clicking the "End Session" button above.
-  </p>
-<% else %>
-  <p>
-    <%= @studio.name %> is a member of the following studios:
-  </p>
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Other Studios</h2>
 
-  <ul>
-    <% @other_studios.each do |s| %>
-      <li>
-        <a href="<%= s.path %>"><%= s.name %></a>
-      </li>
-    <% end %>
-  </ul>
-<% end %>
+      <% if @other_studios.empty? %>
+        <p>
+          <%= @studio.name %> is not a member of any other studios yet.
+          Once <%= @studio.name %> is invited to join other studios, they will appear here.
+        </p>
+        <p class="pulse-muted">
+          Since there are no other studios to participate in, there is nothing for you to do as a representative at this time.
+          You can end the session by clicking the "End Session" button above.
+        </p>
+      <% else %>
+        <p>
+          <%= @studio.name %> is a member of the following studios:
+        </p>
+
+        <ul class="pulse-list">
+          <% @other_studios.each do |s| %>
+            <li class="pulse-list-item">
+              <a href="<%= s.path %>" class="pulse-list-link">
+                <%= octicon 'organization', height: 16 %>
+                <%= s.name %>
+              </a>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </section>
+  </div>
+</article>

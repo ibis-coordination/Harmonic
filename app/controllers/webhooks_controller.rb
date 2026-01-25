@@ -1,8 +1,10 @@
 # typed: false
 
 class WebhooksController < ApplicationController
+  layout 'pulse', only: [:index, :new, :show]
   before_action :require_user
   before_action :require_studio_admin
+  before_action :set_sidebar_mode, only: [:index, :new, :show]
   before_action :set_webhook, only: [:show, :actions_index, :describe_update_webhook, :execute_update_webhook,
                                      :describe_delete_webhook, :execute_delete_webhook,
                                      :describe_test_webhook, :execute_test_webhook]
@@ -117,6 +119,11 @@ class WebhooksController < ApplicationController
   end
 
   private
+
+  def set_sidebar_mode
+    @sidebar_mode = 'settings'
+    @team = @current_superagent.team
+  end
 
   def require_user
     return if current_user

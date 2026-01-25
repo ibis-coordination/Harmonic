@@ -1,20 +1,52 @@
-<%= render 'shared/show_resource_breadcrumbs', resource: @decision %>
-<br/>
-<%= form_with url: "#{@decision.path}/settings" do |form| %>
-  <div>
-    <%= form.text_field :question, placeholder: 'Question that this decision will answer', value: @decision.question %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  ['Decision', @decision.path],
+  'Settings'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <img src="/resource-icons/decision-icon.svg" alt="" class="pulse-resource-icon">
+        Decision Settings
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Edit Decision</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <%= form_with url: "#{@decision.path}/settings", class: "pulse-form" do |form| %>
+      <section class="pulse-settings-section">
+        <label for="question" class="pulse-label">Question</label>
+        <%= form.text_field :question, placeholder: 'Question that this decision will answer', value: @decision.question, class: "pulse-form-input" %>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label for="description" class="pulse-label">Description</label>
+        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+          <%= form.text_area :description, placeholder: 'Description (optional, use @ to mention users)', value: @decision.description, class: "pulse-form-input", data: { mention_autocomplete_target: "input" } %>
+          <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Options</h2>
+        <p class="pulse-form-row">
+          <%= form.select :options_open, options_for_select([['Everyone', true], ['Just you', false]], selected: @decision.options_open), {}, class: "pulse-form-input" %>
+          can add options.
+        </p>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Deadline</h2>
+        <%= render 'shared/deadline_input_fields', form: form, resource: @decision, close_now_option: true %>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <%= form.submit 'Save', class: "pulse-action-btn pulse-action-btn-primary" %>
+        <a href="<%= @decision.path %>" class="pulse-action-btn">Cancel</a>
+      </section>
+    <% end %>
   </div>
-  <div style="margin-top:8px;" class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
-    <%= form.text_area :description, placeholder: 'Description (optional, use @ to mention users)', value: @decision.description, data: { mention_autocomplete_target: "input" } %>
-    <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-  </div>
-  <h3>Options</h3>
-  <p>
-    <%= form.select :options_open, options_for_select([['Everyone', true], ['Just you', false]], selected: 'Everyone') %>
-    can add options.
-  </p>
-  <h3>Deadline</h3>
-  <%= render 'shared/deadline_input_fields', form: form, resource: @decision, close_now_option: true %>
-  <hr style="height:1px;" />
-  <%= form.submit 'Save' %>
-<% end %>
+</article>

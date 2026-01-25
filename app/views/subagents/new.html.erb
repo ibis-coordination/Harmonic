@@ -1,13 +1,43 @@
-<h1>Subagent</h1>
-<%= form_with url: "#{@current_user.path}/settings/subagents" do |form| %>
-  <h2>Name</h2>
-  <div style="margin-bottom:8px;">
-    <%= form.text_field :name, placeholder: 'Name' %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@current_user.display_name, @current_user.path],
+  ['Settings', "#{@current_user.path}/settings"],
+  'New Subagent'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'hubot', height: 14, class: 'pulse-resource-icon' %>
+        New Subagent
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Create Subagent</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>Subagents are AI assistants that can act on your behalf in studios you belong to.</p>
+
+    <%= form_with url: "#{@current_user.path}/settings/subagents", class: "pulse-form" do |form| %>
+      <section class="pulse-settings-section">
+        <label for="name" class="pulse-label">Name</label>
+        <%= form.text_field :name, placeholder: 'My Assistant', class: "pulse-form-input" %>
+        <small class="pulse-hint">A descriptive name for your subagent.</small>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label class="pulse-checkbox-label">
+          <%= form.check_box :generate_token, checked: true %>
+          Generate an API token for this subagent
+        </label>
+        <small class="pulse-hint">Required for the subagent to access the API.</small>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <%= form.submit 'Create Subagent', class: "pulse-action-btn pulse-action-btn-primary" %>
+        <a href="<%= @current_user.path %>/settings" class="pulse-action-btn">Cancel</a>
+      </section>
+    <% end %>
   </div>
-  <div>
-    <%= form.check_box :generate_token, checked: true %>
-    generate an API token for this user
-  </div>
-  <hr style="height:1px;" />
-  <%= form.submit 'Create Subagent' %>
-<% end %>
+</article>

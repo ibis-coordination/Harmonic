@@ -1,7 +1,9 @@
 # typed: false
 
 class ApiTokensController < ApplicationController
+  layout 'pulse', only: [:new, :show]
   before_action :set_user
+  before_action :set_sidebar_mode, only: [:new, :show]
 
   def new
     # Block subagents from creating their own tokens (parents can still create tokens for their subagents)
@@ -87,6 +89,10 @@ class ApiTokensController < ApplicationController
   end
 
   private
+
+  def set_sidebar_mode
+    @sidebar_mode = 'minimal'
+  end
 
   def token_params
     # duration_param is defined in the ApplicationController

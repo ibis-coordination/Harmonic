@@ -157,8 +157,48 @@ Create Pulse versions of key shared partials:
 2. **Sprint 2:** Note, Decision, Commitment show pages ✅ COMPLETED
 3. **Sprint 3:** Note, Decision, Commitment new/edit pages ✅ COMPLETED
 4. **Sprint 4:** User pages (profile, settings, notifications) ✅ COMPLETED
-5. **Sprint 5:** App homepage (scenes, studios, subdomains dashboard) ✅ COMPLETED
+5. **Sprint 5:** App homepage ✅ COMPLETED
 6. **Sprint 6:** Admin and auth pages ✅ COMPLETED
+7. **Sprint 7:** Remaining pages ✅ COMPLETED
+
+### Migrated Pages (Sprint 7)
+
+**Medium Priority - Integrations & Advanced Features:**
+- ✅ Webhooks (index, new, show) - Studio webhooks with settings sidebar
+- ✅ User Webhooks (index, new, show) - User webhooks with minimal sidebar
+- ✅ API Tokens (new, show) - Token management with minimal sidebar
+- ✅ Representation Sessions (index, show, representing) - With settings sidebar
+- ✅ Subagents (new) - Create subagent form
+- ✅ Heartbeats (index) - Heartbeats listing page
+
+**Lower Priority - Static & Specialized:**
+- ✅ Learn Pages - Created unified `show.html.erb` template for all markdown learn pages
+- ✅ Home Static Pages (about, contact, help) - With minimal sidebar
+- ✅ Resource Settings (decisions/settings, commitments/settings) - With resource sidebar
+- ✅ Trio (index) - AI chat page preserving custom trio-* styling within Pulse layout
+
+**Not Migrated (Intentional):**
+- Error/404 pages - Kept as simple text for API compatibility
+
+#### Legacy Views to Clean Up (After Migration)
+
+These are legacy views that have been replaced by Pulse and can be removed:
+- `app/views/studios/show.html.erb` - Old studio main view (now at `/classic` route)
+- `app/views/scenes/show.html.erb` - Old scene main view (replaced by `pulse#show`)
+- `app/views/studios/_filters_section.html.erb` - Used by legacy show
+- `app/views/studios/_heartbeat_section.html.erb` - Used by legacy show
+- `app/views/studios/_show_data.html.erb` - Used by legacy show
+- `app/views/studios/_studio_title.html.erb` - Used by legacy show
+
+Legacy shared partials (Pulse variants exist):
+- `_attachments_section.html.erb` → replaced by `_pulse_attachments.html.erb`
+- `_backlinks_section.html.erb` → replaced by `_pulse_backlinks.html.erb`
+- `_collapseable_section.html.erb` → replaced by `_pulse_accordion.html.erb`
+- `_comments_section.html.erb` → replaced by `_pulse_comments.html.erb`
+- `_created_by.html.erb` → replaced by `_pulse_author.html.erb`
+- `_inline_resource_item.html.erb` → replaced by `_pulse_resource_link.html.erb`
+- `_pin_button.html.erb` → replaced by `_pulse_pin_button.html.erb`
+- `_show_resource_breadcrumbs.html.erb` → replaced by `_pulse_breadcrumb.html.erb`
 
 ### Migration Pattern Per Page
 1. Update controller: `layout 'pulse'`
