@@ -17,9 +17,11 @@
           <span class="pulse-visibility-icon" title="Studio activity is only visible to studio members"><%= octicon 'lock' %></span>
         <% end %>
       </a>
+      <% if @team -%>
       <div class="pulse-studio-meta">
         <a href="<%= @current_superagent.path %>/team" class="pulse-member-link"><%= @team.count %> <%= 'member'.pluralize(@team.count) %></a>
       </div>
+      <% end -%>
     </div>
   </div>
 </div>

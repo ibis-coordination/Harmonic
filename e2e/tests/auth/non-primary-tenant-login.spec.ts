@@ -43,8 +43,8 @@ test.describe("Non-primary tenant login flow", () => {
 
     await page.goto(`${secondaryBaseUrl}/login`)
 
-    // Wait for redirect to auth subdomain
-    await page.waitForLoadState("networkidle")
+    // Wait for login form to be visible (handles redirect to auth subdomain)
+    await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
 
     // The URL should now be on the auth subdomain
     const currentUrl = page.url()
@@ -72,7 +72,9 @@ test.describe("Non-primary tenant login flow", () => {
     const secondaryBaseUrl = buildBaseUrl(secondarySubdomain)
 
     await page.goto(`${secondaryBaseUrl}/login`)
-    await page.waitForLoadState("networkidle")
+
+    // Wait for login form to be visible
+    await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
 
     // Fill in credentials on the auth subdomain
     await page.locator('input[name="auth_key"]').fill(testUser.email)
@@ -105,7 +107,9 @@ test.describe("Non-primary tenant login flow", () => {
     const primaryBaseUrl = buildBaseUrl("app")
 
     await page.goto(`${primaryBaseUrl}/login`)
-    await page.waitForLoadState("networkidle")
+
+    // Wait for login form to be visible
+    await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
 
     // Should be on auth subdomain
     expect(page.url()).toContain("auth.")
@@ -121,7 +125,9 @@ test.describe("Non-primary tenant login flow", () => {
       .locator('input[type="submit"][value="Log in"], button:has-text("Log in")')
       .first()
       .click()
-    await page.waitForLoadState("networkidle")
+
+    // Wait for redirect to complete - the URL should end up on app.harmonic.local
+    await page.waitForURL(/app\.harmonic\.local/, { timeout: 30000 })
 
     // Should end up on primary tenant
     expect(page.url()).toContain("app.")

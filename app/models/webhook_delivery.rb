@@ -10,6 +10,19 @@ class WebhookDelivery < ApplicationRecord
   belongs_to :event
 
   validates :status, presence: true, inclusion: { in: STATUSES }
+  validate :tenant_matches_webhook_tenant
+
+  private
+
+  sig { void }
+  def tenant_matches_webhook_tenant
+    return if webhook.blank? || tenant_id.blank?
+    return if webhook.tenant_id == tenant_id
+
+    errors.add(:tenant, "must match webhook tenant")
+  end
+
+  public
 
   scope :pending, -> { where(status: "pending") }
   scope :failed, -> { where(status: "failed") }

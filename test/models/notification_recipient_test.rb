@@ -393,4 +393,31 @@ class NotificationRecipientTest < ActiveSupport::TestCase
 
     assert nr.valid?
   end
+
+  test "validates tenant matches notification tenant" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    other_tenant = Tenant.create!(
+      name: "Other Tenant",
+      subdomain: "other-tenant-#{SecureRandom.hex(4)}",
+    )
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "reminder",
+      title: "Reminder Test",
+    )
+
+    nr = NotificationRecipient.new(
+      tenant: other_tenant,
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+    )
+
+    assert_not nr.valid?
+    assert_includes nr.errors[:tenant], "must match notification tenant"
+  end
 end

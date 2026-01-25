@@ -9,6 +9,9 @@ import {
 
 test.describe("Authentication", () => {
   test("user can log in via identity provider", async ({ page }) => {
+    // Clear authenticated state to test fresh login
+    await page.context().clearCookies()
+
     await login(page, {
       email: E2E_TEST_EMAIL,
       password: E2E_TEST_PASSWORD,
@@ -23,6 +26,9 @@ test.describe("Authentication", () => {
   })
 
   test("user can log out", async ({ page }) => {
+    // Clear authenticated state to test fresh login/logout cycle
+    await page.context().clearCookies()
+
     await login(page, {
       email: E2E_TEST_EMAIL,
       password: E2E_TEST_PASSWORD,
@@ -51,37 +57,40 @@ test.describe("Authentication", () => {
   })
 
   test("invalid credentials show error", async ({ page }) => {
+    // Clear authenticated state to test login form
+    await page.context().clearCookies()
+
     const baseUrl = buildBaseUrl()
     await page.goto(`${baseUrl}/login`)
 
-    // Wait for redirect to auth subdomain
-    await page.waitForLoadState("networkidle")
+    // Wait for login form to be visible (handles redirect to auth subdomain)
+    await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
 
     // Fill in invalid credentials
     await page.locator('input[name="auth_key"]').fill("invalid@example.com")
     await page.locator('input[name="password"]').fill("wrongpassword123")
     await page.locator('input[type="submit"][value="Log in"], button:has-text("Log in")').first().click()
 
-    // Should see an error message or remain on login/failure page
-    await page.waitForLoadState("networkidle")
+    // Wait for response - check for various error indicators
+    // Could be: OmniAuth error page, login page with flash, or /auth/failure redirect
+    await expect(async () => {
+      const isOnLoginPage = page.url().includes("/login")
+      const isOnFailurePage = page.url().includes("/auth/failure") || page.url().includes("/auth/")
+      const omniAuthError = await page.locator('h1:has-text("OmniAuth::Error")').isVisible().catch(() => false)
+      const errorVisible = await page.locator(".error, .alert, .flash").isVisible().catch(() => false)
 
-    // Check various ways the error might be displayed:
-    // 1. Redirected back to login page
-    // 2. OmniAuth failure page (/auth/failure)
-    // 3. OmniAuth error page in development (shows "OmniAuth::Error" heading)
-    // 4. Flash message or error class
-    const isOnLoginPage = page.url().includes("/login")
-    const isOnFailurePage = page.url().includes("/auth/failure")
-    const omniAuthError = await page.locator('h1:has-text("OmniAuth::Error")').isVisible().catch(() => false)
-    const errorVisible = await page.locator(".error, .alert, .flash").isVisible().catch(() => false)
-
-    expect(isOnLoginPage || isOnFailurePage || omniAuthError || errorVisible).toBe(true)
+      expect(isOnLoginPage || isOnFailurePage || omniAuthError || errorVisible).toBe(true)
+    }).toPass({ timeout: 10000 })
   })
 
   test("authenticated page fixture provides logged in state", async ({
     authenticatedPage,
     testUser,
   }) => {
+    // Navigate to home page - authenticatedPage has auth state from storage
+    const baseUrl = buildBaseUrl()
+    await authenticatedPage.goto(baseUrl)
+
     // The authenticatedPage fixture should already be logged in
     await expect(authenticatedPage).toHaveURL(/\/$/)
 

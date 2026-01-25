@@ -135,4 +135,23 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
     assert_equal 1, needs_retry.count
     assert_equal ready_delivery.id, needs_retry.first.id
   end
+
+  test "validates tenant matches webhook tenant" do
+    other_tenant = Tenant.create!(
+      name: "Other Tenant",
+      subdomain: "other-tenant-#{SecureRandom.hex(4)}",
+    )
+
+    delivery = WebhookDelivery.new(
+      tenant: other_tenant,
+      webhook: @webhook,
+      event: @event,
+      status: "pending",
+      attempt_count: 0,
+      request_body: '{"test":"data"}',
+    )
+
+    assert_not delivery.valid?
+    assert_includes delivery.errors[:tenant], "must match webhook tenant"
+  end
 end

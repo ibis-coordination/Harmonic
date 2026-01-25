@@ -134,7 +134,10 @@ class CommitmentsController < ApplicationController
   def settings
     @commitment = current_commitment
     return render '404', status: 404 unless @commitment
-    return render 'shared/403', status: 403 unless @commitment.can_edit_settings?(@current_user)
+    unless @commitment.can_edit_settings?(@current_user)
+      @sidebar_mode = 'none'
+      return render 'shared/403', status: 403
+    end
     @page_title = "Commitment Settings"
     @page_description = "Change settings for this commitment"
     @sidebar_mode = 'resource'

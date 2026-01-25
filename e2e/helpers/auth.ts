@@ -35,8 +35,8 @@ export async function login(page: Page, options: LoginOptions): Promise<void> {
   // Navigate to login page on tenant subdomain
   await page.goto(`${baseUrl}/login`)
 
-  // Wait for redirect to auth subdomain and page to load
-  await page.waitForLoadState("networkidle")
+  // Wait for login form to be visible (handles redirect to auth subdomain)
+  await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
 
   // Fill the identity provider form (email/password)
   // Form field names from _email_password_form.html.erb
@@ -46,9 +46,8 @@ export async function login(page: Page, options: LoginOptions): Promise<void> {
   // Click the Login button (handle both input and button elements)
   await page.locator('input[type="submit"][value="Log in"], button:has-text("Log in")').first().click()
 
-  // Wait for redirect back to tenant and page to load
+  // Wait for redirect back to tenant
   await page.waitForURL(new RegExp(`${baseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`))
-  await page.waitForLoadState("networkidle")
 }
 
 /**
@@ -83,7 +82,8 @@ export async function logout(
   })
   // Navigate to login page explicitly (more reliable than reloading)
   const baseUrl = buildBaseUrl(subdomain)
-  await page.goto(`${baseUrl}/login`, { waitUntil: "networkidle" })
+  await page.goto(`${baseUrl}/login`)
+  await page.locator('input[name="auth_key"]').waitFor({ state: "visible" })
 }
 
 /**

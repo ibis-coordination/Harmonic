@@ -19,7 +19,7 @@ class PulseController < ApplicationController
     # Allow both studios and scenes
     return render "shared/404", status: :not_found unless ["studio", "scene"].include?(@current_superagent.superagent_type)
 
-    @page_title = "Pulse | #{@current_superagent.name}"
+    @page_title = @current_superagent.name
 
     # Cycle data - use param if provided, otherwise default to tempo-based cycle
     @cycle = cycle_from_param || current_cycle

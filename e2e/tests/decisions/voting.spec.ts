@@ -74,10 +74,7 @@ test.describe("Decisions", () => {
         // Click first vote button
         await voteButton.first().click()
 
-        // Wait for any response (could be a Turbo frame update)
-        await page.waitForTimeout(500)
-
-        // Page should still be functional
+        // Page should still be functional after vote (assertion waits for state)
         await expect(page.locator("body")).toBeVisible()
       }
     }

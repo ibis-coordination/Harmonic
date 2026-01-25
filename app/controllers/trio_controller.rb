@@ -60,6 +60,7 @@ class TrioController < ApplicationController
   def require_trio_enabled
     return if @current_tenant&.trio_enabled?
 
+    @sidebar_mode = 'none'
     respond_to do |format|
       format.html { render "shared/403", status: :forbidden }
       format.md { render "shared/403", status: :forbidden }

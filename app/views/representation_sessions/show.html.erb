@@ -11,7 +11,9 @@
         <%= octicon 'person', height: 14, class: 'pulse-resource-icon' %>
         Representation Session
       </span>
-      <%= render 'shared/pulse_more_button', resource: @representation_session, options: ['copy'] %>
+      <div class="pulse-resource-actions">
+        <%= render 'shared/copy_to_clipboard', text: request.original_url %>
+      </div>
     </div>
     <h1 class="pulse-resource-title">Session <%= @representation_session.truncated_id %></h1>
   </header>

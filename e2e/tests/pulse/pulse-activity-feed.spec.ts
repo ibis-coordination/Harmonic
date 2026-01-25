@@ -11,7 +11,9 @@ async function navigateToPulse(
 
   // Go to studios list
   await page.goto(`${baseUrl}/studios`)
-  await page.waitForLoadState("networkidle")
+
+  // Wait for studios list to load
+  await page.locator('a[href*="/studios/"]').first().waitFor({ state: "visible", timeout: 5000 }).catch(() => {})
 
   // Find the first studio link
   const studioLink = page.locator('a[href*="/studios/"]').first()
@@ -31,14 +33,16 @@ async function navigateToPulse(
 
   // Navigate to studio page (Pulse is now the default homepage)
   await page.goto(`${baseUrl}/studios/${studioHandle}`)
-  await page.waitForLoadState("networkidle")
+
+  // Wait for pulse page to load
+  await page.locator(".pulse-feed").waitFor({ state: "visible", timeout: 5000 }).catch(() => {})
 
   return studioHandle
 }
 
 test.describe("Pulse Activity Feed", () => {
   test.describe("Page Structure", () => {
-    test("pulse page renders with activity header", async ({
+    test("pulse page renders with studio name", async ({
       authenticatedPage,
     }) => {
       const page = authenticatedPage
@@ -49,8 +53,8 @@ test.describe("Pulse Activity Feed", () => {
         return
       }
 
-      // Check page title
-      await expect(page.locator(".pulse-page-title")).toContainText("Activity")
+      // Check studio name is visible in sidebar
+      await expect(page.locator(".pulse-sidebar-studio-name")).toBeVisible()
     })
 
     test("pulse page shows visibility icon", async ({ authenticatedPage }) => {
@@ -98,10 +102,12 @@ test.describe("Pulse Activity Feed", () => {
       const nav = page.locator(".pulse-nav")
       await expect(nav).toBeVisible()
 
-      // Check for filter buttons
+      // Check for Activity section label
       await expect(
-        page.locator('.pulse-nav-item:has-text("Activity")'),
+        page.locator('.pulse-section-label:has-text("Activity")'),
       ).toBeVisible()
+
+      // Check for filter buttons (Notes, Decisions, Commitments)
       await expect(
         page.locator('.pulse-nav-item:has-text("Notes")'),
       ).toBeVisible()
@@ -122,8 +128,8 @@ test.describe("Pulse Activity Feed", () => {
         return
       }
 
-      // Check for members link in nav
-      const membersLink = page.locator('.pulse-nav-item:has-text("Members")')
+      // Check for members link in studio meta section
+      const membersLink = page.locator('.pulse-member-link')
       await expect(membersLink).toBeVisible()
 
       // Should link to team page
@@ -308,7 +314,7 @@ test.describe("Pulse Activity Feed", () => {
         .click()
 
       // Wait for filter to apply
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
       // Filter indicator should be visible
       const indicator = page.locator(".pulse-filter-indicator")
@@ -358,7 +364,7 @@ test.describe("Pulse Activity Feed", () => {
         .click()
 
       // Wait for filter to apply
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
       // Filter indicator should show Decisions
       const indicator = page.locator(".pulse-filter-indicator")
@@ -398,7 +404,7 @@ test.describe("Pulse Activity Feed", () => {
         .click()
 
       // Wait for filter to apply
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
       // Filter indicator should show Commitments
       const indicator = page.locator(".pulse-filter-indicator")
@@ -421,7 +427,7 @@ test.describe("Pulse Activity Feed", () => {
       }
     })
 
-    test("clicking Activity button clears filter", async ({
+    test("clicking X button clears filter and shows all items", async ({
       authenticatedPage,
     }) => {
       const page = authenticatedPage
@@ -436,16 +442,14 @@ test.describe("Pulse Activity Feed", () => {
       await page
         .locator('.pulse-nav-item[data-filter-type="Note"]')
         .click()
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
       // Verify filter is applied
       await expect(page.locator(".pulse-filter-indicator")).toBeVisible()
 
-      // Click Activity to clear filter
-      await page
-        .locator('.pulse-nav-item:has-text("Activity"):not([data-filter-type])')
-        .click()
-      await page.waitForTimeout(300)
+      // Click X to clear filter
+      await page.locator(".pulse-filter-remove").click()
+      // Filter applied - assertion below will wait for state
 
       // Filter indicator should be hidden
       await expect(page.locator(".pulse-filter-indicator")).toBeHidden()
@@ -470,14 +474,14 @@ test.describe("Pulse Activity Feed", () => {
       await page
         .locator('.pulse-nav-item[data-filter-type="Decision"]')
         .click()
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
       // Verify filter is applied
       await expect(page.locator(".pulse-filter-indicator")).toBeVisible()
 
       // Click X to remove filter
       await page.locator(".pulse-filter-remove").click()
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
       // Filter indicator should be hidden
       await expect(page.locator(".pulse-filter-indicator")).toBeHidden()
@@ -494,20 +498,22 @@ test.describe("Pulse Activity Feed", () => {
         return
       }
 
-      // Activity should be active by default
-      const activityBtn = page.locator(
-        '.pulse-nav-item:has-text("Activity"):not([data-filter-type])',
-      )
-      await expect(activityBtn).toHaveClass(/active/)
-
       // Click Notes filter
       const notesBtn = page.locator('.pulse-nav-item[data-filter-type="Note"]')
       await notesBtn.click()
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
-      // Notes should be active, Activity should not
+      // Notes should be active
       await expect(notesBtn).toHaveClass(/active/)
-      await expect(activityBtn).not.toHaveClass(/active/)
+
+      // Click Decisions filter
+      const decisionsBtn = page.locator('.pulse-nav-item[data-filter-type="Decision"]')
+      await decisionsBtn.click()
+      // Filter applied - assertion below will wait for state
+
+      // Decisions should be active, Notes should not
+      await expect(decisionsBtn).toHaveClass(/active/)
+      await expect(notesBtn).not.toHaveClass(/active/)
     })
 
     test("clicking same filter again toggles it off", async ({
@@ -524,14 +530,14 @@ test.describe("Pulse Activity Feed", () => {
       // Click Notes filter
       const notesBtn = page.locator('.pulse-nav-item[data-filter-type="Note"]')
       await notesBtn.click()
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
       // Verify filter is applied
       await expect(page.locator(".pulse-filter-indicator")).toBeVisible()
 
       // Click Notes again to toggle off
       await notesBtn.click()
-      await page.waitForTimeout(300)
+      // Filter applied - assertion below will wait for state
 
       // Filter should be removed
       await expect(page.locator(".pulse-filter-indicator")).toBeHidden()
@@ -799,13 +805,16 @@ test.describe("Pulse Activity Feed", () => {
       const heartbeatSection = page.locator(".pulse-heartbeat-section")
       const feed = page.locator(".pulse-feed")
 
-      // If heartbeat section is visible, user hasn't sent heartbeat yet
-      if ((await heartbeatSection.count()) > 0 && (await heartbeatSection.isVisible())) {
+      // Check if user has NOT sent heartbeat (feed is blurred)
+      // If so, skip this test as the precondition isn't met
+      const feedClasses = await feed.getAttribute("class")
+      if (feedClasses?.includes("no-heartbeat")) {
         // User hasn't sent heartbeat - skip this test
         test.skip()
         return
       }
 
+      // User has sent heartbeat - verify the expected state:
       // Section should not exist when user has already sent heartbeat
       await expect(heartbeatSection).toHaveCount(0)
 
@@ -914,11 +923,8 @@ test.describe("Pulse Activity Feed", () => {
       // Click send heartbeat
       await sendBtn.click()
 
-      // Wait for AJAX response
-      await page.waitForTimeout(2000)
-
-      // Feed should no longer have blur class
-      await expect(feed).not.toHaveClass(/no-heartbeat/)
+      // Feed should no longer have blur class (wait for AJAX to complete)
+      await expect(feed).not.toHaveClass(/no-heartbeat/, { timeout: 10000 })
     })
 
     test("heartbeat message can be dismissed after sending", async ({
@@ -984,8 +990,12 @@ test.describe("Pulse Activity Feed", () => {
       // Send heartbeat
       await sendBtn.click()
 
-      // Wait for AJAX response and count update
-      await page.waitForTimeout(2000)
+      // Wait for count to update (polling with expect)
+      await expect(async () => {
+        const newCountText = await sidebarCount.textContent()
+        const newCount = parseInt(newCountText || "0", 10)
+        expect(newCount).toBeGreaterThan(initialCount)
+      }).toPass({ timeout: 10000 })
 
       // Count should have increased
       const newCountText = await sidebarCount.textContent()
@@ -1019,8 +1029,8 @@ test.describe("Pulse Activity Feed", () => {
       const sendBtn = heartbeatSection.locator('button:has-text("Send a Heartbeat")')
       await sendBtn.click()
 
-      // Wait for AJAX response
-      await page.waitForTimeout(2000)
+      // Wait for heartbeat to be sent (dismiss button appears)
+      await expect(heartbeatSection.locator(".pulse-heartbeat-dismiss")).toBeVisible({ timeout: 10000 })
 
       // Refresh page
       await page.reload()
@@ -1092,7 +1102,7 @@ test.describe("Pulse Activity Feed", () => {
         return
       }
 
-      const membersLink = page.locator('.pulse-nav-item:has-text("Members")')
+      const membersLink = page.locator('.pulse-member-link')
       await membersLink.click()
 
       // Should navigate to team page

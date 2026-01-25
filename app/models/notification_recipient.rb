@@ -9,6 +9,7 @@ class NotificationRecipient < ApplicationRecord
 
   validates :channel, presence: true, inclusion: { in: ["in_app", "email"] }
   validates :status, presence: true, inclusion: { in: ["pending", "delivered", "read", "dismissed", "rate_limited"] }
+  validate :tenant_matches_notification_tenant
 
   scope :unread, -> { where(read_at: nil, dismissed_at: nil) }
   scope :in_app, -> { where(channel: "in_app") }
@@ -56,5 +57,15 @@ class NotificationRecipient < ApplicationRecord
   sig { returns(T::Boolean) }
   def due?
     scheduled_for.present? && scheduled_for <= Time.current
+  end
+
+  private
+
+  sig { void }
+  def tenant_matches_notification_tenant
+    return if notification.blank? || tenant_id.blank?
+    return if notification.tenant_id == tenant_id
+
+    errors.add(:tenant, "must match notification tenant")
   end
 end
