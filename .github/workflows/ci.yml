@@ -46,7 +46,6 @@ jobs:
         run: |
           bundle install
           npm install
-          cd client && npm install
 
       - name: Set up database
         env:
@@ -70,14 +69,8 @@ jobs:
       - name: Run TypeScript type check
         run: npm run typecheck
 
-      - name: Lint V2 client
-        run: cd client && npm run lint
-
-      - name: Type check V2 client
-        run: cd client && npm run typecheck
-
-      - name: Run V2 client tests
-        run: cd client && npm test
+      - name: Run frontend tests
+        run: npm test
 
       - name: Build JavaScript assets
         run: npm run build

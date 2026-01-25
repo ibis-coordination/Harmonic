@@ -1,8 +1,6 @@
 # typed: false
 
 class ApplicationController < ActionController::Base
-  layout :choose_layout
-
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_superagent,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count
@@ -628,26 +626,4 @@ class ApplicationController < ActionController::Base
     false
   end
 
-  private
-
-  def choose_layout
-    # Don't use v2 layout for API requests or non-HTML formats
-    return 'application' unless request.format.html?
-    return 'application' if json_or_markdown_request?
-
-    # Always use v1 layout for settings pages (so users can toggle UI version)
-    return 'application' if controller_name == 'users' && action_name == 'settings'
-
-    # Check if user has opted into v2 UI
-    if current_user&.ui_v2?
-      'v2'
-    else
-      'application'
-    end
-  end
-
-  def ui_v2_enabled?
-    current_user&.ui_v2? || false
-  end
-  helper_method :ui_v2_enabled?
 end

@@ -6,9 +6,8 @@
 # 1. Scans for accidentally committed secrets/API keys
 # 2. Checks for debug code (binding.pry, console.log, etc.)
 # 3. Runs Sorbet type checking
-# 4. Runs TypeScript type checking (V1 legacy)
-# 5. Runs V2 React client lint-staged (ESLint with functional programming rules)
-# 6. Checks if TODO comments were changed and reminds to update TODO_INDEX.md
+# 4. Runs TypeScript type checking
+# 5. Checks if TODO comments were changed and reminds to update TODO_INDEX.md
 #
 # To install: ./scripts/setup-hooks.sh
 # To bypass: git commit --no-verify
@@ -40,17 +39,6 @@ if docker compose exec -T web npm run typecheck > /dev/null 2>&1; then
 else
     echo "✗ TypeScript type check failed. Run 'docker compose exec web npm run typecheck' for details."
     exit 1
-fi
-
-# Run V2 React client lint-staged (blocks commit if lint fails)
-if [[ -d "client" ]] && [[ -f "client/package.json" ]]; then
-    echo "Running V2 client lint-staged..."
-    if (cd client && npx lint-staged); then
-        echo "✓ V2 client lint passed"
-    else
-        echo "✗ V2 client lint failed. Run 'cd client && npm run lint' for details."
-        exit 1
-    fi
 fi
 
 # Run TODO index check (advisory only)

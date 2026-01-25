@@ -58,27 +58,6 @@
   <% end %>
 
   <% if is_own_settings %>
-    <%# UI Version Section %>
-    <%= render 'shared/pulse_accordion', title: 'Interface' do %>
-      <div class="pulse-form-section">
-        <label class="pulse-form-label">UI Version</label>
-        <p class="pulse-form-hint">Choose which version of the user interface to use</p>
-        <div class="pulse-button-group">
-          <%= form_with url: "#{@settings_user.path}/settings/ui_version", method: :post, style: "display:inline;" do |form| %>
-            <%= form.hidden_field :ui_version, value: "v1" %>
-            <%= form.submit "v1 (Classic)", class: @settings_user.ui_version == "v1" ? "pulse-action-btn-primary" : "pulse-action-btn", disabled: @settings_user.ui_version == "v1" %>
-          <% end %>
-          <%= form_with url: "#{@settings_user.path}/settings/ui_version", method: :post, style: "display:inline;" do |form| %>
-            <%= form.hidden_field :ui_version, value: "v2" %>
-            <%= form.submit "v2 (Beta)", class: @settings_user.ui_version == "v2" ? "pulse-action-btn-primary" : "pulse-action-btn", disabled: @settings_user.ui_version == "v2" %>
-          <% end %>
-        </div>
-        <% if @settings_user.ui_version == "v2" %>
-          <p class="pulse-form-hint" style="margin-top:12px;"><em>You're using the beta version of the new UI. Refresh the page after switching to see changes.</em></p>
-        <% end %>
-      </div>
-    <% end %>
-
     <% if @settings_user.external_oauth_identities.any? %>
       <%# Connected Accounts Section %>
       <%= render 'shared/pulse_accordion', title: 'Connected Accounts', count: @settings_user.external_oauth_identities.count do %>

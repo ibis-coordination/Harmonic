@@ -156,24 +156,6 @@ class UsersController < ApplicationController
     redirect_to "#{settings_user.path}/settings"
   end
 
-  def update_ui_version
-    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404', status: 404 if tu.nil?
-    settings_user = tu.user
-    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(settings_user)
-
-    version = params[:ui_version]
-    unless TenantUser::UI_VERSIONS.include?(version)
-      flash[:alert] = 'Invalid UI version'
-      redirect_to "#{settings_user.path}/settings"
-      return
-    end
-
-    settings_user.set_ui_version!(version)
-    flash[:notice] = "UI version set to #{version}"
-    redirect_to "#{settings_user.path}/settings"
-  end
-
   def impersonate
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?

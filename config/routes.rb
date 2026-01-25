@@ -140,7 +140,6 @@ Rails.application.routes.draw do
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
     post 'settings/profile' => 'users#update_profile', on: :member
-    post 'settings/ui_version' => 'users#update_ui_version', on: :member
     patch 'image' => 'users#update_image', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
