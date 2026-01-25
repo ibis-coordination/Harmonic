@@ -130,10 +130,10 @@ class SessionsController < ApplicationController
 
   def redirect_to_original_tenant
     raise 'Unexpected error. Wrong subdomain.' if request.subdomain != auth_subdomain
-    subdomain = cookies[:redirect_to_subdomain] || ENV['PRIMARY_SUBDOMAIN']
-    raise 'Unexpected error. Subdomain required.' unless subdomain
-    delete_redirect_to_subdomain_cookie
+    # IMPORTANT: Call original_tenant BEFORE deleting the cookie, since original_tenant
+    # reads from cookies[:redirect_to_subdomain]
     tenant = original_tenant
+    delete_redirect_to_subdomain_cookie
     # TODO check if user is allowed to access this tenant
     return redirect_to root_path unless tenant && current_user
     token = encrypt_token(tenant.id, current_user.id)
