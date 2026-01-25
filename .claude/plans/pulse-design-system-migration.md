@@ -141,9 +141,12 @@ Create Pulse versions of key shared partials:
 11. User settings
 12. Notifications
 
+**Tier 3.5 - App Dashboard:**
+13. App homepage (scenes, studios, subdomains)
+
 **Tier 4 - Admin/Auth:**
-13. Admin dashboard
-14. Login/signup pages
+14. Admin dashboard
+15. Login/signup pages
 
 ---
 
@@ -154,7 +157,8 @@ Create Pulse versions of key shared partials:
 2. **Sprint 2:** Note, Decision, Commitment show pages ✅ COMPLETED
 3. **Sprint 3:** Note, Decision, Commitment new/edit pages ✅ COMPLETED
 4. **Sprint 4:** User pages (profile, settings, notifications) ✅ COMPLETED
-5. **Sprint 5:** Admin and auth pages
+5. **Sprint 5:** App homepage (scenes, studios, subdomains dashboard)
+6. **Sprint 6:** Admin and auth pages
 
 ### Migration Pattern Per Page
 1. Update controller: `layout 'pulse'`
@@ -170,6 +174,7 @@ Create Pulse versions of key shared partials:
 | Studio Settings/Team | Modified (studio info, nav links) |
 | Resource Detail | Modified (parent studio context, quick actions) |
 | User Pages | Minimal (user info, navigation) |
+| App Homepage | Minimal (user info, quick links) |
 | Admin Pages | Minimal (admin navigation) |
 | Auth Pages | None (centered form) |
 

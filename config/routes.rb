@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   # Development tools - Pulse design mockups (only available in development)
   if Rails.env.development?
     get 'dev/pulse' => 'dev#pulse_components'
+    get 'dev/pulse/home' => 'dev#pulse_home'
     get 'dev/pulse/note' => 'dev#pulse_note'
     get 'dev/pulse/decision' => 'dev#pulse_decision'
     get 'dev/pulse/commitment' => 'dev#pulse_commitment'

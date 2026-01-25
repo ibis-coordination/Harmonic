@@ -50,6 +50,7 @@
   color: var(--color-fg-muted);
   border-color: var(--color-neutral-muted);
   cursor: default;
+  opacity: 0.6;
 }
 
 .pulse-action-btn-disabled:hover,
@@ -407,7 +408,7 @@ a.pulse-resource-title:hover {
   justify-content: space-between;
   padding: 12px 16px;
   background: var(--color-canvas-subtle);
-  cursor: pointer;
+  cursor: default;
   list-style: none;
 }
 
@@ -416,8 +417,23 @@ a.pulse-resource-title:hover {
 }
 
 .pulse-accordion-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   font-weight: 500;
+}
+
+.pulse-accordion-title-icon {
+  color: var(--color-fg-muted);
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.pulse-accordion-title-icon .octicon {
+  fill: currentColor;
+  display: block;
 }
 
 .pulse-accordion-count {
@@ -513,6 +529,19 @@ a.pulse-resource-title:hover {
 
 .pulse-action-btn-secondary:hover {
   background: var(--color-canvas-subtle);
+}
+
+.pulse-action-btn-secondary:disabled {
+  background: var(--color-neutral-muted);
+  color: var(--color-fg-muted);
+  border-color: var(--color-neutral-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.pulse-action-btn-secondary:disabled:hover {
+  background: var(--color-neutral-muted);
+  color: var(--color-fg-muted);
 }
 
 .pulse-action-btn-secondary .octicon {
@@ -1973,6 +2002,19 @@ a.pulse-activity-title:hover {
   text-decoration: none;
 }
 
+.pulse-action-btn-secondary:disabled {
+  background: var(--color-neutral-muted);
+  color: var(--color-fg-muted);
+  border-color: var(--color-neutral-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.pulse-action-btn-secondary:disabled:hover {
+  background: var(--color-neutral-muted);
+  color: var(--color-fg-muted);
+}
+
 /* Resource ID in header */
 .pulse-resource-id {
   font-size: 12px;
@@ -2427,4 +2469,194 @@ a.pulse-activity-title:hover {
 
 .pulse-action-btn-icon .octicon {
   fill: currentColor;
+}
+
+/* Homepage */
+.pulse-home {
+  /* Padding provided by .pulse-main */
+}
+
+.pulse-page-header {
+  margin-bottom: 24px;
+}
+
+.pulse-subdomain-suffix {
+  opacity: 0.5;
+  font-weight: 400;
+}
+
+.pulse-home-section-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.pulse-home-section-intro p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-fg-muted);
+}
+
+.pulse-home-list {
+  list-style-type: none !important;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-home-list-item {
+  list-style-type: none !important;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-home-list-item:last-child {
+  border-bottom: none;
+}
+
+.pulse-home-list-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-home-list-link:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-home-list-link-muted {
+  color: var(--color-fg-muted);
+}
+
+.pulse-home-list-link-muted:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-home-list-icon {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  max-width: 24px;
+  max-height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pulse-home-list-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.pulse-home-list-item-explore {
+  padding-top: 8px;
+}
+
+.pulse-home-list-item-explore .pulse-home-list-link {
+  font-size: 13px;
+}
+
+.pulse-home-list-item-explore code {
+  font-size: 12px;
+  background: var(--color-canvas-subtle);
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.pulse-home-list-item-current {
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-home-list-item-current .pulse-home-list-link {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.pulse-heartbeat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+}
+
+.pulse-heartbeat-icon .octicon {
+  fill: currentColor;
+}
+
+.pulse-heartbeat-sent {
+  color: var(--color-danger-fg);
+}
+
+.pulse-heartbeat-pending {
+  color: var(--color-fg-muted);
+}
+
+.pulse-subdomain-code {
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--color-canvas-subtle);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.pulse-current-badge {
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  margin-left: 8px;
+}
+
+.pulse-empty-state {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  font-style: italic;
+  padding: 16px 0;
+}
+
+/* Actionable empty state */
+.pulse-empty-state-action {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.pulse-empty-state-action p {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin: 0 0 16px 0;
+}
+
+.pulse-empty-state-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Default icon placeholder for items without images */
+.pulse-default-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-canvas-subtle);
+  color: var(--color-fg-muted);
+}
+
+.pulse-default-icon .octicon {
+  fill: currentColor;
+}
+
+/* Inline heartbeat icon in text */
+.pulse-heartbeat-inline {
+  color: var(--color-danger-fg);
+  vertical-align: middle;
+  fill: currentColor;
+}
+
+/* No-sidebar layout adjustments */
+.no-sidebar .pulse-home {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
 }

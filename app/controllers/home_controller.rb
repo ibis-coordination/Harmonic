@@ -1,11 +1,14 @@
 # typed: false
 
 class HomeController < ApplicationController
+  layout 'pulse'
 
   before_action :redirect_representing
 
   def index
     @page_title = 'Home'
+    @sidebar_mode = 'none'
+    @hide_breadcrumb = true
     @studios_and_scenes = @current_user.superagents
       .joins(
         "LEFT JOIN heartbeats ON heartbeats.superagent_id = superagents.id AND " +

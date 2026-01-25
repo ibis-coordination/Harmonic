@@ -15,6 +15,13 @@ class DevController < ApplicationController
     setup_dummy_data
   end
 
+  def pulse_home
+    @page_title = "Home"
+    @sidebar_mode = "none"
+    setup_dummy_data
+    setup_home_data
+  end
+
   def pulse_note
     @page_title = "Note Detail Mockup"
     @sidebar_mode = "resource"
@@ -167,5 +174,52 @@ class DevController < ApplicationController
         path: "#"
       ),
     ]
+  end
+
+  def setup_home_data
+    # Dummy scenes (public groups)
+    @dummy_scenes = [
+      OpenStruct.new(
+        name: "Community Garden",
+        path: "/scenes/garden",
+        image_path: "/placeholder.png"
+      ),
+      OpenStruct.new(
+        name: "Book Club",
+        path: "/scenes/book-club",
+        image_path: "/placeholder.png"
+      ),
+    ]
+
+    # Dummy studios (private groups) with heartbeat status
+    @dummy_studios = [
+      OpenStruct.new(
+        name: "Design Team",
+        path: "/studios/design-team",
+        image_path: "/placeholder.png",
+        has_heartbeat: true
+      ),
+      OpenStruct.new(
+        name: "Engineering",
+        path: "/studios/engineering",
+        image_path: "/placeholder.png",
+        has_heartbeat: false
+      ),
+      OpenStruct.new(
+        name: "Product Strategy",
+        path: "/studios/product",
+        image_path: "/placeholder.png",
+        has_heartbeat: true
+      ),
+    ]
+
+    # Dummy other tenants
+    @dummy_tenants = [
+      OpenStruct.new(subdomain: "demo"),
+      OpenStruct.new(subdomain: "test"),
+    ]
+
+    @dummy_current_tenant = OpenStruct.new(subdomain: "app")
+    @dummy_hostname = "harmonic.local"
   end
 end
