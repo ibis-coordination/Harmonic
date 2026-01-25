@@ -5,6 +5,7 @@ class WebhookDelivery < ApplicationRecord
 
   STATUSES = %w[pending success failed retrying].freeze
 
+  belongs_to :tenant
   belongs_to :webhook
   belongs_to :event
 

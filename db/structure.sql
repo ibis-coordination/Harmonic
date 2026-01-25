@@ -1,4 +1,4 @@
-\restrict beVez4iElDae3ht5JHhPAUu9Jflu2AhUJEcZF1HJv5I6IZKgIKd1Ng4gFQL1CNh
+\restrict sfYR9gXaHRZq1eGU0v4KqnZLSTJ3RX4CVCl6mB8ccWQbIg6l6vscyvxSucPBV49
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -741,7 +741,8 @@ CREATE TABLE public.webhook_deliveries (
     delivered_at timestamp(6) without time zone,
     next_retry_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    tenant_id uuid NOT NULL
 );
 
 
@@ -1893,6 +1894,13 @@ CREATE INDEX index_webhook_deliveries_on_status_and_next_retry_at ON public.webh
 
 
 --
+-- Name: index_webhook_deliveries_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_tenant_id ON public.webhook_deliveries USING btree (tenant_id);
+
+
+--
 -- Name: index_webhook_deliveries_on_webhook_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2358,6 +2366,14 @@ ALTER TABLE ONLY public.notifications
 
 
 --
+-- Name: webhook_deliveries fk_rails_7c0bbfdb0c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT fk_rails_7c0bbfdb0c FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: notifications fk_rails_7c99fe0556; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2737,7 +2753,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict beVez4iElDae3ht5JHhPAUu9Jflu2AhUJEcZF1HJv5I6IZKgIKd1Ng4gFQL1CNh
+\unrestrict sfYR9gXaHRZq1eGU0v4KqnZLSTJ3RX4CVCl6mB8ccWQbIg6l6vscyvxSucPBV49
 
 SET search_path TO "$user", public;
 
@@ -2850,6 +2866,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260123021234'),
 ('20260123023618'),
 ('20260123023658'),
-('20260125063251');
+('20260125063251'),
+('20260125064500');
 
 
