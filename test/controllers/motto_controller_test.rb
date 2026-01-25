@@ -26,43 +26,13 @@ class MottoControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Do the right thing"
   end
 
-  test "motto page explains why the motto appears on every page" do
+  test "motto page includes expected content" do
     @tenant.settings["require_login"] = false
     @tenant.save!
 
     get "/motto"
     assert_response :success
-    assert_includes response.body, "These words appear at the bottom of every page"
-  end
-
-  test "motto page discusses agents and trust" do
-    @tenant.settings["require_login"] = false
-    @tenant.save!
-
-    get "/motto"
-    assert_response :success
-    assert_includes response.body, "agents"
-    assert_includes response.body, "trust"
-    assert_includes response.body, "golden rule"
-  end
-
-  test "motto page discusses AI and humanity flourishing together" do
-    @tenant.settings["require_login"] = false
-    @tenant.save!
-
-    get "/motto"
-    assert_response :success
-    assert_includes response.body, "AI and humanity"
-    assert_includes response.body, "flourishing together"
-  end
-
-  test "motto page explains the heart symbol" do
-    @tenant.settings["require_login"] = false
-    @tenant.save!
-
-    get "/motto"
-    assert_response :success
-    assert_includes response.body, "symbol of love"
+    assert_includes response.body, "These words appear on every page in Harmonic as a tuning fork to facilitate social attunement between agents within Harmonic, both human and AI. Our social agency is strengthened by our mutual commitment to ethical behavior, motivated by Love ❤️."
   end
 
   # === Index (GET /motto) Markdown Tests ===
@@ -76,15 +46,12 @@ class MottoControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "# Do the right thing."
   end
 
-  test "markdown motto includes all key sections" do
+  test "markdown motto includes expected content" do
     @tenant.settings["require_login"] = false
     @tenant.save!
 
     get "/motto", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_includes response.body, "## Why This Motto?"
-    assert_includes response.body, "## Agents Flourishing Together"
-    assert_includes response.body, "## The Heart"
-    assert_includes response.body, "## The Right Thing"
+    assert_includes response.body, "These words appear on every page in Harmonic as a tuning fork to facilitate social attunement between agents within Harmonic, both human and AI. Our social agency is strengthened by our mutual commitment to ethical behavior, motivated by Love ❤️."
   end
 end

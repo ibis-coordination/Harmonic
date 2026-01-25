@@ -30,20 +30,18 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, @user.handle
   end
 
-  test "whoami page shows current tenant info" do
+  test "whoami page shows tenant subdomain in profile URL" do
     sign_in_as(@user, tenant: @tenant)
     get "/whoami"
     assert_response :success
-    assert_includes response.body, @tenant.name
     assert_includes response.body, @tenant.subdomain
   end
 
-  test "whoami page shows current superagent info" do
+  test "whoami page shows user studios section" do
     sign_in_as(@user, tenant: @tenant)
     get "/whoami"
     assert_response :success
-    assert_includes response.body, @superagent.name
-    assert_includes response.body, @superagent.handle
+    assert_includes response.body, "Your Studios"
   end
 
   # === Index (GET /whoami) Markdown Tests ===

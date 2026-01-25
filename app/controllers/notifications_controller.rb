@@ -225,7 +225,7 @@ class NotificationsController < ApplicationController
   def parse_scheduled_time(value, timezone: nil)
     return nil if value.blank?
 
-    case value.to_s
+    result = case value.to_s
     when /^\d{10,}$/ # Unix timestamp (10+ digits)
       Time.at(value.to_i).utc
     when /^\d+[smhdw]$/i # Relative time: 30s, 5m, 1h, 2d, 1w
@@ -241,6 +241,9 @@ class NotificationsController < ApplicationController
       # Try parsing as a general datetime string
       Time.parse(value).utc
     end
+
+    # Ensure we return ActiveSupport::TimeWithZone for Sorbet type checking
+    result&.in_time_zone("UTC")
   rescue ArgumentError, TypeError
     nil
   end

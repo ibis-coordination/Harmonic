@@ -182,3 +182,7 @@ When creating implementation plans, store them in `.claude/plans/` with descript
 - Completed plans: `.claude/plans/completed/YYYY/MM/PLAN_NAME.md`
 - Plans should document goals, architecture decisions, and implementation phases
 - When a plan is completed, move it to the appropriate `completed/YYYY/MM/` subdirectory
+
+## Other
+
+Do not use the term "pre-existing" when you encounter failing tests or failing type checks. If there are failures, those failures must be addressed properly.
