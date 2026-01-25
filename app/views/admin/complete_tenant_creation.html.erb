@@ -1,13 +1,44 @@
-<h1>Steps to complete tenant creation</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  ['Tenants', '/admin/tenants'],
+  [@tenant.name, "/admin/tenants/#{@tenant.subdomain}"],
+  'Setup Complete'
+] %>
 
-<p>
-  You have successfully created tenant <%= @tenant.name %> with subdomain <code><%= @tenant.subdomain %></code>.
-</p>
-<p>
-  To complete the setup process, you need to update DNS records for the subdomain <code><%= @tenant.subdomain %></code> to point to the IP address of the server.
-</p>
-<p>
-  You may also need to update the Caddyfile to include the new subdomain and fetch an SSL cert from Lets Encrypt, which will require an app restart.
-</p>
+<h1 class="pulse-page-title">
+  <%= octicon 'check-circle', height: 24 %> Tenant Created
+</h1>
 
-<a href="/admin/tenants">Back to Tenants</a>
+<div class="pulse-notice" style="margin:24px 0;">
+  <p style="margin:0;">
+    <strong>Success!</strong> Tenant <strong><%= @tenant.name %></strong> with subdomain
+    <code class="pulse-code"><%= @tenant.subdomain %></code> has been created.
+  </p>
+</div>
+
+<%= render 'shared/pulse_accordion', title: 'Next Steps', icon: 'checklist', open: true do %>
+  <div class="pulse-body-text">
+    <p>To complete the setup process:</p>
+    <ol style="margin:16px 0;padding-left:24px;">
+      <li style="margin-bottom:12px;">
+        <strong>Update DNS records</strong> for the subdomain
+        <code class="pulse-code"><%= @tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>
+        to point to the IP address of the server.
+      </li>
+      <li style="margin-bottom:12px;">
+        <strong>Update the Caddyfile</strong> to include the new subdomain and fetch an SSL
+        certificate from Let's Encrypt, which will require an app restart.
+      </li>
+    </ol>
+  </div>
+<% end %>
+
+<div class="pulse-form-actions">
+  <a href="https://<%= @tenant.subdomain %>.<%= ENV['HOSTNAME'] %>" class="pulse-action-btn">
+    <%= octicon 'link-external', height: 14 %> Visit Tenant
+  </a>
+  <a href="/admin/tenants" class="pulse-action-btn-secondary">
+    <%= octicon 'arrow-left', height: 14 %> Back to Tenants
+  </a>
+</div>

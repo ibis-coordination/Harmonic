@@ -1,3 +1,12 @@
-<h1>Logout Success</h1>
-<p>You have successfully logged out.</p>
-<p><%= button_to 'Log in', '/login', method: :get %></p>
+<div class="pulse-auth-page">
+  <div class="pulse-auth-success">
+    <div class="pulse-auth-success-icon">
+      <%= octicon 'check-circle', height: 48 %>
+    </div>
+    <h1 class="pulse-auth-title">Logged Out</h1>
+    <p class="pulse-auth-subtitle">You have been successfully logged out.</p>
+    <div class="pulse-form-actions" style="justify-content:center;">
+      <a href="/login" class="pulse-action-btn">Log in again</a>
+    </div>
+  </div>
+</div>

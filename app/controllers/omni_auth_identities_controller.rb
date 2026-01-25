@@ -1,6 +1,9 @@
 # typed: false
 
 class OmniAuthIdentitiesController < ApplicationController
+  layout 'pulse'
+  before_action :set_auth_layout
+
   def new
   end
 
@@ -11,6 +14,11 @@ class OmniAuthIdentitiesController < ApplicationController
   end
 
   private
+
+  def set_auth_layout
+    @sidebar_mode = 'none'
+    @hide_header = true
+  end
 
   def is_auth_controller?
     true

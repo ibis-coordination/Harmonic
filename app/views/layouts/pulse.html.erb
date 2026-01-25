@@ -20,18 +20,20 @@
     <div id="expanding-heart">
       <%= octicon 'heart' %>
     </div>
-    <header class="pulse-top-header">
-      <a href="/" class="pulse-logo">
-        <img src="/tri-logo.svg" alt="Harmonic">
-        <span>Harmonic</span>
-      </a>
-      <div class="pulse-top-header-right">
-        <%= yield :header_actions %>
-        <% unless @current_representation_session %>
-          <%= render 'layouts/top_right_menu' %>
-        <% end %>
-      </div>
-    </header>
+    <% unless @hide_header %>
+      <header class="pulse-top-header">
+        <a href="/" class="pulse-logo">
+          <img src="/tri-logo.svg" alt="Harmonic">
+          <span>Harmonic</span>
+        </a>
+        <div class="pulse-top-header-right">
+          <%= yield :header_actions %>
+          <% unless @current_representation_session %>
+            <%= render 'layouts/top_right_menu' %>
+          <% end %>
+        </div>
+      </header>
+    <% end %>
     <% if notice || alert %>
       <div class="pulse-flash-messages">
         <% if notice %>
@@ -60,7 +62,7 @@
         <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
       </div>
     <% end %>
-    <%# Sidebar modes: full (default), resource, minimal, settings, none %>
+    <%# Sidebar modes: full (default), resource, minimal, settings, admin, none %>
     <% sidebar_mode = @sidebar_mode || 'full' %>
     <% is_dev_mockup = controller_name == 'dev' %>
     <div class="pulse-container<%= ' no-sidebar' if sidebar_mode == 'none' %>" data-controller="pulse-filter">
@@ -73,6 +75,8 @@
         <%= render 'pulse/sidebar_settings' %>
       <% when 'minimal' %>
         <%= is_dev_mockup ? render('dev/mockup_sidebar_minimal') : render('pulse/sidebar_minimal') %>
+      <% when 'admin' %>
+        <%= render 'pulse/sidebar_admin' %>
       <% when 'none' %>
         <%# No sidebar %>
       <% end %>

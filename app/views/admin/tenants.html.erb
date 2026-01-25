@@ -1,13 +1,36 @@
-<h1>Tenants</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  'Tenants'
+] %>
 
-<ul>
-<% @tenants.each do |tenant| %>
-  <li>
-    <a href="https://<%= tenant.subdomain %>.<%= ENV['HOSTNAME'] %>">
-      <code><%= tenant.subdomain %></code> <%= tenant.name %>
-    </a>
-  </li>
-<% end %>
-</ul>
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'organization', height: 24 %> Tenants
+  </h1>
+</div>
 
-<%= button_to 'New Tenant', '/admin/tenants/new', method: :get %>
+<div class="pulse-home-section-intro">
+  <p>All tenants on this Harmonic instance.</p>
+  <a href="/admin/tenants/new" class="pulse-action-btn">
+    <%= octicon 'plus', height: 14 %> New Tenant
+  </a>
+</div>
+
+<div class="pulse-home-list">
+  <% @tenants.each do |tenant| %>
+    <% is_current = tenant.subdomain == @current_tenant.subdomain %>
+    <div class="pulse-home-list-item<%= ' pulse-home-list-item-current' if is_current %>">
+      <a href="/admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+        <div class="pulse-default-icon pulse-home-list-icon">
+          <%= octicon 'organization', height: 14 %>
+        </div>
+        <span class="pulse-home-list-name"><%= tenant.name %></span>
+        <code class="pulse-code"><%= tenant.subdomain %></code>
+        <% if is_current %>
+          <span class="pulse-current-badge">(current)</span>
+        <% end %>
+      </a>
+    </div>
+  <% end %>
+</div>

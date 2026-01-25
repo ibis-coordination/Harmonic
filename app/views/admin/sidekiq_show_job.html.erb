@@ -1,18 +1,38 @@
-<h4>
-  <a href="/admin">Admin</a>
-  / <a href="/admin/sidekiq">Sidekiq</a>
-  / Job <code><%= @job["jid"] %></code>
-</h4>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  ['Sidekiq', '/admin/sidekiq'],
+  "Job #{@job['jid']}"
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'workflow', height: 24 %> Job Details
+</h1>
+
+<p class="pulse-body-text-muted" style="margin-bottom:24px;">
+  <code class="pulse-code"><%= @job["jid"] %></code>
+</p>
 
 <% if @job["error_message"] %>
-  <h2>
-    <%= octicon 'alert', height: 24 %>
-    <%= @job["error_class"] %>
-  </h2>
-  <pre><%= @job["error_message"] %></pre>
+  <div class="pulse-alert" style="margin-bottom:24px;display:flex;align-items:flex-start;gap:12px;">
+    <%= octicon 'alert', height: 20 %>
+    <div style="flex:1;">
+      <strong><%= @job["error_class"] %></strong>
+      <pre style="margin:8px 0 0 0;white-space:pre-wrap;word-break:break-word;font-size:13px;"><%= @job["error_message"] %></pre>
+    </div>
+  </div>
 
-  <%= button_to "Retry", "/admin/sidekiq/jobs/#{@job['jid']}/retry", method: :post %>
+  <div class="pulse-form-actions" style="margin-bottom:24px;">
+    <%= button_to "Retry Job", "/admin/sidekiq/jobs/#{@job['jid']}/retry", method: :post, class: "pulse-action-btn" %>
+  </div>
 <% end %>
 
-<h2>Arguments</h2>
-<pre><%= JSON.pretty_generate(@job["args"]) %></pre>
+<%= render 'shared/pulse_accordion', title: 'Arguments', icon: 'code', open: true do %>
+  <pre style="background:var(--color-canvas-subtle);padding:12px;overflow-x:auto;font-size:13px;"><%= JSON.pretty_generate(@job["args"]) %></pre>
+<% end %>
+
+<div class="pulse-form-actions">
+  <a href="/admin/sidekiq" class="pulse-action-btn-secondary">
+    <%= octicon 'arrow-left', height: 14 %> Back to Sidekiq
+  </a>
+</div>

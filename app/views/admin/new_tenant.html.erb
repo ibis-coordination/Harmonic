@@ -1,16 +1,32 @@
-<h1>New Tenant</h1>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  ['Tenants', '/admin/tenants'],
+  'New Tenant'
+] %>
 
-<%= form_with(url: '/admin/tenants') do |form| %>
-  <h2>Tenant Name</h2>
-  <p>
-    <%= form.text_field :name, placeholder: 'Tenant Name' %>
-  </p>
+<h1 class="pulse-page-title">
+  <%= octicon 'plus', height: 24 %> New Tenant
+</h1>
 
-  <h2>Subdomain</h2>
-  <p>
-    <%= form.text_field :subdomain, placeholder: 'subdomain' %>
-  </p>
+<%= form_with(url: '/admin/tenants', class: "pulse-form", style: "max-width:500px;") do |form| %>
+  <div class="pulse-form-section" style="border-top:none;margin-top:16px;padding-top:0;">
+    <label class="pulse-form-label" for="name">Tenant Name</label>
+    <%= form.text_field :name, placeholder: 'My Organization', class: 'pulse-form-input' %>
+    <p class="pulse-form-hint">The display name for this tenant.</p>
+  </div>
 
-  <hr style="height:1px;" />
-  <%= form.submit 'Create' %>
+  <div class="pulse-form-section">
+    <label class="pulse-form-label" for="subdomain">Subdomain</label>
+    <div class="pulse-input-prefix-wrapper" style="display:flex;align-items:center;gap:8px;">
+      <%= form.text_field :subdomain, placeholder: 'my-org', class: 'pulse-form-input', style: 'flex:1;' %>
+      <span class="pulse-form-hint" style="margin:0;white-space:nowrap;">.<%= ENV['HOSTNAME'] %></span>
+    </div>
+    <p class="pulse-form-hint">The subdomain will be used in URLs. Use lowercase letters, numbers, and hyphens only.</p>
+  </div>
+
+  <div class="pulse-form-actions">
+    <%= form.submit 'Create Tenant', class: 'pulse-action-btn' %>
+    <a href="/admin/tenants" class="pulse-action-btn-secondary">Cancel</a>
+  </div>
 <% end %>

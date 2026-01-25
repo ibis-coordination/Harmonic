@@ -1,6 +1,8 @@
 # typed: false
 
 class PasswordResetsController < ApplicationController
+  layout 'pulse'
+  before_action :set_auth_layout
   before_action :find_identity_by_token, only: [:show, :update]
 
   def new
@@ -57,6 +59,11 @@ class PasswordResetsController < ApplicationController
 
   def find_identity_by_token
     @identity = OmniAuthIdentity.find_by_reset_password_token(params[:token]) if params[:token].present?
+  end
+
+  def set_auth_layout
+    @sidebar_mode = 'none'
+    @hide_header = true
   end
 
   def is_auth_controller?

@@ -1,17 +1,21 @@
-<h1>Reset password</h1>
-<p>
-  <%= render 'shared/three_icon_row', large: true %>
-</p>
-<p>
-  Enter your email address and we'll send you instructions to reset your password.
-</p>
+<div class="pulse-auth-page">
+  <div class="pulse-auth-logo">
+    <img src="/tri-logo.svg" alt="Harmonic">
+  </div>
 
-<%= form_with url: password_resets_path, method: :post, data: { turbo: false } do |form| %>
-  <%= form.email_field :email, placeholder: 'Email', required: true, class: 'form-control' %>
-  <div class="spacer"></div>
-  <%= submit_tag "Send reset instructions" %>
-  <br/>
-  or
-  <br/>
-  <%= link_to 'Back to login', '/login' %>
-<% end %>
+  <h1 class="pulse-auth-title">Reset password</h1>
+
+  <p class="pulse-auth-subtitle">
+    Enter your email address and we'll send you instructions to reset your password.
+  </p>
+
+  <%= form_with url: password_resets_path, method: :post, data: { turbo: false }, class: "pulse-auth-form" do |form| %>
+    <%= form.email_field :email, placeholder: 'Email', required: true, class: 'pulse-form-input' %>
+    <div class="pulse-form-actions">
+      <%= submit_tag "Send reset instructions", class: "pulse-action-btn", style: "width:100%;" %>
+    </div>
+    <div class="pulse-auth-footer">
+      <%= link_to 'Back to login', '/login', class: 'pulse-auth-link' %>
+    </div>
+  <% end %>
+</div>

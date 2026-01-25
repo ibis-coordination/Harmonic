@@ -1,35 +1,43 @@
 <link rel="stylesheet" href="<%= asset_path 'registration_form.css' %>">
 <script type="module" src="<%= asset_path 'registration_form.js' %>"></script>
-<h1>Create account</h1>
-<p>
-  <%= render 'shared/three_icon_row', large: true %>
-</p>
-<p>
-  Create an account on <code><%= ENV['HOSTNAME'] %></code>
-</p>
-<%= form_with url: "/auth/identity/register", method: :post, data: { turbo: false }, id: "registration-form" do |form| %>
-  <div id="email-feedback" class="password-feedback"></div>
-  <%= form.email_field :email, placeholder: 'Email', required: true, id: 'email-field' %>
 
-  <div id="name-feedback" class="password-feedback"></div>
-  <%= form.text_field :name, placeholder: 'Name', required: true, id: 'name-field' %>
+<div class="pulse-auth-page">
+  <div class="pulse-auth-logo">
+    <img src="/tri-logo.svg" alt="Harmonic">
+  </div>
 
-  <div id="password-feedback" class="password-feedback"></div>
-  <%= form.password_field :password, placeholder: 'Password (minimum 14 characters)',
-      id: 'password-field',
-      minlength: 14,
-      required: true %>
+  <h1 class="pulse-auth-title">Create account</h1>
 
-  <div id="password-confirmation-feedback" class="password-feedback"></div>
-  <%= form.password_field :password_confirmation, placeholder: 'Confirm password',
-      id: 'password-confirmation-field',
-      minlength: 14,
-      required: true %>
+  <p class="pulse-auth-subtitle">
+    Create an account on <code class="pulse-code"><%= ENV['HOSTNAME'] %></code>
+  </p>
 
-  <div class="spacer"></div>
-  <%= submit_tag "Create account", id: "submit-button", disabled: true %>
-  <br/>
-  or
-  <br/>
-  <%= link_to 'Log in with an existing account', '/login' %>
-<% end %>
+  <%= form_with url: "/auth/identity/register", method: :post, data: { turbo: false }, id: "registration-form", class: "pulse-auth-form" do |form| %>
+    <div id="email-feedback" class="password-feedback"></div>
+    <%= form.email_field :email, placeholder: 'Email', required: true, id: 'email-field', class: 'pulse-form-input' %>
+
+    <div id="name-feedback" class="password-feedback"></div>
+    <%= form.text_field :name, placeholder: 'Name', required: true, id: 'name-field', class: 'pulse-form-input' %>
+
+    <div id="password-feedback" class="password-feedback"></div>
+    <%= form.password_field :password, placeholder: 'Password (minimum 14 characters)',
+        id: 'password-field',
+        class: 'pulse-form-input',
+        minlength: 14,
+        required: true %>
+
+    <div id="password-confirmation-feedback" class="password-feedback"></div>
+    <%= form.password_field :password_confirmation, placeholder: 'Confirm password',
+        id: 'password-confirmation-field',
+        class: 'pulse-form-input',
+        minlength: 14,
+        required: true %>
+
+    <div class="pulse-form-actions">
+      <%= submit_tag "Create account", id: "submit-button", class: "pulse-action-btn", style: "width:100%;", disabled: true %>
+    </div>
+    <div class="pulse-auth-footer">
+      Already have an account? <%= link_to 'Log in', '/login', class: 'pulse-auth-link' %>
+    </div>
+  <% end %>
+</div>

@@ -1,39 +1,61 @@
-<h1>Log in to Harmonic</h1>
-<p>
-  <%= render 'shared/three_icon_row', large: true %>
-</p>
-<p>
-  Log in to <code><%= "#{@original_tenant.subdomain}.#{ENV['HOSTNAME']}" %></code>
-  <% if @redirect_to_resource %>
-    to view <code><%= @redirect_to_resource %></code>
-  <% elsif @studio_invite_code %>
-    to accept this invite.
-  <% end %>
-</p>
-<% if @original_tenant.auth_providers.include?('identity') %>
-  <%= render 'omni_auth_identities/email_password_form' %>
-  <% if @original_tenant.auth_providers.length > 1 %>
-    <hr/>
-  <% end %>
-<% end %>
-<% @original_tenant.auth_providers.each do |provider| %>
-  <% provider = provider.downcase %>
-  <% if provider == "github" %>
-    <%= button_to "/auth/github", method: :post do %>
-      Log in with GitHub
-      <%= octicon 'mark-github' %>
+<div class="pulse-auth-page">
+  <div class="pulse-auth-logo">
+    <img src="/tri-logo.svg" alt="Harmonic">
+  </div>
+
+  <h1 class="pulse-auth-title">Log in to Harmonic</h1>
+
+  <p class="pulse-auth-subtitle">
+    Log in to <code class="pulse-code"><%= @original_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>
+    <% if @redirect_to_resource %>
+      <br>to view <code class="pulse-code"><%= @redirect_to_resource %></code>
+    <% elsif @studio_invite_code %>
+      <br>to accept this invite.
     <% end %>
-  <% elsif provider == "google" %>
-    <%= button_to "Log in with Google", "/auth/google_oauth2", method: :post %>
-  <% elsif provider == "twitter" %>
-    <%= button_to "Log in with Twitter", "/auth/twitter", method: :post %>
-  <% elsif provider == "facebook" %>
-    <%= button_to "Log in with Facebook", "/auth/facebook", method: :post %>
-  <% elsif provider == "linkedin" %>
-    <%= button_to "Log in with LinkedIn", "/auth/linkedin", method: :post %>
-  <% elsif provider == "microsoft" %>
-    <%= button_to "Log in with Microsoft", "/auth/microsoft_v2_auth", method: :post %>
-  <% elsif provider == "developer" && Rails.env.development? %>
-    <%= button_to "Log in with Developer", "/auth/developer", method: :post %>
+  </p>
+
+  <% if @original_tenant.auth_providers.include?('identity') %>
+    <%= render 'omni_auth_identities/email_password_form' %>
+    <% if @original_tenant.auth_providers.length > 1 %>
+      <div class="pulse-auth-divider">or continue with</div>
+    <% end %>
   <% end %>
-<% end %>
+
+  <% oauth_providers = @original_tenant.auth_providers.reject { |p| p.downcase == 'identity' } %>
+  <% if oauth_providers.any? %>
+    <div class="pulse-auth-providers">
+      <% oauth_providers.each do |provider| %>
+        <% provider = provider.downcase %>
+        <% if provider == "github" %>
+          <%= button_to "/auth/github", method: :post, class: "pulse-auth-provider-btn" do %>
+            <%= octicon 'mark-github', height: 18 %> Continue with GitHub
+          <% end %>
+        <% elsif provider == "google" %>
+          <%= button_to "/auth/google_oauth2", method: :post, class: "pulse-auth-provider-btn" do %>
+            Continue with Google
+          <% end %>
+        <% elsif provider == "twitter" %>
+          <%= button_to "/auth/twitter", method: :post, class: "pulse-auth-provider-btn" do %>
+            Continue with Twitter
+          <% end %>
+        <% elsif provider == "facebook" %>
+          <%= button_to "/auth/facebook", method: :post, class: "pulse-auth-provider-btn" do %>
+            Continue with Facebook
+          <% end %>
+        <% elsif provider == "linkedin" %>
+          <%= button_to "/auth/linkedin", method: :post, class: "pulse-auth-provider-btn" do %>
+            Continue with LinkedIn
+          <% end %>
+        <% elsif provider == "microsoft" %>
+          <%= button_to "/auth/microsoft_v2_auth", method: :post, class: "pulse-auth-provider-btn" do %>
+            Continue with Microsoft
+          <% end %>
+        <% elsif provider == "developer" && Rails.env.development? %>
+          <%= button_to "/auth/developer", method: :post, class: "pulse-auth-provider-btn" do %>
+            Continue with Developer
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

@@ -1,15 +1,42 @@
-<h1>
-  <a href="https://<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>">
-    <%= @showing_tenant.name %> <code><%= @showing_tenant.subdomain %></code>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  ['Tenants', '/admin/tenants'],
+  @showing_tenant.name
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'organization', height: 24 %>
+  <a href="https://<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>" style="color:inherit;text-decoration:none;">
+    <%= @showing_tenant.name %>
   </a>
 </h1>
 
+<p class="pulse-body-text-muted">
+  <code class="pulse-code"><%= @showing_tenant.subdomain %><span style="opacity:0.6">.<%= ENV['HOSTNAME'] %></span></code>
+</p>
+
 <% if @current_user_is_admin_of_showing_tenant %>
-  <h2>Tenant Settings</h2>
-  <a href="https://<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>/admin/settings">Edit Settings</a>
-  <pre><%= JSON.pretty_generate(@showing_tenant.settings) %></pre>
+  <%= render 'shared/pulse_accordion', title: 'Tenant Settings', icon: 'gear', open: true do %>
+    <div class="pulse-form-actions" style="margin-bottom:16px;">
+      <a href="https://<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>/admin/settings" class="pulse-action-btn">
+        <%= octicon 'pencil', height: 14 %> Edit Settings
+      </a>
+      <a href="https://<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>" class="pulse-action-btn-secondary">
+        <%= octicon 'link-external', height: 14 %> Visit Tenant
+      </a>
+    </div>
+
+    <pre style="background:var(--color-canvas-subtle);padding:12px;overflow-x:auto;font-size:13px;"><%= JSON.pretty_generate(@showing_tenant.settings) %></pre>
+  <% end %>
 <% else %>
-  <p>
-    You are not an admin of this tenant.
-  </p>
+  <div class="pulse-empty-state" style="padding:24px;border:1px solid var(--color-border-default);text-align:center;">
+    <p style="margin:0 0 12px 0;"><%= octicon 'lock', height: 20 %></p>
+    <p style="margin:0;">You are not an admin of this tenant.</p>
+    <div class="pulse-form-actions" style="justify-content:center;margin-top:16px;">
+      <a href="https://<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>" class="pulse-action-btn-secondary">
+        <%= octicon 'link-external', height: 14 %> Visit Tenant
+      </a>
+    </div>
+  </div>
 <% end %>
