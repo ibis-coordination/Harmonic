@@ -1,0 +1,55 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  ['Security', '/admin/security'],
+  "Event ##{@event['line_number']}"
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'shield', height: 24 %> Security Event #<%= @event['line_number'] %>
+</h1>
+
+<div class="pulse-table-wrapper">
+  <table class="pulse-table">
+    <tbody>
+      <% @event.each do |key, value| %>
+        <tr>
+          <th style="width: 200px;"><%= key.titleize %></th>
+          <td>
+            <% if key == 'timestamp' && value.present? %>
+              <code class="pulse-code"><%= value %></code>
+              (<%= timeago(Time.zone.parse(value)) %>)
+            <% elsif key == 'ip' && value.present? %>
+              <a href="/admin/security?ip=<%= value %>">
+                <code class="pulse-code"><%= value %></code>
+              </a>
+              (view all events from this IP)
+            <% elsif key == 'email' && value.present? %>
+              <a href="/admin/security?email=<%= value %>"><%= value %></a>
+              (view all events for this email)
+            <% elsif key == 'event' && value.present? %>
+              <a href="/admin/security?event_type=<%= value %>">
+                <code class="pulse-code"><%= value %></code>
+              </a>
+              (view all <%= value.titleize.downcase %> events)
+            <% elsif key == 'user_id' && value.present? %>
+              <code class="pulse-code"><%= value %></code>
+            <% elsif value.is_a?(Hash) || value.is_a?(Array) %>
+              <pre class="pulse-code" style="white-space: pre-wrap; margin: 0;"><%= JSON.pretty_generate(value) %></pre>
+            <% elsif value.present? %>
+              <%= value %>
+            <% else %>
+              <span style="color: var(--color-fg-muted);">-</span>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top: 1rem;">
+  <a href="/admin/security" class="pulse-action-btn-secondary">
+    <%= octicon 'arrow-left', height: 14 %> Back to Security Dashboard
+  </a>
+</div>

@@ -129,4 +129,21 @@ module ApplicationHelper
     end
   end
 
+  # Generate a sort link for the security dashboard, toggling direction if already sorted by this column
+  def security_sort_link(column, label)
+    current_sort = params[:sort_by] == column || (column == "timestamp" && params[:sort_by].blank?)
+    current_dir = params[:sort_dir].presence || "desc"
+    new_dir = current_sort && current_dir == "desc" ? "asc" : "desc"
+
+    url_params = request.query_parameters.merge(sort_by: column, sort_dir: new_dir)
+    link_to "/admin/security?#{url_params.to_query}" do
+      indicator = if current_sort
+        octicon(current_dir == "desc" ? "chevron-down" : "chevron-up", height: 12)
+      else
+        ""
+      end
+      "#{label} #{indicator}".html_safe
+    end
+  end
+
 end

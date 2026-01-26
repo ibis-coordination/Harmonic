@@ -131,6 +131,8 @@ Rails.application.routes.draw do
   get 'admin/sidekiq/jobs/:jid/actions' => 'admin#actions_index_sidekiq_job'
   get 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#describe_retry_sidekiq_job'
   post 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#execute_retry_sidekiq_job'
+  get 'admin/security' => 'admin#security_dashboard'
+  get 'admin/security/events/:line_number' => 'admin#security_event'
 
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
