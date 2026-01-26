@@ -41,15 +41,32 @@ class SessionsController < ApplicationController
     if original_tenant.valid_auth_provider?(request.env['omniauth.auth'].provider)
       identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'])
       session[:user_id] = identity.user.id
+      SecurityAuditLog.log_login_success(
+        user: identity.user,
+        ip: request.remote_ip,
+        user_agent: request.user_agent,
+      )
       redirect_to '/login/return'
     else
       # This scenario is unlikely but we must check in order to guarantee that tenant settings are properly enforced
+      SecurityAuditLog.log_login_failure(
+        email: request.env['omniauth.auth']&.info&.email || 'unknown',
+        ip: request.remote_ip,
+        reason: "oauth_provider_not_enabled",
+        user_agent: request.user_agent,
+      )
       render status: 403, layout: 'application', html: "OAuth provider <code>#{request.env['omniauth.auth'].provider}</code> is not enabled for subdomain <code>#{original_tenant.subdomain}</code>".html_safe
     end
   end
 
   # If the callback is to /auth/failure
   def oauth_failure
+    SecurityAuditLog.log_login_failure(
+      email: params[:email] || 'unknown',
+      ip: request.remote_ip,
+      reason: params[:message] || 'oauth_failure',
+      user_agent: request.user_agent,
+    )
     redirect_to '/login', alert: params[:message]
   end
 
@@ -81,6 +98,7 @@ class SessionsController < ApplicationController
 
   # <logout>
   def destroy
+    SecurityAuditLog.log_logout(user: current_user, ip: request.remote_ip) if current_user
     session.delete(:user_id)
     clear_impersonations_and_representations!
     # Cookie deletion is not technically necessary,

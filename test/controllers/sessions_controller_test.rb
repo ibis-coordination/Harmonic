@@ -5,11 +5,11 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @user = @global_user
     @superagent = @global_superagent
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
   def auth_host
-    "#{ENV['AUTH_SUBDOMAIN']}.#{ENV['HOSTNAME']}"
+    "#{ENV.fetch("AUTH_SUBDOMAIN", nil)}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
   # === Login Flow Tests ===
@@ -17,7 +17,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   test "unauthenticated user on tenant subdomain is redirected to auth subdomain" do
     get "/login"
     assert_response :redirect
-    assert_match /#{ENV['AUTH_SUBDOMAIN']}/, response.location
+    assert_match(/#{ENV.fetch("AUTH_SUBDOMAIN", nil)}/, response.location)
   end
 
   test "redirect to auth subdomain sets redirect_to_subdomain cookie" do
@@ -25,7 +25,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     # Verify the cookie was set with the tenant's subdomain
     assert_equal @tenant.subdomain, cookies[:redirect_to_subdomain],
-      "Cookie should be set to the originating tenant subdomain"
+                 "Cookie should be set to the originating tenant subdomain"
   end
 
   test "login page on auth subdomain shows login form" do
@@ -59,16 +59,16 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     secondary_tenant.create_main_superagent!(created_by: secondary_user)
 
     # Step 1: User visits the secondary tenant's login page
-    host! "#{secondary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{secondary_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
     get "/login"
 
     # Should redirect to auth subdomain
     assert_response :redirect
-    assert_match /#{ENV['AUTH_SUBDOMAIN']}/, response.location
+    assert_match(/#{ENV.fetch("AUTH_SUBDOMAIN", nil)}/, response.location)
 
     # The cookie should be set to the secondary tenant's subdomain
     assert_equal secondary_tenant.subdomain, cookies[:redirect_to_subdomain],
-      "Cookie should be set to 'secondary', not the primary subdomain"
+                 "Cookie should be set to 'secondary', not the primary subdomain"
 
     # Step 2: Follow redirect to auth subdomain
     host! auth_host
@@ -77,8 +77,8 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # Verify the login page displays the correct tenant subdomain
-    assert_select "code", text: /#{secondary_tenant.subdomain}\.#{ENV['HOSTNAME']}/,
-      message: "Login page should display 'secondary.harmonic.local', not 'app.harmonic.local'"
+    assert_select "code", text: /#{secondary_tenant.subdomain}\.#{ENV.fetch("HOSTNAME", nil)}/,
+                          message: "Login page should display 'secondary.harmonic.local', not 'app.harmonic.local'"
   end
 
   test "login page on auth subdomain shows correct tenant when cookie is preserved" do
@@ -93,17 +93,17 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     # The @original_tenant should be the secondary tenant, not the primary
-    assert_select "code", text: /#{secondary_tenant.subdomain}\.#{ENV['HOSTNAME']}/,
-      message: "Login page should display the secondary tenant subdomain"
+    assert_select "code", text: /#{secondary_tenant.subdomain}\.#{ENV.fetch("HOSTNAME", nil)}/,
+                          message: "Login page should display the secondary tenant subdomain"
   end
 
   test "login page defaults to primary subdomain when cookie is missing" do
     # This documents the CURRENT (buggy) behavior
     # When no cookie is set, it defaults to PRIMARY_SUBDOMAIN
     # First, ensure the primary tenant exists
-    primary_tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN'])
+    primary_tenant = Tenant.find_by(subdomain: ENV.fetch("PRIMARY_SUBDOMAIN", nil))
     unless primary_tenant
-      primary_tenant = create_tenant(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
+      primary_tenant = create_tenant(subdomain: ENV.fetch("PRIMARY_SUBDOMAIN", nil), name: "Primary Tenant")
       primary_user = create_user(email: "primary@example.com", name: "Primary User")
       primary_tenant.add_user!(primary_user)
       primary_tenant.create_main_superagent!(created_by: primary_user)
@@ -117,7 +117,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     # Currently defaults to primary subdomain
-    assert_select "code", text: /#{ENV['PRIMARY_SUBDOMAIN']}\.#{ENV['HOSTNAME']}/
+    assert_select "code", text: /#{ENV.fetch("PRIMARY_SUBDOMAIN", nil)}\.#{ENV.fetch("HOSTNAME", nil)}/
   end
 
   # === Logout Tests ===
@@ -125,7 +125,26 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   test "logout redirects to logout success" do
     delete "/logout"
     assert_response :redirect
-    assert_match /logout-success/, response.location
+    assert_match(/logout-success/, response.location)
+  end
+
+  test "logout logs security audit event for authenticated user" do
+    sign_in_as(@user, tenant: @tenant)
+    test_email = @user.email
+
+    delete "/logout"
+
+    assert_response :redirect
+
+    # Verify logout was logged by parsing JSON entries
+    log_file = Rails.root.join("log/security_audit.log")
+    if File.exist?(log_file)
+      entries = File.readlines(log_file).map { |line| JSON.parse(line) rescue nil }.compact
+      matching_entry = entries.find do |e|
+        e["event"] == "logout" && e["email"] == test_email
+      end
+      assert matching_entry, "Expected to find logout event for #{test_email}"
+    end
   end
 
   test "logout success page renders for logged out user" do
@@ -138,7 +157,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   test "internal callback without token redirects to login" do
     get "/login/callback"
     assert_response :redirect
-    assert_match /login/, response.location
+    assert_match(/login/, response.location)
   end
 
   test "internal callback with valid token processes login" do
@@ -157,7 +176,26 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
     get "/auth/failure", params: { message: "access_denied" }
     assert_response :redirect
-    assert_match /login/, response.location
+    assert_match(/login/, response.location)
+  end
+
+  test "oauth failure logs security audit event" do
+    host! auth_host
+    test_reason = "access_denied_#{SecureRandom.hex(4)}"
+
+    get "/auth/failure", params: { message: test_reason, email: "attacker@example.com" }
+
+    assert_response :redirect
+
+    # Verify login failure was logged by parsing JSON entries
+    log_file = Rails.root.join("log/security_audit.log")
+    if File.exist?(log_file)
+      entries = File.readlines(log_file).map { |line| JSON.parse(line) rescue nil }.compact
+      matching_entry = entries.find do |e|
+        e["event"] == "login_failure" && e["reason"] == test_reason
+      end
+      assert matching_entry, "Expected to find login_failure event with reason #{test_reason}"
+    end
   end
 
   # === Return Endpoint Tests ===
@@ -167,7 +205,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
     get "/login/return"
     assert_response :redirect
-    assert_match /login/, response.location
+    assert_match(/login/, response.location)
   end
 
   private

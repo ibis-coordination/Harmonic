@@ -12,11 +12,35 @@ Harmonic includes the following security measures:
 | SQL injection | ActiveRecord parameterized queries |
 | XSS protection | Rails escaping + Content Security Policy headers |
 | Authentication | OAuth (GitHub) or password-based |
-| Multi-tenancy | Database-level tenant isolation |
+| Multi-tenancy | Database-level tenant isolation via default_scope |
 | File storage | S3-compatible (DO Spaces) with signed URLs |
-| Rate limiting | rack-attack on login and API endpoints |
-| Container security | Non-root user, network isolation |
+| Rate limiting | rack-attack: general (300/min), writes (60/min), login (5/20min) |
+| Container security | Non-root user, network isolation, resource limits |
 | Virus scanning | ClamAV for file uploads (production) |
+| Security audit logging | JSON logs for auth events, rate limiting, admin actions |
+| Redis authentication | Password-protected in production |
+
+### Content Security Policy
+
+CSP headers are configured in `config/initializers/content_security_policy.rb`:
+- `default-src 'self'`
+- `script-src 'self'` (no inline scripts)
+- `style-src 'self' 'unsafe-inline'` (inline styles allowed for Turbo/Stimulus)
+- `frame-ancestors 'none'` (prevents clickjacking)
+
+Note: `unsafe-inline` for styles is required for Turbo/Stimulus functionality. Future work may implement nonces for styles.
+
+### Security Audit Logging
+
+Security events are logged to `log/security_audit.log` in JSON format:
+- Login success/failure
+- Logout
+- Password reset requests
+- Password changes
+- Rate limiting events
+- IP blocks
+
+In production, events are also written to Rails logger with `SECURITY_AUDIT` tag for centralized logging.
 
 ## Security Checklist
 
@@ -27,6 +51,33 @@ Before going live:
 - [ ] Database IP allowlist configured (if using managed DB)
 - [ ] Secrets not in version control
 - [ ] Backup restoration tested
+- [ ] `REDIS_PASSWORD` set to a strong password
+- [ ] `SECRET_KEY_BASE` generated and secured
+- [ ] Security audit log monitoring configured (see Logging section)
+
+### Secret Rotation
+
+**SECRET_KEY_BASE**: Rotating this key will invalidate all existing sessions. Plan for user re-authentication after rotation.
+
+**REDIS_PASSWORD**: Can be rotated by:
+1. Setting new password in `.env`
+2. Restarting all services: `docker compose -f docker-compose.production.yml restart`
+
+**Database credentials**: Rotate through your managed database provider's interface, then update `DATABASE_URL`.
+
+### Dependency Scanning
+
+GitHub Dependabot is enabled on this repository and automatically creates PRs for vulnerable dependencies. Review and merge Dependabot PRs promptly.
+
+For manual checks:
+
+```bash
+# Ruby dependencies
+bundle audit check --update
+
+# Node dependencies
+npm audit
+```
 
 ## Horizontal Scaling
 
@@ -38,6 +89,8 @@ Harmonic is designed for horizontal scaling:
 - Database is external (managed PostgreSQL)
 - Background jobs via Redis/Sidekiq
 - Cache store uses Redis
+
+**Important**: All web instances must share the same `SECRET_KEY_BASE` environment variable. This key is used to encrypt session cookies - if instances have different keys, users will experience session issues when their requests hit different instances.
 
 **Scaling architecture:**
 
@@ -98,3 +151,34 @@ Requirements:
 - Docker and Docker Compose
 - PostgreSQL database (managed recommended)
 - Domain name pointed to your server
+
+## Logging and Monitoring
+
+### Log Locations
+
+| Log | Location | Contents |
+|-----|----------|----------|
+| Rails application | stdout (Docker logs) | Application requests, errors |
+| Security audit | `log/security_audit.log` | Auth events, rate limiting |
+| Sidekiq | stdout (Docker logs) | Background job processing |
+
+### Recommended Monitoring
+
+1. **Log aggregation**: Ship logs to a centralized service (Datadog, Papertrail, ELK stack)
+2. **Alert on**:
+   - Multiple `login_failure` events from same IP
+   - `rate_limited` events
+   - `ip_blocked` events
+   - Application errors (5xx responses)
+3. **Uptime monitoring**: Monitor `/healthcheck` endpoint
+4. **Resource monitoring**: Track container memory/CPU usage
+
+### Example: Filtering Security Events
+
+```bash
+# View recent security events
+docker compose -f docker-compose.production.yml exec web tail -f log/security_audit.log | jq
+
+# Filter for login failures
+docker compose -f docker-compose.production.yml exec web cat log/security_audit.log | jq 'select(.event == "login_failure")'
+```
