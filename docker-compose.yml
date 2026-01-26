@@ -1,41 +1,100 @@
+# Development Docker Compose configuration
+#
+# This is for local development only. For production, use docker-compose.production.yml.
+
 services:
   web:
     build: .
     command: bundle exec rails s -p 3000 -b '0.0.0.0'
+    user: "1000:1000"
     volumes:
       - .:/app
       - node_modules:/app/node_modules
+      - gem_cache:/gems
     ports:
-      # This port only needs to be exposed for local development.
-      # In production, the web container is behind a reverse proxy (Caddy).
       - "3000:3000"
     depends_on:
-      - js
+      db:
+        condition: service_started
+      js:
+        condition: service_started
+      redis:
+        condition: service_healthy
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - frontend
+      - backend
+
   js:
     build: .
     command: npm run build:watch
+    user: "1000:1000"
     volumes:
       - .:/app
       - node_modules:/app/node_modules
     env_file:
       - .env
+    networks:
+      - backend
+
   sidekiq:
     build: .
     command: bundle exec sidekiq -C config/sidekiq.yml
+    user: "1000:1000"
     volumes:
       - .:/app
+      - gem_cache:/gems
     depends_on:
-      - redis
+      db:
+        condition: service_started
+      redis:
+        condition: service_healthy
     env_file:
       - .env
+    networks:
+      - backend
+
+  # Local PostgreSQL database (production uses managed database)
+  db:
+    image: postgres:13
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    networks:
+      - backend
+
   redis:
-    image: redis:6.2-alpine
+    image: redis:7-alpine
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - backend
+
+  # Email catcher for development (view emails at http://localhost:1080)
+  mailcatcher:
+    image: sj26/mailcatcher
+    ports:
+      - "1080:1080"
+    environment:
+      MAILCATCHER_SMTP_PORT: 1025
+      MAILCATCHER_HTTP_PORT: 1080
+    networks:
+      - backend
+
   # Reverse proxy options - set HOST_MODE in .env to "caddy", "ngrok", or "direct"
-  # Only one runs at a time based on the profile selected by start.sh
   caddy:
     image: caddy:2-alpine
     profiles: ["caddy"]
@@ -44,7 +103,8 @@ services:
       - "80:80"
       - "443:443"
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -53,6 +113,9 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - ./Caddyfile:/etc/caddy/Caddyfile
+    networks:
+      - frontend
+
   ngrok:
     image: ngrok/ngrok:latest
     profiles: ["ngrok"]
@@ -61,8 +124,19 @@ services:
       - web
     command: http web:3000
     env_file:
-      # Make sure NGROK_AUTHTOKEN is set in .env
       - .env
+    networks:
+      - frontend
+
+  # Optional: ClamAV virus scanner for file uploads (resource-intensive)
+  # clamav:
+  #   image: clamav/clamav:stable
+  #   platform: linux/amd64
+  #   volumes:
+  #     - clamav_data:/var/lib/clamav
+  #   networks:
+  #     - backend
+
   # LLM services for in-app AI chat (optional - use profiles to enable)
   ollama:
     image: ollama/ollama:latest
@@ -73,6 +147,9 @@ services:
       resources:
         limits:
           memory: 4G
+    networks:
+      - backend
+
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
     profiles: ["llm"]
@@ -89,6 +166,9 @@ services:
       resources:
         limits:
           memory: 512M
+    networks:
+      - backend
+
   trio:
     image: ghcr.io/ibis-coordination/trio:latest
     profiles: ["llm"]
@@ -102,10 +182,20 @@ services:
       resources:
         limits:
           memory: 256M
+    networks:
+      - backend
+
+networks:
+  frontend:
+  backend:
+    internal: true
 
 volumes:
+  pg_data:
   redis_data:
   caddy_data:
   caddy_config:
   node_modules:
+  gem_cache:
   ollama_data:
+  # clamav_data:

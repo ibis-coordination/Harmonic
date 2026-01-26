@@ -54,6 +54,13 @@ COPY . .
 # Build JavaScript assets
 RUN npm run build
 
+# Create non-root user for security
+RUN useradd -m -u 1000 harmonic && \
+    chown -R harmonic:harmonic /app /gems
+
+# Switch to non-root user
+USER harmonic
+
 # Expose the port the app will run on
 EXPOSE 3000
 

@@ -40,8 +40,10 @@ class RenameStudioToSuperagent < ActiveRecord::Migration[7.0]
     # 3. Rename studio_type column to superagent_type
     rename_column :superagents, :studio_type, :superagent_type
 
-    # 4. Rename main_studio_id in tenants
-    rename_column :tenants, :main_studio_id, :main_superagent_id
+    # 4. Rename main_studio_id in tenants (skip if already named main_superagent_id)
+    if column_exists?(:tenants, :main_studio_id)
+      rename_column :tenants, :main_studio_id, :main_superagent_id
+    end
 
     # 5. Rename studio_id to superagent_id in all tables
     tables_with_studio_id = %i[
@@ -209,8 +211,10 @@ class RenameStudioToSuperagent < ActiveRecord::Migration[7.0]
     # 4. Rename superagent_type back to studio_type
     rename_column :superagents, :superagent_type, :studio_type
 
-    # 5. Rename main_superagent_id back
-    rename_column :tenants, :main_superagent_id, :main_studio_id
+    # 5. Rename main_superagent_id back (skip if already named main_studio_id)
+    if column_exists?(:tenants, :main_superagent_id)
+      rename_column :tenants, :main_superagent_id, :main_studio_id
+    end
 
     # 6. Rename tables back
     rename_table :superagents, :studios

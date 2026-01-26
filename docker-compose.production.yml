@@ -1,0 +1,112 @@
+# Production Docker Compose configuration
+#
+# Uses pre-built images from GitHub Container Registry.
+# No source code or build tools needed on the server.
+#
+# Prerequisites:
+# 1. Copy .env.example to .env and configure:
+#    - DATABASE_URL (external PostgreSQL recommended)
+#    - REDIS_URL (can use the included Redis or external)
+#    - SECRET_KEY_BASE (generate with: ./scripts/generate-secret-key-base.sh)
+#    - HOSTNAME (your domain)
+#    - Other required variables (see .env.example)
+#
+# 2. Run: docker compose -f docker-compose.production.yml up -d
+#
+# For updates: docker compose -f docker-compose.production.yml pull && docker compose -f docker-compose.production.yml up -d
+
+services:
+  web:
+    image: ghcr.io/ibis-coordination/harmonic:latest
+    restart: unless-stopped
+    environment:
+      - RAILS_ENV=production
+      - RAILS_LOG_TO_STDOUT=true
+      - RAILS_SERVE_STATIC_FILES=true
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - frontend
+      - backend
+
+  sidekiq:
+    image: ghcr.io/ibis-coordination/harmonic:latest
+    restart: unless-stopped
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    environment:
+      - RAILS_ENV=production
+      - RAILS_LOG_TO_STDOUT=true
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - backend
+
+  # Caddy reverse proxy for automatic HTTPS
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      web:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      HOSTNAME: "${HOSTNAME}"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    networks:
+      - frontend
+
+  # ClamAV virus scanner for file uploads
+  clamav:
+    image: clamav/clamav:stable
+    platform: linux/amd64
+    restart: unless-stopped
+    volumes:
+      - clamav_data:/var/lib/clamav
+    networks:
+      - backend
+
+networks:
+  frontend:
+  backend:
+    internal: true
+
+volumes:
+  redis_data:
+  caddy_data:
+  caddy_config:
+  clamav_data:

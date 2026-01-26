@@ -1,9 +1,13 @@
 class DropStudioTrusteesAddAsColumn < ActiveRecord::Migration[7.0]
   def up
     add_column :studios, :trustee_user_id, :uuid, null: true, foreign_key: { to_table: :users }
-    StudioTrustee.all.each do |studio_trustee|
-      studio_trustee.studio.update!(trustee_user_id: studio_trustee.trustee_user_id)
-    end
+    # Migrate existing studio trustees to column
+    execute <<-SQL
+      UPDATE studios
+      SET trustee_user_id = studio_trustees.trustee_user_id
+      FROM studio_trustees
+      WHERE studios.id = studio_trustees.studio_id
+    SQL
     drop_table :studio_trustees
   end
 
@@ -16,11 +20,13 @@ class DropStudioTrusteesAddAsColumn < ActiveRecord::Migration[7.0]
       t.timestamps
     end
     add_index :studio_trustees, [:tenant_id, :studio_id, :trustee_user_id], unique: true, name: 'studio_trustees_unique_index'
-    Studio.all.each do |studio|
-      if studio.trustee_user_id
-        StudioTrustee.create!(tenant_id: studio.tenant_id, studio_id: studio.id, trustee_user_id: studio.trustee_user_id)
-      end
-    end
+    # Migrate trustee_user_id back to studio_trustees table
+    execute <<-SQL
+      INSERT INTO studio_trustees (id, tenant_id, studio_id, trustee_user_id, settings, created_at, updated_at)
+      SELECT gen_random_uuid(), tenant_id, id, trustee_user_id, '{}', NOW(), NOW()
+      FROM studios
+      WHERE trustee_user_id IS NOT NULL
+    SQL
     remove_column :studios, :trustee_user_id
   end
 end

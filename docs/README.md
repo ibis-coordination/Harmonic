@@ -5,6 +5,8 @@ This directory contains project documentation.
 ## Contents
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture, data model, and request flow
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment guide, build system, and troubleshooting
+- [SECURITY_AND_SCALING.md](SECURITY_AND_SCALING.md) - Security hardening and horizontal scaling
 - [API.md](API.md) - REST API documentation with endpoints, request/response formats, and examples
 - [KNOWN_BUGS.md](KNOWN_BUGS.md) - Known bugs discovered during testing with reproduction steps
 - [TODO_INDEX.md](TODO_INDEX.md) - Categorized index of all TODO comments in the codebase

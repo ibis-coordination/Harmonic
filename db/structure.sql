@@ -1,4 +1,4 @@
-\restrict sfYR9gXaHRZq1eGU0v4KqnZLSTJ3RX4CVCl6mB8ccWQbIg6l6vscyvxSucPBV49
+\restrict BhUXrlqUAolBm5003d1UmrqHBvKnXbWJk93znk7yB8JqFyoTM7MhDzRKNGIweCC
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -2070,6 +2070,14 @@ ALTER TABLE ONLY public.invites
 
 
 --
+-- Name: tenants fk_rails_08060e4c1a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenants
+    ADD CONSTRAINT fk_rails_08060e4c1a FOREIGN KEY (main_superagent_id) REFERENCES public.superagents(id);
+
+
+--
 -- Name: note_history_events fk_rails_0a4621d4f9; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2387,14 +2395,6 @@ ALTER TABLE ONLY public.notifications
 
 ALTER TABLE ONLY public.decisions
     ADD CONSTRAINT fk_rails_7ee5cf7c37 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
-
-
---
--- Name: tenants fk_rails_81228c3d0f; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tenants
-    ADD CONSTRAINT fk_rails_81228c3d0f FOREIGN KEY (main_superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -2753,7 +2753,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict sfYR9gXaHRZq1eGU0v4KqnZLSTJ3RX4CVCl6mB8ccWQbIg6l6vscyvxSucPBV49
+\unrestrict BhUXrlqUAolBm5003d1UmrqHBvKnXbWJk93znk7yB8JqFyoTM7MhDzRKNGIweCC
 
 SET search_path TO "$user", public;
 
@@ -2853,7 +2853,6 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260111021536'),
 ('20260111021537'),
 ('20260111021538'),
-('20260111095925'),
 ('20260111113813'),
 ('20260111113916'),
 ('20260111124237'),

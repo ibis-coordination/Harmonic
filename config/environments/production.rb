@@ -46,7 +46,10 @@ Rails.application.configure do
   # config.action_cable.allowed_request_origins = [ "http://example.com", /http:\/\/example.*/ ]
 
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # config.force_ssl = true
+  # Note: When behind a reverse proxy (like Caddy), the proxy handles SSL termination.
+  # We still enable this to ensure secure cookies and HSTS headers.
+  config.force_ssl = true
+  config.ssl_options = { redirect: { exclude: ->(request) { request.path.start_with?("/healthcheck") } } }
 
   # Include generic and useful information about system operation, but avoid logging too much
   # information to avoid inadvertent exposure of personally identifiable information (PII).
@@ -55,8 +58,15 @@ Rails.application.configure do
   # Prepend all log lines with the following tags.
   config.log_tags = [ :request_id ]
 
-  # Use a different cache store in production.
-  # config.cache_store = :mem_cache_store
+  # Use Redis for cache store in production (required for horizontal scaling)
+  config.cache_store = :redis_cache_store, {
+    url: ENV["REDIS_URL"],
+    namespace: "harmonic_cache",
+    expires_in: 1.hour,
+    error_handler: ->(method:, returning:, exception:) {
+      Rails.logger.error("Redis cache error: #{exception.class} - #{exception.message}")
+    },
+  }
 
   # Use a real queuing backend for Active Job (and separate queues per environment).
   # config.active_job.queue_adapter     = :resque
@@ -89,7 +99,7 @@ Rails.application.configure do
   else
     # Log emails instead of sending when SMTP is not configured
     config.action_mailer.delivery_method = :logger
-    Rails.logger.warn("SMTP not configured - emails will be logged but not sent")
+    # Rails.logger.warn("SMTP not configured - emails will be logged but not sent")
   end
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to

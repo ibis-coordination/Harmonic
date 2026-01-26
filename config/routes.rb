@@ -13,6 +13,7 @@ Rails.application.routes.draw do
     get 'logout-success' => 'honor_system_sessions#logout_success'
   elsif ENV['AUTH_MODE'] == 'oauth'
     get 'login' => 'sessions#new'
+    get 'auth/:provider/callback' => 'sessions#oauth_callback'
     post 'auth/:provider/callback' => 'sessions#oauth_callback'
     get  'auth/failure' => 'sessions#oauth_failure'
     get 'login/return' => 'sessions#return'
