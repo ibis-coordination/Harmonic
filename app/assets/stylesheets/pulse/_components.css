@@ -2796,3 +2796,40 @@ a.pulse-activity-title:hover {
   color: var(--color-danger-fg);
   margin-bottom: 16px;
 }
+
+/* Create Tabs (for Note/Decision/Commitment) */
+.pulse-create-tabs {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-create-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  text-decoration: none;
+  color: var(--color-fg-muted);
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.pulse-create-tab:hover {
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-create-tab.active {
+  color: var(--color-fg-default);
+  border-bottom-color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-create-tab.active:hover {
+  text-decoration: none;
+}

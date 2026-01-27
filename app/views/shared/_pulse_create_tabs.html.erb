@@ -1,0 +1,5 @@
+<nav class="pulse-create-tabs">
+  <%= link_to "Note", "#{@current_superagent.path}/note", class: "pulse-create-tab #{'active' if current == :note}" %>
+  <%= link_to "Decision", "#{@current_superagent.path}/decide", class: "pulse-create-tab #{'active' if current == :decision}" %>
+  <%= link_to "Commitment", "#{@current_superagent.path}/commit", class: "pulse-create-tab #{'active' if current == :commitment}" %>
+</nav>

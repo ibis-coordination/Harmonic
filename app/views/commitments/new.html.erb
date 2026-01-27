@@ -1,18 +1,11 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_superagent.name, @current_superagent.path],
-  'New Commitment'
+  'New'
 ] %>
 
+<%= render 'shared/pulse_create_tabs', current: :commitment %>
+
 <article class="pulse-resource-detail">
-  <header class="pulse-resource-header">
-    <div class="pulse-resource-header-top">
-      <span class="pulse-resource-type-label">
-        <img src="/resource-icons/commitment-icon.svg" class="pulse-resource-icon" alt="">
-        Commitment
-      </span>
-    </div>
-    <h1 class="pulse-resource-title">New Commitment</h1>
-  </header>
 
   <%= form_with(url: "#{@current_superagent.path}/commit", class: "pulse-form") do |form| %>
     <div class="pulse-form-group">
