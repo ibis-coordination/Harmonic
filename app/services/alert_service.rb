@@ -92,7 +92,7 @@ class AlertService
       slack_message = format_slack_message(payload)
 
       Thread.new do
-        uri = URI.parse(webhook_url)
+        uri = T.cast(URI.parse(webhook_url), URI::HTTP)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true
         http.open_timeout = 5
@@ -163,14 +163,11 @@ class AlertService
       recipients = ENV.fetch("ALERT_EMAIL_RECIPIENTS", nil)
       return if recipients.blank?
 
-      # Use ActionMailer if configured
-      if defined?(AlertMailer)
-        AlertMailer.critical_alert(
-          recipients: recipients.split(",").map(&:strip),
-          subject: "[CRITICAL] Harmonic Alert: #{payload[:message].truncate(50)}",
-          payload: payload
-        ).deliver_later
-      end
+      AlertMailer.critical_alert(
+        recipients: recipients.split(",").map(&:strip),
+        subject: "[CRITICAL] Harmonic Alert: #{payload[:message].truncate(50)}",
+        payload: payload
+      ).deliver_later
     rescue StandardError => e
       Rails.logger.error("[AlertService] Email alert error: #{e.message}")
     end

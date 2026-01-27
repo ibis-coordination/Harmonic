@@ -633,7 +633,7 @@ class ApplicationController < ActionController::Base
     Sentry.set_user(
       id: @current_user&.id,
       email: @current_user&.email,
-      username: @current_user&.username,
+      username: @current_user&.name,
       ip_address: request.remote_ip,
     )
 
