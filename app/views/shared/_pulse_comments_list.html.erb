@@ -1,0 +1,27 @@
+<%# Comments list only - used for AJAX refresh %>
+<%# Usage: render 'shared/pulse_comments_list', commentable: @note %>
+<div class="pulse-comments-list" data-comments-target="list">
+  <% if commentable.comments.any? %>
+    <% commentable.chronological_comments.each do |comment| %>
+      <div class="pulse-comment" id="n-<%= comment.truncated_id %>">
+        <div class="pulse-comment-header">
+          <div class="pulse-author-avatar">
+            <% if comment.created_by.image.attached? %>
+              <img src="<%= comment.created_by.image_path %>" alt="" class="pulse-avatar-img">
+            <% end %>
+            <span class="pulse-avatar-initials"><%= comment.created_by.display_name.first.upcase %></span>
+          </div>
+          <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
+            <%= comment.created_by.display_name %>
+          </a>
+          <a href="<%= comment.path %>" class="pulse-comment-timestamp"><%= timeago(comment.created_at) %></a>
+        </div>
+        <div class="pulse-comment-body">
+          <%= markdown_inline(comment.text) %>
+        </div>
+      </div>
+    <% end %>
+  <% else %>
+    <p class="pulse-comments-empty">No comments yet.</p>
+  <% end %>
+</div>
