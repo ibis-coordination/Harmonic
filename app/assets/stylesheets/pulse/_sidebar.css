@@ -373,12 +373,7 @@
   color: var(--color-accent-fg);
 }
 
-.pulse-pinned-icon {
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
+/* Note: Pinned icons now use CSS classes like .note-icon.icon-sm instead of <img> tags */
 
 /* Links Section (Settings, Explore, etc.) */
 .pulse-links-section {
@@ -434,9 +429,4 @@
   color: var(--color-accent-fg);
 }
 
-.pulse-resource-icon {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
+/* Note: Resource icons use CSS classes like .note-icon instead of <img> tags */

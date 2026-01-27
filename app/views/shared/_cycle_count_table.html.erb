@@ -19,7 +19,7 @@
       <% count_key = type.downcase.to_sym %>
       <tr>
         <td>
-          <img src="/resource-icons/<%= type.singularize.downcase %>-icon.svg" alt="" class="pulse-resource-icon">
+          <i class="<%= type.singularize.downcase %>-icon icon-sm"></i>
           <strong><%= type %></strong>
         </td>
         <% cycles.each do |cycle| %>

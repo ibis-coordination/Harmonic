@@ -8,7 +8,6 @@
   is_comment = type == 'Note' && item.is_comment?
 
   type_lower = type.downcase
-  icon_path = "/resource-icons/#{type_lower}-icon.svg"
   display_type = is_comment ? 'Comment' : type
 
   # Determine status for decisions and commitments
@@ -42,7 +41,7 @@
       <% if is_comment %>
         <%= octicon 'comment', height: 16 %>
       <% else %>
-        <img src="<%= icon_path %>" alt="">
+        <i class="<%= type_lower %>-icon icon-sm"></i>
       <% end %>
       <span><%= display_type %></span>
     </div>

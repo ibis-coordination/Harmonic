@@ -7,7 +7,7 @@
       <% @pinned_items.each do |pinned| %>
         <li>
           <a href="<%= pinned[:item].path %>">
-            <img src="/resource-icons/<%= pinned[:item].class.name.downcase %>-icon.svg" alt="" class="pulse-pinned-icon">
+            <i class="<%= pinned[:item].class.name.downcase %>-icon icon-sm"></i>
             <%= truncate(pinned[:item].title.presence || pinned[:item].body&.truncate(50), length: 40) %>
           </a>
         </li>
