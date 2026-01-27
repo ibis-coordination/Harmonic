@@ -71,6 +71,10 @@ class AlertServiceTest < ActiveSupport::TestCase
   end
 
   test "throttles repeated alerts" do
+    # Use memory cache for this test (test env uses null_store by default)
+    original_cache = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+
     log_output = StringIO.new
     Rails.logger = ActiveSupport::TaggedLogging.new(ActiveSupport::Logger.new(log_output))
 
@@ -80,13 +84,16 @@ class AlertServiceTest < ActiveSupport::TestCase
     end
 
     log_content = log_output.string
-    # Count occurrences of the alert message
-    alert_count = log_content.scan("Repeated alert").count
-    throttle_count = log_content.scan("Throttled alert").count
+    # Count actual alerts sent (JSON payloads with [ALERT] tag)
+    # The throttle messages contain "Throttled alert:" prefix, so exclude those
+    alert_lines = log_content.lines.select { |line| line.include?("[ALERT]") && line.include?('"message":"Repeated alert"') }
+    throttle_lines = log_content.lines.select { |line| line.include?("Throttled alert:") }
 
     # Should have sent 3 alerts and throttled 2
-    assert_equal 3, alert_count, "Expected 3 alerts to be sent"
-    assert_equal 2, throttle_count, "Expected 2 alerts to be throttled"
+    assert_equal 3, alert_lines.count, "Expected 3 alerts to be sent"
+    assert_equal 2, throttle_lines.count, "Expected 2 alerts to be throttled"
+  ensure
+    Rails.cache = original_cache
   end
 
   test "does not throttle critical alerts" do

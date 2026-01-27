@@ -147,15 +147,19 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   # Tests for new filtering and drill-down functionality
 
   test "event_at_line returns event with line_number" do
-    # Ensure we have at least one event
+    # Count existing lines in the log file
+    line_count_before = File.exist?(@log_file) ? File.foreach(@log_file).count : 0
+
+    # Create a new event
     unique_ip = "10.88.#{rand(1..254)}.#{rand(1..254)}"
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
 
-    # Get the first event
-    event = SecurityAuditLogReader.event_at_line(1)
+    # Get the event we just created (should be at line_count_before + 1)
+    expected_line = line_count_before + 1
+    event = SecurityAuditLogReader.event_at_line(expected_line)
 
     assert event.is_a?(Hash), "Should return a hash"
-    assert_equal 1, event["line_number"], "Should include line_number"
+    assert_equal expected_line, event["line_number"], "Should include line_number"
     assert event.key?("timestamp"), "Should have timestamp"
     assert event.key?("event"), "Should have event type"
   end

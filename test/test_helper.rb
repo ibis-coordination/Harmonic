@@ -1,3 +1,4 @@
+# typed: false
 # SimpleCov must be started before any application code is loaded
 if ENV['COVERAGE'] || ENV['CI']
   require 'simplecov'
@@ -34,6 +35,10 @@ ENV["RAILS_ENV"] ||= "test"
 ENV["MAILER_FROM_ADDRESS"] ||= "test@example.com"
 require_relative "../config/environment"
 require "rails/test_help"
+require "webmock/minitest"
+
+# Allow real connections to localhost for integration tests
+WebMock.disable_net_connect!(allow_localhost: true)
 
 # Check AUTH_MODE - Ruby tests require oauth mode
 if ENV["AUTH_MODE"] != "oauth"

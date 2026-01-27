@@ -706,13 +706,18 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
     tenant_user.add_role!("admin")
 
+    # Count existing lines before creating event
+    log_file = Rails.root.join("log/security_audit.log")
+    line_count_before = File.exist?(log_file) ? File.foreach(log_file).count : 0
+
     # Create a security event
     SecurityAuditLog.log_login_success(user: @admin_user, ip: "127.0.0.1", user_agent: "Test")
+    line_number = line_count_before + 1
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/security/events/1"
+    get "/admin/security/events/#{line_number}"
     assert_response :success
   end
 
@@ -721,13 +726,18 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
     tenant_user.add_role!("admin")
 
+    # Count existing lines before creating event
+    log_file = Rails.root.join("log/security_audit.log")
+    line_count_before = File.exist?(log_file) ? File.foreach(log_file).count : 0
+
     # Create a security event
     SecurityAuditLog.log_login_success(user: @admin_user, ip: "127.0.0.1", user_agent: "Test")
+    line_number = line_count_before + 1
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/security/events/1", headers: { "Accept" => "text/markdown" }
+    get "/admin/security/events/#{line_number}", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_match(/Security Event/, response.body)
   end

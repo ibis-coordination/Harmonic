@@ -61,7 +61,10 @@ class AlertService
       return false if severity == :critical
 
       throttle_key = "alert_throttle:#{Digest::MD5.hexdigest(message)}"
-      count = Rails.cache.increment(throttle_key, 1, expires_in: THROTTLE_WINDOW, initial: 0)
+
+      # Initialize key if it doesn't exist (MemoryStore doesn't support initial: option)
+      Rails.cache.write(throttle_key, 0, expires_in: THROTTLE_WINDOW) unless Rails.cache.exist?(throttle_key)
+      count = Rails.cache.increment(throttle_key)
 
       # Allow first N alerts, then throttle
       if count && count > THROTTLE_MAX_ALERTS
