@@ -3,7 +3,7 @@
 class ApplicationController < ActionController::Base
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_superagent,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
-                :load_unread_notification_count
+                :load_unread_notification_count, :set_sentry_context
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
@@ -624,6 +624,29 @@ class ApplicationController < ActionController::Base
 
   def is_auth_controller?
     false
+  end
+
+  # Set Sentry context for error tracking
+  def set_sentry_context
+    return unless defined?(Sentry) && Sentry.initialized?
+
+    Sentry.set_user(
+      id: @current_user&.id,
+      email: @current_user&.email,
+      username: @current_user&.username,
+      ip_address: request.remote_ip,
+    )
+
+    Sentry.set_tags(
+      tenant_id: @current_tenant&.id,
+      superagent_id: @current_superagent&.id,
+      subdomain: request.subdomain,
+    )
+
+    Sentry.set_extras(
+      user_type: @current_user&.user_type,
+      api_request: api_token_present?,
+    )
   end
 
 end

@@ -154,6 +154,18 @@ Requirements:
 
 ## Logging and Monitoring
 
+For comprehensive monitoring setup, see [MONITORING.md](MONITORING.md).
+
+### Quick Reference
+
+| Component | Purpose | Configuration |
+|-----------|---------|---------------|
+| Sentry | Error tracking | `SENTRY_DSN` |
+| AlertService | Security alerts | `SLACK_WEBHOOK_URL` |
+| Yabeda | Application metrics | `/metrics` endpoint |
+| Lograge | Structured logging | Enabled in production |
+| Health check | Uptime monitoring | `/healthcheck` endpoint |
+
 ### Log Locations
 
 | Log | Location | Contents |
@@ -162,16 +174,14 @@ Requirements:
 | Security audit | `log/security_audit.log` | Auth events, rate limiting |
 | Sidekiq | stdout (Docker logs) | Background job processing |
 
-### Recommended Monitoring
+### Recommended Alerts
 
-1. **Log aggregation**: Ship logs to a centralized service (Datadog, Papertrail, ELK stack)
-2. **Alert on**:
-   - Multiple `login_failure` events from same IP
-   - `rate_limited` events
-   - `ip_blocked` events
-   - Application errors (5xx responses)
-3. **Uptime monitoring**: Monitor `/healthcheck` endpoint
-4. **Resource monitoring**: Track container memory/CPU usage
+| Event | Source | Action |
+|-------|--------|--------|
+| `ip_blocked` | SecurityAuditLog | Automatic Slack alert via AlertService |
+| `rate_limited` on auth | SecurityAuditLog | Automatic Slack alert via AlertService |
+| 5xx error rate > 1% | Sentry | Configure in Sentry UI |
+| Health check failure | External monitor | Configure uptime service |
 
 ### Example: Filtering Security Events
 

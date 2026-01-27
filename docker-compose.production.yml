@@ -113,6 +113,26 @@ services:
     networks:
       - backend
 
+  # cAdvisor for container metrics (optional - enable with --profile monitoring)
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
 networks:
   frontend:
   backend:

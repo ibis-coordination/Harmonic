@@ -126,6 +126,35 @@ class SecurityAuditLog
       matched: matched,
       request_path: request_path
     )
+
+    # Alert for rate limiting on sensitive endpoints
+    if request_path.include?("/login") || request_path.include?("/password")
+      AlertService.notify_security_event(
+        event: "rate_limited",
+        ip: ip,
+        matched: matched,
+        request_path: request_path
+      )
+    end
+  end
+
+  # IP blocking events
+
+  sig { params(ip: String, matched: String).void }
+  def self.log_ip_blocked(ip:, matched:)
+    log_event(
+      event: "ip_blocked",
+      severity: :warn,
+      ip: ip,
+      matched: matched
+    )
+
+    # Always alert on IP blocks
+    AlertService.notify_security_event(
+      event: "ip_blocked",
+      ip: ip,
+      matched: matched
+    )
   end
 
   # Generic event logging

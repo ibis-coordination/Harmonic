@@ -89,11 +89,8 @@ end
 
 ActiveSupport::Notifications.subscribe('blocklist.rack_attack') do |_name, _start, _finish, _id, payload|
   req = payload[:request]
-  SecurityAuditLog.log_event(
-    event: "ip_blocked",
-    severity: :warn,
+  SecurityAuditLog.log_ip_blocked(
     ip: req.ip,
-    matched: req.env['rack.attack.matched'],
-    request_path: req.path,
+    matched: req.env['rack.attack.matched']
   )
 end

@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
+  get 'metrics' => 'metrics#show'
 
   # Development tools - Pulse styleguide (only available in development)
   if Rails.env.development?
