@@ -36,7 +36,7 @@ class AlertService
       log_alert(payload)
     end
 
-    sig { params(event: String, data: T::Hash[Symbol, T.untyped]).void }
+    sig { params(event: String, data: T.untyped).void }
     def notify_security_event(event:, **data)
       severity = security_event_severity(event)
       message = format_security_message(event, data)
