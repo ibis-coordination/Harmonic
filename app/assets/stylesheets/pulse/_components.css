@@ -467,6 +467,204 @@ a.pulse-resource-title:hover {
   margin-top: 16px;
 }
 
+/* Comment threading */
+.pulse-replies-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.pulse-replies-toggle:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-replies-toggle .octicon {
+  transition: transform 0.15s ease;
+}
+
+.pulse-replies-toggle.is-collapsed .octicon {
+  transform: rotate(-90deg);
+}
+
+.pulse-comment-replies {
+  padding-left: 16px;
+  border-left: 2px solid var(--color-border-default);
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.pulse-comment-reply-context {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin-bottom: 4px;
+}
+
+.pulse-comment-reply-context a {
+  color: var(--color-accent-fg);
+  text-decoration: none;
+}
+
+.pulse-comment-reply-context a:hover {
+  text-decoration: underline;
+}
+
+.pulse-reply-quote {
+  color: var(--color-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
+}
+
+.pulse-comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pulse-comment-confirm-btn,
+.pulse-comment-confirm-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.pulse-comment-confirm-display {
+  cursor: default;
+}
+
+.pulse-comment-confirm-btn:hover:not(.is-confirmed) {
+  color: var(--color-fg-default);
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-comment-confirm-btn.is-confirmed {
+  color: var(--color-success-fg);
+  background: var(--color-canvas-subtle);
+  cursor: default;
+}
+
+.pulse-comment-confirm-btn.is-loading {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.pulse-confirm-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.pulse-comment-reply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.pulse-comment-reply-btn:hover {
+  color: var(--color-fg-default);
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-reply-form-container {
+  padding-left: 16px;
+  border-left: 2px solid var(--color-border-default);
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.pulse-reply-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pulse-reply-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Reply form loading state */
+.pulse-reply-form-container.is-loading {
+  position: relative;
+  opacity: 0.7;
+}
+
+.pulse-reply-form-container.is-loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid var(--color-border-default);
+  border-top-color: var(--color-accent-fg);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pulse-reply-form-container.is-loading .pulse-form-textarea {
+  cursor: not-allowed;
+}
+
+.pulse-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-fg-default);
+  background: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  cursor: pointer;
+}
+
+.pulse-btn-secondary:hover {
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-comment-timestamp {
+  text-decoration: none;
+}
+
+.pulse-comment-timestamp:hover {
+  text-decoration: underline;
+}
+
 /* Accordion */
 .pulse-accordion {
   border: 1px solid var(--color-border-default);

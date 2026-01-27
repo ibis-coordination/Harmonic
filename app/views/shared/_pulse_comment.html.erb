@@ -1,0 +1,65 @@
+<%# Single comment display %>
+<%# locals: comment, show_reply_context (boolean), root_comment_id (string), show_reply_button (boolean, default true) %>
+<% show_reply_button = local_assigns.fetch(:show_reply_button, true) %>
+<div class="pulse-comment" id="n-<%= comment.truncated_id %>">
+  <div class="pulse-comment-header">
+    <div class="pulse-author-avatar">
+      <% if comment.created_by.image.attached? %>
+        <img src="<%= comment.created_by.image_path %>" alt="" class="pulse-avatar-img">
+      <% end %>
+      <span class="pulse-avatar-initials"><%= comment.created_by.display_name.first.upcase %></span>
+    </div>
+    <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
+      <%= comment.created_by.display_name %>
+    </a>
+    <a href="<%= comment.path %>" class="pulse-comment-timestamp"><%= timeago(comment.created_at) %></a>
+  </div>
+
+  <% if show_reply_context && comment.commentable_type == "Note" && comment.commentable.present? %>
+    <div class="pulse-comment-reply-context">
+      <%= octicon "reply", height: 12 %>
+      Replying to
+      <a href="#n-<%= comment.commentable.truncated_id %>">@<%= comment.commentable.created_by.handle %></a>
+      <span class="pulse-reply-quote"><%= truncate(comment.commentable.text, length: 60) %></span>
+    </div>
+  <% end %>
+
+  <div class="pulse-comment-body">
+    <%= markdown_inline(comment.text) %>
+  </div>
+
+  <div class="pulse-comment-actions">
+    <% if @current_user %>
+      <% has_confirmed = comment.user_has_read?(@current_user) %>
+      <% if has_confirmed %>
+        <span class="pulse-comment-confirm-btn is-confirmed" title="You've confirmed reading this">
+          <%= octicon "book", height: 12 %>
+          <span class="pulse-confirm-count"><%= comment.confirmed_reads %></span>
+        </span>
+      <% else %>
+        <button type="button"
+                class="pulse-comment-confirm-btn"
+                data-action="click->comment-thread#confirmRead"
+                data-comment-path="<%= comment.path %>"
+                title="Confirm you've read this comment">
+          <%= octicon "book", height: 12 %>
+          <span class="pulse-confirm-count"><%= comment.confirmed_reads %></span>
+        </button>
+      <% end %>
+    <% else %>
+      <span class="pulse-comment-confirm-display" title="Confirmed reads">
+        <%= octicon "book", height: 12 %>
+        <span class="pulse-confirm-count"><%= comment.confirmed_reads %></span>
+      </span>
+    <% end %>
+    <% if show_reply_button && @current_user %>
+      <button type="button"
+              class="pulse-comment-reply-btn"
+              data-action="click->comment-thread#showReplyForm"
+              data-comment-id="<%= comment.truncated_id %>"
+              data-root-comment-id="<%= root_comment_id %>">
+        Reply
+      </button>
+    <% end %>
+  </div>
+</div>

@@ -1,25 +1,75 @@
-<%# Comments list only - used for AJAX refresh %>
+<%# Comments list with threading - used for AJAX refresh %>
 <%# Usage: render 'shared/pulse_comments_list', commentable: @note %>
-<div class="pulse-comments-list" data-comments-target="list">
-  <% if commentable.comments.any? %>
-    <% commentable.chronological_comments.each do |comment| %>
-      <div class="pulse-comment" id="n-<%= comment.truncated_id %>">
-        <div class="pulse-comment-header">
-          <div class="pulse-author-avatar">
-            <% if comment.created_by.image.attached? %>
-              <img src="<%= comment.created_by.image_path %>" alt="" class="pulse-avatar-img">
-            <% end %>
-            <span class="pulse-avatar-initials"><%= comment.created_by.display_name.first.upcase %></span>
-          </div>
-          <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
-            <%= comment.created_by.display_name %>
-          </a>
-          <a href="<%= comment.path %>" class="pulse-comment-timestamp"><%= timeago(comment.created_at) %></a>
+<%
+  comment_data = commentable.comments_with_threads
+  top_level_comments = comment_data[:top_level]
+  threads = comment_data[:threads]
+%>
+
+<div class="pulse-comments-list"
+     data-comments-target="list"
+     data-controller="comment-thread">
+  <% if top_level_comments.any? %>
+    <% top_level_comments.each do |comment| %>
+      <%# Top-level comment %>
+      <%= render "shared/pulse_comment",
+                 comment: comment,
+                 show_reply_context: false,
+                 root_comment_id: comment.truncated_id %>
+
+      <%# All descendants flattened %>
+      <% descendants = threads[comment.id] || [] %>
+      <% if descendants.any? %>
+        <button type="button"
+                class="pulse-replies-toggle is-collapsed"
+                data-action="click->comment-thread#toggleReplies"
+                data-thread-id="<%= comment.truncated_id %>"
+                data-reply-count="<%= descendants.size %>"
+                aria-expanded="false"
+                aria-controls="replies-<%= comment.truncated_id %>">
+          <%= octicon "chevron-down", height: 12 %>
+          <span class="pulse-replies-toggle-text"><%= pluralize(descendants.size, "reply") %></span>
+        </button>
+        <div class="pulse-comment-replies" id="replies-<%= comment.truncated_id %>" hidden>
+          <% descendants.each do |reply| %>
+            <%# Show "Replying to" context if replying to someone other than the top-level comment %>
+            <% show_context = reply.commentable_id != comment.id %>
+            <%= render "shared/pulse_comment",
+                       comment: reply,
+                       show_reply_context: show_context,
+                       root_comment_id: comment.truncated_id %>
+          <% end %>
         </div>
-        <div class="pulse-comment-body">
-          <%= markdown_inline(comment.text) %>
+      <% end %>
+
+      <%# Reply form for this thread (hidden by default) %>
+      <% if @current_user %>
+        <div class="pulse-reply-form-container" id="reply-form-<%= comment.truncated_id %>" hidden>
+          <%= form_with url: "#{comment.path}/comments", method: :post, local: true,
+                        data: { action: "submit->comment-thread#submitReply", turbo: "false" },
+                        class: "pulse-reply-form" do |form| %>
+            <input type="hidden" name="reply_to_id" id="reply-to-<%= comment.truncated_id %>" value="<%= comment.truncated_id %>">
+            <div class="pulse-form-group mention-autocomplete-container"
+                 data-controller="mention-autocomplete"
+                 data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+              <%= form.text_area :text,
+                                 placeholder: "Write a reply...",
+                                 rows: 2,
+                                 class: "pulse-form-textarea",
+                                 data: { mention_autocomplete_target: "input" } %>
+              <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+            </div>
+            <div class="pulse-reply-form-actions">
+              <button type="button"
+                      class="pulse-btn-secondary"
+                      data-action="click->comment-thread#hideReplyForm">
+                Cancel
+              </button>
+              <%= form.submit "Reply", class: "pulse-feed-action-btn" %>
+            </div>
+          <% end %>
         </div>
-      </div>
+      <% end %>
     <% end %>
   <% else %>
     <p class="pulse-comments-empty">No comments yet.</p>

@@ -5,7 +5,7 @@ module Commentable
 
   included do
     has_many :comments,
-             class_name: 'Note',
+             class_name: "Note",
              as: :commentable,
              dependent: :destroy
   end
@@ -15,9 +15,7 @@ module Commentable
   end
 
   # Get all comments for this resource
-  def comments_count
-    comments.count
-  end
+  delegate :count, to: :comments, prefix: true
 
   def comment_count
     comments_count
@@ -35,8 +33,8 @@ module Commentable
       title: title,
       created_by: created_by,
       updated_by: created_by,
-      tenant_id: self.tenant_id,
-      superagent_id: self.superagent_id
+      tenant_id: tenant_id,
+      superagent_id: superagent_id
     )
   end
 
