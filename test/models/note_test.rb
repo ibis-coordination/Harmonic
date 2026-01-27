@@ -302,4 +302,266 @@ class NoteTest < ActiveSupport::TestCase
     # 1 create + 3 updates = 4 events
     assert_equal 4, note.note_history_events.count
   end
+
+  # === Comment Threading Tests ===
+
+  test "all_descendants returns empty array for note with no replies" do
+    tenant = create_tenant
+    user = create_user
+    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-empty-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      title: "Note without replies",
+      text: "This note has no comments"
+    )
+
+    assert_equal [], note.all_descendants
+  end
+
+  test "all_descendants returns direct replies" do
+    tenant = create_tenant
+    user = create_user
+    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-direct-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      title: "Parent Note",
+      text: "This is the parent note"
+    )
+
+    reply1 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "First reply",
+      commentable: note
+    )
+
+    reply2 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Second reply",
+      commentable: note
+    )
+
+    descendants = note.all_descendants
+    assert_equal 2, descendants.length
+    assert_includes descendants.map(&:id), reply1.id
+    assert_includes descendants.map(&:id), reply2.id
+  end
+
+  test "all_descendants returns deeply nested replies" do
+    tenant = create_tenant
+    user = create_user
+    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-deep-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      title: "Root Note",
+      text: "This is the root note"
+    )
+
+    # Level 1: direct reply
+    level1 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Level 1 reply",
+      commentable: note
+    )
+
+    # Level 2: reply to level1
+    level2 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Level 2 reply",
+      commentable: level1
+    )
+
+    # Level 3: reply to level2
+    level3 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Level 3 reply",
+      commentable: level2
+    )
+
+    # Level 4: reply to level3
+    level4 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Level 4 reply",
+      commentable: level3
+    )
+
+    descendants = note.all_descendants
+    assert_equal 4, descendants.length
+    assert_includes descendants.map(&:id), level1.id
+    assert_includes descendants.map(&:id), level2.id
+    assert_includes descendants.map(&:id), level3.id
+    assert_includes descendants.map(&:id), level4.id
+  end
+
+  test "all_descendants returns replies in chronological order" do
+    tenant = create_tenant
+    user = create_user
+    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-chrono-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      title: "Parent Note",
+      text: "This is the parent note"
+    )
+
+    # Create replies with explicit timestamps to ensure order
+    reply1 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "First reply (oldest)",
+      commentable: note,
+      created_at: 3.hours.ago
+    )
+
+    reply2 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Second reply (middle)",
+      commentable: note,
+      created_at: 2.hours.ago
+    )
+
+    reply3 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Third reply (newest)",
+      commentable: note,
+      created_at: 1.hour.ago
+    )
+
+    descendants = note.all_descendants
+    assert_equal [reply1.id, reply2.id, reply3.id], descendants.map(&:id)
+  end
+
+  test "all_descendants does not return unrelated notes" do
+    tenant = create_tenant
+    user = create_user
+    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-unrelated-#{SecureRandom.hex(4)}")
+
+    note1 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      title: "Note 1",
+      text: "First note"
+    )
+
+    note2 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      title: "Note 2",
+      text: "Second note (unrelated)"
+    )
+
+    # Reply to note1
+    reply_to_note1 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Reply to note 1",
+      commentable: note1
+    )
+
+    # Reply to note2
+    reply_to_note2 = Note.create!(
+      tenant: tenant,
+      superagent: superagent,
+      created_by: user,
+      updated_by: user,
+      text: "Reply to note 2",
+      commentable: note2
+    )
+
+    descendants_of_note1 = note1.all_descendants
+    assert_equal 1, descendants_of_note1.length
+    assert_includes descendants_of_note1.map(&:id), reply_to_note1.id
+    assert_not_includes descendants_of_note1.map(&:id), reply_to_note2.id
+    assert_not_includes descendants_of_note1.map(&:id), note2.id
+  end
+
+  test "all_descendants respects tenant isolation" do
+    tenant1 = create_tenant(subdomain: "tenant1-#{SecureRandom.hex(4)}")
+    tenant2 = create_tenant(subdomain: "tenant2-#{SecureRandom.hex(4)}")
+    user = create_user
+
+    superagent1 = create_superagent(tenant: tenant1, created_by: user, handle: "studio1-#{SecureRandom.hex(4)}")
+    superagent2 = create_superagent(tenant: tenant2, created_by: user, handle: "studio2-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant1,
+      superagent: superagent1,
+      created_by: user,
+      updated_by: user,
+      title: "Note in tenant 1",
+      text: "This note is in tenant 1"
+    )
+
+    # Reply in tenant1 (should be included)
+    reply_tenant1 = Note.create!(
+      tenant: tenant1,
+      superagent: superagent1,
+      created_by: user,
+      updated_by: user,
+      text: "Reply in tenant 1",
+      commentable: note
+    )
+
+    # Manually create a note in tenant2 with same commentable_id (edge case)
+    # This should NOT be returned because it's in a different tenant
+    Note.create!(
+      tenant: tenant2,
+      superagent: superagent2,
+      created_by: user,
+      updated_by: user,
+      text: "Note in tenant 2",
+      commentable_id: note.id,
+      commentable_type: "Note"
+    )
+
+    descendants = note.all_descendants
+    assert_equal 1, descendants.length
+    assert_equal reply_tenant1.id, descendants.first.id
+  end
 end

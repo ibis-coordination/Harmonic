@@ -171,4 +171,50 @@ class Note < ApplicationRecord
   def standalone_note?
     !is_comment?
   end
+
+  # Returns all descendants (replies, replies to replies, etc.) chronologically
+  # Uses PostgreSQL recursive CTE for efficient single-query fetching
+  # IMPORTANT: find_by_sql bypasses default_scope, so we must filter by tenant/superagent
+  sig { returns(T::Array[Note]) }
+  def all_descendants
+    return [] unless persisted?
+
+    sql = <<~SQL.squish
+      WITH RECURSIVE descendants AS (
+        SELECT notes.*, 1 as depth
+        FROM notes
+        WHERE notes.commentable_id = :note_id
+          AND notes.commentable_type = 'Note'
+          AND notes.tenant_id = :tenant_id
+          AND notes.superagent_id = :superagent_id
+
+        UNION ALL
+
+        SELECT n.*, d.depth + 1
+        FROM notes n
+        INNER JOIN descendants d ON n.commentable_id = d.id
+          AND n.commentable_type = 'Note'
+        WHERE n.tenant_id = :tenant_id
+          AND n.superagent_id = :superagent_id
+      )
+      SELECT * FROM descendants
+      ORDER BY created_at ASC
+    SQL
+
+    sanitized_sql = Note.sanitize_sql_array([
+      sql,
+      { note_id: id, tenant_id: tenant_id, superagent_id: superagent_id },
+    ])
+    Note.find_by_sql(sanitized_sql)
+  end
+
+  # Preload associations for a collection of notes (avoids N+1)
+  sig { params(notes: T::Array[Note]).returns(T::Array[Note]) }
+  def self.preload_for_display(notes)
+    ActiveRecord::Associations::Preloader.new(
+      records: notes,
+      associations: [:created_by, :commentable]
+    ).call
+    notes
+  end
 end

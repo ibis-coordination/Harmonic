@@ -50,4 +50,20 @@ module Commentable
   def chronological_comments
     comments.includes(:created_by).order(created_at: :asc)
   end
+
+  # Returns top-level comments with their descendants preloaded
+  # Returns a hash with :top_level array and :threads hash mapping comment_id => descendants
+  def comments_with_threads
+    top_level = chronological_comments.to_a
+
+    # Build a hash of comment_id => descendants for efficient lookup
+    threads = {}
+    top_level.each do |comment|
+      descendants = comment.all_descendants
+      Note.preload_for_display(descendants)
+      threads[comment.id] = descendants
+    end
+
+    { top_level: top_level, threads: threads }
+  end
 end
