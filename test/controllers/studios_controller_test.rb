@@ -133,12 +133,11 @@ class StudiosControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
-  # === Team Tests ===
+  # === Members Tests ===
 
-  test "authenticated user can view superagent team" do
-    skip "BUG: superagents/team.html.erb template is missing - route and controller action exist but no template"
+  test "authenticated user can view superagent members" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@superagent.handle}/team"
+    get "/studios/#{@superagent.handle}/members"
     assert_response :success
   end
 

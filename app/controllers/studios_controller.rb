@@ -1,8 +1,8 @@
 # typed: false
 
 class StudiosController < ApplicationController
-  layout 'pulse', only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view]
-  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view]
+  layout 'pulse', only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members]
+  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members]
 
   def index
     @page_title = "Studios"
@@ -409,8 +409,8 @@ class StudiosController < ApplicationController
     end
   end
 
-  def team
-    @page_title = 'Studio Team'
+  def members
+    @page_title = 'Members'
   end
 
   def invite
@@ -471,7 +471,7 @@ class StudiosController < ApplicationController
     render partial: 'shared/pinned', locals: { pinned_items: @pinned_items }
   end
 
-  def team_partial
+  def members_partial
     @team = @current_superagent.team
     render partial: 'shared/team', locals: { team: @team }
   end

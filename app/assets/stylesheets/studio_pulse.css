@@ -1020,6 +1020,7 @@ a:hover {
   padding: 16px;
   margin: 0;
   position: relative;
+  font-size: 0.8em;
 }
 
 /* Continue sidebar border through footer */

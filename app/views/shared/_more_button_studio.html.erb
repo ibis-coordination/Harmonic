@@ -7,5 +7,5 @@
 <% # settings = studio_user.is_admin? ? 'settings' : nil %>
 <% # options << '---' if settings %>
 <% # options << settings if settings %>
-<% # options << 'manage_team' if studio_user.is_admin? %>
+<% # options << 'manage_members' if studio_user.is_admin? %>
 <%= render 'shared/more_button', studio: studio, resource: studio, options: options %>

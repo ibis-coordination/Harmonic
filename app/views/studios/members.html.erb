@@ -1,0 +1,54 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'Members'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
+        Members
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Members</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @team.empty? %>
+      <p class="pulse-empty-content"><em>No members yet.</em></p>
+    <% else %>
+      <div class="pulse-participants-list">
+        <% @team.each do |u| %>
+          <div class="pulse-participant">
+            <div class="pulse-author-avatar">
+              <% if u.image_url.present? && u.image_url != '/placeholder.png' %>
+                <img src="<%= u.image_url %>" alt="" class="pulse-avatar-img">
+              <% end %>
+              <span class="pulse-avatar-initials"><%= u.display_name.to_s.first&.upcase || '?' %></span>
+            </div>
+            <a href="<%= u.superagent_member.path %>" class="pulse-participant-name"><%= u.display_name %></a>
+            <% if u.subagent? %>
+              <span class="pulse-badge pulse-badge-muted">subagent</span>
+            <% end %>
+            <% if u.superagent_member.is_admin? %>
+              <span class="pulse-badge pulse-badge-muted">admin</span>
+            <% end %>
+            <% if u.superagent_member.is_representative? %>
+              <span class="pulse-badge pulse-badge-muted">representative</span>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if @current_user&.superagent_member&.can_invite? %>
+      <div class="pulse-invite-section">
+        <a href="<%= @current_superagent.path %>/invite" class="pulse-invite-btn">
+          <%= octicon 'person-add', height: 16 %>
+          Invite Members
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>
