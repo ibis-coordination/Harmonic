@@ -14,10 +14,11 @@ Rails.application.configure do
 
     # Images: allow self, data URIs, and DigitalOcean Spaces (for uploaded files)
     if ENV["DO_SPACES_ENDPOINT"].present?
-      # Extract the host from the endpoint URL and allow the bucket subdomain
+      # Extract the host from the endpoint URL
+      # Allow both path-style (endpoint/bucket) and virtual-hosted (bucket.endpoint) URLs
       spaces_host = URI.parse(ENV["DO_SPACES_ENDPOINT"]).host rescue nil
       if spaces_host
-        policy.img_src :self, :data, "https://#{ENV['DO_SPACES_BUCKET']}.#{spaces_host}"
+        policy.img_src :self, :data, "https://#{spaces_host}", "https://#{ENV['DO_SPACES_BUCKET']}.#{spaces_host}"
       else
         policy.img_src :self, :data
       end
