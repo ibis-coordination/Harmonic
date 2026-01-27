@@ -32,7 +32,9 @@ class CreateStudios < ActiveRecord::Migration[7.0]
 
     # Comment out the following when rolling back
     Tenant.all.each do |tenant|
-      tenant.create_main_superagent!
+      first_user = tenant.tenant_users.first&.user
+      next unless first_user # Skip if no users
+      tenant.create_main_superagent!(created_by: first_user)
       tenant.tenant_users.each do |tu|
         tenant.main_superagent.add_user!(tu.user)
       end

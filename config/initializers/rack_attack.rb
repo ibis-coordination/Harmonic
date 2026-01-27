@@ -12,6 +12,25 @@ class Rack::Attack
     end
   end
 
+  # Skip throttling for health checks and static assets
+  safelist('allow-healthcheck') do |req|
+    req.path == '/healthcheck'
+  end
+
+  # General request throttle - 300 requests per minute per IP
+  # This provides baseline protection against abuse while allowing normal usage
+  throttle('req/ip', limit: 300, period: 1.minute) do |req|
+    req.ip unless req.path.start_with?('/assets')
+  end
+
+  # Stricter throttle for write operations (POST/PUT/PATCH/DELETE)
+  # 60 write requests per minute per IP
+  throttle('writes/ip', limit: 60, period: 1.minute) do |req|
+    if %w[POST PUT PATCH DELETE].include?(req.request_method)
+      req.ip
+    end
+  end
+
   # Throttle login attempts by IP address
   throttle('login/ip', limit: 5, period: 20.minutes) do |req|
     if req.path == '/auth/identity/callback' && req.post?
@@ -57,3 +76,21 @@ Rack::Attack.cache.store = ActiveSupport::Cache::RedisCacheStore.new(
   url: ENV['REDIS_URL'],
   namespace: 'rack_attack'
 )
+
+# Log throttled and blocked requests to security audit log
+ActiveSupport::Notifications.subscribe('throttle.rack_attack') do |_name, _start, _finish, _id, payload|
+  req = payload[:request]
+  SecurityAuditLog.log_rate_limited(
+    ip: req.ip,
+    matched: req.env['rack.attack.matched'],
+    request_path: req.path,
+  )
+end
+
+ActiveSupport::Notifications.subscribe('blocklist.rack_attack') do |_name, _start, _finish, _id, payload|
+  req = payload[:request]
+  SecurityAuditLog.log_ip_blocked(
+    ip: req.ip,
+    matched: req.env['rack.attack.matched']
+  )
+end

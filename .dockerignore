@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Dependencies (installed in container)
+node_modules
+vendor/bundle
+
+# Build artifacts
+public/assets
+public/packs
+app/assets/builds
+
+# Logs and temp files
+log/*
+tmp/*
+storage/*
+
+# Test and development
+coverage
+.rspec
+spec
+test
+
+# IDE and editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Documentation
+docs
+*.md
+!README.md
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Docker files (not needed in context)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Environment (secrets)
+.env*
+!.env.example
+
+# Misc
+.claude
+.ruby-lsp
+.byebug_history

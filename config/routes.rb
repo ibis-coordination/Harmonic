@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
+  get 'metrics' => 'metrics#show'
 
   # Development tools - Pulse styleguide (only available in development)
   if Rails.env.development?
@@ -13,6 +14,7 @@ Rails.application.routes.draw do
     get 'logout-success' => 'honor_system_sessions#logout_success'
   elsif ENV['AUTH_MODE'] == 'oauth'
     get 'login' => 'sessions#new'
+    get 'auth/:provider/callback' => 'sessions#oauth_callback'
     post 'auth/:provider/callback' => 'sessions#oauth_callback'
     get  'auth/failure' => 'sessions#oauth_failure'
     get 'login/return' => 'sessions#return'
@@ -130,6 +132,8 @@ Rails.application.routes.draw do
   get 'admin/sidekiq/jobs/:jid/actions' => 'admin#actions_index_sidekiq_job'
   get 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#describe_retry_sidekiq_job'
   post 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#execute_retry_sidekiq_job'
+  get 'admin/security' => 'admin#security_dashboard'
+  get 'admin/security/events/:line_number' => 'admin#security_event'
 
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member

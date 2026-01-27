@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+    .alert-box { border: 2px solid #dc3545; border-radius: 8px; padding: 20px; margin: 20px 0; background: #fff5f5; }
+    .alert-header { color: #dc3545; margin: 0 0 10px 0; font-size: 20px; }
+    .meta { color: #666; font-size: 14px; margin: 15px 0; }
+    .context { background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 13px; }
+    .context-title { font-weight: bold; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="alert-box">
+    <h1 class="alert-header">Critical Alert</h1>
+    <p><%= @message %></p>
+    <div class="meta">
+      <strong>Environment:</strong> <%= @environment %><br>
+      <strong>Hostname:</strong> <%= @hostname %><br>
+      <strong>Time:</strong> <%= @timestamp %>
+    </div>
+    <% if @context.present? %>
+      <div class="context">
+        <div class="context-title">Additional Context:</div>
+        <pre><%= JSON.pretty_generate(@context) %></pre>
+      </div>
+    <% end %>
+  </div>
+</body>
+</html>

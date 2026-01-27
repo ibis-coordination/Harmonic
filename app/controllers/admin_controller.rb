@@ -143,6 +143,63 @@ class AdminController < ApplicationController
     redirect_to '/admin/sidekiq'
   end
 
+  def security_dashboard
+    return render status: 403, plain: '403 Unauthorized' unless is_main_tenant?
+    @page_title = 'Security Dashboard'
+
+    # Parse filter params
+    @event_type = params[:event_type].presence
+    @ip_filter = params[:ip].presence
+    @email_filter = params[:email].presence
+    @time_range = params[:time_range].presence || "24h"
+    @sort_by = params[:sort_by].presence || "timestamp"
+    @sort_dir = params[:sort_dir].presence || "desc"
+    @page = [params[:page].to_i, 1].max
+    @per_page = 50
+
+    since = case @time_range
+    when "1h" then 1.hour.ago
+    when "24h" then 24.hours.ago
+    when "7d" then 7.days.ago
+    when "30d" then 30.days.ago
+    end
+
+    @summary = SecurityAuditLogReader.summary(since: since || 24.hours.ago)
+    result = SecurityAuditLogReader.filtered_events(
+      event_type: @event_type,
+      ip: @ip_filter,
+      email: @email_filter,
+      since: since,
+      sort_by: @sort_by,
+      sort_dir: @sort_dir,
+      page: @page,
+      per_page: @per_page
+    )
+    @recent_events = result[:events]
+    @total_count = result[:total_count]
+    @total_pages = (@total_count.to_f / @per_page).ceil
+    @log_exists = SecurityAuditLogReader.log_exists?
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  def security_event
+    return render status: 403, plain: '403 Unauthorized' unless is_main_tenant?
+
+    line_number = params[:line_number].to_i
+    @event = SecurityAuditLogReader.event_at_line(line_number)
+    return render status: 404, plain: '404 Not Found' unless @event
+
+    @page_title = "Security Event ##{line_number}"
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
   # Markdown API actions
 
   def actions_index

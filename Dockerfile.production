@@ -1,0 +1,102 @@
+# Production Dockerfile - builds an immutable image with all assets pre-compiled
+# Use this for production deployments and self-hosting where you don't need
+# live code reloading.
+
+# Build stage - compile assets and install dependencies
+FROM ruby:3.1.7-slim AS builder
+
+ENV RAILS_ENV=production
+ENV NODE_ENV=production
+ENV BUNDLE_PATH=/gems
+ENV BUNDLE_WITHOUT=development:test
+
+# Install build dependencies
+RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
+    build-essential \
+    git \
+    libpq-dev \
+    libxml2-dev \
+    libxslt-dev \
+    curl \
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Node.js (LTS version)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+  && apt-get install -y nodejs \
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN gem update --system && gem install bundler
+
+WORKDIR /app
+
+# Install Ruby dependencies
+COPY Gemfile Gemfile.lock ./
+RUN bundle config build.nokogiri --use-system-libraries && \
+    bundle config set --local path '/gems' && \
+    bundle config set --local without 'development test' && \
+    bundle install --jobs 4 --retry 3
+
+# Install Node dependencies (including devDependencies for build step)
+COPY package.json package-lock.json ./
+RUN npm ci && npm install -g esbuild
+
+# Copy application code
+COPY . .
+
+# Precompile Rails assets (includes JS build via jsbundling-rails)
+RUN SECRET_KEY_BASE=dummy-key-for-asset-precompilation \
+    AUTH_MODE=oauth \
+    bundle exec rails assets:precompile
+
+# Remove unnecessary files to reduce image size
+RUN rm -rf node_modules tmp/cache vendor/bundle/ruby/*/cache \
+    .git spec test log/*.log
+
+
+# Runtime stage - minimal image for running the app
+FROM ruby:3.1.7-slim AS runtime
+
+ENV RAILS_ENV=production
+ENV BUNDLE_PATH=/gems
+ENV BUNDLE_WITHOUT=development:test
+ENV RAILS_LOG_TO_STDOUT=true
+ENV RAILS_SERVE_STATIC_FILES=true
+
+# Install runtime dependencies only
+RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
+    libpq5 \
+    libxml2 \
+    libxslt1.1 \
+    libvips \
+    curl \
+    clamdscan \
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Configure clamdscan to connect to clamav service
+RUN mkdir -p /etc/clamav && \
+    echo "TCPSocket 3310" > /etc/clamav/clamd.conf && \
+    echo "TCPAddr clamav" >> /etc/clamav/clamd.conf
+
+# Create non-root user
+RUN useradd -m -u 1000 harmonic
+
+WORKDIR /app
+
+# Copy built application from builder stage
+COPY --from=builder --chown=harmonic:harmonic /app /app
+COPY --from=builder --chown=harmonic:harmonic /gems /gems
+
+# Create required directories with correct ownership
+RUN mkdir -p tmp/pids tmp/cache log && chown -R harmonic:harmonic tmp log
+
+# Switch to non-root user
+USER harmonic
+
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:3000/healthcheck || exit 1
+
+# Start the application server with Puma
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]

@@ -1,0 +1,77 @@
+# Security Dashboard
+
+[Back to Admin Dashboard](/admin)
+
+<% unless @log_exists -%>
+> **Note:** Security audit log file not found. Events will appear here once security-relevant actions occur.
+
+<% end -%>
+<% if @event_type.present? || @ip_filter.present? || @email_filter.present? || @time_range != "24h" -%>
+## Active Filters
+
+| Filter | Value |
+|--------|-------|
+<% if @event_type.present? -%>
+| Event Type | `<%= @event_type %>` |
+<% end -%>
+<% if @ip_filter.present? -%>
+| IP Address | `<%= @ip_filter %>` |
+<% end -%>
+<% if @email_filter.present? -%>
+| Email | <%= @email_filter %> |
+<% end -%>
+| Time Range | <%= { '1h' => 'Last Hour', '24h' => 'Last 24 Hours', '7d' => 'Last 7 Days', '30d' => 'Last 30 Days', 'all' => 'All Time' }[@time_range] || @time_range %> |
+
+[Clear Filters](/admin/security)
+
+<% end -%>
+## Summary (<%= { '1h' => 'Last Hour', '24h' => 'Last 24 Hours', '7d' => 'Last 7 Days', '30d' => 'Last 30 Days', 'all' => 'All Time' }[@time_range] || 'Last 24 Hours' %>)
+
+| Event Type | Count |
+|------------|-------|
+| Login Success | <%= @summary['login_success'] %> |
+| Login Failure | <%= @summary['login_failure'] %> |
+| Logout | <%= @summary['logout'] %> |
+| Password Reset Requested | <%= @summary['password_reset_requested'] %> |
+| Password Changed | <%= @summary['password_changed'] %> |
+| Permission Denied | <%= @summary['permission_denied'] %> |
+| Admin Action | <%= @summary['admin_action'] %> |
+| Rate Limited | <%= @summary['rate_limited'] %> |
+| IP Blocked | <%= @summary['ip_blocked'] %> |
+
+## Security Events (<%= @total_count %> total<%= @total_pages > 1 ? ", page #{@page} of #{@total_pages}" : "" %>)
+
+<% if @recent_events.any? -%>
+| # | Time | Event | Email | IP | Details |
+|---|------|-------|-------|-----|---------|
+<% @recent_events.each do |event| -%>
+<% details = event.except('timestamp', 'event', 'environment', 'email', 'ip', 'user_id', 'line_number') -%>
+| [<%= event['line_number'] %>](/admin/security/events/<%= event['line_number'] %>) | <%= event['timestamp']&.to_s&.truncate(19) %> | `<%= event['event'] %>` | <%= event['email'] || '-' %> | `<%= event['ip'] || '-' %>` | <%= details.any? ? details.map { |k, v| "#{k}: #{v.to_s.truncate(20)}" }.join(', ') : '-' %> |
+<% end -%>
+<% if @total_pages > 1 -%>
+<% base_params = request.query_parameters.except("page") -%>
+
+<% if @page > 1 -%>
+[Previous page](/admin/security?<%= base_params.merge(page: @page - 1).to_query %>)
+<% end -%>
+<% if @page > 1 && @page < @total_pages %> | <% end -%>
+<% if @page < @total_pages -%>
+[Next page](/admin/security?<%= base_params.merge(page: @page + 1).to_query %>)
+<% end -%>
+<% end -%>
+<% else -%>
+*No security events match the current filters.*
+<% end -%>
+
+## Filter Options
+
+To filter events, add query parameters:
+- `event_type` - Filter by event type (e.g., `login_failure`, `rate_limited`)
+- `ip` - Filter by IP address
+- `email` - Filter by email address
+- `time_range` - Time range: `1h`, `24h`, `7d`, `30d`, or `all`
+- `sort_by` - Sort column: `timestamp` or `event`
+- `sort_dir` - Sort direction: `asc` or `desc`
+- `page` - Page number (50 events per page)
+
+Example: `/admin/security?event_type=login_failure&time_range=7d&sort_by=timestamp&sort_dir=desc&page=2`

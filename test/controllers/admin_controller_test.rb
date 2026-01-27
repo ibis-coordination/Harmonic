@@ -252,6 +252,28 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  # --- Security Dashboard (Primary-Only, but still blocked for non-admins) ---
+
+  test "non-admin user cannot access /admin/security" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/security"
+    assert_response :forbidden
+  end
+
+  test "non-admin user cannot access /admin/security/events/:line_number" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/security/events/1"
+    assert_response :forbidden
+  end
+
   # ============================================================================
   # SECTION 2: Admin of Non-Primary Tenant CAN Access General Admin Pages
   # ============================================================================
@@ -486,6 +508,32 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  # --- Security Dashboard ---
+
+  test "admin of non-primary tenant cannot access /admin/security" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/security"
+    assert_response :forbidden
+  end
+
+  test "admin of non-primary tenant cannot access /admin/security/events/:line_number" do
+    @other_tenant.add_user!(@other_admin_user)
+    tenant_user = @other_tenant.tenant_users.find_by(user: @other_admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@other_admin_user, tenant: @other_tenant)
+
+    get "/admin/security/events/1"
+    assert_response :forbidden
+  end
+
   # ============================================================================
   # SECTION 4: Admin of Primary Tenant CAN Access All Pages
   # ============================================================================
@@ -587,6 +635,123 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
 
     get "/admin/sidekiq/queues/default"
     assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/security" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/security"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/security as markdown" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/security", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Security Dashboard/, response.body)
+  end
+
+  test "admin of primary tenant can access /admin/security with filters" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    # Test with various filter combinations
+    get "/admin/security?event_type=login_failure&time_range=7d"
+    assert_response :success
+
+    get "/admin/security?ip=127.0.0.1"
+    assert_response :success
+
+    get "/admin/security?email=test@example.com&sort_by=timestamp&sort_dir=asc"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/security with pagination" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    # Test with page parameter
+    get "/admin/security?page=1"
+    assert_response :success
+
+    get "/admin/security?page=2"
+    assert_response :success
+
+    # Test pagination with filters
+    get "/admin/security?event_type=login_failure&page=1"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/security/events/:line_number" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    # Count existing lines before creating event
+    log_file = Rails.root.join("log/security_audit.log")
+    line_count_before = File.exist?(log_file) ? File.foreach(log_file).count : 0
+
+    # Create a security event
+    SecurityAuditLog.log_login_success(user: @admin_user, ip: "127.0.0.1", user_agent: "Test")
+    line_number = line_count_before + 1
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/security/events/#{line_number}"
+    assert_response :success
+  end
+
+  test "admin of primary tenant can access /admin/security/events/:line_number as markdown" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    # Count existing lines before creating event
+    log_file = Rails.root.join("log/security_audit.log")
+    line_count_before = File.exist?(log_file) ? File.foreach(log_file).count : 0
+
+    # Create a security event
+    SecurityAuditLog.log_login_success(user: @admin_user, ip: "127.0.0.1", user_agent: "Test")
+    line_number = line_count_before + 1
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/security/events/#{line_number}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Security Event/, response.body)
+  end
+
+  test "admin of primary tenant gets 404 for invalid security event line number" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/security/events/999999999"
+    assert_response :not_found
   end
 
   # ============================================================================
@@ -744,6 +909,20 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
     get "/admin/sidekiq"
+    assert_response :redirect
+  end
+
+  test "unauthenticated user cannot access /admin/security" do
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/admin/security"
+    assert_response :redirect
+  end
+
+  test "unauthenticated user cannot access /admin/security/events/:line_number" do
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/admin/security/events/1"
     assert_response :redirect
   end
 

@@ -24,6 +24,9 @@
       <a href="/admin/sidekiq" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/sidekiq') %>">
         <%= octicon 'workflow', height: 16 %> Sidekiq Jobs
       </a>
+      <a href="/admin/security" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/security') %>">
+        <%= octicon 'shield', height: 16 %> Security
+      </a>
     <% end %>
   </div>
 </aside>

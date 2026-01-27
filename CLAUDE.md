@@ -183,6 +183,22 @@ When creating implementation plans, store them in `.claude/plans/` with descript
 - Plans should document goals, architecture decisions, and implementation phases
 - When a plan is completed, move it to the appropriate `completed/YYYY/MM/` subdirectory
 
+## Destructive Operations
+
+**NEVER delete the database or Docker volumes without explicit user confirmation.** This includes:
+- `docker compose down -v` (removes all volumes including database)
+- `docker volume rm` on `pg_data` or similar database volumes
+- `rails db:drop` or `rails db:reset`
+- Any command that would destroy persistent data
+
+If you need to fix a volume issue (e.g., stale gems), target only the specific volume:
+```bash
+docker volume rm harmonicteam_gem_cache  # OK - only removes gems
+docker compose down -v                    # DANGEROUS - removes database too
+```
+
+Always ask the user before running destructive commands.
+
 ## Other
 
 Do not use the term "pre-existing" when you encounter failing tests or failing type checks. If there are failures, those failures must be addressed properly.

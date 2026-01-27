@@ -115,3 +115,17 @@ gem 'aws-sdk-s3', '~> 1.208'
 # Security gems
 gem 'rack-attack' # Rate limiting and request filtering
 gem 'clamby' # ClamAV virus scanning
+
+# Monitoring and error tracking
+gem 'sentry-ruby'
+gem 'sentry-rails'
+gem 'sentry-sidekiq'
+
+# Structured logging
+gem 'lograge'
+
+# Application metrics
+gem 'yabeda'
+gem 'yabeda-rails'
+gem 'yabeda-sidekiq'
+gem 'yabeda-prometheus'

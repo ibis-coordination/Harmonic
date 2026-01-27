@@ -1,9 +1,17 @@
 # typed: false
 
 class PasswordResetsController < ApplicationController
-  layout 'pulse'
+  layout "pulse"
   before_action :set_auth_layout
   before_action :find_identity_by_token, only: [:show, :update]
+
+  def show
+    # Form to reset password with token
+    return unless @identity.nil? || !@identity.reset_password_token_valid?
+
+    flash[:alert] = "Password reset link has expired or is invalid. Please request a new one."
+    redirect_to new_password_reset_path
+  end
 
   def new
     # Form to request password reset
@@ -11,6 +19,11 @@ class PasswordResetsController < ApplicationController
 
   def create
     @identity = OmniAuthIdentity.find_by(email: params[:email].downcase.strip)
+
+    SecurityAuditLog.log_password_reset_requested(
+      email: params[:email].downcase.strip,
+      ip: request.remote_ip
+    )
 
     if @identity
       @identity.generate_reset_password_token!
@@ -25,14 +38,6 @@ class PasswordResetsController < ApplicationController
     redirect_to new_password_reset_path
   end
 
-  def show
-    # Form to reset password with token
-    if @identity.nil? || !@identity.reset_password_token_valid?
-      flash[:alert] = "Password reset link has expired or is invalid. Please request a new one."
-      redirect_to new_password_reset_path
-    end
-  end
-
   def update
     if @identity.nil? || !@identity.reset_password_token_valid?
       flash[:alert] = "Password reset link has expired or is invalid. Please request a new one."
@@ -43,8 +48,10 @@ class PasswordResetsController < ApplicationController
     if params[:password].present? && params[:password] == params[:password_confirmation]
       if params[:password].length >= 14
         @identity.update_password!(params[:password])
+        user = User.find_by(email: @identity.email)
+        SecurityAuditLog.log_password_changed(user: user, ip: request.remote_ip) if user
         flash[:notice] = "Your password has been updated successfully. You can now log in."
-        redirect_to '/login'
+        redirect_to "/login"
       else
         flash.now[:alert] = "Password must be at least 14 characters long."
         render :show
@@ -62,7 +69,7 @@ class PasswordResetsController < ApplicationController
   end
 
   def set_auth_layout
-    @sidebar_mode = 'none'
+    @sidebar_mode = "none"
     @hide_header = true
   end
 
