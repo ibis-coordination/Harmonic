@@ -87,10 +87,7 @@ a:hover {
   text-decoration: none;
 }
 
-.pulse-logo img {
-  width: 32px;
-  height: 32px;
-}
+/* Logo uses .tri-logo-icon (32px default) - see pulse/_components.css */
 
 .pulse-studio-info {
   padding: 16px;
@@ -943,10 +940,7 @@ a:hover {
   font-size: 16px;
 }
 
-.pulse-top-header .pulse-logo img {
-  width: 28px;
-  height: 28px;
-}
+/* Logo uses .tri-logo-icon.icon-sm (28px) - see pulse/_components.css */
 
 .pulse-top-header-right {
   display: flex;

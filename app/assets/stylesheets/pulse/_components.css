@@ -72,6 +72,34 @@
   }
 }
 
+/* Tri-logo icon for header branding */
+.tri-logo-icon {
+  background-image: url(/tri-logo.svg);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  width: 32px;
+  height: 32px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tri-logo-icon.icon-sm {
+  width: 28px;
+  height: 28px;
+}
+
+.tri-logo-icon.icon-lg {
+  width: 64px;
+  height: 64px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tri-logo-icon {
+    filter: invert(1);
+  }
+}
+
 /* Primary Action Button */
 .pulse-action-btn {
   background: var(--color-fg-default);
@@ -2717,10 +2745,7 @@ a.pulse-activity-title:hover {
   margin-bottom: 32px;
 }
 
-.pulse-auth-logo img {
-  width: 64px;
-  height: 64px;
-}
+/* Logo uses .tri-logo-icon.icon-lg (64px) - see icon definitions above */
 
 .pulse-auth-title {
   font-size: 24px;
