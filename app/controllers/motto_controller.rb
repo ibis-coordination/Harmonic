@@ -1,11 +1,14 @@
 # typed: false
 
 class MottoController < ApplicationController
+  layout "pulse"
+
   def index
     @page_title = "Do the right thing. ❤️"
+    @sidebar_mode = "minimal"
     respond_to do |format|
       format.html do
-        render layout: "application", html: page_html
+        render inline: page_html, layout: true
       end
       format.md
     end

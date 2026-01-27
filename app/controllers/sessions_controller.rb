@@ -55,7 +55,8 @@ class SessionsController < ApplicationController
         reason: "oauth_provider_not_enabled",
         user_agent: request.user_agent,
       )
-      render status: 403, layout: 'application', html: "OAuth provider <code>#{request.env['omniauth.auth'].provider}</code> is not enabled for subdomain <code>#{original_tenant.subdomain}</code>".html_safe
+@sidebar_mode = 'none'
+      render status: 403, layout: 'pulse', html: "OAuth provider <code>#{request.env['omniauth.auth'].provider}</code> is not enabled for subdomain <code>#{original_tenant.subdomain}</code>".html_safe
     end
   end
 

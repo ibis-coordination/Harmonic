@@ -158,7 +158,8 @@ class ApplicationController < ActionController::Base
     if tu.nil?
       accepting_invite = current_invite && current_invite.superagent == @current_superagent
       if @current_tenant.require_login? && controller_name != 'sessions' && !accepting_invite
-        render status: 403, layout: 'application', template: 'sessions/403_to_logout'
+@sidebar_mode = 'none'
+        render status: 403, layout: 'pulse', template: 'sessions/403_to_logout'
       elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
         # The user still has to click "accept" to accept the invite to the superagent,
         # but they need to access the tenant to do so.

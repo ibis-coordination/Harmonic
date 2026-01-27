@@ -25,6 +25,44 @@
   fill: currentColor;
 }
 
+/* Resource Icons (Note, Decision, Commitment) */
+.note-icon,
+.decision-icon,
+.commitment-icon {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center center;
+  height: 20px;
+  width: 20px;
+  display: inline-block;
+}
+
+.note-icon {
+  background-image: url(/resource-icons/note-icon.svg);
+}
+
+.decision-icon {
+  background-image: url(/resource-icons/decision-icon.svg);
+}
+
+.commitment-icon {
+  background-image: url(/resource-icons/commitment-icon.svg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .note-icon {
+    background-image: url(/resource-icons/note-icon-dark.svg);
+  }
+
+  .decision-icon {
+    background-image: url(/resource-icons/decision-icon-dark.svg);
+  }
+
+  .commitment-icon {
+    background-image: url(/resource-icons/commitment-icon-dark.svg);
+  }
+}
+
 /* Primary Action Button */
 .pulse-action-btn {
   background: var(--color-fg-default);

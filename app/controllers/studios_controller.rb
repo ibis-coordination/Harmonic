@@ -139,7 +139,8 @@ class StudiosController < ApplicationController
       addable_ids = user_subagent_ids - active_studio_subagent_ids
       @addable_subagents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
     else
-      return render layout: 'application', html: 'You must be an admin to access studio settings.'
+@sidebar_mode = 'minimal'
+      return render layout: 'pulse', html: 'You must be an admin to access studio settings.'
     end
   end
 
@@ -415,7 +416,8 @@ class StudiosController < ApplicationController
 
   def invite
     unless @current_user.superagent_member.can_invite?
-      return render layout: 'application', html: 'You do not have permission to invite members to this studio.'
+@sidebar_mode = 'minimal'
+      return render layout: 'pulse', html: 'You do not have permission to invite members to this studio.'
     end
     @page_title = 'Invite to Studio'
     @invite = @current_superagent.find_or_create_shareable_invite(@current_user)

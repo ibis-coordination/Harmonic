@@ -3,7 +3,7 @@
 This document catalogs all TODO comments in the codebase, organized by category and priority. Use this as a reference when looking for improvement opportunities.
 
 > **Last updated**: January 2026
-> **Total TODOs**: 40
+> **Total TODOs**: 41
 
 ---
 
@@ -14,7 +14,7 @@ This document catalogs all TODO comments in the codebase, organized by category 
 | [Webhooks & Tracking](#webhooks--tracking) | 0 | ✅ Implemented |
 | [Validation & Error Handling](#validation--error-handling) | 7 | Medium |
 | [Performance](#performance) | 3 | Low |
-| [Security & Authorization](#security--authorization) | 4 | High |
+| [Security & Authorization](#security--authorization) | 5 | High |
 | [Refactoring & Cleanup](#refactoring--cleanup) | 8 | Low |
 | [Feature Gaps](#feature-gaps) | 7 | Medium |
 | [UI/UX](#uiux) | 3 | Low |
@@ -60,6 +60,7 @@ See `docs/plans/notifications-webhooks.md` for the full implementation plan.
 
 | File | Line | Description |
 |------|------|-------------|
+| `app/controllers/representation_sessions_controller.rb` | 5 | Bug - representatives can act AS the studio within the studio itself (should only act on behalf in OTHER studios) |
 | `app/controllers/sessions_controller.rb` | 133 | Check if user is allowed to access tenant |
 | `app/controllers/application_controller.rb` | 238 | Handle invalid representation session - security concerns unclear |
 | `app/controllers/studios_controller.rb` | 182 | Check studio settings for public join permission |

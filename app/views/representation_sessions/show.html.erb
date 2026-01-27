@@ -68,7 +68,11 @@
                     <code><%= activity_item[:main_resource].truncated_id %></code>
                   </a>
                 </td>
-                <td><a href="<%= activity_item[:studio].path %>" class="pulse-link"><%= activity_item[:studio].name %></a></td>
+                <td>
+                  <% if activity_item[:studio] %>
+                    <a href="<%= activity_item[:studio].path %>" class="pulse-link"><%= activity_item[:studio].name %></a>
+                  <% end %>
+                </td>
               </tr>
             <% end %>
           </tbody>
