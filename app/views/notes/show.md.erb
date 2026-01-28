@@ -22,15 +22,7 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 
 <%= render 'shared/backlinks', resource: @note %>
 <%= render 'shared/attachments_section', resource: @note %>
-## Comments (<%= @note.comments_count %>)
-
-<% if @note.comments.empty? -%>
-No comments yet.
-<% else -%>
-<% @note.chronological_comments.each do |comment| -%>
-* <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
-<% end -%>
-<% end -%>
+<%= render 'shared/comments_section', resource: @note %>
 
 ## [Actions](<%= @note.path %>/actions)
 

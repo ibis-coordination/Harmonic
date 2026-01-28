@@ -239,6 +239,7 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/representation" => 'representation_sessions#index'
     get "#{studios_or_scenes}/:superagent_handle/r/:id" => 'representation_sessions#show'
     post "#{studios_or_scenes}/:superagent_handle/r/:representation_session_id/comments" => 'representation_sessions#create_comment'
+    get "#{studios_or_scenes}/:superagent_handle/r/:representation_session_id/comments.html" => 'representation_sessions#comments_partial'
     get "#{studios_or_scenes}/:superagent_handle/u/:handle" => 'users#show'
     # Autocomplete endpoints (scoped to studio members)
     get "#{studios_or_scenes}/:superagent_handle/autocomplete/users" => 'autocomplete#users'

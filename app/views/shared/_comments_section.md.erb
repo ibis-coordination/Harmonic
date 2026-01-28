@@ -1,0 +1,21 @@
+<%# Threaded comments section for markdown views %>
+<%# Usage: render 'shared/comments_section', resource: @note %>
+## Comments (<%= resource.comments_count %>)
+
+<% if resource.comments.empty? -%>
+No comments yet.
+<% else -%>
+<%
+  comment_data = resource.comments_with_threads
+  top_level_comments = comment_data[:top_level]
+  threads = comment_data[:threads]
+-%>
+<% top_level_comments.each do |comment| -%>
+* <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
+<% descendants = threads[comment.id] || [] -%>
+<% descendants.each do |reply| -%>
+<% show_context = reply.commentable_id != comment.id -%>
+  * <% if show_context && reply.commentable.present? -%>↳ Replying to @<%= reply.commentable.created_by.handle %>: <% end -%><%= reply.created_by ? user_link_md(reply.created_by) : 'Unknown' %> (<%= time_ago_in_words(reply.created_at) %> ago): [<%= reply.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= reply.path %>)
+<% end -%>
+<% end -%>
+<% end -%>
