@@ -298,7 +298,7 @@ class ApplicationController < ActionController::Base
 
   def current_resource_model
     return @current_resource_model if defined?(@current_resource_model)
-    if controller_name == 'home' || controller_name == 'trio' || controller_name.end_with?('sessions')
+    if controller_name == 'home' || controller_name == 'trio' || controller_name.end_with?('sessions') || controller_name == 'two_factor_auth'
       @current_resource_model = nil
     else
       @current_resource_model = controller_name.classify.constantize

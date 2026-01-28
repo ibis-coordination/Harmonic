@@ -1,0 +1,46 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-logo">
+    <i class="tri-logo-icon icon-lg"></i>
+  </div>
+
+  <h1 class="pulse-auth-title">Save Your Recovery Codes</h1>
+
+  <div class="pulse-alert pulse-alert-warning" style="margin-bottom: 24px; text-align: left;">
+    <strong>Important:</strong> These codes will only be shown once.
+    Save them in a secure location. You can use these codes to access your account if you lose your authenticator device.
+  </div>
+
+  <div class="recovery-codes-container"
+       style="background: var(--pulse-bg-secondary); border-radius: 8px; padding: 24px; margin-bottom: 24px;"
+       data-controller="recovery-codes"
+       data-recovery-codes-codes-value="<%= @recovery_codes.to_json %>">
+    <div class="recovery-codes-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-family: monospace; font-size: 0.875rem;">
+      <% @recovery_codes.each do |code| %>
+        <div class="recovery-code" style="padding: 8px; background: var(--pulse-bg-tertiary); border-radius: 4px; text-align: center;">
+          <%= code.scan(/.{4}/).join(' ') %>
+        </div>
+      <% end %>
+    </div>
+
+    <div style="margin-top: 16px; display: flex; gap: 8px; justify-content: center;">
+      <button type="button"
+              class="pulse-btn pulse-btn-secondary"
+              data-action="recovery-codes#copy"
+              data-recovery-codes-target="copyButton">
+        Copy codes
+      </button>
+      <button type="button"
+              class="pulse-btn pulse-btn-secondary"
+              data-action="recovery-codes#download">
+        Download
+      </button>
+    </div>
+  </div>
+
+  <p style="color: var(--pulse-text-secondary); font-size: 0.875rem; margin-bottom: 24px;">
+    Each code can only be used once. When you use a recovery code, it will be permanently invalidated.
+    You have <strong><%= @recovery_codes.length %></strong> recovery codes.
+  </p>
+
+  <%= link_to 'Continue to Settings', two_factor_settings_path, class: 'pulse-action-btn', style: 'display: inline-block;' %>
+</div>

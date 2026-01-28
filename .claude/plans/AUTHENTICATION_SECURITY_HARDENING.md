@@ -451,9 +451,302 @@ end
 
 ---
 
+## Phase 5: API Token Security Hardening
+
+**Added**: 2026-01-27
+**Status**: Pending
+
+This phase addresses security concerns identified during an audit of API token management in the UI and API.
+
+### Current Implementation Summary
+
+| Component | Location | Status |
+|-----------|----------|--------|
+| Token Generation | `app/models/api_token.rb:188` | ✅ Secure (40-char hex via `SecureRandom.hex(20)`) |
+| Token Storage | Database | ⚠️ Plaintext (not hashed) |
+| Token Display | `app/views/api_tokens/show.html.erb` | ✅ Obfuscated (first 4 chars + asterisks) |
+| Clipboard Copy | `app/javascript/controllers/clipboard_controller.ts` | ✅ Secure (hidden input + Clipboard API) |
+| Parameter Filtering | `config/initializers/filter_parameter_logging.rb` | ✅ `:token` filtered in logs |
+| Expiration | `app/models/api_token.rb:108-111` | ✅ Enforced at auth time |
+| Soft Delete | `app/models/api_token.rb:134-137` | ✅ Sets `deleted_at` timestamp |
+
+---
+
+### 5.1 Fix Markdown View Token Exposure (CRITICAL)
+
+**Risk Level**: High
+**Effort**: Low
+**Location**: `app/views/api_tokens/show.md.erb:10`
+
+**Current Code**:
+```erb
+| Token | `<%= @token.token %>` |
+```
+
+**Problem**: Full unobfuscated API token is exposed in markdown output. Any LLM or API client requesting token details in markdown format receives the plaintext token. This is inconsistent with the HTML view which shows the obfuscated token.
+
+**Solution**: Use obfuscated token in markdown view, matching HTML behavior:
+```erb
+| Token | `<%= @token.obfuscated_token %>` |
+```
+
+**Note**: If the intention is to allow LLMs to retrieve the full token once for use, add a separate action with explicit acknowledgment (e.g., `reveal_token` action) rather than exposing it by default.
+
+**Testing**:
+- [ ] Verify markdown view shows obfuscated token
+- [ ] Verify LLM can still create tokens via markdown API
+- [ ] Consider if a `reveal_token` action is needed for LLM workflows
+
+---
+
+### 5.2 Fix Bug in API Token Update Controller
+
+**Risk Level**: Medium (bug, not security)
+**Effort**: Low
+**Location**: `app/controllers/api/v1/api_tokens_controller.rb:33`
+
+**Current Code**:
+```ruby
+def update
+  token = current_user.api_tokens.find_by(id: params[:id])
+  token ||= current_user.api_tokens.find_by(token: params[:id])
+  return render_not_found(note) unless token  # BUG: references `note` instead of `token`
+  # ...
+end
+```
+
+**Problem**: References undefined variable `note` instead of `token`. This will cause a `NameError` when token is not found.
+
+**Solution**:
+```ruby
+return render_not_found(token) unless token
+```
+
+**Testing**:
+- [ ] Verify 404 response when updating non-existent token
+- [ ] Add test case for this scenario
+
+---
+
+### 5.3 Remove Token String Lookup in API
+
+**Risk Level**: Medium
+**Effort**: Low
+**Location**: `app/controllers/api/v1/api_tokens_controller.rb:10-12, 31-32, 44-45`
+
+**Current Code**:
+```ruby
+token = current_user.api_tokens.find_by(id: params[:id])
+token ||= current_user.api_tokens.find_by(token: params[:id])
+```
+
+**Problem**: Allows looking up tokens by their secret value in the URL path (e.g., `GET /api/v1/users/:user_id/tokens/abc123secrettoken`). While authentication is still required, this:
+1. May expose tokens in server logs, browser history, or referrer headers
+2. Is unnecessary since tokens have IDs for lookup
+3. Violates principle of least exposure
+
+**Solution**: Remove token string lookup fallback:
+```ruby
+token = current_user.api_tokens.find_by(id: params[:id])
+return render_not_found(token) unless token
+```
+
+**Testing**:
+- [ ] Verify lookup by ID still works
+- [ ] Verify lookup by token string returns 404
+- [ ] Update any documentation that suggests using token string for lookup
+
+---
+
+### 5.4 Restrict Full Token Retrieval
+
+**Risk Level**: Medium
+**Effort**: Low
+**Location**: `app/controllers/api/v1/api_tokens_controller.rb:12`, `app/models/api_token.rb:82-84`
+
+**Current Code**:
+```ruby
+# Controller
+render json: token.api_json(include: params[:include]&.split(','))
+
+# Model
+if include&.include?('full_token')
+  json[:token] = token
+end
+```
+
+**Problem**: Any authenticated request with `?include=full_token` can retrieve the full token value at any time. Tokens should only be visible immediately after creation.
+
+**Solution Options**:
+
+**Option A (Recommended)**: Remove `full_token` include option entirely:
+```ruby
+# Remove lines 82-84 from api_token.rb
+```
+
+**Option B**: Add time restriction (only within 5 minutes of creation):
+```ruby
+if include&.include?('full_token') && created_at > 5.minutes.ago
+  json[:token] = token
+end
+```
+
+**Testing**:
+- [ ] Verify token is returned on creation
+- [ ] Verify token cannot be retrieved later via `include=full_token`
+- [ ] Update API documentation
+
+---
+
+### 5.5 Consider Hashing Stored Tokens
+
+**Risk Level**: Medium
+**Effort**: Medium
+**Location**: `app/models/api_token.rb`
+
+**Current State**: Tokens are stored in plaintext in the database.
+
+**Problem**: Database compromise exposes all valid API tokens.
+
+**Solution**: Store only hashed tokens (similar to password reset token hashing in Phase 3.2):
+
+```ruby
+# In ApiToken model
+before_create :generate_and_hash_token
+
+def generate_and_hash_token
+  raw_token = SecureRandom.hex(20)
+  self.token = Digest::SHA256.hexdigest(raw_token)
+  @raw_token = raw_token  # Temporarily store for response
+end
+
+def raw_token
+  @raw_token
+end
+
+# For authentication lookup
+def self.find_by_raw_token(raw_token)
+  return nil if raw_token.blank?
+  hashed = Digest::SHA256.hexdigest(raw_token)
+  find_by(token: hashed)
+end
+```
+
+**Migration Considerations**:
+- Existing tokens would need to be invalidated OR migrated with a flag
+- Token display changes to show "Shown once" after creation
+- Obfuscation would need to use a separate `token_prefix` column
+
+**Testing**:
+- [ ] Verify token creation returns raw token
+- [ ] Verify token authentication works with hashed storage
+- [ ] Verify raw tokens cannot be recovered from database
+
+---
+
+### 5.6 Add Token Rotation Endpoint
+
+**Risk Level**: Low (enhancement)
+**Effort**: Medium
+**Location**: `app/controllers/api/v1/api_tokens_controller.rb`, `config/routes.rb`
+
+**Problem**: No way to rotate a token while preserving its name and configuration. Users must create a new token and delete the old one (two operations, potential for mistakes).
+
+**Solution**: Add rotation endpoint:
+
+```ruby
+# POST /api/v1/users/:user_id/tokens/:id/rotate
+def rotate
+  old_token = current_user.api_tokens.find_by(id: params[:id])
+  return render_not_found unless old_token
+
+  new_token = current_user.api_tokens.create!(
+    name: old_token.name,
+    scopes: old_token.scopes,
+    expires_at: [old_token.expires_at, 1.year.from_now].compact.min
+  )
+
+  old_token.delete!
+
+  render json: new_token.api_json(include: ['full_token'])
+end
+```
+
+**Testing**:
+- [ ] Verify rotation creates new token with same config
+- [ ] Verify old token is deleted
+- [ ] Verify new token is returned in response
+
+---
+
+### 5.7 Add Expired Token Cleanup Job
+
+**Risk Level**: Low (maintenance)
+**Effort**: Low
+**Location**: New Sidekiq job
+
+**Problem**: Expired and soft-deleted tokens accumulate in database indefinitely.
+
+**Solution**: Add periodic cleanup job:
+
+```ruby
+# app/jobs/cleanup_expired_tokens_job.rb
+class CleanupExpiredTokensJob < ApplicationJob
+  queue_as :low_priority
+
+  def perform
+    # Hard delete tokens expired/deleted more than 30 days ago
+    ApiToken.unscoped
+            .where("deleted_at < ? OR expires_at < ?", 30.days.ago, 30.days.ago)
+            .delete_all
+  end
+end
+```
+
+Schedule via `config/sidekiq_cron.yml`:
+```yaml
+cleanup_expired_tokens:
+  cron: "0 3 * * *"  # Daily at 3 AM
+  class: CleanupExpiredTokensJob
+```
+
+**Testing**:
+- [ ] Verify old tokens are deleted
+- [ ] Verify recent tokens are preserved
+- [ ] Verify job runs on schedule
+
+---
+
+### Phase 5 Implementation Order
+
+| Priority | Item | Effort | Risk | Status |
+|----------|------|--------|------|--------|
+| 1 | 5.1 Markdown Token Exposure | Low | High | Pending |
+| 2 | 5.2 Bug Fix (note→token) | Low | Medium | Pending |
+| 3 | 5.3 Remove Token String Lookup | Low | Medium | Pending |
+| 4 | 5.4 Restrict Full Token Retrieval | Low | Medium | Pending |
+| 5 | 5.5 Hash Stored Tokens | Medium | Medium | Future |
+| 6 | 5.6 Token Rotation Endpoint | Medium | Low | Future |
+| 7 | 5.7 Cleanup Job | Low | Low | Future |
+
+---
+
+### Phase 5 Files to Modify
+
+| File | Changes |
+|------|---------|
+| `app/views/api_tokens/show.md.erb` | Use obfuscated token |
+| `app/controllers/api/v1/api_tokens_controller.rb` | Fix bug, remove token lookup, restrict full_token |
+| `app/models/api_token.rb` | Remove/restrict full_token include, add hashing (future) |
+| `config/routes.rb` | Add rotation endpoint (future) |
+| `app/jobs/cleanup_expired_tokens_job.rb` | New file for cleanup (future) |
+
+---
+
 ## References
 
 - [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
 - [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+- [OWASP API Security Top 10](https://owasp.org/API-Security/editions/2023/en/0x00-header/)
 - [NIST Digital Identity Guidelines](https://pages.nist.gov/800-63-3/)
 - [Rails Security Guide](https://guides.rubyonrails.org/security.html)

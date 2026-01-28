@@ -26,6 +26,15 @@ Rails.application.routes.draw do
     resources :password_resets, only: [:new, :create], path: 'password'
     get 'password/reset/:token', to: 'password_resets#show', as: 'password_reset'
     patch 'password/reset/:token', to: 'password_resets#update'
+
+    # Two-factor authentication routes
+    get 'login/verify-2fa' => 'two_factor_auth#verify', as: 'two_factor_verify'
+    post 'login/verify-2fa' => 'two_factor_auth#verify_submit'
+    get 'settings/two-factor' => 'two_factor_auth#setup', as: 'two_factor_setup'
+    post 'settings/two-factor/confirm' => 'two_factor_auth#confirm_setup', as: 'two_factor_confirm'
+    get 'settings/two-factor/manage' => 'two_factor_auth#settings', as: 'two_factor_settings'
+    post 'settings/two-factor/disable' => 'two_factor_auth#disable', as: 'two_factor_disable'
+    post 'settings/two-factor/regenerate-codes' => 'two_factor_auth#regenerate_codes', as: 'two_factor_regenerate_codes'
   else
     raise 'Invalid AUTH_MODE'
   end

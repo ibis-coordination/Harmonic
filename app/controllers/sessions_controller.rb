@@ -40,6 +40,19 @@ class SessionsController < ApplicationController
     return redirect_to root_path if request.subdomain != auth_subdomain
     if original_tenant.valid_auth_provider?(request.env['omniauth.auth'].provider)
       identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'])
+
+      # Check if this is an identity provider login with 2FA enabled
+      if request.env['omniauth.auth'].provider == 'identity'
+        omni_auth_identity = OmniAuthIdentity.find_by(email: identity.user.email)
+        if omni_auth_identity&.otp_enabled
+          # Redirect to 2FA verification instead of completing login
+          session[:pending_2fa_identity_id] = omni_auth_identity.id
+          session[:pending_2fa_started_at] = Time.current.to_i
+          redirect_to '/login/verify-2fa'
+          return
+        end
+      end
+
       session[:user_id] = identity.user.id
       session[:logged_in_at] = Time.current.to_i
       session[:last_activity_at] = Time.current.to_i

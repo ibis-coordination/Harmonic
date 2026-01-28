@@ -107,6 +107,10 @@ gem 'omniauth-github'
 gem 'omniauth-rails_csrf_protection', '~> 1.0' # prevents forged authentication requests
 gem 'omniauth-identity'
 
+# Two-Factor Authentication (TOTP)
+gem 'rotp', '~> 6.3'      # Time-based One-Time Password implementation
+gem 'rqrcode', '~> 2.2'   # QR code generation for 2FA setup
+
 gem 'redcarpet'
 gem 'octicons_helper'
 

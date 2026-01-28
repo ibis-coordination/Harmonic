@@ -1,4 +1,4 @@
-\restrict BhUXrlqUAolBm5003d1UmrqHBvKnXbWJk93znk7yB8JqFyoTM7MhDzRKNGIweCC
+\restrict J3hhWew6BymRGeF0sT1wIwzZn21EmoPK8chxeC8ByvZIevZpv34gfsoVcJ5Pwt0
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -530,7 +530,13 @@ CREATE TABLE public.omni_auth_identities (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     reset_password_token character varying,
-    reset_password_sent_at timestamp(6) without time zone
+    reset_password_sent_at timestamp(6) without time zone,
+    otp_secret character varying,
+    otp_enabled boolean DEFAULT false NOT NULL,
+    otp_enabled_at timestamp(6) without time zone,
+    otp_recovery_codes jsonb DEFAULT '[]'::jsonb,
+    otp_failed_attempts integer DEFAULT 0 NOT NULL,
+    otp_locked_until timestamp(6) without time zone
 );
 
 
@@ -2753,7 +2759,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BhUXrlqUAolBm5003d1UmrqHBvKnXbWJk93znk7yB8JqFyoTM7MhDzRKNGIweCC
+\unrestrict J3hhWew6BymRGeF0sT1wIwzZn21EmoPK8chxeC8ByvZIevZpv34gfsoVcJ5Pwt0
 
 SET search_path TO "$user", public;
 
@@ -2866,6 +2872,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260123023618'),
 ('20260123023658'),
 ('20260125063251'),
-('20260125064500');
+('20260125064500'),
+('20260128052404');
 
 
