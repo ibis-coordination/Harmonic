@@ -212,9 +212,10 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
   def generate_test_token(tenant, user)
     # Generate an encrypted token similar to what SessionsController does
-    # This mirrors the encrypt_token method in ApplicationController
-    key = Rails.application.secret_key_base[0..31]
-    crypt = ActiveSupport::MessageEncryptor.new(key)
+    # This mirrors the encryptor method in ApplicationController with key derivation
+    derived_key = ActiveSupport::KeyGenerator.new(Rails.application.secret_key_base)
+                    .generate_key("cross_subdomain_token", 32)
+    crypt = ActiveSupport::MessageEncryptor.new(derived_key)
     timestamp = Time.current.to_i
     crypt.encrypt_and_sign("#{tenant.id}:#{user.id}:#{timestamp}")
   end

@@ -49,14 +49,15 @@ class SecurityAuditLog
     )
   end
 
-  sig { params(user: User, ip: String).void }
-  def self.log_logout(user:, ip:)
+  sig { params(user: User, ip: String, reason: T.nilable(String)).void }
+  def self.log_logout(user:, ip:, reason: nil)
     log_event(
       event: "logout",
       severity: :info,
       user_id: user.id,
       email: user.email,
-      ip: ip
+      ip: ip,
+      reason: reason,
     )
   end
 

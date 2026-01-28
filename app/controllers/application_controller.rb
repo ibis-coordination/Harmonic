@@ -1,9 +1,14 @@
 # typed: false
 
 class ApplicationController < ActionController::Base
+  # Session timeout configuration (in seconds)
+  SESSION_ABSOLUTE_TIMEOUT = (ENV['SESSION_ABSOLUTE_TIMEOUT']&.to_i || 24.hours).seconds
+  SESSION_IDLE_TIMEOUT = (ENV['SESSION_IDLE_TIMEOUT']&.to_i || 2.hours).seconds
+
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_superagent,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
+  before_action :check_session_timeout
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
@@ -477,7 +482,12 @@ class ApplicationController < ActionController::Base
   end
 
   def encryptor
-    @encryptor ||= ActiveSupport::MessageEncryptor.new(Rails.application.secret_key_base[0..31])
+    @encryptor ||= begin
+      key = Rails.application.secret_key_base
+      raise "SECRET_KEY_BASE must be at least 32 characters" if key.nil? || key.length < 32
+      derived_key = ActiveSupport::KeyGenerator.new(key).generate_key("cross_subdomain_token", 32)
+      ActiveSupport::MessageEncryptor.new(derived_key)
+    end
   end
 
   def encrypt(data)
@@ -635,6 +645,32 @@ class ApplicationController < ActionController::Base
 
   def is_auth_controller?
     false
+  end
+
+  def check_session_timeout
+    return if is_auth_controller?
+    return unless session[:user_id].present?
+
+    # Absolute timeout: session expires after fixed time from login (default 24 hours)
+    if session[:logged_in_at].present? && Time.at(session[:logged_in_at]) < SESSION_ABSOLUTE_TIMEOUT.ago
+      SecurityAuditLog.log_logout(user: current_person_user, ip: request.remote_ip, reason: "session_absolute_timeout") if current_person_user
+      reset_session
+      flash[:alert] = "Your session has expired. Please log in again."
+      redirect_to '/login'
+      return
+    end
+
+    # Idle timeout: session expires after inactivity (default 2 hours)
+    if session[:last_activity_at].present? && Time.at(session[:last_activity_at]) < SESSION_IDLE_TIMEOUT.ago
+      SecurityAuditLog.log_logout(user: current_person_user, ip: request.remote_ip, reason: "session_idle_timeout") if current_person_user
+      reset_session
+      flash[:alert] = "Your session has expired due to inactivity. Please log in again."
+      redirect_to '/login'
+      return
+    end
+
+    # Update last activity timestamp
+    session[:last_activity_at] = Time.current.to_i
   end
 
   # Set Sentry context for error tracking

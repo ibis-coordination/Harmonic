@@ -1,9 +1,11 @@
 # typed: false
 
 class PasswordResetMailer < ApplicationMailer
-  def reset_password_instructions(identity)
+  # Note: raw_token is the unhashed token that gets sent in the email.
+  # The identity stores only a SHA256 hash of the token for security.
+  def reset_password_instructions(identity, raw_token)
     @identity = identity
-    @reset_url = password_reset_url(token: @identity.reset_password_token)
+    @reset_url = password_reset_url(token: raw_token)
     mail(
       to: @identity.email,
       from: ENV['MAILER_FROM_ADDRESS'] || 'noreply@harmonic.social',

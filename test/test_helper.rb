@@ -208,8 +208,10 @@ class ActionDispatch::IntegrationTest
       # For OAuth mode, we need a workaround since we can't easily simulate OAuth
       # We'll use a test-only endpoint or manipulate cookies directly
       # For now, use the encrypted token approach that works with the internal callback
-      key = Rails.application.secret_key_base[0..31]
-      crypt = ActiveSupport::MessageEncryptor.new(key)
+      # Note: Must match the key derivation in ApplicationController#encryptor
+      derived_key = ActiveSupport::KeyGenerator.new(Rails.application.secret_key_base)
+                      .generate_key("cross_subdomain_token", 32)
+      crypt = ActiveSupport::MessageEncryptor.new(derived_key)
       timestamp = Time.current.to_i
       token = crypt.encrypt_and_sign("#{tenant.id}:#{user.id}:#{timestamp}")
       cookies[:token] = token

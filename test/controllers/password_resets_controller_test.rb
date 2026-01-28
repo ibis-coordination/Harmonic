@@ -41,26 +41,27 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should show password reset form with valid token" do
-    @identity.generate_reset_password_token!
+    # generate_reset_password_token! returns the raw token, stores the hash
+    raw_token = @identity.generate_reset_password_token!
 
-    get password_reset_path(@identity.reset_password_token)
+    get password_reset_path(raw_token)
     assert_response :success
     assert_select "input[type=password]", count: 2
   end
 
   test "should redirect expired token to new password reset" do
-    @identity.generate_reset_password_token!
+    raw_token = @identity.generate_reset_password_token!
     @identity.update!(reset_password_sent_at: 3.hours.ago)
 
-    get password_reset_path(@identity.reset_password_token)
+    get password_reset_path(raw_token)
     assert_redirected_to new_password_reset_path
     assert_match(/expired or is invalid/i, flash[:alert])
   end
 
   test "should update password with valid token and password" do
-    @identity.generate_reset_password_token!
+    raw_token = @identity.generate_reset_password_token!
 
-    patch password_reset_path(@identity.reset_password_token), params: {
+    patch password_reset_path(raw_token), params: {
       password: "newverylongpassword123",
       password_confirmation: "newverylongpassword123",
     }
@@ -73,9 +74,9 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should not update password if passwords don't match" do
-    @identity.generate_reset_password_token!
+    raw_token = @identity.generate_reset_password_token!
 
-    patch password_reset_path(@identity.reset_password_token), params: {
+    patch password_reset_path(raw_token), params: {
       password: "newverylongpassword123",
       password_confirmation: "differentpassword",
     }
@@ -85,9 +86,9 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should not update password if too short" do
-    @identity.generate_reset_password_token!
+    raw_token = @identity.generate_reset_password_token!
 
-    patch password_reset_path(@identity.reset_password_token), params: {
+    patch password_reset_path(raw_token), params: {
       password: "short",
       password_confirmation: "short",
     }
@@ -145,10 +146,10 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
     @user = User.create!(email: @identity.email, name: "Test User", user_type: "person")
     @tenant.add_user!(@user)
 
-    @identity.generate_reset_password_token!
+    raw_token = @identity.generate_reset_password_token!
     test_email = @identity.email
 
-    patch password_reset_path(@identity.reset_password_token), params: {
+    patch password_reset_path(raw_token), params: {
       password: "newverylongpassword123",
       password_confirmation: "newverylongpassword123",
     }

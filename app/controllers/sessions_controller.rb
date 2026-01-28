@@ -41,6 +41,8 @@ class SessionsController < ApplicationController
     if original_tenant.valid_auth_provider?(request.env['omniauth.auth'].provider)
       identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'])
       session[:user_id] = identity.user.id
+      session[:logged_in_at] = Time.current.to_i
+      session[:last_activity_at] = Time.current.to_i
       SecurityAuditLog.log_login_success(
         user: identity.user,
         ip: request.remote_ip,
@@ -56,7 +58,9 @@ class SessionsController < ApplicationController
         user_agent: request.user_agent,
       )
 @sidebar_mode = 'none'
-      render status: 403, layout: 'pulse', html: "OAuth provider <code>#{request.env['omniauth.auth'].provider}</code> is not enabled for subdomain <code>#{original_tenant.subdomain}</code>".html_safe
+      provider = ERB::Util.html_escape(request.env['omniauth.auth'].provider)
+      subdomain = ERB::Util.html_escape(original_tenant.subdomain)
+      render status: 403, layout: 'pulse', html: "OAuth provider <code>#{provider}</code> is not enabled for subdomain <code>#{subdomain}</code>".html_safe
     end
   end
 
@@ -180,6 +184,8 @@ class SessionsController < ApplicationController
     is_accepting_invite = cookies[:studio_invite_code].present?
     if tenant_user || is_accepting_invite
       session[:user_id] = @current_user.id
+      session[:logged_in_at] = Time.current.to_i
+      session[:last_activity_at] = Time.current.to_i
       redirect_to_resource_or_invite_or_root
     else
       # user is not allowed to access this tenant
@@ -243,7 +249,13 @@ class SessionsController < ApplicationController
   end
 
   def set_shared_domain_cookie(key, value)
-    cookies[key] = { value: value, domain: ".#{ENV['HOSTNAME']}" }
+    cookies[key] = {
+      value: value,
+      domain: ".#{ENV['HOSTNAME']}",
+      httponly: true,
+      secure: Rails.env.production?,
+      same_site: :lax,
+    }
   end
 
   def delete_shared_domain_cookie(key)

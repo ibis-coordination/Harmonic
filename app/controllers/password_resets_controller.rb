@@ -26,9 +26,9 @@ class PasswordResetsController < ApplicationController
     )
 
     if @identity
-      @identity.generate_reset_password_token!
+      raw_token = @identity.generate_reset_password_token!
       begin
-        PasswordResetMailer.reset_password_instructions(@identity).deliver_now
+        PasswordResetMailer.reset_password_instructions(@identity, raw_token).deliver_now
       rescue StandardError => e
         Rails.logger.error("Failed to send password reset email: #{e.message}")
       end
