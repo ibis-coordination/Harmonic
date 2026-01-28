@@ -4,9 +4,11 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 
 ## Admin Users
 
-<% @current_tenant.admin_users.each do |user| %>
-* [<%= raw user.display_name %>](<%= user.path %>) (`<%= user.handle %>`)
+<% @current_tenant.admin_users.each do |tu| %>
+* [<%= raw tu.display_name %>](/admin/users/<%= tu.handle %>) (`@<%= tu.handle %>`)
 <% end %>
+
+[Manage All Users](/admin/users)
 
 ## Tenant Details
 

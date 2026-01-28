@@ -1030,4 +1030,187 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Updated Primary Name", @primary_tenant.name
     assert_equal original_other_name, @other_tenant.name, "Other tenant should not be affected"
   end
+
+  # ============================================================================
+  # SECTION 9: User Suspension
+  # ============================================================================
+
+  test "admin can access user list page" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/users"
+    assert_response :success
+    assert_match(/Users/, response.body)
+  end
+
+  test "admin can access user detail page" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/users/#{non_admin_tenant_user.handle}"
+    assert_response :success
+    assert_match(@non_admin_user.name, response.body)
+  end
+
+  test "admin can suspend a user" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    assert_not @non_admin_user.suspended?
+
+    post "/admin/users/#{non_admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Policy violation" }
+    assert_response :redirect  # HTML format redirects on success
+
+    @non_admin_user.reload
+    assert @non_admin_user.suspended?
+    assert_equal "Policy violation", @non_admin_user.suspended_reason
+    assert_equal @admin_user.id, @non_admin_user.suspended_by_id
+  end
+
+  test "admin can unsuspend a user" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    # Suspend the user first
+    @non_admin_user.suspend!(by: @admin_user, reason: "Policy violation")
+    assert @non_admin_user.suspended?
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    post "/admin/users/#{non_admin_tenant_user.handle}/actions/unsuspend_user"
+    assert_response :redirect  # HTML format redirects on success
+
+    @non_admin_user.reload
+    assert_not @non_admin_user.suspended?
+    assert_nil @non_admin_user.suspended_reason
+    assert_nil @non_admin_user.suspended_by_id
+  end
+
+  test "admin cannot suspend themselves" do
+    @primary_tenant.add_user!(@admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    post "/admin/users/#{admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Test" }
+    # HTML format returns a redirect with flash message
+    assert_response :redirect
+    follow_redirect!
+    assert_match(/cannot suspend your own account/i, flash[:alert])
+
+    @admin_user.reload
+    assert_not @admin_user.suspended?
+  end
+
+  test "non-admin cannot suspend a user" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    post "/admin/users/#{admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Test" }
+    assert_response :forbidden
+
+    @admin_user.reload
+    assert_not @admin_user.suspended?
+  end
+
+  test "non-admin cannot access user list page" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/admin/users"
+    assert_response :forbidden
+  end
+
+  test "user list shows suspended badge for suspended users" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+
+    # Suspend the non-admin user
+    @non_admin_user.suspend!(by: @admin_user, reason: "Test")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/users"
+    assert_response :success
+    assert_match(/SUSPENDED/, response.body)
+  end
+
+  test "user detail page shows suspension info for suspended users" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    # Suspend the non-admin user
+    @non_admin_user.suspend!(by: @admin_user, reason: "Policy violation")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/admin/users/#{non_admin_tenant_user.handle}"
+    assert_response :success
+    assert_match(/Policy violation/, response.body)
+    assert_match(/unsuspend/i, response.body)
+  end
+
+  test "suspension is logged to security audit log" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    post "/admin/users/#{non_admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Policy violation" }
+    assert_response :redirect  # HTML format redirects on success
+
+    # Check that the suspension was logged
+    log_file = Rails.root.join("log/security_audit.log")
+    if File.exist?(log_file)
+      entries = File.readlines(log_file).map { |line| JSON.parse(line) rescue nil }.compact
+      matching_entry = entries.find do |e|
+        e["event"] == "user_suspended" &&
+          e["email"] == @non_admin_user.email &&
+          e["reason"] == "Policy violation"
+      end
+      assert matching_entry, "Expected to find user_suspended event in security log"
+    end
+  end
 end

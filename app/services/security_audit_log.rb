@@ -198,6 +198,54 @@ class SecurityAuditLog
     )
   end
 
+  # User suspension events
+
+  sig { params(user: User, suspended_by: User, reason: String, ip: String).void }
+  def self.log_user_suspended(user:, suspended_by:, reason:, ip:)
+    log_event(
+      event: "user_suspended",
+      severity: :warn,
+      user_id: user.id,
+      email: user.email,
+      suspended_by_id: suspended_by.id,
+      suspended_by_email: suspended_by.email,
+      reason: reason,
+      ip: ip
+    )
+
+    AlertService.notify_security_event(
+      event: "user_suspended",
+      email: user.email,
+      suspended_by: suspended_by.email,
+      reason: reason,
+      ip: ip
+    )
+  end
+
+  sig { params(user: User, unsuspended_by: User, ip: String).void }
+  def self.log_user_unsuspended(user:, unsuspended_by:, ip:)
+    log_event(
+      event: "user_unsuspended",
+      severity: :info,
+      user_id: user.id,
+      email: user.email,
+      unsuspended_by_id: unsuspended_by.id,
+      unsuspended_by_email: unsuspended_by.email,
+      ip: ip
+    )
+  end
+
+  sig { params(user: User, ip: String).void }
+  def self.log_suspended_login_attempt(user:, ip:)
+    log_event(
+      event: "suspended_login_attempt",
+      severity: :warn,
+      user_id: user.id,
+      email: user.email,
+      ip: ip
+    )
+  end
+
   # Rate limiting events
 
   sig { params(ip: String, matched: String, request_path: String).void }

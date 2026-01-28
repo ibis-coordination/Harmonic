@@ -331,4 +331,43 @@ class User < ApplicationRecord
     oaid
   end
 
+  # Suspension methods
+
+  sig { returns(T::Boolean) }
+  def suspended?
+    suspended_at.present?
+  end
+
+  sig { params(by: User, reason: String).void }
+  def suspend!(by:, reason:)
+    update!(
+      suspended_at: Time.current,
+      suspended_by_id: by.id,
+      suspended_reason: reason
+    )
+
+    # Soft-delete all API tokens for this user (across all tenants)
+    ApiToken.unscoped.where(user_id: id, deleted_at: nil).find_each(&:delete!)
+
+    # Recursively suspend all subagents
+    subagents.where(suspended_at: nil).find_each do |subagent|
+      subagent.suspend!(by: by, reason: "Parent user suspended: #{reason}")
+    end
+  end
+
+  sig { void }
+  def unsuspend!
+    update!(
+      suspended_at: nil,
+      suspended_by_id: nil,
+      suspended_reason: nil
+    )
+  end
+
+  sig { returns(T.nilable(User)) }
+  def suspended_by
+    return nil unless suspended_by_id
+    User.unscoped.find_by(id: suspended_by_id)
+  end
+
 end

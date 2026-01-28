@@ -200,6 +200,56 @@ class AdminController < ApplicationController
     end
   end
 
+  # User management
+
+  USERS_PER_PAGE = 50
+
+  def users
+    @page_title = 'Users'
+    @search_query = params[:q].to_s.strip
+    @page = [(params[:page].to_i), 1].max
+    @per_page = USERS_PER_PAGE
+
+    base_scope = @current_tenant.users
+      .includes(:tenant_users)
+      .where.not(user_type: 'trustee')
+
+    if @search_query.present?
+      base_scope = base_scope.where("email ILIKE ?", "%#{@search_query}%")
+    end
+
+    # Get counts for each user type
+    @counts_by_type = base_scope.group(:user_type).count
+
+    # Calculate offset
+    offset = (@page - 1) * @per_page
+
+    # Get paginated users ordered by name
+    paginated_users = base_scope.order(:name).limit(@per_page).offset(offset)
+    @users_by_type = paginated_users.group_by(&:user_type)
+
+    # Calculate total and pagination info
+    @total_users = @counts_by_type.values.sum
+    @total_pages = (@total_users.to_f / @per_page).ceil
+    @total_pages = 1 if @total_pages < 1
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  def show_user
+    @showing_user = find_user_by_handle(params[:handle])
+    return render status: 404, plain: '404 User not found' unless @showing_user
+    @page_title = @showing_user.display_name || @showing_user.name
+    @is_admin = @current_tenant.is_admin?(@showing_user)
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
   # Markdown API actions
 
   def actions_index
@@ -323,6 +373,101 @@ class AdminController < ApplicationController
     end
   end
 
+  def actions_index_user
+    @showing_user = find_user_by_handle(params[:handle])
+    return render status: 404, plain: '404 User not found' unless @showing_user
+    @page_title = "Actions | #{@showing_user.display_name}"
+    render_actions_index(ActionsHelper.actions_for_route('/admin/users/:handle'))
+  end
+
+  def describe_suspend_user
+    @showing_user = find_user_by_handle(params[:handle])
+    return render status: 404, plain: '404 User not found' unless @showing_user
+    render_action_description(ActionsHelper.action_description("suspend_user"))
+  end
+
+  def execute_suspend_user
+    user = find_user_by_handle(params[:handle])
+    return render status: 404, plain: '404 User not found' unless user
+
+    # Prevent self-suspension
+    if user.id == @current_user.id
+      respond_to do |format|
+        format.md { render plain: 'You cannot suspend your own account.', status: 400 }
+        format.html do
+          flash[:alert] = 'You cannot suspend your own account.'
+          redirect_to admin_user_path(user.handle)
+        end
+      end
+      return
+    end
+
+    # Prevent suspending other admins unless on main tenant
+    if @current_tenant.is_admin?(user) && !is_main_tenant?
+      respond_to do |format|
+        format.md { render plain: 'Only platform admins can suspend tenant admins.', status: 403 }
+        format.html do
+          flash[:alert] = 'Only platform admins can suspend tenant admins.'
+          redirect_to admin_user_path(user.handle)
+        end
+      end
+      return
+    end
+
+    reason = params[:reason].presence || 'No reason provided'
+    user.suspend!(by: @current_user, reason: reason)
+    SecurityAuditLog.log_user_suspended(
+      user: user,
+      suspended_by: @current_user,
+      reason: reason,
+      ip: request.remote_ip
+    )
+
+    respond_to do |format|
+      format.md do
+        @showing_user = user.reload
+        @page_title = @showing_user.display_name || @showing_user.name
+        @is_admin = @current_tenant.is_admin?(@showing_user)
+        render 'show_user'
+      end
+      format.html do
+        flash[:notice] = "User #{user.display_name} has been suspended."
+        redirect_to admin_user_path(user.handle)
+      end
+    end
+  end
+
+  def describe_unsuspend_user
+    @showing_user = find_user_by_handle(params[:handle])
+    return render status: 404, plain: '404 User not found' unless @showing_user
+    render_action_description(ActionsHelper.action_description("unsuspend_user"))
+  end
+
+  def execute_unsuspend_user
+    user = find_user_by_handle(params[:handle])
+    return render status: 404, plain: '404 User not found' unless user
+
+    user.unsuspend!
+    SecurityAuditLog.log_user_unsuspended(
+      user: user,
+      unsuspended_by: @current_user,
+      ip: request.remote_ip
+    )
+
+    respond_to do |format|
+      format.md do
+        @showing_user = user.reload
+        @page_title = @showing_user.display_name || @showing_user.name
+        @is_admin = @current_tenant.is_admin?(@showing_user)
+        render 'show_user'
+      end
+      format.html do
+        flash[:notice] = "User #{user.display_name} has been unsuspended."
+        redirect_to admin_user_path(user.handle)
+      end
+    end
+  end
+
   private
 
   def ensure_admin_user
@@ -371,6 +516,12 @@ class AdminController < ApplicationController
     @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN']
   end
   helper_method :is_main_tenant?
+
+  def find_user_by_handle(handle)
+    tenant_user = @current_tenant.tenant_users.find_by(handle: handle)
+    return nil unless tenant_user
+    tenant_user.user
+  end
 
   def set_admin_sidebar
     @sidebar_mode = 'admin'

@@ -2564,6 +2564,7 @@ a.pulse-activity-title:hover {
 
 .pulse-action-btn-danger:hover {
   background: var(--color-danger-subtle);
+  color: var(--color-danger-fg);
 }
 
 /* Subagent Tokens Section */

@@ -694,6 +694,296 @@ class OmniAuthIdentity
     sig { void }
     def name_will_change!; end
 
+    sig { returns(T::Boolean) }
+    def otp_enabled; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def otp_enabled=(value); end
+
+    sig { returns(T::Boolean) }
+    def otp_enabled?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_enabled_at; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_enabled_at=(value); end
+
+    sig { returns(T::Boolean) }
+    def otp_enabled_at?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_enabled_at_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def otp_enabled_at_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def otp_enabled_at_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def otp_enabled_at_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def otp_enabled_at_change_to_be_saved; end
+
+    sig do
+      params(
+        from: T.nilable(::ActiveSupport::TimeWithZone),
+        to: T.nilable(::ActiveSupport::TimeWithZone)
+      ).returns(T::Boolean)
+    end
+    def otp_enabled_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_enabled_at_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def otp_enabled_at_previous_change; end
+
+    sig do
+      params(
+        from: T.nilable(::ActiveSupport::TimeWithZone),
+        to: T.nilable(::ActiveSupport::TimeWithZone)
+      ).returns(T::Boolean)
+    end
+    def otp_enabled_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_enabled_at_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_enabled_at_was; end
+
+    sig { void }
+    def otp_enabled_at_will_change!; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def otp_enabled_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def otp_enabled_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def otp_enabled_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def otp_enabled_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def otp_enabled_change_to_be_saved; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def otp_enabled_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def otp_enabled_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def otp_enabled_previous_change; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def otp_enabled_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def otp_enabled_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def otp_enabled_was; end
+
+    sig { void }
+    def otp_enabled_will_change!; end
+
+    sig { returns(::Integer) }
+    def otp_failed_attempts; end
+
+    sig { params(value: ::Integer).returns(::Integer) }
+    def otp_failed_attempts=(value); end
+
+    sig { returns(T::Boolean) }
+    def otp_failed_attempts?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def otp_failed_attempts_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def otp_failed_attempts_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def otp_failed_attempts_came_from_user?; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def otp_failed_attempts_change; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def otp_failed_attempts_change_to_be_saved; end
+
+    sig { params(from: ::Integer, to: ::Integer).returns(T::Boolean) }
+    def otp_failed_attempts_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def otp_failed_attempts_in_database; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def otp_failed_attempts_previous_change; end
+
+    sig { params(from: ::Integer, to: ::Integer).returns(T::Boolean) }
+    def otp_failed_attempts_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def otp_failed_attempts_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def otp_failed_attempts_was; end
+
+    sig { void }
+    def otp_failed_attempts_will_change!; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_locked_until; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_locked_until=(value); end
+
+    sig { returns(T::Boolean) }
+    def otp_locked_until?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_locked_until_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def otp_locked_until_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def otp_locked_until_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def otp_locked_until_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def otp_locked_until_change_to_be_saved; end
+
+    sig do
+      params(
+        from: T.nilable(::ActiveSupport::TimeWithZone),
+        to: T.nilable(::ActiveSupport::TimeWithZone)
+      ).returns(T::Boolean)
+    end
+    def otp_locked_until_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_locked_until_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def otp_locked_until_previous_change; end
+
+    sig do
+      params(
+        from: T.nilable(::ActiveSupport::TimeWithZone),
+        to: T.nilable(::ActiveSupport::TimeWithZone)
+      ).returns(T::Boolean)
+    end
+    def otp_locked_until_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_locked_until_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def otp_locked_until_was; end
+
+    sig { void }
+    def otp_locked_until_will_change!; end
+
+    sig { returns(T.untyped) }
+    def otp_recovery_codes; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def otp_recovery_codes=(value); end
+
+    sig { returns(T::Boolean) }
+    def otp_recovery_codes?; end
+
+    sig { returns(T.untyped) }
+    def otp_recovery_codes_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def otp_recovery_codes_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def otp_recovery_codes_came_from_user?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def otp_recovery_codes_change; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def otp_recovery_codes_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def otp_recovery_codes_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def otp_recovery_codes_in_database; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def otp_recovery_codes_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def otp_recovery_codes_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def otp_recovery_codes_previously_was; end
+
+    sig { returns(T.untyped) }
+    def otp_recovery_codes_was; end
+
+    sig { void }
+    def otp_recovery_codes_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def otp_secret; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def otp_secret=(value); end
+
+    sig { returns(T::Boolean) }
+    def otp_secret?; end
+
+    sig { returns(T.nilable(::String)) }
+    def otp_secret_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def otp_secret_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def otp_secret_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def otp_secret_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def otp_secret_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def otp_secret_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def otp_secret_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def otp_secret_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def otp_secret_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def otp_secret_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def otp_secret_was; end
+
+    sig { void }
+    def otp_secret_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def password_digest; end
 
@@ -852,6 +1142,24 @@ class OmniAuthIdentity
     def restore_name!; end
 
     sig { void }
+    def restore_otp_enabled!; end
+
+    sig { void }
+    def restore_otp_enabled_at!; end
+
+    sig { void }
+    def restore_otp_failed_attempts!; end
+
+    sig { void }
+    def restore_otp_locked_until!; end
+
+    sig { void }
+    def restore_otp_recovery_codes!; end
+
+    sig { void }
+    def restore_otp_secret!; end
+
+    sig { void }
     def restore_password_digest!; end
 
     sig { void }
@@ -886,6 +1194,42 @@ class OmniAuthIdentity
 
     sig { returns(T::Boolean) }
     def saved_change_to_name?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_otp_enabled; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_otp_enabled?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_otp_enabled_at; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_otp_enabled_at?; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def saved_change_to_otp_failed_attempts; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_otp_failed_attempts?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_otp_locked_until; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_otp_locked_until?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def saved_change_to_otp_recovery_codes; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_otp_recovery_codes?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_otp_secret; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_otp_secret?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_password_digest; end
@@ -967,6 +1311,24 @@ class OmniAuthIdentity
 
     sig { returns(T::Boolean) }
     def will_save_change_to_name?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_otp_enabled?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_otp_enabled_at?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_otp_failed_attempts?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_otp_locked_until?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_otp_recovery_codes?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_otp_secret?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_password_digest?; end

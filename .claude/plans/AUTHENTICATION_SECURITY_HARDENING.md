@@ -299,23 +299,35 @@ end
 
 ---
 
-### 3.3 Consider Multi-Factor Authentication (MFA)
+### 3.3 Multi-Factor Authentication (MFA) ✅
 
 **Risk Level**: N/A (Enhancement)
 **Effort**: High
-**Location**: New implementation
+**Location**: `app/controllers/two_factor_auth_controller.rb`, `app/models/omni_auth_identity.rb`
 
-**Recommendation**: Consider adding TOTP-based MFA for:
-- All users (optional)
-- Tenant admins (required)
-- Sensitive operations (password change, API token creation)
+**Status**: ✅ Complete
 
-**Implementation Options**:
-- `rotp` gem for TOTP
-- `webauthn` gem for hardware keys
-- SMS-based (least secure, not recommended)
+**Implementation**:
+- TOTP-based MFA using `rotp` gem for email/password users
+- 10 backup recovery codes stored as SHA256 hashes
+- 5 failed attempts triggers 15-minute lockout
+- QR code generation using `rqrcode` gem
+- Stimulus controller for CSP-compliant copy/download of recovery codes
 
-**Scope**: Full design document needed before implementation.
+**Features**:
+- Setup flow with QR code and manual key entry
+- Verification during login
+- Settings page to manage 2FA, regenerate codes, or disable
+- Recovery code usage with automatic invalidation
+- Security audit logging for all 2FA events
+
+**Files Added/Modified**:
+- `app/controllers/two_factor_auth_controller.rb` (new)
+- `app/views/two_factor_auth/` (4 views)
+- `app/models/omni_auth_identity.rb` (OTP methods)
+- `app/javascript/controllers/recovery_codes_controller.ts` (new)
+- `config/routes.rb` (2FA routes)
+- 38 tests in `test/controllers/two_factor_auth_controller_test.rb`
 
 ---
 
@@ -392,7 +404,7 @@ end
 | 6 | 3.2 Hash Reset Tokens | Low | DB compromise | ✅ Done |
 | 7 | 4.1 Honor System Check | Low | Misconfig in prod | ✅ Done |
 | 8 | 2.2 CSP Nonces | High | Style injection | Deferred |
-| 9 | 3.3 MFA | High | Account takeover | Future |
+| 9 | 3.3 MFA | High | Account takeover | ✅ Done |
 | 10 | 3.4 Re-authentication | Medium | Session abuse | Future |
 
 ---
@@ -415,8 +427,11 @@ end
 - [x] All Phase 1 items completed and tested
 - [x] No security regressions in existing functionality (all 1367 tests pass)
 - [x] Security audit log shows expected events (session timeout logging added)
+- [x] MFA/2FA implementation complete with 38 passing tests
 - [ ] Browser dev tools confirm cookie flags are set (manual verification needed)
 - [ ] Penetration test (if planned) shows no critical findings
+- [ ] Phase 5 API token security items completed
+- [ ] Phase 6 user suspension feature completed
 
 ## Implementation Notes (2026-01-27)
 
@@ -448,6 +463,18 @@ end
 - `test/controllers/sessions_controller_test.rb` (updated test helper)
 - `test/controllers/password_resets_controller_test.rb` (updated for hashed tokens)
 - `config/initializers/security_checks.rb` (new - honor system production check)
+
+**MFA/2FA files added (Phase 3.3):**
+- `app/controllers/two_factor_auth_controller.rb` (new)
+- `app/views/two_factor_auth/setup.html.erb` (new)
+- `app/views/two_factor_auth/verify.html.erb` (new)
+- `app/views/two_factor_auth/settings.html.erb` (new)
+- `app/views/two_factor_auth/show_recovery_codes.html.erb` (new)
+- `app/javascript/controllers/recovery_codes_controller.ts` (new)
+- `app/javascript/controllers/index.ts` (updated - register recovery-codes controller)
+- `config/routes.rb` (updated - 2FA routes)
+- `test/controllers/two_factor_auth_controller_test.rb` (new - 38 tests)
+- `db/migrate/XXXXXX_add_otp_to_omni_auth_identities.rb` (new)
 
 ---
 
@@ -740,6 +767,407 @@ cleanup_expired_tokens:
 | `app/models/api_token.rb` | Remove/restrict full_token include, add hashing (future) |
 | `config/routes.rb` | Add rotation endpoint (future) |
 | `app/jobs/cleanup_expired_tokens_job.rb` | New file for cleanup (future) |
+
+---
+
+## Phase 6: Admin User Suspension/Locking
+
+**Added**: 2026-01-27
+**Status**: ✅ Completed (2026-01-28)
+
+This phase adds the ability for tenant admins to suspend or lock specific user accounts through the admin UI.
+
+### Implementation Summary
+
+All items in this phase have been implemented:
+
+1. **User Suspension Fields (6.1)**: Added `suspended_at`, `suspended_by_id`, `suspended_reason` columns via migration `20260128072608_add_suspension_to_users.rb`. Added `suspended?`, `suspend!`, `unsuspend!`, and `suspended_by` methods to User model.
+
+2. **Block Suspended Users (6.2)**: Added suspension checks in both OAuth callback (`sessions_controller.rb:205-210`) and application controller via `check_user_suspension` before_action. Suspended users are immediately logged out and shown a 403 page explaining their suspension.
+
+3. **Security Audit Logging (6.3)**: Added `log_user_suspended`, `log_user_unsuspended`, and `log_suspended_login_attempt` methods to SecurityAuditLog.
+
+4. **Admin UI (6.4)**: Created user management pages at `/admin/users` and `/admin/users/:handle`. HTML and Markdown views show user list with suspension badges, user details with suspend/unsuspend actions. Self-suspension is prevented.
+
+5. **Markdown API Actions (6.5)**: Added routes and action definitions for `suspend_user` and `unsuspend_user` actions in actions_helper.rb.
+
+**Files modified:**
+- `db/migrate/20260128072608_add_suspension_to_users.rb` (new)
+- `app/models/user.rb`
+- `app/controllers/sessions_controller.rb`
+- `app/controllers/application_controller.rb`
+- `app/controllers/admin_controller.rb`
+- `app/services/security_audit_log.rb`
+- `app/services/actions_helper.rb`
+- `config/routes.rb`
+- `app/views/admin/users.html.erb` (new)
+- `app/views/admin/users.md.erb` (new)
+- `app/views/admin/show_user.html.erb` (new)
+- `app/views/admin/show_user.md.erb` (new)
+- `app/views/sessions/403_suspended.html.erb` (new)
+
+**Tests added:**
+- User model suspension tests in `test/models/user_test.rb`
+- Admin controller suspension tests in `test/controllers/admin_controller_test.rb`
+- Authentication security suspension tests in `test/integration/authentication_security_test.rb`
+
+### Current State
+
+| Level | Suspension Field | Location | UI |
+|-------|------------------|----------|-----|
+| Tenant | `suspended_at`, `suspended_reason` | `app/models/tenant.rb` | AppAdmin API only |
+| User | None | N/A | None |
+
+Tenant suspension exists for the AppAdmin API (used for billing/payment issues), but there is no user-level suspension that tenant admins can use to manage problematic users within their tenant.
+
+---
+
+### 6.1 Add User Suspension Fields
+
+**Risk Level**: Low
+**Effort**: Low
+**Location**: New migration, `app/models/user.rb`
+
+**Migration**:
+```ruby
+class AddSuspensionToUsers < ActiveRecord::Migration[7.0]
+  def change
+    add_column :users, :suspended_at, :datetime
+    add_column :users, :suspended_by_id, :uuid
+    add_column :users, :suspended_reason, :string
+    add_index :users, :suspended_at
+  end
+end
+```
+
+**Model Methods** (in `user.rb`):
+```ruby
+def suspended?
+  suspended_at.present?
+end
+
+def suspend!(by:, reason:)
+  update!(
+    suspended_at: Time.current,
+    suspended_by_id: by.id,
+    suspended_reason: reason
+  )
+end
+
+def unsuspend!
+  update!(
+    suspended_at: nil,
+    suspended_by_id: nil,
+    suspended_reason: nil
+  )
+end
+```
+
+**Testing**:
+- [x] Verify `suspended?` returns correct boolean
+- [x] Verify `suspend!` sets all fields
+- [x] Verify `unsuspend!` clears all fields
+
+---
+
+### 6.2 Block Suspended Users from Login
+
+**Risk Level**: Medium
+**Effort**: Low
+**Location**: `app/controllers/sessions_controller.rb`, `app/controllers/application_controller.rb`
+
+**Problem**: Suspended users should not be able to access the application.
+
+**Solution**: Add suspension check to authentication flow.
+
+1. In `sessions_controller.rb` (OAuth callback):
+```ruby
+# After finding the user
+if user.suspended?
+  SecurityAuditLog.log_suspended_login_attempt(user: user, ip: request.remote_ip)
+  flash[:alert] = "Your account has been suspended. Please contact the administrator."
+  redirect_to "/login"
+  return
+end
+```
+
+2. In `application_controller.rb` (for already-logged-in users):
+```ruby
+before_action :check_user_suspension
+
+def check_user_suspension
+  return unless current_user&.suspended?
+  reset_session
+  redirect_to "/login", alert: "Your account has been suspended."
+end
+```
+
+**Testing**:
+- [x] Verify suspended user cannot log in
+- [x] Verify suspended user is logged out if already in session
+- [x] Verify suspension is logged to security audit log
+- [x] Verify appropriate error message is shown
+
+---
+
+### 6.3 Add Security Audit Logging
+
+**Risk Level**: Low
+**Effort**: Low
+**Location**: `app/services/security_audit_log.rb`
+
+**Add new event types**:
+```ruby
+def self.log_user_suspended(user:, suspended_by:, reason:, ip:)
+  log(
+    event: "user_suspended",
+    user_email: user.email,
+    user_id: user.id,
+    suspended_by_email: suspended_by.email,
+    suspended_by_id: suspended_by.id,
+    reason: reason,
+    ip: ip
+  )
+end
+
+def self.log_user_unsuspended(user:, unsuspended_by:, ip:)
+  log(
+    event: "user_unsuspended",
+    user_email: user.email,
+    user_id: user.id,
+    unsuspended_by_email: unsuspended_by.email,
+    unsuspended_by_id: unsuspended_by.id,
+    ip: ip
+  )
+end
+
+def self.log_suspended_login_attempt(user:, ip:)
+  log(
+    event: "suspended_login_attempt",
+    user_email: user.email,
+    user_id: user.id,
+    ip: ip
+  )
+end
+```
+
+**Testing**:
+- [x] Verify suspension events appear in security dashboard
+- [x] Verify login attempts by suspended users are logged
+
+---
+
+### 6.4 Admin UI for User Management
+
+**Risk Level**: Low
+**Effort**: Medium
+**Location**: `app/controllers/admin_controller.rb`, new views
+
+**New Routes** (in `config/routes.rb`):
+```ruby
+# Within admin routes
+get '/admin/users', to: 'admin#users'
+get '/admin/users/:handle', to: 'admin#show_user'
+post '/admin/users/:handle/suspend', to: 'admin#suspend_user'
+post '/admin/users/:handle/unsuspend', to: 'admin#unsuspend_user'
+```
+
+**Controller Actions** (in `admin_controller.rb`):
+```ruby
+def users
+  @page_title = 'Users'
+  @users = @current_tenant.users.includes(:tenant_users)
+  respond_to do |format|
+    format.html
+    format.md
+  end
+end
+
+def show_user
+  @user = @current_tenant.users.find_by!(handle: params[:handle])
+  @page_title = @user.display_name
+  respond_to do |format|
+    format.html
+    format.md
+  end
+end
+
+def suspend_user
+  user = @current_tenant.users.find_by!(handle: params[:handle])
+
+  # Prevent self-suspension
+  if user.id == @current_user.id
+    flash[:alert] = "You cannot suspend your own account."
+    redirect_to admin_user_path(user.handle)
+    return
+  end
+
+  # Prevent suspending other admins (optional policy decision)
+  if @current_tenant.is_admin?(user) && !is_main_tenant?
+    flash[:alert] = "Only platform admins can suspend tenant admins."
+    redirect_to admin_user_path(user.handle)
+    return
+  end
+
+  user.suspend!(by: @current_user, reason: params[:reason])
+  SecurityAuditLog.log_user_suspended(
+    user: user,
+    suspended_by: @current_user,
+    reason: params[:reason],
+    ip: request.remote_ip
+  )
+
+  flash[:notice] = "User #{user.display_name} has been suspended."
+  redirect_to admin_user_path(user.handle)
+end
+
+def unsuspend_user
+  user = @current_tenant.users.find_by!(handle: params[:handle])
+
+  user.unsuspend!
+  SecurityAuditLog.log_user_unsuspended(
+    user: user,
+    unsuspended_by: @current_user,
+    ip: request.remote_ip
+  )
+
+  flash[:notice] = "User #{user.display_name} has been unsuspended."
+  redirect_to admin_user_path(user.handle)
+end
+```
+
+**Views** (new files):
+- `app/views/admin/users.html.erb` - List of users with suspension status badges
+- `app/views/admin/users.md.erb` - Markdown version for LLM
+- `app/views/admin/show_user.html.erb` - User details with suspend/unsuspend actions
+- `app/views/admin/show_user.md.erb` - Markdown version for LLM
+
+**UI Elements**:
+- User list shows suspension status badge (red "SUSPENDED" badge)
+- User detail page shows:
+  - Suspended status with reason and date
+  - Who suspended the user
+  - Suspend button (with reason field) for active users
+  - Unsuspend button for suspended users
+- Confirmation dialog before suspension
+
+**Testing**:
+- [x] Verify user list shows all tenant users
+- [x] Verify suspension status badge appears
+- [x] Verify suspend action works with reason
+- [x] Verify unsuspend action works
+- [x] Verify self-suspension is prevented
+- [x] Verify admin suspension policy is enforced
+- [x] Verify markdown API works
+
+---
+
+### 6.5 Add Markdown API Actions
+
+**Risk Level**: Low
+**Effort**: Low
+**Location**: `app/controllers/admin_controller.rb`, `config/routes.rb`
+
+**Routes**:
+```ruby
+# Markdown API actions for user management
+get '/admin/users/:handle/actions', to: 'admin#actions_index_user'
+get '/admin/users/:handle/actions/suspend_user', to: 'admin#describe_suspend_user'
+post '/admin/users/:handle/actions/suspend_user', to: 'admin#execute_suspend_user'
+get '/admin/users/:handle/actions/unsuspend_user', to: 'admin#describe_unsuspend_user'
+post '/admin/users/:handle/actions/unsuspend_user', to: 'admin#execute_unsuspend_user'
+```
+
+**Action Definitions** (in `app/services/actions_helper.rb`):
+```ruby
+{
+  "suspend_user" => {
+    description: "Suspend a user account, preventing them from logging in",
+    params: {
+      reason: { type: "string", required: true, description: "Reason for suspension" }
+    }
+  },
+  "unsuspend_user" => {
+    description: "Unsuspend a user account, allowing them to log in again",
+    params: {}
+  }
+}
+```
+
+**Testing**:
+- [x] Verify LLM can list available actions
+- [x] Verify LLM can describe suspend action
+- [x] Verify LLM can execute suspend action
+- [x] Verify LLM can execute unsuspend action
+
+---
+
+### 6.6 Email Notifications (Optional Enhancement)
+
+**Risk Level**: Low
+**Effort**: Medium
+**Location**: New mailer
+
+**Problem**: Users may not know why they can't log in.
+
+**Solution**: Send email notification when suspended/unsuspended.
+
+```ruby
+# app/mailers/user_suspension_mailer.rb
+class UserSuspensionMailer < ApplicationMailer
+  def suspended(user:, reason:, tenant:)
+    @user = user
+    @reason = reason
+    @tenant = tenant
+    mail(to: user.email, subject: "Your account has been suspended")
+  end
+
+  def unsuspended(user:, tenant:)
+    @user = user
+    @tenant = tenant
+    mail(to: user.email, subject: "Your account has been reactivated")
+  end
+end
+```
+
+**Testing**:
+- [ ] Verify email is sent on suspension
+- [ ] Verify email is sent on unsuspension
+- [ ] Verify email contains correct information
+
+---
+
+### Phase 6 Implementation Order
+
+| Priority | Item | Effort | Risk | Status |
+|----------|------|--------|------|--------|
+| 1 | 6.1 User Suspension Fields | Low | Low | Pending |
+| 2 | 6.2 Block Suspended Users | Low | Medium | Pending |
+| 3 | 6.3 Security Audit Logging | Low | Low | Pending |
+| 4 | 6.4 Admin UI | Medium | Low | Pending |
+| 5 | 6.5 Markdown API Actions | Low | Low | Pending |
+| 6 | 6.6 Email Notifications | Medium | Low | Future/Optional |
+
+---
+
+### Phase 6 Files to Create/Modify
+
+| File | Changes |
+|------|---------|
+| `db/migrate/XXXXXX_add_suspension_to_users.rb` | New migration |
+| `app/models/user.rb` | Add suspension methods |
+| `app/controllers/sessions_controller.rb` | Block suspended login |
+| `app/controllers/application_controller.rb` | Check suspension on requests |
+| `app/controllers/admin_controller.rb` | User management actions |
+| `app/services/security_audit_log.rb` | New event types |
+| `app/services/actions_helper.rb` | New action definitions |
+| `config/routes.rb` | New admin routes |
+| `app/views/admin/users.html.erb` | New view |
+| `app/views/admin/users.md.erb` | New view |
+| `app/views/admin/show_user.html.erb` | New view |
+| `app/views/admin/show_user.md.erb` | New view |
+| `test/controllers/admin_controller_test.rb` | User suspension tests |
+| `test/models/user_test.rb` | Suspension method tests |
 
 ---
 

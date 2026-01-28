@@ -41,6 +41,13 @@ class SessionsController < ApplicationController
     if original_tenant.valid_auth_provider?(request.env['omniauth.auth'].provider)
       identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'])
 
+      # Check if user is suspended
+      if identity.user.suspended?
+        SecurityAuditLog.log_suspended_login_attempt(user: identity.user, ip: request.remote_ip)
+        redirect_to '/login', alert: 'Your account has been suspended. Please contact an administrator.'
+        return
+      end
+
       # Check if this is an identity provider login with 2FA enabled
       if request.env['omniauth.auth'].provider == 'identity'
         omni_auth_identity = OmniAuthIdentity.find_by(email: identity.user.email)
@@ -193,6 +200,15 @@ class SessionsController < ApplicationController
       raise 'Unexpected error. Tenant mismatch.'
     end
     @current_user = User.find(user_id)
+
+    # Check if user is suspended
+    if @current_user.suspended?
+      SecurityAuditLog.log_suspended_login_attempt(user: @current_user, ip: request.remote_ip)
+      @sidebar_mode = 'none'
+      render status: 403, layout: 'pulse', template: 'sessions/403_suspended'
+      return
+    end
+
     tenant_user = tenant.tenant_users.find_by(user: @current_user)
     is_accepting_invite = cookies[:studio_invite_code].present?
     if tenant_user || is_accepting_invite

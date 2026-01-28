@@ -170,7 +170,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   # Check if account is locked due to too many failed attempts
   sig { returns(T::Boolean) }
   def otp_locked?
-    otp_locked_until.present? && otp_locked_until > Time.current
+    otp_locked_until.present? && T.must(otp_locked_until) > Time.current
   end
 
   # Increment failed attempts and lock if threshold reached
@@ -198,7 +198,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   sig { void }
   def enable_otp!
     self.otp_enabled = true
-    self.otp_enabled_at = Time.current
+    self.otp_enabled_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
     save!
   end
 

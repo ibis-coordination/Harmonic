@@ -9,6 +9,7 @@ class ApplicationController < ActionController::Base
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
   before_action :check_session_timeout
+  before_action :check_user_suspension
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
@@ -671,6 +672,20 @@ class ApplicationController < ActionController::Base
 
     # Update last activity timestamp
     session[:last_activity_at] = Time.current.to_i
+  end
+
+  def check_user_suspension
+    return if is_auth_controller?
+    return unless session[:user_id].present?
+
+    # Find the user and check if suspended
+    user = User.unscoped.find_by(id: session[:user_id])
+    return unless user&.suspended?
+
+    SecurityAuditLog.log_suspended_login_attempt(user: user, ip: request.remote_ip)
+    reset_session
+    flash[:alert] = "Your account has been suspended."
+    redirect_to '/login'
   end
 
   # Set Sentry context for error tracking

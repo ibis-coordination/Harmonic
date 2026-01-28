@@ -172,8 +172,9 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
     assert session[:user_id].present?, "User should be logged in"
     assert session[:logged_in_at].present?, "logged_in_at should be set"
 
-    # Travel forward 25 hours (beyond 24 hour absolute timeout)
-    travel 25.hours do
+    # Travel forward beyond the configured absolute timeout
+    absolute_timeout = ApplicationController::SESSION_ABSOLUTE_TIMEOUT
+    travel(absolute_timeout + 1.hour) do
       get "/"
 
       # Should be logged out due to absolute timeout
@@ -192,8 +193,9 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
     get "/"
     assert session[:user_id].present?, "User should be logged in"
 
-    # Travel forward 3 hours (beyond 2 hour idle timeout but within 24 hour absolute)
-    travel 3.hours do
+    # Travel forward beyond the configured idle timeout (but within absolute timeout)
+    idle_timeout = ApplicationController::SESSION_IDLE_TIMEOUT
+    travel(idle_timeout + 1.hour) do
       get "/"
 
       # Should be logged out due to idle timeout
@@ -505,8 +507,9 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
     get "/"
     assert session[:user_id].present?, "User should be logged in"
 
-    # Travel forward to trigger timeout
-    travel 25.hours do
+    # Travel forward beyond the configured absolute timeout
+    absolute_timeout = ApplicationController::SESSION_ABSOLUTE_TIMEOUT
+    travel(absolute_timeout + 1.hour) do
       get "/"
 
       # Check that the timeout was logged
@@ -537,5 +540,84 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
       end
       assert matching_entry, "Expected to find password_reset_requested event"
     end
+  end
+
+  # ============================================================================
+  # USER SUSPENSION TESTS
+  # ============================================================================
+  # These tests verify suspended users are properly blocked from accessing the system.
+
+  test "suspended user is blocked from accessing the app" do
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+
+    # Login the user
+    sign_in_as(@user, tenant: @tenant)
+
+    # Verify user is logged in
+    get "/"
+    assert_response :success
+    assert session[:user_id].present?, "User should be logged in"
+
+    # Suspend the user
+    admin = create_user(email: "admin-#{SecureRandom.hex(4)}@example.com", name: "Admin")
+    @tenant.add_user!(admin)
+    @user.suspend!(by: admin, reason: "Policy violation")
+
+    # Try to access the app - should be logged out
+    get "/"
+    assert_redirected_to "/login"
+    assert_nil session[:user_id], "User should be logged out after suspension detected"
+    assert_match(/suspended/i, flash[:alert])
+  end
+
+  test "suspended user login attempt is logged" do
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+
+    # Login the user
+    sign_in_as(@user, tenant: @tenant)
+
+    # Suspend the user
+    admin = create_user(email: "admin-#{SecureRandom.hex(4)}@example.com", name: "Admin")
+    @tenant.add_user!(admin)
+    @user.suspend!(by: admin, reason: "Policy violation")
+
+    # Try to access the app
+    get "/"
+    assert_redirected_to "/login"
+
+    # Check that the suspension access attempt was logged
+    log_file = Rails.root.join("log/security_audit.log")
+    if File.exist?(log_file)
+      entries = File.readlines(log_file).map { |line| JSON.parse(line) rescue nil }.compact
+      matching_entry = entries.find do |e|
+        e["event"] == "suspended_login_attempt" && e["email"] == @user.email
+      end
+      assert matching_entry, "Expected to find suspended_login_attempt event in security log"
+    end
+  end
+
+  test "suspended user cannot login via token callback" do
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+
+    # Suspend the user before login
+    admin = create_user(email: "admin-#{SecureRandom.hex(4)}@example.com", name: "Admin")
+    @tenant.add_user!(admin)
+    @user.suspend!(by: admin, reason: "Policy violation")
+
+    # Generate a valid login token
+    derived_key = ActiveSupport::KeyGenerator.new(Rails.application.secret_key_base)
+                    .generate_key("cross_subdomain_token", 32)
+    crypt = ActiveSupport::MessageEncryptor.new(derived_key)
+    timestamp = Time.current.to_i
+    token = crypt.encrypt_and_sign("#{@tenant.id}:#{@user.id}:#{timestamp}")
+    cookies[:token] = token
+
+    # Try to login
+    get "/login/callback"
+
+    # Should be shown the suspended page
+    assert_response :forbidden
+    assert_match(/suspended/i, response.body)
+    assert_nil session[:user_id], "Suspended user should not be logged in"
   end
 end

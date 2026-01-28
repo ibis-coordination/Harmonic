@@ -7,7 +7,7 @@
 
 class PasswordResetMailer
   class << self
-    sig { params(identity: T.untyped).returns(::ActionMailer::MessageDelivery) }
-    def reset_password_instructions(identity); end
+    sig { params(identity: T.untyped, raw_token: T.untyped).returns(::ActionMailer::MessageDelivery) }
+    def reset_password_instructions(identity, raw_token); end
   end
 end

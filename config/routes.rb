@@ -144,6 +144,15 @@ Rails.application.routes.draw do
   get 'admin/security' => 'admin#security_dashboard'
   get 'admin/security/events/:line_number' => 'admin#security_event'
 
+  # Admin user management
+  get 'admin/users' => 'admin#users'
+  get 'admin/users/:handle' => 'admin#show_user', as: 'admin_user'
+  get 'admin/users/:handle/actions' => 'admin#actions_index_user'
+  get 'admin/users/:handle/actions/suspend_user' => 'admin#describe_suspend_user'
+  post 'admin/users/:handle/actions/suspend_user' => 'admin#execute_suspend_user'
+  get 'admin/users/:handle/actions/unsuspend_user' => 'admin#describe_unsuspend_user'
+  post 'admin/users/:handle/actions/unsuspend_user' => 'admin#execute_unsuspend_user'
+
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
     post 'settings/profile' => 'users#update_profile', on: :member

@@ -17,6 +17,9 @@
     <a href="/admin/settings" class="pulse-nav-item<%= ' active' if request.path == '/admin/settings' %>">
       <%= octicon 'gear', height: 16 %> Tenant Settings
     </a>
+    <a href="/admin/users" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/users') %>">
+      <%= octicon 'people', height: 16 %> Users
+    </a>
     <% if is_main_tenant? %>
       <a href="/admin/tenants" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/tenants') %>">
         <%= octicon 'organization', height: 16 %> Tenants

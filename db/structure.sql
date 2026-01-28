@@ -1,4 +1,4 @@
-\restrict J3hhWew6BymRGeF0sT1wIwzZn21EmoPK8chxeC8ByvZIevZpv34gfsoVcJ5Pwt0
+\restrict JlOPfcexcHgV4CdsNHrjnUUYCzVqESDqmcXcL4iYgP8JYkcTtUk1x9ne5g0n5jd
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -708,7 +708,10 @@ CREATE TABLE public.users (
     parent_id uuid,
     user_type character varying DEFAULT 'person'::character varying,
     app_admin boolean DEFAULT false NOT NULL,
-    sys_admin boolean DEFAULT false NOT NULL
+    sys_admin boolean DEFAULT false NOT NULL,
+    suspended_at timestamp(6) without time zone,
+    suspended_by_id uuid,
+    suspended_reason character varying
 );
 
 
@@ -1837,6 +1840,13 @@ CREATE INDEX index_users_on_parent_id ON public.users USING btree (parent_id);
 
 
 --
+-- Name: index_users_on_suspended_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_users_on_suspended_at ON public.users USING btree (suspended_at);
+
+
+--
 -- Name: index_votes_on_decision_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2759,7 +2769,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict J3hhWew6BymRGeF0sT1wIwzZn21EmoPK8chxeC8ByvZIevZpv34gfsoVcJ5Pwt0
+\unrestrict JlOPfcexcHgV4CdsNHrjnUUYCzVqESDqmcXcL4iYgP8JYkcTtUk1x9ne5g0n5jd
 
 SET search_path TO "$user", public;
 
@@ -2873,6 +2883,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260123023658'),
 ('20260125063251'),
 ('20260125064500'),
-('20260128052404');
+('20260128052404'),
+('20260128072608');
 
 

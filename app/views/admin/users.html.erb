@@ -1,0 +1,116 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  'Users'
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'people', height: 24 %> Users
+  </h1>
+</div>
+
+<div class="pulse-home-section-intro">
+  <p>All users in <code class="pulse-code"><%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code></p>
+</div>
+
+<form method="get" action="/admin/users" style="margin-bottom: 16px;">
+  <div style="display: flex; gap: 8px;">
+    <input
+      type="text"
+      name="q"
+      value="<%= @search_query %>"
+      placeholder="Search by email..."
+      class="pulse-form-input"
+      style="flex: 1; max-width: 400px;"
+    >
+    <button type="submit" class="pulse-action-btn">
+      <%= octicon 'search', height: 14 %> Search
+    </button>
+    <% if @search_query.present? %>
+      <a href="/admin/users" class="pulse-action-btn pulse-action-btn-secondary">Clear</a>
+    <% end %>
+  </div>
+</form>
+
+<% if @search_query.present? %>
+  <p class="pulse-body-text-muted" style="margin-bottom: 16px;">
+    Showing results for "<strong><%= @search_query %></strong>" (<%= @total_users %> total)
+  </p>
+<% else %>
+  <p class="pulse-body-text-muted" style="margin-bottom: 16px;">
+    <%= @total_users %> users total
+  </p>
+<% end %>
+
+<% user_type_labels = { 'person' => 'People', 'subagent' => 'Subagents' } %>
+<% user_type_icons = { 'person' => 'person', 'subagent' => 'dependabot' } %>
+
+<% ['person', 'subagent'].each do |user_type| %>
+  <% users = @users_by_type[user_type] || [] %>
+  <% total_count = @counts_by_type[user_type] || 0 %>
+  <%= render 'shared/pulse_accordion',
+    title: user_type_labels[user_type] || user_type.titleize,
+    icon: user_type_icons[user_type] || 'person',
+    count: total_count,
+    open: users.any? do %>
+    <% if users.any? %>
+      <div class="pulse-home-list">
+        <% users.each do |user| %>
+          <% tenant_user = user.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } %>
+          <% is_suspended = user.suspended? %>
+          <% is_admin = @current_tenant.is_admin?(user) %>
+          <div class="pulse-home-list-item<%= ' pulse-home-list-item-muted' if is_suspended %>">
+            <a href="/admin/users/<%= tenant_user&.handle %>" class="pulse-home-list-link">
+              <div class="pulse-default-icon pulse-home-list-icon">
+                <%= octicon user_type_icons[user_type] || 'person', height: 14 %>
+              </div>
+              <span class="pulse-home-list-name"><%= user.display_name || user.name %></span>
+              <% unless user.subagent? %>
+                <code class="pulse-code"><%= user.email %></code>
+              <% end %>
+              <% if is_admin %>
+                <span class="pulse-badge pulse-badge-primary">admin</span>
+              <% end %>
+              <% if is_suspended %>
+                <span class="pulse-badge pulse-badge-danger">SUSPENDED</span>
+              <% end %>
+            </a>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="pulse-empty-message">No <%= user_type_labels[user_type]&.downcase || user_type.pluralize %> found.</p>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if @total_pages > 1 %>
+  <div class="pulse-pagination" style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 24px; padding: 16px 0;">
+    <% base_url = @search_query.present? ? "/admin/users?q=#{CGI.escape(@search_query)}&" : "/admin/users?" %>
+
+    <% if @page > 1 %>
+      <a href="<%= base_url %>page=<%= @page - 1 %>" class="pulse-action-btn pulse-action-btn-small">
+        <%= octicon 'chevron-left', height: 12 %> Previous
+      </a>
+    <% else %>
+      <span class="pulse-action-btn pulse-action-btn-small" style="opacity: 0.5; cursor: not-allowed;">
+        <%= octicon 'chevron-left', height: 12 %> Previous
+      </span>
+    <% end %>
+
+    <span class="pulse-body-text-muted" style="margin: 0 8px;">
+      Page <%= @page %> of <%= @total_pages %>
+    </span>
+
+    <% if @page < @total_pages %>
+      <a href="<%= base_url %>page=<%= @page + 1 %>" class="pulse-action-btn pulse-action-btn-small">
+        Next <%= octicon 'chevron-right', height: 12 %>
+      </a>
+    <% else %>
+      <span class="pulse-action-btn pulse-action-btn-small" style="opacity: 0.5; cursor: not-allowed;">
+        Next <%= octicon 'chevron-right', height: 12 %>
+      </span>
+    <% end %>
+  </div>
+<% end %>

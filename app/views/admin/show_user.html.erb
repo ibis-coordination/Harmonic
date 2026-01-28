@@ -1,0 +1,97 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Admin', '/admin'],
+  ['Users', '/admin/users'],
+  @showing_user.display_name || @showing_user.name
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'person', height: 24 %>
+    <%= @showing_user.display_name || @showing_user.name %>
+  </h1>
+</div>
+
+<% if @showing_user.suspended? %>
+  <div class="pulse-alert pulse-alert-danger" style="margin-bottom: 24px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <%= octicon 'alert', height: 16 %>
+      <strong>This account is suspended</strong>
+    </div>
+    <% if @showing_user.suspended_reason.present? %>
+      <p style="margin: 8px 0 0 0;">Reason: <%= @showing_user.suspended_reason %></p>
+    <% end %>
+    <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.8;">
+      Suspended <%= time_ago_in_words(@showing_user.suspended_at) %> ago
+      <% if @showing_user.suspended_by %>
+        by <%= @showing_user.suspended_by.display_name || @showing_user.suspended_by.name %>
+      <% end %>
+    </p>
+  </div>
+<% end %>
+
+<table class="pulse-table">
+  <tbody>
+    <tr>
+      <th>Email</th>
+      <td><code class="pulse-code"><%= @showing_user.email %></code></td>
+    </tr>
+    <tr>
+      <th>Handle</th>
+      <td><a href="/u/<%= @showing_user.handle %>" class="pulse-link"><code class="pulse-code">@<%= @showing_user.handle %></code></a></td>
+    </tr>
+    <tr>
+      <th>User Type</th>
+      <td><%= @showing_user.user_type %></td>
+    </tr>
+    <% if @showing_user.subagent? && @showing_user.parent %>
+      <% parent_tenant_user = @showing_user.parent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } %>
+      <tr>
+        <th>Parent</th>
+        <td><a href="/admin/users/<%= parent_tenant_user&.handle %>" class="pulse-link"><%= @showing_user.parent.display_name || @showing_user.parent.name %></a></td>
+      </tr>
+    <% end %>
+    <tr>
+      <th>Admin</th>
+      <td><%= @is_admin ? 'Yes' : 'No' %></td>
+    </tr>
+    <tr>
+      <th>Created</th>
+      <td><%= time_ago_in_words(@showing_user.created_at) %> ago</td>
+    </tr>
+  </tbody>
+</table>
+
+<% if can_perform_admin_actions? %>
+  <div style="margin-top: 24px;">
+    <% if @showing_user.suspended? %>
+      <%= button_to 'Unsuspend User', "/admin/users/#{@showing_user.handle}/actions/unsuspend_user", method: :post, class: 'pulse-action-btn' %>
+    <% else %>
+      <% if @showing_user.id != @current_user.id %>
+        <details style="margin-bottom: 16px;">
+          <summary class="pulse-action-btn-danger" style="cursor: pointer; display: inline-block;">
+            <%= octicon 'alert', height: 14 %> Suspend User
+          </summary>
+          <div style="background: var(--color-canvas-subtle); padding: 16px; margin-top: 8px; border-radius: 6px;">
+            <%= form_tag "/admin/users/#{@showing_user.handle}/actions/suspend_user", method: :post do %>
+              <div class="pulse-form-group">
+                <label for="reason" class="pulse-form-label">Reason for suspension</label>
+                <input type="text" name="reason" id="reason" class="pulse-input" placeholder="e.g., Policy violation" required>
+                <p class="pulse-form-hint">This reason will be recorded for administrative reference.</p>
+              </div>
+              <p class="pulse-form-hint" style="margin-bottom: 16px;">
+                <%= octicon 'alert', height: 12 %>
+                Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any subagents that they are the parent of.
+              </p>
+              <div class="pulse-form-actions">
+                <button type="submit" class="pulse-action-btn-danger">Confirm Suspension</button>
+              </div>
+            <% end %>
+          </div>
+        </details>
+      <% else %>
+        <p class="pulse-body-text-muted">You cannot suspend your own account.</p>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

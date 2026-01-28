@@ -19,11 +19,17 @@
           <img src="<%= tu.user.image_url %>" alt="<%= tu.display_name %>" class="pulse-avatar-img">
         </div>
         <div class="pulse-studio-info">
-          <a href="<%= tu.url %>" class="pulse-studio-name"><%= tu.display_name %></a>
+          <a href="/admin/users/<%= tu.handle %>" class="pulse-studio-name"><%= tu.display_name %></a>
           <span class="pulse-studio-role">@<%= tu.handle %></span>
         </div>
       </div>
     <% end %>
+  </div>
+
+  <div class="pulse-form-actions">
+    <a href="/admin/users" class="pulse-action-btn">
+      <%= octicon 'people', height: 14 %> Manage All Users
+    </a>
   </div>
 <% end %>
 
@@ -159,31 +165,4 @@
     </div>
   <% end %>
 
-  <% all_person_users = [] %>
-  <% Tenant.order(created_at: :asc).each do |tenant| %>
-    <% tenant.tenant_users.includes(:user).where(user: {user_type:'person'}).order(display_name: :asc).each do |tu| %>
-      <% all_person_users << { tenant: tenant, tu: tu } %>
-    <% end %>
-  <% end %>
-  <%= render 'shared/pulse_accordion', title: 'Person Users', icon: 'people', count: all_person_users.count, open: false do %>
-    <% Tenant.order(created_at: :asc).each do |tenant| %>
-      <% users = tenant.tenant_users.includes(:user).where(user: {user_type:'person'}).order(display_name: :asc) %>
-      <% if users.any? %>
-        <h4 class="pulse-subsection-title"><code class="pulse-code"><%= tenant.subdomain %></code></h4>
-        <div class="pulse-studios-list">
-          <% users.each do |tu| %>
-            <div class="pulse-studio-item">
-              <div class="pulse-author-avatar">
-                <img src="<%= tu.user.image_url %>" alt="<%= tu.display_name %>" class="pulse-avatar-img">
-              </div>
-              <div class="pulse-studio-info">
-                <a href="<%= tu.url %>" class="pulse-studio-name"><%= tu.display_name %></a>
-                <span class="pulse-studio-role">@<%= tu.handle %></span>
-              </div>
-            </div>
-          <% end %>
-        </div>
-      <% end %>
-    <% end %>
-  <% end %>
 <% end %>

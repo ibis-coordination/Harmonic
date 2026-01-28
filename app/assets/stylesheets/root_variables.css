@@ -18,6 +18,7 @@
     --color-accent-emphasis: #1f6feb;
     --color-attention-subtle: rgba(187,128,9,0.15);
     --color-danger-fg: #f85149;
+    --color-danger-subtle: rgba(248, 81, 73, 0.15);
     --color-success-fg: #3fb950;
     --color-success-emphasis: #238636;
     --color-success-subtle: rgba(46, 160, 67, 0.15);
@@ -39,6 +40,7 @@
     --color-accent-emphasis: #0969da;
     --color-attention-subtle: #fff8c5;
     --color-danger-fg: #cf222e;
+    --color-danger-subtle: rgba(207, 34, 46, 0.15);
     --color-success-fg: #1a7f37;
     --color-success-emphasis: #2da44e;
     --color-success-subtle: rgba(46, 160, 67, 0.15);
