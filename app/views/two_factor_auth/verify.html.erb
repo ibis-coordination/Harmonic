@@ -10,13 +10,13 @@
   </p>
 
   <% if flash[:alert] %>
-    <div class="pulse-alert pulse-alert-error" style="margin-bottom: 16px;">
+    <div class="pulse-alert" style="margin-bottom: 16px;">
       <%= flash[:alert] %>
     </div>
   <% end %>
 
   <% if @locked %>
-    <div class="pulse-alert pulse-alert-warning" style="margin-bottom: 16px;">
+    <div class="pulse-alert" style="margin-bottom: 16px; background: var(--color-attention-subtle);">
       Account locked. Try again in <%= pluralize((@lockout_remaining / 60.0).ceil, 'minute') %>.
     </div>
   <% else %>
@@ -37,10 +37,10 @@
 
     <div class="pulse-auth-footer" style="margin-top: 24px;">
       <details style="text-align: left;">
-        <summary style="cursor: pointer; color: var(--pulse-text-secondary);">
+        <summary style="cursor: pointer; color: var(--color-fg-muted);">
           Can't access your authenticator app?
         </summary>
-        <p style="margin-top: 12px; color: var(--pulse-text-secondary); font-size: 0.875rem;">
+        <p style="margin-top: 12px; color: var(--color-fg-muted); font-size: 0.875rem;">
           Enter one of your 16-character recovery codes instead.
           Each recovery code can only be used once.
         </p>

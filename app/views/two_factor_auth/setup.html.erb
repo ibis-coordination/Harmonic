@@ -11,7 +11,7 @@
   </p>
 
   <% if flash[:alert] %>
-    <div class="pulse-alert pulse-alert-error" style="margin-bottom: 16px;">
+    <div class="pulse-alert" style="margin-bottom: 16px;">
       <%= flash[:alert] %>
     </div>
   <% end %>
@@ -21,10 +21,10 @@
   </div>
 
   <details style="margin-bottom: 24px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
-    <summary style="cursor: pointer; color: var(--pulse-text-secondary);">
+    <summary style="cursor: pointer; color: var(--color-fg-muted);">
       Can't scan the code?
     </summary>
-    <p style="margin-top: 12px; color: var(--pulse-text-secondary); font-size: 0.875rem;">
+    <p style="margin-top: 12px; color: var(--color-fg-muted); font-size: 0.875rem;">
       Enter this key manually in your authenticator app:
     </p>
     <code class="pulse-code" style="display: block; margin-top: 8px; padding: 12px; word-break: break-all; font-size: 0.875rem;">

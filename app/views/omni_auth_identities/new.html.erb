@@ -12,12 +12,20 @@
     Create an account on <code class="pulse-code"><%= ENV['HOSTNAME'] %></code>
   </p>
 
+  <% if @identity&.errors&.any? %>
+    <div style="background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;">
+      <% @identity.errors.full_messages.each do |message| %>
+        <p style="margin: 0;"><%= message %></p>
+      <% end %>
+    </div>
+  <% end %>
+
   <%= form_with url: "/auth/identity/register", method: :post, data: { turbo: false }, id: "registration-form", class: "pulse-auth-form" do |form| %>
     <div id="email-feedback" class="password-feedback"></div>
-    <%= form.email_field :email, placeholder: 'Email', required: true, id: 'email-field', class: 'pulse-form-input' %>
+    <%= form.email_field :email, placeholder: 'Email', required: true, id: 'email-field', class: 'pulse-form-input', value: @identity&.email %>
 
     <div id="name-feedback" class="password-feedback"></div>
-    <%= form.text_field :name, placeholder: 'Name', required: true, id: 'name-field', class: 'pulse-form-input' %>
+    <%= form.text_field :name, placeholder: 'Name', required: true, id: 'name-field', class: 'pulse-form-input', value: @identity&.name %>
 
     <div id="password-feedback" class="password-feedback"></div>
     <%= form.password_field :password, placeholder: 'Password (minimum 14 characters)',

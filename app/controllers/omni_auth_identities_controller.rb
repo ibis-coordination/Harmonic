@@ -9,7 +9,7 @@ class OmniAuthIdentitiesController < ApplicationController
 
   def failed_registration
     # This is called when OmniAuth identity registration fails
-    @identity = OmniAuthIdentity.new(env['omniauth.identity'])
+    @identity = request.env['omniauth.identity']
     render :new
   end
 

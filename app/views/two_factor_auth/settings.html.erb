@@ -6,42 +6,40 @@
   <h1 class="pulse-auth-title">Two-Factor Authentication</h1>
 
   <% if flash[:notice] %>
-    <div class="pulse-alert pulse-alert-success" style="margin-bottom: 16px;">
+    <div class="pulse-notice" style="margin-bottom: 16px;">
       <%= flash[:notice] %>
     </div>
   <% end %>
 
   <% if flash[:alert] %>
-    <div class="pulse-alert pulse-alert-error" style="margin-bottom: 16px;">
+    <div class="pulse-alert" style="margin-bottom: 16px;">
       <%= flash[:alert] %>
     </div>
   <% end %>
 
   <div class="pulse-card" style="max-width: 500px; margin: 0 auto; text-align: left;">
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-      <span style="background: var(--pulse-success); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-        ENABLED
-      </span>
-      <span style="color: var(--pulse-text-secondary); font-size: 0.875rem;">
+      <span class="pulse-badge pulse-badge-success">ENABLED</span>
+      <span style="color: var(--color-fg-muted); font-size: 0.875rem;">
         since <%= @enabled_at.strftime('%B %d, %Y') %>
       </span>
     </div>
 
     <div style="margin-bottom: 24px;">
       <h3 style="margin-bottom: 8px;">Recovery Codes</h3>
-      <p style="color: var(--pulse-text-secondary); font-size: 0.875rem; margin-bottom: 12px;">
+      <p style="color: var(--color-fg-muted); font-size: 0.875rem; margin-bottom: 12px;">
         You have <strong><%= @remaining_codes %></strong> recovery codes remaining.
         <% if @remaining_codes < 3 %>
-          <span style="color: var(--pulse-warning);">Consider regenerating your codes.</span>
+          <span style="color: var(--color-attention-fg);">Consider regenerating your codes.</span>
         <% end %>
       </p>
     </div>
 
-    <hr style="border: none; border-top: 1px solid var(--pulse-border); margin: 24px 0;">
+    <hr style="border: none; border-top: 1px solid var(--color-border-default); margin: 24px 0;">
 
     <div style="margin-bottom: 24px;">
       <h3 style="margin-bottom: 12px;">Regenerate Recovery Codes</h3>
-      <p style="color: var(--pulse-text-secondary); font-size: 0.875rem; margin-bottom: 12px;">
+      <p style="color: var(--color-fg-muted); font-size: 0.875rem; margin-bottom: 12px;">
         This will invalidate your current recovery codes and generate new ones.
       </p>
       <%= form_with url: two_factor_regenerate_codes_path, method: :post, class: "pulse-auth-form" do |form| %>
@@ -54,16 +52,16 @@
             maxlength: 6,
             style: 'text-align: center;' %>
         <div class="pulse-form-actions" style="margin-top: 12px;">
-          <%= submit_tag "Regenerate Codes", class: "pulse-btn pulse-btn-secondary", style: "width: 100%;" %>
+          <%= submit_tag "Regenerate Codes", class: "pulse-action-btn-secondary", style: "width: 100%;" %>
         </div>
       <% end %>
     </div>
 
-    <hr style="border: none; border-top: 1px solid var(--pulse-border); margin: 24px 0;">
+    <hr style="border: none; border-top: 1px solid var(--color-border-default); margin: 24px 0;">
 
     <div>
-      <h3 style="margin-bottom: 12px; color: var(--pulse-error);">Disable Two-Factor Authentication</h3>
-      <p style="color: var(--pulse-text-secondary); font-size: 0.875rem; margin-bottom: 12px;">
+      <h3 style="margin-bottom: 12px; color: var(--color-danger-fg);">Disable Two-Factor Authentication</h3>
+      <p style="color: var(--color-fg-muted); font-size: 0.875rem; margin-bottom: 12px;">
         This will remove 2FA from your account. You will only need your password to log in.
       </p>
       <%= form_with url: two_factor_disable_path, method: :post, class: "pulse-auth-form" do |form| %>
@@ -73,7 +71,7 @@
             autocomplete: 'one-time-code',
             style: 'text-align: center;' %>
         <div class="pulse-form-actions" style="margin-top: 12px;">
-          <%= submit_tag "Disable 2FA", class: "pulse-btn pulse-btn-danger", style: "width: 100%;" %>
+          <%= submit_tag "Disable 2FA", class: "pulse-action-btn pulse-action-btn-danger", style: "width: 100%;" %>
         </div>
       <% end %>
     </div>
