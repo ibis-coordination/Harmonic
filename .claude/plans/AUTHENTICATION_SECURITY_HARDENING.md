@@ -342,11 +342,15 @@ end
 
 ### 4.1 Verify Honor System Disabled in Production
 
-**Location**: Environment configuration, deployment scripts
+**Location**: `config/initializers/security_checks.rb`
+
+**Status**: ✅ Complete
+
+**Implementation**: Added runtime check in initializer that raises an error if `AUTH_MODE=honor_system` in production. The application will fail to boot with a clear error message explaining the issue and how to fix it.
 
 **Checklist**:
-- [ ] Verify `AUTH_MODE` is NOT `honor_system` in production
-- [ ] Add CI check to prevent deployment with `AUTH_MODE=honor_system`
+- [x] Verify `AUTH_MODE` is NOT `honor_system` in production (enforced at boot)
+- [x] Add CI check to prevent deployment with `AUTH_MODE=honor_system` (app won't start)
 - [ ] Document in deployment runbook
 
 ---
@@ -386,9 +390,10 @@ end
 | 4 | 2.3 Key Validation | Low | Crypto weakness | ✅ Done |
 | 5 | 3.1 Common Passwords | Low | Weak passwords | ✅ Done |
 | 6 | 3.2 Hash Reset Tokens | Low | DB compromise | ✅ Done |
-| 7 | 2.2 CSP Nonces | High | Style injection | Deferred |
-| 8 | 3.3 MFA | High | Account takeover | Future |
-| 9 | 3.4 Re-authentication | Medium | Session abuse | Future |
+| 7 | 4.1 Honor System Check | Low | Misconfig in prod | ✅ Done |
+| 8 | 2.2 CSP Nonces | High | Style injection | Deferred |
+| 9 | 3.3 MFA | High | Account takeover | Future |
+| 10 | 3.4 Re-authentication | Medium | Session abuse | Future |
 
 ---
 
@@ -401,6 +406,7 @@ end
 | `app/models/omni_auth_identity.rb` | Common password check, token hashing |
 | `config/initializers/content_security_policy.rb` | CSP nonces (if implemented) |
 | `config/initializers/session_store.rb` | Session configuration |
+| `config/initializers/security_checks.rb` | Honor system production check (new) |
 
 ---
 
@@ -428,6 +434,8 @@ end
 
 6. **Hashed Reset Tokens (3.2)**: Password reset tokens are now stored as SHA256 hashes. Raw token returned from `generate_reset_password_token!` for email delivery. See `omni_auth_identity.rb:12-34` and `password_reset_mailer.rb`
 
+7. **Honor System Production Check (4.1)**: Added `config/initializers/security_checks.rb` that raises a clear error at boot if `AUTH_MODE=honor_system` in production environment.
+
 **Files modified:**
 - `app/controllers/sessions_controller.rb`
 - `app/controllers/application_controller.rb`
@@ -439,6 +447,7 @@ end
 - `test/test_helper.rb` (updated encryption key derivation)
 - `test/controllers/sessions_controller_test.rb` (updated test helper)
 - `test/controllers/password_resets_controller_test.rb` (updated for hashed tokens)
+- `config/initializers/security_checks.rb` (new - honor system production check)
 
 ---
 
