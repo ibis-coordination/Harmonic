@@ -145,7 +145,7 @@ class Note < ApplicationRecord
                                 event_type: "read_confirmation")
   end
 
-  sig { params(user: User).returns(T::Boolean) }
+  sig { params(_user: User).returns(T::Boolean) }
   def creator_can_skip_confirm?(_user)
     # This is a reversed design choice to allow the creator to confirm their own note
     false
