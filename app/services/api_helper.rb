@@ -168,7 +168,7 @@ class ApiHelper
     T.must(heartbeat)
   end
 
-  sig { params(commentable: T.nilable(T.any(Note, Decision, Commitment))).returns(Note) }
+  sig { params(commentable: T.nilable(T.any(Note, Decision, Commitment, RepresentationSession))).returns(Note) }
   def create_note(commentable: nil)
     note = T.let(nil, T.nilable(Note))
     ActiveRecord::Base.transaction do

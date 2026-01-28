@@ -360,7 +360,7 @@ class ActionsHelper
     },
     "/studios/:studio_handle/cycles" => { actions: [] },
     "/studios/:studio_handle/backlinks" => { actions: [] },
-    "/studios/:studio_handle/team" => { actions: [] },
+    "/studios/:studio_handle/members" => { actions: [] },
     "/studios/:studio_handle/note" => {
       actions: [
         { name: "create_note", params_string: ACTION_DEFINITIONS["create_note"][:params_string], description: ACTION_DEFINITIONS["create_note"][:description] },

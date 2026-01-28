@@ -35,15 +35,7 @@ No participants yet.
 
 <%= render 'shared/backlinks', resource: @commitment %>
 <%= render 'shared/attachments_section', resource: @commitment %>
-## Comments (<%= @commitment.comments_count %>)
-
-<% if @commitment.comments.empty? -%>
-No comments yet.
-<% else -%>
-<% @commitment.chronological_comments.each do |comment| -%>
-* <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= raw comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
-<% end -%>
-<% end -%>
+<%= render 'shared/comments_section', resource: @commitment %>
 
 ## [Actions](<%= @commitment.path %>/actions)
 

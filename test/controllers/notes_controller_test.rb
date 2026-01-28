@@ -206,4 +206,129 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     get "/studios/#{@superagent.handle}/n/#{note.truncated_id}/history.html"
     assert_response :success
   end
+
+  # === Comments API Tests ===
+
+  test "create_comment returns JSON response" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    note = Note.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      title: "Test Note",
+      text: "Test content",
+      deadline: Time.current + 1.week
+    )
+    Superagent.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    initial_count = Note.unscoped.count
+    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/comments",
+      params: { text: "This is a test comment" },
+      headers: { "Accept" => "application/json" }
+
+    assert_response :success, "Expected success but got #{response.status}: #{response.body}"
+    json_response = JSON.parse(response.body)
+    assert json_response["success"], "Response: #{json_response}"
+    assert json_response["comment_id"].present?, "Response: #{json_response}"
+    assert_equal initial_count + 1, Note.unscoped.count, "Note count should have increased by 1"
+  end
+
+  test "comments_partial returns HTML" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    note = Note.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      title: "Test Note",
+      text: "Test content",
+      deadline: Time.current + 1.week
+    )
+
+    # Create a comment on the note
+    Note.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      updated_by: @user,
+      text: "Test comment",
+      commentable: note
+    )
+    Superagent.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}/comments.html"
+
+    assert_response :success
+    assert_includes response.body, "pulse-comments-list"
+    assert_includes response.body, "Test comment"
+  end
+
+  test "confirm_read returns JSON with confirmed_reads count" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    note = Note.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      title: "Test Note",
+      text: "Test content",
+      deadline: Time.current + 1.week
+    )
+    Superagent.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/actions/confirm_read",
+      headers: { "Accept" => "application/json" }
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert json_response["success"]
+    assert_equal 1, json_response["confirmed_reads"]
+  end
+
+  test "confirm_read increments count for multiple users" do
+    other_user = create_user(name: "Other User")
+    @tenant.add_user!(other_user)
+    @superagent.add_user!(other_user)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    note = Note.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      title: "Test Note",
+      text: "Test content",
+      deadline: Time.current + 1.week
+    )
+    Superagent.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # First user confirms
+    sign_in_as(@user, tenant: @tenant)
+    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/actions/confirm_read",
+      headers: { "Accept" => "application/json" }
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal 1, json_response["confirmed_reads"]
+
+    # Second user confirms
+    sign_in_as(other_user, tenant: @tenant)
+    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/actions/confirm_read",
+      headers: { "Accept" => "application/json" }
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal 2, json_response["confirmed_reads"]
+  end
 end

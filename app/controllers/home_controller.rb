@@ -58,7 +58,8 @@ class HomeController < ApplicationController
   end
 
   def page_not_found
-    render 'shared/404', layout: 'application', status: 404
+    @sidebar_mode = 'minimal'
+    render 'shared/404', status: 404
   end
 
   private

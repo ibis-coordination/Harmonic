@@ -87,10 +87,7 @@ a:hover {
   text-decoration: none;
 }
 
-.pulse-logo img {
-  width: 32px;
-  height: 32px;
-}
+/* Logo uses .tri-logo-icon (32px default) - see pulse/_components.css */
 
 .pulse-studio-info {
   padding: 16px;
@@ -323,21 +320,37 @@ a:hover {
   color: var(--color-canvas-default);
 }
 
-.pulse-nav-item img {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
+/* Resource icons in nav items - use dark variants when active/hovered (inverted background) */
+.pulse-nav-item.active .note-icon,
+.pulse-nav-item:hover .note-icon {
+  background-image: url(/resource-icons/note-icon-dark.svg);
 }
 
-.pulse-nav-item.active img,
-.pulse-nav-item:hover img {
-  filter: invert(1);
+.pulse-nav-item.active .decision-icon,
+.pulse-nav-item:hover .decision-icon {
+  background-image: url(/resource-icons/decision-icon-dark.svg);
+}
+
+.pulse-nav-item.active .commitment-icon,
+.pulse-nav-item:hover .commitment-icon {
+  background-image: url(/resource-icons/commitment-icon-dark.svg);
 }
 
 @media (prefers-color-scheme: dark) {
-  .pulse-nav-item.active img,
-  .pulse-nav-item:hover img {
-    filter: none;
+  /* In dark mode, active/hovered state has light background, so use light icons */
+  .pulse-nav-item.active .note-icon,
+  .pulse-nav-item:hover .note-icon {
+    background-image: url(/resource-icons/note-icon.svg);
+  }
+
+  .pulse-nav-item.active .decision-icon,
+  .pulse-nav-item:hover .decision-icon {
+    background-image: url(/resource-icons/decision-icon.svg);
+  }
+
+  .pulse-nav-item.active .commitment-icon,
+  .pulse-nav-item:hover .commitment-icon {
+    background-image: url(/resource-icons/commitment-icon.svg);
   }
 }
 
@@ -927,10 +940,7 @@ a:hover {
   font-size: 16px;
 }
 
-.pulse-top-header .pulse-logo img {
-  width: 28px;
-  height: 28px;
-}
+/* Logo uses .tri-logo-icon.icon-sm (28px) - see pulse/_components.css */
 
 .pulse-top-header-right {
   display: flex;
@@ -1020,6 +1030,7 @@ a:hover {
   padding: 16px;
   margin: 0;
   position: relative;
+  font-size: 0.8em;
 }
 
 /* Continue sidebar border through footer */
@@ -1141,12 +1152,7 @@ a:hover {
   color: var(--color-accent-fg);
 }
 
-.pulse-pinned-icon {
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
+/* Note: Pinned icons now use CSS classes like .note-icon.icon-sm instead of <img> tags */
 
 /* Links Section (Settings, Explore, etc.) */
 .pulse-links-section {

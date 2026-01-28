@@ -14,6 +14,8 @@ window.Stimulus = application
 import TrioChatController from "./trio_chat_controller"
 import ClipboardController from "./clipboard_controller"
 import CollapsableSectionController from "./collapseable_section_controller"
+import CommentsController from "./comments_controller"
+import CommentThreadController from "./comment_thread_controller"
 import CommitmentController from "./commitment_controller"
 import CountdownController from "./countdown_controller"
 import DeadlineOptionsController from "./deadline_options_controller"
@@ -49,6 +51,8 @@ import TrioLogoController from "./trio_logo_controller"
 application.register("trio-chat", TrioChatController)
 application.register("clipboard", ClipboardController)
 application.register("collapseable-section", CollapsableSectionController)
+application.register("comments", CommentsController)
+application.register("comment-thread", CommentThreadController)
 application.register("commitment", CommitmentController)
 application.register("countdown", CountdownController)
 application.register("deadline-options", DeadlineOptionsController)

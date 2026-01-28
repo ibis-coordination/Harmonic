@@ -1,5 +1,9 @@
 # typed: false
 
+# TODO: Bug - representatives can perform actions within the studio they are representing AS the studio
+# (trustee user), which doesn't make sense. Representatives should only be able to act on behalf of
+# the studio in OTHER studios, not within the studio itself. Need to investigate what changed.
+
 class RepresentationSessionsController < ApplicationController
   layout 'pulse', only: [:index, :show, :representing]
   before_action :set_sidebar_mode, only: [:index, :show, :representing]
@@ -35,7 +39,8 @@ class RepresentationSessionsController < ApplicationController
       @page_title = "Represent #{current_superagent.name}"
     else
       # TODO - design a better solution for this
-      return render layout: 'application', html: 'You do not have permission to access this page.'
+@sidebar_mode = 'minimal'
+      return render layout: 'pulse', html: 'You do not have permission to access this page.'
     end
   end
 
@@ -69,6 +74,7 @@ class RepresentationSessionsController < ApplicationController
 
   def representing
     @page_title = 'Representing'
+    @sidebar_mode = 'none'
     @representation_session = current_representation_session
     return redirect_to root_path unless @representation_session
     @studio = @representation_session.superagent

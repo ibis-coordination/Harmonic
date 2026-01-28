@@ -132,9 +132,9 @@ test.describe("Pulse Activity Feed", () => {
       const membersLink = page.locator('.pulse-member-link')
       await expect(membersLink).toBeVisible()
 
-      // Should link to team page
+      // Should link to members page
       const href = await membersLink.getAttribute("href")
-      expect(href).toContain("/team")
+      expect(href).toContain("/members")
     })
   })
 
@@ -1105,8 +1105,8 @@ test.describe("Pulse Activity Feed", () => {
       const membersLink = page.locator('.pulse-member-link')
       await membersLink.click()
 
-      // Should navigate to team page
-      await expect(page).toHaveURL(/\/team/)
+      // Should navigate to members page
+      await expect(page).toHaveURL(/\/members/)
     })
 
     test("new button navigates to note creation", async ({

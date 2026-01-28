@@ -1,46 +1,24 @@
 <%# Pulse-styled comments section %>
 <%# Usage: render 'shared/pulse_comments', commentable: @note %>
-<div class="pulse-comments-section">
+<div class="pulse-comments-section"
+     data-controller="comments"
+     data-comments-refresh-url-value="<%= commentable.path %>/comments.html">
   <div class="pulse-section-label">
     <%= octicon 'comment', height: 12 %>
     Comments (<%= commentable.comment_count %>)
   </div>
 
-  <% if commentable.comments.any? %>
-    <div class="pulse-comments-list">
-      <% commentable.chronological_comments.each do |comment| %>
-        <div class="pulse-comment">
-          <div class="pulse-comment-header">
-            <div class="pulse-author-avatar">
-              <% if comment.created_by.image.attached? %>
-                <img src="<%= comment.created_by.image_path %>" alt="" class="pulse-avatar-img">
-              <% end %>
-              <span class="pulse-avatar-initials"><%= comment.created_by.display_name.first.upcase %></span>
-            </div>
-            <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
-              <%= comment.created_by.display_name %>
-            </a>
-            <span class="pulse-comment-timestamp"><%= timeago(comment.created_at) %></span>
-          </div>
-          <div class="pulse-comment-body">
-            <%= markdown_inline(comment.text) %>
-          </div>
-        </div>
-      <% end %>
-    </div>
-  <% else %>
-    <p class="pulse-comments-empty">No comments yet.</p>
-  <% end %>
+  <%= render 'shared/pulse_comments_list', commentable: commentable %>
 
   <% if @current_user %>
     <div class="pulse-comment-form">
-      <%= form_with url: "#{commentable.path}/comments", method: :post, local: true, class: "pulse-new-comment-form" do |form| %>
+      <%= form_with url: "#{commentable.path}/comments", method: :post, local: true, class: "pulse-new-comment-form", data: { comments_target: "form", action: "submit->comments#submit", turbo: "false" } do |form| %>
         <div class="pulse-form-group mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
-          <%= form.text_area :text, placeholder: "Add a comment (use @ to mention users)...", rows: 3, class: "pulse-form-textarea", data: { mention_autocomplete_target: "input" } %>
+          <%= form.text_area :text, placeholder: "Add a comment (use @ to mention users)...", rows: 3, class: "pulse-form-textarea", data: { mention_autocomplete_target: "input", comments_target: "textarea" } %>
           <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
         </div>
         <div class="pulse-form-actions">
-          <%= form.submit "Add Comment", class: "pulse-feed-action-btn" %>
+          <%= form.submit "Add Comment", class: "pulse-feed-action-btn", data: { comments_target: "submitButton" } %>
         </div>
       <% end %>
     </div>

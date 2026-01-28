@@ -1,22 +1,14 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_superagent.name, @current_superagent.path],
-  'New Note'
+  'New'
 ] %>
 
+<%= render 'shared/pulse_create_tabs', current: :note %>
+
 <article class="pulse-resource-detail">
-  <header class="pulse-resource-header">
-    <div class="pulse-resource-header-top">
-      <span class="pulse-resource-type-label">
-        <img src="/resource-icons/note-icon.svg" class="pulse-resource-icon" alt="">
-        Note
-      </span>
-    </div>
-    <h1 class="pulse-resource-title">New Note</h1>
-  </header>
 
   <%= form_with(url: "#{@current_superagent.path}/note", class: "pulse-form") do |form| %>
     <div class="pulse-form-group">
-      <label class="pulse-form-label">Content</label>
       <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
         <%= form.text_area :text,
             placeholder: "Write your note here... (use @ to mention users)",

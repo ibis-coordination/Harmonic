@@ -1,18 +1,11 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_superagent.name, @current_superagent.path],
-  'New Decision'
+  'New'
 ] %>
 
+<%= render 'shared/pulse_create_tabs', current: :decision %>
+
 <article class="pulse-resource-detail">
-  <header class="pulse-resource-header">
-    <div class="pulse-resource-header-top">
-      <span class="pulse-resource-type-label">
-        <img src="/resource-icons/decision-icon.svg" class="pulse-resource-icon" alt="">
-        Decision
-      </span>
-    </div>
-    <h1 class="pulse-resource-title">New Decision</h1>
-  </header>
 
   <%= form_with(url: "#{@current_superagent.path}/decide", class: "pulse-form") do |form| %>
     <div class="pulse-form-group">

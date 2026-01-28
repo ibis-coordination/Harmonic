@@ -158,7 +158,8 @@ class ApplicationController < ActionController::Base
     if tu.nil?
       accepting_invite = current_invite && current_invite.superagent == @current_superagent
       if @current_tenant.require_login? && controller_name != 'sessions' && !accepting_invite
-        render status: 403, layout: 'application', template: 'sessions/403_to_logout'
+@sidebar_mode = 'none'
+        render status: 403, layout: 'pulse', template: 'sessions/403_to_logout'
       elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
         # The user still has to click "accept" to accept the invite to the superagent,
         # but they need to access the tenant to do so.
@@ -543,10 +544,20 @@ class ApplicationController < ActionController::Base
   def create_comment
     if current_resource.is_commentable?
       comment = api_helper.create_note(commentable: current_resource)
-      redirect_to comment.path
+
+      respond_to do |format|
+        format.html { redirect_to comment.path }
+        format.json { render json: { success: true, comment_id: comment.truncated_id } }
+      end
     else
-      render status: 405, json: {message:'comments cannot be added to this datatype'}
+      render status: 405, json: { message: "comments cannot be added to this datatype" }
     end
+  end
+
+  def comments_partial
+    render partial: "shared/pulse_comments_list",
+           locals: { commentable: current_resource },
+           layout: false
   end
 
   def describe_add_comment

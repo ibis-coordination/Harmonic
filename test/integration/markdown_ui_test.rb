@@ -2114,4 +2114,122 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     TenantUser.where(user: other_user).delete_all if other_user
     other_user&.destroy
   end
+
+  # === Threaded Comments in Markdown UI ===
+
+  test "note with no comments shows 'No comments yet' in markdown" do
+    note = create_note(superagent: @superagent, created_by: @user, title: "Note without comments")
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/## Comments \(0\)/, response.body, "Should show Comments section with count 0")
+    assert_match(/No comments yet\./, response.body, "Should show 'No comments yet' message")
+  ensure
+    note&.destroy
+  end
+
+  test "note with single comment shows comment in markdown" do
+    note = create_note(superagent: @superagent, created_by: @user, title: "Note with comment")
+    comment = note.add_comment(text: "This is a test comment", created_by: @user)
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/## Comments \(1\)/, response.body, "Should show Comments section with count 1")
+    assert_match(/This is a test comment/, response.body, "Should show comment text")
+    assert_match(/\[This is a test comment\]\(#{comment.path}\)/, response.body, "Should link to comment")
+  ensure
+    comment&.destroy
+    note&.destroy
+  end
+
+  test "note with threaded comments shows replies indented in markdown" do
+    note = create_note(superagent: @superagent, created_by: @user, title: "Note with threaded comments")
+    top_level_comment = note.add_comment(text: "Top level comment", created_by: @user)
+    reply = top_level_comment.add_comment(text: "Reply to top level", created_by: @user)
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/## Comments \(1\)/, response.body, "Should show Comments section with top-level count")
+    assert_match(/\* .+Top level comment/, response.body, "Should show top-level comment as main bullet")
+    assert_match(/  \* .+Reply to top level/, response.body, "Should show reply indented with two spaces")
+  ensure
+    reply&.destroy
+    top_level_comment&.destroy
+    note&.destroy
+  end
+
+  test "nested reply shows 'Replying to @handle' context in markdown" do
+    note = create_note(superagent: @superagent, created_by: @user, title: "Note with nested replies")
+    top_level_comment = note.add_comment(text: "Top level comment", created_by: @user)
+    first_reply = top_level_comment.add_comment(text: "First reply", created_by: @user)
+    # This is a reply to first_reply, not to top_level_comment, so it should show context
+    nested_reply = first_reply.add_comment(text: "Nested reply to first reply", created_by: @user)
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    # The nested reply should show "↳ Replying to @handle:" because it's a reply to first_reply, not top_level_comment
+    assert_match(/↳ Replying to @#{@user.handle}:/, response.body, "Should show 'Replying to @handle' for nested reply")
+    assert_match(/Nested reply to first reply/, response.body, "Should show nested reply text")
+  ensure
+    nested_reply&.destroy
+    first_reply&.destroy
+    top_level_comment&.destroy
+    note&.destroy
+  end
+
+  test "decision with threaded comments shows them in markdown" do
+    decision = create_decision(superagent: @superagent, created_by: @user, question: "Decision with comments?")
+    comment = decision.add_comment(text: "Comment on decision", created_by: @user)
+
+    get decision.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/## Comments \(1\)/, response.body, "Should show Comments section")
+    assert_match(/Comment on decision/, response.body, "Should show comment text")
+  ensure
+    comment&.destroy
+    decision&.destroy
+  end
+
+  test "commitment with threaded comments shows them in markdown" do
+    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Commitment with comments")
+    comment = commitment.add_comment(text: "Comment on commitment", created_by: @user)
+
+    get commitment.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/## Comments \(1\)/, response.body, "Should show Comments section")
+    assert_match(/Comment on commitment/, response.body, "Should show comment text")
+  ensure
+    comment&.destroy
+    commitment&.destroy
+  end
+
+  test "representation session with comments shows them in markdown" do
+    # Create a representation session
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative_user: @user,
+      trustee_user: @user,
+      confirmed_understanding: true,
+      began_at: 1.hour.ago,
+      ended_at: 30.minutes.ago,
+    )
+    comment = session.add_comment(text: "Comment on representation session", created_by: @user)
+
+    get session.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_match(/## Comments \(1\)/, response.body, "Should show Comments section")
+    assert_match(/Comment on representation session/, response.body, "Should show comment text")
+    assert_match(/add_comment/, response.body, "Should show add_comment action")
+  ensure
+    comment&.destroy
+    session&.destroy
+  end
 end

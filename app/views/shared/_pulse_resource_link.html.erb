@@ -20,7 +20,7 @@
   end
 %>
 <span class="pulse-resource-link">
-  <img src="/resource-icons/<%= resource_type %>-icon.svg" alt="" class="pulse-resource-icon">
+  <i class="<%= resource_type %>-icon icon-sm"></i>
   <a href="<%= resource_path %>" class="pulse-resource-title"><%= resource_title %></a>
   <% if metric_value.present? %>
     <span class="pulse-resource-metric" title="<%= metric_value %> <%= metric_name %>">
