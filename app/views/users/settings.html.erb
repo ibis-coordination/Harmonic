@@ -134,7 +134,9 @@
                   <td><%= token.name || 'Unnamed' %></td>
                   <td>
                     <code class="pulse-code"><%= token.obfuscated_token %></code>
-                    <%= render 'shared/copy_button', text: token.token %>
+                    <% if token.plaintext_token.present? %>
+                      <%= render 'shared/copy_button', text: token.plaintext_token %>
+                    <% end %>
                   </td>
                   <td><%= timeago(token.created_at) %></td>
                   <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
@@ -285,7 +287,9 @@
                           <td><%= token.name || 'Unnamed' %></td>
                           <td>
                             <code class="pulse-code"><%= token.obfuscated_token %></code>
-                            <%= render 'shared/copy_button', text: token.token %>
+                            <% if token.plaintext_token.present? %>
+                              <%= render 'shared/copy_button', text: token.plaintext_token %>
+                            <% end %>
                           </td>
                           <td><%= timeago(token.created_at) %></td>
                           <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>

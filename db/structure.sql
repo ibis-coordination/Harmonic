@@ -1,4 +1,4 @@
-\restrict JlOPfcexcHgV4CdsNHrjnUUYCzVqESDqmcXcL4iYgP8JYkcTtUk1x9ne5g0n5jd
+\restrict oAtMmGYOqMhxbg08c0zaI49qS5aHVnyQyipz4IHswL6omCK84BUqdjLo5YF5pJ2
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -90,7 +90,6 @@ CREATE TABLE public.api_tokens (
     tenant_id uuid NOT NULL,
     user_id uuid NOT NULL,
     name character varying,
-    token character varying NOT NULL,
     last_used_at timestamp(6) without time zone,
     expires_at timestamp(6) without time zone DEFAULT (CURRENT_TIMESTAMP + '1 year'::interval),
     scopes jsonb DEFAULT '[]'::jsonb,
@@ -99,7 +98,9 @@ CREATE TABLE public.api_tokens (
     deleted_at timestamp(6) without time zone,
     sys_admin boolean DEFAULT false NOT NULL,
     app_admin boolean DEFAULT false NOT NULL,
-    tenant_admin boolean DEFAULT false NOT NULL
+    tenant_admin boolean DEFAULT false NOT NULL,
+    token_hash character varying,
+    token_prefix character varying(4)
 );
 
 
@@ -1098,10 +1099,10 @@ CREATE INDEX index_api_tokens_on_tenant_id_and_user_id ON public.api_tokens USIN
 
 
 --
--- Name: index_api_tokens_on_token; Type: INDEX; Schema: public; Owner: -
+-- Name: index_api_tokens_on_token_hash; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_api_tokens_on_token ON public.api_tokens USING btree (token);
+CREATE UNIQUE INDEX index_api_tokens_on_token_hash ON public.api_tokens USING btree (token_hash);
 
 
 --
@@ -2769,7 +2770,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict JlOPfcexcHgV4CdsNHrjnUUYCzVqESDqmcXcL4iYgP8JYkcTtUk1x9ne5g0n5jd
+\unrestrict oAtMmGYOqMhxbg08c0zaI49qS5aHVnyQyipz4IHswL6omCK84BUqdjLo5YF5pJ2
 
 SET search_path TO "$user", public;
 
@@ -2884,6 +2885,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260125063251'),
 ('20260125064500'),
 ('20260128052404'),
-('20260128072608');
+('20260128072608'),
+('20260128200000');
 
 

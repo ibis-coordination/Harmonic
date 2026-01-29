@@ -76,7 +76,7 @@ class ApplicationController < ActionController::Base
     return @current_token if defined?(@current_token)
     return @current_token = nil unless api_token_present?
     prefix, token_string = request.headers['Authorization'].split(' ')
-    @current_token = ApiToken.find_by(token: token_string, deleted_at: nil, tenant_id: current_tenant.id)
+    @current_token = ApiToken.authenticate(token_string, tenant_id: current_tenant.id)
     return nil unless @current_token
     if prefix == 'Bearer' && @current_token&.active?
       @current_token.token_used!

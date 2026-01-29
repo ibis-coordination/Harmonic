@@ -13,8 +13,9 @@ class UserWebhooksControllerTest < ActionDispatch::IntegrationTest
       user: @user,
       scopes: ApiToken.valid_scopes,
     )
+    @plaintext_token = @api_token.plaintext_token
     @headers = {
-      "Authorization" => "Bearer #{@api_token.token}",
+      "Authorization" => "Bearer #{@plaintext_token}",
       "Accept" => "text/markdown",
       "Content-Type" => "application/json",
     }

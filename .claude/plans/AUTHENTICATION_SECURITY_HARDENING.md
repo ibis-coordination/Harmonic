@@ -430,8 +430,8 @@ end
 - [x] MFA/2FA implementation complete with 38 passing tests
 - [ ] Browser dev tools confirm cookie flags are set (manual verification needed)
 - [ ] Penetration test (if planned) shows no critical findings
-- [ ] Phase 5 API token security items completed
-- [ ] Phase 6 user suspension feature completed
+- [x] Phase 5 API token security items completed (5.1-5.4 done; 5.5-5.7 deferred)
+- [x] Phase 6 user suspension feature completed
 
 ## Implementation Notes (2026-01-27)
 
@@ -481,7 +481,7 @@ end
 ## Phase 5: API Token Security Hardening
 
 **Added**: 2026-01-27
-**Status**: Pending
+**Status**: Mostly Complete (5.1-5.5 done, 5.6-5.7 future)
 
 This phase addresses security concerns identified during an audit of API token management in the UI and API.
 
@@ -748,25 +748,63 @@ cleanup_expired_tokens:
 
 | Priority | Item | Effort | Risk | Status |
 |----------|------|--------|------|--------|
-| 1 | 5.1 Markdown Token Exposure | Low | High | Pending |
-| 2 | 5.2 Bug Fix (note→token) | Low | Medium | Pending |
-| 3 | 5.3 Remove Token String Lookup | Low | Medium | Pending |
-| 4 | 5.4 Restrict Full Token Retrieval | Low | Medium | Pending |
-| 5 | 5.5 Hash Stored Tokens | Medium | Medium | Future |
+| 1 | 5.1 Markdown Token Exposure | Low | High | ✅ Done |
+| 2 | 5.2 Bug Fix (note→token) | Low | Medium | ✅ Done |
+| 3 | 5.3 Remove Token String Lookup | Low | Medium | ✅ Done |
+| 4 | 5.4 Restrict Full Token Retrieval | Low | Medium | ✅ Done |
+| 5 | 5.5 Hash Stored Tokens | Medium | Medium | ✅ Done |
 | 6 | 5.6 Token Rotation Endpoint | Medium | Low | Future |
 | 7 | 5.7 Cleanup Job | Low | Low | Future |
 
 ---
 
-### Phase 5 Files to Modify
+### Phase 5 Files Modified
 
 | File | Changes |
 |------|---------|
-| `app/views/api_tokens/show.md.erb` | Use obfuscated token |
-| `app/controllers/api/v1/api_tokens_controller.rb` | Fix bug, remove token lookup, restrict full_token |
-| `app/models/api_token.rb` | Remove/restrict full_token include, add hashing (future) |
+| `app/views/api_tokens/show.md.erb` | ✅ Use obfuscated token, show plaintext on creation |
+| `app/views/api_tokens/show.html.erb` | ✅ Show plaintext on creation with warning, remove copy for existing |
+| `app/controllers/api_tokens_controller.rb` | ✅ Render show instead of redirect to preserve plaintext |
+| `app/controllers/api/v1/api_tokens_controller.rb` | ✅ Fix bug, remove token lookup, restrict full_token |
+| `app/controllers/api/v1/users_controller.rb` | ✅ Use plaintext_token in create response |
+| `app/controllers/api/app_admin_controller.rb` | ✅ Use hash-based authentication |
+| `app/controllers/application_controller.rb` | ✅ Use ApiToken.authenticate for hash lookup |
+| `app/models/api_token.rb` | ✅ SHA256 hashing, authenticate method, token_prefix |
+| `app/views/users/settings.html.erb` | ✅ Remove copy button for existing tokens |
+| `app/views/subagents/show.md.erb` | ✅ Show plaintext on creation only |
+| `db/migrate/20260128200000_hash_api_tokens.rb` | ✅ New migration for token hashing |
 | `config/routes.rb` | Add rotation endpoint (future) |
 | `app/jobs/cleanup_expired_tokens_job.rb` | New file for cleanup (future) |
+
+---
+
+### Phase 5 Implementation Notes (2026-01-28)
+
+**Completed implementations:**
+
+1. **Markdown Token Exposure (5.1)**: Changed `@token.token` to `@token.obfuscated_token` in `app/views/api_tokens/show.md.erb:10`. Markdown view now shows obfuscated token matching HTML view behavior.
+
+2. **Bug Fix (5.2)**: Fixed typo in `app/controllers/api/v1/api_tokens_controller.rb:33` - changed `note` to `token` in the guard clause.
+
+3. **Remove Token String Lookup (5.3)**: Removed token value fallback lookup from `update` and `destroy` actions in `app/controllers/api/v1/api_tokens_controller.rb`. Tokens can now only be looked up by ID, preventing token values from appearing in URLs.
+
+4. **Restrict Full Token Retrieval (5.4)**: Modified `api_json` method in `app/models/api_token.rb:82-85` to only return full token value when `include=full_token` is requested AND the token was created within the last 5 minutes. This prevents retrieval of token values at any arbitrary time.
+
+5. **Hash Stored Tokens (5.5)**: Implemented SHA256 hashing for API tokens:
+   - Created migration `20260128200000_hash_api_tokens.rb` to add `token_hash` and `token_prefix` columns, migrate existing tokens, and remove plaintext `token` column
+   - Updated `ApiToken` model with `generate_token_hash` method that generates token, stores SHA256 hash, and keeps first 4 chars as prefix
+   - Added `ApiToken.authenticate(token_string, tenant_id:)` class method for hash-based authentication
+   - Added `ApiToken.hash_token(token_string)` class method for consistent hashing
+   - Updated `obfuscated_token` to use `token_prefix` column
+   - Plaintext token is now only available via `plaintext_token` attribute immediately after creation (attr_accessor cleared on reload)
+   - Updated all controllers to use hash-based authentication instead of plaintext lookup
+   - Updated all views to show plaintext only on creation, obfuscated thereafter
+   - Copy functionality removed from token list views (token cannot be retrieved after creation)
+
+**Tests added:**
+- `test/integration/api_tokens_test.rb`: 6 new tests for update/destroy security, updated for hashed tokens
+- `test/integration/markdown_ui_test.rb`: 1 new test for markdown token obfuscation
+- `test/models/api_token_test.rb`: 5 new tests for authenticate method and hash behavior
 
 ---
 

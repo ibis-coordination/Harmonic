@@ -765,12 +765,11 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
       user: subagent,
       tenant: tenant,
       name: "Test Token #{SecureRandom.hex(4)}",
-      token: SecureRandom.hex(32),
       scopes: %w[read:all create:all update:all delete:all],
     )
     host! "#{tenant.subdomain}.#{ENV['HOSTNAME']}"
     send(method, path, params: params, headers: {
-      "Authorization" => "Bearer #{api_token.token}",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
       "Accept" => "text/markdown",
     })
   end

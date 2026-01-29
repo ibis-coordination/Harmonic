@@ -7,11 +7,20 @@ class ApiToken < ApplicationRecord
   belongs_to :tenant
   belongs_to :user
 
-  validates :token, presence: true, uniqueness: true
+  # Plaintext token is only available immediately after creation
+  attr_accessor :plaintext_token
+
+  # Clear plaintext_token on reload since it cannot be recovered from the database
+  def reload(*args)
+    self.plaintext_token = nil
+    super
+  end
+
+  validates :token_hash, presence: true, uniqueness: true
   validates :scopes, presence: true
   validate :validate_scopes
 
-  before_validation :generate_token
+  before_validation :generate_token_hash
 
   sig { returns(T::Array[String]) }
   def self.valid_actions
@@ -67,11 +76,15 @@ class ApiToken < ApplicationRecord
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
   def api_json(include: [])
-    response = {
+    # Return full plaintext token if still in memory (just created)
+    # Otherwise return obfuscated token
+    token_value = plaintext_token.present? ? plaintext_token : obfuscated_token
+
+    {
       id: id,
       name: name,
       user_id: user_id,
-      token: obfuscated_token,
+      token: token_value,
       scopes: scopes,
       active: active?,
       expires_at: expires_at,
@@ -79,15 +92,11 @@ class ApiToken < ApplicationRecord
       created_at: created_at,
       updated_at: updated_at,
     }
-    if include.include?('full_token')
-      response.merge!({ token: token })
-    end
-    response
   end
 
   sig { returns(String) }
   def obfuscated_token
-    T.must(T.must(token)[0..3]) + '*********'
+    T.must(token_prefix) + '*********'
   end
 
   sig { returns(String) }
@@ -181,11 +190,35 @@ class ApiToken < ApplicationRecord
     can?('delete', resource_model)
   end
 
+  # Authenticate by hashing the provided token and looking up the hash
+  sig { params(token_string: String, tenant_id: T.untyped).returns(T.nilable(ApiToken)) }
+  def self.authenticate(token_string, tenant_id:)
+    return nil if token_string.blank?
+
+    token_hash = hash_token(token_string)
+    find_by(token_hash: token_hash, deleted_at: nil, tenant_id: tenant_id)
+  end
+
+  sig { params(token_string: String).returns(String) }
+  def self.hash_token(token_string)
+    Digest::SHA256.hexdigest(token_string)
+  end
+
   private
 
   sig { void }
-  def generate_token
-    self.token = token.presence || SecureRandom.hex(20)
+  def generate_token_hash
+    return if token_hash.present?
+
+    # Generate a new random token
+    new_token = SecureRandom.hex(20)
+
+    # Store plaintext temporarily for returning to user on creation
+    self.plaintext_token = new_token
+
+    # Store the hash and prefix
+    self.token_hash = self.class.hash_token(new_token)
+    self.token_prefix = new_token[0..3]
   end
 
   sig { void }

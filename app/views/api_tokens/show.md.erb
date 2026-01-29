@@ -4,14 +4,27 @@
 This token belongs to subagent [<%= raw @showing_user.display_name %>](<%= @showing_user.path %>), but you are able to view it because you are the owner of this subagent.
 
 <% end %>
+<% if @token.plaintext_token.present? %>
+**IMPORTANT: Save this token now - you will not be able to see it again.**
+
 | Property | Value |
 |----------|-------|
 | Name | <%= raw @token.name || 'Unnamed' %> |
-| Token | `<%= @token.token %>` |
+| Token | `<%= @token.plaintext_token %>` |
 | Created | <%= time_ago_in_words(@token.created_at) %> ago |
 | Last Used | <%= @token.last_used_at ? time_ago_in_words(@token.last_used_at) + ' ago' : 'Never' %> |
 | Expires | in <%= time_ago_in_words(@token.expires_at) %> |
 | Active | <%= @token.active? ? 'Yes' : 'No' %> |
+<% else %>
+| Property | Value |
+|----------|-------|
+| Name | <%= raw @token.name || 'Unnamed' %> |
+| Token | `<%= @token.obfuscated_token %>` |
+| Created | <%= time_ago_in_words(@token.created_at) %> ago |
+| Last Used | <%= @token.last_used_at ? time_ago_in_words(@token.last_used_at) + ' ago' : 'Never' %> |
+| Expires | in <%= time_ago_in_words(@token.expires_at) %> |
+| Active | <%= @token.active? ? 'Yes' : 'No' %> |
+<% end %>
 
 ## Scopes
 

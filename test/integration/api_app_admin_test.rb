@@ -15,12 +15,13 @@ class ApiAppAdminTest < ActionDispatch::IntegrationTest
       scopes: ["read:all"],
       app_admin: true,
     )
+    @admin_plaintext_token = @admin_token.plaintext_token
 
     # Make the user an app_admin
     @admin_user.add_global_role!("app_admin")
 
     @headers = {
-      "Authorization" => "Bearer #{@admin_token.token}",
+      "Authorization" => "Bearer #{@admin_plaintext_token}",
       "Content-Type" => "application/json",
     }
 
