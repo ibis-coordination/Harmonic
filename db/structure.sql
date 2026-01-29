@@ -1,4 +1,4 @@
-\restrict oAtMmGYOqMhxbg08c0zaI49qS5aHVnyQyipz4IHswL6omCK84BUqdjLo5YF5pJ2
+\restrict 8LNpi0igViJy7q6ajFAbSeLo4lggJyCYbcCdnecVNidOMSJGMxbNPQH9hSgFUfO
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -606,6 +606,79 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: search_index; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    searchable_tsvector tsvector GENERATED ALWAYS AS (to_tsvector('english'::regconfig, searchable_text)) STORED,
+    sort_key bigint NOT NULL
+);
+
+
+--
+-- Name: search_index_sort_key_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.search_index_sort_key_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: search_index_sort_key_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.search_index_sort_key_seq OWNED BY public.search_index.sort_key;
+
+
+--
+-- Name: search_queries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_queries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid,
+    user_id uuid,
+    query_text text,
+    filters jsonb,
+    sort_by character varying,
+    group_by character varying,
+    result_count integer,
+    cursor character varying,
+    clicked_item_id uuid,
+    clicked_at timestamp(6) without time zone,
+    executed_at timestamp(6) without time zone DEFAULT now(),
+    duration_ms integer,
+    session_id character varying
+);
+
+
+--
 -- Name: superagent_members; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -695,6 +768,28 @@ CREATE TABLE public.trustee_permissions (
 
 
 --
+-- Name: user_item_status; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -776,6 +871,13 @@ CREATE TABLE public.webhooks (
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
     user_id uuid
 );
+
+
+--
+-- Name: search_index sort_key; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ALTER COLUMN sort_key SET DEFAULT nextval('public.search_index_sort_key_seq'::regclass);
 
 
 --
@@ -971,6 +1073,22 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: search_index search_index_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index
+    ADD CONSTRAINT search_index_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: search_queries search_queries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_queries
+    ADD CONSTRAINT search_queries_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: invites studio_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1019,6 +1137,14 @@ ALTER TABLE ONLY public.trustee_permissions
 
 
 --
+-- Name: user_item_status user_item_status_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status
+    ADD CONSTRAINT user_item_status_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1054,6 +1180,97 @@ CREATE INDEX idx_members_superagent_id ON public.superagent_members USING btree 
 --
 
 CREATE UNIQUE INDEX idx_members_tenant_superagent_user ON public.superagent_members USING btree (tenant_id, superagent_id, user_id);
+
+
+--
+-- Name: idx_search_index_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_created ON public.search_index USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: idx_search_index_cursor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_cursor ON public.search_index USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: idx_search_index_deadline; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_deadline ON public.search_index USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: idx_search_index_fulltext; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_fulltext ON public.search_index USING gin (searchable_tsvector);
+
+
+--
+-- Name: idx_search_index_item; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_item ON public.search_index USING btree (item_type, item_id);
+
+
+--
+-- Name: idx_search_index_tenant_superagent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_tenant_superagent ON public.search_index USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: idx_search_index_unique_item; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_search_index_unique_item ON public.search_index USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: idx_search_queries_tenant_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_queries_tenant_time ON public.search_queries USING btree (tenant_id, executed_at);
+
+
+--
+-- Name: idx_user_item_status_not_participating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_item_status_not_participating ON public.user_item_status USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: idx_user_item_status_not_voted; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_item_status_not_voted ON public.user_item_status USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: idx_user_item_status_tenant_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_item_status_tenant_user ON public.user_item_status USING btree (tenant_id, user_id);
+
+
+--
+-- Name: idx_user_item_status_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_user_item_status_unique ON public.user_item_status USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: idx_user_item_status_unread; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_item_status_unread ON public.user_item_status USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
 
 
 --
@@ -2770,7 +2987,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict oAtMmGYOqMhxbg08c0zaI49qS5aHVnyQyipz4IHswL6omCK84BUqdjLo5YF5pJ2
+\unrestrict 8LNpi0igViJy7q6ajFAbSeLo4lggJyCYbcCdnecVNidOMSJGMxbNPQH9hSgFUfO
 
 SET search_path TO "$user", public;
 
@@ -2886,6 +3103,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260125064500'),
 ('20260128052404'),
 ('20260128072608'),
-('20260128200000');
+('20260128200000'),
+('20260128232615');
 
 
