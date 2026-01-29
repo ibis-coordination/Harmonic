@@ -1,4 +1,4 @@
-\restrict BhUXrlqUAolBm5003d1UmrqHBvKnXbWJk93znk7yB8JqFyoTM7MhDzRKNGIweCC
+\restrict oAtMmGYOqMhxbg08c0zaI49qS5aHVnyQyipz4IHswL6omCK84BUqdjLo5YF5pJ2
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -90,7 +90,6 @@ CREATE TABLE public.api_tokens (
     tenant_id uuid NOT NULL,
     user_id uuid NOT NULL,
     name character varying,
-    token character varying NOT NULL,
     last_used_at timestamp(6) without time zone,
     expires_at timestamp(6) without time zone DEFAULT (CURRENT_TIMESTAMP + '1 year'::interval),
     scopes jsonb DEFAULT '[]'::jsonb,
@@ -99,7 +98,9 @@ CREATE TABLE public.api_tokens (
     deleted_at timestamp(6) without time zone,
     sys_admin boolean DEFAULT false NOT NULL,
     app_admin boolean DEFAULT false NOT NULL,
-    tenant_admin boolean DEFAULT false NOT NULL
+    tenant_admin boolean DEFAULT false NOT NULL,
+    token_hash character varying,
+    token_prefix character varying(4)
 );
 
 
@@ -530,7 +531,13 @@ CREATE TABLE public.omni_auth_identities (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     reset_password_token character varying,
-    reset_password_sent_at timestamp(6) without time zone
+    reset_password_sent_at timestamp(6) without time zone,
+    otp_secret character varying,
+    otp_enabled boolean DEFAULT false NOT NULL,
+    otp_enabled_at timestamp(6) without time zone,
+    otp_recovery_codes jsonb DEFAULT '[]'::jsonb,
+    otp_failed_attempts integer DEFAULT 0 NOT NULL,
+    otp_locked_until timestamp(6) without time zone
 );
 
 
@@ -702,7 +709,10 @@ CREATE TABLE public.users (
     parent_id uuid,
     user_type character varying DEFAULT 'person'::character varying,
     app_admin boolean DEFAULT false NOT NULL,
-    sys_admin boolean DEFAULT false NOT NULL
+    sys_admin boolean DEFAULT false NOT NULL,
+    suspended_at timestamp(6) without time zone,
+    suspended_by_id uuid,
+    suspended_reason character varying
 );
 
 
@@ -1089,10 +1099,10 @@ CREATE INDEX index_api_tokens_on_tenant_id_and_user_id ON public.api_tokens USIN
 
 
 --
--- Name: index_api_tokens_on_token; Type: INDEX; Schema: public; Owner: -
+-- Name: index_api_tokens_on_token_hash; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_api_tokens_on_token ON public.api_tokens USING btree (token);
+CREATE UNIQUE INDEX index_api_tokens_on_token_hash ON public.api_tokens USING btree (token_hash);
 
 
 --
@@ -1828,6 +1838,13 @@ CREATE UNIQUE INDEX index_users_on_email ON public.users USING btree (email);
 --
 
 CREATE INDEX index_users_on_parent_id ON public.users USING btree (parent_id);
+
+
+--
+-- Name: index_users_on_suspended_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_users_on_suspended_at ON public.users USING btree (suspended_at);
 
 
 --
@@ -2753,7 +2770,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BhUXrlqUAolBm5003d1UmrqHBvKnXbWJk93znk7yB8JqFyoTM7MhDzRKNGIweCC
+\unrestrict oAtMmGYOqMhxbg08c0zaI49qS5aHVnyQyipz4IHswL6omCK84BUqdjLo5YF5pJ2
 
 SET search_path TO "$user", public;
 
@@ -2866,6 +2883,9 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260123023618'),
 ('20260123023658'),
 ('20260125063251'),
-('20260125064500');
+('20260125064500'),
+('20260128052404'),
+('20260128072608'),
+('20260128200000');
 
 

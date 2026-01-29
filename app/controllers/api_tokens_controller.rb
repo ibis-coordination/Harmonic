@@ -1,9 +1,9 @@
 # typed: false
 
 class ApiTokensController < ApplicationController
-  layout 'pulse', only: [:new, :show]
+  layout 'pulse', only: [:new, :show, :create]
   before_action :set_user
-  before_action :set_sidebar_mode, only: [:new, :show]
+  before_action :set_sidebar_mode, only: [:new, :show, :create]
 
   def new
     # Block subagents from creating their own tokens (parents can still create tokens for their subagents)
@@ -28,7 +28,9 @@ class ApiTokensController < ApplicationController
     @token.scopes += ApiToken.write_scopes if token_params[:read_write] == 'write'
     @token.expires_at = Time.current + [duration_param, 1.year].min
     @token.save!
-    redirect_to @token.path
+    # Render show page directly instead of redirecting so plaintext_token is available
+    flash.now[:notice] = 'Token created successfully. Save the token value now - you will not be able to see it again.'
+    render 'show'
   end
 
   def show

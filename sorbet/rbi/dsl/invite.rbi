@@ -819,12 +819,6 @@ class Invite
     def restore_invited_user_id!; end
 
     sig { void }
-    def restore_studio!; end
-
-    sig { void }
-    def restore_studio_id!; end
-
-    sig { void }
     def restore_superagent_id!; end
 
     sig { void }
@@ -869,18 +863,6 @@ class Invite
     sig { returns(T::Boolean) }
     def saved_change_to_invited_user_id?; end
 
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def saved_change_to_studio; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_studio?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_studio_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_studio_id?; end
-
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_superagent_id; end
 
@@ -898,96 +880,6 @@ class Invite
 
     sig { returns(T::Boolean) }
     def saved_change_to_updated_at?; end
-
-    sig { returns(T.untyped) }
-    def studio; end
-
-    sig { params(value: T.untyped).returns(T.untyped) }
-    def studio=(value); end
-
-    sig { returns(T::Boolean) }
-    def studio?; end
-
-    sig { returns(T.untyped) }
-    def studio_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def studio_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def studio_came_from_user?; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def studio_change; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def studio_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def studio_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(::String) }
-    def studio_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def studio_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def studio_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def studio_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def studio_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def studio_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def studio_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_was; end
-
-    sig { void }
-    def studio_id_will_change!; end
-
-    sig { returns(T.untyped) }
-    def studio_in_database; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def studio_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def studio_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.untyped) }
-    def studio_previously_was; end
-
-    sig { returns(T.untyped) }
-    def studio_was; end
-
-    sig { void }
-    def studio_will_change!; end
 
     sig { returns(::String) }
     def superagent_id; end
@@ -1141,12 +1033,6 @@ class Invite
 
     sig { returns(T::Boolean) }
     def will_save_change_to_invited_user_id?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_studio?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_studio_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_superagent_id?; end

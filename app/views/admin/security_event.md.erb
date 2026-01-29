@@ -1,6 +1,6 @@
 # Security Event #<%= @event['line_number'] %>
 
-[Back to Security Dashboard](/admin/security)
+[Back to Security Dashboard](/legacy-admin/security)
 
 ## Event Details
 
@@ -19,11 +19,11 @@
 ## Quick Links
 
 <% if @event['event'].present? -%>
-- [View all <%= @event['event'] %> events](/admin/security?event_type=<%= @event['event'] %>)
+- [View all <%= @event['event'] %> events](/legacy-admin/security?event_type=<%= @event['event'] %>)
 <% end -%>
 <% if @event['ip'].present? -%>
-- [View all events from IP <%= @event['ip'] %>](/admin/security?ip=<%= @event['ip'] %>)
+- [View all events from IP <%= @event['ip'] %>](/legacy-admin/security?ip=<%= @event['ip'] %>)
 <% end -%>
 <% if @event['email'].present? -%>
-- [View all events for <%= @event['email'] %>](/admin/security?email=<%= @event['email'] %>)
+- [View all events for <%= @event['email'] %>](/legacy-admin/security?email=<%= @event['email'] %>)
 <% end -%>

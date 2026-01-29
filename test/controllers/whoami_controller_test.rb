@@ -87,13 +87,12 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: subagent,
       tenant: @tenant,
       name: "Test Token",
-      token: SecureRandom.hex(32),
       scopes: %w[read:users],
     )
 
     get "/whoami", headers: {
       "Accept" => "text/markdown",
-      "Authorization" => "Bearer #{api_token.token}",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
     }
     assert_response :success
     assert_includes response.body, "subagent"

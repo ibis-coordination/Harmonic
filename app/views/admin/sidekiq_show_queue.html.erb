@@ -26,7 +26,7 @@
         <% @queue.each do |job| %>
           <tr>
             <td>
-              <a href="/admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
+              <a href="/legacy-admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
                 <code class="pulse-code"><%= job.jid %></code>
               </a>
             </td>
@@ -41,7 +41,7 @@
 <% end %>
 
 <div class="pulse-form-actions">
-  <a href="/admin/sidekiq" class="pulse-action-btn-secondary">
+  <a href="/legacy-admin/sidekiq" class="pulse-action-btn-secondary">
     <%= octicon 'arrow-left', height: 14 %> Back to Sidekiq
   </a>
 </div>

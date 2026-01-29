@@ -262,6 +262,18 @@ class ActionsHelper
       params_string: "()",
       params: [],
     },
+    "suspend_user" => {
+      description: "Suspend this user's account, preventing them from logging in",
+      params_string: "(reason)",
+      params: [
+        { name: "reason", type: "string", required: true, description: "The reason for suspension (will be shown to the user)" },
+      ],
+    },
+    "unsuspend_user" => {
+      description: "Unsuspend this user's account, restoring their access",
+      params_string: "()",
+      params: [],
+    },
 
     # Notification actions
     "mark_read" => {
@@ -457,6 +469,12 @@ class ActionsHelper
     "/admin/sidekiq/jobs/:jid" => {
       actions: [
         { name: "retry_sidekiq_job", params_string: ACTION_DEFINITIONS["retry_sidekiq_job"][:params_string], description: ACTION_DEFINITIONS["retry_sidekiq_job"][:description] },
+      ],
+    },
+    "/admin/users/:handle" => {
+      actions: [
+        { name: "suspend_user", params_string: ACTION_DEFINITIONS["suspend_user"][:params_string], description: ACTION_DEFINITIONS["suspend_user"][:description] },
+        { name: "unsuspend_user", params_string: ACTION_DEFINITIONS["unsuspend_user"][:params_string], description: ACTION_DEFINITIONS["unsuspend_user"][:description] },
       ],
     },
     "/notifications" => {

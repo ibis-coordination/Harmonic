@@ -1,0 +1,9 @@
+# Admin Access
+
+You have access to multiple admin areas. Choose one:
+
+<% @available_admins.each do |admin| %>
+- [<%= admin[:label] %>](<%= admin[:path] %>) - <%= admin[:description] %>
+<% end %>
+
+[Back to Home](/)

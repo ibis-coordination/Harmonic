@@ -12,7 +12,7 @@
 
 <div class="pulse-home-section-intro">
   <p>All tenants on this Harmonic instance.</p>
-  <a href="/admin/tenants/new" class="pulse-action-btn">
+  <a href="/legacy-admin/tenants/new" class="pulse-action-btn">
     <%= octicon 'plus', height: 14 %> New Tenant
   </a>
 </div>
@@ -21,7 +21,7 @@
   <% @tenants.each do |tenant| %>
     <% is_current = tenant.subdomain == @current_tenant.subdomain %>
     <div class="pulse-home-list-item<%= ' pulse-home-list-item-current' if is_current %>">
-      <a href="/admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+      <a href="/legacy-admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
         <div class="pulse-default-icon pulse-home-list-icon">
           <%= octicon 'organization', height: 14 %>
         </div>

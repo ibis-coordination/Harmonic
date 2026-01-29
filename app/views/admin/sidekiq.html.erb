@@ -22,7 +22,7 @@
           <% @queues.each do |queue| %>
             <tr>
               <td>
-                <a href="/admin/sidekiq/queues/<%= queue.name %>" class="pulse-link"><%= queue.name %></a>
+                <a href="/legacy-admin/sidekiq/queues/<%= queue.name %>" class="pulse-link"><%= queue.name %></a>
               </td>
               <td><%= queue.size %></td>
             </tr>
@@ -49,7 +49,7 @@
           <% @retries.each do |job| %>
             <tr>
               <td>
-                <a href="/admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
+                <a href="/legacy-admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
                   <code class="pulse-code"><%= job.jid %></code>
                 </a>
               </td>
@@ -78,7 +78,7 @@
           <% @scheduled.each do |job| %>
             <tr>
               <td>
-                <a href="/admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
+                <a href="/legacy-admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
                   <code class="pulse-code"><%= job.jid %></code>
                 </a>
               </td>
@@ -107,7 +107,7 @@
           <% @dead.each do |job| %>
             <tr>
               <td>
-                <a href="/admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
+                <a href="/legacy-admin/sidekiq/jobs/<%= job.jid %>" class="pulse-link">
                   <code class="pulse-code"><%= job.jid %></code>
                 </a>
               </td>

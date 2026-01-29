@@ -1240,9 +1240,6 @@ class Superagent
     def restore_settings!; end
 
     sig { void }
-    def restore_studio_type!; end
-
-    sig { void }
     def restore_superagent_type!; end
 
     sig { void }
@@ -1298,12 +1295,6 @@ class Superagent
 
     sig { returns(T::Boolean) }
     def saved_change_to_settings?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_studio_type; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_studio_type?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_superagent_type; end
@@ -1379,51 +1370,6 @@ class Superagent
 
     sig { void }
     def settings_will_change!; end
-
-    sig { returns(::String) }
-    def studio_type; end
-
-    sig { params(value: ::String).returns(::String) }
-    def studio_type=(value); end
-
-    sig { returns(T::Boolean) }
-    def studio_type?; end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_type_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def studio_type_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def studio_type_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_type_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_type_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def studio_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_type_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_type_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def studio_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_type_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_type_was; end
-
-    sig { void }
-    def studio_type_will_change!; end
 
     sig { returns(::String) }
     def superagent_type; end
@@ -1670,9 +1616,6 @@ class Superagent
 
     sig { returns(T::Boolean) }
     def will_save_change_to_settings?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_studio_type?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_superagent_type?; end

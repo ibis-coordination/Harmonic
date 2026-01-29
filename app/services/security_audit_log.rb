@@ -49,14 +49,15 @@ class SecurityAuditLog
     )
   end
 
-  sig { params(user: User, ip: String).void }
-  def self.log_logout(user:, ip:)
+  sig { params(user: User, ip: String, reason: T.nilable(String)).void }
+  def self.log_logout(user:, ip:, reason: nil)
     log_event(
       event: "logout",
       severity: :info,
       user_id: user.id,
       email: user.email,
-      ip: ip
+      ip: ip,
+      reason: reason,
     )
   end
 
@@ -79,6 +80,88 @@ class SecurityAuditLog
       severity: :info,
       user_id: user.id,
       email: user.email,
+      ip: ip
+    )
+  end
+
+  # Two-Factor Authentication events
+
+  sig { params(identity: OmniAuthIdentity, ip: String).void }
+  def self.log_2fa_success(identity:, ip:)
+    log_event(
+      event: "2fa_success",
+      severity: :info,
+      email: identity.email,
+      ip: ip
+    )
+  end
+
+  sig { params(identity: OmniAuthIdentity, ip: String).void }
+  def self.log_2fa_failure(identity:, ip:)
+    log_event(
+      event: "2fa_failure",
+      severity: :warn,
+      email: identity.email,
+      ip: ip,
+      failed_attempts: identity.otp_failed_attempts
+    )
+  end
+
+  sig { params(identity: OmniAuthIdentity, ip: String).void }
+  def self.log_2fa_lockout(identity:, ip:)
+    log_event(
+      event: "2fa_lockout",
+      severity: :warn,
+      email: identity.email,
+      ip: ip,
+      locked_until: identity.otp_locked_until&.iso8601
+    )
+
+    # Alert on 2FA lockouts (potential brute force attack)
+    AlertService.notify_security_event(
+      event: "2fa_lockout",
+      email: identity.email,
+      ip: ip
+    )
+  end
+
+  sig { params(identity: OmniAuthIdentity, ip: String).void }
+  def self.log_2fa_enabled(identity:, ip:)
+    log_event(
+      event: "2fa_enabled",
+      severity: :info,
+      email: identity.email,
+      ip: ip
+    )
+  end
+
+  sig { params(identity: OmniAuthIdentity, ip: String).void }
+  def self.log_2fa_disabled(identity:, ip:)
+    log_event(
+      event: "2fa_disabled",
+      severity: :info,
+      email: identity.email,
+      ip: ip
+    )
+  end
+
+  sig { params(identity: OmniAuthIdentity, ip: String, remaining_codes: Integer).void }
+  def self.log_2fa_recovery_code_used(identity:, ip:, remaining_codes:)
+    log_event(
+      event: "2fa_recovery_code_used",
+      severity: :info,
+      email: identity.email,
+      ip: ip,
+      remaining_codes: remaining_codes
+    )
+  end
+
+  sig { params(identity: OmniAuthIdentity, ip: String).void }
+  def self.log_2fa_recovery_codes_regenerated(identity:, ip:)
+    log_event(
+      event: "2fa_recovery_codes_regenerated",
+      severity: :info,
+      email: identity.email,
       ip: ip
     )
   end
@@ -112,6 +195,54 @@ class SecurityAuditLog
       admin_action: action,
       target_user_id: target_user_id,
       **details
+    )
+  end
+
+  # User suspension events
+
+  sig { params(user: User, suspended_by: User, reason: String, ip: String).void }
+  def self.log_user_suspended(user:, suspended_by:, reason:, ip:)
+    log_event(
+      event: "user_suspended",
+      severity: :warn,
+      user_id: user.id,
+      email: user.email,
+      suspended_by_id: suspended_by.id,
+      suspended_by_email: suspended_by.email,
+      reason: reason,
+      ip: ip
+    )
+
+    AlertService.notify_security_event(
+      event: "user_suspended",
+      email: user.email,
+      suspended_by: suspended_by.email,
+      reason: reason,
+      ip: ip
+    )
+  end
+
+  sig { params(user: User, unsuspended_by: User, ip: String).void }
+  def self.log_user_unsuspended(user:, unsuspended_by:, ip:)
+    log_event(
+      event: "user_unsuspended",
+      severity: :info,
+      user_id: user.id,
+      email: user.email,
+      unsuspended_by_id: unsuspended_by.id,
+      unsuspended_by_email: unsuspended_by.email,
+      ip: ip
+    )
+  end
+
+  sig { params(user: User, ip: String).void }
+  def self.log_suspended_login_attempt(user:, ip:)
+    log_event(
+      event: "suspended_login_attempt",
+      severity: :warn,
+      user_id: user.id,
+      email: user.email,
+      ip: ip
     )
   end
 

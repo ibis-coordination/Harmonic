@@ -1,0 +1,19 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-error">
+    <div class="pulse-auth-error-icon">
+      <%= octicon 'alert', height: 48 %>
+    </div>
+    <h1 class="pulse-auth-title">Account Suspended</h1>
+    <p class="pulse-auth-subtitle">Your account has been suspended and you cannot log in at this time.</p>
+
+    <div style="background:var(--color-canvas-subtle);padding:16px;border-radius:6px;margin:24px 0;text-align:left;">
+      <p class="pulse-form-hint" style="margin:0 0 8px 0;">Account:</p>
+      <p style="margin:0;font-size:14px;">
+        <strong><%= @current_user.name %></strong>
+        <br><span style="color:var(--color-fg-muted);"><%= @current_user.email %></span>
+      </p>
+    </div>
+
+    <p class="pulse-auth-subtitle">Please contact an administrator if you believe this is an error.</p>
+  </div>
+</div>

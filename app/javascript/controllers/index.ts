@@ -38,6 +38,7 @@ import OptionController from "./option_controller"
 import PinController from "./pin_controller"
 import PulseActionController from "./pulse_action_controller"
 import PulseFilterController from "./pulse_filter_controller"
+import RecoveryCodesController from "./recovery_codes_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
 import SubagentManagerController from "./subagent_manager_controller"
 import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
@@ -75,6 +76,7 @@ application.register("option", OptionController)
 application.register("pin", PinController)
 application.register("pulse-action", PulseActionController)
 application.register("pulse-filter", PulseFilterController)
+application.register("recovery-codes", RecoveryCodesController)
 application.register("scratchpad-links", ScratchpadLinksController)
 application.register("subagent-manager", SubagentManagerController)
 application.register("subagent-superagent-adder", SubagentSuperagentAdderController)

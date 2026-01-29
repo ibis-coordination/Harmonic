@@ -1,0 +1,39 @@
+# Security Dashboard
+
+[Back to App Admin](/app-admin)
+
+## Recent Security Events (<%= @security_events.count %>)
+
+<% if @security_events.any? -%>
+| Time | Event Type | User | Details |
+|------|------------|------|---------|
+<% @security_events.each do |event| -%>
+| <%= time_ago_in_words(event[:timestamp]) %> ago | <%= event[:event_type] %> | <%= event[:user_email] || '-' %> | <%= event[:details] %> |
+<% end -%>
+<% else -%>
+*No recent security events.*
+<% end -%>
+
+## Suspended Users (<%= @suspended_users.count %>)
+
+<% if @suspended_users.any? -%>
+| User | Email | Suspended |
+|------|-------|-----------|
+<% @suspended_users.each do |user| -%>
+| [<%= user.display_name || user.name %>](/app-admin/users/<%= user.id %>) | <%= user.email %> | <%= time_ago_in_words(user.suspended_at) %> ago |
+<% end -%>
+<% else -%>
+*No suspended users.*
+<% end -%>
+
+## App Admins (<%= @app_admins.count %>)
+
+<% if @app_admins.any? -%>
+| User | Email |
+|------|-------|
+<% @app_admins.each do |user| -%>
+| [<%= user.display_name || user.name %>](/app-admin/users/<%= user.id %>) | <%= user.email %> |
+<% end -%>
+<% else -%>
+*No app admins configured.*
+<% end -%>

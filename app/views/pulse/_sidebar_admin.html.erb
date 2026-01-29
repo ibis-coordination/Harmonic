@@ -1,5 +1,5 @@
-<%# Admin sidebar variant - for admin pages %>
-<%# Shows home link and admin navigation %>
+<%# Legacy Admin sidebar variant - for legacy admin pages %>
+<%# Shows home link and legacy admin navigation %>
 <aside class="pulse-sidebar" data-mode="admin">
   <div class="pulse-nav">
     <a href="/" class="pulse-nav-item">
@@ -9,22 +9,25 @@
 
   <div class="pulse-nav-section">
     <div class="pulse-section-label">
-      <%= octicon 'tools', height: 14 %> Admin
+      <%= octicon 'tools', height: 14 %> Legacy Admin
     </div>
-    <a href="/admin" class="pulse-nav-item<%= ' active' if request.path == '/admin' %>">
+    <a href="/legacy-admin" class="pulse-nav-item<%= ' active' if request.path == '/legacy-admin' %>">
       <%= octicon 'meter', height: 16 %> Dashboard
     </a>
-    <a href="/admin/settings" class="pulse-nav-item<%= ' active' if request.path == '/admin/settings' %>">
+    <a href="/legacy-admin/settings" class="pulse-nav-item<%= ' active' if request.path == '/legacy-admin/settings' %>">
       <%= octicon 'gear', height: 16 %> Tenant Settings
     </a>
+    <a href="/legacy-admin/users" class="pulse-nav-item<%= ' active' if request.path.start_with?('/legacy-admin/users') %>">
+      <%= octicon 'people', height: 16 %> Users
+    </a>
     <% if is_main_tenant? %>
-      <a href="/admin/tenants" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/tenants') %>">
+      <a href="/legacy-admin/tenants" class="pulse-nav-item<%= ' active' if request.path.start_with?('/legacy-admin/tenants') %>">
         <%= octicon 'organization', height: 16 %> Tenants
       </a>
-      <a href="/admin/sidekiq" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/sidekiq') %>">
+      <a href="/legacy-admin/sidekiq" class="pulse-nav-item<%= ' active' if request.path.start_with?('/legacy-admin/sidekiq') %>">
         <%= octicon 'workflow', height: 16 %> Sidekiq Jobs
       </a>
-      <a href="/admin/security" class="pulse-nav-item<%= ' active' if request.path.start_with?('/admin/security') %>">
+      <a href="/legacy-admin/security" class="pulse-nav-item<%= ' active' if request.path.start_with?('/legacy-admin/security') %>">
         <%= octicon 'shield', height: 16 %> Security
       </a>
     <% end %>

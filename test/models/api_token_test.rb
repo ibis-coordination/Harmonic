@@ -7,20 +7,22 @@ class ApiTokenTest < ActiveSupport::TestCase
 
   # === Token Generation Tests ===
 
-  test "token is automatically generated on create" do
+  test "token hash is automatically generated on create" do
     token = ApiToken.new(
       tenant: @tenant,
       user: @user,
       scopes: ApiToken.read_scopes
     )
 
-    assert_nil token.token
+    assert_nil token.token_hash
     token.save!
-    assert_not_nil token.token
-    assert token.token.length > 20  # Should be a substantial token
+    assert_not_nil token.token_hash
+    assert_equal 64, token.token_hash.length  # SHA256 hex = 64 chars
+    assert_equal 40, token.plaintext_token.length  # hex(20) = 40 chars
+    assert_equal 4, token.token_prefix.length  # First 4 chars
   end
 
-  test "each token is unique" do
+  test "each token hash is unique" do
     tokens = 5.times.map do
       ApiToken.create!(
         tenant: @tenant,
@@ -29,8 +31,8 @@ class ApiTokenTest < ActiveSupport::TestCase
       )
     end
 
-    token_values = tokens.map(&:token)
-    assert_equal token_values.uniq.length, tokens.length
+    token_hashes = tokens.map(&:token_hash)
+    assert_equal token_hashes.uniq.length, tokens.length
   end
 
   # === Scope Validation Tests ===
@@ -165,7 +167,7 @@ class ApiTokenTest < ActiveSupport::TestCase
 
   # === API JSON Tests ===
 
-  test "api_json returns expected fields" do
+  test "api_json returns plaintext token immediately after creation" do
     token = ApiToken.create!(
       tenant: @tenant,
       user: @user,
@@ -179,12 +181,14 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert_equal token.id, json[:id]
     assert_equal "Test Token", json[:name]
     assert_equal @user.id, json[:user_id]
-    assert json[:token].include?("*")  # Should be obfuscated
+    # On creation, plaintext is available and returned
+    assert_not json[:token].include?("*")
+    assert_equal token.plaintext_token, json[:token]
     assert_equal token.scopes, json[:scopes]
     assert json[:active]
   end
 
-  test "api_json with full_token includes unobfuscated token" do
+  test "api_json returns obfuscated token after reload" do
     token = ApiToken.create!(
       tenant: @tenant,
       user: @user,
@@ -192,13 +196,15 @@ class ApiTokenTest < ActiveSupport::TestCase
       expires_at: 1.year.from_now
     )
 
-    json = token.api_json(include: ['full_token'])
+    # After reload, plaintext_token is lost
+    token.reload
+    json = token.api_json
 
-    assert_equal token.token, json[:token]
-    assert_not json[:token].include?("*")
+    assert json[:token].include?("*")
+    assert_equal token.obfuscated_token, json[:token]
   end
 
-  test "obfuscated_token shows first 4 characters" do
+  test "obfuscated_token shows first 4 characters from token_prefix" do
     token = ApiToken.create!(
       tenant: @tenant,
       user: @user,
@@ -206,9 +212,11 @@ class ApiTokenTest < ActiveSupport::TestCase
       expires_at: 1.year.from_now
     )
 
+    plaintext = token.plaintext_token
     obfuscated = token.obfuscated_token
 
-    assert_equal token.token[0..3], obfuscated[0..3]
+    assert_equal plaintext[0..3], obfuscated[0..3]
+    assert_equal token.token_prefix, obfuscated[0..3]
     assert obfuscated.include?("*")
   end
 
@@ -327,5 +335,72 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert token.sys_admin?
     assert token.app_admin?
     assert token.tenant_admin?
+  end
+
+  # === Token Authentication Tests ===
+
+  test "authenticate finds token by hashed value" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    plaintext = token.plaintext_token
+
+    found = ApiToken.authenticate(plaintext, tenant_id: @tenant.id)
+
+    assert_equal token, found
+  end
+
+  test "authenticate returns nil for wrong token" do
+    ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+
+    found = ApiToken.authenticate("wrong-token", tenant_id: @tenant.id)
+
+    assert_nil found
+  end
+
+  test "authenticate returns nil for deleted token" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    plaintext = token.plaintext_token
+    token.delete!
+
+    found = ApiToken.authenticate(plaintext, tenant_id: @tenant.id)
+
+    assert_nil found
+  end
+
+  test "authenticate returns nil for wrong tenant" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    plaintext = token.plaintext_token
+    other_tenant = create_tenant(subdomain: "other-#{SecureRandom.hex(4)}", name: "Other Tenant")
+
+    found = ApiToken.authenticate(plaintext, tenant_id: other_tenant.id)
+
+    assert_nil found
+  end
+
+  test "hash_token produces consistent SHA256 hash" do
+    token_string = "test-token-123"
+    expected_hash = Digest::SHA256.hexdigest(token_string)
+
+    assert_equal expected_hash, ApiToken.hash_token(token_string)
+    assert_equal expected_hash, ApiToken.hash_token(token_string)  # Consistent
   end
 end

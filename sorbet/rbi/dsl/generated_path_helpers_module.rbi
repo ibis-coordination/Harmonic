@@ -16,6 +16,9 @@ module GeneratedPathHelpersModule
   def actions_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def activate_api_app_admin_tenant_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def add_to_studio_user_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -23,6 +26,9 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def admin_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_security_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def admin_settings_actions_path(*args); end
@@ -47,6 +53,18 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def admin_tenants_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_user_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_users_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_app_admin_tenant_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_app_admin_tenants_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_commitment_join_path(*args); end
@@ -247,6 +265,9 @@ module GeneratedPathHelpersModule
   def decision_settings_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def dev_pulse_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_commitment_participant_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -310,10 +331,19 @@ module GeneratedPathHelpersModule
   def learn_awareness_indicators_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def learn_memory_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def learn_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def learn_reciprocal_commitment_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def learn_subagency_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def learn_superagency_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def login_callback_path(*args); end
@@ -325,10 +355,19 @@ module GeneratedPathHelpersModule
   def login_return_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def login_verify_2fa_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def logout_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def logout_success_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def metrics_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def motto_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def new_api_v1_commitment_participant_path(*args); end
@@ -433,6 +472,12 @@ module GeneratedPathHelpersModule
   def note_settings_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_create_reminder_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_delete_reminder_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def notifications_actions_dismiss_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -443,6 +488,9 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def notifications_actions_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_new_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def notifications_path(*args); end
@@ -586,6 +634,21 @@ module GeneratedPathHelpersModule
   def settings_user_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_new_actions_create_webhook_user_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_new_actions_user_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_new_user_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_user_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def studios_actions_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -604,6 +667,12 @@ module GeneratedPathHelpersModule
   def studios_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def suspend_api_app_admin_tenant_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def trio_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def turbo_recede_historical_location_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -611,6 +680,24 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def turbo_resume_historical_location_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_confirm_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_disable_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_regenerate_codes_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_settings_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_setup_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_verify_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def update_rails_disk_service_path(*args); end
@@ -629,4 +716,7 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def user_subagents_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def whoami_path(*args); end
 end

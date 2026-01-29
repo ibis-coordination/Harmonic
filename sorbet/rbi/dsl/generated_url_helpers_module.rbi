@@ -16,10 +16,16 @@ module GeneratedUrlHelpersModule
   def actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def activate_api_app_admin_tenant_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def add_to_studio_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def admin_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_security_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def admin_settings_actions_update_tenant_settings_url(*args); end
@@ -47,6 +53,18 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def admin_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def admin_users_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_app_admin_tenant_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_app_admin_tenants_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_commitment_join_url(*args); end
@@ -247,6 +265,9 @@ module GeneratedUrlHelpersModule
   def decision_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def dev_pulse_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_commitment_participant_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -310,7 +331,16 @@ module GeneratedUrlHelpersModule
   def learn_awareness_indicators_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def learn_memory_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def learn_reciprocal_commitment_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def learn_subagency_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def learn_superagency_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def learn_url(*args); end
@@ -325,10 +355,19 @@ module GeneratedUrlHelpersModule
   def login_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def login_verify_2fa_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def logout_success_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def logout_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def metrics_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def motto_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def new_api_v1_commitment_participant_url(*args); end
@@ -433,6 +472,12 @@ module GeneratedUrlHelpersModule
   def note_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_create_reminder_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_delete_reminder_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def notifications_actions_dismiss_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -443,6 +488,9 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def notifications_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_new_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def notifications_unread_count_url(*args); end
@@ -586,6 +634,21 @@ module GeneratedUrlHelpersModule
   def settings_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_new_actions_create_webhook_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_new_actions_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_new_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_webhooks_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def studios_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -604,6 +667,12 @@ module GeneratedUrlHelpersModule
   def studios_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def suspend_api_app_admin_tenant_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def trio_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def turbo_recede_historical_location_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -611,6 +680,24 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def turbo_resume_historical_location_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_confirm_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_disable_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_regenerate_codes_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_setup_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def two_factor_verify_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def update_rails_disk_service_url(*args); end
@@ -629,4 +716,7 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def whoami_url(*args); end
 end

@@ -1,0 +1,25 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-success">
+    <div class="pulse-auth-success-icon">
+      <%= octicon 'tools', height: 48 %>
+    </div>
+    <h1 class="pulse-auth-title">Admin Access</h1>
+    <p class="pulse-auth-subtitle">You have access to multiple admin areas. Choose one:</p>
+
+    <div class="pulse-form-actions" style="margin-top: 24px; flex-direction: column; gap: 12px;">
+      <% @available_admins.each do |admin| %>
+        <a href="<%= admin[:path] %>" class="pulse-action-btn" style="justify-content: flex-start; width: 100%; max-width: 320px;">
+          <%= octicon admin[:icon], height: 16 %>
+          <span style="flex: 1; text-align: left;"><%= admin[:label] %></span>
+          <%= octicon 'chevron-right', height: 16 %>
+        </a>
+      <% end %>
+    </div>
+
+    <div class="pulse-form-actions" style="margin-top: 24px; justify-content: center;">
+      <a href="/" class="pulse-action-btn-secondary">
+        <%= octicon 'home', height: 14 %> Return Home
+      </a>
+    </div>
+  </div>
+</div>

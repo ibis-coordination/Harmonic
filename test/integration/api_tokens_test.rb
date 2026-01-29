@@ -12,8 +12,10 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
       user: @user,
       scopes: ApiToken.valid_scopes,
     )
+    # Store plaintext token before it's lost (only available immediately after creation)
+    @plaintext_token = @api_token.plaintext_token
     @headers = {
-      "Authorization" => "Bearer #{@api_token.token}",
+      "Authorization" => "Bearer #{@plaintext_token}",
       "Content-Type" => "application/json",
     }
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
@@ -38,7 +40,7 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     token_data = body.find { |t| t["id"] == @api_token.id }
     assert token_data["token"].include?("*")
-    assert_not_equal @api_token.token, token_data["token"]
+    assert_not_equal @plaintext_token, token_data["token"]
   end
 
   test "index includes token metadata" do
@@ -66,11 +68,30 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "show with include=full_token returns full token value" do
+  test "show always returns obfuscated token (plaintext is only available on creation)" do
+    # With hashed tokens, we can never retrieve the full plaintext after creation
+    # because we only store the hash, not the plaintext
     get api_path("/#{@api_token.id}?include=full_token"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal @api_token.token, body["token"]
+    # Should return obfuscated token even with include=full_token
+    # because plaintext is not available after initial creation
+    assert_includes body["token"], "*"
+    assert_equal @api_token.obfuscated_token, body["token"]
+  end
+
+  test "create returns full plaintext token in response" do
+    # When creating a token, the plaintext should be returned so user can save it
+    token_params = {
+      name: "Token to check plaintext",
+      scopes: ["read:all"],
+    }
+    post api_path, params: token_params.to_json, headers: @headers
+    assert_response :success
+    body = JSON.parse(response.body)
+    # Token should be the full plaintext (40 chars for hex(20))
+    assert_equal 40, body["token"].length
+    assert_not_includes body["token"], "*"
   end
 
   # Create
@@ -119,6 +140,44 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  # Update
+  test "update returns 404 for non-existent token" do
+    put api_path("/nonexistent-uuid"), params: { name: "Updated" }.to_json, headers: @headers
+    assert_response :not_found
+  end
+
+  test "update by token string lookup returns 404 (security: token values should not be in URLs)" do
+    # Create a second token to update
+    token_to_update = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Token to Update",
+      scopes: ["read:all"]
+    )
+    token_plaintext = token_to_update.plaintext_token
+    # Trying to look up by token value should return 404
+    put api_path("/#{token_plaintext}"), params: { name: "Updated" }.to_json, headers: @headers
+    assert_response :not_found
+    # But lookup by ID should work
+    put api_path("/#{token_to_update.id}"), params: { name: "Updated" }.to_json, headers: @headers
+    assert_response :success
+  end
+
+  test "update can change token name" do
+    token_to_update = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Original Name",
+      scopes: ["read:all"]
+    )
+    put api_path("/#{token_to_update.id}"), params: { name: "New Name" }.to_json, headers: @headers
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "New Name", body["name"]
+    token_to_update.reload
+    assert_equal "New Name", token_to_update.name
+  end
+
   # Delete
   test "delete deletes a token" do
     token_to_delete = ApiToken.create!(
@@ -138,6 +197,27 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "delete by token string lookup returns 404 (security: token values should not be in URLs)" do
+    token_to_delete = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Token to Delete by String",
+      scopes: ["read:all"]
+    )
+    token_plaintext = token_to_delete.plaintext_token
+    # Trying to look up by token value should return 404
+    delete api_path("/#{token_plaintext}"), headers: @headers
+    assert_response :not_found
+    # Token should NOT be deleted
+    token_to_delete.reload
+    assert_not token_to_delete.deleted?
+    # But delete by ID should work
+    delete api_path("/#{token_to_delete.id}"), headers: @headers
+    assert_response :success
+    token_to_delete.reload
+    assert token_to_delete.deleted?
+  end
+
   # Token scopes
   test "token with read scope can read but not write" do
     skip "Bug: api_tokens not recognized as valid resource for scope validation"
@@ -146,7 +226,7 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
       user: @user,
       scopes: ApiToken.read_scopes
     )
-    read_only_headers = @headers.merge("Authorization" => "Bearer #{read_only_token.token}")
+    read_only_headers = @headers.merge("Authorization" => "Bearer #{read_only_token.plaintext_token}")
 
     # Can read
     get api_path, headers: read_only_headers
@@ -166,7 +246,7 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
       scopes: ApiToken.valid_scopes,
       expires_at: Time.current - 1.day
     )
-    expired_headers = @headers.merge("Authorization" => "Bearer #{expired_token.token}")
+    expired_headers = @headers.merge("Authorization" => "Bearer #{expired_token.plaintext_token}")
     get api_path, headers: expired_headers
     assert_response :unauthorized
   end

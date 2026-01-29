@@ -1,0 +1,54 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-logo">
+    <i class="tri-logo-icon icon-lg"></i>
+  </div>
+
+  <h1 class="pulse-auth-title">Two-Factor Authentication</h1>
+
+  <p class="pulse-auth-subtitle">
+    Enter the 6-digit code from your authenticator app or a recovery code.
+  </p>
+
+  <% if flash[:alert] %>
+    <div class="pulse-alert" style="margin-bottom: 16px;">
+      <%= flash[:alert] %>
+    </div>
+  <% end %>
+
+  <% if @locked %>
+    <div class="pulse-alert" style="margin-bottom: 16px; background: var(--color-attention-subtle);">
+      Account locked. Try again in <%= pluralize((@lockout_remaining / 60.0).ceil, 'minute') %>.
+    </div>
+  <% else %>
+    <%= form_with url: two_factor_verify_path, method: :post, data: { turbo: false }, class: "pulse-auth-form" do |form| %>
+      <%= form.text_field :code,
+          placeholder: 'Enter code',
+          class: 'pulse-form-input',
+          autocomplete: 'one-time-code',
+          inputmode: 'numeric',
+          pattern: '[0-9A-Fa-f\s]+',
+          autofocus: true,
+          style: 'text-align: center; font-size: 1.25rem; letter-spacing: 0.25em;' %>
+
+      <div class="pulse-form-actions" style="margin-top: 16px;">
+        <%= submit_tag "Verify", class: "pulse-action-btn", style: "width: 100%;" %>
+      </div>
+    <% end %>
+
+    <div class="pulse-auth-footer" style="margin-top: 24px;">
+      <details style="text-align: left;">
+        <summary style="cursor: pointer; color: var(--color-fg-muted);">
+          Can't access your authenticator app?
+        </summary>
+        <p style="margin-top: 12px; color: var(--color-fg-muted); font-size: 0.875rem;">
+          Enter one of your 16-character recovery codes instead.
+          Each recovery code can only be used once.
+        </p>
+      </details>
+    </div>
+  <% end %>
+
+  <div class="pulse-auth-footer" style="margin-top: 24px;">
+    <%= link_to 'Cancel', '/login', class: 'pulse-auth-link' %>
+  </div>
+</div>

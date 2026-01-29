@@ -12,8 +12,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       user: @user,
       scopes: ApiToken.valid_scopes,
     )
+    @plaintext_token = @api_token.plaintext_token
     @headers = {
-      "Authorization" => "Bearer #{@api_token.token}",
+      "Authorization" => "Bearer #{@plaintext_token}",
       "Accept" => "text/markdown",
       "Content-Type" => "application/json",
     }
@@ -699,7 +700,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       scopes: ApiToken.valid_scopes,
     )
     other_headers = {
-      "Authorization" => "Bearer #{other_token.token}",
+      "Authorization" => "Bearer #{other_token.plaintext_token}",
       "Accept" => "text/markdown",
       "Content-Type" => "application/json",
     }
@@ -1016,6 +1017,27 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     ApiToken.where(name: "Write Token", user: @user).destroy_all
   end
 
+  test "GET token show page returns obfuscated token in markdown (security)" do
+    # Create a token to view
+    test_token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Security Test Token",
+      scopes: ["read:all"]
+    )
+    plaintext = test_token.plaintext_token
+
+    get "/u/#{@user.handle}/settings/tokens/#{test_token.id}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # The response should contain the obfuscated token, not the full token
+    assert_includes response.body, test_token.obfuscated_token, "Response should include obfuscated token"
+    refute_includes response.body, plaintext, "Response should NOT include full token (security risk)"
+  ensure
+    ApiToken.where(name: "Security Test Token", user: @user).destroy_all
+  end
+
   test "GET /u/:handle/settings/subagents/new returns 200 markdown with actions" do
     get "/u/#{@user.handle}/settings/subagents/new", headers: @headers
     assert_equal 200, response.status
@@ -1197,7 +1219,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     subagent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Try to create a subagent - should be blocked
@@ -1232,7 +1254,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     subagent_headers = {
       'Accept' => 'text/markdown',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Try to access create subagent page - should be blocked
@@ -1266,7 +1288,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     subagent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Try to create an API token for themselves - should be blocked
@@ -1301,7 +1323,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     subagent_headers = {
       'Accept' => 'text/markdown',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Try to access create API token page - should be blocked
@@ -1368,7 +1390,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     subagent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Try to add another subagent to studio - should be blocked
@@ -1414,7 +1436,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     subagent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Try to remove another subagent from studio - should be blocked
@@ -1433,15 +1455,15 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # === Phase 3: Admin Panel Markdown API ===
 
-  test "GET /admin returns 200 markdown for admin user" do
+  test "GET /admin redirects to appropriate admin section for admin user" do
     # Make user an admin
     tu = @tenant.tenant_users.find_by(user: @user)
     tu.add_role!('admin')
 
     get "/admin", headers: @headers
-    assert_equal 200, response.status
-    assert is_markdown?
-    assert_match(/Admin/, response.body, "Should show Admin heading")
+    # /admin is now a chooser that redirects based on user's admin roles
+    assert_equal 302, response.status, "Admin chooser should redirect"
+    assert_match(/tenant-admin|app-admin|system-admin|legacy-admin/, response.headers['Location'], "Should redirect to an admin section")
   ensure
     tu&.remove_role!('admin')
   end
@@ -1451,14 +1473,14 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 403, response.status
   end
 
-  test "GET /admin/settings returns 200 markdown with actions for admin user" do
+  test "GET /tenant-admin/settings returns 200 markdown with actions for admin user" do
     tu = @tenant.tenant_users.find_by(user: @user)
     tu.add_role!('admin')
 
-    get "/admin/settings", headers: @headers
+    get "/tenant-admin/settings", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    assert_match(/Admin Settings/, response.body, "Should show Admin Settings heading")
+    assert_match(/Settings/, response.body, "Should show Settings heading")
     assert has_actions_section?, "Admin settings should have actions section"
     assert_match(/update_tenant_settings/, response.body, "Should show update_tenant_settings action")
   ensure
@@ -1470,7 +1492,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     tu.add_role!('admin')
     original_name = @tenant.name
 
-    post "/admin/settings/actions/update_tenant_settings",
+    post "/tenant-admin/settings/actions/update_tenant_settings",
       params: { name: "Updated Tenant Name" }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -1509,11 +1531,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     subagent_headers = {
       'Accept' => 'text/markdown',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Should be able to access admin page
-    get "/admin", headers: subagent_headers
+    get "/tenant-admin", headers: subagent_headers
     assert_equal 200, response.status
     assert is_markdown?
   ensure
@@ -1545,11 +1567,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     subagent_headers = {
       'Accept' => 'text/markdown',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Should NOT be able to access admin page because parent is not admin
-    get "/admin", headers: subagent_headers
+    get "/tenant-admin", headers: subagent_headers
     assert_equal 403, response.status
     assert_match(/Subagent admin access requires both subagent and parent to be admins/, response.body)
   ensure
@@ -1582,11 +1604,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     subagent_headers = {
       'Accept' => 'text/markdown',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Should NOT be able to access admin page because subagent is not admin
-    get "/admin", headers: subagent_headers
+    get "/tenant-admin", headers: subagent_headers
     assert_equal 403, response.status
   ensure
     parent_tu&.remove_role!('admin')
@@ -1622,13 +1644,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     subagent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     original_name = @tenant.name
 
     # In test environment, should be able to perform write operations
-    post "/admin/settings/actions/update_tenant_settings",
+    post "/tenant-admin/settings/actions/update_tenant_settings",
       params: { name: "Subagent Updated Name" }.to_json,
       headers: subagent_headers
     assert_equal 200, response.status
@@ -1669,14 +1691,14 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     subagent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
       # Should NOT be able to perform write operations in production
-      post "/admin/settings/actions/update_tenant_settings",
+      post "/tenant-admin/settings/actions/update_tenant_settings",
         params: { name: "Should Not Update" }.to_json,
         headers: subagent_headers
       assert_equal 403, response.status
@@ -1715,14 +1737,14 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     subagent_headers = {
       'Accept' => 'text/markdown',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
       # Should be able to READ admin pages in production
-      get "/admin", headers: subagent_headers
+      get "/tenant-admin", headers: subagent_headers
       assert_equal 200, response.status
       assert is_markdown?
     ensure
@@ -1745,7 +1767,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     Thread.current[:simulate_production] = true
     begin
       # Person admin should still be able to write in production
-      post "/admin/settings/actions/update_tenant_settings",
+      post "/tenant-admin/settings/actions/update_tenant_settings",
         params: { name: "Person Updated Name" }.to_json,
         headers: @headers
       assert_equal 200, response.status
@@ -1785,13 +1807,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     subagent_headers = {
       'Accept' => 'text/markdown',
-      'Authorization' => "Bearer #{token.token}",
+      'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
-      get "/admin/settings", headers: subagent_headers
+      get "/tenant-admin/settings", headers: subagent_headers
       assert_equal 200, response.status
       assert is_markdown?
       # Should show read-only message instead of actions

@@ -867,7 +867,10 @@ class ApiToken
     def restore_tenant_id!; end
 
     sig { void }
-    def restore_token!; end
+    def restore_token_hash!; end
+
+    sig { void }
+    def restore_token_prefix!; end
 
     sig { void }
     def restore_updated_at!; end
@@ -941,11 +944,17 @@ class ApiToken
     sig { returns(T::Boolean) }
     def saved_change_to_tenant_id?; end
 
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_token; end
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_token_hash; end
 
     sig { returns(T::Boolean) }
-    def saved_change_to_token?; end
+    def saved_change_to_token_hash?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_token_prefix; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_token_prefix?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
@@ -1139,50 +1148,95 @@ class ApiToken
     sig { void }
     def tenant_id_will_change!; end
 
-    sig { returns(::String) }
-    def token; end
+    sig { returns(T.nilable(::String)) }
+    def token_hash; end
 
-    sig { params(value: ::String).returns(::String) }
-    def token=(value); end
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def token_hash=(value); end
 
     sig { returns(T::Boolean) }
-    def token?; end
+    def token_hash?; end
 
     sig { returns(T.nilable(::String)) }
-    def token_before_last_save; end
+    def token_hash_before_last_save; end
 
     sig { returns(T.untyped) }
-    def token_before_type_cast; end
+    def token_hash_before_type_cast; end
 
     sig { returns(T::Boolean) }
-    def token_came_from_user?; end
+    def token_hash_came_from_user?; end
 
-    sig { returns(T.nilable([::String, ::String])) }
-    def token_change; end
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def token_hash_change; end
 
-    sig { returns(T.nilable([::String, ::String])) }
-    def token_change_to_be_saved; end
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def token_hash_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def token_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def token_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def token_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def token_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def token_hash_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
-    def token_previously_was; end
+    def token_hash_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def token_hash_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def token_hash_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
-    def token_was; end
+    def token_hash_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def token_hash_was; end
 
     sig { void }
-    def token_will_change!; end
+    def token_hash_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def token_prefix; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def token_prefix=(value); end
+
+    sig { returns(T::Boolean) }
+    def token_prefix?; end
+
+    sig { returns(T.nilable(::String)) }
+    def token_prefix_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def token_prefix_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def token_prefix_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def token_prefix_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def token_prefix_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def token_prefix_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def token_prefix_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def token_prefix_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def token_prefix_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def token_prefix_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def token_prefix_was; end
+
+    sig { void }
+    def token_prefix_will_change!; end
 
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
@@ -1308,7 +1362,10 @@ class ApiToken
     def will_save_change_to_tenant_id?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_token?; end
+    def will_save_change_to_token_hash?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_token_prefix?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_updated_at?; end

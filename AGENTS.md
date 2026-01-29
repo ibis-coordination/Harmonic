@@ -34,7 +34,13 @@ The app uses subdomain-based multi-tenancy. Key patterns:
 
 Configured via `AUTH_MODE` environment variable:
 - `oauth`: Full OAuth authentication (production)
-- `honor_system`: Simplified auth for development/testing
+- `honor_system`: Simplified auth for development/testing only
+
+**Security notes:**
+- `honor_system` mode is blocked in production (app raises error at boot)
+- Two-factor authentication (TOTP) is available for email/password users
+- Sessions have configurable timeouts: 24-hour absolute, 2-hour idle (see `SESSION_ABSOLUTE_TIMEOUT`, `SESSION_IDLE_TIMEOUT` env vars)
+- Tenant admins can suspend users via `/admin/users`
 
 ### Core Domain Models
 

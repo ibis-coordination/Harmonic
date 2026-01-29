@@ -7,8 +7,11 @@ Successfully created subagent **<%= raw @subagent.display_name %>**.
 | Name | <%= raw @subagent.name %> |
 | Handle | `<%= @subagent.handle %>` |
 | Profile | [<%= @subagent.path %>](<%= @subagent.path %>) |
-<% if @token %>
-| API Token | `<%= @token.token %>` |
+<% if @token && @token.plaintext_token.present? %>
+| API Token | `<%= @token.plaintext_token %>` |
+| Token Expires | in <%= time_ago_in_words(@token.expires_at) %> |
+<% elsif @token %>
+| API Token | `<%= @token.obfuscated_token %>` |
 | Token Expires | in <%= time_ago_in_words(@token.expires_at) %> |
 <% end %>
 

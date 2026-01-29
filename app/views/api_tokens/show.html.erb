@@ -32,14 +32,24 @@
         <tr>
           <th>Token</th>
           <td>
-            <code class="pulse-monospace"><%= @token.obfuscated_token %></code>
-            <span data-controller="clipboard">
-              <input type="text" value="<%= @token.token %>" data-clipboard-target="source" style="display:none;"/>
-              <button class="pulse-action-btn pulse-action-btn-sm" data-action="click->clipboard#copy" data-clipboard-target="button">
-                <%= octicon 'copy' %> Copy
-              </button>
-              <span class="pulse-tag pulse-tag-success" data-clipboard-target="successMessage" style="display:none;">Copied!</span>
-            </span>
+            <% if @token.plaintext_token.present? %>
+              <%# Token was just created - show full token with copy button %>
+              <code class="pulse-monospace"><%= @token.plaintext_token %></code>
+              <span data-controller="clipboard">
+                <input type="text" value="<%= @token.plaintext_token %>" data-clipboard-target="source" style="display:none;"/>
+                <button class="pulse-action-btn pulse-action-btn-sm" data-action="click->clipboard#copy">
+                  <span data-clipboard-target="button"><%= octicon 'copy' %> Copy</span>
+                  <span class="pulse-tag pulse-tag-success" data-clipboard-target="successMessage" style="display:none;">Copied!</span>
+                </button>
+              </span>
+              <p class="pulse-muted-text" style="margin-top: 0.5rem; font-size: 0.85rem;">
+                <%= octicon 'alert', height: 14 %>
+                Save this token now - you won't be able to see it again.
+              </p>
+            <% else %>
+              <%# Existing token - only show obfuscated version %>
+              <code class="pulse-monospace"><%= @token.obfuscated_token %></code>
+            <% end %>
           </td>
         </tr>
         <tr>

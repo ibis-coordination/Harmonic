@@ -105,13 +105,13 @@
     <%# Subdomains Section %>
     <%= render 'shared/pulse_accordion', title: 'Your Subdomains', icon: 'globe', tooltip: 'Each subdomain contains a separate set of scenes and studios.', count: @other_tenants.size + 1, open: true do %>
       <div class="pulse-home-section-intro">
-        <% if @current_tenant.is_admin?(@current_user) && @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
-          <a href="/admin/tenants/new" class="pulse-action-btn-secondary">
+        <% if @current_user&.app_admin? && @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
+          <a href="/app-admin/tenants/new" class="pulse-action-btn-secondary">
             <%= octicon 'plus', height: 14 %>
             New Subdomain
           </a>
         <% else %>
-          <button type="button" class="pulse-action-btn-secondary" disabled title="Adding new subdomains requires admin permissions.">
+          <button type="button" class="pulse-action-btn-secondary" disabled title="Adding new subdomains requires app admin permissions.">
             <%= octicon 'plus', height: 14 %>
             New Subdomain
           </button>

@@ -29,7 +29,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin"
+    get "/legacy-admin"
     assert_response :forbidden
     assert_match(/Admin Access Required|admin/i, response.body)
   end
@@ -40,7 +40,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/actions"
+    get "/legacy-admin/actions"
     assert_response :forbidden
   end
 
@@ -50,7 +50,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/settings"
+    get "/legacy-admin/settings"
     assert_response :forbidden
   end
 
@@ -60,7 +60,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    post "/admin/settings", params: { name: "Hacked Tenant" }
+    post "/legacy-admin/settings", params: { name: "Hacked Tenant" }
     assert_response :forbidden
   end
 
@@ -70,7 +70,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/settings/actions"
+    get "/legacy-admin/settings/actions"
     assert_response :forbidden
   end
 
@@ -80,7 +80,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/settings/actions/update_tenant_settings"
+    get "/legacy-admin/settings/actions/update_tenant_settings"
     assert_response :forbidden
   end
 
@@ -90,7 +90,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    post "/admin/settings/actions/update_tenant_settings", params: { name: "Hacked" }
+    post "/legacy-admin/settings/actions/update_tenant_settings", params: { name: "Hacked" }
     assert_response :forbidden
   end
 
@@ -102,7 +102,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants"
+    get "/legacy-admin/tenants"
     assert_response :forbidden
   end
 
@@ -112,7 +112,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants/new"
+    get "/legacy-admin/tenants/new"
     assert_response :forbidden
   end
 
@@ -123,7 +123,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
     assert_no_difference "Tenant.count" do
-      post "/admin/tenants", params: { subdomain: "new-tenant", name: "New Tenant" }
+      post "/legacy-admin/tenants", params: { subdomain: "new-tenant", name: "New Tenant" }
     end
     assert_response :forbidden
   end
@@ -134,7 +134,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants/#{@other_tenant.subdomain}"
+    get "/legacy-admin/tenants/#{@other_tenant.subdomain}"
     assert_response :forbidden
   end
 
@@ -144,7 +144,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants/#{@other_tenant.subdomain}/complete"
+    get "/legacy-admin/tenants/#{@other_tenant.subdomain}/complete"
     assert_response :forbidden
   end
 
@@ -154,7 +154,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants/new/actions"
+    get "/legacy-admin/tenants/new/actions"
     assert_response :forbidden
   end
 
@@ -164,7 +164,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants/new/actions/create_tenant"
+    get "/legacy-admin/tenants/new/actions/create_tenant"
     assert_response :forbidden
   end
 
@@ -175,7 +175,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
     assert_no_difference "Tenant.count" do
-      post "/admin/tenants/new/actions/create_tenant", params: { subdomain: "hacked", name: "Hacked" }
+      post "/legacy-admin/tenants/new/actions/create_tenant", params: { subdomain: "hacked", name: "Hacked" }
     end
     assert_response :forbidden
   end
@@ -188,7 +188,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/sidekiq"
+    get "/legacy-admin/sidekiq"
     assert_response :forbidden
   end
 
@@ -198,7 +198,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/sidekiq/queues/default"
+    get "/legacy-admin/sidekiq/queues/default"
     assert_response :forbidden
   end
 
@@ -208,7 +208,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/sidekiq/jobs/fake-jid-123"
+    get "/legacy-admin/sidekiq/jobs/fake-jid-123"
     assert_response :forbidden
   end
 
@@ -218,7 +218,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    post "/admin/sidekiq/jobs/fake-jid-123/retry"
+    post "/legacy-admin/sidekiq/jobs/fake-jid-123/retry"
     assert_response :forbidden
   end
 
@@ -228,7 +228,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/sidekiq/jobs/fake-jid-123/actions"
+    get "/legacy-admin/sidekiq/jobs/fake-jid-123/actions"
     assert_response :forbidden
   end
 
@@ -238,7 +238,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
+    get "/legacy-admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
     assert_response :forbidden
   end
 
@@ -248,7 +248,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    post "/admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
+    post "/legacy-admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
     assert_response :forbidden
   end
 
@@ -260,7 +260,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/security"
+    get "/legacy-admin/security"
     assert_response :forbidden
   end
 
@@ -270,7 +270,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/admin/security/events/1"
+    get "/legacy-admin/security/events/1"
     assert_response :forbidden
   end
 
@@ -286,7 +286,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin"
+    get "/legacy-admin"
     assert_response :success
   end
 
@@ -298,7 +298,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/settings"
+    get "/legacy-admin/settings"
     assert_response :success
   end
 
@@ -310,7 +310,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    post "/admin/settings", params: { name: "Updated Tenant Name" }
+    post "/legacy-admin/settings", params: { name: "Updated Tenant Name" }
     assert_response :redirect
     @other_tenant.reload
     assert_equal "Updated Tenant Name", @other_tenant.name
@@ -330,7 +330,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/tenants"
+    get "/legacy-admin/tenants"
     assert_response :forbidden
   end
 
@@ -342,7 +342,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/tenants/new"
+    get "/legacy-admin/tenants/new"
     assert_response :forbidden
   end
 
@@ -355,7 +355,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
     assert_no_difference "Tenant.count" do
-      post "/admin/tenants", params: { subdomain: "new-tenant", name: "New Tenant" }
+      post "/legacy-admin/tenants", params: { subdomain: "new-tenant", name: "New Tenant" }
     end
     assert_response :forbidden
   end
@@ -368,7 +368,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/tenants/#{@primary_tenant.subdomain}"
+    get "/legacy-admin/tenants/#{@primary_tenant.subdomain}"
     assert_response :forbidden
   end
 
@@ -380,7 +380,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/tenants/#{@other_tenant.subdomain}/complete"
+    get "/legacy-admin/tenants/#{@other_tenant.subdomain}/complete"
     assert_response :forbidden
   end
 
@@ -392,7 +392,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/tenants/new/actions"
+    get "/legacy-admin/tenants/new/actions"
     assert_response :forbidden
   end
 
@@ -404,7 +404,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/tenants/new/actions/create_tenant"
+    get "/legacy-admin/tenants/new/actions/create_tenant"
     assert_response :forbidden
   end
 
@@ -417,7 +417,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
     assert_no_difference "Tenant.count" do
-      post "/admin/tenants/new/actions/create_tenant", params: { subdomain: "hacked", name: "Hacked" }
+      post "/legacy-admin/tenants/new/actions/create_tenant", params: { subdomain: "hacked", name: "Hacked" }
     end
     assert_response :forbidden
   end
@@ -432,7 +432,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/sidekiq"
+    get "/legacy-admin/sidekiq"
     assert_response :forbidden
   end
 
@@ -444,7 +444,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/sidekiq/queues/default"
+    get "/legacy-admin/sidekiq/queues/default"
     assert_response :forbidden
   end
 
@@ -456,7 +456,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/sidekiq/jobs/fake-jid-123"
+    get "/legacy-admin/sidekiq/jobs/fake-jid-123"
     assert_response :forbidden
   end
 
@@ -468,7 +468,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    post "/admin/sidekiq/jobs/fake-jid-123/retry"
+    post "/legacy-admin/sidekiq/jobs/fake-jid-123/retry"
     assert_response :forbidden
   end
 
@@ -480,7 +480,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/sidekiq/jobs/fake-jid-123/actions"
+    get "/legacy-admin/sidekiq/jobs/fake-jid-123/actions"
     assert_response :forbidden
   end
 
@@ -492,7 +492,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
+    get "/legacy-admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
     assert_response :forbidden
   end
 
@@ -504,7 +504,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    post "/admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
+    post "/legacy-admin/sidekiq/jobs/fake-jid-123/actions/retry_sidekiq_job"
     assert_response :forbidden
   end
 
@@ -518,7 +518,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/security"
+    get "/legacy-admin/security"
     assert_response :forbidden
   end
 
@@ -530,7 +530,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin/security/events/1"
+    get "/legacy-admin/security/events/1"
     assert_response :forbidden
   end
 
@@ -546,7 +546,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin"
+    get "/legacy-admin"
     assert_response :success
   end
 
@@ -558,7 +558,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/settings"
+    get "/legacy-admin/settings"
     assert_response :success
   end
 
@@ -570,7 +570,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants"
+    get "/legacy-admin/tenants"
     assert_response :success
   end
 
@@ -582,7 +582,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants/new"
+    get "/legacy-admin/tenants/new"
     assert_response :success
   end
 
@@ -596,7 +596,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
 
     new_subdomain = "new-tenant-#{SecureRandom.hex(4)}"
     assert_difference "Tenant.count", 1 do
-      post "/admin/tenants", params: { subdomain: new_subdomain, name: "New Tenant" }
+      post "/legacy-admin/tenants", params: { subdomain: new_subdomain, name: "New Tenant" }
     end
     assert_response :redirect
   end
@@ -609,7 +609,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/tenants/#{@other_tenant.subdomain}"
+    get "/legacy-admin/tenants/#{@other_tenant.subdomain}"
     assert_response :success
   end
 
@@ -621,7 +621,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/sidekiq"
+    get "/legacy-admin/sidekiq"
     assert_response :success
   end
 
@@ -633,7 +633,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/sidekiq/queues/default"
+    get "/legacy-admin/sidekiq/queues/default"
     assert_response :success
   end
 
@@ -645,7 +645,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/security"
+    get "/legacy-admin/security"
     assert_response :success
   end
 
@@ -657,7 +657,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/security", headers: { "Accept" => "text/markdown" }
+    get "/legacy-admin/security", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_match(/Security Dashboard/, response.body)
   end
@@ -671,13 +671,13 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
     # Test with various filter combinations
-    get "/admin/security?event_type=login_failure&time_range=7d"
+    get "/legacy-admin/security?event_type=login_failure&time_range=7d"
     assert_response :success
 
-    get "/admin/security?ip=127.0.0.1"
+    get "/legacy-admin/security?ip=127.0.0.1"
     assert_response :success
 
-    get "/admin/security?email=test@example.com&sort_by=timestamp&sort_dir=asc"
+    get "/legacy-admin/security?email=test@example.com&sort_by=timestamp&sort_dir=asc"
     assert_response :success
   end
 
@@ -690,14 +690,14 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
     # Test with page parameter
-    get "/admin/security?page=1"
+    get "/legacy-admin/security?page=1"
     assert_response :success
 
-    get "/admin/security?page=2"
+    get "/legacy-admin/security?page=2"
     assert_response :success
 
     # Test pagination with filters
-    get "/admin/security?event_type=login_failure&page=1"
+    get "/legacy-admin/security?event_type=login_failure&page=1"
     assert_response :success
   end
 
@@ -717,7 +717,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/security/events/#{line_number}"
+    get "/legacy-admin/security/events/#{line_number}"
     assert_response :success
   end
 
@@ -737,7 +737,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/security/events/#{line_number}", headers: { "Accept" => "text/markdown" }
+    get "/legacy-admin/security/events/#{line_number}", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_match(/Security Event/, response.body)
   end
@@ -750,7 +750,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    get "/admin/security/events/999999999"
+    get "/legacy-admin/security/events/999999999"
     assert_response :not_found
   end
 
@@ -765,12 +765,11 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
       user: subagent,
       tenant: tenant,
       name: "Test Token #{SecureRandom.hex(4)}",
-      token: SecureRandom.hex(32),
       scopes: %w[read:all create:all update:all delete:all],
     )
     host! "#{tenant.subdomain}.#{ENV['HOSTNAME']}"
     send(method, path, params: params, headers: {
-      "Authorization" => "Bearer #{api_token.token}",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
       "Accept" => "text/markdown",
     })
   end
@@ -785,7 +784,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     subagent = create_subagent(parent: @admin_user, name: "Non-Admin Subagent")
     @primary_tenant.add_user!(subagent)
 
-    subagent_api_request(:get, "/admin", subagent: subagent, tenant: @primary_tenant)
+    subagent_api_request(:get, "/legacy-admin", subagent: subagent, tenant: @primary_tenant)
     assert_response :forbidden
   end
 
@@ -799,7 +798,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
     subagent_tenant_user.add_role!("admin")
 
-    subagent_api_request(:get, "/admin", subagent: subagent, tenant: @primary_tenant)
+    subagent_api_request(:get, "/legacy-admin", subagent: subagent, tenant: @primary_tenant)
     assert_response :forbidden
     assert_match(/Subagent admin access requires both subagent and parent to be admins/, response.body)
   end
@@ -816,7 +815,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
     subagent_tenant_user.add_role!("admin")
 
-    subagent_api_request(:get, "/admin", subagent: subagent, tenant: @primary_tenant)
+    subagent_api_request(:get, "/legacy-admin", subagent: subagent, tenant: @primary_tenant)
     assert_response :success
   end
 
@@ -835,7 +834,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
-      subagent_api_request(:post, "/admin/settings", subagent: subagent, tenant: @primary_tenant, params: { name: "Changed By Subagent" })
+      subagent_api_request(:post, "/legacy-admin/settings", subagent: subagent, tenant: @primary_tenant, params: { name: "Changed By Subagent" })
       assert_response :forbidden
       assert_match(/Subagents cannot perform admin write operations in production/, response.body)
 
@@ -862,10 +861,10 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
-      subagent_api_request(:get, "/admin", subagent: subagent, tenant: @primary_tenant)
+      subagent_api_request(:get, "/legacy-admin", subagent: subagent, tenant: @primary_tenant)
       assert_response :success
 
-      subagent_api_request(:get, "/admin/settings", subagent: subagent, tenant: @primary_tenant)
+      subagent_api_request(:get, "/legacy-admin/settings", subagent: subagent, tenant: @primary_tenant)
       assert_response :success
     ensure
       Thread.current[:simulate_production] = false
@@ -879,7 +878,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
   test "unauthenticated user cannot access /admin" do
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-    get "/admin"
+    get "/legacy-admin"
     # Should redirect to login or return unauthorized
     assert_response :redirect
   end
@@ -887,42 +886,42 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
   test "unauthenticated user cannot access /admin/settings" do
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-    get "/admin/settings"
+    get "/legacy-admin/settings"
     assert_response :redirect
   end
 
   test "unauthenticated user cannot POST to /admin/settings" do
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-    post "/admin/settings", params: { name: "Hacked" }
+    post "/legacy-admin/settings", params: { name: "Hacked" }
     assert_response :redirect
   end
 
   test "unauthenticated user cannot access /admin/tenants" do
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-    get "/admin/tenants"
+    get "/legacy-admin/tenants"
     assert_response :redirect
   end
 
   test "unauthenticated user cannot access /admin/sidekiq" do
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-    get "/admin/sidekiq"
+    get "/legacy-admin/sidekiq"
     assert_response :redirect
   end
 
   test "unauthenticated user cannot access /admin/security" do
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-    get "/admin/security"
+    get "/legacy-admin/security"
     assert_response :redirect
   end
 
   test "unauthenticated user cannot access /admin/security/events/:line_number" do
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-    get "/admin/security/events/1"
+    get "/legacy-admin/security/events/1"
     assert_response :redirect
   end
 
@@ -930,7 +929,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
     assert_no_difference "Tenant.count" do
-      post "/admin/tenants", params: { subdomain: "hacked", name: "Hacked" }
+      post "/legacy-admin/tenants", params: { subdomain: "hacked", name: "Hacked" }
     end
     assert_response :redirect
   end
@@ -953,7 +952,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
     # Should be forbidden because user is not admin of THIS tenant
-    get "/admin"
+    get "/legacy-admin"
     assert_response :forbidden
   end
 
@@ -967,13 +966,13 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
     # Admin can view other tenant's info
-    get "/admin/tenants/#{@other_tenant.subdomain}"
+    get "/legacy-admin/tenants/#{@other_tenant.subdomain}"
     assert_response :success
 
     # But the settings change would only affect the current tenant (primary)
     # not the tenant being viewed - this is by design
     original_other_name = @other_tenant.name
-    post "/admin/settings", params: { name: "Changed Name" }
+    post "/legacy-admin/settings", params: { name: "Changed Name" }
 
     @other_tenant.reload
     assert_equal original_other_name, @other_tenant.name, "Other tenant's name should not change"
@@ -999,7 +998,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@other_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@other_admin_user, tenant: @other_tenant)
 
-    get "/admin"
+    get "/legacy-admin"
     assert_response :success
 
     # Verify the response contains other_tenant info and its admin
@@ -1021,7 +1020,7 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
     sign_in_as(@admin_user, tenant: @primary_tenant)
 
-    post "/admin/settings", params: { name: "Updated Primary Name" }
+    post "/legacy-admin/settings", params: { name: "Updated Primary Name" }
     assert_response :redirect
 
     @primary_tenant.reload
@@ -1029,5 +1028,188 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal "Updated Primary Name", @primary_tenant.name
     assert_equal original_other_name, @other_tenant.name, "Other tenant should not be affected"
+  end
+
+  # ============================================================================
+  # SECTION 9: User Suspension
+  # ============================================================================
+
+  test "admin can access user list page" do
+    @primary_tenant.add_user!(@admin_user)
+    tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/legacy-admin/users"
+    assert_response :success
+    assert_match(/Users/, response.body)
+  end
+
+  test "admin can access user detail page" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/legacy-admin/users/#{non_admin_tenant_user.handle}"
+    assert_response :success
+    assert_match(@non_admin_user.name, response.body)
+  end
+
+  test "admin can suspend a user" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    assert_not @non_admin_user.suspended?
+
+    post "/legacy-admin/users/#{non_admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Policy violation" }
+    assert_response :redirect  # HTML format redirects on success
+
+    @non_admin_user.reload
+    assert @non_admin_user.suspended?
+    assert_equal "Policy violation", @non_admin_user.suspended_reason
+    assert_equal @admin_user.id, @non_admin_user.suspended_by_id
+  end
+
+  test "admin can unsuspend a user" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    # Suspend the user first
+    @non_admin_user.suspend!(by: @admin_user, reason: "Policy violation")
+    assert @non_admin_user.suspended?
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    post "/legacy-admin/users/#{non_admin_tenant_user.handle}/actions/unsuspend_user"
+    assert_response :redirect  # HTML format redirects on success
+
+    @non_admin_user.reload
+    assert_not @non_admin_user.suspended?
+    assert_nil @non_admin_user.suspended_reason
+    assert_nil @non_admin_user.suspended_by_id
+  end
+
+  test "admin cannot suspend themselves" do
+    @primary_tenant.add_user!(@admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    post "/legacy-admin/users/#{admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Test" }
+    # HTML format returns a redirect with flash message
+    assert_response :redirect
+    follow_redirect!
+    assert_match(/cannot suspend your own account/i, flash[:alert])
+
+    @admin_user.reload
+    assert_not @admin_user.suspended?
+  end
+
+  test "non-admin cannot suspend a user" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    post "/legacy-admin/users/#{admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Test" }
+    assert_response :forbidden
+
+    @admin_user.reload
+    assert_not @admin_user.suspended?
+  end
+
+  test "non-admin cannot access user list page" do
+    @primary_tenant.add_user!(@non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    get "/legacy-admin/users"
+    assert_response :forbidden
+  end
+
+  test "user list shows suspended badge for suspended users" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+
+    # Suspend the non-admin user
+    @non_admin_user.suspend!(by: @admin_user, reason: "Test")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/legacy-admin/users"
+    assert_response :success
+    assert_match(/SUSPENDED/, response.body)
+  end
+
+  test "user detail page shows suspension info for suspended users" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    # Suspend the non-admin user
+    @non_admin_user.suspend!(by: @admin_user, reason: "Policy violation")
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    get "/legacy-admin/users/#{non_admin_tenant_user.handle}"
+    assert_response :success
+    assert_match(/Policy violation/, response.body)
+    assert_match(/unsuspend/i, response.body)
+  end
+
+  test "suspension is logged to security audit log" do
+    @primary_tenant.add_user!(@admin_user)
+    @primary_tenant.add_user!(@non_admin_user)
+    admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
+    admin_tenant_user.add_role!("admin")
+    non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@admin_user, tenant: @primary_tenant)
+
+    post "/legacy-admin/users/#{non_admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Policy violation" }
+    assert_response :redirect  # HTML format redirects on success
+
+    # Check that the suspension was logged
+    log_file = Rails.root.join("log/security_audit.log")
+    if File.exist?(log_file)
+      entries = File.readlines(log_file).map { |line| JSON.parse(line) rescue nil }.compact
+      matching_entry = entries.find do |e|
+        e["event"] == "user_suspended" &&
+          e["email"] == @non_admin_user.email &&
+          e["reason"] == "Policy violation"
+      end
+      assert matching_entry, "Expected to find user_suspended event in security log"
+    end
   end
 end

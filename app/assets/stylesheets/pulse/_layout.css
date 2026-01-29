@@ -259,6 +259,13 @@
   color: var(--color-fg-default);
 }
 
+.pulse-alert-danger {
+  background: var(--color-danger-subtle);
+  border: 1px solid var(--color-danger-muted);
+  border-radius: 6px;
+  color: var(--color-danger-fg);
+}
+
 .pulse-dismiss-btn {
   background: none;
   border: none;

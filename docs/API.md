@@ -639,7 +639,7 @@ List tokens for a user.
 ]
 ```
 
-**Note:** Token value is obfuscated. Use `include=full_token` when creating to get the full token.
+**Note:** Token values are stored as SHA256 hashes for security. The full token is only returned once at creation time—save it securely as it cannot be retrieved later.
 
 #### POST /api/v1/users/{user_id}/tokens
 
@@ -654,9 +654,22 @@ Create a new token.
 }
 ```
 
+**Response:**
+The response includes the full `token` value. This is the only time the token will be shown—copy and store it securely.
+
+```json
+{
+  "id": "token-uuid",
+  "name": "New Token",
+  "token": "abc123def456...",
+  "scopes": ["read:all", "create:all", "update:all"],
+  "expires_at": "2027-01-05T00:00:00Z"
+}
+```
+
 #### DELETE /api/v1/users/{user_id}/tokens/{id}
 
-Delete a token.
+Delete a token (soft delete—token becomes inactive immediately).
 
 ---
 

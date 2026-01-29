@@ -1,0 +1,77 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['App Admin', '/app-admin'],
+  ['Tenants', '/app-admin/tenants'],
+  @showing_tenant.name
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'organization', height: 24 %> <%= @showing_tenant.name %>
+</h1>
+
+<p class="pulse-body-text-muted" style="margin-bottom: 24px;">
+  <code class="pulse-code"><%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>
+  <% if @showing_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
+    <span class="pulse-badge pulse-badge-primary">primary</span>
+  <% end %>
+</p>
+
+<%= render 'shared/pulse_accordion', title: 'Details', icon: 'info', open: true do %>
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <tbody>
+        <tr>
+          <td><strong>Name</strong></td>
+          <td><%= @showing_tenant.name %></td>
+        </tr>
+        <tr>
+          <td><strong>Subdomain</strong></td>
+          <td><code class="pulse-code"><%= @showing_tenant.subdomain %></code></td>
+        </tr>
+        <tr>
+          <td><strong>Created</strong></td>
+          <td><%= timeago(@showing_tenant.created_at) %></td>
+        </tr>
+        <tr>
+          <td><strong>Updated</strong></td>
+          <td><%= timeago(@showing_tenant.updated_at) %></td>
+        </tr>
+        <tr>
+          <td><strong>Users</strong></td>
+          <td><%= @showing_tenant.users.count %></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Admin Users', icon: 'people', count: @showing_tenant.admin_users.count, open: true do %>
+  <% if @showing_tenant.admin_users.any? %>
+    <div class="pulse-home-list">
+      <% @showing_tenant.admin_users.each do |tu| %>
+        <div class="pulse-home-list-item">
+          <a href="/app-admin/users/<%= tu.user.id %>" class="pulse-home-list-link">
+            <div class="pulse-default-icon pulse-home-list-icon">
+              <%= octicon 'person', height: 14 %>
+            </div>
+            <span class="pulse-home-list-name"><%= tu.display_name %></span>
+            <code class="pulse-code">@<%= tu.handle %></code>
+          </a>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No admin users.</p>
+  <% end %>
+<% end %>
+
+<div class="pulse-form-actions" style="margin-top: 24px;">
+  <a href="/app-admin/tenants" class="pulse-action-btn-secondary">
+    <%= octicon 'arrow-left', height: 14 %> Back to Tenants
+  </a>
+  <% if @current_user_is_admin_of_showing_tenant %>
+    <a href="https://<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>/admin" class="pulse-action-btn" target="_blank">
+      <%= octicon 'link-external', height: 14 %> Open Tenant Admin
+    </a>
+  <% end %>
+</div>

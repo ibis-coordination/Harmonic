@@ -468,5 +468,253 @@ class UserTest < ActiveSupport::TestCase
     end
     assert_match /Invalid global role/, error.message
   end
+
+  # === User Suspension Tests ===
+
+  test "suspended? returns false by default" do
+    assert_not @user.suspended?
+  end
+
+  test "suspended? returns true when suspended_at is set" do
+    @user.update!(suspended_at: Time.current)
+    assert @user.suspended?
+  end
+
+  test "suspend! sets suspended_at, suspended_by_id, and suspended_reason" do
+    admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
+    @tenant.add_user!(admin)
+
+    @user.suspend!(by: admin, reason: "Policy violation")
+    @user.reload
+
+    assert @user.suspended?
+    assert_equal admin.id, @user.suspended_by_id
+    assert_equal "Policy violation", @user.suspended_reason
+    assert @user.suspended_at.present?
+  end
+
+  test "unsuspend! clears suspension fields" do
+    admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
+    @tenant.add_user!(admin)
+
+    @user.suspend!(by: admin, reason: "Policy violation")
+    assert @user.suspended?
+
+    @user.unsuspend!
+    @user.reload
+
+    assert_not @user.suspended?
+    assert_nil @user.suspended_at
+    assert_nil @user.suspended_by_id
+    assert_nil @user.suspended_reason
+  end
+
+  test "suspended_by returns the user who suspended this user" do
+    admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
+    @tenant.add_user!(admin)
+
+    @user.suspend!(by: admin, reason: "Policy violation")
+    @user.reload
+
+    assert_equal admin, @user.suspended_by
+  end
+
+  test "suspended_by returns nil when user is not suspended" do
+    assert_nil @user.suspended_by
+  end
+
+  # === Suspension Security Tests ===
+
+  test "suspend! soft-deletes all user API tokens" do
+    admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
+    @tenant.add_user!(admin)
+
+    # Create API tokens for the user
+    token1 = ApiToken.create!(
+      user: @user,
+      tenant: @tenant,
+      name: "Token 1",
+      scopes: ["read:all"],
+      expires_at: 1.year.from_now
+    )
+    token2 = ApiToken.create!(
+      user: @user,
+      tenant: @tenant,
+      name: "Token 2",
+      scopes: ["read:all"],
+      expires_at: 1.year.from_now
+    )
+
+    assert token1.active?
+    assert token2.active?
+
+    @user.suspend!(by: admin, reason: "Policy violation")
+
+    token1.reload
+    token2.reload
+
+    assert token1.deleted?, "Token 1 should be soft-deleted after user suspension"
+    assert token2.deleted?, "Token 2 should be soft-deleted after user suspension"
+  end
+
+  test "suspend! suspends all direct subagents" do
+    admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
+    @tenant.add_user!(admin)
+
+    # Create subagents for the user
+    subagent1 = User.create!(
+      email: "subagent1_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent 1",
+      user_type: "subagent",
+      parent_id: @user.id
+    )
+    @tenant.add_user!(subagent1)
+
+    subagent2 = User.create!(
+      email: "subagent2_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent 2",
+      user_type: "subagent",
+      parent_id: @user.id
+    )
+    @tenant.add_user!(subagent2)
+
+    assert_not subagent1.suspended?
+    assert_not subagent2.suspended?
+
+    @user.suspend!(by: admin, reason: "Policy violation")
+
+    subagent1.reload
+    subagent2.reload
+
+    assert subagent1.suspended?, "Subagent 1 should be suspended when parent is suspended"
+    assert subagent2.suspended?, "Subagent 2 should be suspended when parent is suspended"
+    assert_equal admin.id, subagent1.suspended_by_id
+    assert_equal "Parent user suspended: Policy violation", subagent1.suspended_reason
+  end
+
+  test "suspend! recursively suspends nested subagents" do
+    admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
+    @tenant.add_user!(admin)
+
+    # Create a chain: user -> subagent1 -> nested_subagent
+    subagent1 = User.create!(
+      email: "subagent1_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent 1",
+      user_type: "subagent",
+      parent_id: @user.id
+    )
+    @tenant.add_user!(subagent1)
+
+    nested_subagent = User.create!(
+      email: "nested_#{SecureRandom.hex(4)}@example.com",
+      name: "Nested Subagent",
+      user_type: "subagent",
+      parent_id: subagent1.id
+    )
+    @tenant.add_user!(nested_subagent)
+
+    assert_not nested_subagent.suspended?
+
+    @user.suspend!(by: admin, reason: "Policy violation")
+
+    nested_subagent.reload
+
+    assert nested_subagent.suspended?, "Nested subagent should be suspended when grandparent is suspended"
+  end
+
+  test "suspend! soft-deletes API tokens of all subagents recursively" do
+    admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
+    @tenant.add_user!(admin)
+
+    # Create a subagent with API tokens
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Subagent",
+      user_type: "subagent",
+      parent_id: @user.id
+    )
+    @tenant.add_user!(subagent)
+
+    # Create nested subagent with API tokens
+    nested_subagent = User.create!(
+      email: "nested_#{SecureRandom.hex(4)}@example.com",
+      name: "Nested Subagent",
+      user_type: "subagent",
+      parent_id: subagent.id
+    )
+    @tenant.add_user!(nested_subagent)
+
+    # Create tokens for subagents
+    subagent_token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Subagent Token",
+      scopes: ["read:all"],
+      expires_at: 1.year.from_now
+    )
+
+    nested_token = ApiToken.create!(
+      user: nested_subagent,
+      tenant: @tenant,
+      name: "Nested Token",
+      scopes: ["read:all"],
+      expires_at: 1.year.from_now
+    )
+
+    assert subagent_token.active?
+    assert nested_token.active?
+
+    @user.suspend!(by: admin, reason: "Policy violation")
+
+    subagent_token.reload
+    nested_token.reload
+
+    assert subagent_token.deleted?, "Subagent's token should be soft-deleted when parent is suspended"
+    assert nested_token.deleted?, "Nested subagent's token should be soft-deleted when grandparent is suspended"
+  end
+
+  test "suspend! soft-deletes API tokens across ALL tenants, not just current tenant" do
+    admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
+    @tenant.add_user!(admin)
+
+    # Create a second tenant and add the user to it
+    other_tenant = Tenant.create!(name: "Other Tenant", subdomain: "other-#{SecureRandom.hex(4)}")
+    other_tenant.add_user!(@user)
+
+    # Create API tokens in both tenants
+    token_in_current_tenant = ApiToken.create!(
+      user: @user,
+      tenant: @tenant,
+      name: "Current Tenant Token",
+      scopes: ["read:all"],
+      expires_at: 1.year.from_now
+    )
+
+    token_in_other_tenant = ApiToken.create!(
+      user: @user,
+      tenant: other_tenant,
+      name: "Other Tenant Token",
+      scopes: ["read:all"],
+      expires_at: 1.year.from_now
+    )
+
+    assert token_in_current_tenant.active?
+    assert token_in_other_tenant.active?
+
+    # Suspend while in the context of the current tenant
+    original_tenant_id = Tenant.current_id
+    begin
+      Tenant.current_id = @tenant.id
+      @user.suspend!(by: admin, reason: "Policy violation")
+    ensure
+      Tenant.current_id = original_tenant_id
+    end
+
+    token_in_current_tenant.reload
+    token_in_other_tenant.reload
+
+    assert token_in_current_tenant.deleted?, "Token in current tenant should be soft-deleted"
+    assert token_in_other_tenant.deleted?, "Token in OTHER tenant should also be soft-deleted"
+  end
 end
 

@@ -12,8 +12,9 @@ class ApiTest < ActionDispatch::IntegrationTest
       user: @user,
       scopes: ApiToken.valid_scopes,
     )
+    @plaintext_token = @api_token.plaintext_token
     @headers = {
-      "Authorization" => "Bearer #{@api_token.token}",
+      "Authorization" => "Bearer #{@plaintext_token}",
       "Content-Type" => "application/json",
     }
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
@@ -46,21 +47,21 @@ class ApiTest < ActionDispatch::IntegrationTest
 
   test "denies access with expired API token" do
     @api_token.update!(expires_at: Time.current - 1.day)
-    @headers["Authorization"] = "Bearer #{@api_token.token}"
+    @headers["Authorization"] = "Bearer #{@plaintext_token}"
     get v1_api_endpoint, headers: @headers
     assert_response :unauthorized
   end
 
   test "denies access with deleted API token" do
     @api_token.update!(deleted_at: Time.current)
-    @headers["Authorization"] = "Bearer #{@api_token.token}"
+    @headers["Authorization"] = "Bearer #{@plaintext_token}"
     get v1_api_endpoint, headers: @headers
     assert_response :unauthorized
   end
 
   test "allows write access with write scope" do
     @api_token.update!(scopes: ApiToken.valid_scopes)
-    @headers["Authorization"] = "Bearer #{@api_token.token}"
+    @headers["Authorization"] = "Bearer #{@plaintext_token}"
     note_params = {
       title: "Test Note",
       text: "This is a test note.",
@@ -73,7 +74,7 @@ class ApiTest < ActionDispatch::IntegrationTest
 
   test "denies write access with read-only scope" do
     @api_token.update!(scopes: ApiToken.read_scopes)
-    @headers["Authorization"] = "Bearer #{@api_token.token}"
+    @headers["Authorization"] = "Bearer #{@plaintext_token}"
     note_params = {
       title: "Test Note",
       text: "This is a test note.",
@@ -158,13 +159,14 @@ class ApiTest < ActionDispatch::IntegrationTest
       user: @user,
       scopes: ApiToken.valid_scopes,
     )
+    token2_plaintext = token2.plaintext_token
 
     # Both tokens should work
-    @headers["Authorization"] = "Bearer #{@api_token.token}"
+    @headers["Authorization"] = "Bearer #{@plaintext_token}"
     get v1_api_endpoint, headers: @headers
     assert_response :success
 
-    @headers["Authorization"] = "Bearer #{token2.token}"
+    @headers["Authorization"] = "Bearer #{token2_plaintext}"
     get v1_api_endpoint, headers: @headers
     assert_response :success
   end
@@ -175,17 +177,18 @@ class ApiTest < ActionDispatch::IntegrationTest
       user: @user,
       scopes: ApiToken.valid_scopes,
     )
+    token2_plaintext = token2.plaintext_token
 
     # Delete the first token
     @api_token.update!(deleted_at: Time.current)
 
     # First token should fail
-    @headers["Authorization"] = "Bearer #{@api_token.token}"
+    @headers["Authorization"] = "Bearer #{@plaintext_token}"
     get v1_api_endpoint, headers: @headers
     assert_response :unauthorized
 
     # Second token should still work
-    @headers["Authorization"] = "Bearer #{token2.token}"
+    @headers["Authorization"] = "Bearer #{token2_plaintext}"
     get v1_api_endpoint, headers: @headers
     assert_response :success
   end

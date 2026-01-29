@@ -74,6 +74,38 @@
         </div>
       <% end %>
     <% end %>
+
+    <% # Two-Factor Authentication Section (only for identity provider users) %>
+    <% identity_for_2fa = OmniAuthIdentity.find_by(email: @settings_user.email) %>
+    <% if identity_for_2fa %>
+      <%= render 'shared/pulse_accordion', title: 'Two-Factor Authentication' do %>
+        <p class="pulse-form-hint" style="margin-bottom:16px;">
+          Add an extra layer of security to your account by requiring a verification code in addition to your password.
+        </p>
+        <% if identity_for_2fa.otp_enabled %>
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+            <span class="pulse-badge pulse-badge-success">Enabled</span>
+            <span class="pulse-form-hint">since <%= identity_for_2fa.otp_enabled_at.strftime('%B %d, %Y') %></span>
+          </div>
+          <p class="pulse-form-hint" style="margin-bottom:16px;">
+            You have <strong><%= identity_for_2fa.remaining_recovery_codes_count %></strong> recovery codes remaining.
+          </p>
+          <div class="pulse-form-actions">
+            <a href="<%= two_factor_settings_path %>" class="pulse-action-btn">
+              <%= octicon 'shield-lock', height: 14 %>
+              Manage 2FA
+            </a>
+          </div>
+        <% else %>
+          <div class="pulse-form-actions">
+            <a href="<%= two_factor_setup_path %>" class="pulse-action-btn">
+              <%= octicon 'shield-lock', height: 14 %>
+              Enable Two-Factor Authentication
+            </a>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
   <% end %>
 
   <% if @current_tenant.api_enabled? %>
@@ -102,7 +134,9 @@
                   <td><%= token.name || 'Unnamed' %></td>
                   <td>
                     <code class="pulse-code"><%= token.obfuscated_token %></code>
-                    <%= render 'shared/copy_button', text: token.token %>
+                    <% if token.plaintext_token.present? %>
+                      <%= render 'shared/copy_button', text: token.plaintext_token %>
+                    <% end %>
                   </td>
                   <td><%= timeago(token.created_at) %></td>
                   <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
@@ -253,7 +287,9 @@
                           <td><%= token.name || 'Unnamed' %></td>
                           <td>
                             <code class="pulse-code"><%= token.obfuscated_token %></code>
-                            <%= render 'shared/copy_button', text: token.token %>
+                            <% if token.plaintext_token.present? %>
+                              <%= render 'shared/copy_button', text: token.plaintext_token %>
+                            <% end %>
                           </td>
                           <td><%= timeago(token.created_at) %></td>
                           <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>

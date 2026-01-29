@@ -23,6 +23,9 @@ class AdminController
 
     sig { returns(T.untyped) }
     def can_perform_admin_actions?; end
+
+    sig { returns(T.untyped) }
+    def is_main_tenant?; end
   end
 
   class HelperProxy < ::ActionView::Base

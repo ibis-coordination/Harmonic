@@ -1,0 +1,48 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  'App Admin'
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'organization', height: 24 %> App Admin
+</h1>
+
+<p class="pulse-body-text-muted" style="margin-bottom: 24px;">
+  Application-level administration for <code class="pulse-code"><%= ENV['HOSTNAME'] %></code>
+</p>
+
+<%= render 'shared/pulse_accordion', title: 'Tenants', icon: 'organization', count: @total_tenants, open: true do %>
+  <p class="pulse-form-hint" style="margin-bottom: 16px;">
+    Manage all tenants across the application.
+  </p>
+  <div class="pulse-form-actions">
+    <a href="/app-admin/tenants" class="pulse-action-btn">
+      <%= octicon 'organization', height: 14 %> View All Tenants
+    </a>
+    <a href="/app-admin/tenants/new" class="pulse-action-btn">
+      <%= octicon 'plus', height: 14 %> Create Tenant
+    </a>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Users', icon: 'people', count: @total_users, open: true do %>
+  <p class="pulse-form-hint" style="margin-bottom: 16px;">
+    Manage all users across all tenants. Suspend or unsuspend users.
+  </p>
+  <div class="pulse-form-actions">
+    <a href="/app-admin/users" class="pulse-action-btn">
+      <%= octicon 'people', height: 14 %> View All Users
+    </a>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Security', icon: 'shield', open: false do %>
+  <p class="pulse-form-hint" style="margin-bottom: 16px;">
+    Security audit logs and monitoring.
+  </p>
+  <div class="pulse-form-actions">
+    <a href="/app-admin/security" class="pulse-action-btn">
+      <%= octicon 'shield', height: 14 %> Security Dashboard
+    </a>
+  </div>
+<% end %>

@@ -231,7 +231,7 @@ class User < ApplicationRecord
   sig { returns(T.nilable(User)) }
   def parent
     return nil unless parent_id
-    User.unscoped.find_by(id: parent_id)
+    User.find_by(id: parent_id)
   end
 
   sig { params(handle: String).void }
@@ -329,6 +329,46 @@ class User < ApplicationRecord
       )
     end
     oaid
+  end
+
+  # Suspension methods
+
+  sig { returns(T::Boolean) }
+  def suspended?
+    suspended_at.present?
+  end
+
+  sig { params(by: User, reason: String).void }
+  def suspend!(by:, reason:)
+    update!(
+      suspended_at: Time.current,
+      suspended_by_id: by.id,
+      suspended_reason: reason
+    )
+
+    # Unscoped: Soft-delete all API tokens for this user across all tenants.
+    # Security: Ensures suspended user cannot use any existing tokens.
+    ApiToken.unscoped.where(user_id: id, deleted_at: nil).find_each(&:delete!)
+
+    # Recursively suspend all subagents
+    subagents.where(suspended_at: nil).find_each do |subagent|
+      subagent.suspend!(by: by, reason: "Parent user suspended: #{reason}")
+    end
+  end
+
+  sig { void }
+  def unsuspend!
+    update!(
+      suspended_at: nil,
+      suspended_by_id: nil,
+      suspended_reason: nil
+    )
+  end
+
+  sig { returns(T.nilable(User)) }
+  def suspended_by
+    return nil unless suspended_by_id
+    User.find_by(id: suspended_by_id)
   end
 
 end

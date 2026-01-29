@@ -1,0 +1,43 @@
+<%# Tenant Admin sidebar - for single-tenant administration %>
+<%# Shows home link and tenant admin navigation %>
+<aside class="pulse-sidebar" data-mode="tenant_admin">
+  <div class="pulse-nav">
+    <a href="/" class="pulse-nav-item">
+      <%= octicon 'home', height: 20 %> Home
+    </a>
+  </div>
+
+  <div class="pulse-nav-section">
+    <div class="pulse-section-label">
+      <%= octicon 'gear', height: 14 %> Tenant Admin
+    </div>
+    <a href="/tenant-admin" class="pulse-nav-item<%= ' active' if request.path == '/tenant-admin' %>">
+      <%= octicon 'meter', height: 16 %> Dashboard
+    </a>
+    <a href="/tenant-admin/settings" class="pulse-nav-item<%= ' active' if request.path.start_with?('/tenant-admin/settings') %>">
+      <%= octicon 'gear', height: 16 %> Settings
+    </a>
+    <a href="/tenant-admin/users" class="pulse-nav-item<%= ' active' if request.path.start_with?('/tenant-admin/users') %>">
+      <%= octicon 'people', height: 16 %> Users
+    </a>
+  </div>
+
+  <% is_primary_tenant = @current_tenant&.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
+  <% if is_primary_tenant && (@current_user&.sys_admin? || @current_user&.app_admin?) %>
+    <div class="pulse-nav-section">
+      <div class="pulse-section-label">
+        <%= octicon 'link', height: 14 %> Related
+      </div>
+      <% if @current_user&.sys_admin? %>
+        <a href="/system-admin" class="pulse-nav-item">
+          <%= octicon 'server', height: 16 %> System Admin
+        </a>
+      <% end %>
+      <% if @current_user&.app_admin? %>
+        <a href="/app-admin" class="pulse-nav-item">
+          <%= octicon 'organization', height: 16 %> App Admin
+        </a>
+      <% end %>
+    </div>
+  <% end %>
+</aside>

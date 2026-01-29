@@ -1,0 +1,27 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  'System Admin'
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'server', height: 24 %> System Admin
+</h1>
+
+<p class="pulse-body-text-muted" style="margin-bottom: 24px;">
+  System-level administration for <code class="pulse-code"><%= ENV['HOSTNAME'] %></code>
+</p>
+
+<%= render 'shared/pulse_accordion', title: 'Sidekiq', icon: 'workflow', open: true do %>
+  <p class="pulse-form-hint" style="margin-bottom: 16px;">
+    Background job processing and queue management.
+  </p>
+  <div class="pulse-form-actions">
+    <a href="/system-admin/sidekiq" class="pulse-action-btn">
+      <%= octicon 'workflow', height: 14 %> View Sidekiq Dashboard
+    </a>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'System Monitoring', icon: 'pulse', open: false do %>
+  <p class="pulse-empty-message">System monitoring features coming soon.</p>
+<% end %>

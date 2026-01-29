@@ -717,9 +717,6 @@ class SuperagentMember
     def restore_settings!; end
 
     sig { void }
-    def restore_studio_id!; end
-
-    sig { void }
     def restore_superagent_id!; end
 
     sig { void }
@@ -754,12 +751,6 @@ class SuperagentMember
 
     sig { returns(T::Boolean) }
     def saved_change_to_settings?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_studio_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_studio_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_superagent_id; end
@@ -829,51 +820,6 @@ class SuperagentMember
 
     sig { void }
     def settings_will_change!; end
-
-    sig { returns(::String) }
-    def studio_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def studio_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def studio_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def studio_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def studio_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def studio_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def studio_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def studio_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def studio_id_was; end
-
-    sig { void }
-    def studio_id_will_change!; end
 
     sig { returns(::String) }
     def superagent_id; end
@@ -1066,9 +1012,6 @@ class SuperagentMember
 
     sig { returns(T::Boolean) }
     def will_save_change_to_settings?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_studio_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_superagent_id?; end

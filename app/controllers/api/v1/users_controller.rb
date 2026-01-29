@@ -18,7 +18,7 @@ module Api::V1
         user = api_helper.create_subagent
         token = api_helper.generate_token(user) if params[:generate_token]
         response = user.api_json
-        response[:token] = token.token if token
+        response[:token] = token.plaintext_token if token
         render json: response
       rescue ActiveRecord::RecordInvalid => e
         render json: { error: e.message }, status: 400

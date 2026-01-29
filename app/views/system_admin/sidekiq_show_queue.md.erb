@@ -1,0 +1,18 @@
+# Queue: <%= @queue.name %>
+
+[Back to Sidekiq](/system-admin/sidekiq)
+
+<%= @queue.size %> job<%= @queue.size == 1 ? '' : 's' %> in queue
+
+<% if @queue.any? -%>
+| Job ID | Enqueued At |
+|--------|-------------|
+<% @queue.first(50).each do |job| -%>
+| [`<%= job.jid[0..7] %>...`](/system-admin/sidekiq/jobs/<%= job.jid %>) | <%= job.enqueued_at %> |
+<% end -%>
+<% if @queue.size > 50 -%>
+*... and <%= @queue.size - 50 %> more*
+<% end -%>
+<% else -%>
+*No jobs in this queue.*
+<% end -%>

@@ -12,8 +12,9 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
       user: @user,
       scopes: ApiToken.valid_scopes,
     )
+    @plaintext_token = @api_token.plaintext_token
     @headers = {
-      "Authorization" => "Bearer #{@api_token.token}",
+      "Authorization" => "Bearer #{@plaintext_token}",
       "Content-Type" => "application/json",
     }
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
@@ -176,7 +177,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(other_user)
     @superagent.add_user!(other_user)
     other_token = ApiToken.create!(tenant: @tenant, user: other_user, scopes: ApiToken.valid_scopes)
-    other_headers = @headers.merge("Authorization" => "Bearer #{other_token.token}")
+    other_headers = @headers.merge("Authorization" => "Bearer #{other_token.plaintext_token}")
 
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
     decision.update!(options_open: false)
