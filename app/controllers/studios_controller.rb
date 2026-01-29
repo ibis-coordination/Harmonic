@@ -1,8 +1,8 @@
 # typed: false
 
 class StudiosController < ApplicationController
-  layout 'pulse', only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members]
-  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members]
+  layout 'pulse', only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members, :search]
+  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members, :search]
 
   def index
     @page_title = "Studios"
@@ -529,7 +529,41 @@ class StudiosController < ApplicationController
     @filter_options = @cycle.filter_options
   end
 
+  def search
+    @page_title = "Search"
+    @search = SearchQuery.new(
+      tenant: @current_tenant,
+      superagent: @current_superagent,
+      current_user: @current_user,
+      params: search_params.to_h,
+    )
+
+    @results = @search.paginated_results
+    @grouped_results = @search.grouped_results
+    @total_count = @search.total_count
+    @next_cursor = @search.next_cursor
+
+    respond_to do |format|
+      format.html
+      format.md
+      format.json { render json: search_json }
+    end
+  end
+
   private
+
+  def search_params
+    params.permit(:q, :type, :cycle, :filters, :sort_by, :group_by, :cursor, :per_page)
+  end
+
+  def search_json
+    {
+      query: @search.to_params,
+      total_count: @total_count,
+      next_cursor: @next_cursor,
+      results: @results.map(&:api_json),
+    }
+  end
 
   def set_sidebar_mode
     if action_name.in?(%w[index new])

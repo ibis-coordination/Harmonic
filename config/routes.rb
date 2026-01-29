@@ -274,6 +274,7 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/classic" => 'studios#show'
     get "#{studios_or_scenes}/:superagent_handle/views" => 'studios#views'
     get "#{studios_or_scenes}/:superagent_handle/view" => 'studios#view'
+    get "#{studios_or_scenes}/:superagent_handle/search" => 'studios#search'
     get "#{studios_or_scenes}/:superagent_handle/members" => 'studios#members'
     get "#{studios_or_scenes}/:superagent_handle/settings" => 'studios#settings'
     post "#{studios_or_scenes}/:superagent_handle/settings" => 'studios#update_settings'

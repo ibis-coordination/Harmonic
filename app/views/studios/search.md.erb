@@ -1,0 +1,27 @@
+# Search Results
+
+<% if @search.query.present? -%>
+Query: "<%= @search.query %>"
+<% end -%>
+Total: <%= @total_count %> result<%= @total_count == 1 ? '' : 's' %>
+
+<% @grouped_results.each do |group_key, items| -%>
+## <%= group_key || 'Results' %> (<%= items.length %>)
+
+<% if items.empty? -%>
+No items in this group.
+<% else -%>
+<% items.each do |item| -%>
+* [<%= raw item.title %>](<%= item.path %>)
+  * Type: <%= item.item_type %>
+  * Created: <%= time_ago_or_from_now(item.created_at) %>
+  * Deadline: <%= time_ago_or_from_now(item.deadline) %>
+  * Backlinks: <%= item.backlink_count %>
+<% end -%>
+<% end -%>
+
+<% end -%>
+<% if @next_cursor.present? -%>
+---
+[Load more results](<%= @current_superagent.path %>/search?<%= @search.to_params.merge(cursor: @next_cursor).to_query %>)
+<% end -%>

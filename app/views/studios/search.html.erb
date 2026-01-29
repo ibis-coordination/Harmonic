@@ -1,0 +1,104 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  'Search'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'search', height: 14, class: 'pulse-resource-icon' %>
+        Search
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Search Results</h1>
+  </header>
+
+  <div class="pulse-resource-meta">
+    <span><%= @total_count %> result<%= @total_count == 1 ? '' : 's' %></span>
+    <% if @search.query.present? %>
+      <span>for "<%= @search.query %>"</span>
+    <% end %>
+  </div>
+
+  <div class="pulse-resource-body">
+    <section class="pulse-settings-section">
+      <%= form_with url: "#{@current_superagent.path}/search", method: :get, local: true, class: 'pulse-form pulse-filters-form' do |form| %>
+        <div class="pulse-form-row">
+          <div class="pulse-form-group pulse-form-group-wide">
+            <label class="pulse-form-label">Search</label>
+            <%= form.text_field :q, value: @search.query, class: 'pulse-form-input', placeholder: 'Search notes, decisions, commitments...' %>
+          </div>
+        </div>
+        <div class="pulse-form-row">
+          <div class="pulse-form-group">
+            <label class="pulse-form-label">Type</label>
+            <%= form.select :type, options_for_select(@search.type_options, params[:type] || 'all'), {}, { class: 'pulse-form-select' } %>
+          </div>
+          <div class="pulse-form-group">
+            <label class="pulse-form-label">Cycle</label>
+            <%= form.select :cycle, options_for_select(@search.cycle_options, @search.cycle_name), {}, { class: 'pulse-form-select' } %>
+          </div>
+          <div class="pulse-form-group">
+            <label class="pulse-form-label">Filter</label>
+            <%= form.select :filters, options_for_select(@search.filter_presets, params[:filters]), {}, { class: 'pulse-form-select' } %>
+          </div>
+          <div class="pulse-form-group">
+            <label class="pulse-form-label">Sort By</label>
+            <%= form.select :sort_by, options_for_select(@search.sort_by_options, @search.sort_by), {}, { class: 'pulse-form-select' } %>
+          </div>
+          <div class="pulse-form-group">
+            <label class="pulse-form-label">Group By</label>
+            <%= form.select :group_by, options_for_select(@search.group_by_options, @search.group_by || 'item_type'), {}, { class: 'pulse-form-select' } %>
+          </div>
+          <div class="pulse-form-group pulse-form-group-submit">
+            <%= form.submit 'Search', class: 'pulse-action-btn' %>
+          </div>
+        </div>
+      <% end %>
+    </section>
+
+    <section class="pulse-settings-section">
+      <% if @grouped_results.empty? %>
+        <p class="pulse-empty-content"><em>No results found.</em></p>
+      <% else %>
+        <% @grouped_results.each do |group_key, items| %>
+          <%= render 'shared/pulse_accordion', title: group_key || 'Results', open: true, count: items.length do %>
+            <% if items.empty? %>
+              <p class="pulse-empty-content"><em>No items in this group.</em></p>
+            <% else %>
+              <table class="pulse-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Created</th>
+                    <th>Deadline</th>
+                    <th>Backlinks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% items.each do |item| %>
+                    <tr>
+                      <td><%= render 'shared/pulse_resource_link', resource: search_result_to_hash(item) %></td>
+                      <td><%= timeago(item.created_at) %></td>
+                      <td><%= timeago(item.deadline) %></td>
+                      <td><%= item.backlink_count %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            <% end %>
+          <% end %>
+        <% end %>
+      <% end %>
+
+      <% if @next_cursor.present? %>
+        <div class="pulse-pagination" style="margin-top: 1rem;">
+          <%= link_to 'Load more',
+              "#{@current_superagent.path}/search?#{@search.to_params.merge(cursor: @next_cursor).to_query}",
+              class: 'pulse-action-btn pulse-action-btn-secondary' %>
+        </div>
+      <% end %>
+    </section>
+  </div>
+</article>

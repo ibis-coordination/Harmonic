@@ -129,6 +129,42 @@ module ApplicationHelper
     end
   end
 
+  # Convert a SearchIndex record to a hash for pulse_resource_link partial
+  def search_result_to_hash(search_index)
+    {
+      type: search_index.item_type,
+      path: search_index.path,
+      title: search_index.title,
+      metric_value: search_index_metric_value(search_index),
+      metric_name: search_index_metric_name(search_index),
+      octicon_metric_icon_name: search_index_metric_icon(search_index),
+    }
+  end
+
+  def search_index_metric_value(search_index)
+    case search_index.item_type
+    when "Note" then search_index.participant_count
+    when "Decision" then search_index.voter_count
+    when "Commitment" then search_index.participant_count
+    end
+  end
+
+  def search_index_metric_name(search_index)
+    case search_index.item_type
+    when "Note" then "readers"
+    when "Decision" then "voters"
+    when "Commitment" then "participants"
+    end
+  end
+
+  def search_index_metric_icon(search_index)
+    case search_index.item_type
+    when "Note" then "book"
+    when "Decision" then "check-circle"
+    when "Commitment" then "person"
+    end
+  end
+
   # Generate a sort link for the security dashboard, toggling direction if already sorted by this column
   def security_sort_link(column, label)
     current_sort = params[:sort_by] == column || (column == "timestamp" && params[:sort_by].blank?)

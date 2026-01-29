@@ -1,4 +1,4 @@
-\restrict 8LNpi0igViJy7q6ajFAbSeLo4lggJyCYbcCdnecVNidOMSJGMxbNPQH9hSgFUfO
+\restrict kcTSGWnXhIIVLh9DF6CmssVInPoM8ixPT1QKcdioUnLXXn126LojhDYzNtw6rcA
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -19,6 +19,20 @@ SET row_security = off;
 --
 
 -- *not* creating schema, since initdb creates it
+
+
+--
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
 
 
 --
@@ -631,7 +645,6 @@ CREATE TABLE public.search_index (
     option_count integer DEFAULT 0,
     comment_count integer DEFAULT 0,
     is_pinned boolean DEFAULT false,
-    searchable_tsvector tsvector GENERATED ALWAYS AS (to_tsvector('english'::regconfig, searchable_text)) STORED,
     sort_key bigint NOT NULL
 );
 
@@ -1204,13 +1217,6 @@ CREATE INDEX idx_search_index_deadline ON public.search_index USING btree (tenan
 
 
 --
--- Name: idx_search_index_fulltext; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_search_index_fulltext ON public.search_index USING gin (searchable_tsvector);
-
-
---
 -- Name: idx_search_index_item; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1222,6 +1228,13 @@ CREATE INDEX idx_search_index_item ON public.search_index USING btree (item_type
 --
 
 CREATE INDEX idx_search_index_tenant_superagent ON public.search_index USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: idx_search_index_trigram; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_trigram ON public.search_index USING gin (searchable_text public.gin_trgm_ops);
 
 
 --
@@ -2987,7 +3000,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 8LNpi0igViJy7q6ajFAbSeLo4lggJyCYbcCdnecVNidOMSJGMxbNPQH9hSgFUfO
+\unrestrict kcTSGWnXhIIVLh9DF6CmssVInPoM8ixPT1QKcdioUnLXXn126LojhDYzNtw6rcA
 
 SET search_path TO "$user", public;
 
@@ -3104,6 +3117,8 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260128052404'),
 ('20260128072608'),
 ('20260128200000'),
-('20260128232615');
+('20260128232615'),
+('20260129083556'),
+('20260129084357');
 
 
