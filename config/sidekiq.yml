@@ -3,3 +3,4 @@
 :queues:
   - default
   - webhooks
+  - low_priority

@@ -242,6 +242,8 @@ class ApplicationController < ActionController::Base
   def current_representation_session
     return @current_representation_session if defined?(@current_representation_session)
     if session[:representation_session_id].present?
+      # Unscoped: RepresentationSession may belong to a different superagent than current context.
+      # Security: Validated by matching trustee_user, representative_user, superagent, and id.
       @current_representation_session = RepresentationSession.unscoped.find_by(
         trustee_user: @current_user,
         # Person can be impersonating a subagent user who is representing the superagent via a representation session, all simultaneously.
@@ -678,8 +680,7 @@ class ApplicationController < ActionController::Base
     return if is_auth_controller?
     return unless session[:user_id].present?
 
-    # Find the user and check if suspended
-    user = User.unscoped.find_by(id: session[:user_id])
+    user = User.find_by(id: session[:user_id])
     return unless user&.suspended?
 
     SecurityAuditLog.log_suspended_login_attempt(user: user, ip: request.remote_ip)

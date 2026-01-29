@@ -1,7 +1,8 @@
 # Authentication Security Hardening Plan
 
 **Created**: 2026-01-27
-**Status**: Active
+**Completed**: 2026-01-28
+**Status**: Completed
 **Priority**: High
 
 ## Overview
@@ -374,9 +375,9 @@ end
 **Known Usage**: `app/controllers/sessions_controller.rb:216`
 
 **Checklist**:
-- [ ] Audit all `.unscoped` usage
-- [ ] Verify each usage is necessary and safe
-- [ ] Document why unscoped is needed in comments
+- [x] Audit all `.unscoped` usage
+- [x] Verify each usage is necessary and safe
+- [x] Document why unscoped is needed in comments
 
 ---
 
@@ -754,7 +755,7 @@ cleanup_expired_tokens:
 | 4 | 5.4 Restrict Full Token Retrieval | Low | Medium | ✅ Done |
 | 5 | 5.5 Hash Stored Tokens | Medium | Medium | ✅ Done |
 | 6 | 5.6 Token Rotation Endpoint | Medium | Low | Future |
-| 7 | 5.7 Cleanup Job | Low | Low | Future |
+| 7 | 5.7 Cleanup Job | Low | Low | ✅ Done |
 
 ---
 
@@ -774,7 +775,9 @@ cleanup_expired_tokens:
 | `app/views/subagents/show.md.erb` | ✅ Show plaintext on creation only |
 | `db/migrate/20260128200000_hash_api_tokens.rb` | ✅ New migration for token hashing |
 | `config/routes.rb` | Add rotation endpoint (future) |
-| `app/jobs/cleanup_expired_tokens_job.rb` | New file for cleanup (future) |
+| `app/jobs/cleanup_expired_tokens_job.rb` | ✅ New file for cleanup |
+| `lib/tasks/maintenance.rake` | ✅ Rake task to run cleanup job |
+| `test/jobs/cleanup_expired_tokens_job_test.rb` | ✅ Tests for cleanup job |
 
 ---
 
@@ -1179,11 +1182,11 @@ end
 
 | Priority | Item | Effort | Risk | Status |
 |----------|------|--------|------|--------|
-| 1 | 6.1 User Suspension Fields | Low | Low | Pending |
-| 2 | 6.2 Block Suspended Users | Low | Medium | Pending |
-| 3 | 6.3 Security Audit Logging | Low | Low | Pending |
-| 4 | 6.4 Admin UI | Medium | Low | Pending |
-| 5 | 6.5 Markdown API Actions | Low | Low | Pending |
+| 1 | 6.1 User Suspension Fields | Low | Low | ✅ Done |
+| 2 | 6.2 Block Suspended Users | Low | Medium | ✅ Done |
+| 3 | 6.3 Security Audit Logging | Low | Low | ✅ Done |
+| 4 | 6.4 Admin UI | Medium | Low | ✅ Done |
+| 5 | 6.5 Markdown API Actions | Low | Low | ✅ Done |
 | 6 | 6.6 Email Notifications | Medium | Low | Future/Optional |
 
 ---
