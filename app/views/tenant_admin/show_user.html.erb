@@ -1,0 +1,64 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Tenant Admin', '/tenant-admin'],
+  ['Users', '/tenant-admin/users'],
+  @showing_user.display_name || @showing_user.name
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'person', height: 24 %>
+    <%= @showing_user.display_name || @showing_user.name %>
+  </h1>
+</div>
+
+<% if @showing_user.suspended? %>
+  <div class="pulse-alert pulse-alert-danger" style="margin-bottom: 24px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <%= octicon 'alert', height: 16 %>
+      <strong>This account is suspended</strong>
+    </div>
+    <% if @showing_user.suspended_reason.present? %>
+      <p style="margin: 8px 0 0 0;">Reason: <%= @showing_user.suspended_reason %></p>
+    <% end %>
+    <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.8;">
+      Suspended <%= time_ago_in_words(@showing_user.suspended_at) %> ago
+      <% if @showing_user.suspended_by %>
+        by <%= @showing_user.suspended_by.display_name || @showing_user.suspended_by.name %>
+      <% end %>
+    </p>
+  </div>
+<% end %>
+
+<table class="pulse-table">
+  <tbody>
+    <tr>
+      <th>Email</th>
+      <td><code class="pulse-code"><%= @showing_user.email %></code></td>
+    </tr>
+    <tr>
+      <th>Handle</th>
+      <td><a href="/u/<%= @showing_user.handle %>" class="pulse-link"><code class="pulse-code">@<%= @showing_user.handle %></code></a></td>
+    </tr>
+    <tr>
+      <th>User Type</th>
+      <td><%= @showing_user.user_type %></td>
+    </tr>
+    <% if @showing_user.subagent? && @showing_user.parent %>
+      <% parent_tenant_user = @showing_user.parent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } %>
+      <tr>
+        <th>Parent</th>
+        <td><a href="/tenant-admin/users/<%= parent_tenant_user&.handle %>" class="pulse-link"><%= @showing_user.parent.display_name || @showing_user.parent.name %></a></td>
+      </tr>
+    <% end %>
+    <tr>
+      <th>Admin</th>
+      <td><%= @is_admin ? 'Yes' : 'No' %></td>
+    </tr>
+    <tr>
+      <th>Created</th>
+      <td><%= time_ago_in_words(@showing_user.created_at) %> ago</td>
+    </tr>
+  </tbody>
+</table>
+

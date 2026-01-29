@@ -1,0 +1,39 @@
+<% job_data = @job.respond_to?(:item) ? @job.item : @job %>
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['System Admin', '/system-admin'],
+  ['Sidekiq', '/system-admin/sidekiq'],
+  "Job #{job_data['jid']}"
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'workflow', height: 24 %> Job Details
+</h1>
+
+<p class="pulse-body-text-muted" style="margin-bottom:24px;">
+  <code class="pulse-code"><%= job_data["jid"] %></code>
+</p>
+
+<% if job_data["error_message"] %>
+  <div class="pulse-alert" style="margin-bottom:24px;display:flex;align-items:flex-start;gap:12px;">
+    <%= octicon 'alert', height: 20 %>
+    <div style="flex:1;">
+      <strong><%= job_data["error_class"] %></strong>
+      <pre style="margin:8px 0 0 0;white-space:pre-wrap;word-break:break-word;font-size:13px;"><%= job_data["error_message"] %></pre>
+    </div>
+  </div>
+
+  <div class="pulse-form-actions" style="margin-bottom:24px;">
+    <%= button_to "Retry Job", "/system-admin/sidekiq/jobs/#{job_data['jid']}/retry", method: :post, class: "pulse-action-btn" %>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Arguments', icon: 'code', open: true do %>
+  <pre style="background:var(--color-canvas-subtle);padding:12px;overflow-x:auto;font-size:13px;"><%= JSON.pretty_generate(job_data["args"]) %></pre>
+<% end %>
+
+<div class="pulse-form-actions">
+  <a href="/system-admin/sidekiq" class="pulse-action-btn-secondary">
+    <%= octicon 'arrow-left', height: 14 %> Back to Sidekiq
+  </a>
+</div>

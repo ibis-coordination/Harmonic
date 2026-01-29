@@ -41,7 +41,7 @@
       <div class="pulse-form-group pulse-form-group-submit">
         <%= form.submit 'Apply', class: 'pulse-action-btn' %>
         <% if @event_type.present? || @ip_filter.present? || @email_filter.present? || @time_range != "24h" %>
-          <a href="/admin/security" class="pulse-action-btn-secondary">Clear</a>
+          <a href="/legacy-admin/security" class="pulse-action-btn-secondary">Clear</a>
         <% end %>
       </div>
     </div>
@@ -59,39 +59,39 @@
       </thead>
       <tbody>
         <tr>
-          <td><a href="/admin/security?event_type=login_success&time_range=<%= @time_range %>"><%= octicon 'sign-in', height: 14 %> Login Success</a></td>
+          <td><a href="/legacy-admin/security?event_type=login_success&time_range=<%= @time_range %>"><%= octicon 'sign-in', height: 14 %> Login Success</a></td>
           <td><%= @summary['login_success'] %></td>
         </tr>
         <tr>
-          <td><a href="/admin/security?event_type=login_failure&time_range=<%= @time_range %>"><%= octicon 'x-circle', height: 14 %> Login Failure</a></td>
+          <td><a href="/legacy-admin/security?event_type=login_failure&time_range=<%= @time_range %>"><%= octicon 'x-circle', height: 14 %> Login Failure</a></td>
           <td><%= @summary['login_failure'] %></td>
         </tr>
         <tr>
-          <td><a href="/admin/security?event_type=logout&time_range=<%= @time_range %>"><%= octicon 'sign-out', height: 14 %> Logout</a></td>
+          <td><a href="/legacy-admin/security?event_type=logout&time_range=<%= @time_range %>"><%= octicon 'sign-out', height: 14 %> Logout</a></td>
           <td><%= @summary['logout'] %></td>
         </tr>
         <tr>
-          <td><a href="/admin/security?event_type=password_reset_requested&time_range=<%= @time_range %>"><%= octicon 'key', height: 14 %> Password Reset Requested</a></td>
+          <td><a href="/legacy-admin/security?event_type=password_reset_requested&time_range=<%= @time_range %>"><%= octicon 'key', height: 14 %> Password Reset Requested</a></td>
           <td><%= @summary['password_reset_requested'] %></td>
         </tr>
         <tr>
-          <td><a href="/admin/security?event_type=password_changed&time_range=<%= @time_range %>"><%= octicon 'shield-check', height: 14 %> Password Changed</a></td>
+          <td><a href="/legacy-admin/security?event_type=password_changed&time_range=<%= @time_range %>"><%= octicon 'shield-check', height: 14 %> Password Changed</a></td>
           <td><%= @summary['password_changed'] %></td>
         </tr>
         <tr>
-          <td><a href="/admin/security?event_type=permission_denied&time_range=<%= @time_range %>"><%= octicon 'stop', height: 14 %> Permission Denied</a></td>
+          <td><a href="/legacy-admin/security?event_type=permission_denied&time_range=<%= @time_range %>"><%= octicon 'stop', height: 14 %> Permission Denied</a></td>
           <td><%= @summary['permission_denied'] %></td>
         </tr>
         <tr>
-          <td><a href="/admin/security?event_type=admin_action&time_range=<%= @time_range %>"><%= octicon 'tools', height: 14 %> Admin Action</a></td>
+          <td><a href="/legacy-admin/security?event_type=admin_action&time_range=<%= @time_range %>"><%= octicon 'tools', height: 14 %> Admin Action</a></td>
           <td><%= @summary['admin_action'] %></td>
         </tr>
         <tr>
-          <td><a href="/admin/security?event_type=rate_limited&time_range=<%= @time_range %>"><%= octicon 'clock', height: 14 %> Rate Limited</a></td>
+          <td><a href="/legacy-admin/security?event_type=rate_limited&time_range=<%= @time_range %>"><%= octicon 'clock', height: 14 %> Rate Limited</a></td>
           <td><%= @summary['rate_limited'] %></td>
         </tr>
         <tr>
-          <td><a href="/admin/security?event_type=ip_blocked&time_range=<%= @time_range %>"><%= octicon 'shield-x', height: 14 %> IP Blocked</a></td>
+          <td><a href="/legacy-admin/security?event_type=ip_blocked&time_range=<%= @time_range %>"><%= octicon 'shield-x', height: 14 %> IP Blocked</a></td>
           <td><%= @summary['ip_blocked'] %></td>
         </tr>
       </tbody>
@@ -117,7 +117,7 @@
             <tr>
               <td>
                 <% if event['timestamp'] %>
-                  <a href="/admin/security/events/<%= event['line_number'] %>">
+                  <a href="/legacy-admin/security/events/<%= event['line_number'] %>">
                     <%= timeago(Time.zone.parse(event['timestamp'])) %>
                   </a>
                 <% else %>
@@ -125,20 +125,20 @@
                 <% end %>
               </td>
               <td>
-                <a href="/admin/security?event_type=<%= event['event'] %>&time_range=<%= @time_range %>">
+                <a href="/legacy-admin/security?event_type=<%= event['event'] %>&time_range=<%= @time_range %>">
                   <code class="pulse-code"><%= event['event'] %></code>
                 </a>
               </td>
               <td>
                 <% if event['email'].present? %>
-                  <a href="/admin/security?email=<%= event['email'] %>&time_range=<%= @time_range %>"><%= event['email'] %></a>
+                  <a href="/legacy-admin/security?email=<%= event['email'] %>&time_range=<%= @time_range %>"><%= event['email'] %></a>
                 <% else %>
                   -
                 <% end %>
               </td>
               <td>
                 <% if event['ip'].present? %>
-                  <a href="/admin/security?ip=<%= event['ip'] %>&time_range=<%= @time_range %>">
+                  <a href="/legacy-admin/security?ip=<%= event['ip'] %>&time_range=<%= @time_range %>">
                     <code class="pulse-code"><%= event['ip'] %></code>
                   </a>
                 <% else %>
@@ -165,7 +165,7 @@
       <div class="pulse-pagination" style="margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
         <% base_params = request.query_parameters.except("page") %>
         <% if @page > 1 %>
-          <a href="/admin/security?<%= base_params.merge(page: @page - 1).to_query %>" class="pulse-action-btn-secondary">
+          <a href="/legacy-admin/security?<%= base_params.merge(page: @page - 1).to_query %>" class="pulse-action-btn-secondary">
             <%= octicon 'chevron-left', height: 14 %> Previous
           </a>
         <% end %>
@@ -173,7 +173,7 @@
           Page <%= @page %> of <%= @total_pages %> (<%= @total_count %> events)
         </span>
         <% if @page < @total_pages %>
-          <a href="/admin/security?<%= base_params.merge(page: @page + 1).to_query %>" class="pulse-action-btn-secondary">
+          <a href="/legacy-admin/security?<%= base_params.merge(page: @page + 1).to_query %>" class="pulse-action-btn-secondary">
             Next <%= octicon 'chevron-right', height: 14 %>
           </a>
         <% end %>

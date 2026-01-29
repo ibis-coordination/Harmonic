@@ -1,0 +1,30 @@
+<% job_data = @job.respond_to?(:item) ? @job.item : @job -%>
+# Job: <%= job_data['jid'] %>
+
+[Back to Sidekiq](/system-admin/sidekiq)
+
+**Class:** `<%= job_data['class'] %>`
+
+<% if job_data['error_message'] -%>
+## Error
+
+**<%= job_data['error_class'] %>**
+
+```
+<%= job_data['error_message'] %>
+```
+
+<% end -%>
+## Arguments
+
+```json
+<%= JSON.pretty_generate(job_data['args']) %>
+```
+
+## [Actions](/system-admin/sidekiq/jobs/<%= job_data['jid'] %>/actions)
+
+<% if job_data['error_message'] -%>
+* [`retry_sidekiq_job()`](/system-admin/sidekiq/jobs/<%= job_data['jid'] %>/actions/retry_sidekiq_job) - Retry this failed job
+<% else -%>
+* No actions available for this job
+<% end -%>

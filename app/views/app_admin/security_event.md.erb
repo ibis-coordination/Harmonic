@@ -1,0 +1,29 @@
+# Security Event #<%= @event['line_number'] %>
+
+[Back to Security Dashboard](/app-admin/security)
+
+## Event Details
+
+| Field | Value |
+|-------|-------|
+<% @event.each do |key, value| -%>
+<% if value.is_a?(Hash) || value.is_a?(Array) -%>
+| <%= key.titleize %> | `<%= value.to_json %>` |
+<% elsif value.present? -%>
+| <%= key.titleize %> | <%= key == 'timestamp' || key == 'ip' || key == 'event' ? "`#{value}`" : value %> |
+<% else -%>
+| <%= key.titleize %> | - |
+<% end -%>
+<% end -%>
+
+## Quick Links
+
+<% if @event['event'].present? -%>
+- [View all <%= @event['event'] %> events](/app-admin/security?event_type=<%= @event['event'] %>)
+<% end -%>
+<% if @event['ip'].present? -%>
+- [View all events from IP <%= @event['ip'] %>](/app-admin/security?ip=<%= @event['ip'] %>)
+<% end -%>
+<% if @event['email'].present? -%>
+- [View all events for <%= @event['email'] %>](/app-admin/security?email=<%= @event['email'] %>)
+<% end -%>

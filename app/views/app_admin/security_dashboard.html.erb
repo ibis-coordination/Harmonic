@@ -1,0 +1,107 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['App Admin', '/app-admin'],
+  'Security'
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'shield', height: 24 %>
+    Security Dashboard
+  </h1>
+</div>
+
+<%= render 'shared/pulse_accordion', title: 'Recent Security Events', icon: 'alert', count: @security_events.count, open: true do %>
+  <% if @security_events.any? %>
+    <div class="pulse-table-wrapper">
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Event Type</th>
+            <th>User</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @security_events.each do |event| %>
+            <tr>
+              <td>
+                <% timestamp = event[:timestamp] || event["timestamp"] %>
+                <% if timestamp.present? %>
+                  <% timestamp = Time.parse(timestamp) if timestamp.is_a?(String) %>
+                  <%= timeago(timestamp) %>
+                <% else %>
+                  <span class="pulse-body-text-muted">-</span>
+                <% end %>
+              </td>
+              <td>
+                <% event_type = event[:event_type] || event["event_type"] %>
+                <% severity = event[:severity] || event["severity"] %>
+                <span class="pulse-badge <%= severity == 'high' ? 'pulse-badge-danger' : 'pulse-badge-warning' %>">
+                  <%= event_type %>
+                </span>
+              </td>
+              <td>
+                <% user_id = event[:user_id] || event["user_id"] %>
+                <% user_email = event[:user_email] || event["email"] %>
+                <% if user_id.present? %>
+                  <a href="/app-admin/users/<%= user_id %>" class="pulse-link"><%= user_email %></a>
+                <% elsif user_email.present? %>
+                  <%= user_email %>
+                <% else %>
+                  <span class="pulse-body-text-muted">-</span>
+                <% end %>
+              </td>
+              <td><%= event[:details] || event["details"] || event[:message] || event["message"] %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No recent security events.</p>
+  <% end %>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Suspended Users', icon: 'person-fill', count: @suspended_users.count, open: true do %>
+  <% if @suspended_users.any? %>
+    <div class="pulse-home-list">
+      <% @suspended_users.each do |user| %>
+        <div class="pulse-home-list-item">
+          <a href="/app-admin/users/<%= user.id %>" class="pulse-home-list-link">
+            <div class="pulse-default-icon pulse-home-list-icon">
+              <%= octicon user.subagent? ? 'dependabot' : 'person', height: 14 %>
+            </div>
+            <span class="pulse-home-list-name"><%= user.display_name || user.name %></span>
+            <code class="pulse-code"><%= user.email %></code>
+            <span class="pulse-badge pulse-badge-danger">SUSPENDED</span>
+            <span class="pulse-body-text-muted"><%= time_ago_in_words(user.suspended_at) %> ago</span>
+          </a>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No suspended users.</p>
+  <% end %>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'App Admins', icon: 'shield-check', count: @app_admins.count, open: false do %>
+  <% if @app_admins.any? %>
+    <div class="pulse-home-list">
+      <% @app_admins.each do |user| %>
+        <div class="pulse-home-list-item">
+          <a href="/app-admin/users/<%= user.id %>" class="pulse-home-list-link">
+            <div class="pulse-default-icon pulse-home-list-icon">
+              <%= octicon 'person', height: 14 %>
+            </div>
+            <span class="pulse-home-list-name"><%= user.display_name || user.name %></span>
+            <code class="pulse-code"><%= user.email %></code>
+          </a>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No app admins configured.</p>
+  <% end %>
+<% end %>

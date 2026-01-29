@@ -2420,6 +2420,21 @@ a.pulse-activity-title:hover {
   color: var(--color-fg-muted);
 }
 
+.pulse-badge-primary {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-fg);
+}
+
+.pulse-badge-danger {
+  background: var(--color-danger-subtle);
+  color: var(--color-danger-fg);
+}
+
+.pulse-badge-warning {
+  background: var(--color-attention-subtle);
+  color: var(--color-attention-fg);
+}
+
 /* Subagent Cards */
 .pulse-subagents-list {
   display: flex;
@@ -2781,6 +2796,10 @@ a.pulse-activity-title:hover {
 
 .pulse-home-list-item:last-child {
   border-bottom: none;
+}
+
+.pulse-home-list-item-muted {
+  opacity: 0.6;
 }
 
 .pulse-home-list-link {

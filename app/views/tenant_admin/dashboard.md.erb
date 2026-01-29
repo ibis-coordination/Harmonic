@@ -1,0 +1,55 @@
+# Tenant Admin
+
+Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`)
+
+## Admin Users
+
+<% @current_tenant.admin_users.each do |tu| %>
+* [<%= raw tu.display_name %>](/tenant-admin/users/<%= tu.handle %>) (`@<%= tu.handle %>`)
+<% end %>
+
+[Manage All Users](/tenant-admin/users)
+
+## Tenant Details
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @current_tenant.name %> |
+| Subdomain | `<%= @current_tenant.subdomain %>` |
+| Created | <%= time_ago_in_words(@current_tenant.created_at) %> ago |
+| Updated | <%= time_ago_in_words(@current_tenant.updated_at) %> ago |
+
+### Tenant Settings
+
+[Edit Settings](/tenant-admin/settings)
+
+```json
+<%= JSON.pretty_generate(@current_tenant.settings) %>
+```
+
+## Main Studio
+
+The main studio is the default studio at the base path (i.e. `<%= @current_tenant.domain %>/`).
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @current_tenant.main_superagent.name %> |
+| ID | `<%= @current_tenant.main_superagent.id %>` |
+| Notes | <%= @current_tenant.main_superagent.notes.count %> |
+| Decisions | <%= @current_tenant.main_superagent.decisions.count %> |
+| Commitments | <%= @current_tenant.main_superagent.commitments.count %> |
+
+### Other Studios
+
+<% @current_tenant.superagents.order(created_at: :desc).each do |studio| %>
+<% next if studio == @current_tenant.main_superagent %>
+* [<%= raw studio.name %>](<%= studio.path %>) - created <%= time_ago_in_words(studio.created_at) %> ago
+<% end %>
+
+## [Actions](/tenant-admin/actions)
+
+<% if can_perform_admin_actions? %>
+* [`update_tenant_settings(name, timezone, require_login)`](/tenant-admin/settings/actions/update_tenant_settings) - Update tenant settings
+<% else %>
+* No actions available (read-only access)
+<% end %>

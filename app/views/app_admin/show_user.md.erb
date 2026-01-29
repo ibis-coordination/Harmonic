@@ -1,0 +1,44 @@
+# <%= @showing_user.display_name || @showing_user.name %>
+
+[Back to Users](/app-admin/users)
+
+**Email:** `<%= @showing_user.email %>`
+**User ID:** `<%= @showing_user.id %>`
+**Type:** <%= @showing_user.user_type %>
+<% if @showing_user.app_admin? -%>
+**Role:** app_admin
+<% end -%>
+<% if @showing_user.sys_admin? -%>
+**Role:** sys_admin
+<% end -%>
+<% if @showing_user.suspended? -%>
+**Status:** SUSPENDED (since <%= time_ago_in_words(@showing_user.suspended_at) %> ago)
+**Reason:** <%= @showing_user.suspended_reason %>
+<% end -%>
+
+## Tenants (<%= @user_tenants.count %>)
+
+<% if @user_tenants.any? -%>
+| Tenant | Handle | Role |
+|--------|--------|------|
+<% @user_tenants.each do |tenant| -%>
+<% tu = @showing_user.tenant_users.find { |t| t.tenant_id == tenant.id } -%>
+| [<%= tenant.name %>](/app-admin/tenants/<%= tenant.subdomain %>) | @<%= tu&.handle %> | <%= tenant.is_admin?(@showing_user) ? 'admin' : 'member' %> |
+<% end -%>
+<% else -%>
+*User is not a member of any tenants.*
+<% end -%>
+
+## [Actions](/app-admin/users/<%= @showing_user.id %>/actions)
+
+<% if @showing_user.suspended? -%>
+* [`unsuspend_user()`](/app-admin/users/<%= @showing_user.id %>/actions/unsuspend_user) - Restore user's access
+<% else -%>
+<% if @showing_user.id != @current_user.id -%>
+* [`suspend_user(reason)`](/app-admin/users/<%= @showing_user.id %>/actions/suspend_user) - Suspend this user's account
+
+**Warning:** Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any subagents that they are the parent of.
+<% else -%>
+* You cannot suspend your own account
+<% end -%>
+<% end -%>

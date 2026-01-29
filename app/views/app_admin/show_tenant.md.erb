@@ -1,0 +1,30 @@
+# <%= @showing_tenant.name %>
+
+[Back to Tenants](/app-admin/tenants)
+
+**Subdomain:** `<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`
+<% if @showing_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] -%>
+**Status:** Primary tenant
+<% end -%>
+
+## Details
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @showing_tenant.name %> |
+| Subdomain | `<%= @showing_tenant.subdomain %>` |
+| Created | <%= time_ago_in_words(@showing_tenant.created_at) %> ago |
+| Updated | <%= time_ago_in_words(@showing_tenant.updated_at) %> ago |
+| Users | <%= @showing_tenant.users.count %> |
+
+## Admin Users
+
+<% if @showing_tenant.admin_users.any? -%>
+| Name | Handle |
+|------|--------|
+<% @showing_tenant.admin_users.each do |tu| -%>
+| [<%= tu.display_name %>](/app-admin/users/<%= tu.user.id %>) | @<%= tu.handle %> |
+<% end -%>
+<% else -%>
+*No admin users*
+<% end -%>

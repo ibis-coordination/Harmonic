@@ -62,7 +62,7 @@
         <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
       </div>
     <% end %>
-    <%# Sidebar modes: full (default), resource, minimal, settings, admin, none %>
+    <%# Sidebar modes: full (default), resource, minimal, settings, admin, system_admin, app_admin, tenant_admin, none %>
     <% sidebar_mode = @sidebar_mode || 'full' %>
     <div class="pulse-container<%= ' no-sidebar' if sidebar_mode == 'none' %>" data-controller="pulse-filter">
       <% case sidebar_mode %>
@@ -76,6 +76,12 @@
         <%= render 'pulse/sidebar_minimal' %>
       <% when 'admin' %>
         <%= render 'pulse/sidebar_admin' %>
+      <% when 'system_admin' %>
+        <%= render 'pulse/sidebar_system_admin' %>
+      <% when 'app_admin' %>
+        <%= render 'pulse/sidebar_app_admin' %>
+      <% when 'tenant_admin' %>
+        <%= render 'pulse/sidebar_tenant_admin' %>
       <% when 'none' %>
         <%# No sidebar %>
       <% end %>

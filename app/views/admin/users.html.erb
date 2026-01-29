@@ -28,7 +28,7 @@
       <%= octicon 'search', height: 14 %> Search
     </button>
     <% if @search_query.present? %>
-      <a href="/admin/users" class="pulse-action-btn pulse-action-btn-secondary">Clear</a>
+      <a href="/legacy-admin/users" class="pulse-action-btn pulse-action-btn-secondary">Clear</a>
     <% end %>
   </div>
 </form>
@@ -61,7 +61,7 @@
           <% is_suspended = user.suspended? %>
           <% is_admin = @current_tenant.is_admin?(user) %>
           <div class="pulse-home-list-item<%= ' pulse-home-list-item-muted' if is_suspended %>">
-            <a href="/admin/users/<%= tenant_user&.handle %>" class="pulse-home-list-link">
+            <a href="/legacy-admin/users/<%= tenant_user&.handle %>" class="pulse-home-list-link">
               <div class="pulse-default-icon pulse-home-list-icon">
                 <%= octicon user_type_icons[user_type] || 'person', height: 14 %>
               </div>

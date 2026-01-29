@@ -1,0 +1,126 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  'Tenant Admin'
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'tools', height: 24 %> Tenant Admin
+</h1>
+
+<p class="pulse-body-text-muted">
+  <code class="pulse-code"><%= @current_tenant.subdomain %><span style="opacity:0.6">.<%= ENV['HOSTNAME'] %></span></code>
+</p>
+
+<%= render 'shared/pulse_accordion', title: 'Admin Users', icon: 'people', count: @current_tenant.admin_users.count, open: true do %>
+  <div class="pulse-studios-list">
+    <% @current_tenant.admin_users.each do |tu| %>
+      <div class="pulse-studio-item">
+        <div class="pulse-author-avatar">
+          <img src="<%= tu.user.image_url %>" alt="<%= tu.display_name %>" class="pulse-avatar-img">
+        </div>
+        <div class="pulse-studio-info">
+          <a href="/tenant-admin/users/<%= tu.handle %>" class="pulse-studio-name"><%= tu.display_name %></a>
+          <span class="pulse-studio-role">@<%= tu.handle %></span>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="pulse-form-actions">
+    <a href="/tenant-admin/users" class="pulse-action-btn">
+      <%= octicon 'people', height: 14 %> Manage All Users
+    </a>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Tenant Details', icon: 'info', open: true do %>
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <tbody>
+        <tr>
+          <td><strong>Name</strong></td>
+          <td><code class="pulse-code"><%= @current_tenant.name %></code></td>
+        </tr>
+        <tr>
+          <td><strong>Subdomain</strong></td>
+          <td><code class="pulse-code"><%= @current_tenant.subdomain %></code></td>
+        </tr>
+        <tr>
+          <td><strong>Created</strong></td>
+          <td><%= timeago(@current_tenant.created_at) %></td>
+        </tr>
+        <tr>
+          <td><strong>Updated</strong></td>
+          <td><%= timeago(@current_tenant.updated_at) %></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pulse-form-actions">
+    <a href="/tenant-admin/settings" class="pulse-action-btn">
+      <%= octicon 'gear', height: 14 %> Edit Settings
+    </a>
+  </div>
+
+  <%= render 'shared/pulse_accordion', title: 'Raw Settings JSON', open: false do %>
+    <pre style="background:var(--color-canvas-subtle);padding:12px;overflow-x:auto;font-size:13px;"><%= JSON.pretty_generate(@current_tenant.settings) %></pre>
+  <% end %>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Main Studio', icon: 'home', open: false do %>
+  <p class="pulse-form-hint" style="margin-bottom:16px;">
+    The main studio is the default studio at the base path (i.e. <code class="pulse-code"><%= @current_tenant.domain %>/</code>).
+  </p>
+
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <tbody>
+        <tr>
+          <td><strong>Name</strong></td>
+          <td><code class="pulse-code"><%= @current_tenant.main_superagent.name %></code></td>
+        </tr>
+        <tr>
+          <td><strong>ID</strong></td>
+          <td>
+            <code class="pulse-code"><%= @current_tenant.main_superagent.id %></code>
+            <%= render 'shared/copy_button', text: @current_tenant.main_superagent.id %>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Notes</strong></td>
+          <td><%= @current_tenant.main_superagent.notes.count %></td>
+        </tr>
+        <tr>
+          <td><strong>Decisions</strong></td>
+          <td><%= @current_tenant.main_superagent.decisions.count %></td>
+        </tr>
+        <tr>
+          <td><strong>Commitments</strong></td>
+          <td><%= @current_tenant.main_superagent.commitments.count %></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<% other_studios = @current_tenant.superagents.order(created_at: :desc).reject { |s| s == @current_tenant.main_superagent } %>
+<%= render 'shared/pulse_accordion', title: 'Other Studios', icon: 'repo', count: other_studios.count, open: false do %>
+  <% if other_studios.any? %>
+    <div class="pulse-studios-list">
+      <% other_studios.each do |studio| %>
+        <div class="pulse-studio-item">
+          <div class="pulse-author-avatar" style="border-radius:6px;">
+            <img src="<%= studio.image_path %>" alt="<%= studio.name %>" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">
+          </div>
+          <div class="pulse-studio-info">
+            <a href="<%= studio.path %>" class="pulse-studio-name"><%= studio.name %></a>
+            <span class="pulse-studio-role">created <%= timeago(studio.created_at) %></span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No other studios yet.</p>
+  <% end %>
+<% end %>

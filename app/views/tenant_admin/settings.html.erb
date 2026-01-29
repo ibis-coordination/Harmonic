@@ -1,0 +1,62 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Tenant Admin', '/tenant-admin'],
+  'Settings'
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'gear', height: 24 %> Tenant Settings
+</h1>
+
+<%= form_with(url: "/tenant-admin/settings", class: "pulse-form", style: "max-width:600px;") do |form| %>
+  <%= render 'shared/pulse_accordion', title: 'General', icon: 'info', open: true do %>
+    <div class="pulse-form-section" style="border-top:none;margin-top:0;padding-top:0;">
+      <label class="pulse-form-label" for="name">Tenant Name</label>
+      <%= form.text_field :name, placeholder: 'Tenant Name', value: @current_tenant.name, class: 'pulse-form-input' %>
+    </div>
+
+    <div class="pulse-form-section">
+      <label class="pulse-form-label" for="timezone">Default Time Zone</label>
+      <%= form.time_zone_select :timezone, ActiveSupport::TimeZone.all, { default: @current_tenant.timezone.name }, { class: 'pulse-form-select' } %>
+    </div>
+  <% end %>
+
+  <%= render 'shared/pulse_accordion', title: 'Access Control', icon: 'lock', open: true do %>
+    <div class="pulse-form-section" style="border-top:none;margin-top:0;padding-top:0;">
+      <label class="pulse-checkbox-label">
+        <%= form.check_box :require_login, { checked: @current_tenant.require_login?, class: 'pulse-checkbox-input' } %>
+        <span>Require login for all users</span>
+      </label>
+      <p class="pulse-form-hint">When enabled, users must be logged in to view any content on this tenant.</p>
+    </div>
+  <% end %>
+
+  <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.app_enabled?(f) } %>
+  <% if available_flags.any? %>
+    <%= render 'shared/pulse_accordion', title: 'Feature Flags', icon: 'beaker', count: available_flags.count, open: true do %>
+      <p class="pulse-form-hint" style="margin-bottom:16px;">
+        Features must be enabled here for studios to use them. When disabled, the feature is unavailable for all studios in this tenant.
+      </p>
+
+      <% available_flags.each do |flag_name| %>
+        <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
+        <% tenant_enabled_locally = @current_tenant.feature_flag_enabled_locally?(flag_name) %>
+
+        <div class="pulse-feature-flag-item">
+          <label class="pulse-checkbox-label">
+            <%= form.check_box "feature_#{flag_name}", { checked: tenant_enabled_locally, id: "feature_#{flag_name}", class: 'pulse-checkbox-input' } %>
+            <div>
+              <strong><%= metadata['name'] %></strong>
+              <p class="pulse-form-hint" style="margin:4px 0 0 0;"><%= metadata['description'] %></p>
+            </div>
+          </label>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <div class="pulse-form-actions">
+    <%= form.submit 'Save Settings', class: 'pulse-action-btn' %>
+    <a href="/tenant-admin" class="pulse-action-btn-secondary">Cancel</a>
+  </div>
+<% end %>

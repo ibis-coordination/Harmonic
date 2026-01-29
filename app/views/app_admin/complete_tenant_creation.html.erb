@@ -1,0 +1,36 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['App Admin', '/app-admin'],
+  ['Tenants', '/app-admin/tenants'],
+  'Created'
+] %>
+
+<div class="pulse-auth-page">
+  <div class="pulse-auth-success">
+    <div class="pulse-auth-success-icon">
+      <%= octicon 'check-circle', height: 48 %>
+    </div>
+    <h1 class="pulse-auth-title">Tenant Created</h1>
+    <p class="pulse-auth-subtitle">
+      <strong><%= @tenant.name %></strong> has been created successfully.
+    </p>
+
+    <div style="background:var(--color-canvas-subtle);padding:16px;border-radius:6px;margin:24px 0;text-align:left;">
+      <p class="pulse-form-hint" style="margin:0 0 8px 0;">Access URL:</p>
+      <p style="margin:0;">
+        <a href="https://<%= @tenant.subdomain %>.<%= ENV['HOSTNAME'] %>" target="_blank" class="pulse-link">
+          <code class="pulse-code"><%= @tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>
+        </a>
+      </p>
+    </div>
+
+    <div class="pulse-form-actions">
+      <a href="/app-admin/tenants/<%= @tenant.subdomain %>" class="pulse-action-btn">
+        <%= octicon 'organization', height: 14 %> View Tenant
+      </a>
+      <a href="/app-admin/tenants" class="pulse-action-btn-secondary">
+        Back to Tenants
+      </a>
+    </div>
+  </div>
+</div>

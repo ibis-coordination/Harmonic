@@ -19,7 +19,7 @@
           <img src="<%= tu.user.image_url %>" alt="<%= tu.display_name %>" class="pulse-avatar-img">
         </div>
         <div class="pulse-studio-info">
-          <a href="/admin/users/<%= tu.handle %>" class="pulse-studio-name"><%= tu.display_name %></a>
+          <a href="/legacy-admin/users/<%= tu.handle %>" class="pulse-studio-name"><%= tu.display_name %></a>
           <span class="pulse-studio-role">@<%= tu.handle %></span>
         </div>
       </div>
@@ -27,7 +27,7 @@
   </div>
 
   <div class="pulse-form-actions">
-    <a href="/admin/users" class="pulse-action-btn">
+    <a href="/legacy-admin/users" class="pulse-action-btn">
       <%= octicon 'people', height: 14 %> Manage All Users
     </a>
   </div>
@@ -58,7 +58,7 @@
   </div>
 
   <div class="pulse-form-actions">
-    <a href="/admin/settings" class="pulse-action-btn">
+    <a href="/legacy-admin/settings" class="pulse-action-btn">
       <%= octicon 'gear', height: 14 %> Edit Settings
     </a>
   </div>
@@ -144,7 +144,7 @@
       <div class="pulse-home-list">
         <% other_tenants.each do |tenant| %>
           <div class="pulse-home-list-item">
-            <a href="/admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+            <a href="/legacy-admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
               <div class="pulse-default-icon pulse-home-list-icon">
                 <%= octicon 'organization', height: 14 %>
               </div>
@@ -159,7 +159,7 @@
     <% end %>
 
     <div class="pulse-form-actions">
-      <a href="/admin/tenants/new" class="pulse-action-btn">
+      <a href="/legacy-admin/tenants/new" class="pulse-action-btn">
         <%= octicon 'plus', height: 14 %> New Tenant
       </a>
     </div>

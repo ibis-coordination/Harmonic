@@ -1,0 +1,15 @@
+# All Tenants
+
+[Back to App Admin](/app-admin)
+
+<%= @tenants.count %> tenants total
+
+| Name | Subdomain | Status |
+|------|-----------|--------|
+<% @tenants.each do |tenant| -%>
+| [<%= tenant.name %>](/app-admin/tenants/<%= tenant.subdomain %>) | `<%= tenant.subdomain %>` | <%= tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] ? 'primary' : '' %> |
+<% end -%>
+
+## Actions
+
+* [Create New Tenant](/app-admin/tenants/new)

@@ -1,7 +1,7 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
-  ['Admin', '/admin'],
-  ['Security', '/admin/security'],
+  ['Legacy Admin', '/legacy-admin'],
+  ['Security', '/legacy-admin/security'],
   "Event ##{@event['line_number']}"
 ] %>
 
@@ -20,15 +20,15 @@
               <code class="pulse-code"><%= value %></code>
               (<%= timeago(Time.zone.parse(value)) %>)
             <% elsif key == 'ip' && value.present? %>
-              <a href="/admin/security?ip=<%= value %>">
+              <a href="/legacy-admin/security?ip=<%= value %>">
                 <code class="pulse-code"><%= value %></code>
               </a>
               (view all events from this IP)
             <% elsif key == 'email' && value.present? %>
-              <a href="/admin/security?email=<%= value %>"><%= value %></a>
+              <a href="/legacy-admin/security?email=<%= value %>"><%= value %></a>
               (view all events for this email)
             <% elsif key == 'event' && value.present? %>
-              <a href="/admin/security?event_type=<%= value %>">
+              <a href="/legacy-admin/security?event_type=<%= value %>">
                 <code class="pulse-code"><%= value %></code>
               </a>
               (view all <%= value.titleize.downcase %> events)
@@ -49,7 +49,7 @@
 </div>
 
 <div style="margin-top: 1rem;">
-  <a href="/admin/security" class="pulse-action-btn-secondary">
+  <a href="/legacy-admin/security" class="pulse-action-btn-secondary">
     <%= octicon 'arrow-left', height: 14 %> Back to Security Dashboard
   </a>
 </div>

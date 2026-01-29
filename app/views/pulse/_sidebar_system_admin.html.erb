@@ -1,0 +1,39 @@
+<%# System Admin sidebar - for system-level administration %>
+<%# Shows home link and system admin navigation %>
+<aside class="pulse-sidebar" data-mode="system_admin">
+  <div class="pulse-nav">
+    <a href="/" class="pulse-nav-item">
+      <%= octicon 'home', height: 20 %> Home
+    </a>
+  </div>
+
+  <div class="pulse-nav-section">
+    <div class="pulse-section-label">
+      <%= octicon 'server', height: 14 %> System Admin
+    </div>
+    <a href="/system-admin" class="pulse-nav-item<%= ' active' if request.path == '/system-admin' %>">
+      <%= octicon 'meter', height: 16 %> Dashboard
+    </a>
+    <a href="/system-admin/sidekiq" class="pulse-nav-item<%= ' active' if request.path.start_with?('/system-admin/sidekiq') %>">
+      <%= octicon 'workflow', height: 16 %> Sidekiq
+    </a>
+  </div>
+
+  <% if @current_user&.app_admin? || @current_tenant&.is_admin?(@current_user) %>
+    <div class="pulse-nav-section">
+      <div class="pulse-section-label">
+        <%= octicon 'link', height: 14 %> Related
+      </div>
+      <% if @current_user&.app_admin? %>
+        <a href="/app-admin" class="pulse-nav-item">
+          <%= octicon 'organization', height: 16 %> App Admin
+        </a>
+      <% end %>
+      <% if @current_tenant&.is_admin?(@current_user) %>
+        <a href="/tenant-admin" class="pulse-nav-item">
+          <%= octicon 'gear', height: 16 %> Tenant Admin
+        </a>
+      <% end %>
+    </div>
+  <% end %>
+</aside>

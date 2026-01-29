@@ -48,7 +48,7 @@
       <% parent_tenant_user = @showing_user.parent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } %>
       <tr>
         <th>Parent</th>
-        <td><a href="/admin/users/<%= parent_tenant_user&.handle %>" class="pulse-link"><%= @showing_user.parent.display_name || @showing_user.parent.name %></a></td>
+        <td><a href="/legacy-admin/users/<%= parent_tenant_user&.handle %>" class="pulse-link"><%= @showing_user.parent.display_name || @showing_user.parent.name %></a></td>
       </tr>
     <% end %>
     <tr>

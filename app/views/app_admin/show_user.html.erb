@@ -1,0 +1,137 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['App Admin', '/app-admin'],
+  ['Users', '/app-admin/users'],
+  @showing_user.display_name || @showing_user.name
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon @showing_user.subagent? ? 'dependabot' : 'person', height: 24 %>
+    <%= @showing_user.display_name || @showing_user.name %>
+  </h1>
+</div>
+
+<p class="pulse-body-text-muted" style="margin-bottom: 8px;">
+  <code class="pulse-code"><%= @showing_user.email %></code>
+</p>
+
+<p style="margin-bottom: 24px;">
+  <% if @showing_user.app_admin? %>
+    <span class="pulse-badge pulse-badge-primary">app_admin</span>
+  <% end %>
+  <% if @showing_user.sys_admin? %>
+    <span class="pulse-badge pulse-badge-primary">sys_admin</span>
+  <% end %>
+  <% if @showing_user.suspended? %>
+    <span class="pulse-badge pulse-badge-danger">SUSPENDED</span>
+  <% end %>
+</p>
+
+<%= render 'shared/pulse_accordion', title: 'User Details', icon: 'info', open: true do %>
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <tbody>
+        <tr>
+          <td><strong>User ID</strong></td>
+          <td>
+            <code class="pulse-code"><%= @showing_user.id %></code>
+            <%= render 'shared/copy_button', text: @showing_user.id %>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Name</strong></td>
+          <td><%= @showing_user.name %></td>
+        </tr>
+        <tr>
+          <td><strong>Display Name</strong></td>
+          <td><%= @showing_user.display_name || '-' %></td>
+        </tr>
+        <tr>
+          <td><strong>Email</strong></td>
+          <td><%= @showing_user.email %></td>
+        </tr>
+        <tr>
+          <td><strong>User Type</strong></td>
+          <td><%= @showing_user.user_type %></td>
+        </tr>
+        <tr>
+          <td><strong>Created</strong></td>
+          <td><%= timeago(@showing_user.created_at) %></td>
+        </tr>
+        <% if @showing_user.suspended? %>
+          <tr>
+            <td><strong>Suspended At</strong></td>
+            <td><%= timeago(@showing_user.suspended_at) %></td>
+          </tr>
+          <tr>
+            <td><strong>Suspended Reason</strong></td>
+            <td><%= @showing_user.suspended_reason %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Tenants', icon: 'organization', count: @user_tenants.count, open: true do %>
+  <% if @user_tenants.any? %>
+    <div class="pulse-home-list">
+      <% @user_tenants.each do |tenant| %>
+        <% tu = @showing_user.tenant_users.find { |t| t.tenant_id == tenant.id } %>
+        <div class="pulse-home-list-item">
+          <a href="/app-admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+            <div class="pulse-default-icon pulse-home-list-icon">
+              <%= octicon 'organization', height: 14 %>
+            </div>
+            <span class="pulse-home-list-name"><%= tenant.name %></span>
+            <code class="pulse-code">@<%= tu&.handle %></code>
+            <% if tenant.is_admin?(@showing_user) %>
+              <span class="pulse-badge pulse-badge-primary">admin</span>
+            <% end %>
+          </a>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">User is not a member of any tenants.</p>
+  <% end %>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Actions', icon: 'zap', open: true do %>
+  <div class="pulse-form-actions" style="flex-direction: column; align-items: flex-start; gap: 16px;">
+    <% if @showing_user.suspended? %>
+      <%= form_tag "/app-admin/users/#{@showing_user.id}/actions/unsuspend_user", method: :post do %>
+        <button type="submit" class="pulse-action-btn">
+          <%= octicon 'check-circle', height: 14 %> Unsuspend User
+        </button>
+      <% end %>
+    <% else %>
+      <% if @showing_user.id != @current_user.id %>
+        <details>
+          <summary class="pulse-action-btn-danger" style="cursor: pointer; display: inline-block;">
+            <%= octicon 'alert', height: 14 %> Suspend User
+          </summary>
+          <div style="background: var(--color-canvas-subtle); padding: 16px; margin-top: 8px; border-radius: 6px;">
+            <%= form_tag "/app-admin/users/#{@showing_user.id}/actions/suspend_user", method: :post do %>
+              <div class="pulse-form-group">
+                <label for="reason" class="pulse-form-label">Reason for suspension</label>
+                <input type="text" name="reason" id="reason" class="pulse-input" placeholder="e.g., Policy violation" required>
+                <p class="pulse-form-hint">This reason will be recorded for administrative reference.</p>
+              </div>
+              <p class="pulse-form-hint" style="margin-bottom: 16px;">
+                <%= octicon 'alert', height: 12 %>
+                Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any subagents that they are the parent of.
+              </p>
+              <div class="pulse-form-actions">
+                <button type="submit" class="pulse-action-btn-danger">Confirm Suspension</button>
+              </div>
+            <% end %>
+          </div>
+        </details>
+      <% else %>
+        <p class="pulse-body-text-muted">You cannot suspend your own account.</p>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

@@ -1,0 +1,33 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-error">
+    <div class="pulse-auth-error-icon">
+      <%= octicon 'shield-x', height: 48 %>
+    </div>
+    <h1 class="pulse-auth-title">Access Denied</h1>
+    <p class="pulse-auth-subtitle">You do not have tenant administrator access.</p>
+
+    <% is_primary_tenant = @current_tenant&.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
+    <% other_admin_access = [] %>
+    <% other_admin_access << { path: '/system-admin', label: 'System Admin', icon: 'server' } if is_primary_tenant && @current_user&.sys_admin? %>
+    <% other_admin_access << { path: '/app-admin', label: 'App Admin', icon: 'organization' } if is_primary_tenant && @current_user&.app_admin? %>
+
+    <% if other_admin_access.any? %>
+      <p class="pulse-auth-subtitle" style="margin-top: 24px;">
+        You do have access to:
+      </p>
+      <div class="pulse-form-actions" style="margin-top: 12px; justify-content: center;">
+        <% other_admin_access.each do |admin| %>
+          <a href="<%= admin[:path] %>" class="pulse-action-btn">
+            <%= octicon admin[:icon], height: 14 %> <%= admin[:label] %>
+          </a>
+        <% end %>
+      </div>
+    <% end %>
+
+    <div class="pulse-form-actions" style="margin-top: 24px; justify-content: center;">
+      <a href="/" class="pulse-action-btn">
+        <%= octicon 'home', height: 14 %> Return Home
+      </a>
+    </div>
+  </div>
+</div>

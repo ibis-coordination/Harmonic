@@ -396,7 +396,7 @@ class AdminController < ApplicationController
         format.md { render plain: 'You cannot suspend your own account.', status: 400 }
         format.html do
           flash[:alert] = 'You cannot suspend your own account.'
-          redirect_to admin_user_path(user.handle)
+          redirect_to legacy_admin_user_path(user.handle)
         end
       end
       return
@@ -408,7 +408,7 @@ class AdminController < ApplicationController
         format.md { render plain: 'Only platform admins can suspend tenant admins.', status: 403 }
         format.html do
           flash[:alert] = 'Only platform admins can suspend tenant admins.'
-          redirect_to admin_user_path(user.handle)
+          redirect_to legacy_admin_user_path(user.handle)
         end
       end
       return
@@ -432,7 +432,7 @@ class AdminController < ApplicationController
       end
       format.html do
         flash[:notice] = "User #{user.display_name} has been suspended."
-        redirect_to admin_user_path(user.handle)
+        redirect_to legacy_admin_user_path(user.handle)
       end
     end
   end
@@ -463,7 +463,7 @@ class AdminController < ApplicationController
       end
       format.html do
         flash[:notice] = "User #{user.display_name} has been unsuspended."
-        redirect_to admin_user_path(user.handle)
+        redirect_to legacy_admin_user_path(user.handle)
       end
     end
   end

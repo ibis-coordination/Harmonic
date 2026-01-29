@@ -119,39 +119,98 @@ Rails.application.routes.draw do
   get 'whoami' => 'whoami#index'
   get 'motto' => 'motto#index'
 
-  get 'admin' => 'admin#admin'
-  get 'admin/actions' => 'admin#actions_index'
-  get 'admin/settings' => 'admin#tenant_settings'
-  post 'admin/settings' => 'admin#update_tenant_settings'
-  get 'admin/settings/actions' => 'admin#actions_index_settings'
-  get 'admin/settings/actions/update_tenant_settings' => 'admin#describe_update_tenant_settings'
-  post 'admin/settings/actions/update_tenant_settings' => 'admin#execute_update_tenant_settings'
-  get 'admin/tenants' => 'admin#tenants'
-  get 'admin/tenants/new' => 'admin#new_tenant'
-  post 'admin/tenants' => 'admin#create_tenant'
-  get 'admin/tenants/new/actions' => 'admin#actions_index_new_tenant'
-  get 'admin/tenants/new/actions/create_tenant' => 'admin#describe_create_tenant'
-  post 'admin/tenants/new/actions/create_tenant' => 'admin#execute_create_tenant'
-  get 'admin/tenants/:subdomain/complete' => 'admin#complete_tenant_creation'
-  get 'admin/tenants/:subdomain' => 'admin#show_tenant'
-  get 'admin/sidekiq' => 'admin#sidekiq'
-  get 'admin/sidekiq/queues/:name' => 'admin#sidekiq_show_queue'
-  get 'admin/sidekiq/jobs/:jid' => 'admin#sidekiq_show_job'
-  post 'admin/sidekiq/jobs/:jid/retry' => 'admin#sidekiq_retry_job'
-  get 'admin/sidekiq/jobs/:jid/actions' => 'admin#actions_index_sidekiq_job'
-  get 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#describe_retry_sidekiq_job'
-  post 'admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#execute_retry_sidekiq_job'
-  get 'admin/security' => 'admin#security_dashboard'
-  get 'admin/security/events/:line_number' => 'admin#security_event'
+  # ============================================================
+  # NEW ADMIN ROUTES (fresh implementation - separate from /admin)
+  # ============================================================
 
-  # Admin user management
-  get 'admin/users' => 'admin#users'
-  get 'admin/users/:handle' => 'admin#show_user', as: 'admin_user'
-  get 'admin/users/:handle/actions' => 'admin#actions_index_user'
-  get 'admin/users/:handle/actions/suspend_user' => 'admin#describe_suspend_user'
-  post 'admin/users/:handle/actions/suspend_user' => 'admin#execute_suspend_user'
-  get 'admin/users/:handle/actions/unsuspend_user' => 'admin#describe_unsuspend_user'
-  post 'admin/users/:handle/actions/unsuspend_user' => 'admin#execute_unsuspend_user'
+  # System Admin (primary tenant only, sys_admin role on User)
+  # For system-level operations: Sidekiq, monitoring, etc.
+  get 'system-admin' => 'system_admin#dashboard'
+  get 'system-admin/sidekiq' => 'system_admin#sidekiq'
+  get 'system-admin/sidekiq/queues/:name' => 'system_admin#sidekiq_show_queue'
+  get 'system-admin/sidekiq/jobs/:jid' => 'system_admin#sidekiq_show_job'
+  post 'system-admin/sidekiq/jobs/:jid/retry' => 'system_admin#sidekiq_retry_job'
+  get 'system-admin/sidekiq/jobs/:jid/actions' => 'system_admin#sidekiq_job_actions_index'
+  get 'system-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'system_admin#describe_retry_sidekiq_job'
+  post 'system-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'system_admin#execute_retry_sidekiq_job'
+
+  # App Admin (primary tenant only, app_admin role on User)
+  # For cross-tenant management: tenants, users across all tenants
+  get 'app-admin' => 'app_admin#dashboard'
+  get 'app-admin/tenants' => 'app_admin#tenants'
+  get 'app-admin/tenants/new' => 'app_admin#new_tenant'
+  post 'app-admin/tenants' => 'app_admin#create_tenant'
+  get 'app-admin/tenants/new/actions' => 'app_admin#actions_index_new_tenant'
+  get 'app-admin/tenants/new/actions/create_tenant' => 'app_admin#describe_create_tenant'
+  post 'app-admin/tenants/new/actions/create_tenant' => 'app_admin#execute_create_tenant'
+  get 'app-admin/tenants/:subdomain/complete' => 'app_admin#complete_tenant_creation'
+  get 'app-admin/tenants/:subdomain' => 'app_admin#show_tenant'
+  get 'app-admin/users' => 'app_admin#users'
+  get 'app-admin/users/:id' => 'app_admin#show_user', as: 'app_admin_user'
+  get 'app-admin/users/:id/actions' => 'app_admin#actions_index_user'
+  get 'app-admin/users/:id/actions/suspend_user' => 'app_admin#describe_suspend_user'
+  post 'app-admin/users/:id/actions/suspend_user' => 'app_admin#execute_suspend_user'
+  get 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#describe_unsuspend_user'
+  post 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#execute_unsuspend_user'
+  get 'app-admin/security' => 'app_admin#security_dashboard'
+  get 'app-admin/security/events/:line_number' => 'app_admin#security_event'
+
+  # Tenant Admin (any tenant, admin role on TenantUser)
+  # For single-tenant management: settings, users
+  get 'tenant-admin' => 'tenant_admin#dashboard'
+  get 'tenant-admin/actions' => 'tenant_admin#actions_index'
+  get 'tenant-admin/settings' => 'tenant_admin#settings'
+  post 'tenant-admin/settings' => 'tenant_admin#update_settings'
+  get 'tenant-admin/settings/actions' => 'tenant_admin#actions_index_settings'
+  get 'tenant-admin/settings/actions/update_tenant_settings' => 'tenant_admin#describe_update_settings'
+  post 'tenant-admin/settings/actions/update_tenant_settings' => 'tenant_admin#execute_update_settings'
+  get 'tenant-admin/users' => 'tenant_admin#users'
+  get 'tenant-admin/users/:handle' => 'tenant_admin#show_user', as: 'tenant_admin_user'
+  # Note: Tenant admins do NOT have suspend/unsuspend actions - only app admins can suspend users
+
+  # ============================================================
+  # Admin Chooser (smart redirect based on user's admin roles)
+  # ============================================================
+
+  get 'admin' => 'admin_chooser#index'
+
+  # ============================================================
+  # LEGACY ADMIN ROUTES (deprecated - use /system-admin, /app-admin, /tenant-admin instead)
+  # ============================================================
+
+  get 'legacy-admin' => 'admin#admin'
+  get 'legacy-admin/actions' => 'admin#actions_index'
+  get 'legacy-admin/settings' => 'admin#tenant_settings'
+  post 'legacy-admin/settings' => 'admin#update_tenant_settings'
+  get 'legacy-admin/settings/actions' => 'admin#actions_index_settings'
+  get 'legacy-admin/settings/actions/update_tenant_settings' => 'admin#describe_update_tenant_settings'
+  post 'legacy-admin/settings/actions/update_tenant_settings' => 'admin#execute_update_tenant_settings'
+  get 'legacy-admin/tenants' => 'admin#tenants'
+  get 'legacy-admin/tenants/new' => 'admin#new_tenant'
+  post 'legacy-admin/tenants' => 'admin#create_tenant'
+  get 'legacy-admin/tenants/new/actions' => 'admin#actions_index_new_tenant'
+  get 'legacy-admin/tenants/new/actions/create_tenant' => 'admin#describe_create_tenant'
+  post 'legacy-admin/tenants/new/actions/create_tenant' => 'admin#execute_create_tenant'
+  get 'legacy-admin/tenants/:subdomain/complete' => 'admin#complete_tenant_creation'
+  get 'legacy-admin/tenants/:subdomain' => 'admin#show_tenant'
+  get 'legacy-admin/sidekiq' => 'admin#sidekiq'
+  get 'legacy-admin/sidekiq/queues/:name' => 'admin#sidekiq_show_queue'
+  get 'legacy-admin/sidekiq/jobs/:jid' => 'admin#sidekiq_show_job'
+  post 'legacy-admin/sidekiq/jobs/:jid/retry' => 'admin#sidekiq_retry_job'
+  get 'legacy-admin/sidekiq/jobs/:jid/actions' => 'admin#actions_index_sidekiq_job'
+  get 'legacy-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#describe_retry_sidekiq_job'
+  post 'legacy-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#execute_retry_sidekiq_job'
+  get 'legacy-admin/security' => 'admin#security_dashboard'
+  get 'legacy-admin/security/events/:line_number' => 'admin#security_event'
+
+  # Legacy admin user management
+  get 'legacy-admin/users' => 'admin#users'
+  get 'legacy-admin/users/:handle' => 'admin#show_user', as: 'legacy_admin_user'
+  get 'legacy-admin/users/:handle/actions' => 'admin#actions_index_user'
+  get 'legacy-admin/users/:handle/actions/suspend_user' => 'admin#describe_suspend_user'
+  post 'legacy-admin/users/:handle/actions/suspend_user' => 'admin#execute_suspend_user'
+  get 'legacy-admin/users/:handle/actions/unsuspend_user' => 'admin#describe_unsuspend_user'
+  post 'legacy-admin/users/:handle/actions/unsuspend_user' => 'admin#execute_unsuspend_user'
 
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member

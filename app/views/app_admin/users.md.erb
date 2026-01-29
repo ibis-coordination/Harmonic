@@ -1,0 +1,54 @@
+# All Users
+
+[Back to App Admin](/app-admin)
+
+All users across all tenants (<%= @total_users %> total)
+
+<% if @search_query.present? -%>
+**Search:** `<%= @search_query %>` ([Clear search](/app-admin/users))
+
+<% end -%>
+<% if @total_pages > 1 -%>
+**Page <%= @page %> of <%= @total_pages %>**
+<% base_url = @search_query.present? ? "/app-admin/users?q=#{CGI.escape(@search_query)}&" : "/app-admin/users?" -%>
+<% if @page > 1 -%>[Previous](<%= base_url %>page=<%= @page - 1 %>)<% end -%>
+<% if @page > 1 && @page < @total_pages %> | <% end -%>
+<% if @page < @total_pages -%>[Next](<%= base_url %>page=<%= @page + 1 %>)<% end %>
+
+<% end -%>
+<% user_type_labels = { 'person' => 'People', 'subagent' => 'Subagents' } -%>
+<% ['person', 'subagent'].each do |user_type| -%>
+<% users = @users_by_type[user_type] || [] -%>
+<% total_count = @counts_by_type[user_type] || 0 -%>
+## <%= user_type_labels[user_type] || user_type.titleize %> (<%= total_count %> total)
+
+<% if users.any? -%>
+| Name | Email | Status |
+|------|-------|--------|
+<% users.each do |user| -%>
+<% status_badges = [] -%>
+<% status_badges << 'app_admin' if user.app_admin? -%>
+<% status_badges << 'sys_admin' if user.sys_admin? -%>
+<% status_badges << 'SUSPENDED' if user.suspended? -%>
+| [<%= user.display_name || user.name %>](/app-admin/users/<%= user.id %>) | <%= user.email %> | <%= status_badges.join(', ') %> |
+<% end -%>
+<% else -%>
+No <%= user_type_labels[user_type]&.downcase || user_type.pluralize %> found.
+
+<% end -%>
+<% end -%>
+<% if @total_pages > 1 -%>
+---
+
+**Page <%= @page %> of <%= @total_pages %>**
+<% base_url = @search_query.present? ? "/app-admin/users?q=#{CGI.escape(@search_query)}&" : "/app-admin/users?" -%>
+<% if @page > 1 -%>[Previous](<%= base_url %>page=<%= @page - 1 %>)<% end -%>
+<% if @page > 1 && @page < @total_pages %> | <% end -%>
+<% if @page < @total_pages -%>[Next](<%= base_url %>page=<%= @page + 1 %>)<% end %>
+
+<% end -%>
+## Actions
+
+To suspend or unsuspend a user, view their profile and use the available actions.
+
+To search by email, add `?q=<email>` to the URL.

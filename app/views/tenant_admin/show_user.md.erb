@@ -1,0 +1,30 @@
+# User: <%= @showing_user.display_name || @showing_user.name %>
+
+[Back to All Users](/tenant-admin/users)
+
+<% if @showing_user.suspended? %>
+**SUSPENDED**
+- Reason: <%= @showing_user.suspended_reason || 'No reason provided' %>
+- Suspended: <%= time_ago_in_words(@showing_user.suspended_at) %> ago
+<% if @showing_user.suspended_by %>
+- Suspended by: <%= @showing_user.suspended_by.display_name || @showing_user.suspended_by.email %>
+<% end %>
+
+<% end %>
+| Property | Value |
+|----------|-------|
+| Name | <%= @showing_user.display_name || @showing_user.name %> |
+| Email | `<%= @showing_user.email %>` |
+| Handle | [`@<%= @showing_user.handle %>`](/u/<%= @showing_user.handle %>) |
+| User Type | <%= @showing_user.user_type %> |
+<% if @showing_user.subagent? && @showing_user.parent -%>
+<% parent_tenant_user = @showing_user.parent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } -%>
+| Parent | [<%= @showing_user.parent.display_name || @showing_user.parent.name %>](/tenant-admin/users/<%= parent_tenant_user&.handle %>) |
+<% end -%>
+| Admin | <%= @is_admin ? 'Yes' : 'No' %> |
+| Status | <%= @showing_user.suspended? ? 'Suspended' : 'Active' %> |
+| Created | <%= time_ago_in_words(@showing_user.created_at) %> ago |
+
+---
+
+*Note: To suspend or unsuspend users, use [App Admin](/app-admin/users) (requires app admin access).*
