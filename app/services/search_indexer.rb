@@ -87,7 +87,9 @@ class SearchIndexer
 
   sig { returns(String) }
   def searchable_text
-    parts = [title, body]
+    # For Notes, only include body since title is derived from text (avoids duplication).
+    # For Decisions/Commitments, include both title and body since they're distinct fields.
+    parts = @item.is_a?(Note) ? [body] : [title, body]
 
     # Include comments text for Notes (but not for comments themselves)
     parts.concat(@item.comments.pluck(:text)) if @item.is_a?(Note) && !@item.is_comment?

@@ -535,6 +535,7 @@ class StudiosController < ApplicationController
       tenant: @current_tenant,
       superagent: @current_superagent,
       current_user: @current_user,
+      raw_query: params[:q],
       params: search_params.to_h,
     )
 
@@ -553,7 +554,7 @@ class StudiosController < ApplicationController
   private
 
   def search_params
-    params.permit(:q, :type, :cycle, :filters, :sort_by, :group_by, :cursor, :per_page)
+    params.permit(:type, :cycle, :filters, :sort_by, :group_by, :cursor, :per_page)
   end
 
   def search_json

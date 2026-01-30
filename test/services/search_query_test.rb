@@ -5,7 +5,8 @@ require "test_helper"
 class SearchQueryTest < ActiveSupport::TestCase
   setup do
     @tenant, @superagent, @user = create_tenant_studio_user
-    @note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Budget proposal")
+    # For Notes, searchable_text uses body (text) only since title is derived from text
+    @note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "Budget proposal details")
     @decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user, question: "Approve budget?")
     @commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Review budget")
 
@@ -366,5 +367,87 @@ class SearchQueryTest < ActiveSupport::TestCase
       params: {}
     )
     assert search_without_query.sort_by_options.none? { |opt| opt[1] == "relevance-desc" }
+  end
+
+  # Exact phrase matching tests
+
+  test "exact phrase matches consecutive substring" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "Budget proposal review")
+    SearchIndexer.reindex(note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: '"Budget proposal"',
+      params: { cycle: "all" }
+    )
+
+    assert_includes search.results.pluck(:item_id), note.id
+  end
+
+  test "exact phrase does NOT match different word order" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "proposal Budget")
+    SearchIndexer.reindex(note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: '"Budget proposal"',
+      params: { cycle: "all" }
+    )
+
+    # Should NOT include the note because word order is different
+    assert_not_includes search.results.pluck(:item_id), note.id
+  end
+
+  test "exact phrase does NOT match words in different positions" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "more search testing")
+    SearchIndexer.reindex(note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: '"testing more"',
+      params: { cycle: "all" }
+    )
+
+    # Should NOT include the note because "testing more" is not a consecutive substring
+    assert_not_includes search.results.pluck(:item_id), note.id
+  end
+
+  # Excluded terms tests
+
+  test "excluded term filters out matching results" do
+    note_with_term = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple banana")
+    note_without_term = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple cherry")
+    SearchIndexer.reindex(note_with_term)
+    SearchIndexer.reindex(note_without_term)
+
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: "apple -banana",
+      params: { cycle: "all" }
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_not_includes result_ids, note_with_term.id
+    assert_includes result_ids, note_without_term.id
+  end
+
+  test "multiple excluded terms filter correctly" do
+    note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple banana")
+    note2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple cherry")
+    note3 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple date")
+    SearchIndexer.reindex(note1)
+    SearchIndexer.reindex(note2)
+    SearchIndexer.reindex(note3)
+
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: "apple -banana -cherry",
+      params: { cycle: "all" }
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_not_includes result_ids, note1.id
+    assert_not_includes result_ids, note2.id
+    assert_includes result_ids, note3.id
   end
 end

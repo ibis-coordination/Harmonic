@@ -27,29 +27,15 @@
         <div class="pulse-form-row">
           <div class="pulse-form-group pulse-form-group-wide">
             <label class="pulse-form-label">Search</label>
-            <%= form.text_field :q, value: @search.query, class: 'pulse-form-input', placeholder: 'Search notes, decisions, commitments...' %>
-          </div>
-        </div>
-        <div class="pulse-form-row">
-          <div class="pulse-form-group">
-            <label class="pulse-form-label">Type</label>
-            <%= form.select :type, options_for_select(@search.type_options, params[:type] || 'all'), {}, { class: 'pulse-form-select' } %>
-          </div>
-          <div class="pulse-form-group">
-            <label class="pulse-form-label">Cycle</label>
-            <%= form.select :cycle, options_for_select(@search.cycle_options, @search.cycle_name), {}, { class: 'pulse-form-select' } %>
-          </div>
-          <div class="pulse-form-group">
-            <label class="pulse-form-label">Filter</label>
-            <%= form.select :filters, options_for_select(@search.filter_presets, params[:filters]), {}, { class: 'pulse-form-select' } %>
-          </div>
-          <div class="pulse-form-group">
-            <label class="pulse-form-label">Sort By</label>
-            <%= form.select :sort_by, options_for_select(@search.sort_by_options, @search.sort_by), {}, { class: 'pulse-form-select' } %>
-          </div>
-          <div class="pulse-form-group">
-            <label class="pulse-form-label">Group By</label>
-            <%= form.select :group_by, options_for_select(@search.group_by_options, @search.group_by || 'item_type'), {}, { class: 'pulse-form-select' } %>
+            <%= form.text_field :q,
+                value: params[:q],
+                class: 'pulse-form-input',
+                placeholder: 'budget type:note is:open sort:newest',
+                style: 'font-family: monospace;' %>
+            <p class="pulse-form-hint" style="margin-top: 0.25rem; font-size: 0.8rem; color: var(--color-fg-muted);">
+              Use operators: <code>type:</code> <code>is:</code> <code>has:</code> <code>by:</code> <code>sort:</code> <code>group:</code> <code>cycle:</code>
+              <a href="#search-help" style="margin-left: 0.5rem;">Syntax help ↓</a>
+            </p>
           </div>
           <div class="pulse-form-group pulse-form-group-submit">
             <%= form.submit 'Search', class: 'pulse-action-btn' %>
@@ -99,6 +85,36 @@
               class: 'pulse-action-btn pulse-action-btn-secondary' %>
         </div>
       <% end %>
+    </section>
+
+    <section id="search-help" class="pulse-settings-section" style="margin-top: 2rem;">
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Search Syntax</h3>
+      <p style="font-size: 0.9rem; color: var(--color-fg-muted); margin-bottom: 1rem;">
+        Use operators to filter, sort, and group results. Plain text searches content.
+      </p>
+      <table class="pulse-table" style="font-size: 0.85rem;">
+        <thead>
+          <tr><th>Operator</th><th>Values</th><th>Example</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>type:</code></td><td>note, decision, commitment (or n, d, c)</td><td><code>type:note</code></td></tr>
+          <tr><td><code>is:</code></td><td>open, closed, mine, pinned</td><td><code>is:open</code></td></tr>
+          <tr><td><code>has:</code></td><td>backlinks, links, participants</td><td><code>has:backlinks</code></td></tr>
+          <tr><td><code>by:</code></td><td>@handle or me</td><td><code>by:me</code></td></tr>
+          <tr><td><code>sort:</code></td><td>newest, oldest, updated, deadline, relevance</td><td><code>sort:newest</code></td></tr>
+          <tr><td><code>group:</code></td><td>type, status, date, week, month, none</td><td><code>group:type</code></td></tr>
+          <tr><td><code>cycle:</code></td><td>today, this-week, last-month, 2-weeks-ago, all</td><td><code>cycle:this-week</code></td></tr>
+          <tr><td><code>after:</code></td><td>YYYY-MM-DD or -Nd/-Nw/-Nm/-Ny</td><td><code>after:-7d</code></td></tr>
+          <tr><td><code>before:</code></td><td>YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny</td><td><code>before:+2w</code></td></tr>
+          <tr><td><code>limit:</code></td><td>1-100</td><td><code>limit:25</code></td></tr>
+        </tbody>
+      </table>
+      <p style="font-size: 0.85rem; color: var(--color-fg-muted); margin-top: 0.75rem;">
+        <strong>Examples:</strong>
+        <code style="display: block; margin: 0.25rem 0;">budget type:note is:open sort:newest</code>
+        <code style="display: block; margin: 0.25rem 0;">type:decision by:me cycle:this-week</code>
+        <code style="display: block; margin: 0.25rem 0;">"quarterly review" after:-30d group:type</code>
+      </p>
     </section>
   </div>
 </article>

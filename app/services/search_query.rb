@@ -23,15 +23,35 @@ class SearchQuery
       tenant: Tenant,
       superagent: Superagent,
       current_user: T.nilable(User),
-      params: T::Hash[T.any(String, Symbol), T.untyped]
+      params: T::Hash[T.any(String, Symbol), T.untyped],
+      raw_query: T.nilable(String)
     ).void
   end
-  def initialize(tenant:, superagent:, current_user:, params: {})
+  def initialize(tenant:, superagent:, current_user:, params: {}, raw_query: nil)
     @tenant = tenant
     @superagent = superagent
     @current_user = current_user
-    @params = params.with_indifferent_access
+    @raw_query = raw_query
+    @params = build_params(params)
   end
+
+  private
+
+  sig { params(params: T::Hash[T.any(String, Symbol), T.untyped]).returns(ActiveSupport::HashWithIndifferentAccess) }
+  def build_params(params)
+    base_params = params.with_indifferent_access
+
+    # If raw_query is provided, parse DSL and merge
+    if @raw_query.present?
+      parsed = SearchQueryParser.new(@raw_query).parse
+      # Parsed values override base params (DSL takes precedence)
+      base_params.merge!(parsed.compact)
+    end
+
+    base_params
+  end
+
+  public
 
   # Main query methods
 
@@ -128,6 +148,29 @@ class SearchQuery
     @filters ||= parse_comma_list(@params[:filters])
   end
 
+  sig { returns(T.nilable(String)) }
+  def after_date
+    @params[:after_date].presence
+  end
+
+  sig { returns(T.nilable(String)) }
+  def before_date
+    @params[:before_date].presence
+  end
+
+  sig { returns(T::Array[String]) }
+  def exact_phrases
+    @exact_phrases ||= Array(@params[:exact_phrases])
+  end
+
+  sig { returns(T::Array[String]) }
+  def excluded_terms
+    @excluded_terms ||= Array(@params[:excluded_terms])
+  end
+
+  sig { returns(T.nilable(String)) }
+  attr_reader :raw_query
+
   # Options for UI dropdowns
 
   sig { returns(T::Array[T::Array[String]]) }
@@ -202,6 +245,10 @@ class SearchQuery
   # To params for URL generation
   sig { returns(T::Hash[Symbol, T.untyped]) }
   def to_params
+    # If raw_query was used, return it as the primary param
+    return { q: @raw_query, cursor: @params[:cursor].presence }.compact_blank if @raw_query.present?
+
+    # Legacy mode: return individual params
     {
       q: query,
       type: @params[:type].presence,
@@ -230,6 +277,13 @@ class SearchQuery
 
   sig { void }
   def apply_text_search
+    apply_fuzzy_search
+    apply_exact_phrase_search
+    apply_excluded_terms
+  end
+
+  sig { void }
+  def apply_fuzzy_search
     return if query.blank?
 
     quoted_query = SearchIndex.connection.quote(query)
@@ -247,6 +301,32 @@ class SearchQuery
   end
 
   sig { void }
+  def apply_exact_phrase_search
+    return if exact_phrases.blank?
+
+    # Each exact phrase must appear as a substring (case-insensitive)
+    exact_phrases.each do |phrase|
+      @relation = T.must(@relation).where("searchable_text ILIKE ?", "%#{sanitize_like(phrase)}%")
+    end
+  end
+
+  sig { void }
+  def apply_excluded_terms
+    return if excluded_terms.blank?
+
+    # Results must NOT contain any excluded term (case-insensitive)
+    excluded_terms.each do |term|
+      @relation = T.must(@relation).where.not("searchable_text ILIKE ?", "%#{sanitize_like(term)}%")
+    end
+  end
+
+  sig { params(value: String).returns(String) }
+  def sanitize_like(value)
+    # Escape special LIKE characters: % _ \
+    value.gsub(/[%_\\]/) { |match| "\\#{match}" }
+  end
+
+  sig { void }
   def apply_type_filter
     return if types.blank? || types.include?("all")
 
@@ -259,6 +339,12 @@ class SearchQuery
 
   sig { void }
   def apply_time_window
+    # Explicit dates override cycle
+    if after_date.present? || before_date.present?
+      apply_explicit_dates
+      return
+    end
+
     return if cycle_name == "all"
 
     cycle_obj = cycle
@@ -269,6 +355,27 @@ class SearchQuery
     @relation = T.must(@relation)
       .where(search_index: { created_at: ...cycle_obj.end_date })
       .where("search_index.deadline > ?", cycle_obj.start_date)
+  end
+
+  sig { void }
+  def apply_explicit_dates
+    if after_date.present?
+      begin
+        date = Date.parse(T.must(after_date))
+        @relation = T.must(@relation).where(search_index: { created_at: date.beginning_of_day.. })
+      rescue ArgumentError
+        # Invalid date format, skip
+      end
+    end
+
+    return if before_date.blank?
+
+    begin
+      date = Date.parse(T.must(before_date))
+      @relation = T.must(@relation).where(search_index: { deadline: ..date.end_of_day })
+    rescue ArgumentError
+      # Invalid date format, skip
+    end
   end
 
   sig { void }
