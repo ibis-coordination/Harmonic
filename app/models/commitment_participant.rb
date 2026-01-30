@@ -4,6 +4,7 @@ class CommitmentParticipant < ApplicationRecord
   extend T::Sig
 
   include InvalidatesSearchIndex
+  include TracksUserItemStatus
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -70,5 +71,22 @@ class CommitmentParticipant < ApplicationRecord
   # Reindex the parent commitment when participants change (affects participant_count)
   def search_index_items
     [commitment].compact
+  end
+
+  # Track when a user commits to a commitment
+  def user_item_status_updates
+    return [] unless committed?
+    return [] if user_id.blank?
+
+    [
+      {
+        tenant_id: tenant_id,
+        user_id: user_id,
+        item_type: "Commitment",
+        item_id: commitment_id,
+        is_participating: true,
+        participated_at: committed_at,
+      },
+    ]
   end
 end

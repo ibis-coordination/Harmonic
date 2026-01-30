@@ -9,6 +9,7 @@ class SearchIndex < ApplicationRecord
   belongs_to :superagent
   belongs_to :created_by, class_name: "User", optional: true
   belongs_to :updated_by, class_name: "User", optional: true
+  belongs_to :replying_to, class_name: "User", optional: true
 
   # Virtual attribute for relevance scoring (set when searching with q parameter)
   attribute :relevance_score, :float
@@ -39,6 +40,11 @@ class SearchIndex < ApplicationRecord
   sig { returns(String) }
   def status
     is_open ? "open" : "closed"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_comment?
+    subtype == "comment"
   end
 
   # Grouping helpers
@@ -85,6 +91,7 @@ class SearchIndex < ApplicationRecord
       updated_at: updated_at,
       deadline: deadline,
       is_open: is_open,
+      subtype: subtype,
       backlink_count: backlink_count,
       link_count: link_count,
       participant_count: participant_count,

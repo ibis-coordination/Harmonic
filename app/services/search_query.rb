@@ -423,16 +423,19 @@ class SearchQuery
 
   sig { void }
   def apply_subtype_filter
-    # Handle -subtype:comment to exclude comments
+    # subtype:comment - only show comments
+    subtypes = Array(@params[:subtypes])
+    @relation = T.must(@relation).where(subtype: subtypes) if subtypes.present?
+
+    # -subtype:comment - exclude comments (or other subtypes)
     exclude_subtypes = Array(@params[:exclude_subtypes])
     return if exclude_subtypes.blank?
 
-    nil unless exclude_subtypes.include?("comment")
-    # Comments are Notes with a non-null commentable_type
-    # The search index includes the parent content, not comments directly,
-    # so this filter would require joining to the notes table.
-    # For now, we don't index comments, so this is a no-op.
-    # If we start indexing comments, we'll need to add a is_comment column to search_index.
+    # Must use explicit NULL handling: regular notes have subtype = NULL,
+    # and SQL's NULL != 'comment' returns NULL (not true), excluding those rows
+    exclude_subtypes.each do |subtype|
+      @relation = T.must(@relation).where("search_index.subtype IS NULL OR search_index.subtype != ?", subtype)
+    end
   end
 
   sig { void }
@@ -673,19 +676,20 @@ class SearchQuery
 
   sig { void }
   def apply_replying_to_filter
-    # replying-to:@handle - comments on content created by these users
+    # replying-to:@handle - comments that reply to content created by these users
     replying_to_handles = Array(@params[:replying_to_handles])
-    return if replying_to_handles.blank?
+    if replying_to_handles.present?
+      user_ids = find_user_ids_by_handles(replying_to_handles)
+      @relation = T.must(@relation).where(replying_to_id: user_ids)
+    end
 
-    find_user_ids_by_handles(replying_to_handles)
-    # This requires searching for notes where the commentable was created by the specified users
-    # Since we don't index comments directly, and search_index points to parent content,
-    # this filter would need a different approach.
-    # For now, we'll search for items where the user is the creator AND has comments
-    # This is a simplified implementation that may need refinement.
-    # TODO: Implement proper replying-to filter when we have comment indexing
+    # -replying-to:@handle - items NOT replying to content by these users
+    exclude_replying_to_handles = Array(@params[:exclude_replying_to_handles])
+    return if exclude_replying_to_handles.blank?
 
-    # -replying-to:@handle is not commonly needed, skip for now
+    exclude_user_ids = find_user_ids_by_handles(exclude_replying_to_handles)
+    # Exclude items that reply to these users (includes non-comments which have nil replying_to_id)
+    @relation = T.must(@relation).where.not(replying_to_id: exclude_user_ids)
   end
 
   sig { void }

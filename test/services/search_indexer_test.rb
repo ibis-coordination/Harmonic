@@ -55,16 +55,21 @@ class SearchIndexerTest < ActiveSupport::TestCase
     assert_equal commitment.truncated_id, search_index.truncated_id
   end
 
-  test "reindex skips comments (notes with commentable)" do
+  test "reindex creates search index for comments with subtype and replying_to_id" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     comment = note.add_comment(text: "This is a comment", created_by: @user)
 
     # Clear any records created by callbacks
     SearchIndex.where(item_type: "Note", item_id: comment.id).delete_all
 
-    assert_no_difference "SearchIndex.count" do
+    assert_difference "SearchIndex.count", 1 do
       SearchIndexer.reindex(comment)
     end
+
+    search_index = SearchIndex.find_by(item_type: "Note", item_id: comment.id)
+    assert_equal "comment", search_index.subtype
+    assert_equal note.created_by_id, search_index.replying_to_id
+    assert_equal comment.deadline, search_index.deadline
   end
 
   test "reindex updates existing search index on subsequent calls" do
@@ -112,18 +117,31 @@ class SearchIndexerTest < ActiveSupport::TestCase
     assert_includes search_index.searchable_text, "Option B"
   end
 
-  test "searchable_text includes comments for notes" do
+  test "comments are indexed separately (not included in parent searchable_text)" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    note.add_comment(text: "First comment", created_by: @user)
-    note.add_comment(text: "Second comment", created_by: @user)
+    comment1 = note.add_comment(text: "First comment", created_by: @user)
+    comment2 = note.add_comment(text: "Second comment", created_by: @user)
 
     # Clear any records created by callbacks and reindex
-    SearchIndex.where(item_type: "Note", item_id: note.id).delete_all
+    SearchIndex.where(item_type: "Note").delete_all
     SearchIndexer.reindex(note)
+    SearchIndexer.reindex(comment1)
+    SearchIndexer.reindex(comment2)
 
-    search_index = SearchIndex.find_by(item_type: "Note", item_id: note.id)
-    assert_includes search_index.searchable_text, "First comment"
-    assert_includes search_index.searchable_text, "Second comment"
+    # Parent note's searchable_text does NOT include comment text
+    parent_search_index = SearchIndex.find_by(item_type: "Note", item_id: note.id)
+    assert_not_includes parent_search_index.searchable_text, "First comment"
+    assert_not_includes parent_search_index.searchable_text, "Second comment"
+    assert_nil parent_search_index.subtype
+
+    # Each comment has its own search index entry
+    comment1_search_index = SearchIndex.find_by(item_type: "Note", item_id: comment1.id)
+    assert_includes comment1_search_index.searchable_text, "First comment"
+    assert_equal "comment", comment1_search_index.subtype
+
+    comment2_search_index = SearchIndex.find_by(item_type: "Note", item_id: comment2.id)
+    assert_includes comment2_search_index.searchable_text, "Second comment"
+    assert_equal "comment", comment2_search_index.subtype
   end
 
   test "reindex counts backlinks correctly" do

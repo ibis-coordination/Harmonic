@@ -245,6 +245,7 @@ class SearchQueryParser
     # Type filter
     params[:type] = build_type_param
     params[:exclude_types] = build_exclude_types_param
+    params[:subtypes] = build_subtypes_param
     params[:exclude_subtypes] = build_exclude_subtypes_param
 
     # Status filter (replaces is:open/is:closed)
@@ -319,6 +320,15 @@ class SearchQueryParser
     return nil if negated_types.blank?
 
     negated_types
+  end
+
+  sig { returns(T.nilable(T::Array[String])) }
+  def build_subtypes_param
+    # Collect subtypes to include (from subtype:comment)
+    subtypes = @operators["subtype"]
+    return nil if subtypes.blank?
+
+    subtypes
   end
 
   sig { returns(T.nilable(T::Array[String])) }

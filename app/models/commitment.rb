@@ -9,6 +9,7 @@ class Commitment < ApplicationRecord
   include HasTruncatedId
   include Attachable
   include Searchable
+  include TracksUserItemStatus
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -154,5 +155,22 @@ class Commitment < ApplicationRecord
     participant.save!
     close_if_limit_reached!
     participant
+  end
+
+  private
+
+  # Track the creator of this commitment
+  def user_item_status_updates
+    return [] if created_by_id.blank?
+
+    [
+      {
+        tenant_id: tenant_id,
+        user_id: created_by_id,
+        item_type: "Commitment",
+        item_id: id,
+        is_creator: true,
+      },
+    ]
   end
 end

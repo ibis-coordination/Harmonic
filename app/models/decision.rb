@@ -9,6 +9,7 @@ class Decision < ApplicationRecord
   include HasTruncatedId
   include Attachable
   include Searchable
+  include TracksUserItemStatus
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -174,4 +175,20 @@ class Decision < ApplicationRecord
     'd'
   end
 
+  private
+
+  # Track the creator of this decision
+  def user_item_status_updates
+    return [] if created_by_id.blank?
+
+    [
+      {
+        tenant_id: tenant_id,
+        user_id: created_by_id,
+        item_type: "Decision",
+        item_id: id,
+        is_creator: true,
+      },
+    ]
+  end
 end

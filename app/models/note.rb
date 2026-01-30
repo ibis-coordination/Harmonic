@@ -10,6 +10,7 @@ class Note < ApplicationRecord
   include Commentable
   include Searchable
   include InvalidatesSearchIndex
+  include TracksUserItemStatus
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -235,5 +236,20 @@ class Note < ApplicationRecord
     return [] unless SEARCHABLE_COMMENTABLE_TYPES.include?(commentable_type)
 
     [commentable].compact
+  end
+
+  # Track the creator of this note (including comments)
+  def user_item_status_updates
+    return [] if created_by_id.blank?
+
+    [
+      {
+        tenant_id: tenant_id,
+        user_id: created_by_id,
+        item_type: "Note",
+        item_id: id,
+        is_creator: true,
+      },
+    ]
   end
 end

@@ -114,6 +114,40 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_equal 2, results.count
   end
 
+  # Subtype filter tests
+
+  test "subtype:comment returns only comments" do
+    comment = @note.add_comment(text: "This is a comment", created_by: @user)
+    SearchIndexer.reindex(comment)
+
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: "subtype:comment cycle:all"
+    )
+
+    results = search.results
+    assert results.all? { |r| r.subtype == "comment" }
+    assert_includes results.pluck(:item_id), comment.id
+  end
+
+  test "-subtype:comment excludes comments and includes regular notes" do
+    comment = @note.add_comment(text: "This is a comment", created_by: @user)
+    SearchIndexer.reindex(comment)
+
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: "type:note -subtype:comment cycle:all"
+    )
+
+    results = search.results
+    # Should include regular notes (subtype is NULL)
+    assert_includes results.pluck(:item_id), @note.id
+    # Should exclude comments
+    assert_not_includes results.pluck(:item_id), comment.id
+    # All results should have nil subtype
+    assert results.all? { |r| r.subtype.nil? }
+  end
+
   # Time window tests
 
   test "cycle filter restricts to time window" do

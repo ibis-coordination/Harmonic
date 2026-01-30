@@ -4,6 +4,7 @@ class NoteHistoryEvent < ApplicationRecord
   extend T::Sig
 
   include InvalidatesSearchIndex
+  include TracksUserItemStatus
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -76,5 +77,22 @@ class NoteHistoryEvent < ApplicationRecord
     return [] unless event_type == "read_confirmation"
 
     [note].compact
+  end
+
+  # Track when a user confirms reading a note
+  def user_item_status_updates
+    return [] unless event_type == "read_confirmation"
+    return [] if user_id.blank?
+
+    [
+      {
+        tenant_id: tenant_id,
+        user_id: user_id,
+        item_type: "Note",
+        item_id: note_id,
+        has_read: true,
+        read_at: happened_at,
+      },
+    ]
   end
 end

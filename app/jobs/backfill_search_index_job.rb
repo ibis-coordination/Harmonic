@@ -6,6 +6,9 @@ class BackfillSearchIndexJob < ApplicationJob
   def perform(tenant_id: nil)
     Rails.logger.info "Starting search index backfill..."
 
+    # First, clean up orphaned entries (items that no longer exist)
+    cleanup_orphaned_entries(tenant_id)
+
     if tenant_id
       backfill_tenant(tenant_id)
     else
@@ -16,6 +19,45 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   private
+
+  def cleanup_orphaned_entries(tenant_id)
+    Rails.logger.info "Cleaning up orphaned search index entries..."
+
+    tenant_condition = tenant_id ? "AND si.tenant_id = '#{tenant_id}'" : ""
+
+    # Delete Note entries where the note doesn't exist
+    deleted_notes = ActiveRecord::Base.connection.execute(<<-SQL.squish)
+      DELETE FROM search_index si
+      WHERE si.item_type = 'Note'
+      #{tenant_condition}
+      AND NOT EXISTS (
+        SELECT 1 FROM notes n WHERE n.id = si.item_id
+      )
+    SQL
+
+    # Delete Decision entries where the decision doesn't exist
+    deleted_decisions = ActiveRecord::Base.connection.execute(<<-SQL.squish)
+      DELETE FROM search_index si
+      WHERE si.item_type = 'Decision'
+      #{tenant_condition}
+      AND NOT EXISTS (
+        SELECT 1 FROM decisions d WHERE d.id = si.item_id
+      )
+    SQL
+
+    # Delete Commitment entries where the commitment doesn't exist
+    deleted_commitments = ActiveRecord::Base.connection.execute(<<-SQL.squish)
+      DELETE FROM search_index si
+      WHERE si.item_type = 'Commitment'
+      #{tenant_condition}
+      AND NOT EXISTS (
+        SELECT 1 FROM commitments c WHERE c.id = si.item_id
+      )
+    SQL
+
+    total = deleted_notes.cmd_tuples + deleted_decisions.cmd_tuples + deleted_commitments.cmd_tuples
+    Rails.logger.info "Removed #{total} orphaned search index entries" if total.positive?
+  end
 
   def backfill_tenant(tenant_id)
     Rails.logger.info "Backfilling tenant: #{tenant_id}"
@@ -134,8 +176,8 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   def backfill_note_creators(tenant_id)
+    # Include both regular notes and comments (which are also Notes)
     Note.unscoped.where(tenant_id: tenant_id).find_each(batch_size: 100) do |note|
-      next if note.is_comment?
       next unless note.created_by_id
 
       upsert_creator_status(note.tenant_id, note.created_by_id, "Note", note.id)
