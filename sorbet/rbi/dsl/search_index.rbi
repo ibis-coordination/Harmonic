@@ -1160,6 +1160,51 @@ class SearchIndex
     sig { void }
     def participant_count_will_change!; end
 
+    sig { returns(::Integer) }
+    def reader_count; end
+
+    sig { params(value: ::Integer).returns(::Integer) }
+    def reader_count=(value); end
+
+    sig { returns(T::Boolean) }
+    def reader_count?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def reader_count_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def reader_count_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def reader_count_came_from_user?; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def reader_count_change; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def reader_count_change_to_be_saved; end
+
+    sig { params(from: ::Integer, to: ::Integer).returns(T::Boolean) }
+    def reader_count_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def reader_count_in_database; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def reader_count_previous_change; end
+
+    sig { params(from: ::Integer, to: ::Integer).returns(T::Boolean) }
+    def reader_count_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def reader_count_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def reader_count_was; end
+
+    sig { void }
+    def reader_count_will_change!; end
+
     sig { returns(::Float) }
     def relevance_score; end
 
@@ -1245,13 +1290,13 @@ class SearchIndex
     def restore_participant_count!; end
 
     sig { void }
+    def restore_reader_count!; end
+
+    sig { void }
     def restore_relevance_score!; end
 
     sig { void }
     def restore_searchable_text!; end
-
-    sig { void }
-    def restore_searchable_tsvector!; end
 
     sig { void }
     def restore_sort_key!; end
@@ -1355,6 +1400,12 @@ class SearchIndex
     sig { returns(T::Boolean) }
     def saved_change_to_participant_count?; end
 
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def saved_change_to_reader_count; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_reader_count?; end
+
     sig { returns(T.nilable([::Float, ::Float])) }
     def saved_change_to_relevance_score; end
 
@@ -1366,12 +1417,6 @@ class SearchIndex
 
     sig { returns(T::Boolean) }
     def saved_change_to_searchable_text?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_searchable_tsvector; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_searchable_tsvector?; end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def saved_change_to_sort_key; end
@@ -1465,51 +1510,6 @@ class SearchIndex
 
     sig { void }
     def searchable_text_will_change!; end
-
-    sig { returns(T.nilable(::String)) }
-    def searchable_tsvector; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def searchable_tsvector=(value); end
-
-    sig { returns(T::Boolean) }
-    def searchable_tsvector?; end
-
-    sig { returns(T.nilable(::String)) }
-    def searchable_tsvector_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def searchable_tsvector_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def searchable_tsvector_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def searchable_tsvector_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def searchable_tsvector_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def searchable_tsvector_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def searchable_tsvector_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def searchable_tsvector_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def searchable_tsvector_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def searchable_tsvector_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def searchable_tsvector_was; end
-
-    sig { void }
-    def searchable_tsvector_will_change!; end
 
     sig { returns(::Integer) }
     def sort_key; end
@@ -1911,13 +1911,13 @@ class SearchIndex
     def will_save_change_to_participant_count?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_reader_count?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_relevance_score?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_searchable_text?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_searchable_tsvector?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_sort_key?; end

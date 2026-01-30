@@ -30,10 +30,10 @@
             <%= form.text_field :q,
                 value: params[:q],
                 class: 'pulse-form-input',
-                placeholder: 'budget type:note is:open in:my-studio',
+                placeholder: 'budget type:note status:open studio:my-studio',
                 style: 'font-family: monospace;' %>
             <p class="pulse-form-hint" style="margin-top: 0.25rem; font-size: 0.8rem; color: var(--color-fg-muted);">
-              Use operators: <code>type:</code> <code>is:</code> <code>has:</code> <code>by:</code> <code>in:</code> <code>sort:</code> <code>group:</code> <code>cycle:</code>
+              Use operators: <code>type:</code> <code>status:</code> <code>creator:</code> <code>studio:</code> <code>scene:</code> <code>sort:</code> <code>group:</code>
               <a href="#search-help" style="margin-left: 0.5rem;">Syntax help ↓</a>
             </p>
           </div>
@@ -99,14 +99,22 @@
           <tr><th>Operator</th><th>Values</th><th>Example</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>type:</code></td><td>note, decision, commitment (or n, d, c)</td><td><code>type:note</code></td></tr>
-          <tr><td><code>is:</code></td><td>open, closed, mine, pinned</td><td><code>is:open</code></td></tr>
-          <tr><td><code>has:</code></td><td>backlinks, links, participants</td><td><code>has:backlinks</code></td></tr>
-          <tr><td><code>by:</code></td><td>@handle or me</td><td><code>by:me</code></td></tr>
-          <tr><td><code>in:</code></td><td>studio or scene handle</td><td><code>in:my-studio</code></td></tr>
+          <tr><td><code>type:</code></td><td>note, decision, commitment</td><td><code>type:note</code></td></tr>
+          <tr><td><code>subtype:</code></td><td>comment</td><td><code>-subtype:comment</code></td></tr>
+          <tr><td><code>status:</code></td><td>open, closed</td><td><code>status:open</code></td></tr>
+          <tr><td><code>studio:</code></td><td>studio handle</td><td><code>studio:my-studio</code></td></tr>
+          <tr><td><code>scene:</code></td><td>scene handle</td><td><code>scene:planning</code></td></tr>
+          <tr><td><code>creator:</code></td><td>@handle</td><td><code>creator:@alice</code></td></tr>
+          <tr><td><code>read-by:</code></td><td>@handle</td><td><code>-read-by:@myhandle</code></td></tr>
+          <tr><td><code>voter:</code></td><td>@handle</td><td><code>-voter:@myhandle</code></td></tr>
+          <tr><td><code>participant:</code></td><td>@handle</td><td><code>participant:@myhandle</code></td></tr>
+          <tr><td><code>mentions:</code></td><td>@handle</td><td><code>mentions:@myhandle</code></td></tr>
+          <tr><td><code>replying-to:</code></td><td>@handle</td><td><code>replying-to:@myhandle</code></td></tr>
+          <tr><td><code>min-*/max-*:</code></td><td>links, backlinks, comments, readers, voters, participants</td><td><code>min-backlinks:1</code></td></tr>
+          <tr><td><code>critical-mass-achieved:</code></td><td>true, false</td><td><code>critical-mass-achieved:true</code></td></tr>
           <tr><td><code>sort:</code></td><td>newest, oldest, updated, deadline, relevance</td><td><code>sort:newest</code></td></tr>
           <tr><td><code>group:</code></td><td>type, status, date, week, month, none</td><td><code>group:type</code></td></tr>
-          <tr><td><code>cycle:</code></td><td>today, this-week, last-month, 2-weeks-ago, all</td><td><code>cycle:this-week</code></td></tr>
+          <tr><td><code>cycle:</code></td><td>today, this-week, last-month, etc.</td><td><code>cycle:this-week</code></td></tr>
           <tr><td><code>after:</code></td><td>YYYY-MM-DD or -Nd/-Nw/-Nm/-Ny</td><td><code>after:-7d</code></td></tr>
           <tr><td><code>before:</code></td><td>YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny</td><td><code>before:+2w</code></td></tr>
           <tr><td><code>limit:</code></td><td>1-100</td><td><code>limit:25</code></td></tr>
@@ -114,9 +122,9 @@
       </table>
       <p style="font-size: 0.85rem; color: var(--color-fg-muted); margin-top: 0.75rem;">
         <strong>Examples:</strong>
-        <code style="display: block; margin: 0.25rem 0;">budget type:note is:open sort:newest</code>
-        <code style="display: block; margin: 0.25rem 0;">type:decision by:me in:team-alpha</code>
-        <code style="display: block; margin: 0.25rem 0;">"quarterly review" after:-30d group:type</code>
+        <code style="display: block; margin: 0.25rem 0;">budget type:note status:open sort:newest</code>
+        <code style="display: block; margin: 0.25rem 0;">type:decision -voter:@myhandle status:open</code>
+        <code style="display: block; margin: 0.25rem 0;">studio:team-alpha after:-7d -read-by:@myhandle</code>
       </p>
     </section>
   </div>

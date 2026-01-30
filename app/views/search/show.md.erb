@@ -4,7 +4,7 @@
 Query: "<%= @search.query %>"
 <% end -%>
 <% if @search.superagent.present? -%>
-In: <%= @search.superagent.name %>
+<%= @search.superagent.superagent_type.capitalize %>: <%= @search.superagent.name %>
 <% end -%>
 Total: <%= @total_count %> result<%= @total_count == 1 ? '' : 's' %>
 

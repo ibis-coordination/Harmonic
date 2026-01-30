@@ -5,6 +5,7 @@
   <div style="display:inline-block;vertical-align:top;margin-right:12px;"
        data-controller="header-search"
        data-header-search-superagent-handle-value="<%= search_superagent&.handle %>"
+       data-header-search-superagent-type-value="<%= search_superagent&.superagent_type %>"
        data-header-search-superagent-name-value="<%= search_superagent&.name %>">
     <form action="/search" method="get" class="header-search-form" data-header-search-target="form">
       <span class="header-search-icon" data-action="click->header-search#focusInput">

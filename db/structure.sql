@@ -1,4 +1,4 @@
-\restrict kcTSGWnXhIIVLh9DF6CmssVInPoM8ixPT1QKcdioUnLXXn126LojhDYzNtw6rcA
+\restrict u2tuCa019rI3tdc3xdXbPEsc4U0t7GrR30Xk2HBOZo7k5grWVlattvwW8YHVvSG
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -645,7 +645,8 @@ CREATE TABLE public.search_index (
     option_count integer DEFAULT 0,
     comment_count integer DEFAULT 0,
     is_pinned boolean DEFAULT false,
-    sort_key bigint NOT NULL
+    sort_key bigint NOT NULL,
+    reader_count integer DEFAULT 0 NOT NULL
 );
 
 
@@ -3000,7 +3001,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict kcTSGWnXhIIVLh9DF6CmssVInPoM8ixPT1QKcdioUnLXXn126LojhDYzNtw6rcA
+\unrestrict u2tuCa019rI3tdc3xdXbPEsc4U0t7GrR30Xk2HBOZo7k5grWVlattvwW8YHVvSG
 
 SET search_path TO "$user", public;
 
@@ -3119,6 +3120,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260128200000'),
 ('20260128232615'),
 ('20260129083556'),
-('20260129084357');
+('20260129084357'),
+('20260130063701');
 
 

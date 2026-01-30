@@ -59,89 +59,194 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_nil result[:type]
   end
 
-  # is: operator
-
-  test "is:open adds open filter" do
-    result = SearchQueryParser.new("is:open").parse
-    assert_includes result[:filters], "open"
-  end
-
-  test "is:closed adds closed filter" do
-    result = SearchQueryParser.new("is:closed").parse
-    assert_includes result[:filters], "closed"
-  end
-
-  test "is:mine adds mine filter" do
-    result = SearchQueryParser.new("is:mine").parse
-    assert_includes result[:filters], "mine"
-  end
-
-  test "is:pinned adds pinned filter" do
-    result = SearchQueryParser.new("is:pinned").parse
-    assert_includes result[:filters], "pinned"
-  end
-
-  test "multiple is: values combined" do
-    result = SearchQueryParser.new("is:open,mine").parse
-    assert_includes result[:filters], "open"
-    assert_includes result[:filters], "mine"
-  end
-
-  # Negation
-
-  test "-is:mine adds not_mine filter" do
-    result = SearchQueryParser.new("-is:mine").parse
-    assert_includes result[:filters], "not_mine"
-  end
-
-  test "-is:open adds closed filter" do
-    result = SearchQueryParser.new("-is:open").parse
-    assert_includes result[:filters], "closed"
-  end
-
-  test "-is:closed adds open filter" do
-    result = SearchQueryParser.new("-is:closed").parse
-    assert_includes result[:filters], "open"
-  end
-
   test "-type:note excludes notes" do
-    result = SearchQueryParser.new("type:note,decision -type:note").parse
+    result = SearchQueryParser.new("-type:note").parse
+    assert_equal ["note"], result[:exclude_types]
+    assert_nil result[:type]
+  end
+
+  test "-type:note,decision excludes multiple types" do
+    result = SearchQueryParser.new("-type:note,decision").parse
+    assert_equal ["note", "decision"], result[:exclude_types]
+    assert_nil result[:type]
+  end
+
+  test "type:decision -type:note works together" do
+    result = SearchQueryParser.new("type:decision -type:note").parse
     assert_equal "decision", result[:type]
+    assert_equal ["note"], result[:exclude_types]
   end
 
-  # has: operator
+  # status: operator
 
-  test "has:backlinks adds has_backlinks filter" do
-    result = SearchQueryParser.new("has:backlinks").parse
-    assert_includes result[:filters], "has_backlinks"
+  test "status:open sets open status" do
+    result = SearchQueryParser.new("status:open").parse
+    assert_equal "open", result[:status]
   end
 
-  test "has:links adds has_links filter" do
-    result = SearchQueryParser.new("has:links").parse
-    assert_includes result[:filters], "has_links"
+  test "status:closed sets closed status" do
+    result = SearchQueryParser.new("status:closed").parse
+    assert_equal "closed", result[:status]
   end
 
-  test "has:participants adds has_participants filter" do
-    result = SearchQueryParser.new("has:participants").parse
-    assert_includes result[:filters], "has_participants"
+  test "-status:open sets closed status" do
+    result = SearchQueryParser.new("-status:open").parse
+    assert_equal "closed", result[:status]
   end
 
-  # by: operator
-
-  test "by:me adds mine filter" do
-    result = SearchQueryParser.new("by:me").parse
-    assert_includes result[:filters], "mine"
+  test "-status:closed sets open status" do
+    result = SearchQueryParser.new("-status:closed").parse
+    assert_equal "open", result[:status]
   end
 
-  test "by:@alice adds created_by filter" do
-    result = SearchQueryParser.new("by:@alice").parse
-    assert_includes result[:filters], "created_by:alice"
+  # subtype: operator
+
+  test "-subtype:comment excludes comments" do
+    result = SearchQueryParser.new("-subtype:comment").parse
+    assert_equal ["comment"], result[:exclude_subtypes]
   end
 
-  test "by:@alice,@bob adds multiple created_by filters" do
-    result = SearchQueryParser.new("by:@alice,@bob").parse
-    assert_includes result[:filters], "created_by:alice"
-    assert_includes result[:filters], "created_by:bob"
+  # creator: operator
+
+  test "creator:@alice sets creator handles" do
+    result = SearchQueryParser.new("creator:@alice").parse
+    assert_equal ["alice"], result[:creator_handles]
+  end
+
+  test "creator:@alice,@bob sets multiple creator handles" do
+    result = SearchQueryParser.new("creator:@alice,@bob").parse
+    assert_equal ["alice", "bob"], result[:creator_handles]
+  end
+
+  test "-creator:@alice sets exclude creator handles" do
+    result = SearchQueryParser.new("-creator:@alice").parse
+    assert_equal ["alice"], result[:exclude_creator_handles]
+  end
+
+  # read-by: operator
+
+  test "read-by:@alice sets read_by handles" do
+    result = SearchQueryParser.new("read-by:@alice").parse
+    assert_equal ["alice"], result[:read_by_handles]
+  end
+
+  test "-read-by:@alice sets exclude read_by handles" do
+    result = SearchQueryParser.new("-read-by:@alice").parse
+    assert_equal ["alice"], result[:exclude_read_by_handles]
+  end
+
+  # voter: operator
+
+  test "voter:@alice sets voter handles" do
+    result = SearchQueryParser.new("voter:@alice").parse
+    assert_equal ["alice"], result[:voter_handles]
+  end
+
+  test "-voter:@alice sets exclude voter handles" do
+    result = SearchQueryParser.new("-voter:@alice").parse
+    assert_equal ["alice"], result[:exclude_voter_handles]
+  end
+
+  # participant: operator
+
+  test "participant:@alice sets participant handles" do
+    result = SearchQueryParser.new("participant:@alice").parse
+    assert_equal ["alice"], result[:participant_handles]
+  end
+
+  test "-participant:@alice sets exclude participant handles" do
+    result = SearchQueryParser.new("-participant:@alice").parse
+    assert_equal ["alice"], result[:exclude_participant_handles]
+  end
+
+  # mentions: operator
+
+  test "mentions:@alice sets mentions handles" do
+    result = SearchQueryParser.new("mentions:@alice").parse
+    assert_equal ["alice"], result[:mentions_handles]
+  end
+
+  test "-mentions:@alice sets exclude mentions handles" do
+    result = SearchQueryParser.new("-mentions:@alice").parse
+    assert_equal ["alice"], result[:exclude_mentions_handles]
+  end
+
+  # replying-to: operator
+
+  test "replying-to:@alice sets replying_to handles" do
+    result = SearchQueryParser.new("replying-to:@alice").parse
+    assert_equal ["alice"], result[:replying_to_handles]
+  end
+
+  # min/max count operators
+
+  test "min-backlinks:1 sets min_backlinks" do
+    result = SearchQueryParser.new("min-backlinks:1").parse
+    assert_equal 1, result[:min_backlinks]
+  end
+
+  test "max-backlinks:10 sets max_backlinks" do
+    result = SearchQueryParser.new("max-backlinks:10").parse
+    assert_equal 10, result[:max_backlinks]
+  end
+
+  test "min-links:1 sets min_links" do
+    result = SearchQueryParser.new("min-links:1").parse
+    assert_equal 1, result[:min_links]
+  end
+
+  test "min-comments:5 sets min_comments" do
+    result = SearchQueryParser.new("min-comments:5").parse
+    assert_equal 5, result[:min_comments]
+  end
+
+  test "min-readers:10 sets min_readers" do
+    result = SearchQueryParser.new("min-readers:10").parse
+    assert_equal 10, result[:min_readers]
+  end
+
+  test "min-voters:3 sets min_voters" do
+    result = SearchQueryParser.new("min-voters:3").parse
+    assert_equal 3, result[:min_voters]
+  end
+
+  test "min-participants:2 sets min_participants" do
+    result = SearchQueryParser.new("min-participants:2").parse
+    assert_equal 2, result[:min_participants]
+  end
+
+  # critical-mass-achieved: operator
+
+  test "critical-mass-achieved:true sets critical_mass_achieved to true" do
+    result = SearchQueryParser.new("critical-mass-achieved:true").parse
+    assert_equal true, result[:critical_mass_achieved]
+  end
+
+  test "critical-mass-achieved:false sets critical_mass_achieved to false" do
+    result = SearchQueryParser.new("critical-mass-achieved:false").parse
+    assert_equal false, result[:critical_mass_achieved]
+  end
+
+  # studio: and scene: operators
+
+  test "studio:my-studio sets studio_handle" do
+    result = SearchQueryParser.new("studio:my-studio").parse
+    assert_equal "my-studio", result[:studio_handle]
+  end
+
+  test "scene:planning sets scene_handle" do
+    result = SearchQueryParser.new("scene:planning").parse
+    assert_equal "planning", result[:scene_handle]
+  end
+
+  test "studio: operator accepts alphanumeric with dashes" do
+    result = SearchQueryParser.new("studio:test-studio-123").parse
+    assert_equal "test-studio-123", result[:studio_handle]
+  end
+
+  test "studio: operator is case insensitive for value" do
+    result = SearchQueryParser.new("studio:My-Studio").parse
+    assert_equal "my-studio", result[:studio_handle]
   end
 
   # sort: operator
@@ -348,27 +453,27 @@ class SearchQueryParserTest < ActiveSupport::TestCase
   # Combined queries
 
   test "search text with operators" do
-    result = SearchQueryParser.new("budget type:note is:open").parse
+    result = SearchQueryParser.new("budget type:note status:open").parse
     assert_equal "budget", result[:q]
     assert_equal "note", result[:type]
-    assert_includes result[:filters], "open"
+    assert_equal "open", result[:status]
   end
 
   test "operator order does not matter" do
-    result = SearchQueryParser.new("type:note budget is:open").parse
+    result = SearchQueryParser.new("type:note budget status:open").parse
     assert_equal "budget", result[:q]
     assert_equal "note", result[:type]
-    assert_includes result[:filters], "open"
+    assert_equal "open", result[:status]
   end
 
   test "complex query with all features" do
-    query = '"quarterly review" type:note,decision is:open sort:newest limit:10'
+    query = '"quarterly review" type:note,decision status:open sort:newest limit:10'
     result = SearchQueryParser.new(query).parse
 
     assert_nil result[:q]
     assert_equal ["quarterly review"], result[:exact_phrases]
     assert_equal "note,decision", result[:type]
-    assert_includes result[:filters], "open"
+    assert_equal "open", result[:status]
     assert_equal "created_at-desc", result[:sort_by]
     assert_equal 10, result[:per_page]
   end
@@ -387,9 +492,9 @@ class SearchQueryParserTest < ActiveSupport::TestCase
   end
 
   test "case insensitive operators" do
-    result = SearchQueryParser.new("TYPE:NOTE IS:OPEN").parse
+    result = SearchQueryParser.new("TYPE:NOTE STATUS:OPEN").parse
     assert_equal "note", result[:type]
-    assert_includes result[:filters], "open"
+    assert_equal "open", result[:status]
   end
 
   # Exact phrase matching (quoted strings)
@@ -446,37 +551,20 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal "note", result[:type]
   end
 
-  # in: operator (superagent scope)
+  # Studio operator with other operators
 
-  test "in: operator parses superagent handle" do
-    result = SearchQueryParser.new("budget in:my-studio").parse
-    assert_equal "budget", result[:q]
-    assert_equal "my-studio", result[:superagent_handle]
-  end
-
-  test "in: operator accepts alphanumeric with dashes" do
-    result = SearchQueryParser.new("in:test-studio-123").parse
-    assert_equal "test-studio-123", result[:superagent_handle]
-  end
-
-  test "in: operator is case insensitive for value" do
-    result = SearchQueryParser.new("in:My-Studio").parse
-    assert_equal "my-studio", result[:superagent_handle]
-  end
-
-  test "in: operator with other operators" do
-    result = SearchQueryParser.new("budget type:note in:team-alpha sort:newest").parse
+  test "studio: operator with other operators" do
+    result = SearchQueryParser.new("budget type:note studio:team-alpha sort:newest").parse
     assert_equal "budget", result[:q]
     assert_equal "note", result[:type]
-    assert_equal "team-alpha", result[:superagent_handle]
+    assert_equal "team-alpha", result[:studio_handle]
     assert_equal "created_at-desc", result[:sort_by]
   end
 
-  test "invalid in: value is treated as search text" do
-    result = SearchQueryParser.new("in:has spaces").parse
-    # "in:has" would be valid as a handle, but "spaces" becomes search text
-    # Actually "in:has" matches the pattern, so it becomes the handle
-    assert_equal "has", result[:superagent_handle]
+  test "invalid studio: value is treated as search text" do
+    result = SearchQueryParser.new("studio:has spaces").parse
+    # "studio:has" would be valid as a handle, but "spaces" becomes search text
+    assert_equal "has", result[:studio_handle]
     assert_equal "spaces", result[:q]
   end
 end

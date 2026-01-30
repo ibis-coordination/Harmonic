@@ -80,6 +80,40 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_equal 3, search.results.count
   end
 
+  test "exclude_types excludes specified types" do
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      params: { exclude_types: ["note"], cycle: "all" }
+    )
+
+    results = search.results
+    assert results.none? { |r| r.item_type == "Note" }
+    assert_equal 2, results.count
+  end
+
+  test "exclude_types works with DSL via raw_query" do
+    # This is the bug fix: -type:note should exclude notes
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: "-type:note cycle:all"
+    )
+
+    results = search.results
+    assert results.none? { |r| r.item_type == "Note" }
+    assert_equal 2, results.count
+  end
+
+  test "exclude_types works with studio scope via raw_query" do
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "studio:#{@superagent.handle} -type:note cycle:all"
+    )
+
+    results = search.results
+    assert results.none? { |r| r.item_type == "Note" }
+    assert_equal 2, results.count
+  end
+
   # Time window tests
 
   test "cycle filter restricts to time window" do
@@ -633,9 +667,9 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_includes search.results.pluck(:item_id), scene_note.id
   end
 
-  # in: operator - superagent handle resolution
+  # studio: operator - superagent handle resolution
 
-  test "in: operator resolves superagent by handle" do
+  test "studio: operator resolves superagent by handle" do
     # Create a studio
     target_studio = Superagent.create!(
       tenant: @tenant, created_by: @user,
@@ -646,10 +680,10 @@ class SearchQueryTest < ActiveSupport::TestCase
     studio_note = create_note(tenant: @tenant, superagent: target_studio, created_by: @user, text: "target content")
     SearchIndexer.reindex(studio_note)
 
-    # Search using in: operator
+    # Search using studio: operator
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "content in:target-studio cycle:all"
+      raw_query: "content studio:target-studio cycle:all"
     )
 
     assert_equal target_studio, search.superagent
@@ -658,10 +692,10 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes search.results.pluck(:item_id), @note.id
   end
 
-  test "in: operator with invalid handle returns empty results" do
+  test "studio: operator with invalid handle returns empty results" do
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "content in:nonexistent-studio cycle:all"
+      raw_query: "content studio:nonexistent-studio cycle:all"
     )
 
     # Invalid handle means no superagent resolved, falls back to tenant-wide
@@ -669,7 +703,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_nil search.superagent
   end
 
-  test "in: operator respects access control" do
+  test "studio: operator respects access control" do
     # Create another user's private studio
     other_user = User.create!(name: "Other", email: "other-in-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_user)
@@ -685,7 +719,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     # Try to search in the private studio as @user (not a member)
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "private in:private-in-test cycle:all"
+      raw_query: "private studio:private-in-test cycle:all"
     )
 
     # Superagent is resolved (exists) but user doesn't have access

@@ -11,22 +11,66 @@ class SearchQueryParser
   CYCLE_RELATIVE = '\\d+-days?-ago|\\d+-weeks?-ago|\\d+-months?-ago|\\d+-years?-ago'.freeze
   CYCLE_PATTERN = /^(#{CYCLE_NAMED}|#{CYCLE_WEEK}|#{CYCLE_MONTH}|#{CYCLE_YEAR}|#{CYCLE_RELATIVE}|all)$/
 
+  # Handle pattern for user filters (with @ prefix)
+  HANDLE_PATTERN = /^@[a-zA-Z0-9_-]+$/
+
+  # Superagent handle pattern (alphanumeric with dashes)
+  SUPERAGENT_HANDLE_PATTERN = /^[a-zA-Z0-9-]+$/i
+
+  # Date pattern for after:/before: operators
+  DATE_PATTERN = /^(\d{4}-\d{2}-\d{2}|[+-]\d+[dwmy])$/
+
+  # Integer pattern for min/max operators
+  INTEGER_PATTERN = /^\d+$/
+
   # Operator definitions: key => { values: [...], pattern: /.../, multi: bool }
   # - values: allowed literal values
   # - pattern: regex for dynamic values (handles, dates, etc.)
   # - multi: whether multiple comma-separated values are allowed
   OPERATORS = T.let({
+    # Location scope
+    "studio" => { pattern: SUPERAGENT_HANDLE_PATTERN, multi: false },
+    "scene" => { pattern: SUPERAGENT_HANDLE_PATTERN, multi: false },
+
+    # User filters
+    "creator" => { pattern: HANDLE_PATTERN, multi: true },
+    "read-by" => { pattern: HANDLE_PATTERN, multi: true },
+    "voter" => { pattern: HANDLE_PATTERN, multi: true },
+    "participant" => { pattern: HANDLE_PATTERN, multi: true },
+    "mentions" => { pattern: HANDLE_PATTERN, multi: true },
+    "replying-to" => { pattern: HANDLE_PATTERN, multi: true },
+
+    # Type filters
     "type" => { values: ["note", "decision", "commitment", "n", "d", "c"], multi: true },
-    "is" => { values: ["open", "closed", "mine", "pinned"], multi: true },
-    "has" => { values: ["backlinks", "links", "participants", "comments"], multi: true },
-    "by" => { pattern: /^(@\w+|me)$/, multi: true },
-    "in" => { pattern: /^[a-zA-Z0-9-]+$/i, multi: false }, # Superagent handle (alphanumeric with dashes)
+    "subtype" => { values: ["comment"], multi: true },
+    "status" => { values: ["open", "closed"], multi: false },
+
+    # Boolean filters
+    "critical-mass-achieved" => { values: ["true", "false"], multi: false },
+
+    # Integer filters (min/max)
+    "min-links" => { pattern: INTEGER_PATTERN, multi: false },
+    "max-links" => { pattern: INTEGER_PATTERN, multi: false },
+    "min-backlinks" => { pattern: INTEGER_PATTERN, multi: false },
+    "max-backlinks" => { pattern: INTEGER_PATTERN, multi: false },
+    "min-comments" => { pattern: INTEGER_PATTERN, multi: false },
+    "max-comments" => { pattern: INTEGER_PATTERN, multi: false },
+    "min-readers" => { pattern: INTEGER_PATTERN, multi: false },
+    "max-readers" => { pattern: INTEGER_PATTERN, multi: false },
+    "min-voters" => { pattern: INTEGER_PATTERN, multi: false },
+    "max-voters" => { pattern: INTEGER_PATTERN, multi: false },
+    "min-participants" => { pattern: INTEGER_PATTERN, multi: false },
+    "max-participants" => { pattern: INTEGER_PATTERN, multi: false },
+
+    # Time filters
+    "cycle" => { pattern: CYCLE_PATTERN, multi: false },
+    "after" => { pattern: DATE_PATTERN, multi: false },
+    "before" => { pattern: DATE_PATTERN, multi: false },
+
+    # Display options
     "sort" => { values: ["newest", "oldest", "updated", "deadline", "relevance", "backlinks", "new", "old"], multi: false },
     "group" => { values: ["type", "status", "date", "week", "month", "none"], multi: false },
-    "cycle" => { pattern: CYCLE_PATTERN, multi: false },
-    "after" => { pattern: /^(\d{4}-\d{2}-\d{2}|[+-]\d+[dwmy])$/, multi: false },
-    "before" => { pattern: /^(\d{4}-\d{2}-\d{2}|[+-]\d+[dwmy])$/, multi: false },
-    "limit" => { pattern: /^\d+$/, multi: false },
+    "limit" => { pattern: INTEGER_PATTERN, multi: false },
   }.freeze, T::Hash[String, T::Hash[Symbol, T.untyped]])
 
   # Aliases for short forms
@@ -109,7 +153,8 @@ class SearchQueryParser
       next if text.blank?
 
       # Check for operator: key:value (only for non-quoted tokens)
-      match_data = token.quoted ? nil : text.match(/^(\w+):(.+)$/)
+      # Support hyphenated operator names like "read-by" or "min-links"
+      match_data = token.quoted ? nil : text.match(/^([a-z-]+):(.+)$/i)
 
       if match_data
         key = T.must(match_data[1]).downcase
@@ -199,9 +244,42 @@ class SearchQueryParser
 
     # Type filter
     params[:type] = build_type_param
+    params[:exclude_types] = build_exclude_types_param
+    params[:exclude_subtypes] = build_exclude_subtypes_param
 
-    # Filters (is:, has:, by:)
-    params[:filters] = build_filters_param
+    # Status filter (replaces is:open/is:closed)
+    params[:status] = build_status_param
+
+    # User-based filters
+    params[:creator_handles] = build_user_filter_param("creator")
+    params[:exclude_creator_handles] = build_negated_user_filter_param("creator")
+    params[:read_by_handles] = build_user_filter_param("read-by")
+    params[:exclude_read_by_handles] = build_negated_user_filter_param("read-by")
+    params[:voter_handles] = build_user_filter_param("voter")
+    params[:exclude_voter_handles] = build_negated_user_filter_param("voter")
+    params[:participant_handles] = build_user_filter_param("participant")
+    params[:exclude_participant_handles] = build_negated_user_filter_param("participant")
+    params[:mentions_handles] = build_user_filter_param("mentions")
+    params[:exclude_mentions_handles] = build_negated_user_filter_param("mentions")
+    params[:replying_to_handles] = build_user_filter_param("replying-to")
+    params[:exclude_replying_to_handles] = build_negated_user_filter_param("replying-to")
+
+    # Boolean filters
+    params[:critical_mass_achieved] = build_boolean_param("critical-mass-achieved")
+
+    # Integer filters (min/max)
+    params[:min_links] = build_integer_param("min-links")
+    params[:max_links] = build_integer_param("max-links")
+    params[:min_backlinks] = build_integer_param("min-backlinks")
+    params[:max_backlinks] = build_integer_param("max-backlinks")
+    params[:min_comments] = build_integer_param("min-comments")
+    params[:max_comments] = build_integer_param("max-comments")
+    params[:min_readers] = build_integer_param("min-readers")
+    params[:max_readers] = build_integer_param("max-readers")
+    params[:min_voters] = build_integer_param("min-voters")
+    params[:max_voters] = build_integer_param("max-voters")
+    params[:min_participants] = build_integer_param("min-participants")
+    params[:max_participants] = build_integer_param("max-participants")
 
     # Sort
     params[:sort_by] = build_sort_param
@@ -219,8 +297,9 @@ class SearchQueryParser
     # Limit
     params[:per_page] = build_limit_param
 
-    # Superagent scope (in:handle)
-    params[:superagent_handle] = build_superagent_param
+    # Superagent scope (studio: or scene:)
+    params[:studio_handle] = build_superagent_param("studio")
+    params[:scene_handle] = build_superagent_param("scene")
 
     params.compact
   end
@@ -230,55 +309,78 @@ class SearchQueryParser
     types = @operators["type"]
     return nil if types.blank?
 
-    # Exclude negated types
-    negated = @negated_operators["type"] || []
-    filtered = types - negated
+    types.join(",").presence
+  end
 
-    filtered.join(",").presence
+  sig { returns(T.nilable(T::Array[String])) }
+  def build_exclude_types_param
+    # Collect types to exclude (from -type:note)
+    negated_types = @negated_operators["type"]
+    return nil if negated_types.blank?
+
+    negated_types
+  end
+
+  sig { returns(T.nilable(T::Array[String])) }
+  def build_exclude_subtypes_param
+    # Collect subtypes to exclude (from -subtype:comment)
+    negated_subtypes = @negated_operators["subtype"]
+    return nil if negated_subtypes.blank?
+
+    negated_subtypes
   end
 
   sig { returns(T.nilable(String)) }
-  def build_filters_param
-    filters = []
+  def build_status_param
+    status_values = @operators["status"]
+    negated_status = @negated_operators["status"]
 
-    # is: filters
-    (@operators["is"] || []).each do |value|
-      case value
-      when "mine" then filters << "mine"
-      when "open" then filters << "open"
-      when "closed" then filters << "closed"
-      when "pinned" then filters << "pinned"
-      end
+    # Handle negation: -status:open means status:closed
+    if negated_status.present?
+      negated_value = negated_status.last
+      return negated_value == "open" ? "closed" : "open"
     end
 
-    # Negated is: filters
-    (@negated_operators["is"] || []).each do |value|
-      case value
-      when "mine" then filters << "not_mine"
-      when "open" then filters << "closed"
-      when "closed" then filters << "open"
-      end
-    end
+    return nil if status_values.blank?
 
-    # has: filters
-    (@operators["has"] || []).each do |value|
-      filters << "has_#{value}"
-    end
+    # Last value wins
+    status_values.last
+  end
 
-    # Negated has: filters (not implemented yet, but structure is ready)
+  sig { params(key: String).returns(T.nilable(T::Array[String])) }
+  def build_user_filter_param(key)
+    handles = @operators[key]
+    return nil if handles.blank?
 
-    # by: filters
-    (@operators["by"] || []).each do |value|
-      if value == "me"
-        filters << "mine"
-      else
-        # Strip @ from handle
-        handle = value.delete_prefix("@")
-        filters << "created_by:#{handle}"
-      end
-    end
+    # Strip @ prefix from handles
+    handles.map { |h| h.delete_prefix("@") }
+  end
 
-    filters.join(",").presence
+  sig { params(key: String).returns(T.nilable(T::Array[String])) }
+  def build_negated_user_filter_param(key)
+    handles = @negated_operators[key]
+    return nil if handles.blank?
+
+    # Strip @ prefix from handles
+    handles.map { |h| h.delete_prefix("@") }
+  end
+
+  sig { params(key: String).returns(T.nilable(T::Boolean)) }
+  def build_boolean_param(key)
+    values = @operators[key]
+    return nil if values.blank?
+
+    # Last value wins
+    values.last == "true"
+  end
+
+  sig { params(key: String).returns(T.nilable(Integer)) }
+  def build_integer_param(key)
+    values = @operators[key]
+    return nil if values.blank?
+
+    # Last value wins
+    T.must(values.last).to_i
   end
 
   sig { returns(T.nilable(String)) }
@@ -362,12 +464,12 @@ class SearchQueryParser
     value
   end
 
-  sig { returns(T.nilable(String)) }
-  def build_superagent_param
-    in_values = @operators["in"]
-    return nil if in_values.blank?
+  sig { params(key: String).returns(T.nilable(String)) }
+  def build_superagent_param(key)
+    values = @operators[key]
+    return nil if values.blank?
 
-    # Last value wins (handle is already lowercased by expand_alias)
-    T.must(in_values.last)
+    # Last value wins (value is already lowercased by expand_alias)
+    T.must(values.last)
   end
 end

@@ -64,6 +64,7 @@ class SearchIndexer
       voter_count: voter_count,
       option_count: option_count,
       comment_count: comment_count,
+      reader_count: reader_count,
       is_pinned: is_pinned,
     }
   end
@@ -140,6 +141,11 @@ class SearchIndexer
   sig { returns(Integer) }
   def comment_count
     @item.respond_to?(:comments) ? @item.comments.count : 0
+  end
+
+  sig { returns(Integer) }
+  def reader_count
+    @item.is_a?(Note) ? @item.confirmed_reads : 0
   end
 
   sig { returns(T::Boolean) }

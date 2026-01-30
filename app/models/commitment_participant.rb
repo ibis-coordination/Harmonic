@@ -3,6 +3,8 @@
 class CommitmentParticipant < ApplicationRecord
   extend T::Sig
 
+  include InvalidatesSearchIndex
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -61,5 +63,12 @@ class CommitmentParticipant < ApplicationRecord
     else
       raise 'Invalid value for committed'
     end
+  end
+
+  private
+
+  # Reindex the parent commitment when participants change (affects participant_count)
+  def search_index_items
+    [commitment].compact
   end
 end

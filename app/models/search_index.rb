@@ -91,6 +91,7 @@ class SearchIndex < ApplicationRecord
       voter_count: voter_count,
       option_count: option_count,
       comment_count: comment_count,
+      reader_count: reader_count,
     }
   end
 
