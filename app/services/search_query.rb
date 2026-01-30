@@ -33,6 +33,9 @@ class SearchQuery
     @current_user = current_user
     @raw_query = raw_query
     @params = build_params(params)
+
+    # If superagent_handle was provided (via `in:handle` DSL), resolve it
+    resolve_superagent_from_handle
   end
 
   private
@@ -171,6 +174,14 @@ class SearchQuery
   sig { returns(T.nilable(String)) }
   attr_reader :raw_query
 
+  sig { returns(T.nilable(String)) }
+  def superagent_handle
+    @params[:superagent_handle].presence
+  end
+
+  sig { returns(T.nilable(Superagent)) }
+  attr_reader :superagent
+
   # Options for UI dropdowns
 
   sig { returns(T::Array[T::Array[String]]) }
@@ -262,9 +273,20 @@ class SearchQuery
 
   private
 
+  sig { void }
+  def resolve_superagent_from_handle
+    return if @superagent.present? # Already have a superagent object
+    return if superagent_handle.blank? # No handle to resolve
+
+    # Look up superagent by handle within the tenant
+    @superagent = @tenant.superagents.find_by(handle: superagent_handle)
+  end
+
   sig { returns(ActiveRecord::Relation) }
   def build_query
-    @relation = SearchIndex.where(tenant_id: @tenant.id)
+    # Use unscoped to bypass ApplicationRecord's default_scope which filters by Superagent.current_id
+    # We handle superagent filtering explicitly below with accessible_superagent_ids
+    @relation = SearchIndex.unscoped.where(tenant_id: @tenant.id)
 
     # Apply superagent scope with access control
     # Always filter to accessible superagents to prevent information leakage

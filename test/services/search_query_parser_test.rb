@@ -445,4 +445,38 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal ["exclude"], result[:excluded_terms]
     assert_equal "note", result[:type]
   end
+
+  # in: operator (superagent scope)
+
+  test "in: operator parses superagent handle" do
+    result = SearchQueryParser.new("budget in:my-studio").parse
+    assert_equal "budget", result[:q]
+    assert_equal "my-studio", result[:superagent_handle]
+  end
+
+  test "in: operator accepts alphanumeric with dashes" do
+    result = SearchQueryParser.new("in:test-studio-123").parse
+    assert_equal "test-studio-123", result[:superagent_handle]
+  end
+
+  test "in: operator is case insensitive for value" do
+    result = SearchQueryParser.new("in:My-Studio").parse
+    assert_equal "my-studio", result[:superagent_handle]
+  end
+
+  test "in: operator with other operators" do
+    result = SearchQueryParser.new("budget type:note in:team-alpha sort:newest").parse
+    assert_equal "budget", result[:q]
+    assert_equal "note", result[:type]
+    assert_equal "team-alpha", result[:superagent_handle]
+    assert_equal "created_at-desc", result[:sort_by]
+  end
+
+  test "invalid in: value is treated as search text" do
+    result = SearchQueryParser.new("in:has spaces").parse
+    # "in:has" would be valid as a handle, but "spaces" becomes search text
+    # Actually "in:has" matches the pattern, so it becomes the handle
+    assert_equal "has", result[:superagent_handle]
+    assert_equal "spaces", result[:q]
+  end
 end

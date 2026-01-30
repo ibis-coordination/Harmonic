@@ -1,5 +1,24 @@
 <div class="top-right-display" data-controller="notification-badge" data-notification-badge-poll-interval-value="30000">
 <% if @current_user %>
+  <%# Only auto-populate search filter for non-main superagents (studios/scenes) %>
+  <% search_superagent = @current_superagent&.id != @current_tenant&.main_superagent_id ? @current_superagent : nil %>
+  <div style="display:inline-block;vertical-align:top;margin-right:12px;"
+       data-controller="header-search"
+       data-header-search-superagent-handle-value="<%= search_superagent&.handle %>"
+       data-header-search-superagent-name-value="<%= search_superagent&.name %>">
+    <form action="/search" method="get" class="header-search-form" data-header-search-target="form">
+      <span class="header-search-icon" data-action="click->header-search#focusInput">
+        <%= octicon 'search', height: 16 %>
+      </span>
+      <input type="text"
+             name="q"
+             class="header-search-input"
+             placeholder="Search"
+             autocomplete="off"
+             data-header-search-target="input"
+             data-action="focus->header-search#onFocus blur->header-search#onBlur" />
+    </form>
+  </div>
   <div style="display:inline-block;vertical-align:top;margin-right:8px;">
     <a href="/notifications" class="notification-icon" title="Notifications">
       <%= octicon 'inbox', height: 20 %>

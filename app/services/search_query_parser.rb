@@ -20,6 +20,7 @@ class SearchQueryParser
     "is" => { values: ["open", "closed", "mine", "pinned"], multi: true },
     "has" => { values: ["backlinks", "links", "participants", "comments"], multi: true },
     "by" => { pattern: /^(@\w+|me)$/, multi: true },
+    "in" => { pattern: /^[a-zA-Z0-9-]+$/i, multi: false }, # Superagent handle (alphanumeric with dashes)
     "sort" => { values: ["newest", "oldest", "updated", "deadline", "relevance", "backlinks", "new", "old"], multi: false },
     "group" => { values: ["type", "status", "date", "week", "month", "none"], multi: false },
     "cycle" => { pattern: CYCLE_PATTERN, multi: false },
@@ -218,6 +219,9 @@ class SearchQueryParser
     # Limit
     params[:per_page] = build_limit_param
 
+    # Superagent scope (in:handle)
+    params[:superagent_handle] = build_superagent_param
+
     params.compact
   end
 
@@ -356,5 +360,14 @@ class SearchQueryParser
     value = 1 if value < 1
     value = 100 if value > 100
     value
+  end
+
+  sig { returns(T.nilable(String)) }
+  def build_superagent_param
+    in_values = @operators["in"]
+    return nil if in_values.blank?
+
+    # Last value wins (handle is already lowercased by expand_alias)
+    T.must(in_values.last)
   end
 end

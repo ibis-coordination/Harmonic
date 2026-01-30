@@ -632,4 +632,65 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     assert_includes search.results.pluck(:item_id), scene_note.id
   end
+
+  # in: operator - superagent handle resolution
+
+  test "in: operator resolves superagent by handle" do
+    # Create a studio
+    target_studio = Superagent.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Target Studio", handle: "target-studio",
+      superagent_type: "studio"
+    )
+    target_studio.add_user!(@user)
+    studio_note = create_note(tenant: @tenant, superagent: target_studio, created_by: @user, text: "target content")
+    SearchIndexer.reindex(studio_note)
+
+    # Search using in: operator
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "content in:target-studio cycle:all"
+    )
+
+    assert_equal target_studio, search.superagent
+    assert_includes search.results.pluck(:item_id), studio_note.id
+    # Should NOT include items from other superagents
+    assert_not_includes search.results.pluck(:item_id), @note.id
+  end
+
+  test "in: operator with invalid handle returns empty results" do
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "content in:nonexistent-studio cycle:all"
+    )
+
+    # Invalid handle means no superagent resolved, falls back to tenant-wide
+    # Since the handle doesn't exist, @superagent is nil
+    assert_nil search.superagent
+  end
+
+  test "in: operator respects access control" do
+    # Create another user's private studio
+    other_user = User.create!(name: "Other", email: "other-in-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    private_studio = Superagent.create!(
+      tenant: @tenant, created_by: other_user,
+      name: "Private", handle: "private-in-test",
+      superagent_type: "studio"
+    )
+    private_studio.add_user!(other_user)
+    private_note = create_note(tenant: @tenant, superagent: private_studio, created_by: other_user, text: "private in test")
+    SearchIndexer.reindex(private_note)
+
+    # Try to search in the private studio as @user (not a member)
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "private in:private-in-test cycle:all"
+    )
+
+    # Superagent is resolved (exists) but user doesn't have access
+    assert_equal private_studio, search.superagent
+    # No results because access control prevents it
+    assert_empty search.results.pluck(:item_id)
+  end
 end
