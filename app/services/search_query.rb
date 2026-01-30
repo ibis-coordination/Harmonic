@@ -21,13 +21,13 @@ class SearchQuery
   sig do
     params(
       tenant: Tenant,
-      superagent: Superagent,
       current_user: T.nilable(User),
+      superagent: T.nilable(Superagent),
       params: T::Hash[T.any(String, Symbol), T.untyped],
       raw_query: T.nilable(String)
     ).void
   end
-  def initialize(tenant:, superagent:, current_user:, params: {}, raw_query: nil)
+  def initialize(tenant:, current_user:, superagent: nil, params: {}, raw_query: nil)
     @tenant = tenant
     @superagent = superagent
     @current_user = current_user
@@ -264,7 +264,19 @@ class SearchQuery
 
   sig { returns(ActiveRecord::Relation) }
   def build_query
-    @relation = SearchIndex.where(tenant_id: @tenant.id, superagent_id: @superagent.id)
+    @relation = SearchIndex.where(tenant_id: @tenant.id)
+
+    # Apply superagent scope with access control
+    # Always filter to accessible superagents to prevent information leakage
+    accessible_ids = accessible_superagent_ids
+    @relation = if @superagent.present?
+                  # Scoped to specific superagent, but only if user has access
+                  # If user doesn't have access, this returns no results (empty intersection)
+                  @relation.where(superagent_id: accessible_ids & [@superagent.id])
+                else
+                  # Tenant-wide search: filter to all accessible superagents
+                  @relation.where(superagent_id: accessible_ids)
+                end
 
     apply_text_search
     apply_type_filter
@@ -273,6 +285,23 @@ class SearchQuery
     apply_sorting
 
     @relation
+  end
+
+  sig { returns(T::Array[String]) }
+  def accessible_superagent_ids
+    # All scenes (public) in tenant
+    scene_ids = @tenant.superagents.where(superagent_type: "scene").pluck(:id)
+
+    # Studios the user is a member of
+    studio_ids = if @current_user.present?
+                   @current_user.superagents
+                     .where(tenant_id: @tenant.id, superagent_type: "studio")
+                     .pluck(:id)
+                 else
+                   []
+                 end
+
+    scene_ids + studio_ids
   end
 
   sig { void }
@@ -448,11 +477,13 @@ class SearchQuery
   def cycle
     return @cycle if defined?(@cycle)
     return @cycle = nil if cycle_name == "all"
+    # Cycle requires a superagent; for tenant-wide search, skip cycle filtering
+    return @cycle = nil if @superagent.nil?
 
     @cycle = Cycle.new(
       name: cycle_name,
       tenant: @tenant,
-      superagent: @superagent,
+      superagent: T.must(@superagent),
       current_user: @current_user
     )
   rescue StandardError

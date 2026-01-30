@@ -450,4 +450,186 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes result_ids, note2.id
     assert_includes result_ids, note3.id
   end
+
+  # Tenant-wide search tests
+
+  test "tenant-wide search includes items from scenes (public)" do
+    # Create a scene
+    scene = Superagent.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Public Scene", handle: "public-scene",
+      superagent_type: "scene"
+    )
+    scene_note = create_note(tenant: @tenant, superagent: scene, created_by: @user, text: "scene content")
+    SearchIndexer.reindex(scene_note)
+
+    # Tenant-wide search (no superagent specified)
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      params: { cycle: "all" }
+    )
+
+    assert_includes search.results.pluck(:item_id), scene_note.id
+  end
+
+  test "tenant-wide search includes items from studios user is member of" do
+    # Create a studio and add user as member
+    studio = Superagent.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Member Studio", handle: "member-studio",
+      superagent_type: "studio"
+    )
+    studio.add_user!(@user)
+    studio_note = create_note(tenant: @tenant, superagent: studio, created_by: @user, text: "studio member content")
+    SearchIndexer.reindex(studio_note)
+
+    # Tenant-wide search
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      params: { cycle: "all" }
+    )
+
+    assert_includes search.results.pluck(:item_id), studio_note.id
+  end
+
+  test "tenant-wide search excludes items from studios user is NOT member of" do
+    # Create another user who owns a studio
+    other_user = User.create!(name: "Other User", email: "other-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+
+    # Create a private studio that @user is NOT a member of
+    private_studio = Superagent.create!(
+      tenant: @tenant, created_by: other_user,
+      name: "Private Studio", handle: "private-studio",
+      superagent_type: "studio"
+    )
+    private_studio.add_user!(other_user)
+    private_note = create_note(tenant: @tenant, superagent: private_studio, created_by: other_user, text: "private studio content")
+    SearchIndexer.reindex(private_note)
+
+    # Tenant-wide search as @user (who is NOT a member of private_studio)
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      params: { cycle: "all" }
+    )
+
+    assert_not_includes search.results.pluck(:item_id), private_note.id
+  end
+
+  test "tenant-wide search combines scenes and member studios" do
+    # Create a scene
+    scene = Superagent.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Test Scene", handle: "test-scene-combo",
+      superagent_type: "scene"
+    )
+    scene_note = create_note(tenant: @tenant, superagent: scene, created_by: @user, text: "scene combo")
+    SearchIndexer.reindex(scene_note)
+
+    # Create a studio user is member of
+    member_studio = Superagent.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Member Studio", handle: "member-studio-combo",
+      superagent_type: "studio"
+    )
+    member_studio.add_user!(@user)
+    studio_note = create_note(tenant: @tenant, superagent: member_studio, created_by: @user, text: "studio combo")
+    SearchIndexer.reindex(studio_note)
+
+    # Create another user's private studio
+    other_user = User.create!(name: "Other", email: "other-combo-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    private_studio = Superagent.create!(
+      tenant: @tenant, created_by: other_user,
+      name: "Private", handle: "private-combo",
+      superagent_type: "studio"
+    )
+    private_studio.add_user!(other_user)
+    private_note = create_note(tenant: @tenant, superagent: private_studio, created_by: other_user, text: "private combo")
+    SearchIndexer.reindex(private_note)
+
+    # Tenant-wide search
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "combo",
+      params: { cycle: "all" }
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_includes result_ids, scene_note.id, "Should include scene items"
+    assert_includes result_ids, studio_note.id, "Should include member studio items"
+    assert_not_includes result_ids, private_note.id, "Should exclude non-member studio items"
+  end
+
+  # Security: explicit superagent access control
+
+  test "search with explicit superagent the user has NO access to returns no results" do
+    # Create another user who owns a private studio
+    other_user = User.create!(name: "Studio Owner", email: "owner-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+
+    private_studio = Superagent.create!(
+      tenant: @tenant, created_by: other_user,
+      name: "Private Studio", handle: "private-explicit",
+      superagent_type: "studio"
+    )
+    private_studio.add_user!(other_user)
+    private_note = create_note(tenant: @tenant, superagent: private_studio, created_by: other_user, text: "secret content")
+    SearchIndexer.reindex(private_note)
+
+    # Attempt to search with explicit superagent the user does NOT have access to
+    # This simulates a malicious or buggy caller passing a superagent without checking access
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      superagent: private_studio,
+      params: { cycle: "all" }
+    )
+
+    # Should return NO results because user doesn't have access to this studio
+    assert_empty search.results.pluck(:item_id), "Should not expose items from studios user has no access to"
+  end
+
+  test "search with explicit superagent the user HAS access to returns results" do
+    # Create a studio and add user as member
+    member_studio = Superagent.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Member Studio", handle: "member-explicit",
+      superagent_type: "studio"
+    )
+    member_studio.add_user!(@user)
+    studio_note = create_note(tenant: @tenant, superagent: member_studio, created_by: @user, text: "accessible content")
+    SearchIndexer.reindex(studio_note)
+
+    # Search with explicit superagent the user has access to
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      superagent: member_studio,
+      params: { cycle: "all" }
+    )
+
+    assert_includes search.results.pluck(:item_id), studio_note.id
+  end
+
+  test "search with explicit scene returns results for any user" do
+    # Scenes are public, so anyone can search them
+    scene = Superagent.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Public Scene", handle: "public-explicit",
+      superagent_type: "scene"
+    )
+    scene_note = create_note(tenant: @tenant, superagent: scene, created_by: @user, text: "public content")
+    SearchIndexer.reindex(scene_note)
+
+    # Different user searching the scene
+    other_user = User.create!(name: "Random User", email: "random-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: other_user,
+      superagent: scene,
+      params: { cycle: "all" }
+    )
+
+    assert_includes search.results.pluck(:item_id), scene_note.id
+  end
 end
