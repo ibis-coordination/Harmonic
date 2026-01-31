@@ -27,7 +27,7 @@ class SearchTest < ActionDispatch::IntegrationTest
   end
 
   def search_path
-    "#{@superagent.path}/search"
+    "/search"
   end
 
   # HTML tests
@@ -94,7 +94,7 @@ class SearchTest < ActionDispatch::IntegrationTest
       SearchIndexer.reindex(note)
     end
 
-    get "#{search_path}.json", params: { per_page: 2, cycle: "all" }, headers: @headers
+    get "#{search_path}.json", params: { q: "cycle:all", per_page: 2 }, headers: @headers
     assert_response :success
 
     json = JSON.parse(response.body)
@@ -108,7 +108,7 @@ class SearchTest < ActionDispatch::IntegrationTest
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user, question: "Test decision?")
     SearchIndexer.reindex(decision)
 
-    get "#{search_path}.json", params: { type: "note", cycle: "all" }, headers: @headers
+    get "#{search_path}.json", params: { q: "type:note cycle:all" }, headers: @headers
     assert_response :success
 
     json = JSON.parse(response.body)
@@ -117,7 +117,7 @@ class SearchTest < ActionDispatch::IntegrationTest
   end
 
   test "GET search with filters parameter works" do
-    get "#{search_path}.json", params: { filters: "mine", cycle: "all" }, headers: @headers
+    get "#{search_path}.json", params: { q: "cycle:all", filters: "mine" }, headers: @headers
     assert_response :success
 
     json = JSON.parse(response.body)
@@ -128,7 +128,7 @@ class SearchTest < ActionDispatch::IntegrationTest
   # Sort tests
 
   test "GET search with sort_by parameter works" do
-    get "#{search_path}.json", params: { sort_by: "created_at-desc", cycle: "all" }, headers: @headers
+    get "#{search_path}.json", params: { q: "sort:newest cycle:all" }, headers: @headers
     assert_response :success
 
     json = JSON.parse(response.body)
@@ -138,7 +138,45 @@ class SearchTest < ActionDispatch::IntegrationTest
   # Group tests
 
   test "GET search with group_by parameter works in HTML" do
-    get search_path, params: { group_by: "item_type", cycle: "all" }, headers: @headers.merge("Accept" => "text/html")
+    get search_path, params: { q: "group:item_type cycle:all" }, headers: @headers.merge("Accept" => "text/html")
     assert_response :success
+  end
+
+  # Action tests
+
+  test "GET search/actions returns list of actions" do
+    get "/search/actions", headers: @headers.merge("Accept" => "text/markdown")
+    assert_response :success
+    assert_match "search(q)", response.body
+  end
+
+  test "GET search/actions/search describes the search action" do
+    get "/search/actions/search", headers: @headers.merge("Accept" => "text/markdown")
+    assert_response :success
+    assert_match "Action: `search`", response.body
+    assert_match "Parameters", response.body
+  end
+
+  test "POST search/actions/search redirects to GET with query" do
+    post "/search/actions/search",
+      params: { q: "type:note budget" },
+      headers: @headers.merge("Accept" => "text/markdown", "Content-Type" => "application/x-www-form-urlencoded")
+    assert_response :redirect
+    assert_match "/search?q=", response.location
+    assert_match "type%3Anote", response.location
+  end
+
+  test "GET search markdown includes actions section" do
+    get search_path, headers: @headers.merge("Accept" => "text/markdown")
+    assert_response :success
+    assert_match "[Actions]", response.body
+    assert_match "search(q)", response.body
+  end
+
+  test "GET search markdown includes path with query in frontmatter" do
+    get search_path, params: { q: "test query" }, headers: @headers.merge("Accept" => "text/markdown")
+    assert_response :success
+    # The frontmatter should include path with the query
+    assert_match "path: /search?q=", response.body
   end
 end

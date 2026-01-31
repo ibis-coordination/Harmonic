@@ -123,6 +123,21 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal ["alice"], result[:exclude_creator_handles]
   end
 
+  test "creator:alice works without @ prefix" do
+    result = SearchQueryParser.new("creator:alice").parse
+    assert_equal ["alice"], result[:creator_handles]
+  end
+
+  test "creator:alice,bob works without @ prefix for multiple handles" do
+    result = SearchQueryParser.new("creator:alice,bob").parse
+    assert_equal ["alice", "bob"], result[:creator_handles]
+  end
+
+  test "creator:@alice,bob works with mixed @ prefix usage" do
+    result = SearchQueryParser.new("creator:@alice,bob").parse
+    assert_equal ["alice", "bob"], result[:creator_handles]
+  end
+
   # read-by: operator
 
   test "read-by:@alice sets read_by handles" do

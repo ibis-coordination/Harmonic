@@ -121,6 +121,9 @@ Rails.application.routes.draw do
 
   # Global search (tenant-level, searches across all accessible studios/scenes)
   get 'search' => 'search#show'
+  get 'search/actions' => 'search#actions_index'
+  get 'search/actions/search' => 'search#describe_search'
+  post 'search/actions/search' => 'search#execute_search'
 
   # ============================================================
   # NEW ADMIN ROUTES (fresh implementation - separate from /admin)
@@ -277,7 +280,6 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/classic" => 'studios#show'
     get "#{studios_or_scenes}/:superagent_handle/views" => 'studios#views'
     get "#{studios_or_scenes}/:superagent_handle/view" => 'studios#view'
-    get "#{studios_or_scenes}/:superagent_handle/search" => 'studios#search'
     get "#{studios_or_scenes}/:superagent_handle/members" => 'studios#members'
     get "#{studios_or_scenes}/:superagent_handle/settings" => 'studios#settings'
     post "#{studios_or_scenes}/:superagent_handle/settings" => 'studios#update_settings'

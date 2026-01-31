@@ -21,7 +21,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "full-text search finds matching content" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { q: "budget", cycle: "all" }
+      raw_query: "budget cycle:all"
     )
 
     results = search.results
@@ -32,16 +32,25 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "full-text search returns empty for non-matching query" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { q: "nonexistent", cycle: "all" }
+      raw_query: "nonexistent cycle:all"
     )
 
     assert_empty search.results
   end
 
-  test "full-text search without query returns all results" do
+  test "search without query returns no results" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
       params: { cycle: "all" }
+    )
+
+    assert_equal 0, search.results.count
+  end
+
+  test "search with cycle:all returns all results" do
+    search = SearchQuery.new(
+      tenant: @tenant, superagent: @superagent, current_user: @user,
+      raw_query: "cycle:all"
     )
 
     assert_equal 3, search.results.count
@@ -52,7 +61,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "type filter restricts to specified types" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { type: "note", cycle: "all" }
+      raw_query: "type:note cycle:all"
     )
 
     results = search.results
@@ -63,7 +72,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "type filter accepts comma-separated types" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { type: "note,decision", cycle: "all" }
+      raw_query: "type:note,decision cycle:all"
     )
 
     results = search.results
@@ -72,18 +81,23 @@ class SearchQueryTest < ActiveSupport::TestCase
   end
 
   test "type=all returns all types" do
+    # When no type filter is specified, all types are returned
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { type: "all", cycle: "all" }
+      raw_query: "cycle:all"
     )
 
+    types = search.results.map(&:item_type).uniq
+    assert_includes types, "Note"
+    assert_includes types, "Decision"
+    assert_includes types, "Commitment"
     assert_equal 3, search.results.count
   end
 
   test "exclude_types excludes specified types" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { exclude_types: ["note"], cycle: "all" }
+      raw_query: "-type:note cycle:all"
     )
 
     results = search.results
@@ -167,7 +181,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "cycle=all returns all items" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { cycle: "all" }
+      raw_query: "cycle:all"
     )
 
     assert_equal 3, search.results.count
@@ -184,7 +198,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { filters: "mine", cycle: "all" }
+      raw_query: "creator:@#{@user.handle} cycle:all"
     )
 
     assert search.results.all? { |r| r.created_by_id == @user.id }
@@ -200,7 +214,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { filters: "not_mine", cycle: "all" }
+      raw_query: "-creator:@#{@user.handle} cycle:all"
     )
 
     assert search.results.none? { |r| r.created_by_id == @user.id }
@@ -216,7 +230,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { filters: "open", cycle: "all" }
+      raw_query: "status:open cycle:all"
     )
 
     assert search.results.all? { |r| r.deadline > Time.current }
@@ -230,7 +244,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { filters: "closed", cycle: "all" }
+      raw_query: "status:closed cycle:all"
     )
 
     assert search.results.all? { |r| r.deadline <= Time.current }
@@ -246,7 +260,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { filters: "has_backlinks", cycle: "all" }
+      raw_query: "min-backlinks:1 cycle:all"
     )
 
     assert search.results.all? { |r| r.backlink_count > 0 }
@@ -258,7 +272,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "sort_by=created_at-desc returns newest first" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { sort_by: "created_at-desc", cycle: "all" }
+      raw_query: "sort:newest cycle:all"
     )
 
     results = search.results.to_a
@@ -269,7 +283,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "sort_by=created_at-asc returns oldest first" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { sort_by: "created_at-asc", cycle: "all" }
+      raw_query: "sort:oldest cycle:all"
     )
 
     results = search.results.to_a
@@ -280,7 +294,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "sort_by=relevance-desc works with text search" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { q: "budget", sort_by: "relevance-desc", cycle: "all" }
+      raw_query: "budget sort:relevance cycle:all"
     )
 
     results = search.results
@@ -298,7 +312,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search1 = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { per_page: 5, cycle: "all" }
+      raw_query: "limit:5 cycle:all"
     )
 
     page1_ids = search1.paginated_results.pluck(:item_id)
@@ -306,7 +320,8 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search2 = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { per_page: 5, cursor: cursor, cycle: "all" }
+      raw_query: "limit:5 cycle:all",
+      params: { cursor: cursor }
     )
 
     page2_ids = search2.paginated_results.pluck(:item_id)
@@ -318,13 +333,13 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "per_page is clamped to valid range" do
     search_low = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { per_page: -5, cycle: "all" }
+      raw_query: "limit:-5 cycle:all"
     )
     assert_equal 25, search_low.per_page
 
     search_high = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { per_page: 500, cycle: "all" }
+      raw_query: "limit:500 cycle:all"
     )
     assert_equal 100, search_high.per_page
   end
@@ -334,7 +349,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "grouped_results groups by item_type" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { group_by: "item_type", cycle: "all" }
+      raw_query: "group:type cycle:all"
     )
 
     grouped = search.grouped_results
@@ -348,7 +363,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "group_by=none returns flat results" do
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { group_by: "none", cycle: "all" }
+      raw_query: "group:none cycle:all"
     )
 
     grouped = search.grouped_results
@@ -363,7 +378,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { group_by: "status", cycle: "all" }
+      raw_query: "group:status cycle:all"
     )
 
     grouped = search.grouped_results
@@ -385,7 +400,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, superagent: @superagent, current_user: @user,
-      params: { cycle: "all" }
+      raw_query: "cycle:all"
     )
 
     result_ids = search.results.pluck(:item_id)
@@ -534,7 +549,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     # Tenant-wide search (no superagent specified)
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      params: { cycle: "all" }
+      raw_query: "cycle:all"
     )
 
     assert_includes search.results.pluck(:item_id), scene_note.id
@@ -554,7 +569,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     # Tenant-wide search
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      params: { cycle: "all" }
+      raw_query: "cycle:all"
     )
 
     assert_includes search.results.pluck(:item_id), studio_note.id
@@ -578,7 +593,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     # Tenant-wide search as @user (who is NOT a member of private_studio)
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      params: { cycle: "all" }
+      raw_query: "cycle:all"
     )
 
     assert_not_includes search.results.pluck(:item_id), private_note.id
@@ -650,7 +665,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
       superagent: private_studio,
-      params: { cycle: "all" }
+      raw_query: "cycle:all"
     )
 
     # Should return NO results because user doesn't have access to this studio
@@ -672,7 +687,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
       superagent: member_studio,
-      params: { cycle: "all" }
+      raw_query: "cycle:all"
     )
 
     assert_includes search.results.pluck(:item_id), studio_note.id
@@ -695,7 +710,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     search = SearchQuery.new(
       tenant: @tenant, current_user: other_user,
       superagent: scene,
-      params: { cycle: "all" }
+      raw_query: "cycle:all"
     )
 
     assert_includes search.results.pluck(:item_id), scene_note.id

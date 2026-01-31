@@ -12,7 +12,7 @@ class SearchQuery
     "backlink_count", "link_count", "participant_count", "voter_count", "option_count", "comment_count", "reader_count",
   ].freeze
   VALID_GROUP_BYS = [
-    "none", "item_type", "status", "created_by", "date_created", "week_created", "month_created", "date_deadline", "week_deadline", "month_deadline",
+    "none", "item_type", "status", "superagent", "creator", "date_created", "week_created", "month_created", "date_deadline", "week_deadline", "month_deadline",
   ].freeze
   # Minimum word_similarity threshold for trigram matching
   # 0.3 is a good balance - matches partial words but filters noise
@@ -67,7 +67,7 @@ class SearchQuery
   def paginated_results
     @paginated_results ||= begin
       relation = results
-      relation = relation.where(search_index: { sort_key: ...cursor.to_i }) if cursor.present?
+      relation = apply_cursor_pagination(relation) if cursor.present?
       relation.limit(per_page)
     end
   end
@@ -89,13 +89,30 @@ class SearchQuery
 
   sig { returns(Integer) }
   def total_count
-    @total_count ||= results.count
+    # Use except(:select) to avoid SQL syntax errors when custom SELECT includes AS clauses
+    @total_count ||= results.except(:select).count
   end
 
   sig { returns(T.nilable(String)) }
   def next_cursor
     last_item = paginated_results.to_a.last
-    last_item&.sort_key&.to_s
+    return nil if last_item.nil?
+
+    # Build compound cursor: "sort_field_value:sort_key"
+    # This enables proper keyset pagination regardless of sort field
+    field = effective_sort_field
+    sort_key = last_item.sort_key
+
+    field_value = if field == "relevance"
+                    # relevance_score is a computed column from the SELECT
+                    last_item.try(:relevance_score)&.to_f
+                  else
+                    last_item.public_send(field)
+                  end
+
+    # Encode as "field_value:sort_key" - use Base64 for field_value to handle special chars
+    encoded_value = Base64.urlsafe_encode64(field_value.to_s, padding: false)
+    "#{encoded_value}:#{sort_key}"
   end
 
   # Parameter accessors (for view/controller)
@@ -115,10 +132,10 @@ class SearchQuery
     return @group_by if defined?(@group_by)
 
     requested = @params[:group_by].to_s.strip
-    return @group_by = "item_type" if requested.blank?
+    return @group_by = "superagent" if requested.blank?
     return @group_by = nil if requested == "none"
 
-    @group_by = VALID_GROUP_BYS.include?(requested) ? requested : "item_type"
+    @group_by = VALID_GROUP_BYS.include?(requested) ? requested : "superagent"
   end
 
   sig { returns(T.nilable(String)) }
@@ -225,6 +242,8 @@ class SearchQuery
   sig { returns(T::Array[T::Array[String]]) }
   def group_by_options
     [
+      ["Studio/Scene", "superagent"],
+      ["Creator", "creator"],
       ["Item type", "item_type"],
       ["None (flat list)", "none"],
       ["Status", "status"],
@@ -294,6 +313,9 @@ class SearchQuery
 
   sig { returns(ActiveRecord::Relation) }
   def build_query
+    # Require a query to show results - empty search page shows nothing
+    return SearchIndex.none if @raw_query.blank?
+
     # Use unscoped to bypass ApplicationRecord's default_scope which filters by Superagent.current_id
     # We handle superagent filtering explicitly below with accessible_superagent_ids
     @relation = SearchIndex.unscoped.where(tenant_id: @tenant.id)
@@ -320,6 +342,9 @@ class SearchQuery
     apply_integer_filters
     apply_boolean_filters
     apply_sorting
+
+    # Eager load associations to avoid N+1 queries when grouping or displaying results
+    @relation = T.must(@relation).includes(:superagent, :created_by)
 
     @relation
   end
@@ -741,7 +766,13 @@ class SearchQuery
     field = "created_at" unless VALID_SORT_FIELDS.include?(field)
     direction = "desc" unless ["asc", "desc"].include?(direction)
 
-    @relation = if field == "relevance" && query.present?
+    # Relevance sorting requires a text query; fall back to created_at if no query
+    if field == "relevance" && query.blank?
+      field = "created_at"
+      direction = "desc"
+    end
+
+    @relation = if field == "relevance"
                   T.must(@relation).order(Arel.sql("relevance_score DESC"))
                 else
                   T.must(@relation).order("search_index.#{field}" => direction.to_sym)
@@ -759,6 +790,110 @@ class SearchQuery
   sig { returns(String) }
   def sort_direction
     sort_by.split("-").last || "desc"
+  end
+
+  # Returns the effective sort field, handling the relevance fallback
+  sig { returns(String) }
+  def effective_sort_field
+    field = sort_field
+    # Relevance sorting requires a text query; fall back to created_at if no query
+    return "created_at" if field == "relevance" && query.blank?
+
+    field
+  end
+
+  # Returns the effective sort direction
+  sig { returns(String) }
+  def effective_sort_direction
+    field = sort_field
+    direction = sort_direction
+    # Relevance sorting requires a text query; fall back to desc if no query
+    return "desc" if field == "relevance" && query.blank?
+
+    direction
+  end
+
+  # Parse compound cursor and apply keyset pagination
+  sig { params(relation: ActiveRecord::Relation).returns(ActiveRecord::Relation) }
+  def apply_cursor_pagination(relation)
+    return relation if cursor.blank?
+
+    # Parse compound cursor: "base64_encoded_value:sort_key"
+    parts = cursor.to_s.split(":", 2)
+    return relation if parts.length != 2
+
+    encoded_value, sort_key_str = parts
+    sort_key = T.must(sort_key_str).to_i
+
+    begin
+      field_value_str = Base64.urlsafe_decode64(T.must(encoded_value))
+    rescue ArgumentError
+      # Invalid base64, fall back to simple sort_key pagination
+      return relation.where(search_index: { sort_key: ...sort_key })
+    end
+
+    field = effective_sort_field
+    direction = effective_sort_direction
+
+    # Convert field value to appropriate type
+    field_value = parse_cursor_field_value(field, field_value_str)
+
+    # Build keyset pagination condition:
+    # For DESC: (field < value) OR (field = value AND sort_key < sort_key_cursor)
+    # For ASC:  (field > value) OR (field = value AND sort_key < sort_key_cursor)
+    # Note: sort_key is always DESC for tiebreaker
+    if field == "relevance"
+      # Relevance is a computed column, need to use the expression
+      apply_relevance_cursor(relation, field_value, sort_key)
+    else
+      apply_field_cursor(relation, field, field_value, sort_key, direction)
+    end
+  end
+
+  sig { params(field: String, value_str: String).returns(T.untyped) }
+  def parse_cursor_field_value(field, value_str)
+    case field
+    when "created_at", "updated_at", "deadline"
+      Time.zone.parse(value_str) rescue Time.current
+    when "backlink_count", "link_count", "participant_count", "voter_count", "reader_count"
+      value_str.to_i
+    when "relevance"
+      value_str.to_f
+    when "title"
+      value_str
+    else
+      value_str
+    end
+  end
+
+  sig { params(relation: ActiveRecord::Relation, relevance_value: Float, sort_key: Integer).returns(ActiveRecord::Relation) }
+  def apply_relevance_cursor(relation, relevance_value, sort_key)
+    quoted_query = SearchIndex.connection.quote(query)
+    # Relevance is always DESC
+    relation.where(
+      "(word_similarity(#{quoted_query}, searchable_text) < ?) OR " \
+      "(word_similarity(#{quoted_query}, searchable_text) = ? AND search_index.sort_key < ?)",
+      relevance_value, relevance_value, sort_key
+    )
+  end
+
+  sig do
+    params(
+      relation: ActiveRecord::Relation,
+      field: String,
+      field_value: T.untyped,
+      sort_key: Integer,
+      direction: String
+    ).returns(ActiveRecord::Relation)
+  end
+  def apply_field_cursor(relation, field, field_value, sort_key, direction)
+    column = "search_index.#{field}"
+    comparator = direction == "desc" ? "<" : ">"
+
+    relation.where(
+      "(#{column} #{comparator} ?) OR (#{column} = ? AND search_index.sort_key < ?)",
+      field_value, field_value, sort_key
+    )
   end
 
   sig { returns(T.nilable(Cycle)) }
@@ -793,15 +928,17 @@ class SearchQuery
       .pluck(:user_id)
   end
 
-  sig { params(row: SearchIndex).returns(T.nilable(String)) }
+  sig { params(row: SearchIndex).returns(T.untyped) }
   def extract_group_key(row)
     case group_by
     when "item_type"
       row.item_type
     when "status"
       row.status
-    when "created_by"
-      row.created_by&.name || "Unknown"
+    when "superagent"
+      row.superagent
+    when "creator"
+      row.created_by
     when "date_created"
       row.date_created
     when "week_created"
@@ -817,7 +954,7 @@ class SearchQuery
     end
   end
 
-  sig { returns(T::Array[String]) }
+  sig { returns(T::Array[T.untyped]) }
   def group_order
     case group_by
     when "item_type"
@@ -825,7 +962,7 @@ class SearchQuery
     when "status"
       ["open", "closed"]
     else
-      # For date/time-based groupings, return keys in reverse chronological order
+      # For superagent, creator, and date/time-based groupings, return keys in order of first appearance
       paginated_results.to_a.map { |row| extract_group_key(row) }.compact.uniq
     end
   end

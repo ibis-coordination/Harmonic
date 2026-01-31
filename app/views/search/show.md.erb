@@ -1,15 +1,21 @@
 # Search Results
 
-<% if @search.query.present? -%>
-Query: "<%= @search.query %>"
-<% end -%>
+<% if @search.raw_query.present? -%>
+Query: `<%= @search.raw_query %>`
 <% if @search.superagent.present? -%>
-<%= @search.superagent.superagent_type.capitalize %>: <%= @search.superagent.name %>
+<%= @search.superagent.superagent_type.capitalize %>: [<%= @search.superagent.name %>](<%= @search.superagent.path %>)
 <% end -%>
+<% if @end_position < @total_count || @start_position > 1 -%>
+Showing <%= @start_position %>-<%= @end_position %> of <%= @total_count %> results
+<% else -%>
 Total: <%= @total_count %> result<%= @total_count == 1 ? '' : 's' %>
+<% end -%>
 
+<% if @grouped_results.empty? -%>
+No results found.
+<% else -%>
 <% @grouped_results.each do |group_key, items| -%>
-## <%= group_key || 'Results' %> (<%= items.length %>)
+## <%= search_group_header_markdown(group_key) %> (<%= items.length %>)
 
 <% if items.empty? -%>
 No items in this group.
@@ -25,7 +31,43 @@ No items in this group.
 <% end -%>
 
 <% end -%>
-<% if @next_cursor.present? -%>
----
-[Load more results](/search?<%= @search.to_params.merge(cursor: @next_cursor).to_query %>)
 <% end -%>
+<% if @next_cursor.present? && @end_position < @total_count -%>
+---
+[Load more results](/search?<%= @search.to_params.merge(cursor: @next_cursor, offset: @next_offset).to_query %>)
+<% end -%>
+<% else -%>
+Enter a search query to find items.
+<% end -%>
+
+---
+
+## Search Syntax
+
+Use operators to filter, sort, and group results. Plain text searches content. Use `"quotes"` for exact phrase matching. Prefix with `-` to negate.
+
+| Operator | Values |
+|----------|--------|
+| `type:` | note, decision, commitment |
+| `subtype:` | comment |
+| `status:` | open, closed |
+| `studio:` | studio handle |
+| `scene:` | scene handle |
+| `creator:` | @handle |
+| `read-by:` | @handle |
+| `voter:` | @handle |
+| `participant:` | @handle |
+| `mentions:` | @handle |
+| `replying-to:` | @handle |
+| `min-*/max-*:` | links, backlinks, comments, readers, voters, participants |
+| `critical-mass-achieved:` | true, false |
+| `sort:` | newest, oldest, updated, deadline, relevance |
+| `group:` | superagent, creator, type, status, date, week, month, none |
+| `cycle:` | today, this-week, last-month, etc. |
+| `after:` | YYYY-MM-DD or -Nd/-Nw/-Nm/-Ny |
+| `before:` | YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny |
+| `limit:` | 1-100 |
+
+## [Actions](/search/actions)
+
+* [`search(q)`](/search/actions/search) - Search for items matching a query

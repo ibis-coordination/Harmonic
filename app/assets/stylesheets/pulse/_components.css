@@ -366,11 +366,11 @@
 
 /* Note: Resource icons now use CSS classes like .note-icon.icon-sm instead of <img> tags */
 
-.pulse-resource-title {
+.pulse-resource-link a.pulse-resource-title {
   color: var(--color-fg-default);
 }
 
-a.pulse-resource-title:hover {
+.pulse-resource-link a.pulse-resource-title:hover {
   color: var(--color-accent-fg);
 }
 
@@ -923,7 +923,7 @@ a.pulse-resource-title:hover {
   cursor: pointer;
 }
 
-.pulse-resource-title {
+h1.pulse-resource-title {
   font-size: 24px;
   font-weight: 600;
   margin: 0;
@@ -3118,4 +3118,66 @@ a.pulse-activity-title:hover {
 
 .pulse-create-tab.active:hover {
   text-decoration: none;
+}
+
+/* Search Group Headers */
+.pulse-group-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pulse-group-avatar {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-fg-default);
+  color: var(--color-canvas-default);
+}
+
+.pulse-group-avatar-initials {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-group-avatar-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+.pulse-group-header-superagent .pulse-group-avatar {
+  border-radius: 4px;
+}
+
+.pulse-group-header-superagent .pulse-group-avatar-img {
+  border-radius: 4px;
+}
+
+.pulse-group-type-label {
+  color: var(--color-fg-muted);
+  font-weight: 400;
+}
+
+.pulse-group-link {
+  color: var(--color-fg-default);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.pulse-group-link:hover {
+  color: var(--color-accent-fg);
+  text-decoration: underline;
 }

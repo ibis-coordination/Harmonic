@@ -11,8 +11,8 @@ class SearchQueryParser
   CYCLE_RELATIVE = '\\d+-days?-ago|\\d+-weeks?-ago|\\d+-months?-ago|\\d+-years?-ago'.freeze
   CYCLE_PATTERN = /^(#{CYCLE_NAMED}|#{CYCLE_WEEK}|#{CYCLE_MONTH}|#{CYCLE_YEAR}|#{CYCLE_RELATIVE}|all)$/
 
-  # Handle pattern for user filters (with @ prefix)
-  HANDLE_PATTERN = /^@[a-zA-Z0-9_-]+$/
+  # Handle pattern for user filters (@ prefix optional)
+  HANDLE_PATTERN = /^@?[a-zA-Z0-9_-]+$/
 
   # Superagent handle pattern (alphanumeric with dashes)
   SUPERAGENT_HANDLE_PATTERN = /^[a-zA-Z0-9-]+$/i
@@ -69,7 +69,7 @@ class SearchQueryParser
 
     # Display options
     "sort" => { values: ["newest", "oldest", "updated", "deadline", "relevance", "backlinks", "new", "old"], multi: false },
-    "group" => { values: ["type", "status", "date", "week", "month", "none"], multi: false },
+    "group" => { values: ["superagent", "creator", "type", "status", "date", "week", "month", "none"], multi: false },
     "limit" => { pattern: INTEGER_PATTERN, multi: false },
   }.freeze, T::Hash[String, T::Hash[Symbol, T.untyped]])
 
@@ -91,6 +91,8 @@ class SearchQueryParser
 
   # Map DSL group values to SearchQuery group_by format
   GROUP_MAPPING = T.let({
+    "superagent" => "superagent",
+    "creator" => "creator",
     "type" => "item_type",
     "status" => "status",
     "date" => "date_created",
