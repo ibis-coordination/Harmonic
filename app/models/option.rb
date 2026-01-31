@@ -4,6 +4,8 @@ class Option < ApplicationRecord
   extend T::Sig
 
   include Tracked
+  include InvalidatesSearchIndex
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -36,5 +38,12 @@ class Option < ApplicationRecord
       created_at: created_at,
       updated_at: updated_at,
     }
+  end
+
+  private
+
+  # Reindex the parent decision when options change (affects option_count)
+  def search_index_items
+    [decision].compact
   end
 end

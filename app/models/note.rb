@@ -8,6 +8,9 @@ class Note < ApplicationRecord
   include HasTruncatedId
   include Attachable
   include Commentable
+  include Searchable
+  include InvalidatesSearchIndex
+  include TracksUserItemStatus
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -211,5 +214,42 @@ class Note < ApplicationRecord
       associations: [:created_by, :commentable, :note_history_events]
     ).call
     notes
+  end
+
+  # Only these commentable types are included in the search index.
+  # Used by search_index_items to avoid reindexing non-searchable parents.
+  SEARCHABLE_COMMENTABLE_TYPES = ["Note", "Decision", "Commitment"].freeze
+
+  private
+
+  # When a comment is created/destroyed, reindex the parent to update comment_count.
+  #
+  # IMPORTANT: Not all commentables are searchable. For example, RepresentationSession
+  # is commentable but not included in the search index. In that case:
+  # - The comment (this Note) IS indexed via the Searchable concern
+  # - The parent (RepresentationSession) should NOT be reindexed here
+  #
+  # Only return commentables that are actually searchable (Note, Decision, Commitment).
+  # Future commentable types that aren't searchable should be excluded here.
+  def search_index_items
+    return [] unless is_comment?
+    return [] unless SEARCHABLE_COMMENTABLE_TYPES.include?(commentable_type)
+
+    [commentable].compact
+  end
+
+  # Track the creator of this note (including comments)
+  def user_item_status_updates
+    return [] if created_by_id.blank?
+
+    [
+      {
+        tenant_id: tenant_id,
+        user_id: created_by_id,
+        item_type: "Note",
+        item_id: id,
+        is_creator: true,
+      },
+    ]
   end
 end

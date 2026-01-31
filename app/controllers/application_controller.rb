@@ -299,14 +299,17 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = %w[home trio search two_factor_auth].freeze
+
+  def resource_model?
+    return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
+    return false if controller_name.end_with?("sessions")
+    true
+  end
+
   def current_resource_model
     return @current_resource_model if defined?(@current_resource_model)
-    if controller_name == 'home' || controller_name == 'trio' || controller_name.end_with?('sessions') || controller_name == 'two_factor_auth'
-      @current_resource_model = nil
-    else
-      @current_resource_model = controller_name.classify.constantize
-    end
-    @current_resource_model
+    @current_resource_model = resource_model? ? controller_name.classify.constantize : nil
   end
 
   def current_resource

@@ -1,0 +1,122 @@
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <h1 class="pulse-resource-title" style="display: flex; align-items: center; gap: 0.5rem;">
+      <%= octicon 'search', height: 20 %>
+      Search
+    </h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <section class="pulse-settings-section">
+      <%= form_with url: "/search", method: :get, local: true, class: 'pulse-form pulse-filters-form' do |form| %>
+        <div class="pulse-form-row">
+          <div class="pulse-form-group pulse-form-group-wide">
+            <%= form.text_field :q,
+                value: params[:q],
+                class: 'pulse-form-input',
+                placeholder: 'Search',
+                style: 'font-family: monospace;' %>
+          </div>
+          <div class="pulse-form-group pulse-form-group-submit">
+            <%= form.submit 'Search', class: 'pulse-action-btn', name: nil %>
+          </div>
+        </div>
+      <% end %>
+    </section>
+
+    <% if @search.raw_query.present? %>
+      <div class="pulse-resource-meta">
+        <% if @end_position < @total_count || @start_position > 1 %>
+          <span>Showing <%= @start_position %>-<%= @end_position %> of <%= @total_count %> results</span>
+        <% else %>
+          <span><%= @total_count %> result<%= @total_count == 1 ? '' : 's' %></span>
+        <% end %>
+        <% if @search.query.present? %>
+          <span>for "<%= @search.query %>"</span>
+        <% end %>
+        <% if @search.superagent.present? %>
+          <span>in <strong><%= @search.superagent.name %></strong></span>
+        <% end %>
+      </div>
+
+      <section class="pulse-settings-section">
+        <% if @grouped_results.empty? %>
+          <p class="pulse-empty-content"><em>No results found.</em></p>
+        <% else %>
+        <% @grouped_results.each do |group_key, items| %>
+          <%= render 'shared/pulse_accordion', title: search_group_header(group_key), open: true, count: items.length do %>
+            <% if items.empty? %>
+              <p class="pulse-empty-content"><em>No items in this group.</em></p>
+            <% else %>
+              <table class="pulse-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Location</th>
+                    <th>Created</th>
+                    <th>Deadline</th>
+                    <th>Backlinks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% items.each do |item| %>
+                    <tr>
+                      <td><%= render 'shared/pulse_resource_link', resource: search_result_to_hash(item) %></td>
+                      <td><%= item.superagent&.name || 'Unknown' %></td>
+                      <td><%= timeago(item.created_at) %></td>
+                      <td><%= timeago(item.deadline) %></td>
+                      <td><%= item.backlink_count %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            <% end %>
+          <% end %>
+        <% end %>
+      <% end %>
+
+        <% if @next_cursor.present? && @end_position < @total_count %>
+          <div class="pulse-pagination" style="margin-top: 1rem;">
+            <%= link_to 'Load more',
+                "/search?#{@search.to_params.merge(cursor: @next_cursor, offset: @next_offset).to_query}",
+                class: 'pulse-action-btn pulse-action-btn-secondary' %>
+          </div>
+        <% end %>
+      </section>
+    <% end %>
+
+    <section id="search-help" class="pulse-settings-section" style="margin-top: 2rem;">
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Search Syntax</h3>
+      <p style="font-size: 0.9rem; color: var(--color-fg-muted); margin-bottom: 1rem;">
+        Use operators to filter, sort, and group results. Plain text searches content.
+        Use <code>"quotes"</code> for exact phrase matching. Prefix with <code>-</code> to negate.
+      </p>
+      <table class="pulse-table" style="font-size: 0.85rem;">
+        <thead>
+          <tr><th>Operator</th><th>Values</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>type:</code></td><td>note, decision, commitment</td></tr>
+          <tr><td><code>subtype:</code></td><td>comment</td></tr>
+          <tr><td><code>status:</code></td><td>open, closed</td></tr>
+          <tr><td><code>studio:</code></td><td>studio handle</td></tr>
+          <tr><td><code>scene:</code></td><td>scene handle</td></tr>
+          <tr><td><code>creator:</code></td><td>@handle</td></tr>
+          <tr><td><code>read-by:</code></td><td>@handle</td></tr>
+          <tr><td><code>voter:</code></td><td>@handle</td></tr>
+          <tr><td><code>participant:</code></td><td>@handle</td></tr>
+          <tr><td><code>mentions:</code></td><td>@handle</td></tr>
+          <tr><td><code>replying-to:</code></td><td>@handle</td></tr>
+          <tr><td><code>min-*/max-*:</code></td><td>links, backlinks, comments, readers, voters, participants</td></tr>
+          <tr><td><code>critical-mass-achieved:</code></td><td>true, false</td></tr>
+          <tr><td><code>sort:</code></td><td>newest, oldest, updated, deadline, relevance</td></tr>
+          <tr><td><code>group:</code></td><td>superagent, creator, type, status, date, week, month, none</td></tr>
+          <tr><td><code>cycle:</code></td><td>today, this-week, last-month, etc.</td></tr>
+          <tr><td><code>after:</code></td><td>YYYY-MM-DD or -Nd/-Nw/-Nm/-Ny</td></tr>
+          <tr><td><code>before:</code></td><td>YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny</td></tr>
+          <tr><td><code>limit:</code></td><td>1-100</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</article>

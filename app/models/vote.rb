@@ -4,6 +4,9 @@ class Vote < ApplicationRecord
   extend T::Sig
 
   include Tracked
+  include InvalidatesSearchIndex
+  include TracksUserItemStatus
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -38,5 +41,29 @@ class Vote < ApplicationRecord
       created_at: created_at,
       updated_at: updated_at,
     }
+  end
+
+  private
+
+  # Reindex the parent decision when votes change (affects voter_count)
+  def search_index_items
+    [decision].compact
+  end
+
+  # Track when a user votes on a decision
+  def user_item_status_updates
+    user_id = decision_participant&.user_id
+    return [] if user_id.blank?
+
+    [
+      {
+        tenant_id: tenant_id,
+        user_id: user_id,
+        item_type: "Decision",
+        item_id: decision_id,
+        has_voted: true,
+        voted_at: created_at,
+      },
+    ]
   end
 end

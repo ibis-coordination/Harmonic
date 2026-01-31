@@ -275,6 +275,20 @@ class ActionsHelper
       params: [],
     },
 
+    # Search actions
+    "search" => {
+      description: "Search for items matching a query",
+      params_string: "(q)",
+      params: [
+        {
+          name: "q",
+          type: "string",
+          required: true,
+          description: "The search query. Supports operators: type:, status:, cycle:, creator:, studio:, etc.",
+        },
+      ],
+    },
+
     # Notification actions
     "mark_read" => {
       description: "Mark a notification as read",
@@ -484,6 +498,11 @@ class ActionsHelper
         { name: "mark_all_read", params_string: ACTION_DEFINITIONS["mark_all_read"][:params_string], description: ACTION_DEFINITIONS["mark_all_read"][:description] },
         { name: "create_reminder", params_string: ACTION_DEFINITIONS["create_reminder"][:params_string], description: ACTION_DEFINITIONS["create_reminder"][:description] },
         { name: "delete_reminder", params_string: ACTION_DEFINITIONS["delete_reminder"][:params_string], description: ACTION_DEFINITIONS["delete_reminder"][:description] },
+      ],
+    },
+    "/search" => {
+      actions: [
+        { name: "search", params_string: ACTION_DEFINITIONS["search"][:params_string], description: ACTION_DEFINITIONS["search"][:description] },
       ],
     },
     "/studios/:studio_handle/settings/webhooks" => { actions: [] },

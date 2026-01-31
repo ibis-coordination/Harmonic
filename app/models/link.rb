@@ -3,6 +3,8 @@
 class Link < ApplicationRecord
   extend T::Sig
 
+  include InvalidatesSearchIndex
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -104,5 +106,14 @@ class Link < ApplicationRecord
         #{limit}
     SQL
     counts.to_a
+  end
+
+  private
+
+  # Both linked items need reindexing:
+  # - from_linkable: link_count changes
+  # - to_linkable: backlink_count changes
+  def search_index_items
+    [from_linkable, to_linkable].compact
   end
 end

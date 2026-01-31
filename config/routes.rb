@@ -119,6 +119,12 @@ Rails.application.routes.draw do
   get 'whoami' => 'whoami#index'
   get 'motto' => 'motto#index'
 
+  # Global search (tenant-level, searches across all accessible studios/scenes)
+  get 'search' => 'search#show'
+  get 'search/actions' => 'search#actions_index'
+  get 'search/actions/search' => 'search#describe_search'
+  post 'search/actions/search' => 'search#execute_search'
+
   # ============================================================
   # NEW ADMIN ROUTES (fresh implementation - separate from /admin)
   # ============================================================

@@ -1,4 +1,4 @@
-\restrict oAtMmGYOqMhxbg08c0zaI49qS5aHVnyQyipz4IHswL6omCK84BUqdjLo5YF5pJ2
+\restrict ILGuYEjXkNcGVTpKq0o7I0r6Mt5JjHfdUN8JTDtAjMHGdOZP7dSraAx17nZHfbl
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -19,6 +19,20 @@ SET row_security = off;
 --
 
 -- *not* creating schema, since initdb creates it
+
+
+--
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
 
 
 --
@@ -606,6 +620,587 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: search_index; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+)
+PARTITION BY HASH (tenant_id);
+
+
+--
+-- Name: search_index_sort_key_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.search_index_sort_key_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: search_index_sort_key_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.search_index_sort_key_seq OWNED BY public.search_index.sort_key;
+
+
+--
+-- Name: search_index_p0; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p0 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p1; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p1 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p10; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p10 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p11; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p11 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p12; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p12 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p13; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p13 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p14; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p14 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p15; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p15 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p2; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p2 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p3; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p3 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p4; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p4 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p5; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p5 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p6; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p6 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p7; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p7 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p8; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p8 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
+-- Name: search_index_p9; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.search_index_p9 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    truncated_id character varying(8) NOT NULL,
+    title text NOT NULL,
+    body text,
+    searchable_text text NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deadline timestamp(6) without time zone NOT NULL,
+    created_by_id uuid,
+    updated_by_id uuid,
+    link_count integer DEFAULT 0,
+    backlink_count integer DEFAULT 0,
+    participant_count integer DEFAULT 0,
+    voter_count integer DEFAULT 0,
+    option_count integer DEFAULT 0,
+    comment_count integer DEFAULT 0,
+    reader_count integer DEFAULT 0,
+    is_pinned boolean DEFAULT false,
+    sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
+    subtype character varying,
+    replying_to_id uuid
+);
+
+
+--
 -- Name: superagent_members; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -695,6 +1290,381 @@ CREATE TABLE public.trustee_permissions (
 
 
 --
+-- Name: user_item_status; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+)
+PARTITION BY HASH (tenant_id);
+
+
+--
+-- Name: user_item_status_p0; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p0 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p1; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p1 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p10; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p10 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p11; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p11 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p12; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p12 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p13; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p13 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p14; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p14 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p15; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p15 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p2; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p2 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p3; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p3 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p4; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p4 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p5; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p5 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p6; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p6 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p7; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p7 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p8; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p8 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
+-- Name: user_item_status_p9; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_item_status_p9 (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_type character varying NOT NULL,
+    item_id uuid NOT NULL,
+    has_read boolean DEFAULT false,
+    read_at timestamp(6) without time zone,
+    has_voted boolean DEFAULT false,
+    voted_at timestamp(6) without time zone,
+    is_participating boolean DEFAULT false,
+    participated_at timestamp(6) without time zone,
+    is_creator boolean DEFAULT false,
+    last_viewed_at timestamp(6) without time zone,
+    is_mentioned boolean DEFAULT false
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -776,6 +1746,237 @@ CREATE TABLE public.webhooks (
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
     user_id uuid
 );
+
+
+--
+-- Name: search_index_p0; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p0 FOR VALUES WITH (modulus 16, remainder 0);
+
+
+--
+-- Name: search_index_p1; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p1 FOR VALUES WITH (modulus 16, remainder 1);
+
+
+--
+-- Name: search_index_p10; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p10 FOR VALUES WITH (modulus 16, remainder 10);
+
+
+--
+-- Name: search_index_p11; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p11 FOR VALUES WITH (modulus 16, remainder 11);
+
+
+--
+-- Name: search_index_p12; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p12 FOR VALUES WITH (modulus 16, remainder 12);
+
+
+--
+-- Name: search_index_p13; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p13 FOR VALUES WITH (modulus 16, remainder 13);
+
+
+--
+-- Name: search_index_p14; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p14 FOR VALUES WITH (modulus 16, remainder 14);
+
+
+--
+-- Name: search_index_p15; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p15 FOR VALUES WITH (modulus 16, remainder 15);
+
+
+--
+-- Name: search_index_p2; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p2 FOR VALUES WITH (modulus 16, remainder 2);
+
+
+--
+-- Name: search_index_p3; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p3 FOR VALUES WITH (modulus 16, remainder 3);
+
+
+--
+-- Name: search_index_p4; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p4 FOR VALUES WITH (modulus 16, remainder 4);
+
+
+--
+-- Name: search_index_p5; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p5 FOR VALUES WITH (modulus 16, remainder 5);
+
+
+--
+-- Name: search_index_p6; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p6 FOR VALUES WITH (modulus 16, remainder 6);
+
+
+--
+-- Name: search_index_p7; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p7 FOR VALUES WITH (modulus 16, remainder 7);
+
+
+--
+-- Name: search_index_p8; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p8 FOR VALUES WITH (modulus 16, remainder 8);
+
+
+--
+-- Name: search_index_p9; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ATTACH PARTITION public.search_index_p9 FOR VALUES WITH (modulus 16, remainder 9);
+
+
+--
+-- Name: user_item_status_p0; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p0 FOR VALUES WITH (modulus 16, remainder 0);
+
+
+--
+-- Name: user_item_status_p1; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p1 FOR VALUES WITH (modulus 16, remainder 1);
+
+
+--
+-- Name: user_item_status_p10; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p10 FOR VALUES WITH (modulus 16, remainder 10);
+
+
+--
+-- Name: user_item_status_p11; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p11 FOR VALUES WITH (modulus 16, remainder 11);
+
+
+--
+-- Name: user_item_status_p12; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p12 FOR VALUES WITH (modulus 16, remainder 12);
+
+
+--
+-- Name: user_item_status_p13; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p13 FOR VALUES WITH (modulus 16, remainder 13);
+
+
+--
+-- Name: user_item_status_p14; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p14 FOR VALUES WITH (modulus 16, remainder 14);
+
+
+--
+-- Name: user_item_status_p15; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p15 FOR VALUES WITH (modulus 16, remainder 15);
+
+
+--
+-- Name: user_item_status_p2; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p2 FOR VALUES WITH (modulus 16, remainder 2);
+
+
+--
+-- Name: user_item_status_p3; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p3 FOR VALUES WITH (modulus 16, remainder 3);
+
+
+--
+-- Name: user_item_status_p4; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p4 FOR VALUES WITH (modulus 16, remainder 4);
+
+
+--
+-- Name: user_item_status_p5; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p5 FOR VALUES WITH (modulus 16, remainder 5);
+
+
+--
+-- Name: user_item_status_p6; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p6 FOR VALUES WITH (modulus 16, remainder 6);
+
+
+--
+-- Name: user_item_status_p7; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p7 FOR VALUES WITH (modulus 16, remainder 7);
+
+
+--
+-- Name: user_item_status_p8; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p8 FOR VALUES WITH (modulus 16, remainder 8);
+
+
+--
+-- Name: user_item_status_p9; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status ATTACH PARTITION public.user_item_status_p9 FOR VALUES WITH (modulus 16, remainder 9);
+
+
+--
+-- Name: search_index sort_key; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index ALTER COLUMN sort_key SET DEFAULT nextval('public.search_index_sort_key_seq'::regclass);
 
 
 --
@@ -971,6 +2172,142 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: search_index search_index_partitioned_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index
+    ADD CONSTRAINT search_index_partitioned_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p0 search_index_p0_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p0
+    ADD CONSTRAINT search_index_p0_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p10 search_index_p10_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p10
+    ADD CONSTRAINT search_index_p10_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p11 search_index_p11_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p11
+    ADD CONSTRAINT search_index_p11_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p12 search_index_p12_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p12
+    ADD CONSTRAINT search_index_p12_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p13 search_index_p13_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p13
+    ADD CONSTRAINT search_index_p13_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p14 search_index_p14_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p14
+    ADD CONSTRAINT search_index_p14_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p15 search_index_p15_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p15
+    ADD CONSTRAINT search_index_p15_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p1 search_index_p1_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p1
+    ADD CONSTRAINT search_index_p1_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p2 search_index_p2_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p2
+    ADD CONSTRAINT search_index_p2_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p3 search_index_p3_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p3
+    ADD CONSTRAINT search_index_p3_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p4 search_index_p4_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p4
+    ADD CONSTRAINT search_index_p4_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p5 search_index_p5_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p5
+    ADD CONSTRAINT search_index_p5_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p6 search_index_p6_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p6
+    ADD CONSTRAINT search_index_p6_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p7 search_index_p7_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p7
+    ADD CONSTRAINT search_index_p7_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p8 search_index_p8_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p8
+    ADD CONSTRAINT search_index_p8_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: search_index_p9 search_index_p9_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.search_index_p9
+    ADD CONSTRAINT search_index_p9_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
 -- Name: invites studio_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1019,6 +2356,142 @@ ALTER TABLE ONLY public.trustee_permissions
 
 
 --
+-- Name: user_item_status user_item_status_partitioned_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status
+    ADD CONSTRAINT user_item_status_partitioned_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p0 user_item_status_p0_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p0
+    ADD CONSTRAINT user_item_status_p0_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p10 user_item_status_p10_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p10
+    ADD CONSTRAINT user_item_status_p10_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p11 user_item_status_p11_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p11
+    ADD CONSTRAINT user_item_status_p11_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p12 user_item_status_p12_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p12
+    ADD CONSTRAINT user_item_status_p12_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p13 user_item_status_p13_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p13
+    ADD CONSTRAINT user_item_status_p13_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p14 user_item_status_p14_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p14
+    ADD CONSTRAINT user_item_status_p14_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p15 user_item_status_p15_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p15
+    ADD CONSTRAINT user_item_status_p15_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p1 user_item_status_p1_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p1
+    ADD CONSTRAINT user_item_status_p1_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p2 user_item_status_p2_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p2
+    ADD CONSTRAINT user_item_status_p2_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p3 user_item_status_p3_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p3
+    ADD CONSTRAINT user_item_status_p3_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p4 user_item_status_p4_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p4
+    ADD CONSTRAINT user_item_status_p4_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p5 user_item_status_p5_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p5
+    ADD CONSTRAINT user_item_status_p5_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p6 user_item_status_p6_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p6
+    ADD CONSTRAINT user_item_status_p6_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p7 user_item_status_p7_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p7
+    ADD CONSTRAINT user_item_status_p7_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p8 user_item_status_p8_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p8
+    ADD CONSTRAINT user_item_status_p8_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_item_status_p9 user_item_status_p9_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_item_status_p9
+    ADD CONSTRAINT user_item_status_p9_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1054,6 +2527,111 @@ CREATE INDEX idx_members_superagent_id ON public.superagent_members USING btree 
 --
 
 CREATE UNIQUE INDEX idx_members_tenant_superagent_user ON public.superagent_members USING btree (tenant_id, superagent_id, user_id);
+
+
+--
+-- Name: idx_search_index_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_created ON ONLY public.search_index USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: idx_search_index_cursor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_cursor ON ONLY public.search_index USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: idx_search_index_deadline; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_deadline ON ONLY public.search_index USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: idx_search_index_item; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_item ON ONLY public.search_index USING btree (item_type, item_id);
+
+
+--
+-- Name: idx_search_index_replying_to; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_replying_to ON ONLY public.search_index USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: idx_search_index_subtype; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_subtype ON ONLY public.search_index USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: idx_search_index_tenant_superagent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_tenant_superagent ON ONLY public.search_index USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: idx_search_index_trigram; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_trigram ON ONLY public.search_index USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: idx_search_index_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_search_index_type ON ONLY public.search_index USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: idx_search_index_unique_item; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_search_index_unique_item ON ONLY public.search_index USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: idx_user_item_status_not_participating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_item_status_not_participating ON ONLY public.user_item_status USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: idx_user_item_status_not_voted; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_item_status_not_voted ON ONLY public.user_item_status USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: idx_user_item_status_tenant_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_item_status_tenant_user ON ONLY public.user_item_status USING btree (tenant_id, user_id);
+
+
+--
+-- Name: idx_user_item_status_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_user_item_status_unique ON ONLY public.user_item_status USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: idx_user_item_status_unread; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_item_status_unread ON ONLY public.user_item_status USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
 
 
 --
@@ -1974,6 +3552,3590 @@ CREATE INDEX index_webhooks_on_user_id ON public.webhooks USING btree (user_id);
 
 
 --
+-- Name: search_index_p0_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_item_type_item_id_idx ON public.search_index_p0 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p0_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_searchable_text_idx ON public.search_index_p0 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p0_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p0_tenant_id_item_type_item_id_idx ON public.search_index_p0 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p0_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_tenant_id_replying_to_id_idx ON public.search_index_p0 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_tenant_id_superagent_id_created_at_idx ON public.search_index_p0 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_tenant_id_superagent_id_deadline_idx ON public.search_index_p0 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_tenant_id_superagent_id_idx ON public.search_index_p0 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_tenant_id_superagent_id_item_type_idx ON public.search_index_p0 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_tenant_id_superagent_id_sort_key_idx ON public.search_index_p0 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p0_tenant_id_superagent_id_subtype_idx ON public.search_index_p0 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p10_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_item_type_item_id_idx ON public.search_index_p10 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p10_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_searchable_text_idx ON public.search_index_p10 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p10_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p10_tenant_id_item_type_item_id_idx ON public.search_index_p10 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p10_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_tenant_id_replying_to_id_idx ON public.search_index_p10 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_tenant_id_superagent_id_created_at_idx ON public.search_index_p10 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_tenant_id_superagent_id_deadline_idx ON public.search_index_p10 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_tenant_id_superagent_id_idx ON public.search_index_p10 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_tenant_id_superagent_id_item_type_idx ON public.search_index_p10 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_tenant_id_superagent_id_sort_key_idx ON public.search_index_p10 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p10_tenant_id_superagent_id_subtype_idx ON public.search_index_p10 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p11_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_item_type_item_id_idx ON public.search_index_p11 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p11_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_searchable_text_idx ON public.search_index_p11 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p11_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p11_tenant_id_item_type_item_id_idx ON public.search_index_p11 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p11_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_tenant_id_replying_to_id_idx ON public.search_index_p11 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_tenant_id_superagent_id_created_at_idx ON public.search_index_p11 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_tenant_id_superagent_id_deadline_idx ON public.search_index_p11 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_tenant_id_superagent_id_idx ON public.search_index_p11 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_tenant_id_superagent_id_item_type_idx ON public.search_index_p11 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_tenant_id_superagent_id_sort_key_idx ON public.search_index_p11 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p11_tenant_id_superagent_id_subtype_idx ON public.search_index_p11 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p12_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_item_type_item_id_idx ON public.search_index_p12 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p12_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_searchable_text_idx ON public.search_index_p12 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p12_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p12_tenant_id_item_type_item_id_idx ON public.search_index_p12 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p12_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_tenant_id_replying_to_id_idx ON public.search_index_p12 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_tenant_id_superagent_id_created_at_idx ON public.search_index_p12 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_tenant_id_superagent_id_deadline_idx ON public.search_index_p12 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_tenant_id_superagent_id_idx ON public.search_index_p12 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_tenant_id_superagent_id_item_type_idx ON public.search_index_p12 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_tenant_id_superagent_id_sort_key_idx ON public.search_index_p12 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p12_tenant_id_superagent_id_subtype_idx ON public.search_index_p12 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p13_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_item_type_item_id_idx ON public.search_index_p13 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p13_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_searchable_text_idx ON public.search_index_p13 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p13_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p13_tenant_id_item_type_item_id_idx ON public.search_index_p13 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p13_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_tenant_id_replying_to_id_idx ON public.search_index_p13 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_tenant_id_superagent_id_created_at_idx ON public.search_index_p13 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_tenant_id_superagent_id_deadline_idx ON public.search_index_p13 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_tenant_id_superagent_id_idx ON public.search_index_p13 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_tenant_id_superagent_id_item_type_idx ON public.search_index_p13 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_tenant_id_superagent_id_sort_key_idx ON public.search_index_p13 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p13_tenant_id_superagent_id_subtype_idx ON public.search_index_p13 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p14_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_item_type_item_id_idx ON public.search_index_p14 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p14_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_searchable_text_idx ON public.search_index_p14 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p14_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p14_tenant_id_item_type_item_id_idx ON public.search_index_p14 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p14_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_tenant_id_replying_to_id_idx ON public.search_index_p14 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_tenant_id_superagent_id_created_at_idx ON public.search_index_p14 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_tenant_id_superagent_id_deadline_idx ON public.search_index_p14 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_tenant_id_superagent_id_idx ON public.search_index_p14 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_tenant_id_superagent_id_item_type_idx ON public.search_index_p14 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_tenant_id_superagent_id_sort_key_idx ON public.search_index_p14 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p14_tenant_id_superagent_id_subtype_idx ON public.search_index_p14 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p15_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_item_type_item_id_idx ON public.search_index_p15 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p15_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_searchable_text_idx ON public.search_index_p15 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p15_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p15_tenant_id_item_type_item_id_idx ON public.search_index_p15 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p15_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_tenant_id_replying_to_id_idx ON public.search_index_p15 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_tenant_id_superagent_id_created_at_idx ON public.search_index_p15 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_tenant_id_superagent_id_deadline_idx ON public.search_index_p15 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_tenant_id_superagent_id_idx ON public.search_index_p15 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_tenant_id_superagent_id_item_type_idx ON public.search_index_p15 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_tenant_id_superagent_id_sort_key_idx ON public.search_index_p15 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p15_tenant_id_superagent_id_subtype_idx ON public.search_index_p15 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p1_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_item_type_item_id_idx ON public.search_index_p1 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p1_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_searchable_text_idx ON public.search_index_p1 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p1_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p1_tenant_id_item_type_item_id_idx ON public.search_index_p1 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p1_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_tenant_id_replying_to_id_idx ON public.search_index_p1 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_tenant_id_superagent_id_created_at_idx ON public.search_index_p1 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_tenant_id_superagent_id_deadline_idx ON public.search_index_p1 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_tenant_id_superagent_id_idx ON public.search_index_p1 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_tenant_id_superagent_id_item_type_idx ON public.search_index_p1 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_tenant_id_superagent_id_sort_key_idx ON public.search_index_p1 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p1_tenant_id_superagent_id_subtype_idx ON public.search_index_p1 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p2_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_item_type_item_id_idx ON public.search_index_p2 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p2_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_searchable_text_idx ON public.search_index_p2 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p2_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p2_tenant_id_item_type_item_id_idx ON public.search_index_p2 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p2_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_tenant_id_replying_to_id_idx ON public.search_index_p2 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_tenant_id_superagent_id_created_at_idx ON public.search_index_p2 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_tenant_id_superagent_id_deadline_idx ON public.search_index_p2 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_tenant_id_superagent_id_idx ON public.search_index_p2 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_tenant_id_superagent_id_item_type_idx ON public.search_index_p2 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_tenant_id_superagent_id_sort_key_idx ON public.search_index_p2 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p2_tenant_id_superagent_id_subtype_idx ON public.search_index_p2 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p3_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_item_type_item_id_idx ON public.search_index_p3 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p3_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_searchable_text_idx ON public.search_index_p3 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p3_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p3_tenant_id_item_type_item_id_idx ON public.search_index_p3 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p3_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_tenant_id_replying_to_id_idx ON public.search_index_p3 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_tenant_id_superagent_id_created_at_idx ON public.search_index_p3 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_tenant_id_superagent_id_deadline_idx ON public.search_index_p3 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_tenant_id_superagent_id_idx ON public.search_index_p3 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_tenant_id_superagent_id_item_type_idx ON public.search_index_p3 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_tenant_id_superagent_id_sort_key_idx ON public.search_index_p3 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p3_tenant_id_superagent_id_subtype_idx ON public.search_index_p3 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p4_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_item_type_item_id_idx ON public.search_index_p4 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p4_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_searchable_text_idx ON public.search_index_p4 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p4_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p4_tenant_id_item_type_item_id_idx ON public.search_index_p4 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p4_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_tenant_id_replying_to_id_idx ON public.search_index_p4 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_tenant_id_superagent_id_created_at_idx ON public.search_index_p4 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_tenant_id_superagent_id_deadline_idx ON public.search_index_p4 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_tenant_id_superagent_id_idx ON public.search_index_p4 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_tenant_id_superagent_id_item_type_idx ON public.search_index_p4 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_tenant_id_superagent_id_sort_key_idx ON public.search_index_p4 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p4_tenant_id_superagent_id_subtype_idx ON public.search_index_p4 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p5_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_item_type_item_id_idx ON public.search_index_p5 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p5_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_searchable_text_idx ON public.search_index_p5 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p5_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p5_tenant_id_item_type_item_id_idx ON public.search_index_p5 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p5_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_tenant_id_replying_to_id_idx ON public.search_index_p5 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_tenant_id_superagent_id_created_at_idx ON public.search_index_p5 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_tenant_id_superagent_id_deadline_idx ON public.search_index_p5 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_tenant_id_superagent_id_idx ON public.search_index_p5 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_tenant_id_superagent_id_item_type_idx ON public.search_index_p5 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_tenant_id_superagent_id_sort_key_idx ON public.search_index_p5 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p5_tenant_id_superagent_id_subtype_idx ON public.search_index_p5 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p6_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_item_type_item_id_idx ON public.search_index_p6 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p6_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_searchable_text_idx ON public.search_index_p6 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p6_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p6_tenant_id_item_type_item_id_idx ON public.search_index_p6 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p6_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_tenant_id_replying_to_id_idx ON public.search_index_p6 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_tenant_id_superagent_id_created_at_idx ON public.search_index_p6 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_tenant_id_superagent_id_deadline_idx ON public.search_index_p6 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_tenant_id_superagent_id_idx ON public.search_index_p6 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_tenant_id_superagent_id_item_type_idx ON public.search_index_p6 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_tenant_id_superagent_id_sort_key_idx ON public.search_index_p6 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p6_tenant_id_superagent_id_subtype_idx ON public.search_index_p6 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p7_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_item_type_item_id_idx ON public.search_index_p7 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p7_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_searchable_text_idx ON public.search_index_p7 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p7_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p7_tenant_id_item_type_item_id_idx ON public.search_index_p7 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p7_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_tenant_id_replying_to_id_idx ON public.search_index_p7 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_tenant_id_superagent_id_created_at_idx ON public.search_index_p7 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_tenant_id_superagent_id_deadline_idx ON public.search_index_p7 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_tenant_id_superagent_id_idx ON public.search_index_p7 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_tenant_id_superagent_id_item_type_idx ON public.search_index_p7 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_tenant_id_superagent_id_sort_key_idx ON public.search_index_p7 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p7_tenant_id_superagent_id_subtype_idx ON public.search_index_p7 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p8_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_item_type_item_id_idx ON public.search_index_p8 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p8_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_searchable_text_idx ON public.search_index_p8 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p8_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p8_tenant_id_item_type_item_id_idx ON public.search_index_p8 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p8_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_tenant_id_replying_to_id_idx ON public.search_index_p8 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_tenant_id_superagent_id_created_at_idx ON public.search_index_p8 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_tenant_id_superagent_id_deadline_idx ON public.search_index_p8 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_tenant_id_superagent_id_idx ON public.search_index_p8 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_tenant_id_superagent_id_item_type_idx ON public.search_index_p8 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_tenant_id_superagent_id_sort_key_idx ON public.search_index_p8 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p8_tenant_id_superagent_id_subtype_idx ON public.search_index_p8 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: search_index_p9_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_item_type_item_id_idx ON public.search_index_p9 USING btree (item_type, item_id);
+
+
+--
+-- Name: search_index_p9_searchable_text_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_searchable_text_idx ON public.search_index_p9 USING gin (searchable_text public.gin_trgm_ops);
+
+
+--
+-- Name: search_index_p9_tenant_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX search_index_p9_tenant_id_item_type_item_id_idx ON public.search_index_p9 USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p9_tenant_id_replying_to_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_tenant_id_replying_to_id_idx ON public.search_index_p9 USING btree (tenant_id, replying_to_id);
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_tenant_id_superagent_id_created_at_idx ON public.search_index_p9 USING btree (tenant_id, superagent_id, created_at DESC);
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_deadline_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_tenant_id_superagent_id_deadline_idx ON public.search_index_p9 USING btree (tenant_id, superagent_id, deadline);
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_tenant_id_superagent_id_idx ON public.search_index_p9 USING btree (tenant_id, superagent_id);
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_tenant_id_superagent_id_item_type_idx ON public.search_index_p9 USING btree (tenant_id, superagent_id, item_type);
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_sort_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_tenant_id_superagent_id_sort_key_idx ON public.search_index_p9 USING btree (tenant_id, superagent_id, sort_key DESC);
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_subtype_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX search_index_p9_tenant_id_superagent_id_subtype_idx ON public.search_index_p9 USING btree (tenant_id, superagent_id, subtype);
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p0_tenant_id_user_id_idx ON public.user_item_status_p0 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p0_tenant_id_user_id_item_type_idx ON public.user_item_status_p0 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p0_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p0 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p0_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p0 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p0_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p0 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p10_tenant_id_user_id_idx ON public.user_item_status_p10 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p10_tenant_id_user_id_item_type_idx ON public.user_item_status_p10 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p10_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p10 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p10_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p10 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p10_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p10 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p11_tenant_id_user_id_idx ON public.user_item_status_p11 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p11_tenant_id_user_id_item_type_idx ON public.user_item_status_p11 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p11_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p11 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p11_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p11 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p11_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p11 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p12_tenant_id_user_id_idx ON public.user_item_status_p12 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p12_tenant_id_user_id_item_type_idx ON public.user_item_status_p12 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p12_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p12 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p12_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p12 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p12_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p12 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p13_tenant_id_user_id_idx ON public.user_item_status_p13 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p13_tenant_id_user_id_item_type_idx ON public.user_item_status_p13 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p13_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p13 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p13_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p13 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p13_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p13 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p14_tenant_id_user_id_idx ON public.user_item_status_p14 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p14_tenant_id_user_id_item_type_idx ON public.user_item_status_p14 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p14_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p14 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p14_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p14 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p14_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p14 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p15_tenant_id_user_id_idx ON public.user_item_status_p15 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p15_tenant_id_user_id_item_type_idx ON public.user_item_status_p15 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p15_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p15 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p15_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p15 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p15_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p15 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p1_tenant_id_user_id_idx ON public.user_item_status_p1 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p1_tenant_id_user_id_item_type_idx ON public.user_item_status_p1 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p1_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p1 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p1_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p1 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p1_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p1 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p2_tenant_id_user_id_idx ON public.user_item_status_p2 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p2_tenant_id_user_id_item_type_idx ON public.user_item_status_p2 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p2_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p2 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p2_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p2 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p2_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p2 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p3_tenant_id_user_id_idx ON public.user_item_status_p3 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p3_tenant_id_user_id_item_type_idx ON public.user_item_status_p3 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p3_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p3 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p3_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p3 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p3_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p3 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p4_tenant_id_user_id_idx ON public.user_item_status_p4 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p4_tenant_id_user_id_item_type_idx ON public.user_item_status_p4 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p4_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p4 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p4_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p4 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p4_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p4 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p5_tenant_id_user_id_idx ON public.user_item_status_p5 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p5_tenant_id_user_id_item_type_idx ON public.user_item_status_p5 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p5_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p5 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p5_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p5 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p5_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p5 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p6_tenant_id_user_id_idx ON public.user_item_status_p6 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p6_tenant_id_user_id_item_type_idx ON public.user_item_status_p6 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p6_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p6 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p6_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p6 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p6_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p6 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p7_tenant_id_user_id_idx ON public.user_item_status_p7 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p7_tenant_id_user_id_item_type_idx ON public.user_item_status_p7 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p7_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p7 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p7_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p7 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p7_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p7 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p8_tenant_id_user_id_idx ON public.user_item_status_p8 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p8_tenant_id_user_id_item_type_idx ON public.user_item_status_p8 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p8_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p8 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p8_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p8 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p8_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p8 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p9_tenant_id_user_id_idx ON public.user_item_status_p9 USING btree (tenant_id, user_id);
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_item_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p9_tenant_id_user_id_item_type_idx ON public.user_item_status_p9 USING btree (tenant_id, user_id, item_type) WHERE (has_read = false);
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_item_type_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p9_tenant_id_user_id_item_type_idx1 ON public.user_item_status_p9 USING btree (tenant_id, user_id, item_type) WHERE (has_voted = false);
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_item_type_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_item_status_p9_tenant_id_user_id_item_type_idx2 ON public.user_item_status_p9 USING btree (tenant_id, user_id, item_type) WHERE (is_participating = false);
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_item_type_item_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_item_status_p9_tenant_id_user_id_item_type_item_id_idx ON public.user_item_status_p9 USING btree (tenant_id, user_id, item_type, item_id);
+
+
+--
+-- Name: search_index_p0_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p0_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p0_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p0_pkey;
+
+
+--
+-- Name: search_index_p0_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p0_searchable_text_idx;
+
+
+--
+-- Name: search_index_p0_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p0_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p0_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p0_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p0_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p0_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p0_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p0_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p0_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p0_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p0_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p10_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p10_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p10_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p10_pkey;
+
+
+--
+-- Name: search_index_p10_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p10_searchable_text_idx;
+
+
+--
+-- Name: search_index_p10_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p10_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p10_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p10_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p10_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p10_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p10_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p10_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p10_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p10_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p10_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p11_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p11_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p11_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p11_pkey;
+
+
+--
+-- Name: search_index_p11_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p11_searchable_text_idx;
+
+
+--
+-- Name: search_index_p11_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p11_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p11_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p11_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p11_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p11_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p11_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p11_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p11_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p11_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p11_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p12_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p12_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p12_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p12_pkey;
+
+
+--
+-- Name: search_index_p12_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p12_searchable_text_idx;
+
+
+--
+-- Name: search_index_p12_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p12_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p12_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p12_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p12_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p12_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p12_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p12_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p12_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p12_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p12_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p13_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p13_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p13_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p13_pkey;
+
+
+--
+-- Name: search_index_p13_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p13_searchable_text_idx;
+
+
+--
+-- Name: search_index_p13_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p13_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p13_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p13_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p13_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p13_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p13_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p13_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p13_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p13_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p13_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p14_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p14_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p14_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p14_pkey;
+
+
+--
+-- Name: search_index_p14_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p14_searchable_text_idx;
+
+
+--
+-- Name: search_index_p14_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p14_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p14_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p14_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p14_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p14_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p14_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p14_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p14_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p14_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p14_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p15_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p15_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p15_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p15_pkey;
+
+
+--
+-- Name: search_index_p15_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p15_searchable_text_idx;
+
+
+--
+-- Name: search_index_p15_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p15_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p15_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p15_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p15_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p15_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p15_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p15_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p15_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p15_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p15_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p1_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p1_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p1_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p1_pkey;
+
+
+--
+-- Name: search_index_p1_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p1_searchable_text_idx;
+
+
+--
+-- Name: search_index_p1_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p1_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p1_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p1_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p1_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p1_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p1_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p1_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p1_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p1_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p1_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p2_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p2_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p2_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p2_pkey;
+
+
+--
+-- Name: search_index_p2_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p2_searchable_text_idx;
+
+
+--
+-- Name: search_index_p2_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p2_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p2_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p2_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p2_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p2_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p2_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p2_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p2_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p2_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p2_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p3_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p3_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p3_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p3_pkey;
+
+
+--
+-- Name: search_index_p3_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p3_searchable_text_idx;
+
+
+--
+-- Name: search_index_p3_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p3_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p3_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p3_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p3_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p3_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p3_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p3_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p3_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p3_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p3_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p4_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p4_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p4_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p4_pkey;
+
+
+--
+-- Name: search_index_p4_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p4_searchable_text_idx;
+
+
+--
+-- Name: search_index_p4_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p4_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p4_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p4_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p4_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p4_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p4_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p4_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p4_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p4_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p4_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p5_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p5_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p5_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p5_pkey;
+
+
+--
+-- Name: search_index_p5_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p5_searchable_text_idx;
+
+
+--
+-- Name: search_index_p5_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p5_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p5_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p5_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p5_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p5_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p5_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p5_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p5_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p5_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p5_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p6_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p6_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p6_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p6_pkey;
+
+
+--
+-- Name: search_index_p6_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p6_searchable_text_idx;
+
+
+--
+-- Name: search_index_p6_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p6_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p6_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p6_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p6_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p6_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p6_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p6_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p6_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p6_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p6_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p7_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p7_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p7_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p7_pkey;
+
+
+--
+-- Name: search_index_p7_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p7_searchable_text_idx;
+
+
+--
+-- Name: search_index_p7_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p7_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p7_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p7_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p7_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p7_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p7_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p7_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p7_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p7_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p7_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p8_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p8_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p8_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p8_pkey;
+
+
+--
+-- Name: search_index_p8_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p8_searchable_text_idx;
+
+
+--
+-- Name: search_index_p8_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p8_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p8_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p8_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p8_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p8_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p8_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p8_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p8_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p8_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p8_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: search_index_p9_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_item ATTACH PARTITION public.search_index_p9_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p9_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.search_index_partitioned_pkey ATTACH PARTITION public.search_index_p9_pkey;
+
+
+--
+-- Name: search_index_p9_searchable_text_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_trigram ATTACH PARTITION public.search_index_p9_searchable_text_idx;
+
+
+--
+-- Name: search_index_p9_tenant_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_unique_item ATTACH PARTITION public.search_index_p9_tenant_id_item_type_item_id_idx;
+
+
+--
+-- Name: search_index_p9_tenant_id_replying_to_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_replying_to ATTACH PARTITION public.search_index_p9_tenant_id_replying_to_id_idx;
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_created_at_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_created ATTACH PARTITION public.search_index_p9_tenant_id_superagent_id_created_at_idx;
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_deadline_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_deadline ATTACH PARTITION public.search_index_p9_tenant_id_superagent_id_deadline_idx;
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_tenant_superagent ATTACH PARTITION public.search_index_p9_tenant_id_superagent_id_idx;
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_type ATTACH PARTITION public.search_index_p9_tenant_id_superagent_id_item_type_idx;
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_sort_key_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_cursor ATTACH PARTITION public.search_index_p9_tenant_id_superagent_id_sort_key_idx;
+
+
+--
+-- Name: search_index_p9_tenant_id_superagent_id_subtype_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_search_index_subtype ATTACH PARTITION public.search_index_p9_tenant_id_superagent_id_subtype_idx;
+
+
+--
+-- Name: user_item_status_p0_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p0_pkey;
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p0_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p0_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p0_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p0_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p0_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p0_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p10_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p10_pkey;
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p10_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p10_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p10_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p10_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p10_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p10_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p11_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p11_pkey;
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p11_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p11_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p11_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p11_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p11_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p11_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p12_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p12_pkey;
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p12_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p12_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p12_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p12_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p12_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p12_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p13_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p13_pkey;
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p13_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p13_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p13_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p13_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p13_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p13_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p14_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p14_pkey;
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p14_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p14_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p14_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p14_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p14_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p14_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p15_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p15_pkey;
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p15_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p15_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p15_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p15_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p15_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p15_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p1_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p1_pkey;
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p1_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p1_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p1_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p1_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p1_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p1_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p2_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p2_pkey;
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p2_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p2_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p2_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p2_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p2_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p2_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p3_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p3_pkey;
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p3_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p3_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p3_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p3_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p3_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p3_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p4_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p4_pkey;
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p4_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p4_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p4_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p4_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p4_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p4_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p5_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p5_pkey;
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p5_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p5_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p5_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p5_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p5_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p5_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p6_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p6_pkey;
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p6_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p6_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p6_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p6_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p6_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p6_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p7_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p7_pkey;
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p7_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p7_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p7_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p7_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p7_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p7_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p8_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p8_pkey;
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p8_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p8_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p8_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p8_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p8_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p8_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
+-- Name: user_item_status_p9_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.user_item_status_partitioned_pkey ATTACH PARTITION public.user_item_status_p9_pkey;
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_tenant_user ATTACH PARTITION public.user_item_status_p9_tenant_id_user_id_idx;
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_item_type_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unread ATTACH PARTITION public.user_item_status_p9_tenant_id_user_id_item_type_idx;
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_item_type_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_voted ATTACH PARTITION public.user_item_status_p9_tenant_id_user_id_item_type_idx1;
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_item_type_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_not_participating ATTACH PARTITION public.user_item_status_p9_tenant_id_user_id_item_type_idx2;
+
+
+--
+-- Name: user_item_status_p9_tenant_id_user_id_item_type_item_id_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_user_item_status_unique ATTACH PARTITION public.user_item_status_p9_tenant_id_user_id_item_type_item_id_idx;
+
+
+--
 -- Name: cycle_data_commitments _RETURN; Type: RULE; Schema: public; Owner: -
 --
 
@@ -2770,7 +7932,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict oAtMmGYOqMhxbg08c0zaI49qS5aHVnyQyipz4IHswL6omCK84BUqdjLo5YF5pJ2
+\unrestrict ILGuYEjXkNcGVTpKq0o7I0r6Mt5JjHfdUN8JTDtAjMHGdOZP7dSraAx17nZHfbl
 
 SET search_path TO "$user", public;
 
@@ -2886,6 +8048,14 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260125064500'),
 ('20260128052404'),
 ('20260128072608'),
-('20260128200000');
+('20260128200000'),
+('20260128232615'),
+('20260129083556'),
+('20260129084357'),
+('20260130063701'),
+('20260130190512'),
+('20260130193043'),
+('20260130194543'),
+('20260130204044');
 
 
