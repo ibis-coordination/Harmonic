@@ -96,7 +96,7 @@ class ApiToken < ApplicationRecord
 
   sig { returns(String) }
   def obfuscated_token
-    T.must(token_prefix) + '*********'
+    (token_prefix || "????") + "*********"
   end
 
   sig { returns(String) }

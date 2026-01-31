@@ -63,6 +63,13 @@ class MarkdownUiService
       action_def = ActionsHelper.action_definition(action_name)
       return error_result("Unknown action: #{action_name}") unless action_def
 
+      # Defense-in-depth: Check authorization before execution
+      # This ensures actions are denied even if controller authorization is bypassed
+      context = build_authorization_context
+      unless ActionAuthorization.authorized?(action_name, view_context.current_user, context)
+        return error_result("Not authorized to execute action: #{action_name}")
+      end
+
       # Execute the action
       case action_name
       # Note actions
@@ -133,6 +140,18 @@ class MarkdownUiService
     end
 
     private
+
+    # Build context for ActionAuthorization checks.
+    # Includes studio, resource, and target_user based on current view context.
+    sig { returns(T::Hash[Symbol, T.untyped]) }
+    def build_authorization_context
+      {
+        studio: view_context.current_superagent,
+        resource: current_resource,
+        target_user: view_context.current_user, # For user settings pages
+        target: view_context.current_user, # For representative checks
+      }
+    end
 
     sig { returns(ApiHelper) }
     def api_helper
@@ -328,7 +347,7 @@ class MarkdownUiService
       superagent.update!(
         name: params[:name] || superagent.name,
         description: params[:description] || superagent.description,
-        timezone: params[:timezone] || superagent.timezone,
+        timezone: params[:timezone] || superagent.timezone.name,
         tempo: params[:tempo] || superagent.tempo,
         synchronization_mode: params[:synchronization_mode] || superagent.synchronization_mode
       )

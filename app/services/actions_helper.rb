@@ -6,8 +6,70 @@
 class ActionsHelper
   extend T::Sig
 
-  # Full action definitions with parameter details
-  # Each action has: description, params_string (for display), and params (detailed param info)
+  # Authorization for actions restricted to "person" user types only.
+  # Subagents and trustees cannot create other subagents or API tokens.
+  PERSON_ONLY_AUTHORIZATION = T.let(
+    lambda { |user, context|
+      return false unless user
+      return false unless user.user_type == "person"
+
+      target_user = context[:target_user]
+      target = context[:target]
+
+      # No context = permissive for listing (show to person users)
+      return true unless target_user || target
+
+      # With context, check self or representative
+      return true if target_user && target_user.id == user.id
+      return true if target && user.can_represent?(target)
+
+      false
+    },
+    T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
+  )
+
+  # Context-aware webhook authorization.
+  # - Studio webhooks require superagent_admin
+  # - User webhooks require self or representative access
+  # - For listing (no context), allows authenticated users to see the action
+  WEBHOOK_AUTHORIZATION = T.let(
+    lambda { |user, context|
+      return false unless user
+
+      studio = context[:studio]
+      target_user = context[:target_user]
+
+      # If studio context exists and it's not the main superagent, check superagent_admin
+      if studio && !studio.is_main_superagent?
+        member = user.superagent_members.find_by(superagent_id: studio.id)
+        return member&.is_admin? || false
+      end
+
+      # For user webhooks, check self or representative
+      if target_user
+        return true if target_user.id == user.id
+
+        return user.can_represent?(target_user)
+      end
+
+      # No specific context (e.g., for /actions listing) - allow authenticated users to see it
+      true
+    },
+    T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
+  )
+
+  # Full action definitions with parameter details.
+  # Each action has: description, params_string (for display), params (detailed param info),
+  # and authorization (who can see/execute this action).
+  #
+  # Authorization can be:
+  # - A symbol (e.g., :authenticated, :studio_member, :app_admin)
+  # - An array of symbols (OR logic - any authorization suffices)
+  # - A Proc for custom logic: ->(user, context) { ... }
+  #
+  # Actions without authorization are denied by default (fail-closed).
+  #
+  # @see ActionAuthorization for the authorization checker
   ACTION_DEFINITIONS = {
     # Studio actions
     "create_studio" => {
@@ -25,6 +87,7 @@ class ActionsHelper
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed (optional)" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (optional)" },
       ],
+      authorization: :authenticated,
     },
     "join_studio" => {
       description: "Join the studio",
@@ -32,6 +95,7 @@ class ActionsHelper
       params: [
         { name: "code", type: "string", required: false, description: "Invite code (optional for scenes)" },
       ],
+      authorization: :authenticated,
     },
     "update_studio_settings" => {
       description: "Update studio settings",
@@ -47,6 +111,7 @@ class ActionsHelper
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (not changeable via API - use HTML UI to modify)" },
       ],
+      authorization: :superagent_admin,
     },
     "add_subagent_to_studio" => {
       description: "Add one of your subagents to this studio",
@@ -54,6 +119,7 @@ class ActionsHelper
       params: [
         { name: "subagent_id", type: "integer", description: "ID of the subagent to add" },
       ],
+      authorization: :superagent_admin,
     },
     "remove_subagent_from_studio" => {
       description: "Remove a subagent from this studio",
@@ -61,11 +127,13 @@ class ActionsHelper
       params: [
         { name: "subagent_id", type: "integer", description: "ID of the subagent to remove" },
       ],
+      authorization: :superagent_admin,
     },
     "send_heartbeat" => {
       description: "Send a heartbeat to confirm your presence in the studio for this cycle",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
 
     # Note actions
@@ -75,6 +143,7 @@ class ActionsHelper
       params: [
         { name: "text", type: "string", description: "The text of the note" },
       ],
+      authorization: :superagent_member,
     },
     "update_note" => {
       description: "Update this note",
@@ -84,21 +153,25 @@ class ActionsHelper
         { name: "text", type: "string", description: "The updated text of the note" },
         { name: "deadline", type: "datetime", description: "The updated deadline of the note" },
       ],
+      authorization: :resource_owner,
     },
     "confirm_read" => {
       description: "Confirm that you have read this note",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
     "pin_note" => {
       description: "Pin this note to the studio homepage",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
     "unpin_note" => {
       description: "Unpin this note from the studio homepage",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
 
     # Decision actions
@@ -111,6 +184,7 @@ class ActionsHelper
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime", description: "When the decision closes" },
       ],
+      authorization: :superagent_member,
     },
     "update_decision_settings" => {
       description: "Update the decision settings",
@@ -121,6 +195,7 @@ class ActionsHelper
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime", description: "When the decision closes" },
       ],
+      authorization: :resource_owner,
     },
     "add_option" => {
       description: "Add an option to the options list",
@@ -128,6 +203,7 @@ class ActionsHelper
       params: [
         { name: "title", type: "string", description: "The title of the option" },
       ],
+      authorization: :superagent_member,
     },
     "vote" => {
       description: "Vote on an option",
@@ -137,16 +213,19 @@ class ActionsHelper
         { name: "accept", type: "boolean", description: "Whether to accept this option" },
         { name: "prefer", type: "boolean", description: "Whether to prefer this option" },
       ],
+      authorization: :superagent_member,
     },
     "pin_decision" => {
       description: "Pin this decision to the studio homepage",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
     "unpin_decision" => {
       description: "Unpin this decision from the studio homepage",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
 
     # Commitment actions
@@ -159,6 +238,7 @@ class ActionsHelper
         { name: "critical_mass", type: "integer", description: "Number of participants needed" },
         { name: "deadline", type: "datetime", description: "When the commitment closes" },
       ],
+      authorization: :superagent_member,
     },
     "update_commitment_settings" => {
       description: "Update the commitment settings",
@@ -169,21 +249,25 @@ class ActionsHelper
         { name: "critical_mass", type: "integer", description: "Number of participants needed" },
         { name: "deadline", type: "datetime", description: "When the commitment closes" },
       ],
+      authorization: :resource_owner,
     },
     "join_commitment" => {
       description: "Join the commitment",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
     "pin_commitment" => {
       description: "Pin this commitment to the studio homepage",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
     "unpin_commitment" => {
       description: "Unpin this commitment from the studio homepage",
       params_string: "()",
       params: [],
+      authorization: :superagent_member,
     },
 
     # Comment action (shared across notes, decisions, commitments)
@@ -193,6 +277,7 @@ class ActionsHelper
       params: [
         { name: "text", type: "string", description: "The text of the comment" },
       ],
+      authorization: :superagent_member,
     },
 
     # Attachment actions
@@ -202,11 +287,13 @@ class ActionsHelper
       params: [
         { name: "file", type: "object", description: "The file to attach (base64 encoded data with content_type and filename)" },
       ],
+      authorization: :resource_owner,
     },
     "remove_attachment" => {
       description: "Remove this attachment",
       params_string: "()",
       params: [],
+      authorization: :resource_owner,
     },
 
     # User settings actions
@@ -217,6 +304,7 @@ class ActionsHelper
         { name: "name", type: "string", description: "Your display name" },
         { name: "new_handle", type: "string", description: "Your handle (used in URLs)" },
       ],
+      authorization: [:self, :representative],
     },
     "create_api_token" => {
       description: "Create a new API token",
@@ -227,6 +315,7 @@ class ActionsHelper
         { name: "duration", type: "integer", description: "How long the token is valid" },
         { name: "duration_unit", type: "string", description: 'Unit for duration: "days", "weeks", "months", or "years"' },
       ],
+      authorization: PERSON_ONLY_AUTHORIZATION,
     },
     "create_subagent" => {
       description: "Create a new subagent",
@@ -235,6 +324,7 @@ class ActionsHelper
         { name: "name", type: "string", description: "The name of the subagent" },
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the subagent" },
       ],
+      authorization: PERSON_ONLY_AUTHORIZATION,
     },
 
     # Admin actions
@@ -248,6 +338,7 @@ class ActionsHelper
         { name: "require_login", type: "boolean", description: "Whether login is required to view content" },
         { name: "allow_file_uploads", type: "boolean", description: "Whether file uploads are allowed" },
       ],
+      authorization: :tenant_admin,
     },
     "create_tenant" => {
       description: "Create a new tenant",
@@ -256,11 +347,13 @@ class ActionsHelper
         { name: "subdomain", type: "string", description: "The subdomain for the new tenant" },
         { name: "name", type: "string", description: "The name of the new tenant" },
       ],
+      authorization: :app_admin,
     },
     "retry_sidekiq_job" => {
       description: "Retry this Sidekiq job",
       params_string: "()",
       params: [],
+      authorization: :system_admin,
     },
     "suspend_user" => {
       description: "Suspend this user's account, preventing them from logging in",
@@ -268,11 +361,13 @@ class ActionsHelper
       params: [
         { name: "reason", type: "string", required: true, description: "The reason for suspension (will be shown to the user)" },
       ],
+      authorization: :app_admin,
     },
     "unsuspend_user" => {
       description: "Unsuspend this user's account, restoring their access",
       params_string: "()",
       params: [],
+      authorization: :app_admin,
     },
 
     # Search actions
@@ -287,6 +382,7 @@ class ActionsHelper
           description: "The search query. Supports operators: type:, status:, cycle:, creator:, studio:, etc.",
         },
       ],
+      authorization: :authenticated,
     },
 
     # Notification actions
@@ -296,6 +392,7 @@ class ActionsHelper
       params: [
         { name: "id", type: "string", description: "The ID of the notification recipient to mark as read" },
       ],
+      authorization: :authenticated,
     },
     "dismiss" => {
       description: "Dismiss a notification",
@@ -303,11 +400,13 @@ class ActionsHelper
       params: [
         { name: "id", type: "string", description: "The ID of the notification recipient to dismiss" },
       ],
+      authorization: :authenticated,
     },
     "mark_all_read" => {
       description: "Mark all notifications as read",
       params_string: "()",
       params: [],
+      authorization: :authenticated,
     },
 
     # Reminder actions
@@ -320,6 +419,7 @@ class ActionsHelper
         { name: "body", type: "string", required: false, description: "Additional details (max 200 chars)" },
         { name: "url", type: "string", required: false, description: "A URL to include with the reminder" },
       ],
+      authorization: :authenticated,
     },
     "delete_reminder" => {
       description: "Cancel a scheduled reminder before it triggers",
@@ -327,9 +427,12 @@ class ActionsHelper
       params: [
         { name: "id", type: "string", required: true, description: "The ID of the notification recipient to delete" },
       ],
+      authorization: :authenticated,
     },
 
     # Webhook actions
+    # Webhooks can be created for studios (requires superagent_admin) or users (requires self/representative).
+    # Authorization is context-aware: checks studio context first, then falls back to user context.
     "create_webhook" => {
       description: "Create a new webhook",
       params_string: "(name, url, events, enabled)",
@@ -339,6 +442,7 @@ class ActionsHelper
         { name: "events", type: "array", description: "Event types to subscribe to (default: all)" },
         { name: "enabled", type: "boolean", description: "Whether the webhook is active (default: true)" },
       ],
+      authorization: WEBHOOK_AUTHORIZATION,
     },
     "update_webhook" => {
       description: "Update a webhook",
@@ -349,16 +453,19 @@ class ActionsHelper
         { name: "events", type: "array", description: "Event types to subscribe to" },
         { name: "enabled", type: "boolean", description: "Whether the webhook is active" },
       ],
+      authorization: WEBHOOK_AUTHORIZATION,
     },
     "delete_webhook" => {
       description: "Delete a webhook",
       params_string: "()",
       params: [],
+      authorization: WEBHOOK_AUTHORIZATION,
     },
     "test_webhook" => {
       description: "Send a test webhook",
       params_string: "()",
       params: [],
+      authorization: WEBHOOK_AUTHORIZATION,
     },
   }.freeze
 
@@ -581,6 +688,27 @@ class ActionsHelper
   sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
   def self.routes_and_actions
     @@routes_and_actions
+  end
+
+  # Get routes and actions filtered by user authorization.
+  # Only returns actions the user is authorized to see/execute.
+  #
+  # @param user [User, nil] The user to filter actions for
+  # @param context [Hash] Additional context for authorization checks (studio, resource, etc.)
+  # @return [Array<Hash>] Routes and their filtered actions, excluding routes with no visible actions
+  sig do
+    params(
+      user: T.untyped,
+      context: T::Hash[Symbol, T.untyped]
+    ).returns(T::Array[T::Hash[Symbol, T.untyped]])
+  end
+  def self.routes_and_actions_for_user(user, context = {})
+    @@routes_and_actions.map do |route_info|
+      filtered_actions = route_info[:actions].select do |action|
+        ActionAuthorization.authorized?(action[:name], user, context)
+      end
+      { route: route_info[:route], actions: filtered_actions }
+    end.reject { |ri| ri[:actions].empty? }
   end
 
   sig { params(route: String).returns(T.nilable(T::Hash[Symbol, T.untyped])) }

@@ -53,7 +53,8 @@ class HomeController < ApplicationController
 
   def actions_index
     @page_title = 'Actions | Home'
-    @routes_and_actions = ActionsHelper.routes_and_actions
+    @sidebar_mode = 'minimal'
+    @routes_and_actions = ActionsHelper.routes_and_actions_for_user(@current_user)
     render 'actions'
   end
 

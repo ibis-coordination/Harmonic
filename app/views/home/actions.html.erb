@@ -1,0 +1,26 @@
+<article class="pulse-home">
+  <header class="pulse-page-header">
+    <h1 class="pulse-page-title">Actions</h1>
+  </header>
+
+  <p class="pulse-intro-text">This is a list of actions for different pages in the app.</p>
+
+  <% @routes_and_actions.each do |route_actions| %>
+    <section class="pulse-actions-route-section">
+      <h2 class="pulse-actions-route-title"><code><%= route_actions[:route] %></code></h2>
+
+      <% if route_actions[:actions].empty? %>
+        <p class="pulse-muted">No actions</p>
+      <% else %>
+        <ul class="pulse-actions-list">
+          <% route_actions[:actions].each do |action| %>
+            <li class="pulse-actions-list-item">
+              <code class="pulse-action-name"><%= action[:name] %><%= action[:params_string] %></code>
+              <span class="pulse-action-description"><%= action[:description] %></span>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </section>
+  <% end %>
+</article>
