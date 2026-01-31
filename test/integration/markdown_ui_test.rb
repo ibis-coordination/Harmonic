@@ -1296,7 +1296,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       params: { name: "Self Token" }.to_json,
       headers: subagent_headers
     assert_equal 200, response.status  # render_action_error returns 200
-    assert_match(/Subagents cannot create their own API tokens/, response.body)
+    assert_match(/Only person accounts can create API tokens/, response.body)
   ensure
     token&.destroy
     TenantUser.where(user: subagent).delete_all if subagent
@@ -1329,7 +1329,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Try to access create API token page - should be blocked
     get "/u/#{subagent.handle}/settings/tokens/new", headers: subagent_headers
     assert_equal 403, response.status
-    assert_match(/Subagents cannot create their own API tokens/, response.body)
+    assert_match(/Only person accounts can create API tokens/, response.body)
   ensure
     token&.destroy
     TenantUser.where(user: subagent).delete_all if subagent

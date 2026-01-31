@@ -1,15 +1,24 @@
 # typed: false
 
 class ApiTokensController < ApplicationController
-  layout 'pulse', only: [:new, :show, :create]
+  layout "pulse", only: [:new, :show, :create]
   before_action :set_user
   before_action :set_sidebar_mode, only: [:new, :show, :create]
 
-  def new
-    # Block subagents from creating their own tokens (parents can still create tokens for their subagents)
-    if @showing_user == current_user && current_user.subagent?
-      return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
+  def show
+    @token = @showing_user.api_tokens.find_by(id: params[:id])
+    return render status: :not_found, plain: "404 not token found" if @token.nil?
+
+    respond_to do |format|
+      format.html
+      format.md
     end
+  end
+
+  def new
+    # Only person accounts can create API tokens (for themselves or their subagents)
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+
     @token = @showing_user.api_tokens.new(user: @showing_user)
     respond_to do |format|
       format.html
@@ -18,33 +27,24 @@ class ApiTokensController < ApplicationController
   end
 
   def create
-    # Block subagents from creating their own tokens (parents can still create tokens for their subagents)
-    if @showing_user == current_user && current_user.subagent?
-      return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
-    end
+    # Only person accounts can create API tokens (for themselves or their subagents)
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+
     @token = @showing_user.api_tokens.new
     @token.name = token_params[:name]
     @token.scopes = ApiToken.read_scopes
-    @token.scopes += ApiToken.write_scopes if token_params[:read_write] == 'write'
+    @token.scopes += ApiToken.write_scopes if token_params[:read_write] == "write"
     @token.expires_at = Time.current + [duration_param, 1.year].min
     @token.save!
     # Render show page directly instead of redirecting so plaintext_token is available
-    flash.now[:notice] = 'Token created successfully. Save the token value now - you will not be able to see it again.'
-    render 'show'
-  end
-
-  def show
-    @token = @showing_user.api_tokens.find_by(id: params[:id])
-    return render status: 404, plain: '404 not token found' if @token.nil?
-    respond_to do |format|
-      format.html
-      format.md
-    end
+    flash.now[:notice] = "Token created successfully. Save the token value now - you will not be able to see it again."
+    render "show"
   end
 
   def destroy
     @token = @showing_user.api_tokens.find_by(id: params[:id])
-    return render status: 404, plain: '404 not token found' if @token.nil?
+    return render status: :not_found, plain: "404 not token found" if @token.nil?
+
     @token.delete!
     redirect_to "#{@showing_user.path}/settings"
   end
@@ -52,40 +52,38 @@ class ApiTokensController < ApplicationController
   # Markdown API actions
 
   def actions_index
-    # Block subagents from creating their own tokens
-    if @showing_user == current_user && current_user.subagent?
-      return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
-    end
+    # Only person accounts can create API tokens
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+
     @page_title = "Actions | New API Token"
-    render_actions_index(ActionsHelper.actions_for_route('/u/:handle/settings/tokens/new'))
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/tokens/new"))
   end
 
   def describe_create_api_token
-    # Block subagents from creating their own tokens
-    if @showing_user == current_user && current_user.subagent?
-      return render status: 403, plain: '403 Unauthorized - Subagents cannot create their own API tokens'
-    end
+    # Only person accounts can create API tokens
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+
     render_action_description(ActionsHelper.action_description("create_api_token", resource: @showing_user))
   end
 
   def execute_create_api_token
-    # Block subagents from creating their own tokens
-    if @showing_user == current_user && current_user.subagent?
+    # Only person accounts can create API tokens
+    unless current_user&.person?
       return render_action_error({
-        action_name: 'create_api_token',
-        resource: @showing_user,
-        error: 'Subagents cannot create their own API tokens.',
-      })
+                                   action_name: "create_api_token",
+                                   resource: @showing_user,
+                                   error: "Only person accounts can create API tokens.",
+                                 })
     end
     @token = @showing_user.api_tokens.new
     @token.name = params[:name]
     @token.scopes = ApiToken.read_scopes
-    @token.scopes += ApiToken.write_scopes if params[:read_write] == 'write'
+    @token.scopes += ApiToken.write_scopes if params[:read_write] == "write"
     @token.expires_at = Time.current + [duration_param, 1.year].min
     @token.save!
 
     respond_to do |format|
-      format.md { render 'show' }
+      format.md { render "show" }
       format.html { redirect_to @token.path }
     end
   end
@@ -93,7 +91,7 @@ class ApiTokensController < ApplicationController
   private
 
   def set_sidebar_mode
-    @sidebar_mode = 'minimal'
+    @sidebar_mode = "minimal"
   end
 
   def token_params
@@ -105,10 +103,10 @@ class ApiTokensController < ApplicationController
     handle = params[:user_handle] || params[:handle]
     tu = current_tenant.tenant_users.find_by(handle: handle)
     tu ||= current_tenant.tenant_users.find_by(user_id: handle)
-    return render status: 404, plain: '404 not user found' if tu.nil?
-    return render status: 403, plain: '403 Unauthorized' unless current_user.can_edit?(tu.user)
+    return render status: :not_found, plain: "404 not user found" if tu.nil?
+    return render status: :forbidden, plain: "403 Unauthorized" unless current_user.can_edit?(tu.user)
+
     @showing_user = tu.user
     @showing_user.tenant_user = tu
   end
-
 end
