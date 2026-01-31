@@ -371,4 +371,34 @@ class User < ApplicationRecord
     User.find_by(id: suspended_by_id)
   end
 
+  # Social proximity methods
+
+  sig { params(other_user: User, tenant_id: T.nilable(String)).returns(Float) }
+  def social_proximity_to(other_user, tenant_id: Tenant.current_id)
+    return 0.0 if tenant_id.nil?
+
+    scores = cached_proximity_scores(tenant_id)
+    scores[other_user.id] || 0.0
+  end
+
+  sig { params(tenant_id: T.nilable(String), limit: Integer).returns(T::Array[T::Array[T.untyped]]) }
+  def most_proximate_users(tenant_id: Tenant.current_id, limit: 20)
+    return [] if tenant_id.nil?
+
+    cached_proximity_scores(tenant_id)
+      .sort_by { |_id, score| -score }
+      .first(limit)
+      .map { |uid, score| [User.find_by(id: uid), score] }
+      .reject { |user, _| user.nil? }
+  end
+
+  private
+
+  sig { params(tenant_id: String).returns(T::Hash[String, Float]) }
+  def cached_proximity_scores(tenant_id)
+    Rails.cache.fetch("proximity:#{tenant_id}:#{id}", expires_in: 1.day) do
+      SocialProximityCalculator.new(self, tenant_id: tenant_id).compute
+    end
+  end
+
 end
