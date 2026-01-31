@@ -155,12 +155,14 @@
           </table>
         </div>
       <% end %>
-      <div class="pulse-form-actions" style="margin-top:16px;">
-        <a href="<%= @settings_user.path %>/settings/tokens/new" class="pulse-action-btn">
-          <%= octicon 'key', height: 14 %>
-          Create API Token
-        </a>
-      </div>
+      <% if @current_user.person? %>
+        <div class="pulse-form-actions" style="margin-top:16px;">
+          <a href="<%= @settings_user.path %>/settings/tokens/new" class="pulse-action-btn">
+            <%= octicon 'key', height: 14 %>
+            Create API Token
+          </a>
+        </div>
+      <% end %>
     <% end %>
 
     <%# Webhooks Section %>
