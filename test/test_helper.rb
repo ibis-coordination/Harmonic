@@ -85,7 +85,7 @@ class ActiveSupport::TestCase
       Link, NoteHistoryEvent, Note,
       Vote, Option, DecisionParticipant, Decision,
       CommitmentParticipant, Commitment,
-      Invite, SuperagentMember, Superagent,
+      Heartbeat, Invite, SuperagentMember, Superagent,
       ApiToken, TenantUser, Tenant,
       TrusteePermission, OauthIdentity, User
     ].each do |model|

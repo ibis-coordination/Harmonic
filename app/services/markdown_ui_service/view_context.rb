@@ -57,6 +57,16 @@ class MarkdownUiService
     sig { returns(T.nilable(Heartbeat)) }
     attr_accessor :current_heartbeat
 
+    # Pulse view context (for pulse#show which is the main studio page)
+    sig { returns(T.nilable(Cycle)) }
+    attr_accessor :cycle
+
+    sig { returns(T::Boolean) }
+    attr_accessor :is_viewing_current_cycle
+
+    sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
+    attr_accessor :feed_items
+
     # Resource-specific context
     sig { returns(T.nilable(Note)) }
     attr_accessor :note
@@ -113,6 +123,9 @@ class MarkdownUiService
       # Cycle/heartbeat
       @current_cycle = T.let(nil, T.nilable(Cycle))
       @current_heartbeat = T.let(nil, T.nilable(Heartbeat))
+      @cycle = T.let(nil, T.nilable(Cycle))
+      @is_viewing_current_cycle = T.let(true, T::Boolean)
+      @feed_items = T.let([], T::Array[T::Hash[Symbol, T.untyped]])
 
       # Resources
       @note = T.let(nil, T.nilable(Note))
@@ -146,6 +159,11 @@ class MarkdownUiService
         "unread_notification_count" => @unread_notification_count,
         "current_cycle" => @current_cycle,
         "current_heartbeat" => @current_heartbeat,
+
+        # Pulse view variables
+        "cycle" => @cycle,
+        "is_viewing_current_cycle" => @is_viewing_current_cycle,
+        "feed_items" => @feed_items,
 
         # Resource variables (templates use @note, @decision, etc.)
         "note" => @note,

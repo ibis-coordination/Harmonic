@@ -390,4 +390,59 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
     assert_not result[:success]
     assert_includes result[:error], "Unknown action"
   end
+
+  # Agent scenario tests
+
+  test "navigate to studio after sending heartbeat returns content" do
+    # This reproduces the agent scenario where:
+    # 1. Navigate to studio (shows "Heartbeat Required")
+    # 2. Execute send_heartbeat
+    # 3. Navigate to studio again (should show main content, not empty)
+
+    # First navigation - should show heartbeat required message
+    result1 = @service.navigate("/studios/#{@superagent.handle}")
+    assert_nil result1[:error], "Expected no error on first navigate, got: #{result1[:error]}"
+    assert result1[:content].present?, "Expected content on first navigate"
+
+    # Check if heartbeat is required (non-main superagent without heartbeat)
+    if result1[:content].include?("Heartbeat Required")
+      # Execute send_heartbeat
+      heartbeat_result = @service.execute_action("send_heartbeat", {})
+      assert heartbeat_result[:success], "Expected heartbeat success, got: #{heartbeat_result[:error]}"
+
+      # Second navigation - should show main content, not empty
+      result2 = @service.navigate("/studios/#{@superagent.handle}")
+      assert_nil result2[:error], "Expected no error on second navigate, got: #{result2[:error]}"
+      assert result2[:content].present?, "Expected content on second navigate but got empty"
+      assert_includes result2[:content], @superagent.name, "Expected studio name in content"
+
+      # Should NOT show heartbeat required anymore
+      refute_includes result2[:content], "Heartbeat Required", "Should not show heartbeat required after sending heartbeat"
+    else
+      # Main superagent doesn't require heartbeat
+      assert_includes result1[:content], @superagent.name
+    end
+  end
+
+  test "navigate to different studio resolves superagent correctly" do
+    # Create a second studio
+    studio2 = Superagent.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Second Studio",
+      handle: "second-studio"
+    )
+    studio2.add_user!(@user)
+
+    # Navigate to first studio
+    result1 = @service.navigate("/studios/#{@superagent.handle}")
+    assert_nil result1[:error]
+    assert_includes result1[:content], @superagent.name
+
+    # Navigate to second studio
+    result2 = @service.navigate("/studios/#{studio2.handle}")
+    assert_nil result2[:error]
+    assert_includes result2[:content], studio2.name, "Expected second studio name in content"
+    refute_includes result2[:content], @superagent.name, "Should not contain first studio name"
+  end
 end

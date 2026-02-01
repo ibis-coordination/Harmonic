@@ -83,6 +83,10 @@ class MarkdownUiService
   # Validates user access, resolves the route, loads resources, and renders
   # the markdown template. Returns the rendered content along with available actions.
   #
+  # The superagent context is dynamically determined from the path. If the path includes
+  # a studio handle (e.g., "/studios/green-leaves/note"), the service will switch to
+  # that studio's context for this navigation.
+  #
   # @param path [String] The URL path to navigate to (e.g., "/studios/team/n/abc123")
   # @param include_layout [Boolean] Whether to include the layout with YAML front matter and nav
   # @return [Hash] Navigation result with :content, :path, :actions, and :error keys
@@ -97,16 +101,20 @@ class MarkdownUiService
   #   result[:content]  # Just the page content, no nav bar
   sig { params(path: String, include_layout: T::Boolean).returns(NavigateResult) }
   def navigate(path, include_layout: true)
-    # Validate access before proceeding
+    @current_path = path
+
+    # Resolve route first to extract superagent_handle
+    route_info = resolve_route(path)
+    return error_result("Route not found: #{path}") unless route_info
+
+    # Dynamically resolve superagent from path if present
+    resolve_superagent_from_route(route_info)
+
+    # Validate access after resolving superagent
     access_error = validate_access
     return error_result("Access denied: #{access_error}") if access_error
 
-    @current_path = path
-
     with_context do
-      route_info = resolve_route(path)
-      return error_result("Route not found: #{path}") unless route_info
-
       @current_route_info = route_info
       @view_context = build_view_context(route_info)
 
@@ -129,6 +137,8 @@ class MarkdownUiService
   # and don't need the rendered content. Validates access and loads resources
   # but skips template rendering.
   #
+  # The superagent context is dynamically determined from the path, same as {#navigate}.
+  #
   # @param path [String] The URL path to set up context for
   # @return [Boolean] true if path was valid and context was set up, false otherwise
   #
@@ -137,15 +147,19 @@ class MarkdownUiService
   #   result = service.execute_action("create_note", { text: "Quick note" })
   sig { params(path: String).returns(T::Boolean) }
   def set_path(path)
-    # Validate access before proceeding
-    return false if validate_access
-
     @current_path = path
 
-    with_context do
-      route_info = resolve_route(path)
-      return false unless route_info
+    # Resolve route first to extract superagent_handle
+    route_info = resolve_route(path)
+    return false unless route_info
 
+    # Dynamically resolve superagent from path if present
+    resolve_superagent_from_route(route_info)
+
+    # Validate access after resolving superagent
+    return false if validate_access
+
+    with_context do
       @current_route_info = route_info
       @view_context = build_view_context(route_info)
       true
@@ -195,8 +209,8 @@ class MarkdownUiService
 
   private
 
-  sig { params(block: T.proc.returns(T.untyped)).returns(T.untyped) }
-  def with_context(&block)
+  sig { params(blk: T.proc.returns(T.untyped)).returns(T.untyped) }
+  def with_context(&blk)
     # Set thread-local tenant/superagent context
     target_superagent = @superagent || @tenant.main_superagent
     Superagent.scope_thread_to_superagent(
@@ -209,6 +223,21 @@ class MarkdownUiService
     Superagent.clear_thread_scope
   end
 
+  # Resolves the superagent from route params if present.
+  # This allows navigation to dynamically switch studio context based on the path.
+  # For example, navigating to "/studios/green-leaves/note" will switch to the
+  # "green-leaves" studio context.
+  sig { params(route_info: T::Hash[Symbol, T.untyped]).void }
+  def resolve_superagent_from_route(route_info)
+    params = route_info[:params] || {}
+    handle = params[:superagent_handle]
+    return if handle.blank?
+
+    # Look up the superagent by handle within this tenant
+    resolved_superagent = @tenant.superagents.find_by(handle: handle)
+    @superagent = resolved_superagent if resolved_superagent
+  end
+
   # Validates that the user has access to the tenant and superagent.
   # Replicates the authorization logic from ApplicationController#validate_authenticated_access.
   # Returns nil if authorized, or an error message if not.
@@ -219,6 +248,7 @@ class MarkdownUiService
     # Unauthenticated access
     if @user.nil?
       return "Authentication required" if @tenant.require_login?
+
       return nil # Unauthenticated access allowed for public tenants
     end
 
@@ -292,16 +322,26 @@ class MarkdownUiService
 
     # Use ApplicationController.renderer which properly handles template compilation
     renderer = ApplicationController.renderer.new(
-      http_host: "#{@tenant.subdomain}.#{ENV['HOSTNAME'] || 'localhost'}",
+      http_host: "#{@tenant.subdomain}.#{ENV["HOSTNAME"] || "localhost"}",
       https: false
     )
 
-    renderer.render(
+    content = renderer.render(
       template: template,
       formats: [:md],
       layout: layout,
       assigns: context.to_assigns
     )
+
+    # Log warning if content is unexpectedly empty (helps debug rendering issues)
+    if content.blank?
+      Rails.logger.warn(
+        "[MarkdownUiService] Empty render result for template=#{template}, " \
+        "layout=#{layout}, assigns_keys=#{context.to_assigns.keys.join(',')}"
+      )
+    end
+
+    content
   end
 
   sig { params(route_info: T::Hash[Symbol, T.untyped]).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
@@ -316,7 +356,7 @@ class MarkdownUiService
   def build_route_pattern(route_info)
     controller = route_info[:controller]
     action = route_info[:action]
-    params = route_info[:params]
+    route_info[:params]
 
     case controller
     when "home"

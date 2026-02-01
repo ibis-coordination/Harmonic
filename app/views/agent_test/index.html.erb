@@ -1,0 +1,98 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Agent Test'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'dependabot', height: 14, class: 'pulse-resource-icon' %>
+        Development Tool
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Agent Navigator Test</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p class="pulse-muted" style="margin-bottom: 24px;">
+      This tool lets you test the AI agent that navigates and acts in Harmonic.
+      The agent uses an LLM to reason about what actions to take based on the current page content.
+    </p>
+
+    <%= form_tag agent_test_run_path, method: :post do %>
+      <div class="pulse-form-group">
+        <label for="task" class="pulse-form-label">Task for the Agent</label>
+        <textarea
+          name="task"
+          id="task"
+          rows="3"
+          class="pulse-form-textarea"
+          placeholder="e.g., Create a note saying hello to the team"
+          required
+        ><%= params[:task] %></textarea>
+      </div>
+
+      <div class="pulse-form-group">
+        <label for="studio_id" class="pulse-form-label">Starting Studio</label>
+        <select name="studio_id" id="studio_id" class="pulse-form-select">
+          <% @studios.each do |studio| %>
+            <option value="<%= studio.id %>" <%= 'selected' if studio == @current_superagent %>><%= studio.name %> (@<%= studio.handle %>)</option>
+          <% end %>
+        </select>
+        <div class="pulse-form-hint">The agent starts here. It can navigate to other studios it's a member of.</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="pulse-form-group">
+          <label for="agent_id" class="pulse-form-label">Agent User</label>
+          <% if @agent_users.any? %>
+            <select name="agent_id" id="agent_id" class="pulse-form-select" required>
+              <option value="">Select a subagent...</option>
+              <% @agent_users.each do |agent| %>
+                <option value="<%= agent.id %>"><%= agent.name %></option>
+              <% end %>
+            </select>
+            <div class="pulse-form-hint">Must be a subagent you own</div>
+          <% else %>
+            <div class="pulse-alert" style="margin-top: 8px;">
+              You don't have any subagents. <%= link_to "Create one first", settings_path %>.
+            </div>
+          <% end %>
+        </div>
+
+        <div class="pulse-form-group">
+          <label for="max_steps" class="pulse-form-label">Max Steps</label>
+          <input
+            type="number"
+            name="max_steps"
+            id="max_steps"
+            value="15"
+            min="1"
+            max="50"
+            class="pulse-form-input"
+          />
+        </div>
+      </div>
+
+      <div class="pulse-form-actions">
+        <button type="submit" class="pulse-action-btn" <%= 'disabled' if @agent_users.empty? %>>Run Agent</button>
+      </div>
+    <% end %>
+
+    <details class="pulse-accordion" style="margin-top: 24px;">
+      <summary class="pulse-accordion-header">
+        <span class="pulse-accordion-title">Example Tasks</span>
+        <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+      </summary>
+      <div class="pulse-accordion-content">
+        <ul style="margin: 0; padding-left: 20px;">
+          <li>Create a note saying hello to the team</li>
+          <li>Navigate to the studio and tell me what's there</li>
+          <li>Create a decision asking "Should we adopt this approach?"</li>
+          <li>Find and read the most recent note</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</article>

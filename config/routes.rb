@@ -7,6 +7,10 @@ Rails.application.routes.draw do
     get 'dev/pulse' => 'dev#pulse_components'
   end
 
+  # Agent test UI (for testing AgentNavigator)
+  get 'agent-test' => 'agent_test#index', as: 'agent_test'
+  post 'agent-test/run' => 'agent_test#run', as: 'agent_test_run'
+
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'
     post 'login' => 'honor_system_sessions#create'

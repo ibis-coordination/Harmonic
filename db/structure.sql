@@ -1,4 +1,4 @@
-\restrict ILGuYEjXkNcGVTpKq0o7I0r6Mt5JjHfdUN8JTDtAjMHGdOZP7dSraAx17nZHfbl
+\restrict T9ixxSbY7GcArDueEvdE1fU4MHJGA5tCCdQcxoS9P3vcJDOUf3qm07blomE2Gmm
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -1232,7 +1232,8 @@ CREATE TABLE public.superagents (
     updated_by_id uuid NOT NULL,
     trustee_user_id uuid,
     description text,
-    superagent_type character varying DEFAULT 'studio'::character varying NOT NULL
+    superagent_type character varying DEFAULT 'studio'::character varying NOT NULL,
+    internal boolean DEFAULT false NOT NULL
 );
 
 
@@ -1682,7 +1683,8 @@ CREATE TABLE public.users (
     sys_admin boolean DEFAULT false NOT NULL,
     suspended_at timestamp(6) without time zone,
     suspended_by_id uuid,
-    suspended_reason character varying
+    suspended_reason character varying,
+    agent_configuration jsonb DEFAULT '{}'::jsonb
 );
 
 
@@ -7932,7 +7934,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ILGuYEjXkNcGVTpKq0o7I0r6Mt5JjHfdUN8JTDtAjMHGdOZP7dSraAx17nZHfbl
+\unrestrict T9ixxSbY7GcArDueEvdE1fU4MHJGA5tCCdQcxoS9P3vcJDOUf3qm07blomE2Gmm
 
 SET search_path TO "$user", public;
 
@@ -8056,6 +8058,8 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260130190512'),
 ('20260130193043'),
 ('20260130194543'),
-('20260130204044');
+('20260130204044'),
+('20260131000001'),
+('20260131000002');
 
 

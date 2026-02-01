@@ -58,6 +58,8 @@ class MarkdownUiService
         load_home_resources(action)
       when "studios"
         load_studio_resources(action, params)
+      when "pulse"
+        load_pulse_resources(action, params)
       when "notes"
         load_note_resources(action, params)
       when "decisions"
@@ -214,6 +216,58 @@ class MarkdownUiService
     def load_cycle_resources(action, params)
       context.page_title = "Cycles"
       context.cycles = T.unsafe(context.current_superagent).cycles.order(start_date: :desc).limit(20).to_a
+    end
+
+    sig { params(action: String, params: T::Hash[Symbol, T.untyped]).void }
+    def load_pulse_resources(action, params)
+      superagent = context.current_superagent
+
+      context.page_title = superagent.name
+
+      # Get the current cycle
+      cycle = superagent.current_cycle
+      context.cycle = cycle
+      context.is_viewing_current_cycle = cycle.is_current_cycle?
+
+      # Load team and pinned items
+      context.team = superagent.users.to_a
+      context.pinned_items = superagent.pinned_items
+
+      # Build feed items
+      context.feed_items = build_feed_items(cycle)
+    end
+
+    sig { params(cycle: T.nilable(Cycle)).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
+    def build_feed_items(cycle)
+      return [] unless cycle
+
+      cycle_start = cycle.start_date
+
+      notes = cycle.notes
+        .where("notes.created_at >= ?", cycle_start)
+        .includes(:created_by)
+        .limit(100)
+        .map do |note|
+        { type: "Note", item: note, created_at: note.created_at, created_by: note.created_by }
+      end
+
+      decisions = cycle.decisions
+        .where("decisions.created_at >= ?", cycle_start)
+        .includes(:created_by)
+        .limit(100)
+        .map do |decision|
+        { type: "Decision", item: decision, created_at: decision.created_at, created_by: decision.created_by }
+      end
+
+      commitments = cycle.commitments
+        .where("commitments.created_at >= ?", cycle_start)
+        .includes(:created_by)
+        .limit(100)
+        .map do |commitment|
+        { type: "Commitment", item: commitment, created_at: commitment.created_at, created_by: commitment.created_by }
+      end
+
+      (notes + decisions + commitments).sort_by { |item| -item[:created_at].to_i }
     end
   end
 end
