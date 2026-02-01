@@ -40,6 +40,16 @@ class UsersController < ApplicationController
       @common_studios = current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
       @additional_common_studio_count = 0
     end
+
+    # Compute counts of common studios and scenes for profile display
+    if @current_user != @showing_user
+      all_common = current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
+      @common_studio_count = all_common.count { |s| s.superagent_type == "studio" }
+      @common_scene_count = all_common.count { |s| s.superagent_type == "scene" }
+    else
+      @common_studio_count = 0
+      @common_scene_count = 0
+    end
     # Load subagent count for person users
     if @showing_user.person?
       @subagent_count = @showing_user.subagents
@@ -47,6 +57,10 @@ class UsersController < ApplicationController
         .where(tenant_users: { tenant_id: current_tenant.id })
         .count
     end
+
+    # Load proximity connections for the profile being viewed
+    load_proximity_connections
+
     respond_to do |format|
       format.html
       format.md
@@ -241,6 +255,22 @@ class UsersController < ApplicationController
     respond_to do |format|
       format.md { render 'settings' }
       format.html { redirect_to "#{@settings_user.path}/settings" }
+    end
+  end
+
+  private
+
+  # Load proximity connections for the user profile being viewed
+  # Returns a simple sorted list of the most proximate users
+  def load_proximity_connections
+    all_connections = @showing_user.most_proximate_users(tenant_id: current_tenant.id, limit: 30)
+
+    @proximity_users = all_connections.filter_map do |user, score|
+      next if user.nil? || user.archived?
+      tu = user.tenant_users.find_by(tenant_id: current_tenant.id)
+      next if tu.nil?
+      user.tenant_user = tu
+      user
     end
   end
 

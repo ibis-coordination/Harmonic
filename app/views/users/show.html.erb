@@ -48,6 +48,23 @@
     </div>
   <% end %>
 
+  <% if @current_user != @showing_user && (@common_studio_count > 0 || @common_scene_count > 0) %>
+    <div class="pulse-user-common-counts">
+      <% if @common_scene_count > 0 %>
+        <span class="pulse-common-count-item">
+          <%= octicon 'eye', height: 14 %>
+          <%= @common_scene_count %> common scene<%= 's' unless @common_scene_count == 1 %>
+        </span>
+      <% end %>
+      <% if @common_studio_count > 0 %>
+        <span class="pulse-common-count-item">
+          <%= octicon 'lock', height: 14 %>
+          <%= @common_studio_count %> common studio<%= 's' unless @common_studio_count == 1 %>
+        </span>
+      <% end %>
+    </div>
+  <% end %>
+
   <% if @current_user != @showing_user && @common_studios.count > 0 %>
     <%# Common Studios Section %>
     <%= render 'shared/pulse_accordion', title: 'Common Studios', count: @common_studios.count + @additional_common_studio_count, open: true do %>
@@ -66,6 +83,12 @@
           <p class="pulse-form-hint">and <%= @additional_common_studio_count %> more...</p>
         <% end %>
       </div>
+    <% end %>
+  <% end %>
+
+  <% if @proximity_users.present? %>
+    <%= render 'shared/pulse_accordion', title: 'Social Proximity', count: @proximity_users.size, icon: 'people', open: true do %>
+      <%= render 'users/proximity_connections' %>
     <% end %>
   <% end %>
 </article>

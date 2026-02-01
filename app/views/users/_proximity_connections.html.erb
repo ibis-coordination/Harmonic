@@ -1,0 +1,22 @@
+<%# Simple sorted list of proximate users %>
+<% if @proximity_users.present? %>
+  <div class="pulse-users-list">
+    <% @proximity_users.each do |user| %>
+      <div class="pulse-user-item">
+        <div class="pulse-author-avatar">
+          <img src="<%= user.image_url %>" alt="<%= user.display_name %>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+        </div>
+        <div class="pulse-user-item-info">
+          <a href="<%= user.path %>" class="pulse-user-item-name"><%= user.display_name %></a>
+          <span class="pulse-user-item-handle">@<%= user.handle %></span>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <% if @showing_user == @current_user %>
+    <p class="pulse-form-hint">No connections yet. Join studios, read notes, vote on decisions, and participate in commitments to build your network.</p>
+  <% else %>
+    <p class="pulse-form-hint">No connections visible.</p>
+  <% end %>
+<% end %>

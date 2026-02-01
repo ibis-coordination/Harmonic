@@ -2719,6 +2719,25 @@ a.pulse-activity-title:hover {
   fill: currentColor;
 }
 
+.pulse-user-common-counts {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin-bottom: 16px;
+}
+
+.pulse-common-count-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-user-common-counts .octicon {
+  fill: currentColor;
+}
+
 /* Page Title (for standalone pages like notifications) */
 .pulse-page-title {
   font-size: 24px;
@@ -3180,4 +3199,47 @@ a.pulse-activity-title:hover {
 .pulse-group-link:hover {
   color: var(--color-accent-fg);
   text-decoration: underline;
+}
+
+/* Social Proximity User List */
+.pulse-users-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.pulse-user-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-user-item:last-child {
+  border-bottom: none;
+}
+
+.pulse-user-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pulse-user-item-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-fg-default);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pulse-user-item-name:hover {
+  color: var(--color-accent-fg);
+}
+
+.pulse-user-item-handle {
+  font-size: 12px;
+  color: var(--color-fg-muted);
 }

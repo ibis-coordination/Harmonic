@@ -12,6 +12,13 @@ Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.
 
 Has <%= @subagent_count %> subagent<%= @subagent_count == 1 ? "" : "s" %>
 <% end %>
+<% if @current_user != @showing_user && (@common_studio_count > 0 || @common_scene_count > 0) %>
+<% parts = [] %>
+<% parts << "#{@common_scene_count} common scene#{'s' unless @common_scene_count == 1}" if @common_scene_count > 0 %>
+<% parts << "#{@common_studio_count} common studio#{'s' unless @common_studio_count == 1}" if @common_studio_count > 0 %>
+
+<%= parts.join(', ') %>
+<% end %>
 
 <% if @current_user != @showing_user && @common_studios.length > 0 %>
 ## Common Studios
@@ -21,6 +28,14 @@ Has <%= @subagent_count %> subagent<%= @subagent_count == 1 ? "" : "s" %>
 <% end %>
 <% if @additional_common_studio_count > 0 %>
 And <%= @additional_common_studio_count %> more...
+<% end %>
+<% end %>
+<% if @proximity_users.present? %>
+
+## Social Proximity (<%= @proximity_users.size %>)
+
+<% @proximity_users.each do |user| %>
+* [<%= raw user.display_name %>](<%= user.path %>) (@<%= user.handle %>)
 <% end %>
 <% end %>
 
