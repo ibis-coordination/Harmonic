@@ -4,6 +4,26 @@ host: <%= "#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}" %>
 path: <%= @current_path %>
 title: <%= raw @page_title %>
 timestamp: <%= Time.now.utc %>
+<% actions = available_actions_for_current_route -%>
+<% if actions.any? -%>
+actions:
+<% actions.each do |action| -%>
+  - name: <%= action[:name] %>
+    description: <%= action[:description].to_s.gsub('"', '\\"') %>
+    path: <%= action[:path] %>
+<% if action[:params]&.any? -%>
+    params:
+<% action[:params].each do |param| -%>
+      - name: <%= param[:name] %>
+        type: <%= param[:type] %>
+        required: <%= param[:required] %>
+<% if param[:description] -%>
+        description: <%= param[:description].to_s.gsub('"', '\\"') %>
+<% end -%>
+<% end -%>
+<% end -%>
+<% end -%>
+<% end -%>
 ---
 nav: | [Home](/) <% if @current_superagent && @current_superagent != @current_tenant.main_superagent -%>| <%= @current_superagent.superagent_type.titleize %>: [<%= @current_superagent.name %>](<%= @current_superagent.path %>)<% end -%><% if @current_user -%>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>)<% end -%> | [🔍](/search) | [<%= @unread_notification_count %>](/notifications) |
 

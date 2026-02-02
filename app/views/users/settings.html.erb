@@ -110,11 +110,11 @@
 
   <% if @current_tenant.api_enabled? %>
     <%# API Tokens Section %>
-    <%= render 'shared/pulse_accordion', title: 'API Tokens', count: @settings_user.api_tokens.count do %>
+    <%= render 'shared/pulse_accordion', title: 'API Tokens', count: @settings_user.api_tokens.external.count do %>
       <p class="pulse-form-hint" style="margin-bottom:16px;">
         API tokens authenticate requests to the API. Actions taken through the API using these tokens are attributed to <%= @settings_user.name %>.
       </p>
-      <% if @settings_user.api_tokens.any? %>
+      <% if @settings_user.api_tokens.external.any? %>
         <div class="pulse-table-wrapper">
           <table class="pulse-table">
             <thead>
@@ -129,7 +129,7 @@
               </tr>
             </thead>
             <tbody>
-              <% @settings_user.api_tokens.each do |token| %>
+              <% @settings_user.api_tokens.external.each do |token| %>
                 <tr>
                   <td><%= token.name || 'Unnamed' %></td>
                   <td>
@@ -269,7 +269,7 @@
           <% @subagents.each do |subagent| %>
             <div class="pulse-subagent-tokens-section">
               <h4 class="pulse-subsection-title"><%= subagent.name %></h4>
-              <% if subagent.api_tokens.any? %>
+              <% if subagent.api_tokens.external.any? %>
                 <div class="pulse-table-wrapper">
                   <table class="pulse-table">
                     <thead>
@@ -284,7 +284,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <% subagent.api_tokens.each do |token| %>
+                      <% subagent.api_tokens.external.each do |token| %>
                         <tr>
                           <td><%= token.name || 'Unnamed' %></td>
                           <td>

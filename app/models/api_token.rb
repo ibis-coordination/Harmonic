@@ -7,6 +7,16 @@ class ApiToken < ApplicationRecord
   belongs_to :tenant
   belongs_to :user
 
+  # Default scope to external tokens only (merged with tenant scope from ApplicationRecord)
+  # This prevents accidentally exposing internal tokens by forgetting to filter
+  default_scope { where(internal: false) }
+
+  # Scope for internal tokens - unscopes the external default but keeps tenant scope
+  scope :internal, -> { unscope(where: :internal).where(internal: true) }
+
+  # Explicit external scope (same as default, but useful for clarity)
+  scope :external, -> { where(internal: false) }
+
   # Plaintext token is only available immediately after creation
   attr_accessor :plaintext_token
 
@@ -19,6 +29,7 @@ class ApiToken < ApplicationRecord
   validates :token_hash, presence: true, uniqueness: true
   validates :scopes, presence: true
   validate :validate_scopes
+  validate :external_tokens_cannot_have_encrypted_token
 
   before_validation :generate_token_hash
 
@@ -139,6 +150,48 @@ class ApiToken < ApplicationRecord
     tenant_admin == true
   end
 
+  sig { returns(T::Boolean) }
+  def internal?
+    internal == true
+  end
+
+  # Decrypt and return the plaintext token (only works for internal tokens)
+  sig { returns(T.nilable(String)) }
+  def decrypted_token
+    return nil unless internal? && internal_encrypted_token.present?
+
+    token_encryptor.decrypt_and_verify(internal_encrypted_token)
+  rescue ActiveSupport::MessageVerifier::InvalidSignature, ActiveSupport::MessageEncryptor::InvalidMessage
+    nil
+  end
+
+  # Find or create an internal token for a user within a tenant
+  sig { params(user: User, tenant: Tenant).returns(ApiToken) }
+  def self.find_or_create_internal_token(user:, tenant:)
+    existing = internal.find_by(user: user, tenant: tenant, deleted_at: nil)
+    return existing if existing
+
+    # Generate a new token
+    token = new(
+      user: user,
+      tenant: tenant,
+      internal: true,
+      scopes: valid_scopes,
+      name: "Internal Agent Token",
+      expires_at: 100.years.from_now,
+    )
+
+    # Generate the plaintext and hash it (triggers before_validation)
+    token.valid?
+
+    # Store the encrypted plaintext for internal recovery
+    # Use send to access private method from class method context
+    token.internal_encrypted_token = token.send(:encrypt_plaintext_token)
+
+    token.save!
+    token
+  end
+
   sig { void }
   def delete!
     self.deleted_at ||= T.cast(Time.current, ActiveSupport::TimeWithZone)
@@ -190,13 +243,14 @@ class ApiToken < ApplicationRecord
     can?('delete', resource_model)
   end
 
-  # Authenticate by hashing the provided token and looking up the hash
+  # Authenticate by hashing the provided token and looking up the hash.
+  # Note: This unscopes the default external-only filter to allow internal token auth.
   sig { params(token_string: String, tenant_id: T.untyped).returns(T.nilable(ApiToken)) }
   def self.authenticate(token_string, tenant_id:)
     return nil if token_string.blank?
 
     token_hash = hash_token(token_string)
-    find_by(token_hash: token_hash, deleted_at: nil, tenant_id: tenant_id)
+    unscope(where: :internal).find_by(token_hash: token_hash, deleted_at: nil, tenant_id: tenant_id)
   end
 
   sig { params(token_string: String).returns(String) }
@@ -229,5 +283,27 @@ class ApiToken < ApplicationRecord
         errors.add(:scopes, "Invalid scope: #{scope}")
       end
     end
+  end
+
+  sig { void }
+  def external_tokens_cannot_have_encrypted_token
+    if !internal? && internal_encrypted_token.present?
+      errors.add(:internal_encrypted_token, "must be null for external tokens")
+    end
+  end
+
+  # Encrypt the plaintext token for internal storage
+  sig { returns(T.nilable(String)) }
+  def encrypt_plaintext_token
+    return nil unless plaintext_token.present?
+
+    token_encryptor.encrypt_and_sign(plaintext_token)
+  end
+
+  sig { returns(ActiveSupport::MessageEncryptor) }
+  def token_encryptor
+    key = Rails.application.secret_key_base
+    derived_key = ActiveSupport::KeyGenerator.new(key).generate_key("internal_api_token", 32)
+    ActiveSupport::MessageEncryptor.new(derived_key)
   end
 end

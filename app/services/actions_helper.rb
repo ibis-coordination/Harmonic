@@ -469,59 +469,99 @@ class ActionsHelper
     },
   }.freeze
 
-  # Route to actions mapping for actions index pages
-  # This is derived from ACTION_DEFINITIONS but organized by route
+  # Route to actions mapping for actions index pages.
+  # This is derived from ACTION_DEFINITIONS but organized by route.
+  #
+  # Each entry includes:
+  # - controller_actions: Array of "controller#action" strings that map to this route pattern.
+  #   Multiple controller#actions can map to the same route pattern (e.g., studios#show and studios#cycles).
+  # - actions: Array of action definitions available at this route.
+  #
+  # The controller_actions mapping is the single source of truth for route pattern resolution.
+  # MarkdownHelper.build_route_pattern_from_request uses this to look up route patterns.
   @@actions_by_route = {
-    "/studios" => { actions: [] },
+    "/" => {
+      controller_actions: ["home#index"],
+      actions: [],
+    },
+    "/studios" => {
+      controller_actions: ["studios#index"],
+      actions: [],
+    },
     "/studios/new" => {
+      controller_actions: ["studios#new"],
       actions: [
         { name: "create_studio", params_string: ACTION_DEFINITIONS["create_studio"][:params_string], description: ACTION_DEFINITIONS["create_studio"][:description] },
       ],
     },
-    "/studios/:studio_handle" => { actions: [] },
+    "/studios/:studio_handle" => {
+      controller_actions: ["pulse#index"],
+      actions: [],
+    },
     "/studios/:studio_handle/join" => {
+      controller_actions: ["studios#join"],
       actions: [
         { name: "join_studio", params_string: ACTION_DEFINITIONS["join_studio"][:params_string], description: ACTION_DEFINITIONS["join_studio"][:description] },
       ],
     },
     "/studios/:studio_handle/settings" => {
+      controller_actions: ["studios#settings"],
       actions: [
         { name: "update_studio_settings", params_string: ACTION_DEFINITIONS["update_studio_settings"][:params_string], description: ACTION_DEFINITIONS["update_studio_settings"][:description] },
         { name: "add_subagent_to_studio", params_string: ACTION_DEFINITIONS["add_subagent_to_studio"][:params_string], description: ACTION_DEFINITIONS["add_subagent_to_studio"][:description] },
         { name: "remove_subagent_from_studio", params_string: ACTION_DEFINITIONS["remove_subagent_from_studio"][:params_string], description: ACTION_DEFINITIONS["remove_subagent_from_studio"][:description] },
       ],
     },
-    "/studios/:studio_handle/cycles" => { actions: [] },
-    "/studios/:studio_handle/backlinks" => { actions: [] },
-    "/studios/:studio_handle/members" => { actions: [] },
+    "/studios/:studio_handle/cycles" => {
+      controller_actions: ["studios#show", "studios#cycles"],
+      actions: [],
+    },
+    "/studios/:studio_handle/backlinks" => {
+      controller_actions: ["studios#backlinks"],
+      actions: [],
+    },
+    "/studios/:studio_handle/members" => {
+      controller_actions: ["studios#members"],
+      actions: [],
+    },
     "/studios/:studio_handle/note" => {
+      controller_actions: ["notes#new"],
       actions: [
         { name: "create_note", params_string: ACTION_DEFINITIONS["create_note"][:params_string], description: ACTION_DEFINITIONS["create_note"][:description] },
       ],
     },
     "/studios/:studio_handle/n/:note_id" => {
+      controller_actions: ["notes#show"],
       actions: [
         { name: "confirm_read", params_string: ACTION_DEFINITIONS["confirm_read"][:params_string], description: "Confirm that you have read the note" },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: "Add a comment to this note" },
       ],
     },
     "/studios/:studio_handle/n/:note_id/attachments/:attachment_id" => {
+      controller_actions: ["attachments#show"],
       actions: [
         { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
       ],
     },
     "/studios/:studio_handle/n/:note_id/edit" => {
+      controller_actions: ["notes#edit"],
       actions: [
         { name: "update_note", params_string: ACTION_DEFINITIONS["update_note"][:params_string], description: "Update the note" },
         { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: "Add a file attachment to this note" },
       ],
     },
+    "/studios/:studio_handle/n/:note_id/settings" => {
+      controller_actions: ["notes#settings"],
+      actions: [],
+    },
     "/studios/:studio_handle/decide" => {
+      controller_actions: ["decisions#new"],
       actions: [
         { name: "create_decision", params_string: ACTION_DEFINITIONS["create_decision"][:params_string], description: ACTION_DEFINITIONS["create_decision"][:description] },
       ],
     },
     "/studios/:studio_handle/d/:decision_id" => {
+      controller_actions: ["decisions#show"],
       actions: [
         { name: "add_option", params_string: ACTION_DEFINITIONS["add_option"][:params_string], description: ACTION_DEFINITIONS["add_option"][:description] },
         { name: "vote", params_string: ACTION_DEFINITIONS["vote"][:params_string], description: ACTION_DEFINITIONS["vote"][:description] },
@@ -529,76 +569,93 @@ class ActionsHelper
       ],
     },
     "/studios/:studio_handle/d/:decision_id/attachments/:attachment_id" => {
+      controller_actions: ["attachments#show"],
       actions: [
         { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
       ],
     },
     "/studios/:studio_handle/d/:decision_id/settings" => {
+      controller_actions: ["decisions#settings"],
       actions: [
         { name: "update_decision_settings", params_string: ACTION_DEFINITIONS["update_decision_settings"][:params_string], description: ACTION_DEFINITIONS["update_decision_settings"][:description] },
         { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: "Add a file attachment to this decision" },
       ],
     },
     "/studios/:studio_handle/commit" => {
+      controller_actions: ["commitments#new"],
       actions: [
         { name: "create_commitment", params_string: ACTION_DEFINITIONS["create_commitment"][:params_string], description: ACTION_DEFINITIONS["create_commitment"][:description] },
       ],
     },
     "/studios/:studio_handle/c/:commitment_id" => {
+      controller_actions: ["commitments#show"],
       actions: [
         { name: "join_commitment", params_string: ACTION_DEFINITIONS["join_commitment"][:params_string], description: ACTION_DEFINITIONS["join_commitment"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: "Add a comment to this commitment" },
       ],
     },
     "/studios/:studio_handle/c/:commitment_id/attachments/:attachment_id" => {
+      controller_actions: ["attachments#show"],
       actions: [
         { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
       ],
     },
     "/studios/:studio_handle/c/:commitment_id/settings" => {
+      controller_actions: ["commitments#settings"],
       actions: [
         { name: "update_commitment_settings", params_string: ACTION_DEFINITIONS["update_commitment_settings"][:params_string], description: ACTION_DEFINITIONS["update_commitment_settings"][:description] },
         { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: "Add a file attachment to this commitment" },
       ],
     },
     "/u/:handle/settings" => {
+      controller_actions: ["users#settings"],
       actions: [
         { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string], description: ACTION_DEFINITIONS["update_profile"][:description] },
       ],
     },
     "/u/:handle/settings/tokens/new" => {
+      controller_actions: ["api_tokens#new"],
       actions: [
         { name: "create_api_token", params_string: ACTION_DEFINITIONS["create_api_token"][:params_string], description: ACTION_DEFINITIONS["create_api_token"][:description] },
       ],
     },
     "/u/:handle/settings/subagents/new" => {
+      controller_actions: ["subagents#new"],
       actions: [
         { name: "create_subagent", params_string: ACTION_DEFINITIONS["create_subagent"][:params_string], description: ACTION_DEFINITIONS["create_subagent"][:description] },
       ],
     },
-    "/admin" => { actions: [] },
+    "/admin" => {
+      controller_actions: ["admin#index", "tenant_admin#index"],
+      actions: [],
+    },
     "/admin/settings" => {
+      controller_actions: ["admin#settings", "tenant_admin#settings"],
       actions: [
         { name: "update_tenant_settings", params_string: ACTION_DEFINITIONS["update_tenant_settings"][:params_string], description: ACTION_DEFINITIONS["update_tenant_settings"][:description] },
       ],
     },
     "/admin/tenants/new" => {
+      controller_actions: ["app_admin#new_tenant"],
       actions: [
         { name: "create_tenant", params_string: ACTION_DEFINITIONS["create_tenant"][:params_string], description: ACTION_DEFINITIONS["create_tenant"][:description] },
       ],
     },
     "/admin/sidekiq/jobs/:jid" => {
+      controller_actions: ["system_admin#show_job"],
       actions: [
         { name: "retry_sidekiq_job", params_string: ACTION_DEFINITIONS["retry_sidekiq_job"][:params_string], description: ACTION_DEFINITIONS["retry_sidekiq_job"][:description] },
       ],
     },
     "/admin/users/:handle" => {
+      controller_actions: ["system_admin#show_user"],
       actions: [
         { name: "suspend_user", params_string: ACTION_DEFINITIONS["suspend_user"][:params_string], description: ACTION_DEFINITIONS["suspend_user"][:description] },
         { name: "unsuspend_user", params_string: ACTION_DEFINITIONS["unsuspend_user"][:params_string], description: ACTION_DEFINITIONS["unsuspend_user"][:description] },
       ],
     },
     "/notifications" => {
+      controller_actions: ["notifications#index"],
       actions: [
         { name: "mark_read", params_string: ACTION_DEFINITIONS["mark_read"][:params_string], description: ACTION_DEFINITIONS["mark_read"][:description] },
         { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
@@ -608,36 +665,58 @@ class ActionsHelper
       ],
     },
     "/search" => {
+      controller_actions: ["search#index"],
       actions: [
         { name: "search", params_string: ACTION_DEFINITIONS["search"][:params_string], description: ACTION_DEFINITIONS["search"][:description] },
       ],
     },
-    "/studios/:studio_handle/settings/webhooks" => { actions: [] },
+    "/studios/:studio_handle/settings/webhooks" => {
+      controller_actions: ["webhooks#index"],
+      actions: [],
+    },
     "/studios/:studio_handle/settings/webhooks/new" => {
+      controller_actions: ["webhooks#new"],
       actions: [
         { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string], description: ACTION_DEFINITIONS["create_webhook"][:description] },
       ],
     },
     "/studios/:studio_handle/settings/webhooks/:id" => {
+      controller_actions: ["webhooks#show"],
       actions: [
         { name: "update_webhook", params_string: ACTION_DEFINITIONS["update_webhook"][:params_string], description: ACTION_DEFINITIONS["update_webhook"][:description] },
         { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
         { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
       ],
     },
-    "/u/:handle/settings/webhooks" => { actions: [] },
+    "/u/:handle/settings/webhooks" => {
+      controller_actions: ["user_webhooks#index"],
+      actions: [],
+    },
     "/u/:handle/settings/webhooks/new" => {
+      controller_actions: ["user_webhooks#new"],
       actions: [
         { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string], description: ACTION_DEFINITIONS["create_webhook"][:description] },
       ],
     },
     "/u/:handle/settings/webhooks/:id" => {
+      controller_actions: ["user_webhooks#show"],
       actions: [
         { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
         { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
       ],
     },
   }
+
+  # Reverse mapping from "controller#action" to route pattern.
+  # Derived from @@actions_by_route at load time.
+  @@controller_action_to_route = T.let(
+    @@actions_by_route.each_with_object({}) do |(route_pattern, config), mapping|
+      config[:controller_actions]&.each do |controller_action|
+        mapping[controller_action] = route_pattern
+      end
+    end,
+    T::Hash[String, String]
+  )
 
   @@routes_and_actions = @@actions_by_route.keys.map do |route|
     {
@@ -714,5 +793,15 @@ class ActionsHelper
   sig { params(route: String).returns(T.nilable(T::Hash[Symbol, T.untyped])) }
   def self.actions_for_route(route)
     @@actions_by_route[route]
+  end
+
+  # Get the route pattern for a controller#action.
+  # This is the single source of truth for mapping controller actions to route patterns.
+  #
+  # @param controller_action [String] The controller#action string (e.g., "notes#show")
+  # @return [String, nil] The route pattern (e.g., "/studios/:studio_handle/n/:note_id")
+  sig { params(controller_action: String).returns(T.nilable(String)) }
+  def self.route_pattern_for(controller_action)
+    @@controller_action_to_route[controller_action]
   end
 end

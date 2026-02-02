@@ -403,4 +403,115 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert_equal expected_hash, ApiToken.hash_token(token_string)
     assert_equal expected_hash, ApiToken.hash_token(token_string)  # Consistent
   end
+
+  # === Internal Token Tests ===
+
+  test "find_or_create_internal_token creates internal token with encrypted plaintext" do
+    token = ApiToken.find_or_create_internal_token(user: @user, tenant: @tenant)
+
+    assert token.internal?
+    assert_equal @user, token.user
+    assert_equal @tenant, token.tenant
+    assert token.internal_encrypted_token.present?
+    assert_equal "Internal Agent Token", token.name
+  end
+
+  test "decrypted_token returns the original plaintext for authentication" do
+    token = ApiToken.find_or_create_internal_token(user: @user, tenant: @tenant)
+
+    # The decrypted token should be valid for authentication
+    decrypted = token.decrypted_token
+    assert decrypted.present?
+
+    # Verify it matches by checking authentication works
+    authenticated = ApiToken.authenticate(decrypted, tenant_id: @tenant.id)
+    assert_equal token.id, authenticated.id
+  end
+
+  test "find_or_create_internal_token returns existing token" do
+    token1 = ApiToken.find_or_create_internal_token(user: @user, tenant: @tenant)
+    token2 = ApiToken.find_or_create_internal_token(user: @user, tenant: @tenant)
+
+    assert_equal token1.id, token2.id
+    # Decrypted token still works after retrieval
+    assert token2.decrypted_token.present?
+  end
+
+  test "external tokens cannot have encrypted token" do
+    token = ApiToken.new(
+      user: @user,
+      tenant: @tenant,
+      internal: false,
+      internal_encrypted_token: "should_not_be_allowed",
+      scopes: ApiToken.read_scopes,
+      name: "External Token",
+      expires_at: 1.year.from_now
+    )
+
+    assert_not token.valid?
+    assert_includes token.errors[:internal_encrypted_token], "must be null for external tokens"
+  end
+
+  test "decrypted_token returns nil for external tokens" do
+    token = ApiToken.create!(
+      user: @user,
+      tenant: @tenant,
+      internal: false,
+      scopes: ApiToken.read_scopes,
+      name: "External Token",
+      expires_at: 1.year.from_now
+    )
+
+    assert_nil token.decrypted_token
+  end
+
+  test "internal? returns false by default" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    assert_not token.internal?
+  end
+
+  test "internal scope returns only internal tokens" do
+    external = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    internal = ApiToken.find_or_create_internal_token(user: @user, tenant: @tenant)
+
+    internal_tokens = @user.api_tokens.internal
+    external_tokens = @user.api_tokens.external
+
+    assert_includes internal_tokens, internal
+    assert_not_includes internal_tokens, external
+    assert_includes external_tokens, external
+    assert_not_includes external_tokens, internal
+  end
+
+  test "encrypted token cannot be decrypted without secret key" do
+    token = ApiToken.find_or_create_internal_token(user: @user, tenant: @tenant)
+    encrypted = token.internal_encrypted_token
+
+    # Attempting to decrypt with wrong key should fail
+    wrong_encryptor = ActiveSupport::MessageEncryptor.new(SecureRandom.bytes(32))
+
+    assert_raises(ActiveSupport::MessageEncryptor::InvalidMessage) do
+      wrong_encryptor.decrypt_and_verify(encrypted)
+    end
+  end
+
+  test "find_or_create_internal_token ignores deleted tokens and creates new one" do
+    token1 = ApiToken.find_or_create_internal_token(user: @user, tenant: @tenant)
+    token1.delete!
+
+    token2 = ApiToken.find_or_create_internal_token(user: @user, tenant: @tenant)
+
+    assert_not_equal token1.id, token2.id
+    assert token2.active?
+  end
 end

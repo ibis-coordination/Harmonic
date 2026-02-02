@@ -1,4 +1,4 @@
-\restrict T9ixxSbY7GcArDueEvdE1fU4MHJGA5tCCdQcxoS9P3vcJDOUf3qm07blomE2Gmm
+\restrict Xmz6KUii8Kp3KklWrqR47giGgrVlY5ZMP4emedHzcEKnM5oHyDYGS3TEldfhO76
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -114,7 +114,9 @@ CREATE TABLE public.api_tokens (
     app_admin boolean DEFAULT false NOT NULL,
     tenant_admin boolean DEFAULT false NOT NULL,
     token_hash character varying,
-    token_prefix character varying(4)
+    token_prefix character varying(4),
+    internal boolean DEFAULT false NOT NULL,
+    internal_encrypted_token text
 );
 
 
@@ -7934,7 +7936,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict T9ixxSbY7GcArDueEvdE1fU4MHJGA5tCCdQcxoS9P3vcJDOUf3qm07blomE2Gmm
+\unrestrict Xmz6KUii8Kp3KklWrqR47giGgrVlY5ZMP4emedHzcEKnM5oHyDYGS3TEldfhO76
 
 SET search_path TO "$user", public;
 
@@ -8060,6 +8062,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260130194543'),
 ('20260130204044'),
 ('20260131000001'),
-('20260131000002');
+('20260131000002'),
+('20260201143513');
 
 

@@ -6,7 +6,8 @@ class ApiTokensController < ApplicationController
   before_action :set_sidebar_mode, only: [:new, :show, :create]
 
   def show
-    @token = @showing_user.api_tokens.find_by(id: params[:id])
+    # Never show internal tokens
+    @token = @showing_user.api_tokens.external.find_by(id: params[:id])
     return render status: :not_found, plain: "404 not token found" if @token.nil?
 
     respond_to do |format|
@@ -42,7 +43,8 @@ class ApiTokensController < ApplicationController
   end
 
   def destroy
-    @token = @showing_user.api_tokens.find_by(id: params[:id])
+    # Never allow deleting internal tokens
+    @token = @showing_user.api_tokens.external.find_by(id: params[:id])
     return render status: :not_found, plain: "404 not token found" if @token.nil?
 
     @token.delete!

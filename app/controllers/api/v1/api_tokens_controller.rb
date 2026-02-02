@@ -3,11 +3,13 @@
 module Api::V1
   class ApiTokensController < BaseController
     def index
-      render json: current_user.api_tokens.map(&:api_json)
+      # Never show internal tokens - they are for system use only
+      render json: current_user.api_tokens.external.map(&:api_json)
     end
 
     def show
-      token = current_user.api_tokens.find_by(id: params[:id])
+      # Never show internal tokens
+      token = current_user.api_tokens.external.find_by(id: params[:id])
       return render json: { error: 'Token not found' }, status: 404 unless token
       render json: token.api_json(include: includes_param)
     end
@@ -28,7 +30,8 @@ module Api::V1
     end
 
     def update
-      token = current_user.api_tokens.find_by(id: params[:id])
+      # Never allow updating internal tokens
+      token = current_user.api_tokens.external.find_by(id: params[:id])
       return render json: { error: 'Token not found' }, status: 404 unless token
       updatable_attributes.each do |attribute|
         token[attribute] = params[attribute] if params.has_key?(attribute)
@@ -40,7 +43,8 @@ module Api::V1
     end
 
     def destroy
-      token = current_user.api_tokens.find_by(id: params[:id])
+      # Never allow deleting internal tokens
+      token = current_user.api_tokens.external.find_by(id: params[:id])
       return render json: { error: 'Token not found' }, status: 404 unless token
       token.delete!
       render json: { message: 'Token deleted' }
