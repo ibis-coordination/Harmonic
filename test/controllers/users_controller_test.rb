@@ -54,7 +54,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     get "/u/#{@user.handle}"
     assert_response :success
     assert_not_includes response.body, "Has 0 subagent"
-    assert_not_includes response.body, "subagent"
+    # The profile section should not mention subagents when user has none
+    # (Note: "Subagents" appears in navigation menu but that's expected)
+    assert_no_match(/Has \d+ subagent/, response.body)
   end
 
   test "subagent profile does not show subagent count" do

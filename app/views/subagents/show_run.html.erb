@@ -1,28 +1,34 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   ['Home', '/'],
-  ['Agent Test', agent_test_path],
-  'Result'
+  ['My Subagents', subagents_path],
+  [@subagent.name, subagent_runs_path(@subagent.handle)],
+  'Task Run'
 ] %>
 
 <article class="pulse-resource-detail">
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
-        <%= octicon 'dependabot', height: 14, class: 'pulse-resource-icon' %>
-        Agent Result
+        <%= octicon 'smiley', height: 14, class: 'pulse-resource-icon' %>
+        Task Run
       </span>
-      <%= link_to agent_test_path, class: "pulse-feed-action-link", style: "margin-left: auto;" do %>
-        <%= octicon 'plus', height: 14 %> Run Another Task
-      <% end %>
+      <div style="margin-left: auto; display: flex; gap: 12px;">
+        <a href="<%= subagent_runs_path(@subagent.handle) %>" class="pulse-feed-action-link">
+          <%= octicon 'history', height: 14 %> All Runs
+        </a>
+        <a href="<%= subagent_run_task_path(@subagent.handle) %>" class="pulse-feed-action-link">
+          <%= octicon 'plus', height: 14 %> Run Another Task
+        </a>
+      </div>
     </div>
-    <h1 class="pulse-resource-title"><%= @result.success ? 'Success' : 'Failed' %></h1>
+    <h1 class="pulse-resource-title"><%= @task_run.success ? 'Success' : 'Failed' %></h1>
   </header>
 
   <div class="pulse-resource-body">
     <!-- Summary -->
-    <div class="<%= @result.success ? 'pulse-notice' : 'pulse-alert' %>" style="margin-bottom: 24px;">
+    <div class="<%= @task_run.success ? 'pulse-notice' : 'pulse-alert' %>" style="margin-bottom: 24px;">
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <% if @result.success %>
+        <% if @task_run.success %>
           <%= octicon 'check-circle-fill', height: 16, style: 'color: var(--color-success-fg);' %>
           <strong>Task Completed</strong>
         <% else %>
@@ -30,15 +36,26 @@
           <strong>Task Failed</strong>
         <% end %>
       </div>
-      <p style="margin: 0;"><%= @result.final_message %></p>
-      <% if @result.error %>
-        <p style="margin: 8px 0 0 0; color: var(--color-danger-fg);">Error: <%= @result.error %></p>
+      <p style="margin: 0;"><%= @task_run.final_message %></p>
+      <% if @task_run.error.present? %>
+        <p style="margin: 8px 0 0 0; color: var(--color-danger-fg);">Error: <%= @task_run.error %></p>
       <% end %>
       <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 12px;">
-        Started in: <%= @starting_studio&.name || current_superagent.name %> |
-        Agent: <%= @agent_user.name %> |
-        Steps: <%= @result.steps.count %>
+        Agent: <%= @subagent.name %> |
+        Steps: <%= @task_run.steps_count %>
+        <% if @task_run.formatted_duration %>
+          | Duration: <%= @task_run.formatted_duration %>
+        <% end %>
+        | <%= timeago(@task_run.created_at) %>
       </p>
+    </div>
+
+    <!-- Task -->
+    <div class="pulse-section-label" style="margin-bottom: 8px;">
+      <%= octicon 'tasklist', height: 12 %> Task
+    </div>
+    <div style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; margin-bottom: 24px;">
+      <pre style="margin: 0; white-space: pre-wrap; font-size: 13px;"><%= @task_run.task %></pre>
     </div>
 
     <!-- Steps Timeline -->
@@ -47,11 +64,12 @@
     </div>
 
     <div class="pulse-feed">
-      <% @result.steps.each_with_index do |step, index| %>
-        <article class="pulse-feed-item<%= ' pulse-feed-item-closed' if step.type == 'done' %>">
+      <% @task_run.steps_data.each_with_index do |step, index| %>
+        <% step = step.with_indifferent_access %>
+        <article class="pulse-feed-item<%= ' pulse-feed-item-closed' if step[:type] == 'done' %>">
           <div class="pulse-feed-item-header">
             <div class="pulse-feed-item-type">
-              <% case step.type %>
+              <% case step[:type] %>
               <% when "navigate" %>
                 <%= octicon 'arrow-right', height: 14 %>
               <% when "execute" %>
@@ -65,100 +83,101 @@
               <% else %>
                 <%= octicon 'dot', height: 14 %>
               <% end %>
-              <%= step.type.upcase %>
+              <%= step[:type].upcase %>
             </div>
             <div class="pulse-feed-item-meta">
               <span>Step <%= index + 1 %></span>
               <span>&middot;</span>
-              <span><%= step.timestamp.strftime("%H:%M:%S") %></span>
+              <span><%= Time.parse(step[:timestamp]).strftime("%H:%M:%S") %></span>
             </div>
           </div>
 
           <div class="pulse-feed-item-body">
-            <% case step.type %>
+            <% detail = step[:detail].is_a?(Hash) ? step[:detail].with_indifferent_access : {} %>
+            <% case step[:type] %>
             <% when "navigate" %>
               <div class="pulse-feed-item-title">
-                Navigated to: <code class="pulse-code"><%= step.detail[:path] %></code>
+                Navigated to: <code class="pulse-code"><%= detail[:path] %></code>
               </div>
-              <% if step.detail[:available_actions]&.any? %>
+              <% if detail[:available_actions]&.any? %>
                 <p class="pulse-muted" style="margin: 8px 0 0 0;">
-                  Available actions: <%= step.detail[:available_actions].join(", ") %>
+                  Available actions: <%= detail[:available_actions].join(", ") %>
                 </p>
               <% end %>
-              <% if step.detail[:content_preview].present? %>
+              <% if detail[:content_preview].present? %>
                 <details class="pulse-accordion" style="margin-top: 12px;">
                   <summary class="pulse-accordion-header">
                     <span class="pulse-accordion-title">View page content</span>
                     <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
                   </summary>
                   <div class="pulse-accordion-content">
-                    <pre style="font-size: 12px; overflow-x: auto; margin: 0;"><%= step.detail[:content_preview] %></pre>
+                    <pre style="font-size: 12px; overflow-x: auto; margin: 0;"><%= detail[:content_preview] %></pre>
                   </div>
                 </details>
               <% end %>
 
             <% when "execute" %>
               <div class="pulse-feed-item-title">
-                Executed: <code class="pulse-code"><%= step.detail[:action] %></code>
-                <% if step.detail[:success] %>
+                Executed: <code class="pulse-code"><%= detail[:action] %></code>
+                <% if detail[:success] %>
                   <%= octicon 'check-circle-fill', height: 14, style: 'color: var(--color-success-fg);' %>
                 <% else %>
                   <%= octicon 'x-circle-fill', height: 14, style: 'color: var(--color-danger-fg);' %>
                 <% end %>
               </div>
-              <% if step.detail[:params].present? && step.detail[:params].any? %>
+              <% if detail[:params].present? && detail[:params].any? %>
                 <p class="pulse-muted" style="margin: 8px 0 0 0;">
-                  Params: <code class="pulse-code" style="font-size: 11px;"><%= step.detail[:params].to_json %></code>
+                  Params: <code class="pulse-code" style="font-size: 11px;"><%= detail[:params].to_json %></code>
                 </p>
               <% end %>
-              <% if step.detail[:error].present? %>
-                <p style="color: var(--color-danger-fg); margin: 8px 0 0 0;">Error: <%= step.detail[:error] %></p>
+              <% if detail[:error].present? %>
+                <p style="color: var(--color-danger-fg); margin: 8px 0 0 0;">Error: <%= detail[:error] %></p>
               <% end %>
-              <% if step.detail[:content_preview].present? %>
+              <% if detail[:content_preview].present? %>
                 <details class="pulse-accordion" style="margin-top: 12px;">
                   <summary class="pulse-accordion-header">
                     <span class="pulse-accordion-title">View result</span>
                     <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
                   </summary>
                   <div class="pulse-accordion-content">
-                    <pre style="font-size: 12px; overflow-x: auto; margin: 0;"><%= step.detail[:content_preview] %></pre>
+                    <pre style="font-size: 12px; overflow-x: auto; margin: 0;"><%= detail[:content_preview] %></pre>
                   </div>
                 </details>
               <% end %>
 
             <% when "think" %>
               <div class="pulse-feed-item-content">
-                LLM reasoning (step <%= step.detail[:step_number].to_i + 1 %>)
+                LLM reasoning (step <%= detail[:step_number].to_i + 1 %>)
               </div>
-              <% if step.detail[:response_preview].present? %>
+              <% if detail[:response_preview].present? %>
                 <details class="pulse-accordion" style="margin-top: 12px;">
                   <summary class="pulse-accordion-header">
                     <span class="pulse-accordion-title">View LLM response</span>
                     <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
                   </summary>
                   <div class="pulse-accordion-content">
-                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= step.detail[:response_preview] %></pre>
+                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= detail[:response_preview] %></pre>
                   </div>
                 </details>
               <% end %>
 
             <% when "done" %>
               <div class="pulse-feed-item-content" style="color: var(--color-success-fg);">
-                <%= step.detail[:message] %>
+                <%= detail[:message] %>
               </div>
 
             <% when "error" %>
               <div class="pulse-feed-item-content" style="color: var(--color-danger-fg);">
-                <%= step.detail[:message] %>
+                <%= detail[:message] %>
               </div>
-              <% if step.detail[:backtrace]&.any? %>
+              <% if detail[:backtrace]&.any? %>
                 <details class="pulse-accordion" style="margin-top: 12px;">
                   <summary class="pulse-accordion-header">
                     <span class="pulse-accordion-title">View backtrace</span>
                     <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
                   </summary>
                   <div class="pulse-accordion-content">
-                    <pre style="font-size: 12px; overflow-x: auto; margin: 0; color: var(--color-danger-fg);"><%= step.detail[:backtrace].join("\n") %></pre>
+                    <pre style="font-size: 12px; overflow-x: auto; margin: 0; color: var(--color-danger-fg);"><%= detail[:backtrace].join("\n") %></pre>
                   </div>
                 </details>
               <% end %>

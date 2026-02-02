@@ -7,9 +7,12 @@ Rails.application.routes.draw do
     get 'dev/pulse' => 'dev#pulse_components'
   end
 
-  # Agent test UI (for testing AgentNavigator)
-  get 'agent-test' => 'agent_test#index', as: 'agent_test'
-  post 'agent-test/run' => 'agent_test#run', as: 'agent_test_run'
+  # Subagents management and task runner
+  get 'subagents' => 'subagents#index', as: 'subagents'
+  get 'subagents/:handle/run' => 'subagents#run_task', as: 'subagent_run_task'
+  post 'subagents/:handle/run' => 'subagents#execute_task', as: 'subagent_execute_task'
+  get 'subagents/:handle/runs' => 'subagents#runs', as: 'subagent_runs'
+  get 'subagents/:handle/runs/:run_id' => 'subagents#show_run', as: 'subagent_run'
 
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'

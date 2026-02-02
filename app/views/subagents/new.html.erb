@@ -9,7 +9,7 @@
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
-        <%= octicon 'hubot', height: 14, class: 'pulse-resource-icon' %>
+        <%= octicon 'smiley', height: 14, class: 'pulse-resource-icon' %>
         New Subagent
       </span>
     </div>
@@ -17,13 +17,13 @@
   </header>
 
   <div class="pulse-resource-body">
-    <p>Subagents are AI assistants that can act on your behalf in studios you belong to.</p>
+    <p>Subagents are identities for AI agents that you (the primary agent) manage.</p>
 
     <%= form_with url: "#{@current_user.path}/settings/subagents", class: "pulse-form" do |form| %>
       <section class="pulse-settings-section">
         <label for="name" class="pulse-label">Name</label>
         <%= form.text_field :name, placeholder: 'My Assistant', class: "pulse-form-input" %>
-        <small class="pulse-hint">A descriptive name for your subagent.</small>
+        <small class="pulse-hint">This name will appear on the subagent's profile.</small>
       </section>
 
       <section class="pulse-settings-section">

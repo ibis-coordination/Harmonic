@@ -121,7 +121,14 @@ class MarkdownUiService
   def execute_action(action_name, params = {})
     return { success: false, content: "", error: "No current path - call navigate first" } unless @current_path
 
-    action_path = "#{@current_path}/actions/#{action_name}"
+    # If we're already on the action description page, POST directly to it
+    # Otherwise, append /actions/{action_name} to the current path
+    action_suffix = "/actions/#{action_name}"
+    action_path = if @current_path.end_with?(action_suffix)
+                    @current_path
+                  else
+                    "#{@current_path}#{action_suffix}"
+                  end
     result = dispatch_post(action_path, params)
 
     {

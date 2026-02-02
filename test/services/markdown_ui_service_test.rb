@@ -118,6 +118,20 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
     assert_not_nil note
   end
 
+  test "execute_action works when already on action description page" do
+    # Navigate to the action description page (like an agent exploring the action)
+    @service.navigate("/studios/#{@superagent.handle}/note/actions/create_note")
+
+    # Now execute the action - it should work without double-appending /actions/create_note
+    text = "Test note from action page - #{SecureRandom.hex(4)}"
+    result = @service.execute_action("create_note", { text: text })
+    assert result[:success], "Expected success when executing from action description page, got error: #{result[:error]}"
+
+    # Verify note was created
+    note = Note.find_by(text: text)
+    assert_not_nil note, "Note should have been created"
+  end
+
   test "execute_action confirm_read confirms note read" do
     note = Note.create!(
       title: "Test Note for Confirm",

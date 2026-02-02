@@ -11,6 +11,10 @@ Rails.application.configure do
   # Do not eager load code on boot.
   config.eager_load = false
 
+  # Use polling file watcher to avoid Concurrent::IllegalOperationError
+  # with the evented file watcher on some systems
+  config.file_watcher = ActiveSupport::FileUpdateChecker
+
   # Show full error reports.
   config.consider_all_requests_local = true
 

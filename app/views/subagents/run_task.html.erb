@@ -1,0 +1,84 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['My Subagents', subagents_path],
+  @subagent.name
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'smiley', height: 14, class: 'pulse-resource-icon' %>
+        Run Task
+      </span>
+      <a href="<%= subagent_runs_path(@subagent.handle) %>" class="pulse-feed-action-link" style="margin-left: auto;">
+        <%= octicon 'history', height: 14 %> View Past Runs
+      </a>
+    </div>
+    <h1 class="pulse-resource-title">Run Task with <%= @subagent.name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <div class="pulse-subagent-card" style="margin-bottom: 24px;">
+      <div class="pulse-subagent-header">
+        <img src="<%= @subagent.image_url %>" alt="<%= @subagent.name %>" class="pulse-subagent-avatar">
+        <div class="pulse-subagent-info">
+          <div class="pulse-subagent-name">
+            <a href="<%= @subagent.path %>"><%= @subagent.name %></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%= form_tag subagent_execute_task_path(@subagent.handle), method: :post do %>
+      <div class="pulse-form-group">
+        <label for="task" class="pulse-form-label">Task for the Agent</label>
+        <textarea
+          name="task"
+          id="task"
+          rows="3"
+          class="pulse-form-textarea"
+          placeholder="e.g., Create a note saying hello to the team"
+          required
+        ><%= params[:task] %></textarea>
+      </div>
+
+      <div class="pulse-form-group">
+        <label for="max_steps" class="pulse-form-label">Max Steps</label>
+        <input
+          type="number"
+          name="max_steps"
+          id="max_steps"
+          value="<%= @max_steps_default %>"
+          min="1"
+          max="50"
+          class="pulse-form-input"
+          style="max-width: 120px;"
+        />
+        <div class="pulse-form-hint">Maximum number of navigation/action steps the agent can take.</div>
+      </div>
+
+      <div class="pulse-form-actions">
+        <button type="submit" class="pulse-action-btn">
+          <%= octicon 'play', height: 14 %> Run Task
+        </button>
+        <a href="<%= subagents_path %>" class="pulse-action-btn-secondary">Cancel</a>
+      </div>
+    <% end %>
+
+    <details class="pulse-accordion" style="margin-top: 24px;">
+      <summary class="pulse-accordion-header">
+        <span class="pulse-accordion-title">Example Tasks</span>
+        <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+      </summary>
+      <div class="pulse-accordion-content">
+        <ul style="margin: 0; padding-left: 20px;">
+          <li>Create a note saying hello to the team</li>
+          <li>Navigate to the studio and tell me what's there</li>
+          <li>Create a decision asking "Should we adopt this approach?"</li>
+          <li>Find and read the most recent note</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</article>
