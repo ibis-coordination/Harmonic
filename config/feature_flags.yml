@@ -32,3 +32,10 @@ feature_flags:
     app_enabled: true
     default_tenant: false
     default_studio: true
+
+  subagents:
+    name: "Subagents Task Runner"
+    description: "Enables the subagents task runner for executing automated tasks via AI agents"
+    app_enabled: true
+    default_tenant: false
+    default_studio: false

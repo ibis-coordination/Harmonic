@@ -11,6 +11,7 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert config.key?("api")
     assert config.key?("file_attachments")
     assert config.key?("trio")
+    assert config.key?("subagents")
   end
 
   test "all_flags returns list of flag names" do
@@ -18,6 +19,7 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert flags.include?("api")
     assert flags.include?("file_attachments")
     assert flags.include?("trio")
+    assert flags.include?("subagents")
   end
 
   test "flag_metadata returns metadata hash for valid flag" do
@@ -144,5 +146,21 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     # Disabling at tenant level should disable at superagent level
     @tenant.set_feature_flag!("trio", false)
     assert_not @superagent.trio_enabled?
+  end
+
+  test "subagents flag is app enabled" do
+    assert FeatureFlagService.app_enabled?("subagents")
+  end
+
+  test "subagents_enabled? on tenant uses feature flag service" do
+    @tenant.set_feature_flag!("subagents", true)
+    assert @tenant.subagents_enabled?
+
+    @tenant.set_feature_flag!("subagents", false)
+    assert_not @tenant.subagents_enabled?
+  end
+
+  test "subagents default is false for tenant" do
+    assert_not FeatureFlagService.default_for_tenant("subagents")
   end
 end

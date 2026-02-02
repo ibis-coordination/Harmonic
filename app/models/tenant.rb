@@ -191,6 +191,11 @@ class Tenant < ApplicationRecord
     FeatureFlagService.tenant_enabled?(self, "trio")
   end
 
+  sig { returns(T::Boolean) }
+  def subagents_enabled?
+    FeatureFlagService.tenant_enabled?(self, "subagents")
+  end
+
   # Check if a feature is enabled at the tenant level (with cascade from app)
   sig { params(flag_name: String).returns(T::Boolean) }
   def feature_enabled?(flag_name)

@@ -5,7 +5,7 @@
 services:
   web:
     build: .
-    command: bundle exec rails s -p 3000 -b '0.0.0.0'
+    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails s -p 3000 -b '0.0.0.0'"
     user: "1000:1000"
     volumes:
       - .:/app
@@ -158,8 +158,6 @@ services:
       - "4000:4000"
     volumes:
       - ./config/litellm_config.yaml:/app/litellm_config.yaml
-    depends_on:
-      - ollama
     env_file:
       - .env
     deploy:
@@ -167,6 +165,7 @@ services:
         limits:
           memory: 512M
     networks:
+      - frontend  # needs external access for API calls
       - backend
 
   trio:

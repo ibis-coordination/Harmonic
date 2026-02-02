@@ -4,6 +4,7 @@ class SubagentsController < ApplicationController
   layout 'pulse', only: [:new, :index, :run_task, :execute_task, :runs, :show_run]
   before_action :verify_current_user_path, except: [:index, :run_task, :execute_task, :runs, :show_run]
   before_action :set_sidebar_mode, only: [:new, :index, :run_task, :execute_task, :runs, :show_run]
+  before_action :require_subagents_enabled, only: [:index, :run_task, :execute_task, :runs, :show_run]
 
   # GET /subagents - List all subagents owned by current user
   def index
@@ -159,6 +160,16 @@ class SubagentsController < ApplicationController
   end
 
   private
+
+  def require_subagents_enabled
+    return if @current_tenant&.subagents_enabled?
+
+    respond_to do |format|
+      format.html { render status: 403, plain: "403 Forbidden - Subagents feature is not enabled for this tenant" }
+      format.json { render status: 403, json: { error: "Subagents feature is not enabled for this tenant" } }
+      format.md { render status: 403, plain: "403 Forbidden - Subagents feature is not enabled for this tenant" }
+    end
+  end
 
   def set_sidebar_mode
     @sidebar_mode = 'minimal'
