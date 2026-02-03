@@ -399,11 +399,15 @@ class ApiHelper
     # Only subagent users can be created via the API
     user = T.let(nil, T.nilable(User))
     ActiveRecord::Base.transaction do
+      agent_config = {}
+      agent_config["identity_prompt"] = params[:identity_prompt] if params[:identity_prompt].present?
+
       user = User.create!(
         name: params[:name],
         email: SecureRandom.uuid + "@not-a-real-email.com",
         user_type: "subagent",
         parent_id: current_user.id,
+        agent_configuration: agent_config,
       )
       tenant_user = current_tenant.add_user!(user)
       user.tenant_user = tenant_user

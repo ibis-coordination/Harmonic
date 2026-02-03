@@ -26,7 +26,6 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Who Am I"
     assert_includes response.body, @user.display_name
-    assert_includes response.body, @user.email
     assert_includes response.body, @user.handle
   end
 
@@ -54,15 +53,13 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, @user.display_name
   end
 
-  test "markdown whoami shows user info in table format" do
+  test "markdown whoami shows user info" do
     sign_in_as(@user, tenant: @tenant)
     get "/whoami", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_includes response.body, "| Property | Value |"
-    assert_includes response.body, "| Name |"
-    assert_includes response.body, "| Handle |"
-    assert_includes response.body, "| Email |"
-    assert_includes response.body, "| Type |"
+    assert_includes response.body, @user.display_name
+    assert_includes response.body, @user.handle
+    assert_includes response.body, "logged in as"
   end
 
   test "unauthenticated markdown whoami shows not logged in message" do
@@ -97,6 +94,50 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "subagent"
     assert_includes response.body, @user.display_name
+  end
+
+  test "whoami shows subagent identity prompt when set" do
+    @tenant.enable_api!
+
+    subagent = create_subagent(parent: @user, name: "Test Assistant")
+    subagent.update!(agent_configuration: { "identity_prompt" => "You are a helpful assistant for scheduling meetings." })
+    @tenant.add_user!(subagent)
+
+    api_token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Test Token",
+      scopes: %w[read:users],
+    )
+
+    get "/whoami", headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+    assert_includes response.body, "Identity Prompt"
+    assert_includes response.body, "You are a helpful assistant for scheduling meetings."
+  end
+
+  test "whoami does not show identity prompt section when not set" do
+    @tenant.enable_api!
+
+    subagent = create_subagent(parent: @user, name: "Test Agent")
+    @tenant.add_user!(subagent)
+
+    api_token = ApiToken.create!(
+      user: subagent,
+      tenant: @tenant,
+      name: "Test Token",
+      scopes: %w[read:users],
+    )
+
+    get "/whoami", headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+    assert_not_includes response.body, "Identity Prompt"
   end
 
   # === Scheduled Reminders Tests ===

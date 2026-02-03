@@ -7,7 +7,7 @@
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
-        <%= octicon 'smiley', height: 14, class: 'pulse-resource-icon' %>
+        <%= octicon 'diamond', height: 14, class: 'pulse-resource-icon' %>
         Subagents
       </span>
       <a href="<%= @current_user.path %>/settings/subagents/new" class="pulse-feed-action-link" style="margin-left: auto;">
@@ -74,7 +74,7 @@
       </div>
     <% else %>
       <div class="pulse-empty-state" style="text-align: center; padding: 48px 24px;">
-        <%= octicon 'smiley', height: 48, class: 'pulse-muted' %>
+        <%= octicon 'diamond', height: 48, class: 'pulse-muted' %>
         <h3 style="margin: 16px 0 8px 0;">No Subagents Yet</h3>
         <p class="pulse-muted" style="margin-bottom: 16px;">Create a subagent to start running automated tasks.</p>
         <a href="<%= @current_user.path %>/settings/subagents/new" class="pulse-action-btn">

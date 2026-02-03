@@ -319,9 +319,10 @@ class ActionsHelper
     },
     "create_subagent" => {
       description: "Create a new subagent",
-      params_string: "(name, generate_token)",
+      params_string: "(name, identity_prompt, generate_token)",
       params: [
         { name: "name", type: "string", description: "The name of the subagent" },
+        { name: "identity_prompt", type: "string", description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose" },
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the subagent" },
       ],
       authorization: PERSON_ONLY_AUTHORIZATION,
@@ -495,8 +496,32 @@ class ActionsHelper
       ],
     },
     "/studios/:studio_handle" => {
-      controller_actions: ["pulse#index"],
+      controller_actions: ["pulse#show"],
       actions: [],
+      conditional_actions: [
+        {
+          name: "send_heartbeat",
+          condition: ->(context) {
+            superagent = context[:superagent]
+            current_heartbeat = context[:current_heartbeat]
+            superagent && !superagent.is_main_superagent? && current_heartbeat.nil?
+          },
+        },
+      ],
+    },
+    "/studios/:studio_handle/actions" => {
+      controller_actions: ["pulse#actions_index"],
+      actions: [],
+      conditional_actions: [
+        {
+          name: "send_heartbeat",
+          condition: ->(context) {
+            superagent = context[:superagent]
+            current_heartbeat = context[:current_heartbeat]
+            superagent && !superagent.is_main_superagent? && current_heartbeat.nil?
+          },
+        },
+      ],
     },
     "/studios/:studio_handle/join" => {
       controller_actions: ["studios#join"],
@@ -513,8 +538,18 @@ class ActionsHelper
       ],
     },
     "/studios/:studio_handle/cycles" => {
-      controller_actions: ["studios#show", "studios#cycles"],
+      controller_actions: ["cycles#index"],
       actions: [],
+      conditional_actions: [
+        {
+          name: "send_heartbeat",
+          condition: ->(context) {
+            superagent = context[:superagent]
+            current_heartbeat = context[:current_heartbeat]
+            superagent && !superagent.is_main_superagent? && current_heartbeat.nil?
+          },
+        },
+      ],
     },
     "/studios/:studio_handle/backlinks" => {
       controller_actions: ["studios#backlinks"],

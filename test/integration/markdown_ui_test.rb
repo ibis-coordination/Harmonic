@@ -336,6 +336,84 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     Heartbeat.where(superagent: @superagent, user: @user).delete_all
   end
 
+  test "send_heartbeat action appears in frontmatter when no heartbeat exists" do
+    # Ensure no heartbeat exists for this cycle
+    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+
+    get "/studios/#{@superagent.handle}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Extract frontmatter (between first two ---)
+    frontmatter = response.body.split("---")[1]
+    assert frontmatter, "Response should have frontmatter"
+
+    # Verify send_heartbeat action is in the frontmatter
+    assert frontmatter.include?("- name: send_heartbeat"),
+      "Frontmatter should include send_heartbeat action when no heartbeat exists"
+  ensure
+    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+  end
+
+  test "send_heartbeat action does not appear in frontmatter when heartbeat exists" do
+    # Create a heartbeat for the current cycle
+    heartbeat = Heartbeat.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      user: @user,
+      expires_at: 1.day.from_now,
+    )
+
+    get "/studios/#{@superagent.handle}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Extract frontmatter (between first two ---)
+    frontmatter = response.body.split("---")[1]
+    assert frontmatter, "Response should have frontmatter"
+
+    # Verify send_heartbeat action is NOT in the frontmatter
+    refute frontmatter.include?("- name: send_heartbeat"),
+      "Frontmatter should NOT include send_heartbeat action when heartbeat exists"
+  ensure
+    heartbeat&.destroy
+  end
+
+  test "studio actions index shows send_heartbeat when no heartbeat exists" do
+    # Ensure no heartbeat exists for this cycle
+    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+
+    get "/studios/#{@superagent.handle}/actions", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should include the send_heartbeat action
+    assert response.body.include?("send_heartbeat"),
+      "Actions index should include send_heartbeat action when no heartbeat exists"
+  ensure
+    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+  end
+
+  test "studio actions index does not show send_heartbeat when heartbeat exists" do
+    # Create a heartbeat for the current cycle
+    heartbeat = Heartbeat.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      user: @user,
+      expires_at: 1.day.from_now,
+    )
+
+    get "/studios/#{@superagent.handle}/actions", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should NOT include the send_heartbeat action
+    refute response.body.include?("send_heartbeat"),
+      "Actions index should NOT include send_heartbeat action when heartbeat exists"
+  ensure
+    heartbeat&.destroy
+  end
+
   # add_comment action tests
   test "POST add_comment action on note returns 200 markdown" do
     note = create_note(superagent: @superagent, created_by: @user, title: "Test note")

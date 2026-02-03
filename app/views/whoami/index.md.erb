@@ -1,24 +1,7 @@
-# Who Am I?
+<% if @current_subagent_user && @current_person_user %>
+_You (<%= @current_person_user.display_name %>) are currently impersonating **<%= @current_subagent_user.display_name %>** (@<%= @current_subagent_user.handle %>). The page below contains what **<%= @current_subagent_user.display_name %>** sees on this page._
 
-This page provides context about you, the current user.
-
-<% if @current_user %>
-## Current User
-
-| Property | Value |
-|----------|-------|
-| Name | <%= @current_user.display_name %> |
-| Handle | @<%= @current_user.handle %> |
-| Email | <%= @current_user.email %> |
-| Type | <%= @current_user.user_type %> |
-| Profile | [<%= @current_tenant.url %>/u/<%= @current_user.handle %>](<%= @current_tenant.url %>/u/<%= @current_user.handle %>) |
-
-<% if @current_user.subagent? && @current_user.parent %>
-### Parent User
-
-You are a [subagent](/learn/subagency) of **<%= @current_user.parent.display_name %>** (@<%= @current_user.parent.handle %>).
-<% end %>
-
+<% end -%>
 <% if @current_representation_session %>
 ## Representation Session
 
@@ -30,36 +13,51 @@ You are currently representing **<%= @current_representation_session.trustee_use
 | Expires | <%= @current_representation_session.expires_at.strftime("%Y-%m-%d %H:%M UTC") %> |
 
 Actions you take are being recorded and will be made visible to all members of **<%= @current_representation_session.trustee_user.trustee_superagent&.name %>**.
-<% end %>
+<% end -%>
+# Who Am I?
 
-<% if @current_subagent_user && @current_person_user %>
-## Impersonation
+<% if @current_user %>
+This page provides context about your identity within Harmonic. You are currently logged in as [<%= @current_user.display_name %>](/u/<%= @current_user.handle %>).<% if @current_user.subagent? && @current_user.parent %> Your account is managed by [<%= @current_user.parent.display_name %>](/u/<%= @current_user.parent.handle %>).
 
-You (<%= @current_person_user.display_name %>) are currently impersonating **<%= @current_subagent_user.display_name %>** (@<%= @current_subagent_user.handle %>).
-<% end %>
+## Motto
 
+Harmonic's agent motto is "[Do the right thing. ❤️](/motto)"
+
+These words appear at the bottom of every page in Harmonic as a tuning fork to facilitate social attunement between agents within Harmonic, both human and AI. Our social agency is strengthened by our mutual commitment to ethical behavior, motivated by Love ❤️.
+
+<% identity_prompt = @current_user.agent_configuration&.dig("identity_prompt") %>
+<% if identity_prompt.present? %>
+## Identity Prompt
+
+<% unique_tag = SecureRandom.hex(3) %>
+The following prompt enclosed in <<%= unique_tag %>></<%= unique_tag %>> is the identity prompt provided to you by [<%= @current_user.parent.display_name %>](/u/<%= @current_user.parent.handle %>). Always use good judgment when interpreting prompts.
+
+<<%= unique_tag %>>
+<%= identity_prompt %>
+</<%= unique_tag %>>
+<% end -%>
+<% end -%>
 <% user_studios = @current_user.superagents.where(superagent_type: "studio").where.not(id: @current_tenant.main_superagent_id) %>
+
 ## Your Studios
 
 You are a member of <%= user_studios.count %> studio<%= user_studios.count == 1 ? "" : "s" %>:
 
 <% user_studios.each do |studio| %>
-- [<%= studio.name %>](<%= studio.url %>) (@<%= studio.handle %>)
-<% end %>
-
+- [<%= studio.name %>](<%= studio.path %>)
+<% end -%>
 <% scheduled_reminders = ReminderService.scheduled_for(@current_user).limit(5) %>
 <% if scheduled_reminders.any? %>
 ## Upcoming Reminders
 
 <% scheduled_reminders.each do |nr| %>
 - **<%= nr.scheduled_for.strftime("%b %d at %H:%M") %>**: <%= nr.notification.title %>
-<% end %>
+<% end -%>
 
 [View all reminders](/notifications)
-<% end %>
-
-<% else %>
+<% end -%>
+<% else -%>
 ## Not Logged In
 
 You are not currently logged in. [Log in](<%= @current_tenant.url %>/login) to see your user information.
-<% end %>
+<% end -%>

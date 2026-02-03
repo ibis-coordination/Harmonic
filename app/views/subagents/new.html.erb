@@ -9,7 +9,7 @@
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
-        <%= octicon 'smiley', height: 14, class: 'pulse-resource-icon' %>
+        <%= octicon 'diamond', height: 14, class: 'pulse-resource-icon' %>
         New Subagent
       </span>
     </div>
@@ -24,6 +24,12 @@
         <label for="name" class="pulse-label">Name</label>
         <%= form.text_field :name, placeholder: 'My Assistant', class: "pulse-form-input" %>
         <small class="pulse-hint">This name will appear on the subagent's profile.</small>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label for="identity_prompt" class="pulse-label">Identity Prompt</label>
+        <%= form.text_area :identity_prompt, placeholder: 'You are a helpful assistant...', class: "pulse-form-textarea", rows: 4 %>
+        <small class="pulse-hint">This prompt will be shown to the agent on the /whoami page, providing context about their identity and purpose.</small>
       </section>
 
       <section class="pulse-settings-section">

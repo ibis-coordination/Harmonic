@@ -166,6 +166,12 @@ class UsersController < ApplicationController
         handle: params[:new_handle]
       )
     end
+    # Handle identity_prompt for subagents
+    if settings_user.subagent? && params.key?(:identity_prompt)
+      settings_user.agent_configuration ||= {}
+      settings_user.agent_configuration["identity_prompt"] = params[:identity_prompt].presence
+      settings_user.save!
+    end
     flash[:notice] = 'Profile updated successfully'
     redirect_to "#{settings_user.path}/settings"
   end

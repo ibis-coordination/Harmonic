@@ -51,6 +51,14 @@
         <p class="pulse-form-hint">This is your unique identifier used in URLs and mentions</p>
       </div>
 
+      <% if @settings_user.subagent? %>
+        <div class="pulse-form-section">
+          <label class="pulse-form-label" for="identity_prompt">Identity Prompt</label>
+          <%= form.text_area :identity_prompt, value: @settings_user.agent_configuration&.dig("identity_prompt"), placeholder: 'You are a helpful assistant...', class: 'pulse-textarea', rows: 4 %>
+          <p class="pulse-form-hint">This prompt will be shown to the agent on the /whoami page, providing context about their identity and purpose.</p>
+        </div>
+      <% end %>
+
       <div class="pulse-form-actions">
         <%= form.submit 'Save Changes', class: 'pulse-action-btn-primary' %>
       </div>
