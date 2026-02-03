@@ -301,7 +301,7 @@ class AgentNavigator
       #{starting_context}
 
       Key concepts in Harmonic:
-      - **Studios**: Workspaces where groups collaborate (paths like "/studios/{handle}")
+      - **Studios**: Shared spaces where groups collaborate (paths like "/studios/{handle}")
       - **Notes**: Posts/content for sharing information (paths like "/studios/{handle}/note" to create, "/n/{id}" to view)
       - **Decisions**: Questions that participants vote on using acceptance voting (paths like "/studios/{handle}/decide" to create, "/d/{id}" to view)
       - **Commitments**: Action pledges that activate when critical mass is reached (paths like "/studios/{handle}/commit" to create, "/c/{id}" to view)

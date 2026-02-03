@@ -37,9 +37,7 @@ class NotificationDispatcher
     note = T.let(subject, Note)
 
     # If this note is a comment/reply, notify the parent content owner
-    if note.is_comment?
-      handle_reply_notification(event, note)
-    end
+    handle_reply_notification(event, note) if note.is_comment?
 
     # Find mentioned users from the note text
     mentioned_users = MentionParser.parse(note.text, tenant_id: event.tenant_id)
@@ -49,6 +47,9 @@ class NotificationDispatcher
 
     # Only notify users who have access to the superagent
     mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
+
+    # Trigger agent tasks for any mentioned subagents
+    trigger_subagent_tasks(event, mentioned_users, note.path)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -73,9 +74,17 @@ class NotificationDispatcher
     commentable = comment.commentable
     return unless commentable
 
+    # Trigger agent tasks for subagents who have commented on this content
+    # This allows subagents to respond when someone continues a conversation
+    subagent_commenters = find_subagent_commenters(commentable, exclude_user_id: event.actor_id)
+    trigger_subagent_tasks(event, subagent_commenters, get_path(commentable))
+
     # Notify the owner of the content being commented on
     owner = get_created_by(commentable)
     return if owner.nil? || owner.id == event.actor_id
+
+    # Trigger agent task if the content owner is a subagent (and not already triggered above)
+    trigger_subagent_tasks(event, [owner], get_path(commentable)) unless subagent_commenters.any? { |u| u.id == owner.id }
 
     actor_name = event.actor&.display_name || "Someone"
     content_type = commentable.class.name.underscore.humanize.downcase
@@ -97,10 +106,18 @@ class NotificationDispatcher
     commentable = comment.commentable
     return unless commentable
 
+    # Trigger agent tasks for subagents who have commented on this content
+    # This allows subagents to respond when someone continues a conversation
+    subagent_commenters = find_subagent_commenters(commentable, exclude_user_id: event.actor_id)
+    trigger_subagent_tasks(event, subagent_commenters, get_path(commentable))
+
     # Only notify users who have access to the superagent
     owner = get_created_by(commentable)
     return if owner.nil? || owner.id == event.actor_id
     return unless user_can_access_superagent?(event, owner)
+
+    # Trigger agent task if the content owner is a subagent (and not already triggered above)
+    trigger_subagent_tasks(event, [owner], get_path(commentable)) unless subagent_commenters.any? { |u| u.id == owner.id }
 
     actor_name = event.actor&.display_name || "Someone"
     content_type = commentable.class.name.underscore.humanize.downcase
@@ -230,6 +247,9 @@ class NotificationDispatcher
     # Only notify users who have access to the superagent
     mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
 
+    # Trigger agent tasks for any mentioned subagents
+    trigger_subagent_tasks(event, mentioned_users, decision.path)
+
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
 
@@ -260,6 +280,9 @@ class NotificationDispatcher
 
     # Only notify users who have access to the superagent
     mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
+
+    # Trigger agent tasks for any mentioned subagents
+    trigger_subagent_tasks(event, mentioned_users, commitment.path)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -292,6 +315,9 @@ class NotificationDispatcher
 
     # Only notify users who have access to the superagent
     mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
+
+    # Trigger agent tasks for any mentioned subagents
+    trigger_subagent_tasks(event, mentioned_users, decision&.path)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -372,6 +398,19 @@ class NotificationDispatcher
     commitment.participants.includes(:user).map(&:user).compact
   end
 
+  # Find subagents who have previously commented on this content
+  sig { params(commentable: T.untyped, exclude_user_id: T.nilable(String)).returns(T::Array[User]) }
+  def self.find_subagent_commenters(commentable, exclude_user_id: nil)
+    # Comments are Notes with a commentable association
+    comments = Note.unscoped.where(commentable: commentable).includes(:created_by)
+    commenters = comments.map(&:created_by).compact.uniq
+
+    # Filter to subagents only, excluding the specified user
+    commenters.select do |user|
+      user.subagent? && user.id != exclude_user_id
+    end
+  end
+
   # Check if a user has access to the superagent where the event occurred
   sig { params(event: Event, user: User).returns(T::Boolean) }
   def self.user_can_access_superagent?(event, user)
@@ -379,5 +418,40 @@ class NotificationDispatcher
     superagent_member.present? && !superagent_member.archived?
   end
 
-  private_class_method :get_created_by, :get_path, :decision_participants, :commitment_participants, :user_can_access_superagent?
+  # Trigger agent tasks for any subagents in the mentioned users list
+  sig { params(event: Event, mentioned_users: T::Array[User], item_path: T.nilable(String)).void }
+  def self.trigger_subagent_tasks(event, mentioned_users, item_path)
+    tenant = event.tenant
+    return unless tenant&.subagents_enabled?
+
+    subagents = mentioned_users.select(&:subagent?)
+    return if subagents.empty?
+
+    subagents.each do |subagent|
+      # Rate limit: max 3 task triggers per minute per subagent
+      recent_runs = SubagentTaskRun
+        .where(subagent: subagent, tenant_id: event.tenant_id)
+        .where("created_at > ?", 1.minute.ago)
+        .count
+
+      if recent_runs >= 3
+        Rails.logger.info("Rate limiting subagent task for #{subagent.id}")
+        next
+      end
+
+      AgentTaskJob.perform_later(
+        subagent_id: subagent.id,
+        tenant_id: event.tenant_id,
+        superagent_id: event.superagent_id,
+        initiated_by_id: event.actor_id,
+        trigger_context: {
+          item_path: item_path,
+          actor_name: event.actor&.display_name,
+        }
+      )
+    end
+  end
+
+  private_class_method :get_created_by, :get_path, :decision_participants, :commitment_participants,
+                       :find_subagent_commenters, :user_can_access_superagent?, :trigger_subagent_tasks
 end

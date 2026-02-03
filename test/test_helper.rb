@@ -85,6 +85,7 @@ class ActiveSupport::TestCase
       Link, NoteHistoryEvent, Note,
       Vote, Option, DecisionParticipant, Decision,
       CommitmentParticipant, Commitment,
+      SubagentTaskRun,
       Heartbeat, Invite, SuperagentMember, Superagent,
       ApiToken, TenantUser, Tenant,
       TrusteePermission, OauthIdentity, User
