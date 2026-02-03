@@ -144,7 +144,7 @@ class AgentNavigator
     add_step("navigate", {
                path: path,
                resolved_path: result[:path],
-               content_preview: result[:content]&.first(1000),
+               content_preview: result[:content],
                available_actions: @current_actions.map { |a| a[:name] },
                error: result[:error],
              })
@@ -158,7 +158,7 @@ class AgentNavigator
                action: action_name,
                params: params,
                success: result[:success],
-               content_preview: result[:content]&.first(1000),
+               content_preview: result[:content],
                error: result[:error],
              })
 
@@ -189,7 +189,7 @@ class AgentNavigator
 
     add_step("think", {
                step_number: step_number,
-               response_preview: result.content.first(1000),
+               response_preview: result.content,
              })
 
     result.content

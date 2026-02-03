@@ -2332,4 +2332,78 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     comment&.destroy
     session&.destroy
   end
+
+  # Subagent task run markdown tests
+  test "GET subagent task run returns markdown and strips JSON from think steps" do
+    # Enable subagents feature for this tenant
+    @tenant.enable_feature_flag!("subagents")
+
+    # Create a subagent
+    subagent = User.create!(
+      name: "Task Run Test Agent",
+      email: "task-run-test-#{SecureRandom.hex(4)}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+
+    # Create a task run with a think step containing JSON
+    think_response_with_json = <<~RESPONSE
+      I will navigate to the studio to create a note.
+
+      Let me check the available actions first.
+
+      ```json
+      {"type": "navigate", "path": "/studios/test"}
+      ```
+    RESPONSE
+
+    task_run = SubagentTaskRun.create!(
+      tenant: @tenant,
+      subagent: subagent,
+      initiated_by: @user,
+      task: "Create a test note",
+      max_steps: 15,
+      status: "completed",
+      success: true,
+      final_message: "Task completed successfully",
+      steps_count: 2,
+      steps_data: [
+        {
+          type: "think",
+          timestamp: Time.current.iso8601,
+          detail: {
+            step_number: 0,
+            response_preview: think_response_with_json,
+          },
+        },
+        {
+          type: "done",
+          timestamp: Time.current.iso8601,
+          detail: {
+            message: "Task completed successfully",
+          },
+        },
+      ],
+      started_at: 1.minute.ago,
+      completed_at: Time.current,
+    )
+
+    get "/subagents/#{subagent.handle}/runs/#{task_run.id}", headers: @headers
+    assert_equal 200, response.status
+    assert response.content_type.starts_with?("text/markdown"), "Response should be markdown"
+
+    # Should include the reasoning text
+    assert_match(/I will navigate to the studio/, response.body, "Should include reasoning text")
+    assert_match(/Let me check the available actions/, response.body, "Should include reasoning text")
+
+    # Should NOT include the JSON block (it's stripped for display)
+    assert_no_match(/```json/, response.body, "Should not include fenced JSON block")
+    assert_no_match(/"type":\s*"navigate"/, response.body, "Should not include JSON action")
+  ensure
+    task_run&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
+  end
 end

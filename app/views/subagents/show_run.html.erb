@@ -111,7 +111,7 @@
                     <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
                   </summary>
                   <div class="pulse-accordion-content">
-                    <pre style="font-size: 12px; overflow-x: auto; margin: 0;"><%= detail[:content_preview] %></pre>
+                    <pre style="font-size: 12px; white-space: pre-wrap; margin: 0;"><%= detail[:content_preview] %></pre>
                   </div>
                 </details>
               <% end %>
@@ -140,7 +140,7 @@
                     <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
                   </summary>
                   <div class="pulse-accordion-content">
-                    <pre style="font-size: 12px; overflow-x: auto; margin: 0;"><%= detail[:content_preview] %></pre>
+                    <pre style="font-size: 12px; white-space: pre-wrap; margin: 0;"><%= detail[:content_preview] %></pre>
                   </div>
                 </details>
               <% end %>
@@ -156,7 +156,7 @@
                     <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
                   </summary>
                   <div class="pulse-accordion-content">
-                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= detail[:response_preview] %></pre>
+                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= strip_trailing_json_action(detail[:response_preview]) %></pre>
                   </div>
                 </details>
               <% end %>
