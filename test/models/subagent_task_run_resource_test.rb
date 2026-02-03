@@ -198,6 +198,49 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
     assert_nil resource.resource_unscoped
   end
 
+  # === task_run_for Tests ===
+
+  test "task_run_for returns task run that created the resource" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+
+    SubagentTaskRunResource.create!(
+      tenant: @tenant,
+      subagent_task_run: @task_run,
+      resource: note,
+      resource_superagent: @superagent,
+      action_type: "create",
+    )
+
+    found_task_run = SubagentTaskRunResource.task_run_for(note)
+    assert_not_nil found_task_run
+    assert_equal @task_run.id, found_task_run.id
+  end
+
+  test "task_run_for returns nil for resource not created by task run" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+
+    # No SubagentTaskRunResource record created
+    found_task_run = SubagentTaskRunResource.task_run_for(note)
+    assert_nil found_task_run
+  end
+
+  test "task_run_for only matches create action type" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+
+    # Create a record with update action type (not create)
+    SubagentTaskRunResource.create!(
+      tenant: @tenant,
+      subagent_task_run: @task_run,
+      resource: note,
+      resource_superagent: @superagent,
+      action_type: "update",
+    )
+
+    # Should not find it since it's not a "create" action
+    found_task_run = SubagentTaskRunResource.task_run_for(note)
+    assert_nil found_task_run
+  end
+
   # === display_title Tests ===
 
   test "display_title for Note returns truncated title" do

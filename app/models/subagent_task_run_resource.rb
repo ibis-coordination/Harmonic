@@ -23,6 +23,20 @@ class SubagentTaskRunResource < ApplicationRecord
     where(tenant_id: Tenant.current_id)
   end
 
+  # Find the task run that created a given resource (if any)
+  # Returns nil if the resource was not created by a subagent task run
+  sig { params(resource: T.untyped).returns(T.nilable(SubagentTaskRun)) }
+  def self.task_run_for(resource)
+    return nil unless resource.respond_to?(:id) && resource.respond_to?(:class)
+
+    record = find_by(
+      resource_type: resource.class.name,
+      resource_id: resource.id,
+      action_type: "create"
+    )
+    record&.subagent_task_run
+  end
+
   # Load the resource bypassing default scope (needed because resources may be in different superagents)
   sig { returns(T.untyped) }
   def resource_unscoped
