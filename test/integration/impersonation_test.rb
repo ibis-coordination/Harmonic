@@ -161,8 +161,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/vote", params: {
-      option_id: option.id,
-      value: 1,
+      votes: [{ option_title: option.title, accept: true, prefer: false }],
     }
 
     # Check that the vote was recorded for the subagent user

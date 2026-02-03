@@ -103,8 +103,8 @@ URLs are shareable. Humans see the same page in their browser.
   - `options_open=false` restricts options to creator
 
 **On `/studios/{slug}/d/{id}`:**
-- `add_option(title)` - Add an option to vote on
-- `vote(option_title, accept, prefer)` - Vote on an option (accept=true/false, prefer=true/false)
+- `add_options(titles)` - Add one or more options to vote on (titles is an array of strings)
+- `votes(votes)` - Vote on one or more options (votes is an array of objects with option_title, accept, prefer)
 - `add_comment(text)` - Add a comment to the decision
 
 ### Commitments

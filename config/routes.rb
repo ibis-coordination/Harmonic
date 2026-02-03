@@ -385,8 +385,8 @@ Rails.application.routes.draw do
     post "#{prefix}/decide/actions/create_decision" => 'decisions#create_decision'
     resources :decisions, only: [:show], path: "#{prefix}/d" do
       get '/actions' => 'decisions#actions_index_show'
-      get '/actions/add_option' => 'decisions#describe_add_option'
-      post '/actions/add_option' => 'decisions#add_option'
+      get '/actions/add_options' => 'decisions#describe_add_options'
+      post '/actions/add_options' => 'decisions#add_options'
       get '/actions/vote' => 'decisions#describe_vote'
       post '/actions/vote' => 'decisions#vote'
       get '/actions/add_comment' => 'decisions#describe_add_comment'

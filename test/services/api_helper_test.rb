@@ -144,9 +144,9 @@ class ApiHelperTest < ActiveSupport::TestCase
     assert_equal @user, updated_note.updated_by
   end
 
-  test "ApiHelper.create_decision_option creates a decision option" do
+  test "ApiHelper.create_decision_options creates decision options" do
     decision = create_decision
-    params = { title: "Option Title" }
+    params = { titles: ["Option Title"] }
     api_helper = ApiHelper.new(
       current_user: @user,
       current_superagent: @superagent,
@@ -155,19 +155,22 @@ class ApiHelperTest < ActiveSupport::TestCase
       params: params,
       request: {}
     )
-    option = api_helper.create_decision_option
-    assert option.persisted?
-    assert_equal params[:title], option.title
-    assert_equal decision, option.decision
+    options = api_helper.create_decision_options
+    assert_equal 1, options.count
+    assert options.first.persisted?
+    assert_equal "Option Title", options.first.title
+    assert_equal decision, options.first.decision
   end
 
-  test "ApiHelper.vote creates or updates a vote for a decision option (accept + prefer)" do
+  test "ApiHelper.create_votes creates votes for multiple decision options" do
     decision = create_decision
-    option = create_option(decision: decision)
+    option1 = create_option(decision: decision, title: "Option A")
+    option2 = create_option(decision: decision, title: "Option B")
     params = {
-      option_title: option.title,
-      accept: true,
-      prefer: true
+      votes: [
+        { option_title: option1.title, accept: true, prefer: true },
+        { option_title: option2.title, accept: true, prefer: false },
+      ]
     }
     api_helper = ApiHelper.new(
       current_user: @user,
@@ -177,22 +180,25 @@ class ApiHelperTest < ActiveSupport::TestCase
       params: params,
       request: {}
     )
-    vote = api_helper.vote
-    assert vote.persisted?
-    assert_equal 1, vote.accepted
-    assert_equal 1, vote.preferred
-    assert_equal option, vote.option
-    assert_equal decision, vote.decision
-    assert_equal @user, vote.decision_participant.user
+    votes = api_helper.create_votes
+    assert_equal 2, votes.count
+    vote1 = votes.find { |v| v.option == option1 }
+    vote2 = votes.find { |v| v.option == option2 }
+    assert vote1.persisted?
+    assert_equal 1, vote1.accepted
+    assert_equal 1, vote1.preferred
+    assert vote2.persisted?
+    assert_equal 1, vote2.accepted
+    assert_equal 0, vote2.preferred
   end
 
-  test "ApiHelper.vote creates or updates a vote for a decision option (accepted + preferred)" do
+  test "ApiHelper.create_votes creates single vote when array has one element" do
     decision = create_decision
     option = create_option(decision: decision)
     params = {
-      option_title: option.title,
-      accepted: false,
-      preferred: false
+      votes: [
+        { option_title: option.title, accepted: false, preferred: false }
+      ]
     }
     api_helper = ApiHelper.new(
       current_user: @user,
@@ -202,13 +208,35 @@ class ApiHelperTest < ActiveSupport::TestCase
       params: params,
       request: {}
     )
-    vote = api_helper.vote
+    votes = api_helper.create_votes
+    assert_equal 1, votes.count
+    vote = votes.first
     assert vote.persisted?
     assert_equal 0, vote.accepted
     assert_equal 0, vote.preferred
     assert_equal option, vote.option
     assert_equal decision, vote.decision
     assert_equal @user, vote.decision_participant.user
+  end
+
+  test "ApiHelper.create_votes raises error for missing option" do
+    decision = create_decision
+    params = {
+      votes: [
+        { option_title: "Nonexistent Option", accept: true, prefer: false }
+      ]
+    }
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_superagent: @superagent,
+      current_tenant: @tenant,
+      current_decision: decision,
+      params: params,
+      request: {}
+    )
+    assert_raises ArgumentError do
+      api_helper.create_votes
+    end
   end
 
 end

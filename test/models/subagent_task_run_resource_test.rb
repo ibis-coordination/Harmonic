@@ -66,7 +66,7 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "valid action types are accepted" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    %w[create update confirm add_option vote commit].each do |action_type|
+    %w[create update confirm add_options vote commit].each do |action_type|
       resource = SubagentTaskRunResource.new(
         tenant: @tenant,
         subagent_task_run: @task_run,
@@ -277,7 +277,7 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
       subagent_task_run: @task_run,
       resource: option,
       resource_superagent: @superagent,
-      action_type: "add_option",
+      action_type: "add_options",
     )
 
     assert_equal "Option: Option A", resource.display_title(option)

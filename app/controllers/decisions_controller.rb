@@ -296,7 +296,7 @@ class DecisionsController < ApplicationController
           request: request,
           semantic_event: {
             timestamp: Time.current,
-            event_type: 'add_option',
+            event_type: 'add_options',
             superagent_id: current_superagent.id,
             main_resource: {
               type: 'Decision',
@@ -316,17 +316,18 @@ class DecisionsController < ApplicationController
     options_partial
   end
 
-  def add_option
+  def add_options
     begin
-      @option = api_helper.create_decision_option
+      @options = api_helper.create_decision_options
+      titles = @options.map(&:title).map { |t| "'#{t}'" }.join(", ")
       render_action_success({
-        action_name: 'add_option',
-        resource: @option.decision,
-        result: "You have successfully added the option '#{@option.title}' to decision '#{@option.decision.truncated_id}'",
+        action_name: "add_options",
+        resource: @options.first.decision,
+        result: "You have successfully added #{@options.count} option#{'s' if @options.count > 1}: #{titles}",
       })
-    rescue ActiveRecord::RecordInvalid => e
+    rescue ActiveRecord::RecordInvalid, ArgumentError => e
       render_action_error({
-        action_name: 'add_option',
+        action_name: "add_options",
         resource: current_decision,
         error: e.message,
       })
@@ -335,15 +336,16 @@ class DecisionsController < ApplicationController
 
   def vote
     begin
-      @vote = api_helper.vote
+      @votes = api_helper.create_votes
+      option_titles = @votes.map { |v| "'#{v.option.title}'" }.join(", ")
       render_action_success({
-        action_name: 'vote',
-        resource: @vote.decision,
-        result: "You have successfully voted on option '#{@vote.option.title}'",
+        action_name: "vote",
+        resource: @votes.first.decision,
+        result: "You have successfully voted on #{@votes.count} option#{'s' if @votes.count > 1}: #{option_titles}",
       })
-    rescue ActiveRecord::RecordInvalid => e
+    rescue ActiveRecord::RecordInvalid, ArgumentError => e
       render_action_error({
-        action_name: 'vote',
+        action_name: "vote",
         resource: current_decision,
         error: e.message,
       })
@@ -377,8 +379,8 @@ class DecisionsController < ApplicationController
     render_action_description(ActionsHelper.action_description("create_decision"))
   end
 
-  def describe_add_option
-    render_action_description(ActionsHelper.action_description("add_option", resource: current_decision))
+  def describe_add_options
+    render_action_description(ActionsHelper.action_description("add_options", resource: current_decision))
   end
 
   def describe_vote

@@ -13,7 +13,7 @@ class SubagentTaskRunResource < ApplicationRecord
     in: %w[Note Decision Commitment Option Vote CommitmentParticipant NoteHistoryEvent],
   }
   validates :action_type, inclusion: {
-    in: %w[create update confirm add_option vote commit],
+    in: %w[create update confirm add_options vote commit],
   }
   validate :resource_superagent_matches_resource
 

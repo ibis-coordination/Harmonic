@@ -109,6 +109,12 @@ class SubagentsController < ApplicationController
           .order(:created_at)
         @page_title = "Task Run - #{@subagent.display_name}"
       end
+      format.md do
+        @created_resources = @task_run.subagent_task_run_resources
+          .includes(:resource_superagent)
+          .order(:created_at)
+        @page_title = "Task Run - #{@subagent.display_name}"
+      end
       format.json do
         render json: { status: @task_run.status }
       end

@@ -202,38 +202,51 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert Decision.exists?(question: "Test decision question?"), "Decision should have the correct question"
   end
 
-  test "POST add_option action adds option to decision and returns 200 markdown" do
+  test "POST add_options action adds multiple options to decision and returns 200 markdown" do
     decision = create_decision(superagent: @superagent, created_by: @user, question: "Test decision?")
     options_count_before = decision.options.count
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/add_option",
-      params: { title: "Test option" }.to_json,
+    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/add_options",
+      params: { titles: ["Option A", "Option B", "Option C"] }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    # Verify option was added
+    # Verify options were added
     decision.reload
-    assert_equal options_count_before + 1, decision.options.count, "Option should have been added"
-    assert decision.options.exists?(title: "Test option"), "Option should have the correct title"
+    assert_equal options_count_before + 3, decision.options.count, "Three options should have been added"
+    assert decision.options.exists?(title: "Option A"), "Option A should exist"
+    assert decision.options.exists?(title: "Option B"), "Option B should exist"
+    assert decision.options.exists?(title: "Option C"), "Option C should exist"
   end
 
-  test "POST vote action records vote and returns 200 markdown" do
+  test "POST vote action records multiple votes and returns 200 markdown" do
     decision = create_decision(superagent: @superagent, created_by: @user, question: "Test decision?")
-    # First add an option to vote on
-    option = create_option(decision: decision, title: "Option A")
+    # Add options to vote on
+    option_a = create_option(decision: decision, title: "Option A")
+    option_b = create_option(decision: decision, title: "Option B")
 
     post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/vote",
-      params: { option_title: "Option A", accept: true, prefer: false }.to_json,
+      params: {
+        votes: [
+          { option_title: "Option A", accept: true, prefer: false },
+          { option_title: "Option B", accept: true, prefer: true },
+        ]
+      }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    # Verify vote was recorded (votes belong to decision_participant, not user directly)
-    option.reload
-    vote = option.votes.joins(:decision_participant).find_by(decision_participants: { user_id: @user.id })
-    assert vote, "Vote should have been recorded"
-    assert_equal 1, vote.accepted, "Vote should be marked as accepted"
-    assert_equal 0, vote.preferred, "Vote should not be marked as preferred"
+    # Verify votes were recorded
+    option_a.reload
+    option_b.reload
+    vote_a = option_a.votes.joins(:decision_participant).find_by(decision_participants: { user_id: @user.id })
+    vote_b = option_b.votes.joins(:decision_participant).find_by(decision_participants: { user_id: @user.id })
+    assert vote_a, "Vote A should have been recorded"
+    assert vote_b, "Vote B should have been recorded"
+    assert_equal 1, vote_a.accepted
+    assert_equal 0, vote_a.preferred
+    assert_equal 1, vote_b.accepted
+    assert_equal 1, vote_b.preferred
   end
 
   # Commitment actions

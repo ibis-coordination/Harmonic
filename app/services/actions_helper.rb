@@ -197,21 +197,19 @@ class ActionsHelper
       ],
       authorization: :resource_owner,
     },
-    "add_option" => {
-      description: "Add an option to the options list",
-      params_string: "(title)",
+    "add_options" => {
+      description: "Add one or more options to the decision",
+      params_string: "(titles)",
       params: [
-        { name: "title", type: "string", description: "The title of the option" },
+        { name: "titles", type: "array[string]", description: "Array of option title strings" },
       ],
       authorization: :superagent_member,
     },
     "vote" => {
-      description: "Vote on an option",
-      params_string: "(option_title, accept, prefer)",
+      description: "Vote on one or more options",
+      params_string: "(votes)",
       params: [
-        { name: "option_title", type: "string", description: "The title of the option to vote on" },
-        { name: "accept", type: "boolean", description: "Whether to accept this option" },
-        { name: "prefer", type: "boolean", description: "Whether to prefer this option" },
+        { name: "votes", type: "array[object]", description: "Array of vote objects, each with: option_title (string), accept (boolean), prefer (boolean)" },
       ],
       authorization: :superagent_member,
     },
@@ -598,7 +596,7 @@ class ActionsHelper
     "/studios/:studio_handle/d/:decision_id" => {
       controller_actions: ["decisions#show"],
       actions: [
-        { name: "add_option", params_string: ACTION_DEFINITIONS["add_option"][:params_string], description: ACTION_DEFINITIONS["add_option"][:description] },
+        { name: "add_options", params_string: ACTION_DEFINITIONS["add_options"][:params_string], description: ACTION_DEFINITIONS["add_options"][:description] },
         { name: "vote", params_string: ACTION_DEFINITIONS["vote"][:params_string], description: ACTION_DEFINITIONS["vote"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: "Add a comment to this decision" },
       ],

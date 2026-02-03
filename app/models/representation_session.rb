@@ -96,7 +96,7 @@ class RepresentationSession < ApplicationRecord
     # }
     valid_keys = [:timestamp, :event_type, :superagent_id, :main_resource, :sub_resources].sort
     raise "Invalid semantic event keys #{semantic_event.keys}" unless semantic_event.keys.sort == valid_keys
-    valid_event_types = %w(create update confirm add_option vote commit pin unpin).sort
+    valid_event_types = %w(create update confirm add_options vote commit pin unpin).sort
     raise "Invalid event type #{semantic_event[:event_type]}" unless valid_event_types.include?(semantic_event[:event_type])
     valid_main_resource_types = %w(Heartbeat Note Decision Commitment).sort
     raise "Invalid main resource type #{semantic_event[:main_resource][:type]}" unless valid_main_resource_types.include?(semantic_event[:main_resource][:type])
@@ -173,7 +173,7 @@ class RepresentationSession < ApplicationRecord
   def human_readable_activity_log
     @human_readable_activity_log ||= T.let([T.must(activity_log)['activity'], nil].flatten.each_cons(2).map do |activity, next_activity|
       next if activity.nil? || activity['semantic_event'].nil?
-      # for multiple sequetial vote events for the same decision within the same session, only show the last vote
+      # for multiple sequential vote events for the same decision within the same session, only show the last vote
       two_votes_on_same_decision = activity && next_activity &&
                                    activity['semantic_event']['event_type'] == 'vote' &&
                                    next_activity['semantic_event']['event_type'] == 'vote' &&
@@ -204,8 +204,8 @@ class RepresentationSession < ApplicationRecord
       'updated'
     when 'confirm'
       'confirmed reading'
-    when 'add_option'
-      'added an option to'
+    when 'add_options'
+      'added options to'
     when 'vote'
       'voted on'
     when 'commit'

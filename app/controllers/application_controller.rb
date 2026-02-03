@@ -299,7 +299,7 @@ class ApplicationController < ActionController::Base
     end
   end
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = %w[home trio search two_factor_auth agent_test].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = %w[home trio search two_factor_auth].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)

@@ -310,9 +310,27 @@ class ApiHelper
     T.must(history_event)
   end
 
+  # Backwards-compatible method for REST API v1 (creates single option from params[:title])
   sig { returns(Option) }
   def create_decision_option
-    option = T.let(nil, T.nilable(Option))
+    title = params[:title]
+    raise ArgumentError, "title parameter is required" if title.blank?
+
+    # Wrap params to use the bulk method
+    original_params = params
+    @params = params.merge(titles: [title])
+    options = create_decision_options
+    @params = original_params
+    options.first
+  end
+
+  sig { returns(T::Array[Option]) }
+  def create_decision_options
+    titles = params[:titles]
+    raise ArgumentError, "titles parameter is required" if titles.blank?
+    raise ArgumentError, "titles must be an array" unless titles.is_a?(Array)
+
+    options = T.let([], T::Array[Option])
     ActiveRecord::Base.transaction do
       current_decision_participant = DecisionParticipantManager.new(
         decision: T.must(current_decision),
@@ -321,40 +339,42 @@ class ApiHelper
       unless T.must(current_decision).can_add_options?(current_decision_participant)
         raise "Cannot add options to decision #{T.must(current_decision).id} for user #{current_user.id}"
       end
-      option = Option.create!(
-        decision: current_decision,
-        decision_participant: current_decision_participant,
-        title: params[:title],
-        description: params[:description],
-      )
-      track_task_run_resource(option, action_type: "add_option")
+
+      titles.each do |title|
+        option = Option.create!(
+          decision: current_decision,
+          decision_participant: current_decision_participant,
+          title: title,
+        )
+        track_task_run_resource(option, action_type: "add_options")
+        options << option
+      end
+
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
           semantic_event: {
             timestamp: Time.current,
-            event_type: 'add_option',
+            event_type: "add_options",
             superagent_id: current_superagent.id,
             main_resource: {
-              type: 'Decision',
+              type: "Decision",
               id: T.must(current_decision).id,
               truncated_id: T.must(current_decision).truncated_id,
             },
-            sub_resources: [
-              {
-                type: 'Option',
-                id: option.id,
-              },
-            ],
+            sub_resources: options.map { |o| { type: "Option", id: o.id } },
           }
         )
       end
     end
-    T.must(option)
+    options
   end
 
+  # Backwards-compatible method for REST API v1 (creates single vote for current_option)
   sig { returns(Vote) }
   def vote
+    raise ArgumentError, "current_option is required" if current_option.blank?
+
     associations = {
       tenant: current_tenant,
       superagent: current_superagent,
@@ -363,40 +383,84 @@ class ApiHelper
       decision_participant: current_decision_participant,
     }
     # If the vote already exists, update it. Otherwise, create a new one.
-    # There should only be one vote record per decision + option + participant.
     vote = Vote.find_by(associations) || Vote.new(associations)
-    vote.accepted = params.has_key?(:accepted) ? params[:accepted] : params[:accept]
-    vote.preferred = params.has_key?(:preferred) ? params[:preferred] : params[:prefer]
+    vote.accepted = params[:accepted] if params[:accepted].present?
+    vote.preferred = params[:preferred] if params[:preferred].present?
+    vote.save!
+    track_task_run_resource(vote, action_type: "vote")
+
+    if current_representation_session
+      current_representation_session.record_activity!(
+        request: request,
+        semantic_event: {
+          timestamp: Time.current,
+          event_type: "vote",
+          superagent_id: current_superagent.id,
+          main_resource: {
+            type: "Decision",
+            id: T.must(current_decision).id,
+            truncated_id: T.must(current_decision).truncated_id,
+          },
+          sub_resources: [{ type: "Vote", id: vote.id }],
+        }
+      )
+    end
+    vote
+  end
+
+  sig { returns(T::Array[Vote]) }
+  def create_votes
+    votes_param = params[:votes]
+    raise ArgumentError, "votes parameter is required" if votes_param.blank?
+    raise ArgumentError, "votes must be an array" unless votes_param.is_a?(Array)
+
+    votes = T.let([], T::Array[Vote])
     ActiveRecord::Base.transaction do
-      vote.save!
-      track_task_run_resource(vote, action_type: "vote")
+      votes_param.each do |vote_data|
+        option_title = vote_data[:option_title] || vote_data["option_title"]
+        raise ArgumentError, "option_title is required for each vote" if option_title.blank?
+
+        option = T.must(current_decision).options.find_by(title: option_title)
+        raise ArgumentError, "Option '#{option_title}' not found" if option.nil?
+
+        associations = {
+          tenant: current_tenant,
+          superagent: current_superagent,
+          decision: current_decision,
+          option: option,
+          decision_participant: current_decision_participant,
+        }
+        # If the vote already exists, update it. Otherwise, create a new one.
+        # There should only be one vote record per decision + option + participant.
+        vote = Vote.find_by(associations) || Vote.new(associations)
+        accept_value = vote_data[:accept] || vote_data["accept"] || vote_data[:accepted] || vote_data["accepted"]
+        prefer_value = vote_data[:prefer] || vote_data["prefer"] || vote_data[:preferred] || vote_data["preferred"]
+        # Convert boolean to integer (Vote model validates accepted/preferred as 0 or 1)
+        vote.accepted = accept_value ? 1 : 0
+        vote.preferred = prefer_value ? 1 : 0
+        vote.save!
+        track_task_run_resource(vote, action_type: "vote")
+        votes << vote
+      end
+
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
           semantic_event: {
             timestamp: Time.current,
-            event_type: 'vote',
+            event_type: "vote",
             superagent_id: current_superagent.id,
             main_resource: {
-              type: 'Decision',
+              type: "Decision",
               id: T.must(current_decision).id,
               truncated_id: T.must(current_decision).truncated_id,
             },
-            sub_resources: [
-              {
-                type: 'Option',
-                id: T.must(current_option).id,
-              },
-              {
-                type: 'Vote',
-                id: vote.id,
-              },
-            ],
+            sub_resources: votes.map { |v| { type: "Vote", id: v.id } },
           }
         )
       end
     end
-    vote
+    votes
   end
 
   sig { returns(User) }

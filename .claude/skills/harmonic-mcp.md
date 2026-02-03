@@ -78,19 +78,20 @@ mcp__harmonic__execute_action({
   }
 })
 
-// Add option (parameter is "title", not "text"!)
+// Add options (parameter is "titles" array, not "text"!)
 mcp__harmonic__execute_action({
-  action: "add_option",
-  params: { title: "Option A" }
+  action: "add_options",
+  params: { titles: ["Option A", "Option B"] }
 })
 
-// Vote on option
+// Vote on options
 mcp__harmonic__execute_action({
-  action: "vote",
+  action: "votes",
   params: {
-    option_title: "Option A",
-    accept: true,
-    prefer: true
+    votes: [
+      { option_title: "Option A", accept: true, prefer: true },
+      { option_title: "Option B", accept: true, prefer: false }
+    ]
   }
 })
 ```
@@ -168,7 +169,7 @@ Error: HTTP 403: {"error":"API not enabled for this studio"}
 
 ### Parameter Names
 Be careful with parameter names:
-- `add_option` uses `title`, not `text`
+- `add_options` uses `titles` (array of strings), not `text`
 - `create_note` uses `text`
 - Check the action signature in navigation response
 

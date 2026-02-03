@@ -114,7 +114,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
 
   # === Option Tracking Tests ===
 
-  test "create_decision_option tracks resource" do
+  test "create_decision_options tracks multiple resources" do
     SubagentTaskRun.current_id = @task_run.id
 
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
@@ -124,41 +124,56 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
       current_tenant: @tenant,
       current_superagent: @superagent,
       current_decision: decision,
-      params: { title: "Option A" },
+      params: { titles: ["Option A", "Option B", "Option C"] },
       request: {},
     )
-    option = api_helper.create_decision_option
+    options = api_helper.create_decision_options
 
-    resource = SubagentTaskRunResource.find_by(resource_id: option.id)
-    assert_not_nil resource
-    assert_equal "Option", resource.resource_type
-    assert_equal "add_option", resource.action_type
-    assert_equal decision.path, resource.display_path
+    assert_equal 3, options.count
+    assert_equal ["Option A", "Option B", "Option C"], options.map(&:title)
+
+    # Each option should be tracked
+    options.each do |option|
+      resource = SubagentTaskRunResource.find_by(resource_id: option.id)
+      assert_not_nil resource
+      assert_equal "Option", resource.resource_type
+      assert_equal "add_options", resource.action_type
+      assert_equal decision.path, resource.display_path
+    end
   end
 
   # === Vote Tracking Tests ===
 
-  test "vote tracks resource" do
+  test "create_votes tracks multiple vote resources" do
     SubagentTaskRun.current_id = @task_run.id
 
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    option1 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option A")
+    option2 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option B")
 
     api_helper = ApiHelper.new(
       current_user: @subagent,
       current_tenant: @tenant,
       current_superagent: @superagent,
       current_decision: decision,
-      params: { option_title: option.title, accept: true, prefer: false },
+      params: {
+        votes: [
+          { option_title: option1.title, accept: true, prefer: false },
+          { option_title: option2.title, accept: true, prefer: true },
+        ]
+      },
       request: {},
     )
-    vote = api_helper.vote
+    votes = api_helper.create_votes
 
-    resource = SubagentTaskRunResource.find_by(resource_id: vote.id)
-    assert_not_nil resource
-    assert_equal "Vote", resource.resource_type
-    assert_equal "vote", resource.action_type
-    assert_equal decision.path, resource.display_path
+    assert_equal 2, votes.count
+    votes.each do |vote|
+      resource = SubagentTaskRunResource.find_by(resource_id: vote.id)
+      assert_not_nil resource
+      assert_equal "Vote", resource.resource_type
+      assert_equal "vote", resource.action_type
+      assert_equal decision.path, resource.display_path
+    end
   end
 
   # === Confirm Read Tracking Tests ===
