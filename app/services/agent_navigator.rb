@@ -73,7 +73,7 @@ class AgentNavigator
   # @param max_steps [Integer] Maximum number of actions before stopping
   # @return [Result] The result including all steps taken
   sig { params(task: String, max_steps: Integer).returns(Result) }
-  def run(task:, max_steps: 15)
+  def run(task:, max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS)
     @steps = []
     @messages = []
 
@@ -169,11 +169,12 @@ class AgentNavigator
                             "FAILED: #{action_name} failed. #{result[:error]}"
                           end
 
-    # Update current state if action succeeded and returned a path
-    return unless result[:success] && result[:path]
+    # Update current content with action result when successful
+    # This prevents the LLM from seeing stale page content after an action
+    return unless result[:success]
 
-    @current_path = result[:path]
-    @current_content = result[:content]
+    @current_content = result[:content] if result[:content].present?
+    @current_path = result[:path] if result[:path].present?
   end
 
   sig { params(task: String, step_number: Integer).returns(String) }

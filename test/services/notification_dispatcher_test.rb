@@ -451,7 +451,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
 
   # Subagent task triggering tests
 
-  test "handle_note_event enqueues AgentTaskJob when subagent is mentioned" do
+  test "handle_note_event creates queued task and enqueues processor when subagent is mentioned" do
     tenant, superagent, user = create_tenant_superagent_user
     tenant.enable_feature_flag!("subagents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
@@ -478,13 +478,20 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
 
     event = Event.where(event_type: "note.created", subject: note).last
 
-    # Check that job was enqueued
-    assert_enqueued_with(job: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
+    # Check that task run was created with queued status and processor job enqueued
+    assert_difference "SubagentTaskRun.count", 1 do
+      assert_enqueued_with(job: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
+
+    task_run = SubagentTaskRun.last
+    assert_equal "queued", task_run.status
+    assert_equal subagent.id, task_run.subagent_id
+    assert_equal user.id, task_run.initiated_by_id
   end
 
-  test "handle_note_event does not enqueue AgentTaskJob when subagents feature disabled" do
+  test "handle_note_event does not create task when subagents feature disabled" do
     tenant, superagent, user = create_tenant_superagent_user
     # Note: feature flag NOT enabled
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
@@ -511,9 +518,11 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
 
     event = Event.where(event_type: "note.created", subject: note).last
 
-    # No job should be enqueued
-    assert_no_enqueued_jobs(only: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
+    # No task should be created and no job should be enqueued
+    assert_no_difference "SubagentTaskRun.count" do
+      assert_no_enqueued_jobs(only: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
   end
 
@@ -541,7 +550,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
         subagent: subagent,
         initiated_by: user,
         task: "test task",
-        max_steps: 15,
+        max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS,
         status: "completed"
       )
     end
@@ -556,13 +565,15 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
 
     event = Event.where(event_type: "note.created", subject: note).last
 
-    # No job should be enqueued due to rate limit
-    assert_no_enqueued_jobs(only: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
+    # No task should be created and no job should be enqueued due to rate limit
+    assert_no_difference "SubagentTaskRun.count" do
+      assert_no_enqueued_jobs(only: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
   end
 
-  test "handle_decision_created_event enqueues AgentTaskJob when subagent is mentioned" do
+  test "handle_decision_created_event creates queued task when subagent is mentioned" do
     tenant, superagent, user = create_tenant_superagent_user
     tenant.enable_feature_flag!("subagents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
@@ -589,13 +600,18 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
 
     event = Event.where(event_type: "decision.created", subject: decision).last
 
-    # Check that job was enqueued
-    assert_enqueued_with(job: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
+    # Check that task run was created with queued status and processor job enqueued
+    assert_difference "SubagentTaskRun.count", 1 do
+      assert_enqueued_with(job: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
+
+    task_run = SubagentTaskRun.last
+    assert_equal "queued", task_run.status
   end
 
-  test "trigger_subagent_tasks passes correct context to job" do
+  test "trigger_subagent_tasks creates task run with correct context" do
     tenant, superagent, user = create_tenant_superagent_user
     tenant.enable_feature_flag!("subagents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
@@ -622,24 +638,23 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
 
     event = Event.where(event_type: "note.created", subject: note).last
 
-    # Capture the enqueued job arguments
-    enqueued_job = nil
-    assert_enqueued_with(job: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
-      enqueued_job = ActiveJob::Base.queue_adapter.enqueued_jobs.find { |j| j["job_class"] == "AgentTaskJob" }
+    # Check that task run was created with correct context
+    assert_difference "SubagentTaskRun.count", 1 do
+      assert_enqueued_with(job: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
 
-    assert_not_nil enqueued_job
-    args = enqueued_job["arguments"].first
-    assert_equal subagent.id, args["subagent_id"]
-    assert_equal tenant.id, args["tenant_id"]
-    assert_equal superagent.id, args["superagent_id"]
-    assert_equal user.id, args["initiated_by_id"]
-    assert_equal note.path, args["trigger_context"]["item_path"]
-    assert_equal user.display_name, args["trigger_context"]["actor_name"]
+    task_run = SubagentTaskRun.last
+    assert_equal subagent.id, task_run.subagent_id
+    assert_equal tenant.id, task_run.tenant_id
+    assert_equal user.id, task_run.initiated_by_id
+    assert_equal "queued", task_run.status
+    assert_includes task_run.task, user.display_name
+    assert_includes task_run.task, note.path
   end
 
-  test "handle_comment_event enqueues AgentTaskJob when commenting on subagent content" do
+  test "handle_comment_event creates queued task when commenting on subagent content" do
     tenant, superagent, user = create_tenant_superagent_user
     tenant.enable_feature_flag!("subagents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
@@ -681,13 +696,19 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       subject: comment
     )
 
-    # Check that job was enqueued
-    assert_enqueued_with(job: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
+    # Check that task run was created with queued status and processor job enqueued
+    assert_difference "SubagentTaskRun.count", 1 do
+      assert_enqueued_with(job: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
+
+    task_run = SubagentTaskRun.last
+    assert_equal "queued", task_run.status
+    assert_equal subagent.id, task_run.subagent_id
   end
 
-  test "handle_reply_notification enqueues AgentTaskJob when replying to subagent content" do
+  test "handle_reply_notification creates queued task when replying to subagent content" do
     tenant, superagent, user = create_tenant_superagent_user
     tenant.enable_feature_flag!("subagents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
@@ -729,13 +750,19 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       subject: reply
     )
 
-    # Check that job was enqueued (via handle_reply_notification path)
-    assert_enqueued_with(job: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
+    # Check that task run was created with queued status (via handle_reply_notification path)
+    assert_difference "SubagentTaskRun.count", 1 do
+      assert_enqueued_with(job: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
+
+    task_run = SubagentTaskRun.last
+    assert_equal "queued", task_run.status
+    assert_equal subagent.id, task_run.subagent_id
   end
 
-  test "handle_comment_event enqueues AgentTaskJob when subagent has commented on same content" do
+  test "handle_comment_event creates queued task when subagent has commented on same content" do
     tenant, superagent, user = create_tenant_superagent_user
     tenant.enable_feature_flag!("subagents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
@@ -786,13 +813,19 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       subject: user_reply
     )
 
-    # Check that job was enqueued for the subagent who previously commented
-    assert_enqueued_with(job: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
+    # Check that task run was created for the subagent who previously commented
+    assert_difference "SubagentTaskRun.count", 1 do
+      assert_enqueued_with(job: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
+
+    task_run = SubagentTaskRun.last
+    assert_equal "queued", task_run.status
+    assert_equal subagent.id, task_run.subagent_id
   end
 
-  test "handle_reply_notification enqueues AgentTaskJob when subagent has commented on same content" do
+  test "handle_reply_notification creates queued task when subagent has commented on same content" do
     tenant, superagent, user = create_tenant_superagent_user
     tenant.enable_feature_flag!("subagents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
@@ -843,9 +876,15 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       subject: user_reply
     )
 
-    # Check that job was enqueued for the subagent who previously commented
-    assert_enqueued_with(job: AgentTaskJob) do
-      NotificationDispatcher.dispatch(event)
+    # Check that task run was created for the subagent who previously commented
+    assert_difference "SubagentTaskRun.count", 1 do
+      assert_enqueued_with(job: AgentQueueProcessorJob) do
+        NotificationDispatcher.dispatch(event)
+      end
     end
+
+    task_run = SubagentTaskRun.last
+    assert_equal "queued", task_run.status
+    assert_equal subagent.id, task_run.subagent_id
   end
 end

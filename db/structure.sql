@@ -1,4 +1,4 @@
-\restrict RmsdGut4eMdfwJCQZ1MvGDHIY7OkD3ryd4gv8NEYt3EhsdoYNbWjx6y3R3XfhcU
+\restrict vha8ViUsGk3Grn6orqyyJxp2haWlOtyFbAOlhIQLT5PS07CIzaeY7biUXakjOx3
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -1212,7 +1212,7 @@ CREATE TABLE public.subagent_task_runs (
     subagent_id uuid NOT NULL,
     initiated_by_id uuid NOT NULL,
     task text NOT NULL,
-    max_steps integer DEFAULT 15 NOT NULL,
+    max_steps integer DEFAULT 30 NOT NULL,
     status character varying DEFAULT 'pending'::character varying NOT NULL,
     success boolean,
     final_message text,
@@ -8034,7 +8034,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict RmsdGut4eMdfwJCQZ1MvGDHIY7OkD3ryd4gv8NEYt3EhsdoYNbWjx6y3R3XfhcU
+\unrestrict vha8ViUsGk3Grn6orqyyJxp2haWlOtyFbAOlhIQLT5PS07CIzaeY7biUXakjOx3
 
 SET search_path TO "$user", public;
 
@@ -8162,6 +8162,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260131000001'),
 ('20260131000002'),
 ('20260201143513'),
-('20260202052258');
+('20260202052258'),
+('20260203032407');
 
 

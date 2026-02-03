@@ -2364,7 +2364,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       subagent: subagent,
       initiated_by: @user,
       task: "Create a test note",
-      max_steps: 15,
+      max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS,
       status: "completed",
       success: true,
       final_message: "Task completed successfully",

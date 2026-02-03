@@ -25,7 +25,7 @@ class SubagentsController < ApplicationController
     return render status: 404, plain: '404 Not Found' unless @subagent
 
     @page_title = "Run Task - #{@subagent.display_name}"
-    @max_steps_default = 15
+    @max_steps_default = SubagentTaskRun::DEFAULT_MAX_STEPS
   end
 
   # POST /subagents/:id/run - Execute the task
@@ -40,7 +40,7 @@ class SubagentsController < ApplicationController
       subagent: @subagent,
       initiated_by: current_user,
       task: params[:task],
-      max_steps: (params[:max_steps] || 15).to_i,
+      max_steps: (params[:max_steps] || SubagentTaskRun::DEFAULT_MAX_STEPS).to_i,
       status: "running",
       started_at: Time.current
     )

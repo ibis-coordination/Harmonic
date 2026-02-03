@@ -439,19 +439,29 @@ class NotificationDispatcher
         next
       end
 
-      AgentTaskJob.perform_later(
-        subagent_id: subagent.id,
+      # Create the task run record with "queued" status
+      SubagentTaskRun.create!(
         tenant_id: event.tenant_id,
-        superagent_id: event.superagent_id,
+        subagent: subagent,
         initiated_by_id: event.actor_id,
-        trigger_context: {
-          item_path: item_path,
-          actor_name: event.actor&.display_name,
-        }
+        task: build_task_prompt(event, item_path),
+        max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS,
+        status: "queued"
       )
+
+      # Kick off the queue processor
+      AgentQueueProcessorJob.perform_later(subagent_id: subagent.id, tenant_id: event.tenant_id)
     end
   end
 
+  # Build the task prompt for an agent based on trigger context
+  sig { params(event: Event, item_path: T.nilable(String)).returns(String) }
+  def self.build_task_prompt(event, item_path)
+    actor_name = event.actor&.display_name || "Someone"
+    "You were mentioned by #{actor_name}. Navigate to #{item_path} to see the context and respond appropriately by adding a comment."
+  end
+
   private_class_method :get_created_by, :get_path, :decision_participants, :commitment_participants,
-                       :find_subagent_commenters, :user_can_access_superagent?, :trigger_subagent_tasks
+                       :find_subagent_commenters, :user_can_access_superagent?, :trigger_subagent_tasks,
+                       :build_task_prompt
 end
