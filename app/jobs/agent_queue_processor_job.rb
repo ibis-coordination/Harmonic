@@ -25,7 +25,7 @@ class AgentQueueProcessorJob < ApplicationJob
     begin
       run_task(task_run)
     ensure
-      clear_context
+      restore_context
       # Check for more queued tasks
       schedule_next_task(subagent_id, tenant_id)
     end
@@ -86,9 +86,24 @@ class AgentQueueProcessorJob < ApplicationJob
 
   sig { params(tenant: Tenant, task_run: SubagentTaskRun).void }
   def set_context(tenant, task_run)
+    # Save existing context so we can restore it after the job completes
+    # This is important for test isolation when jobs run inline
+    @saved_tenant_subdomain = Tenant.current_subdomain
+    @saved_tenant_id = Tenant.current_id
+    @saved_main_superagent_id = Tenant.current_main_superagent_id
+    @saved_superagent_id = Superagent.current_id
+    @saved_superagent_handle = Superagent.current_handle
+    @saved_task_run_id = SubagentTaskRun.current_id
+
     Tenant.current_subdomain = tenant.subdomain
     Tenant.current_id = tenant.id
     Tenant.current_main_superagent_id = tenant.main_superagent_id
+
+    # Set task run context for resource tracking
+    SubagentTaskRun.current_id = task_run.id
+
+    # Clear any stale superagent context before conditionally setting new one
+    Superagent.clear_thread_scope
 
     superagent = resolve_superagent(task_run)
     return unless superagent
@@ -98,9 +113,15 @@ class AgentQueueProcessorJob < ApplicationJob
   end
 
   sig { void }
-  def clear_context
-    Tenant.clear_thread_scope
-    Superagent.clear_thread_scope
+  def restore_context
+    # Restore previous context instead of just clearing
+    # This ensures test isolation when jobs run inline via perform_now
+    Thread.current[:tenant_subdomain] = @saved_tenant_subdomain
+    Thread.current[:tenant_id] = @saved_tenant_id
+    Thread.current[:main_superagent_id] = @saved_main_superagent_id
+    Thread.current[:superagent_id] = @saved_superagent_id
+    Thread.current[:superagent_handle] = @saved_superagent_handle
+    Thread.current[:subagent_task_run_id] = @saved_task_run_id
   end
 
   sig { params(subagent_id: String, tenant_id: String).void }

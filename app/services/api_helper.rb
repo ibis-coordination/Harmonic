@@ -179,6 +179,7 @@ class ApiHelper
         created_by: current_user,
         commentable: commentable,
       )
+      track_task_run_resource(note, action_type: "create")
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -210,6 +211,7 @@ class ApiHelper
         deadline: params[:deadline],
         created_by: current_user,
       )
+      track_task_run_resource(decision, action_type: "create")
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -284,6 +286,7 @@ class ApiHelper
     history_event = T.let(nil, T.nilable(NoteHistoryEvent))
     ActiveRecord::Base.transaction do
       history_event = note.confirm_read!(current_user)
+      track_task_run_resource(history_event, action_type: "confirm")
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -324,6 +327,7 @@ class ApiHelper
         title: params[:title],
         description: params[:description],
       )
+      track_task_run_resource(option, action_type: "add_option")
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -365,6 +369,7 @@ class ApiHelper
     vote.preferred = params.has_key?(:preferred) ? params[:preferred] : params[:prefer]
     ActiveRecord::Base.transaction do
       vote.save!
+      track_task_run_resource(vote, action_type: "vote")
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -642,6 +647,54 @@ class ApiHelper
       end
     end
     commitment
+  end
+
+  private
+
+  # Track resources created during a SubagentTaskRun for traceability
+  sig { params(resource: T.untyped, action_type: String).void }
+  def track_task_run_resource(resource, action_type:)
+    return unless SubagentTaskRun.current_id
+    return unless resource.respond_to?(:superagent_id) && resource.superagent_id.present?
+
+    SubagentTaskRunResource.create!(
+      subagent_task_run_id: SubagentTaskRun.current_id,
+      resource: resource,
+      resource_superagent_id: resource.superagent_id,
+      action_type: action_type,
+      display_path: compute_display_path(resource),
+    )
+  rescue ActiveRecord::RecordInvalid => e
+    # Log but don't fail the main operation
+    Rails.logger.warn("Failed to track task run resource: #{e.message}")
+  end
+
+  # Compute the linkable path for a resource at creation time
+  # (avoids scoping issues when displaying later)
+  sig { params(resource: T.untyped).returns(T.nilable(String)) }
+  def compute_display_path(resource)
+    # Use unscoped queries to handle cross-superagent resources
+    tenant_id = resource.tenant_id
+    case resource
+    when Note, Decision, Commitment
+      resource.path
+    when Option
+      decision = Decision.unscoped.find_by(id: resource.decision_id, tenant_id: tenant_id)
+      decision&.path
+    when Vote
+      option = Option.unscoped.find_by(id: resource.option_id, tenant_id: tenant_id)
+      return nil unless option
+      decision = Decision.unscoped.find_by(id: option.decision_id, tenant_id: tenant_id)
+      decision&.path
+    when NoteHistoryEvent
+      note = Note.unscoped.find_by(id: resource.note_id, tenant_id: tenant_id)
+      note&.path
+    when CommitmentParticipant
+      commitment = Commitment.unscoped.find_by(id: resource.commitment_id, tenant_id: tenant_id)
+      commitment&.path
+    else
+      nil
+    end
   end
 
 end

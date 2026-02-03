@@ -7,12 +7,46 @@ class SubagentTaskRun < ApplicationRecord
   belongs_to :subagent, class_name: "User"
   belongs_to :initiated_by, class_name: "User"
 
+  has_many :subagent_task_run_resources, dependent: :destroy
+
   validates :task, presence: true
   validates :max_steps, presence: true, numericality: { greater_than: 0, less_than_or_equal_to: 50 }
   validates :status, presence: true, inclusion: { in: ["queued", "pending", "running", "completed", "failed", "cancelled"] }
 
   scope :recent, -> { order(created_at: :desc) }
   scope :for_subagent, ->(subagent) { where(subagent: subagent) }
+
+  # Thread-local context management for tracking which task run is currently executing
+  class << self
+    def current_id
+      Thread.current[:subagent_task_run_id]
+    end
+
+    def current_id=(id)
+      Thread.current[:subagent_task_run_id] = id
+    end
+
+    def clear_thread_scope
+      Thread.current[:subagent_task_run_id] = nil
+    end
+  end
+
+  # Convenience methods for querying created resources
+  def created_notes
+    Note.where(id: subagent_task_run_resources.where(resource_type: "Note", action_type: "create").select(:resource_id))
+  end
+
+  def created_decisions
+    Decision.where(id: subagent_task_run_resources.where(resource_type: "Decision", action_type: "create").select(:resource_id))
+  end
+
+  def created_commitments
+    Commitment.where(id: subagent_task_run_resources.where(resource_type: "Commitment", action_type: "create").select(:resource_id))
+  end
+
+  def all_resources
+    subagent_task_run_resources.includes(:resource).map(&:resource)
+  end
 
   def queued?
     status == "queued"

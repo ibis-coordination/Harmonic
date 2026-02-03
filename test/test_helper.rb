@@ -75,6 +75,7 @@ class ActiveSupport::TestCase
   teardown do
     Superagent.clear_thread_scope
     Tenant.clear_thread_scope
+    SubagentTaskRun.clear_thread_scope
     Tenant.update_all(main_superagent_id: nil) # Needed to avoid foreign key violation when deleting studios
     [
       # Note: order matters in this array. "Dependent destroy" doesn't always work for some reason (TODO debug),
@@ -85,7 +86,7 @@ class ActiveSupport::TestCase
       Link, NoteHistoryEvent, Note,
       Vote, Option, DecisionParticipant, Decision,
       CommitmentParticipant, Commitment,
-      SubagentTaskRun,
+      SubagentTaskRunResource, SubagentTaskRun,
       Heartbeat, Invite, SuperagentMember, Superagent,
       ApiToken, TenantUser, Tenant,
       TrusteePermission, OauthIdentity, User

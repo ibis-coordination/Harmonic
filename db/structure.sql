@@ -1,4 +1,4 @@
-\restrict vha8ViUsGk3Grn6orqyyJxp2haWlOtyFbAOlhIQLT5PS07CIzaeY7biUXakjOx3
+\restrict dHjDSozeHFRiCopCnAdiaTDS13vWYoqGTOmNZntEkgctbthycHWpUmup0XZcAd7
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -1203,6 +1203,24 @@ CREATE TABLE public.search_index_p9 (
 
 
 --
+-- Name: subagent_task_run_resources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subagent_task_run_resources (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    subagent_task_run_id uuid NOT NULL,
+    resource_type character varying NOT NULL,
+    resource_id uuid NOT NULL,
+    resource_superagent_id uuid NOT NULL,
+    action_type character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    display_path character varying
+);
+
+
+--
 -- Name: subagent_task_runs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2360,6 +2378,14 @@ ALTER TABLE ONLY public.superagents
 
 
 --
+-- Name: subagent_task_run_resources subagent_task_run_resources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_run_resources
+    ADD CONSTRAINT subagent_task_run_resources_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: subagent_task_runs subagent_task_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2633,6 +2659,34 @@ CREATE INDEX idx_search_index_type ON ONLY public.search_index USING btree (tena
 --
 
 CREATE UNIQUE INDEX idx_search_index_unique_item ON ONLY public.search_index USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: idx_task_run_resources_on_resource; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_run_resources_on_resource ON public.subagent_task_run_resources USING btree (resource_type, resource_id);
+
+
+--
+-- Name: idx_task_run_resources_on_resource_superagent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_run_resources_on_resource_superagent ON public.subagent_task_run_resources USING btree (resource_superagent_id);
+
+
+--
+-- Name: idx_task_run_resources_on_task_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_run_resources_on_task_run_id ON public.subagent_task_run_resources USING btree (subagent_task_run_id);
+
+
+--
+-- Name: idx_task_run_resources_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_task_run_resources_unique ON public.subagent_task_run_resources USING btree (subagent_task_run_id, resource_id, resource_type);
 
 
 --
@@ -3333,6 +3387,13 @@ CREATE UNIQUE INDEX index_representation_sessions_on_truncated_id ON public.repr
 --
 
 CREATE INDEX index_representation_sessions_on_trustee_user_id ON public.representation_sessions USING btree (trustee_user_id);
+
+
+--
+-- Name: index_subagent_task_run_resources_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_subagent_task_run_resources_on_tenant_id ON public.subagent_task_run_resources USING btree (tenant_id);
 
 
 --
@@ -7367,6 +7428,14 @@ ALTER TABLE ONLY public.decisions
 
 
 --
+-- Name: subagent_task_run_resources fk_rails_15c1014d00; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_run_resources
+    ADD CONSTRAINT fk_rails_15c1014d00 FOREIGN KEY (subagent_task_run_id) REFERENCES public.subagent_task_runs(id);
+
+
+--
 -- Name: webhooks fk_rails_188617e004; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7671,6 +7740,14 @@ ALTER TABLE ONLY public.decisions
 
 
 --
+-- Name: subagent_task_run_resources fk_rails_803b260faa; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_run_resources
+    ADD CONSTRAINT fk_rails_803b260faa FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
+
+
+--
 -- Name: decision_participants fk_rails_81ebc9cc6f; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7732,6 +7809,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 ALTER TABLE ONLY public.options
     ADD CONSTRAINT fk_rails_9d942eefce FOREIGN KEY (decision_participant_id) REFERENCES public.decision_participants(id);
+
+
+--
+-- Name: subagent_task_run_resources fk_rails_a0e1c6c965; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_run_resources
+    ADD CONSTRAINT fk_rails_a0e1c6c965 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8034,7 +8119,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict vha8ViUsGk3Grn6orqyyJxp2haWlOtyFbAOlhIQLT5PS07CIzaeY7biUXakjOx3
+\unrestrict dHjDSozeHFRiCopCnAdiaTDS13vWYoqGTOmNZntEkgctbthycHWpUmup0XZcAd7
 
 SET search_path TO "$user", public;
 
@@ -8163,6 +8248,8 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260131000002'),
 ('20260201143513'),
 ('20260202052258'),
-('20260203032407');
+('20260203032407'),
+('20260203044904'),
+('20260203055419');
 
 

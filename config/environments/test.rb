@@ -55,6 +55,10 @@ Rails.application.configure do
   # Raises error for missing translations.
   # config.i18n.raise_on_missing_translations = true
 
+  # Use test adapter for Active Job to ensure jobs don't actually enqueue to Sidekiq
+  # This provides better test isolation and allows use of assert_enqueued_with helpers
+  config.active_job.queue_adapter = :test
+
   # Annotate rendered view with file names.
   # config.action_view.annotate_rendered_view_with_filenames = true
 end

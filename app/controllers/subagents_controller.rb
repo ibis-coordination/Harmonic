@@ -1,14 +1,14 @@
 # typed: false
 
 class SubagentsController < ApplicationController
-  layout 'pulse', only: [:new, :index, :run_task, :execute_task, :runs, :show_run]
+  layout "pulse", only: [:new, :index, :run_task, :execute_task, :runs, :show_run]
   before_action :verify_current_user_path, except: [:index, :run_task, :execute_task, :runs, :show_run]
   before_action :set_sidebar_mode, only: [:new, :index, :run_task, :execute_task, :runs, :show_run]
   before_action :require_subagents_enabled, only: [:index, :run_task, :execute_task, :runs, :show_run]
 
   # GET /subagents - List all subagents owned by current user
   def index
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can view subagents' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can view subagents" unless current_user&.person?
 
     @page_title = "My Subagents"
     @subagents = current_user.subagents
@@ -19,10 +19,10 @@ class SubagentsController < ApplicationController
 
   # GET /subagents/:id/run - Show task form for specific subagent
   def run_task
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can run subagent tasks' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can run subagent tasks" unless current_user&.person?
 
     @subagent = find_subagent_by_handle
-    return render status: 404, plain: '404 Not Found' unless @subagent
+    return render status: :not_found, plain: "404 Not Found" unless @subagent
 
     @page_title = "Run Task - #{@subagent.display_name}"
     @max_steps_default = SubagentTaskRun::DEFAULT_MAX_STEPS
@@ -30,10 +30,10 @@ class SubagentsController < ApplicationController
 
   # POST /subagents/:id/run - Execute the task
   def execute_task
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can run subagent tasks' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can run subagent tasks" unless current_user&.person?
 
     @subagent = find_subagent_by_handle
-    return render status: 404, plain: '404 Not Found' unless @subagent
+    return render status: :not_found, plain: "404 Not Found" unless @subagent
 
     @task_run = SubagentTaskRun.create!(
       tenant: current_tenant,
@@ -51,20 +51,29 @@ class SubagentsController < ApplicationController
       superagent: current_superagent
     )
 
-    result = navigator.run(
-      task: params[:task],
-      max_steps: @task_run.max_steps
-    )
+    # Set task run context for resource tracking during synchronous execution
+    saved_task_run_id = SubagentTaskRun.current_id
+    SubagentTaskRun.current_id = @task_run.id
 
-    @task_run.update!(
-      status: result.success ? "completed" : "failed",
-      success: result.success,
-      final_message: result.final_message,
-      error: result.error,
-      steps_count: result.steps.count,
-      steps_data: result.steps.map { |s| { type: s.type, detail: s.detail, timestamp: s.timestamp.iso8601 } },
-      completed_at: Time.current
-    )
+    begin
+      result = navigator.run(
+        task: params[:task],
+        max_steps: @task_run.max_steps
+      )
+
+      @task_run.update!(
+        status: result.success ? "completed" : "failed",
+        success: result.success,
+        final_message: result.final_message,
+        error: result.error,
+        steps_count: result.steps.count,
+        steps_data: result.steps.map { |s| { type: s.type, detail: s.detail, timestamp: s.timestamp.iso8601 } },
+        completed_at: Time.current
+      )
+    ensure
+      # Restore previous context (or clear if none)
+      SubagentTaskRun.current_id = saved_task_run_id
+    end
 
     respond_to do |format|
       format.html { redirect_to subagent_run_path(@subagent.handle, @task_run.id) }
@@ -74,10 +83,10 @@ class SubagentsController < ApplicationController
 
   # GET /subagents/:handle/runs - List past task runs
   def runs
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can view task runs' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can view task runs" unless current_user&.person?
 
     @subagent = find_subagent_by_handle
-    return render status: 404, plain: '404 Not Found' unless @subagent
+    return render status: :not_found, plain: "404 Not Found" unless @subagent
 
     @page_title = "Task Runs - #{@subagent.display_name}"
     @task_runs = SubagentTaskRun.where(subagent: @subagent).recent
@@ -85,19 +94,30 @@ class SubagentsController < ApplicationController
 
   # GET /subagents/:handle/runs/:run_id - Show a specific task run
   def show_run
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can view task runs' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can view task runs" unless current_user&.person?
 
     @subagent = find_subagent_by_handle
-    return render status: 404, plain: '404 Not Found' unless @subagent
+    return render status: :not_found, plain: "404 Not Found" unless @subagent
 
     @task_run = SubagentTaskRun.find_by(id: params[:run_id], subagent: @subagent)
-    return render status: 404, plain: '404 Not Found' unless @task_run
+    return render status: :not_found, plain: "404 Not Found" unless @task_run
 
-    @page_title = "Task Run - #{@subagent.display_name}"
+    respond_to do |format|
+      format.html do
+        @created_resources = @task_run.subagent_task_run_resources
+          .includes(:resource_superagent)
+          .order(:created_at)
+        @page_title = "Task Run - #{@subagent.display_name}"
+      end
+      format.json do
+        render json: { status: @task_run.status }
+      end
+    end
   end
 
   def new
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can create subagents' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create subagents" unless current_user&.person?
+
     respond_to do |format|
       format.html
       format.md
@@ -105,49 +125,46 @@ class SubagentsController < ApplicationController
   end
 
   def create
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can create subagents' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create subagents" unless current_user&.person?
+
     @subagent = api_helper.create_subagent
-    if params[:generate_token] == "true" || params[:generate_token] == "1"
-      api_helper.generate_token(@subagent)
-    end
+    api_helper.generate_token(@subagent) if ["true", "1"].include?(params[:generate_token])
     flash[:notice] = "Subagent #{@subagent.display_name} created successfully."
     redirect_to "#{@current_user.path}/settings"
   end
 
-  def update
-  end
+  def update; end
 
-  def destroy
-  end
+  def destroy; end
 
   # Markdown API actions
 
   def actions_index
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can create subagents' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create subagents" unless current_user&.person?
+
     @page_title = "Actions | New Subagent"
-    render_actions_index(ActionsHelper.actions_for_route('/u/:handle/settings/subagents/new'))
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/subagents/new"))
   end
 
   def describe_create_subagent
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can create subagents' unless current_user&.person?
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create subagents" unless current_user&.person?
+
     render_action_description(ActionsHelper.action_description("create_subagent", resource: @current_user))
   end
 
   def execute_create_subagent
     unless current_user&.person?
       return render_action_error({
-        action_name: 'create_subagent',
-        resource: @current_user,
-        error: 'Only person accounts can create subagents.',
-      })
+                                   action_name: "create_subagent",
+                                   resource: @current_user,
+                                   error: "Only person accounts can create subagents.",
+                                 })
     end
     @subagent = api_helper.create_subagent
-    if params[:generate_token] == true || params[:generate_token] == "true" || params[:generate_token] == "1"
-      @token = api_helper.generate_token(@subagent)
-    end
+    @token = api_helper.generate_token(@subagent) if [true, "true", "1"].include?(params[:generate_token])
 
     respond_to do |format|
-      format.md { render 'show' }
+      format.md { render "show" }
       format.html do
         flash[:notice] = "Subagent #{@subagent.display_name} created successfully."
         redirect_to "#{@current_user.path}/settings"
@@ -165,22 +182,24 @@ class SubagentsController < ApplicationController
     return if @current_tenant&.subagents_enabled?
 
     respond_to do |format|
-      format.html { render status: 403, plain: "403 Forbidden - Subagents feature is not enabled for this tenant" }
-      format.json { render status: 403, json: { error: "Subagents feature is not enabled for this tenant" } }
-      format.md { render status: 403, plain: "403 Forbidden - Subagents feature is not enabled for this tenant" }
+      format.html { render status: :forbidden, plain: "403 Forbidden - Subagents feature is not enabled for this tenant" }
+      format.json { render status: :forbidden, json: { error: "Subagents feature is not enabled for this tenant" } }
+      format.md { render status: :forbidden, plain: "403 Forbidden - Subagents feature is not enabled for this tenant" }
     end
   end
 
   def set_sidebar_mode
-    @sidebar_mode = 'minimal'
+    @sidebar_mode = "minimal"
   end
 
   def verify_current_user_path
     handle = params[:handle]
     return if handle.nil?
+
     tu = current_tenant.tenant_users.find_by(handle: handle)
-    return render status: 404, plain: '404 Not Found' if tu.nil?
-    return render status: 403, plain: '403 Unauthorized' unless tu.user == current_user
+    return render status: :not_found, plain: "404 Not Found" if tu.nil?
+
+    render status: :forbidden, plain: "403 Unauthorized" unless tu.user == current_user
   end
 
   def find_subagent_by_handle

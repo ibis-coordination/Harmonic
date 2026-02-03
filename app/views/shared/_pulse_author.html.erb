@@ -14,7 +14,7 @@
       <strong><%= author.display_name %></strong>
     </a>
     <% if author.subagent? && author.parent %>
-      <span class="pulse-subagent-label">(via <%= link_to author.parent.display_name, author.parent.path %>)</span>
+      <span class="pulse-subagent-label">(managed by <%= link_to author.parent.display_name, author.parent.path %>)</span>
     <% end %>
     <% if verb.present? %>
       <span><%= verb %></span>
