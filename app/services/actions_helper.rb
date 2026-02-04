@@ -393,14 +393,6 @@ class ActionsHelper
     },
 
     # Notification actions
-    "mark_read" => {
-      description: "Mark a notification as read",
-      params_string: "(id)",
-      params: [
-        { name: "id", type: "string", description: "The ID of the notification recipient to mark as read" },
-      ],
-      authorization: :authenticated,
-    },
     "dismiss" => {
       description: "Dismiss a notification",
       params_string: "(id)",
@@ -409,8 +401,8 @@ class ActionsHelper
       ],
       authorization: :authenticated,
     },
-    "mark_all_read" => {
-      description: "Mark all notifications as read",
+    "dismiss_all" => {
+      description: "Dismiss all notifications",
       params_string: "()",
       params: [],
       authorization: :authenticated,
@@ -704,9 +696,8 @@ class ActionsHelper
     "/notifications" => {
       controller_actions: ["notifications#index"],
       actions: [
-        { name: "mark_read", params_string: ACTION_DEFINITIONS["mark_read"][:params_string], description: ACTION_DEFINITIONS["mark_read"][:description] },
         { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
-        { name: "mark_all_read", params_string: ACTION_DEFINITIONS["mark_all_read"][:params_string], description: ACTION_DEFINITIONS["mark_all_read"][:description] },
+        { name: "dismiss_all", params_string: ACTION_DEFINITIONS["dismiss_all"][:params_string], description: ACTION_DEFINITIONS["dismiss_all"][:description] },
         { name: "create_reminder", params_string: ACTION_DEFINITIONS["create_reminder"][:params_string], description: ACTION_DEFINITIONS["create_reminder"][:description] },
         { name: "delete_reminder", params_string: ACTION_DEFINITIONS["delete_reminder"][:params_string], description: ACTION_DEFINITIONS["delete_reminder"][:description] },
       ],

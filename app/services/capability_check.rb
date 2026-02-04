@@ -19,9 +19,8 @@ module CapabilityCheck
   # These are essential for navigation and basic app operation
   SUBAGENT_ALWAYS_ALLOWED = [
     "send_heartbeat",
-    "mark_read",
     "dismiss",
-    "mark_all_read",
+    "dismiss_all",
     "search",
     "update_scratchpad",
   ].freeze

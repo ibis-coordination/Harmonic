@@ -37,39 +37,6 @@ class NotificationsController < ApplicationController
     render_actions_index(ActionsHelper.actions_for_route('/notifications'))
   end
 
-  def describe_mark_read
-    render_action_description(ActionsHelper.action_description("mark_read", resource: nil))
-  end
-
-  def execute_mark_read
-    recipient = NotificationRecipient.find_by(id: params[:id], user: current_user)
-
-    respond_to do |format|
-      if recipient
-        recipient.read!
-        format.json { render json: { success: true, id: recipient.id, action: "mark_read" } }
-        format.html { render json: { success: true, id: recipient.id, action: "mark_read" } }
-        format.md do
-          render_action_success({
-            action_name: "mark_read",
-            resource: nil,
-            result: "Notification marked as read.",
-          })
-        end
-      else
-        format.json { render json: { success: false, error: "Notification not found." }, status: :not_found }
-        format.html { render json: { success: false, error: "Notification not found." }, status: :not_found }
-        format.md do
-          render_action_error({
-            action_name: "mark_read",
-            resource: nil,
-            error: "Notification not found.",
-          })
-        end
-      end
-    end
-  end
-
   def describe_dismiss
     render_action_description(ActionsHelper.action_description("dismiss", resource: nil))
   end
@@ -103,21 +70,21 @@ class NotificationsController < ApplicationController
     end
   end
 
-  def describe_mark_all_read
-    render_action_description(ActionsHelper.action_description("mark_all_read", resource: nil))
+  def describe_dismiss_all
+    render_action_description(ActionsHelper.action_description("dismiss_all", resource: nil))
   end
 
-  def execute_mark_all_read
-    NotificationService.mark_all_read_for(current_user, tenant: current_tenant)
+  def execute_dismiss_all
+    NotificationService.dismiss_all_for(current_user, tenant: current_tenant)
 
     respond_to do |format|
-      format.json { render json: { success: true, action: "mark_all_read" } }
-      format.html { render json: { success: true, action: "mark_all_read" } }
+      format.json { render json: { success: true, action: "dismiss_all" } }
+      format.html { render json: { success: true, action: "dismiss_all" } }
       format.md do
         render_action_success({
-          action_name: "mark_all_read",
+          action_name: "dismiss_all",
           resource: nil,
-          result: "All notifications marked as read.",
+          result: "All notifications dismissed.",
         })
       end
     end

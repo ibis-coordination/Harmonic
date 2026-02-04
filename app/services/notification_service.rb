@@ -48,13 +48,13 @@ class NotificationService
   end
 
   sig { params(user: User, tenant: Tenant).void }
-  def self.mark_all_read_for(user, tenant:)
-    # Exclude scheduled future reminders - they shouldn't be marked as read before they trigger
+  def self.dismiss_all_for(user, tenant:)
+    # Exclude scheduled future reminders - they shouldn't be dismissed before they trigger
     NotificationRecipient
       .where(user: user, tenant: tenant)
       .in_app.unread.not_scheduled.update_all(
-        read_at: Time.current,
-        status: "read"
+        dismissed_at: Time.current,
+        status: "dismissed"
       )
   end
 end

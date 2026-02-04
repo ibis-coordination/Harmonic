@@ -80,13 +80,13 @@ class NotificationServiceTest < ActiveSupport::TestCase
     NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "pending")
     NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "delivered")
 
-    # Create 1 read recipient
+    # Create 1 dismissed recipient (should not be counted)
     NotificationRecipient.create!(
       notification: notification1,
       user: user,
       channel: "in_app",
-      status: "read",
-      read_at: Time.current,
+      status: "dismissed",
+      dismissed_at: Time.current,
     )
 
     # Email recipients shouldn't be counted
@@ -95,7 +95,7 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal 2, NotificationService.unread_count_for(user, tenant: tenant)
   end
 
-  test "mark_all_read_for marks all in_app notifications as read" do
+  test "dismiss_all_for dismisses all in_app notifications" do
     tenant, superagent, user = create_tenant_superagent_user
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
@@ -112,19 +112,19 @@ class NotificationServiceTest < ActiveSupport::TestCase
     recipient2 = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
     email_recipient = NotificationRecipient.create!(notification: notification, user: user, channel: "email", status: "pending")
 
-    NotificationService.mark_all_read_for(user, tenant: tenant)
+    NotificationService.dismiss_all_for(user, tenant: tenant)
 
     recipient1.reload
     recipient2.reload
     email_recipient.reload
 
-    assert_equal "read", recipient1.status
-    assert recipient1.read_at.present?
-    assert_equal "read", recipient2.status
-    assert recipient2.read_at.present?
+    assert_equal "dismissed", recipient1.status
+    assert recipient1.dismissed_at.present?
+    assert_equal "dismissed", recipient2.status
+    assert recipient2.dismissed_at.present?
     # Email should be unchanged
     assert_equal "pending", email_recipient.status
-    assert_nil email_recipient.read_at
+    assert_nil email_recipient.dismissed_at
   end
 
   # === Tenant Scoping Tests ===
@@ -162,7 +162,7 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal 2, NotificationService.unread_count_for(user, tenant: tenant2), "Should only count notifications from tenant2"
   end
 
-  test "mark_all_read_for only marks notifications in current tenant as read" do
+  test "dismiss_all_for only dismisses notifications in current tenant" do
     # Create two tenants with the same user in both
     tenant1, superagent1, user = create_tenant_superagent_user
     tenant2 = create_tenant(subdomain: "other-tenant", name: "Other Tenant")
@@ -182,19 +182,19 @@ class NotificationServiceTest < ActiveSupport::TestCase
     notification2 = Notification.create!(tenant: tenant2, event: event2, notification_type: "mention", title: "Tenant2 notification")
     recipient2 = NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "pending", tenant: tenant2)
 
-    # Mark all read for tenant1
+    # Dismiss all for tenant1
     Superagent.scope_thread_to_superagent(subdomain: tenant1.subdomain, handle: superagent1.handle)
-    NotificationService.mark_all_read_for(user, tenant: tenant1)
+    NotificationService.dismiss_all_for(user, tenant: tenant1)
 
     recipient1.reload
     recipient2.reload
 
-    # Tenant1 notification should be marked as read
-    assert_equal "read", recipient1.status, "Tenant1 notification should be marked as read"
-    assert recipient1.read_at.present?, "Tenant1 notification should have read_at set"
+    # Tenant1 notification should be dismissed
+    assert_equal "dismissed", recipient1.status, "Tenant1 notification should be dismissed"
+    assert recipient1.dismissed_at.present?, "Tenant1 notification should have dismissed_at set"
 
-    # Tenant2 notification should still be unread
+    # Tenant2 notification should still be pending
     assert_equal "pending", recipient2.status, "Tenant2 notification should still be pending"
-    assert_nil recipient2.read_at, "Tenant2 notification should not have read_at set"
+    assert_nil recipient2.dismissed_at, "Tenant2 notification should not have dismissed_at set"
   end
 end

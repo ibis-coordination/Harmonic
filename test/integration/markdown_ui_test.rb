@@ -2166,7 +2166,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       "Nav bar should display notification count of 0 when no unread notifications")
   end
 
-  test "markdown UI notification count updates after marking notification as read" do
+  test "markdown UI notification count updates after dismissing notification" do
     # Create another user to trigger a notification
     other_user = User.create!(
       name: "Other User",
@@ -2201,13 +2201,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/\| \[1\]\(\/notifications\) \|/, response.body,
       "Nav bar should display unread notification count of 1")
 
-    # Mark the notification as read (unread scope checks read_at: nil)
-    recipient.update!(status: "read", read_at: Time.current)
+    # Dismiss the notification (unread scope checks dismissed_at: nil)
+    recipient.update!(status: "dismissed", dismissed_at: Time.current)
 
     # Check that count is now 0
     get "/", headers: @headers
     assert_match(/\| \[0\]\(\/notifications\) \|/, response.body,
-      "Nav bar should display notification count of 0 after marking as read")
+      "Nav bar should display notification count of 0 after dismissing")
   ensure
     NotificationRecipient.where(notification: notification).delete_all if notification
     notification&.destroy

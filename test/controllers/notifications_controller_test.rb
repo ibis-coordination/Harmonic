@@ -81,45 +81,6 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, json_response["count"]
   end
 
-  # === Mark Read Tests ===
-
-  test "mark_read marks notification as read" do
-    sign_in_as(@user, tenant: @tenant)
-
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
-    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
-    notification = Notification.create!(
-      tenant: @tenant,
-      event: event,
-      notification_type: "mention",
-      title: "Test notification",
-    )
-    recipient = NotificationRecipient.create!(
-      notification: notification,
-      user: @user,
-      channel: "in_app",
-      status: "delivered",
-    )
-    Superagent.clear_thread_scope
-
-    post "/notifications/actions/mark_read", params: { id: recipient.id }
-    assert_response :success
-
-    recipient.reload
-    assert_equal "read", recipient.status
-    assert recipient.read_at.present?
-  end
-
-  test "mark_read returns error for non-existent notification" do
-    sign_in_as(@user, tenant: @tenant)
-
-    post "/notifications/actions/mark_read", params: { id: "nonexistent" }
-    assert_response :not_found
-    json_response = JSON.parse(response.body)
-    assert_equal false, json_response["success"]
-    assert_equal "Notification not found.", json_response["error"]
-  end
-
   # === Dismiss Tests ===
 
   test "dismiss dismisses notification" do
@@ -149,9 +110,9 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert recipient.dismissed_at.present?
   end
 
-  # === Mark All Read Tests ===
+  # === Dismiss All Tests ===
 
-  test "mark_all_read marks all notifications as read" do
+  test "dismiss_all dismisses all notifications" do
     sign_in_as(@user, tenant: @tenant)
 
     Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
@@ -176,13 +137,13 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     )
     Superagent.clear_thread_scope
 
-    post "/notifications/actions/mark_all_read"
+    post "/notifications/actions/dismiss_all"
     assert_response :success
 
     recipient1.reload
     recipient2.reload
-    assert_equal "read", recipient1.status
-    assert_equal "read", recipient2.status
+    assert_equal "dismissed", recipient1.status
+    assert_equal "dismissed", recipient2.status
   end
 
   # === Markdown API Tests ===
@@ -291,7 +252,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, json["count"], "Scheduled future reminder should not count as unread"
   end
 
-  test "mark_all_read does not affect scheduled reminders" do
+  test "dismiss_all does not affect scheduled reminders" do
     sign_in_as(@user, tenant: @tenant)
 
     # Create a scheduled reminder for the future
@@ -301,17 +262,17 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     nr = notification.notification_recipients.first
     Superagent.clear_thread_scope
 
-    # Mark all as read
-    post "/notifications/actions/mark_all_read"
+    # Dismiss all
+    post "/notifications/actions/dismiss_all"
     assert_response :success
 
     # The scheduled reminder should still be in pending state
     nr.reload
     assert_equal "pending", nr.status, "Scheduled reminder should still be pending"
-    assert_nil nr.read_at, "Scheduled reminder should not be marked as read"
+    assert_nil nr.dismissed_at, "Scheduled reminder should not be dismissed"
   end
 
-  test "notifications page does not show mark all read button when only scheduled reminders exist" do
+  test "notifications page does not show dismiss all button when only scheduled reminders exist" do
     sign_in_as(@user, tenant: @tenant)
 
     # Create a scheduled reminder for the future
@@ -325,8 +286,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
 
     # Page title should NOT show unread count in parentheses
     assert_not_includes response.body, "<title>(1) Notifications</title>"
-    # Should NOT show "Mark all read" button
-    assert_not_includes response.body, "Mark all read"
+    # Should NOT show "Dismiss all" button
+    assert_not_includes response.body, "Dismiss all"
     # Should show the scheduled reminder in the scheduled section
     assert_includes response.body, "Scheduled Reminders"
     assert_includes response.body, "Future reminder"

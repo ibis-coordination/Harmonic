@@ -178,7 +178,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
   test "authenticated actions are visible to logged-in users" do
     assert ActionAuthorization.authorized?("search", @user, {})
     assert ActionAuthorization.authorized?("create_studio", @user, {})
-    assert ActionAuthorization.authorized?("mark_read", @user, {})
+    assert ActionAuthorization.authorized?("dismiss", @user, {})
   end
 
   # Test: Studio member actions are permissive for listing, strict for execution

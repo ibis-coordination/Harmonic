@@ -63,9 +63,9 @@
         <% if @unread_count > 0 %>
           <button type="button"
                   class="pulse-action-btn-secondary"
-                  data-action="click->notification-actions#markAllRead"
-                  data-notification-actions-target="markAllReadButton">
-            Mark all read
+                  data-action="click->notification-actions#dismissAll"
+                  data-notification-actions-target="dismissAllButton">
+            Dismiss all
           </button>
         <% end %>
       </div>
@@ -73,11 +73,8 @@
       <div class="pulse-notifications-list">
         <% @notification_recipients.each do |recipient| %>
           <div data-notification-item="<%= recipient.id %>"
-               class="pulse-notification <%= 'pulse-notification-unread' unless recipient.read? %>"
-               style="<%= 'opacity:0.6;' if recipient.read? %>">
-            <% unless recipient.read? %>
-              <div class="pulse-notification-indicator"></div>
-            <% end %>
+               class="pulse-notification pulse-notification-unread">
+            <div class="pulse-notification-indicator"></div>
             <div class="pulse-notification-content">
               <% if recipient.notification.url.present? %>
                 <a href="<%= recipient.notification.url %>" class="pulse-notification-message">
@@ -94,24 +91,13 @@
               <span class="pulse-notification-time"><%= time_ago_in_words(recipient.created_at) %> ago</span>
             </div>
             <div class="pulse-notification-actions">
-              <% unless recipient.read? %>
-                <button type="button"
-                        class="pulse-action-btn-icon"
-                        title="Mark as read"
-                        data-action="click->notification-actions#markRead"
-                        data-notification-id="<%= recipient.id %>">
-                  <%= octicon 'check', height: 14 %>
-                </button>
-              <% end %>
-              <% unless recipient.dismissed? %>
-                <button type="button"
-                        class="pulse-action-btn-icon"
-                        title="Dismiss"
-                        data-action="click->notification-actions#dismiss"
-                        data-notification-id="<%= recipient.id %>">
-                  <%= octicon 'x', height: 14 %>
-                </button>
-              <% end %>
+              <button type="button"
+                      class="pulse-action-btn-icon"
+                      title="Dismiss"
+                      data-action="click->notification-actions#dismiss"
+                      data-notification-id="<%= recipient.id %>">
+                <%= octicon 'x', height: 14 %>
+              </button>
             </div>
           </div>
         <% end %>
