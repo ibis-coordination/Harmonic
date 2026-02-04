@@ -89,6 +89,16 @@ class User < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
+  def internal_subagent?
+    subagent? && agent_configuration&.dig("mode") == "internal"
+  end
+
+  sig { returns(T::Boolean) }
+  def external_subagent?
+    subagent? && !internal_subagent?
+  end
+
+  sig { returns(T::Boolean) }
   def trustee?
     user_type == 'trustee'
   end

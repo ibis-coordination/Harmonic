@@ -19,6 +19,8 @@ class ApiTokensController < ApplicationController
   def new
     # Only person accounts can create API tokens (for themselves or their subagents)
     return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+    # Internal subagents cannot have API tokens
+    return render status: :forbidden, plain: "403 Forbidden - Internal subagents cannot have API tokens" if @showing_user.internal_subagent?
 
     @token = @showing_user.api_tokens.new(user: @showing_user)
     respond_to do |format|
@@ -30,6 +32,8 @@ class ApiTokensController < ApplicationController
   def create
     # Only person accounts can create API tokens (for themselves or their subagents)
     return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+    # Internal subagents cannot have API tokens
+    return render status: :forbidden, plain: "403 Forbidden - Internal subagents cannot have API tokens" if @showing_user.internal_subagent?
 
     @token = @showing_user.api_tokens.new
     @token.name = token_params[:name]
@@ -75,6 +79,14 @@ class ApiTokensController < ApplicationController
                                    action_name: "create_api_token",
                                    resource: @showing_user,
                                    error: "Only person accounts can create API tokens.",
+                                 })
+    end
+    # Internal subagents cannot have API tokens
+    if @showing_user.internal_subagent?
+      return render_action_error({
+                                   action_name: "create_api_token",
+                                   resource: @showing_user,
+                                   error: "Internal subagents cannot have API tokens.",
                                  })
     end
     @token = @showing_user.api_tokens.new

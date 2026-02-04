@@ -15,6 +15,9 @@ module Api::V1
     end
 
     def create
+      # Internal subagents cannot have API tokens
+      return render json: { error: 'Internal subagents cannot have API tokens' }, status: :forbidden if current_user.internal_subagent?
+
       ActiveRecord::Base.transaction do
         token = ApiToken.create!(
           name: params[:name],

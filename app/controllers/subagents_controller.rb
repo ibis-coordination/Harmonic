@@ -1,9 +1,9 @@
 # typed: false
 
 class SubagentsController < ApplicationController
-  layout "pulse", only: [:new, :index, :run_task, :execute_task, :runs, :show_run]
+  layout "pulse", only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :create, :execute_create_subagent]
   before_action :verify_current_user_path, except: [:index, :run_task, :execute_task, :runs, :show_run]
-  before_action :set_sidebar_mode, only: [:new, :index, :run_task, :execute_task, :runs, :show_run]
+  before_action :set_sidebar_mode, only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :create, :execute_create_subagent]
   before_action :require_subagents_enabled, only: [:index, :run_task, :execute_task, :runs, :show_run]
 
   # GET /subagents - List all subagents owned by current user
@@ -134,9 +134,12 @@ class SubagentsController < ApplicationController
     return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create subagents" unless current_user&.person?
 
     @subagent = api_helper.create_subagent
-    api_helper.generate_token(@subagent) if ["true", "1"].include?(params[:generate_token])
-    flash[:notice] = "Subagent #{@subagent.display_name} created successfully."
-    redirect_to "#{@current_user.path}/settings"
+    # Only generate token for external subagents
+    if @subagent.external_subagent? && ["true", "1"].include?(params[:generate_token])
+      @token = api_helper.generate_token(@subagent)
+    end
+    flash.now[:notice] = "Subagent #{@subagent.display_name} created successfully."
+    render :show
   end
 
   def update; end
@@ -167,14 +170,15 @@ class SubagentsController < ApplicationController
                                  })
     end
     @subagent = api_helper.create_subagent
-    @token = api_helper.generate_token(@subagent) if [true, "true", "1"].include?(params[:generate_token])
+    # Only generate token for external subagents
+    if @subagent.external_subagent? && [true, "true", "1"].include?(params[:generate_token])
+      @token = api_helper.generate_token(@subagent)
+    end
 
+    flash.now[:notice] = "Subagent #{@subagent.display_name} created successfully."
     respond_to do |format|
       format.md { render "show" }
-      format.html do
-        flash[:notice] = "Subagent #{@subagent.display_name} created successfully."
-        redirect_to "#{@current_user.path}/settings"
-      end
+      format.html { render "show" }
     end
   end
 

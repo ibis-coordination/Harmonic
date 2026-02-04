@@ -53,9 +53,91 @@
 
       <% if @settings_user.subagent? %>
         <div class="pulse-form-section">
+          <label class="pulse-form-label">Mode</label>
+          <p class="pulse-form-hint" style="margin-bottom: 12px;">Choose how this subagent is powered.</p>
+          <% current_mode = @settings_user.agent_configuration&.dig("mode") || "external" %>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <%= radio_button_tag :mode, "internal", current_mode == "internal" %>
+              <span>
+                <strong>Internal</strong>
+                <span class="pulse-form-hint" style="display: block; margin-top: 2px;">Powered by Harmonic's agent runners. No API access.</span>
+              </span>
+            </label>
+            <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <%= radio_button_tag :mode, "external", current_mode == "external" %>
+              <span>
+                <strong>External</strong>
+                <span class="pulse-form-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Agent skill documents and MCP server are available.</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="pulse-form-section">
           <label class="pulse-form-label" for="identity_prompt">Identity Prompt</label>
           <%= form.text_area :identity_prompt, value: @settings_user.agent_configuration&.dig("identity_prompt"), placeholder: 'You are a helpful assistant...', class: 'pulse-textarea', rows: 4 %>
           <p class="pulse-form-hint">This prompt will be shown to the agent on the /whoami page, providing context about their identity and purpose.</p>
+        </div>
+
+        <div class="pulse-form-section">
+          <label class="pulse-form-label">Capabilities</label>
+          <p class="pulse-form-hint">
+            Check the actions this agent is allowed to perform. Unchecked actions will be blocked.
+          </p>
+
+          <% current_caps = @settings_user.agent_configuration&.dig("capabilities") %>
+          <% caps_not_configured = current_caps.nil? %>
+
+          <%
+            # Group actions by resource type
+            action_groups = {
+              "Always Allowed" => CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED,
+              "Notes" => %w[create_note update_note confirm_read],
+              "Decisions" => %w[create_decision update_decision_settings vote add_options],
+              "Commitments" => %w[create_commitment update_commitment_settings join_commitment],
+              "Comments" => %w[add_comment],
+              "Pins" => %w[pin_note unpin_note pin_decision unpin_decision pin_commitment unpin_commitment],
+              "Attachments" => %w[add_attachment remove_attachment],
+              "Reminders" => %w[create_reminder delete_reminder],
+            }
+            # Groups that are disabled by default for new agents
+            disabled_by_default = %w[Attachments Reminders]
+          %>
+
+          <% action_groups.each do |group_name, actions| %>
+            <% is_always_allowed = group_name == "Always Allowed" %>
+            <div style="margin-top: 16px;" data-controller="<%= 'checkbox-group' unless is_always_allowed %>">
+              <div style="font-weight: 500; font-size: 13px; margin-bottom: 8px; color: <%= is_always_allowed ? 'var(--text-muted)' : 'var(--text-primary)' %>; display: flex; align-items: center; gap: 12px;">
+                <span><%= group_name %></span>
+                <% if is_always_allowed %>
+                  <span style="font-weight: normal; font-size: 12px;">(cannot be disabled)</span>
+                <% else %>
+                  <span style="font-weight: normal; font-size: 12px;">
+                    <a href="#" data-action="checkbox-group#checkAll" class="pulse-link">all</a>
+                    /
+                    <a href="#" data-action="checkbox-group#uncheckAll" class="pulse-link">none</a>
+                  </span>
+                <% end %>
+              </div>
+              <div class="pulse-checkbox-group" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;">
+                <% actions.each do |action| %>
+                  <% if is_always_allowed %>
+                    <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: not-allowed; opacity: 0.6;">
+                      <%= check_box_tag nil, action, true, disabled: true, id: "cap_#{action}" %>
+                      <code style="font-size: 12px;"><%= action %></code>
+                    </label>
+                  <% else %>
+                    <% checked = caps_not_configured ? !disabled_by_default.include?(group_name) : current_caps&.include?(action) %>
+                    <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                      <%= check_box_tag "capabilities[]", action, checked, id: "cap_#{action}", data: { checkbox_group_target: "checkbox" } %>
+                      <code style="font-size: 12px;"><%= action %></code>
+                    </label>
+                  <% end %>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
         </div>
       <% end %>
 
@@ -320,12 +402,16 @@
               <% else %>
                 <p class="pulse-form-hint"><%= subagent.name %> has no API tokens.</p>
               <% end %>
-              <div class="pulse-form-actions" style="margin-top:12px;">
-                <a href="<%= subagent.path %>/settings/tokens/new" class="pulse-action-btn-small">
-                  <%= octicon 'key', height: 12 %>
-                  Create Token
-                </a>
-              </div>
+              <% if subagent.external_subagent? %>
+                <div class="pulse-form-actions" style="margin-top:12px;">
+                  <a href="<%= subagent.path %>/settings/tokens/new" class="pulse-action-btn-small">
+                    <%= octicon 'key', height: 12 %>
+                    Create Token
+                  </a>
+                </div>
+              <% else %>
+                <p class="pulse-form-hint" style="margin-top:12px; font-style: italic;">Internal subagents cannot have API tokens.</p>
+              <% end %>
             </div>
           <% end %>
         <% end %>

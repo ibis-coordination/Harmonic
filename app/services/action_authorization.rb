@@ -104,7 +104,13 @@ module ActionAuthorization
     auth = action[:authorization]
     return false if auth.nil? # No auth specified = denied (fail closed)
 
-    check_authorization(auth, user, context)
+    # Check base authorization first
+    return false unless check_authorization(auth, user, context)
+
+    # Then check capability restrictions for subagents
+    return false unless CapabilityCheck.allowed?(user, action_name)
+
+    true
   end
 
   # Check authorization against a specific authorization rule.

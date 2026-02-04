@@ -123,7 +123,7 @@
                   Current usage:
                   <%= @current_superagent.file_storage_usage_in_human_size %> of <%= @current_superagent.file_storage_limit_in_human_size %>
                   <% if ENV['SAAS_MODE'] == 'true' %>
-                    <%= button_to 'Purchase more space', '/billing', method: :get, class: 'pulse-action-btn-small' %>
+                    <%= link_to 'Purchase more space', '/billing', class: 'pulse-action-btn-small' %>
                   <% else %>
                     <br/>
                     Increase limit: <%= form.number_field :file_storage_limit, value: @current_superagent.file_storage_limit / 1.megabyte, class: 'pulse-form-input pulse-form-input-small' %> MB

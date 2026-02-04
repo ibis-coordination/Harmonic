@@ -11,6 +11,11 @@ class ApplicationController < ActionController::Base
   before_action :check_session_timeout
   before_action :check_user_suspension
 
+  # Include ActionCapabilityCheck AFTER before_action declarations so that
+  # append_before_action puts check_capability_for_action at the END of the chain,
+  # after current_user is set
+  include ActionCapabilityCheck
+
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
   def check_auth_subdomain

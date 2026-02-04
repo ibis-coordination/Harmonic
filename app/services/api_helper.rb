@@ -321,7 +321,7 @@ class ApiHelper
     @params = params.merge(titles: [title])
     options = create_decision_options
     @params = original_params
-    options.first
+    T.must(options.first)
   end
 
   sig { returns(T::Array[Option]) }
@@ -470,6 +470,20 @@ class ApiHelper
     ActiveRecord::Base.transaction do
       agent_config = {}
       agent_config["identity_prompt"] = params[:identity_prompt] if params[:identity_prompt].present?
+
+      # Handle mode - internal (Harmonic-powered) or external (API key required)
+      mode = params[:mode]
+      agent_config["mode"] = %w[internal external].include?(mode) ? mode : "external"
+
+      # Handle capabilities - filter to only valid grantable actions
+      capabilities = params[:capabilities]
+      if capabilities.is_a?(Array) && capabilities.any?
+        valid_caps = capabilities & CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS
+        agent_config["capabilities"] = valid_caps
+      else
+        # All boxes unchecked or no capabilities param = empty array (nothing allowed except defaults)
+        agent_config["capabilities"] = []
+      end
 
       user = User.create!(
         name: params[:name],

@@ -1313,12 +1313,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to create a subagent - should be blocked
+    # Try to create a subagent - should be blocked by capability check
     post "/u/#{subagent.handle}/settings/subagents/new/actions/create_subagent",
       params: { name: "Nested Subagent" }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status  # render_action_error returns 200
-    assert_match(/Only person accounts can create subagents/, response.body)
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*create_subagent/, response.body)
   ensure
     token&.destroy
     TenantUser.where(user: subagent).delete_all if subagent
@@ -1382,12 +1382,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to create an API token for themselves - should be blocked
+    # Try to create an API token for themselves - should be blocked by capability check
     post "/u/#{subagent.handle}/settings/tokens/new/actions/create_api_token",
       params: { name: "Self Token" }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status  # render_action_error returns 200
-    assert_match(/Only person accounts can create API tokens/, response.body)
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*create_api_token/, response.body)
   ensure
     token&.destroy
     TenantUser.where(user: subagent).delete_all if subagent
@@ -1484,12 +1484,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to add another subagent to studio - should be blocked
+    # Try to add another subagent to studio - should be blocked by capability check
     post "/studios/#{@superagent.handle}/settings/actions/add_subagent_to_studio",
       params: { subagent_id: other_subagent.id }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status
-    assert_match(/Only person accounts can manage subagents/, response.body)
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*add_subagent_to_studio/, response.body)
   ensure
     token&.destroy
     SuperagentMember.where(user: [acting_subagent, other_subagent]).delete_all
@@ -1530,12 +1530,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to remove another subagent from studio - should be blocked
+    # Try to remove another subagent from studio - should be blocked by capability check
     post "/studios/#{@superagent.handle}/settings/actions/remove_subagent_from_studio",
       params: { subagent_id: other_subagent.id }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status
-    assert_match(/Only person accounts can manage subagents/, response.body)
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*remove_subagent_from_studio/, response.body)
   ensure
     token&.destroy
     SuperagentMember.where(user: [acting_subagent, other_subagent]).delete_all
@@ -1710,7 +1710,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # === Admin Panel Security: Subagent Production Write Restrictions ===
 
-  test "Subagent admin can perform write operations in development/test environment" do
+  test "Subagent admin cannot perform write operations even in development/test environment" do
     # Make parent user an admin
     parent_tu = @tenant.tenant_users.find_by(user: @user)
     parent_tu.add_role!('admin')
@@ -1738,23 +1738,17 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    original_name = @tenant.name
-
-    # In test environment, should be able to perform write operations
+    # Subagent admins cannot perform admin write operations - blocked by capability check
     post "/tenant-admin/settings/actions/update_tenant_settings",
       params: { name: "Subagent Updated Name" }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status
-    assert is_markdown?
-
-    @tenant.reload
-    assert_equal "Subagent Updated Name", @tenant.name, "Subagent should be able to update in test env"
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*update_tenant_settings/, response.body)
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
     TenantUser.where(user: subagent).delete_all if subagent
     subagent&.destroy
-    @tenant.update!(name: original_name) if @tenant
   end
 
   test "Subagent admin cannot perform write operations in production environment" do
@@ -1785,18 +1779,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Simulate production environment
-    Thread.current[:simulate_production] = true
-    begin
-      # Should NOT be able to perform write operations in production
-      post "/tenant-admin/settings/actions/update_tenant_settings",
-        params: { name: "Should Not Update" }.to_json,
-        headers: subagent_headers
-      assert_equal 403, response.status
-      assert_match(/Subagents cannot perform admin write operations in production/, response.body)
-    ensure
-      Thread.current[:simulate_production] = nil
-    end
+    # Subagents cannot perform admin write operations - blocked by capability check
+    # (The production restriction is now redundant since capability check blocks first)
+    post "/tenant-admin/settings/actions/update_tenant_settings",
+      params: { name: "Should Not Update" }.to_json,
+      headers: subagent_headers
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*update_tenant_settings/, response.body)
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy

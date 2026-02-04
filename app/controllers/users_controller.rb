@@ -172,6 +172,30 @@ class UsersController < ApplicationController
       settings_user.agent_configuration["identity_prompt"] = params[:identity_prompt].presence
       settings_user.save!
     end
+    # Handle mode for subagents (internal vs external)
+    if settings_user.subagent? && params.key?(:mode)
+      settings_user.agent_configuration ||= {}
+      mode = params[:mode]
+      settings_user.agent_configuration["mode"] = %w[internal external].include?(mode) ? mode : "external"
+      settings_user.save!
+    end
+    # Handle capabilities for subagents
+    # Checked = allowed, unchecked = blocked (standard checkbox model)
+    # Empty array (all unchecked) = NO grantable actions allowed
+    # nil (key absent) = all grantable actions allowed (backwards compatible default)
+    if settings_user.subagent?
+      settings_user.agent_configuration ||= {}
+      capabilities = params[:capabilities]
+      if capabilities.is_a?(Array) && capabilities.any?
+        # Filter to only valid grantable actions
+        valid_caps = capabilities & CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS
+        settings_user.agent_configuration["capabilities"] = valid_caps
+      else
+        # All boxes unchecked = save empty array (nothing allowed)
+        settings_user.agent_configuration["capabilities"] = []
+      end
+      settings_user.save!
+    end
     flash[:notice] = 'Profile updated successfully'
     redirect_to "#{settings_user.path}/settings"
   end
