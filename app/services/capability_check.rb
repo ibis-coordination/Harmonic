@@ -23,6 +23,7 @@ module CapabilityCheck
     "dismiss",
     "mark_all_read",
     "search",
+    "update_scratchpad",
   ].freeze
 
   # Actions that subagents can never perform

@@ -83,6 +83,19 @@ services:
     networks:
       - backend
 
+  # Autoheal - automatically restarts unhealthy containers
+  # Monitors container health checks and restarts containers that become unhealthy
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: all
+      AUTOHEAL_INTERVAL: 30
+      AUTOHEAL_START_PERIOD: 60
+      AUTOHEAL_DEFAULT_STOP_TIMEOUT: 10
+
   # Email catcher for development (view emails at http://localhost:1080)
   mailcatcher:
     image: sj26/mailcatcher

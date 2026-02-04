@@ -304,6 +304,14 @@ class ActionsHelper
       ],
       authorization: [:self, :representative],
     },
+    "update_scratchpad" => {
+      description: "Update your scratchpad with notes for your future self",
+      params_string: "(content)",
+      params: [
+        { name: "content", type: "string", description: "The new scratchpad content (max 10000 chars). Replaces existing content." },
+      ],
+      authorization: :self_subagent,
+    },
     "create_api_token" => {
       description: "Create a new API token",
       params_string: "(name, read_write, duration, duration_unit)",
@@ -482,6 +490,12 @@ class ActionsHelper
     "/" => {
       controller_actions: ["home#index"],
       actions: [],
+    },
+    "/whoami" => {
+      controller_actions: ["whoami#index"],
+      actions: [
+        { name: "update_scratchpad", params_string: ACTION_DEFINITIONS["update_scratchpad"][:params_string], description: ACTION_DEFINITIONS["update_scratchpad"][:description] },
+      ],
     },
     "/studios" => {
       controller_actions: ["studios#index"],

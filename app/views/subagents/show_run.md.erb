@@ -99,6 +99,26 @@ LLM reasoning (step <%= detail[:step_number].to_i + 1 %>)
 </details>
 <% end -%>
 
+<% when "scratchpad_update" -%>
+Scratchpad updated
+<% if detail[:content].present? -%>
+
+<details>
+<summary>View scratchpad content</summary>
+
+```
+<%= detail[:content] %>
+```
+
+</details>
+<% end -%>
+
+<% when "scratchpad_update_failed" -%>
+Scratchpad update failed: <%= detail[:error] %>
+
+<% when "security_warning" -%>
+**Security Warning:** <%= detail[:type] %> - <%= detail[:reasons]&.join(", ") %>
+
 <% end -%>
 <% end -%>
 ---

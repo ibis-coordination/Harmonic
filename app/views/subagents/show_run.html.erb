@@ -14,7 +14,7 @@
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
-        <%= octicon 'diamond', height: 14, class: 'pulse-resource-icon' %>
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
         Task Run
       </span>
       <div style="margin-left: auto; display: flex; gap: 12px;">
@@ -40,6 +40,9 @@
         <%= @task_run.status.titleize %>
       <% end %>
     </h1>
+    <p class="pulse-muted" style="margin-top: 8px; font-size: 14px;">
+      <%= @task_run.created_at.strftime("%B %-d, %Y at %-I:%M %p UTC") %>
+    </p>
   </header>
 
   <div class="pulse-resource-body">
@@ -163,6 +166,12 @@
                 <%= octicon 'check', height: 14 %>
               <% when "error" %>
                 <%= octicon 'alert', height: 14 %>
+              <% when "scratchpad_update" %>
+                <%= octicon 'note', height: 14 %>
+              <% when "scratchpad_update_failed" %>
+                <%= octicon 'alert', height: 14 %>
+              <% when "security_warning" %>
+                <%= octicon 'shield', height: 14 %>
               <% else %>
                 <%= octicon 'dot', height: 14 %>
               <% end %>
@@ -263,6 +272,40 @@
                     <pre style="font-size: 12px; overflow-x: auto; margin: 0; color: var(--color-danger-fg);"><%= detail[:backtrace].join("\n") %></pre>
                   </div>
                 </details>
+              <% end %>
+
+            <% when "scratchpad_update" %>
+              <div class="pulse-feed-item-content" style="color: var(--color-success-fg);">
+                <%= octicon 'note', height: 14 %> Scratchpad updated
+              </div>
+              <% if detail[:content].present? %>
+                <details class="pulse-accordion" style="margin-top: 12px;">
+                  <summary class="pulse-accordion-header">
+                    <span class="pulse-accordion-title">View scratchpad content</span>
+                    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                  </summary>
+                  <div class="pulse-accordion-content">
+                    <pre style="font-size: 12px; white-space: pre-wrap; margin: 0;"><%= detail[:content] %></pre>
+                  </div>
+                </details>
+              <% end %>
+
+            <% when "scratchpad_update_failed" %>
+              <div class="pulse-feed-item-content" style="color: var(--color-attention-fg);">
+                <%= octicon 'alert', height: 14 %> Scratchpad update failed
+              </div>
+              <p class="pulse-muted" style="margin: 8px 0 0 0;">
+                <%= detail[:error] %>
+              </p>
+
+            <% when "security_warning" %>
+              <div class="pulse-feed-item-content" style="color: var(--color-attention-fg);">
+                <%= octicon 'shield', height: 14 %> Security Warning: <%= detail[:type] %>
+              </div>
+              <% if detail[:reasons]&.any? %>
+                <p class="pulse-muted" style="margin: 8px 0 0 0;">
+                  Reasons: <%= detail[:reasons].join(", ") %>
+                </p>
               <% end %>
             <% end %>
           </div>

@@ -71,7 +71,7 @@
         <div class="pulse-home-list-item">
           <a href="/app-admin/users/<%= user.id %>" class="pulse-home-list-link">
             <div class="pulse-default-icon pulse-home-list-icon">
-              <%= octicon user.subagent? ? 'diamond' : 'person', height: 14 %>
+              <%= octicon user.subagent? ? 'command-palette' : 'person', height: 14 %>
             </div>
             <span class="pulse-home-list-name"><%= user.display_name || user.name %></span>
             <code class="pulse-code"><%= user.email %></code>

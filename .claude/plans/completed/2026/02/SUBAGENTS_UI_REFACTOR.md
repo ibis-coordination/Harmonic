@@ -140,7 +140,7 @@ Add "Subagents" link to the user dropdown menu.
 Add between Settings and Admin links (around line 46):
 ```erb
 <li>
-  <%= octicon 'diamond' %>
+  <%= octicon 'command-palette' %>
   <a href="/subagents">Subagents</a>
 </li>
 ```

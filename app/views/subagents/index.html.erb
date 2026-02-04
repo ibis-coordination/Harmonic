@@ -7,7 +7,7 @@
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
-        <%= octicon 'diamond', height: 14, class: 'pulse-resource-icon' %>
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
         Subagents
       </span>
       <a href="<%= @current_user.path %>/settings/subagents/new" class="pulse-feed-action-link" style="margin-left: auto;">
@@ -43,6 +43,26 @@
                   <% end %>
                 </div>
                 <span class="pulse-subagent-meta">Created <%= timeago(subagent.created_at) %></span>
+                <% latest_run = @latest_runs_by_subagent[subagent.id] %>
+                <% if latest_run %>
+                  <div class="pulse-subagent-latest-run" style="margin-top: 4px;">
+                    <a href="<%= subagent_run_path(subagent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id }&.handle, latest_run.id) %>" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; text-decoration: none;">
+                      <span class="pulse-muted">Last run <%= timeago(latest_run.created_at) %></span>
+                      <span class="pulse-badge <%= latest_run.status_badge_class %>" style="font-size: 10px;">
+                        <% case latest_run.status %>
+                        <% when "completed" %>
+                          <%= latest_run.success ? 'Success' : 'Failed' %>
+                        <% when "running" %>
+                          Running
+                        <% when "queued" %>
+                          Queued
+                        <% else %>
+                          <%= latest_run.status.titleize %>
+                        <% end %>
+                      </span>
+                    </a>
+                  </div>
+                <% end %>
               </div>
               <div class="pulse-subagent-actions">
                 <% unless subagent.archived? %>
@@ -74,7 +94,7 @@
       </div>
     <% else %>
       <div class="pulse-empty-state" style="text-align: center; padding: 48px 24px;">
-        <%= octicon 'diamond', height: 48, class: 'pulse-muted' %>
+        <%= octicon 'command-palette', height: 48, class: 'pulse-muted' %>
         <h3 style="margin: 16px 0 8px 0;">No Subagents Yet</h3>
         <p class="pulse-muted" style="margin-bottom: 16px;">Create a subagent to start running automated tasks.</p>
         <a href="<%= @current_user.path %>/settings/subagents/new" class="pulse-action-btn">

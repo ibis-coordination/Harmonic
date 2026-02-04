@@ -11,10 +11,24 @@ class SubagentsController < ApplicationController
     return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can view subagents" unless current_user&.person?
 
     @page_title = "My Subagents"
-    @subagents = current_user.subagents
+    subagents = current_user.subagents
       .joins(:tenant_users)
       .where(tenant_users: { tenant_id: current_tenant.id })
       .includes(:tenant_users, :superagent_members)
+
+    # Load latest run for each subagent
+    subagent_ids = subagents.map(&:id)
+    latest_runs = SubagentTaskRun
+      .where(subagent_id: subagent_ids)
+      .select("DISTINCT ON (subagent_id) *")
+      .order("subagent_id, created_at DESC")
+    @latest_runs_by_subagent = latest_runs.index_by(&:subagent_id)
+
+    # Sort subagents by most recent run first, then by created_at for those without runs
+    @subagents = subagents.sort_by do |s|
+      run = @latest_runs_by_subagent[s.id]
+      run ? -run.created_at.to_i : -s.created_at.to_i
+    end
   end
 
   # GET /subagents/:id/run - Show task form for specific subagent

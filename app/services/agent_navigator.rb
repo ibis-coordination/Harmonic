@@ -110,36 +110,44 @@ class AgentNavigator
         execute_action(action[:action], action[:params] || {})
       when "done"
         add_step("done", { message: action[:message] })
+        final_msg = action[:message] || "Task completed"
+        prompt_for_scratchpad_update(task: task, outcome: "completed", final_message: final_msg)
         return Result.new(
           success: true,
           steps: @steps,
-          final_message: action[:message] || "Task completed",
+          final_message: final_msg,
           error: nil
         )
       when "error"
         add_step("error", { message: action[:message] })
+        final_msg = action[:message] || "Agent encountered an error"
+        prompt_for_scratchpad_update(task: task, outcome: "error", final_message: final_msg)
         return Result.new(
           success: false,
           steps: @steps,
-          final_message: action[:message] || "Agent encountered an error",
+          final_message: final_msg,
           error: action[:message]
         )
       end
     end
 
     # Hit max steps
+    final_msg = "Reached maximum steps (#{max_steps}) without completing task"
+    prompt_for_scratchpad_update(task: task, outcome: "incomplete - max steps reached", final_message: final_msg)
     Result.new(
       success: false,
       steps: @steps,
-      final_message: "Reached maximum steps (#{max_steps}) without completing task",
+      final_message: final_msg,
       error: "max_steps_exceeded"
     )
   rescue StandardError => e
     add_step("error", { message: e.message, backtrace: e.backtrace&.first(5) })
+    final_msg = "Agent encountered an error: #{e.message}"
+    prompt_for_scratchpad_update(task: task, outcome: "exception", final_message: final_msg)
     Result.new(
       success: false,
       steps: @steps,
-      final_message: "Agent encountered an error: #{e.message}",
+      final_message: final_msg,
       error: e.message
     )
   end
@@ -232,6 +240,57 @@ class AgentNavigator
     end
   rescue JSON::ParserError
     { type: "error", message: "Invalid JSON in LLM response" }
+  end
+
+  sig { params(task: String, outcome: String, final_message: String).void }
+  def prompt_for_scratchpad_update(task:, outcome:, final_message:)
+    scratchpad_prompt = <<~PROMPT
+      ## Task Complete
+
+      **Task**: #{task}
+      **Outcome**: #{outcome}
+      **Summary**: #{final_message}
+      **Steps taken**: #{@steps.count}
+
+      Please update your scratchpad with any context that would help your future self.
+      This might include:
+      - Key learnings from this task
+      - Important context discovered
+      - Work in progress or follow-ups needed
+      - User preferences observed
+
+      Respond with JSON:
+      ```json
+      {"scratchpad": "your updated scratchpad content"}
+      ```
+
+      If you have nothing to add, respond with:
+      ```json
+      {"scratchpad": null}
+      ```
+    PROMPT
+
+    @messages << { role: "user", content: scratchpad_prompt }
+    result = @llm.chat(messages: @messages, system_prompt: system_prompt)
+
+    # Parse and save scratchpad update
+    begin
+      json_match = result.content.match(/```json\s*(.*?)\s*```/m) || result.content.match(/\{.*\}/m)
+      if json_match
+        json_str = json_match[1] || json_match[0]
+        parsed = JSON.parse(json_str.to_s)
+        if parsed["scratchpad"].present?
+          content = parsed["scratchpad"].to_s[0, 10_000] # Enforce max length
+          @user.agent_configuration ||= {}
+          @user.agent_configuration["scratchpad"] = content
+          @user.save!
+          add_step("scratchpad_update", { content: content })
+        end
+      end
+    rescue JSON::ParserError, StandardError => e
+      # Log but don't fail the task for scratchpad errors
+      add_step("scratchpad_update_failed", { error: e.message })
+    end
   end
 
   sig { params(type: String, detail: T::Hash[Symbol, T.untyped]).void }

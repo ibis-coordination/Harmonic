@@ -73,6 +73,15 @@ module ActionAuthorization
 
       target_user.id == user.id
     },
+    self_subagent: lambda { |user, context|
+      return false unless user&.subagent?
+
+      target_user = context[:target_user]
+      # No target_user context = permissive for listing (shows action to subagents)
+      return true unless target_user
+
+      target_user.id == user.id
+    },
     representative: lambda { |user, context|
       return false unless user
 

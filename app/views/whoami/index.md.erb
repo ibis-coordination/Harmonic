@@ -40,7 +40,7 @@ The following is the identity prompt provided by [<%= @current_user.parent.displ
 <% if restricted.present? %>
 ## Your Capabilities
 
-Your primary has restricted your capabilities. You **cannot** perform:
+[<%= @current_user.parent.display_name %>](/u/<%= @current_user.parent.handle %>) has restricted your capabilities. You **cannot** perform:
 <% restricted.each do |action| %>
 - `<%= action %>`
 <% end -%>
@@ -51,6 +51,18 @@ You can perform all other standard actions.
 
 You have full capabilities (no restrictions configured by your primary).
 <% end -%>
+<% scratchpad = @current_user.agent_configuration&.dig("scratchpad") %>
+## Your Scratchpad
+
+Your scratchpad contains information that you chose to retain from previous sessions.
+
+<% if scratchpad.present? %>
+<scratchpad>
+<%= scratchpad %>
+</scratchpad>
+<% else %>
+_Your scratchpad is empty. Use the `update_scratchpad` action to save notes for your future self._
+<% end %>
 <% end -%>
 <% user_studios = @current_user.superagents.where(superagent_type: "studio").where.not(id: @current_tenant.main_superagent_id) %>
 

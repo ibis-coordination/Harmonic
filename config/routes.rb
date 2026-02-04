@@ -124,6 +124,9 @@ Rails.application.routes.draw do
   get 'learn/memory' => 'learn#memory'
 
   get 'whoami' => 'whoami#index'
+  get 'whoami/actions' => 'whoami#actions_index'
+  get 'whoami/actions/update_scratchpad' => 'whoami#describe_update_scratchpad'
+  post 'whoami/actions/update_scratchpad' => 'whoami#execute_update_scratchpad'
   get 'motto' => 'motto#index'
 
   # Global search (tenant-level, searches across all accessible studios/scenes)
