@@ -55,7 +55,31 @@ class MarkdownUiService
     @user = user
     @current_path = T.let(nil, T.nilable(String))
     @token = T.let(nil, T.nilable(ApiToken))
+    @plaintext_token = T.let(nil, T.nilable(String))
     @session = T.let(nil, T.nilable(ActionDispatch::Integration::Session))
+  end
+
+  # Execute a block with an ephemeral internal token.
+  # The token is created at the start of the block and destroyed when the block completes.
+  # This ensures tokens only exist during active task execution.
+  #
+  # @yield The block to execute with the internal token available
+  # @return The return value of the block
+  sig do
+    type_parameters(:T)
+      .params(blk: T.proc.returns(T.type_parameter(:T)))
+      .returns(T.type_parameter(:T))
+  end
+  def with_internal_token(&blk)
+    raise ArgumentError, "User required for internal token" unless @user
+
+    @token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    @plaintext_token = @token.plaintext_token
+    yield
+  ensure
+    @token&.destroy
+    @token = nil
+    @plaintext_token = nil
   end
 
   # Navigate to a path and render the markdown view.
@@ -182,16 +206,16 @@ class MarkdownUiService
     T.must(@session)
   end
 
-  # Get or create an internal API token for authentication
+  # Create an internal API token for authentication if one doesn't exist.
+  # Prefers ephemeral token from with_internal_token block.
   sig { void }
   def ensure_token!
+    return if @plaintext_token.present?
     return if @token
     return unless @user
 
-    @token = ApiToken.find_or_create_internal_token(
-      user: @user,
-      tenant: @tenant
-    )
+    @token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    @plaintext_token = @token.plaintext_token
   end
 
   # Build request headers with Accept: text/markdown and Bearer auth
@@ -202,9 +226,8 @@ class MarkdownUiService
       "Content-Type" => "application/json",
     }
 
-    if @token
-      # Use decrypted_token to recover the plaintext from encrypted storage
-      headers["Authorization"] = "Bearer #{@token.decrypted_token}"
+    if @plaintext_token.present?
+      headers["Authorization"] = "Bearer #{@plaintext_token}"
     end
 
     headers

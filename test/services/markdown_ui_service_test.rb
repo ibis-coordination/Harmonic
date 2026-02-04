@@ -158,7 +158,6 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
     token = ApiToken.internal.find_by(user: @user, tenant: @tenant)
     assert_not_nil token, "Internal token should have been created"
     assert token.internal?
-    assert token.decrypted_token.present?
   end
 
   test "internal token is reused on subsequent requests" do

@@ -260,4 +260,49 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     assert @api_token.last_used_at > initial_last_used if initial_last_used.present?
     assert @api_token.last_used_at.present?
   end
+
+  # === Web UI Token Creation Security Tests ===
+  # The web UI controller (ApiTokensController) has separate routes for token creation
+  # that don't go through the V1 API. These tests ensure internal tokens can't be
+  # created through those routes either.
+
+  test "web UI form create ignores internal param" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Even if someone tries to inject internal: true via form params, it should be ignored
+    token_params = {
+      api_token: {
+        name: "Attempted Internal Token",
+        read_write: "read",
+        internal: true,  # This should be ignored by strong params
+      }
+    }
+
+    assert_difference "ApiToken.count", 1 do
+      post "/u/#{@user.handle}/settings/tokens", params: token_params
+    end
+
+    # Find the newly created token
+    created_token = ApiToken.order(created_at: :desc).first
+    assert_not created_token.internal?, "Token should be external even though internal: true was passed"
+  end
+
+  test "markdown action create ignores internal param" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # The markdown action endpoint also creates tokens
+    action_params = {
+      name: "Attempted Internal Token via Action",
+      read_write: "read",
+      internal: true,  # This should be ignored
+    }
+
+    assert_difference "ApiToken.count", 1 do
+      post "/u/#{@user.handle}/settings/tokens/new/actions/create_api_token", params: action_params
+    end
+
+    # Find the newly created token
+    created_token = ApiToken.order(created_at: :desc).first
+    assert_not created_token.internal?, "Token should be external even though internal: true was passed"
+  end
 end

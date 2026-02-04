@@ -70,11 +70,23 @@ class AgentNavigator
 
   # Run the agent to complete a task.
   #
+  # Uses an ephemeral internal API token that is created at the start
+  # and destroyed when the run completes, ensuring minimal attack window.
+  #
   # @param task [String] Description of what the agent should do
   # @param max_steps [Integer] Maximum number of actions before stopping
   # @return [Result] The result including all steps taken
   sig { params(task: String, max_steps: Integer).returns(Result) }
   def run(task:, max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS)
+    @service.with_internal_token do
+      run_with_token(task: task, max_steps: max_steps)
+    end
+  end
+
+  private
+
+  sig { params(task: String, max_steps: Integer).returns(Result) }
+  def run_with_token(task:, max_steps:)
     @steps = []
     @messages = []
 
@@ -131,8 +143,6 @@ class AgentNavigator
       error: e.message
     )
   end
-
-  private
 
   sig { params(path: String).void }
   def navigate_to(path)

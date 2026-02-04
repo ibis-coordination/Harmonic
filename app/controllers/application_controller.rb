@@ -94,7 +94,9 @@ class ApplicationController < ActionController::Base
   end
 
   def api_authorize!
-    unless current_superagent.api_enabled? && current_tenant.api_enabled?
+    # Internal tokens bypass API enabled checks - they are system-managed
+    # and used for internal operations like agent runners
+    unless current_token&.internal? || (current_superagent.api_enabled? && current_tenant.api_enabled?)
       superagent_or_tenant = current_tenant.api_enabled? ? 'studio' : 'tenant'
       return render json: { error: "API not enabled for this #{superagent_or_tenant}" }, status: 403
     end

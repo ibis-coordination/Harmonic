@@ -20,6 +20,10 @@ class ApiToken < ApplicationRecord
   # Plaintext token is only available immediately after creation
   attr_accessor :plaintext_token
 
+  # Internal flag for allowing internal token creation - must be set via create_internal_token
+  # This prevents external API requests from setting internal: true
+  attr_accessor :allow_internal_token
+
   # Clear plaintext_token on reload since it cannot be recovered from the database
   def reload(*args)
     self.plaintext_token = nil
@@ -29,7 +33,7 @@ class ApiToken < ApplicationRecord
   validates :token_hash, presence: true, uniqueness: true
   validates :scopes, presence: true
   validate :validate_scopes
-  validate :external_tokens_cannot_have_encrypted_token
+  validate :internal_tokens_require_allow_flag
 
   before_validation :generate_token_hash
 
@@ -155,39 +159,26 @@ class ApiToken < ApplicationRecord
     internal == true
   end
 
-  # Decrypt and return the plaintext token (only works for internal tokens)
-  sig { returns(T.nilable(String)) }
-  def decrypted_token
-    return nil unless internal? && internal_encrypted_token.present?
-
-    token_encryptor.decrypt_and_verify(internal_encrypted_token)
-  rescue ActiveSupport::MessageVerifier::InvalidSignature, ActiveSupport::MessageEncryptor::InvalidMessage
-    nil
-  end
-
-  # Find or create an internal token for a user within a tenant
-  sig { params(user: User, tenant: Tenant).returns(ApiToken) }
-  def self.find_or_create_internal_token(user:, tenant:)
-    existing = internal.find_by(user: user, tenant: tenant, deleted_at: nil)
-    return existing if existing
-
-    # Generate a new token
+  # Create a new ephemeral internal token for a task run.
+  # Token should be deleted when the run completes.
+  # The plaintext is available via token.plaintext_token immediately after creation.
+  #
+  # @param user [User] The user to create the token for
+  # @param tenant [Tenant] The tenant context
+  # @param expires_in [ActiveSupport::Duration] How long until the token expires (default: 1 hour)
+  # @return [ApiToken] The created token with plaintext_token available
+  sig { params(user: User, tenant: Tenant, expires_in: ActiveSupport::Duration).returns(ApiToken) }
+  def self.create_internal_token(user:, tenant:, expires_in: 1.hour)
     token = new(
       user: user,
       tenant: tenant,
       internal: true,
       scopes: valid_scopes,
       name: "Internal Agent Token",
-      expires_at: 100.years.from_now,
+      expires_at: Time.current + expires_in,
     )
-
-    # Generate the plaintext and hash it (triggers before_validation)
-    token.valid?
-
-    # Store the encrypted plaintext for internal recovery
-    # Use send to access private method from class method context
-    token.internal_encrypted_token = token.send(:encrypt_plaintext_token)
-
+    # Set the allow flag to bypass the validation - only this method can create internal tokens
+    token.allow_internal_token = true
     token.save!
     token
   end
@@ -285,25 +276,15 @@ class ApiToken < ApplicationRecord
     end
   end
 
+  # Prevent external API requests from creating internal tokens by requiring
+  # the allow_internal_token flag which can only be set via create_internal_token
+  # Only validates on create - existing internal tokens in the DB are allowed to be updated
   sig { void }
-  def external_tokens_cannot_have_encrypted_token
-    if !internal? && internal_encrypted_token.present?
-      errors.add(:internal_encrypted_token, "must be null for external tokens")
+  def internal_tokens_require_allow_flag
+    return unless new_record? # Only check on create, not update
+
+    if internal? && !allow_internal_token
+      errors.add(:internal, "cannot be set to true via external API")
     end
-  end
-
-  # Encrypt the plaintext token for internal storage
-  sig { returns(T.nilable(String)) }
-  def encrypt_plaintext_token
-    return nil unless plaintext_token.present?
-
-    token_encryptor.encrypt_and_sign(plaintext_token)
-  end
-
-  sig { returns(ActiveSupport::MessageEncryptor) }
-  def token_encryptor
-    key = Rails.application.secret_key_base
-    derived_key = ActiveSupport::KeyGenerator.new(key).generate_key("internal_api_token", 32)
-    ActiveSupport::MessageEncryptor.new(derived_key)
   end
 end
