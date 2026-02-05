@@ -538,4 +538,168 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "create_reminder"
     assert_includes response.body, "delete_reminder"
   end
+
+  # === Dismiss For Studio Tests ===
+
+  test "dismiss_for_studio dismisses notifications for specific studio" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+
+    # Create a second studio
+    superagent2 = Superagent.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+
+    # Create notifications in first studio
+    event1 = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
+    recipient1 = NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
+
+    # Create notifications in second studio
+    event2 = Event.create!(tenant: @tenant, superagent: superagent2, event_type: "test.created")
+    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
+    recipient2 = NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
+
+    Superagent.clear_thread_scope
+
+    # Dismiss only first studio's notifications
+    post "/notifications/actions/dismiss_for_studio", params: { studio_id: @superagent.id }
+    assert_response :success
+
+    recipient1.reload
+    recipient2.reload
+
+    # First studio notification should be dismissed
+    assert_equal "dismissed", recipient1.status
+    assert recipient1.dismissed_at.present?
+
+    # Second studio notification should still be pending
+    assert_equal "pending", recipient2.status
+    assert_nil recipient2.dismissed_at
+  end
+
+  test "dismiss_for_studio with reminders dismisses due reminders only" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Tenant.current_id = @tenant.id
+
+    # Create a due reminder (notification without event)
+    reminder_notification = Notification.create!(tenant: @tenant, event: nil, notification_type: "reminder", title: "Due reminder")
+    reminder_recipient = NotificationRecipient.create!(notification: reminder_notification, user: @user, channel: "in_app", status: "pending")
+
+    # Create a normal notification with an event
+    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    normal_notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "Normal notification")
+    normal_recipient = NotificationRecipient.create!(notification: normal_notification, user: @user, channel: "in_app", status: "pending")
+
+    Superagent.clear_thread_scope
+
+    # Dismiss reminders using "reminders" as studio_id
+    post "/notifications/actions/dismiss_for_studio", params: { studio_id: "reminders" }
+    assert_response :success
+
+    reminder_recipient.reload
+    normal_recipient.reload
+
+    # Reminder should be dismissed
+    assert_equal "dismissed", reminder_recipient.status
+
+    # Normal notification should still be pending
+    assert_equal "pending", normal_recipient.status
+  end
+
+  test "dismiss_for_studio returns error for invalid studio" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/dismiss_for_studio", params: { studio_id: 99999 }
+    assert_response :not_found
+
+    json_response = JSON.parse(response.body)
+    assert_equal false, json_response["success"]
+    assert_equal "Studio not found.", json_response["error"]
+  end
+
+  test "dismiss_for_studio returns count in JSON response" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+
+    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "Test")
+
+    # Create 3 recipients
+    NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "pending")
+    NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "delivered")
+    NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "pending")
+
+    Superagent.clear_thread_scope
+
+    post "/notifications/actions/dismiss_for_studio", params: { studio_id: @superagent.id }
+    assert_response :success
+
+    json_response = JSON.parse(response.body)
+    assert_equal true, json_response["success"]
+    assert_equal 3, json_response["count"]
+  end
+
+  # === Notifications Grouped by Studio Tests ===
+
+  test "index groups notifications by studio in HTML" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+
+    # Create a second studio
+    superagent2 = Superagent.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+
+    # Create notifications in first studio
+    event1 = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
+    NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
+
+    # Create notifications in second studio
+    event2 = Event.create!(tenant: @tenant, superagent: superagent2, event_type: "test.created")
+    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
+    NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
+
+    Superagent.clear_thread_scope
+
+    get "/notifications"
+    assert_response :success
+
+    # Should show both studio names in accordion headers
+    assert_includes response.body, @superagent.name
+    assert_includes response.body, "Second Studio"
+    assert_includes response.body, "pulse-accordion"
+    assert_includes response.body, "data-superagent-group"
+  end
+
+  test "index groups notifications by studio in markdown" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+
+    # Create a second studio
+    superagent2 = Superagent.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+
+    # Create notifications in first studio
+    event1 = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
+    NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
+
+    # Create notifications in second studio
+    event2 = Event.create!(tenant: @tenant, superagent: superagent2, event_type: "test.created")
+    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
+    NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
+
+    Superagent.clear_thread_scope
+
+    get "/notifications", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+
+    # Should show studio names as markdown headers
+    assert_includes response.body, "### #{@superagent.name}"
+    assert_includes response.body, "### Second Studio"
+    assert_includes response.body, "dismiss_for_studio"
+  end
 end

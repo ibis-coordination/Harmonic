@@ -108,6 +108,8 @@ Rails.application.routes.draw do
   post 'notifications/actions/dismiss' => 'notifications#execute_dismiss'
   get 'notifications/actions/dismiss_all' => 'notifications#describe_dismiss_all'
   post 'notifications/actions/dismiss_all' => 'notifications#execute_dismiss_all'
+  get 'notifications/actions/dismiss_for_studio' => 'notifications#describe_dismiss_for_studio'
+  post 'notifications/actions/dismiss_for_studio' => 'notifications#execute_dismiss_for_studio'
   get 'notifications/actions/create_reminder' => 'notifications#describe_create_reminder'
   post 'notifications/actions/create_reminder' => 'notifications#execute_create_reminder'
   get 'notifications/actions/delete_reminder' => 'notifications#describe_delete_reminder'

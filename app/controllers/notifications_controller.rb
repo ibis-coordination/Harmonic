@@ -6,15 +6,50 @@ class NotificationsController < ApplicationController
 
   def index
     @sidebar_mode = 'minimal'
+    # Set only tenant scope (not superagent scope) to allow loading events from all studios
+    # This is needed because notifications span all studios, not just the current one
+    Tenant.scope_thread_to_tenant(subdomain: request.subdomain)
+
     # Show immediate notifications and due reminders (not future scheduled)
     @notification_recipients = NotificationRecipient
       .where(user: current_user)
       .in_app
       .not_scheduled
       .where.not(status: "dismissed")
-      .includes(notification: :event)
+      .includes(:notification)
       .order(created_at: :desc)
       .limit(50)
+
+    # Manually load superagents to bypass association scoping
+    # Events and Superagents are scoped to tenant and superagent, but we need to load
+    # superagents from all studios for the current tenant.
+    # We avoid using nr.notification.event because the Event default_scope interferes.
+    # Instead, we query event_id directly from the notifications table.
+    notification_ids = @notification_recipients.map(&:notification_id)
+    notification_event_map = Notification.unscoped.where(id: notification_ids).pluck(:id, :event_id).to_h
+
+    event_ids = notification_event_map.values.compact
+    event_superagent_map = Event.unscoped.where(id: event_ids).pluck(:id, :superagent_id).to_h
+
+    superagent_ids = event_superagent_map.values.compact.uniq
+    superagents = Superagent.unscoped.where(id: superagent_ids).index_by(&:id)
+
+    # Build a lookup for notification recipient -> superagent
+    @superagent_for_nr = {}
+    @notification_recipients.each do |nr|
+      event_id = notification_event_map[nr.notification_id]
+      superagent_id = event_id ? event_superagent_map[event_id] : nil
+      @superagent_for_nr[nr.id] = superagent_id ? superagents[superagent_id] : nil
+    end
+
+    # Group notifications by superagent (studio)
+    # Notifications without an event (reminders) go into a nil key
+    @notifications_by_superagent = @notification_recipients.group_by do |nr|
+      @superagent_for_nr[nr.id]
+    end
+
+    # Now set the full scope for other controller methods
+    @current_tenant = Tenant.find_by(id: Tenant.current_id)
 
     # Load future scheduled reminders separately
     @scheduled_reminders = ReminderService.scheduled_for(current_user)
@@ -85,6 +120,50 @@ class NotificationsController < ApplicationController
           action_name: "dismiss_all",
           resource: nil,
           result: "All notifications dismissed.",
+        })
+      end
+    end
+  end
+
+  def describe_dismiss_for_studio
+    render_action_description(ActionsHelper.action_description("dismiss_for_studio", resource: nil))
+  end
+
+  def execute_dismiss_for_studio
+    studio_id = params[:studio_id]
+
+    # Special case: "reminders" dismisses notifications without an event
+    if studio_id == "reminders"
+      count = NotificationService.dismiss_all_reminders(current_user, tenant: current_tenant)
+      studio_name = "Reminders"
+    else
+      studio = Superagent.find_by(id: studio_id)
+      if studio.nil?
+        return respond_to do |format|
+          format.json { render json: { success: false, error: "Studio not found." }, status: :not_found }
+          format.html { render json: { success: false, error: "Studio not found." }, status: :not_found }
+          format.md do
+            render_action_error({
+              action_name: "dismiss_for_studio",
+              resource: nil,
+              error: "Studio not found.",
+            })
+          end
+        end
+      end
+
+      count = NotificationService.dismiss_all_for_superagent(current_user, tenant: current_tenant, superagent_id: studio.id)
+      studio_name = studio.name
+    end
+
+    respond_to do |format|
+      format.json { render json: { success: true, action: "dismiss_for_studio", studio_id: studio_id, count: count } }
+      format.html { render json: { success: true, action: "dismiss_for_studio", studio_id: studio_id, count: count } }
+      format.md do
+        render_action_success({
+          action_name: "dismiss_for_studio",
+          resource: nil,
+          result: "#{count} notifications dismissed for #{studio_name}.",
         })
       end
     end

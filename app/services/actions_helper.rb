@@ -407,6 +407,14 @@ class ActionsHelper
       params: [],
       authorization: :authenticated,
     },
+    "dismiss_for_studio" => {
+      description: "Dismiss all notifications for a specific studio",
+      params_string: "(studio_id)",
+      params: [
+        { name: "studio_id", type: "string", description: "The ID of the studio, or 'reminders' to dismiss due reminders" },
+      ],
+      authorization: :authenticated,
+    },
 
     # Reminder actions
     "create_reminder" => {
@@ -698,6 +706,7 @@ class ActionsHelper
       actions: [
         { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
         { name: "dismiss_all", params_string: ACTION_DEFINITIONS["dismiss_all"][:params_string], description: ACTION_DEFINITIONS["dismiss_all"][:description] },
+        { name: "dismiss_for_studio", params_string: ACTION_DEFINITIONS["dismiss_for_studio"][:params_string], description: ACTION_DEFINITIONS["dismiss_for_studio"][:description] },
         { name: "create_reminder", params_string: ACTION_DEFINITIONS["create_reminder"][:params_string], description: ACTION_DEFINITIONS["create_reminder"][:description] },
         { name: "delete_reminder", params_string: ACTION_DEFINITIONS["delete_reminder"][:params_string], description: ACTION_DEFINITIONS["delete_reminder"][:description] },
       ],
