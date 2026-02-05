@@ -65,7 +65,7 @@ class LLMClientTest < ActiveSupport::TestCase
         body["messages"].length == 1 &&
         body["messages"][0]["role"] == "user" &&
         body["messages"][0]["content"] == "Test question" &&
-        body["max_tokens"] == 2048 &&
+        body["max_tokens"] == 4096 &&
         body["temperature"] == 0.7
     end
   end
