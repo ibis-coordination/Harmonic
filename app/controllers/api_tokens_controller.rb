@@ -1,7 +1,6 @@
 # typed: false
 
 class ApiTokensController < ApplicationController
-  layout "pulse", only: [:new, :show, :create]
   before_action :set_user
   before_action :set_sidebar_mode, only: [:new, :show, :create]
 

@@ -3,8 +3,6 @@
 class CommitmentsController < ApplicationController
   include AttachmentActions
 
-  layout 'pulse', only: [:show, :new, :edit, :settings]
-
   def new
     @page_title = "Commit"
     @page_description = "Start a group commitment"

@@ -1,7 +1,6 @@
 # typed: false
 
 class LearnController < ApplicationController
-  layout 'pulse'
   before_action :set_sidebar_mode
 
   def index

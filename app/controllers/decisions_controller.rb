@@ -3,8 +3,6 @@
 class DecisionsController < ApplicationController
   include AttachmentActions
 
-  layout 'pulse', only: [:show, :new, :edit, :settings]
-
   def new
     @page_title = "Decide"
     @page_description = "Make a group decision with Harmonic Team"

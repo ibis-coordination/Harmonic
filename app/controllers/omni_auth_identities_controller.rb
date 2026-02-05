@@ -1,7 +1,6 @@
 # typed: false
 
 class OmniAuthIdentitiesController < ApplicationController
-  layout 'pulse'
   before_action :set_auth_layout
 
   def new

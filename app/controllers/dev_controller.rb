@@ -1,7 +1,6 @@
 # typed: false
 
 class DevController < ApplicationController
-  layout "pulse"
   before_action :ensure_development_environment
 
   # Override to prevent ApplicationController from trying to find a Dev model

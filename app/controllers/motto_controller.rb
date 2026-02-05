@@ -1,8 +1,6 @@
 # typed: false
 
 class MottoController < ApplicationController
-  layout "pulse"
-
   def index
     @page_title = "Do the right thing. ❤️"
     @sidebar_mode = "minimal"

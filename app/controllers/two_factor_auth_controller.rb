@@ -1,7 +1,6 @@
 # typed: false
 
 class TwoFactorAuthController < ApplicationController
-  layout "pulse"
   before_action :set_auth_sidebar
   before_action :require_pending_2fa, only: [:verify, :verify_submit]
   before_action :require_login, only: [:setup, :confirm_setup, :settings, :disable, :regenerate_codes]

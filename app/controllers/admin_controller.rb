@@ -2,7 +2,6 @@
 
 require 'sidekiq/api'
 class AdminController < ApplicationController
-  layout 'pulse'
   before_action :set_admin_sidebar
   before_action :ensure_admin_user
   before_action :ensure_subagent_admin_access
@@ -473,7 +472,7 @@ class AdminController < ApplicationController
   def ensure_admin_user
     unless @current_tenant.is_admin?(@current_user)
       @sidebar_mode = 'none'
-      return render status: 403, layout: 'pulse', template: 'admin/403_not_admin'
+      return render status: 403, layout: 'application', template: 'admin/403_not_admin'
     end
   end
 

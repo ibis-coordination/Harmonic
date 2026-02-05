@@ -1,7 +1,6 @@
 # typed: false
 
 class CyclesController < ApplicationController
-  layout 'pulse', only: [:index, :show]
   before_action :set_sidebar_mode, only: [:index, :show]
 
   def index

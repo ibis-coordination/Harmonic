@@ -1,8 +1,6 @@
 # typed: false
 
 class SearchController < ApplicationController
-  layout "pulse"
-
   def show
     @page_title = "Search"
     @sidebar_mode = "minimal"

@@ -1,4 +1,4 @@
-<% if @pinned_items.any? %>
+<% if @pinned_items&.any? %>
   <div class="pulse-pinned-section">
     <div class="pulse-section-label">
       <%= octicon 'pin', height: 12 %> Pinned

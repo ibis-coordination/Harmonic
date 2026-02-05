@@ -1,8 +1,6 @@
 # typed: false
 
 class UsersController < ApplicationController
-  layout 'pulse', only: [:index, :show, :settings]
-
   def index
     @page_title = 'Users'
     @sidebar_mode = 'minimal'

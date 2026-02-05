@@ -1,3 +1,4 @@
+<% if @heartbeats %>
 <%
   heartbeat_users = @heartbeats.includes(:user).map(&:user).uniq
   visible_users = heartbeat_users.first(4)
@@ -30,3 +31,4 @@
     </div>
   <% end %>
 </div>
+<% end %>

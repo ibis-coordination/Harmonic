@@ -1,7 +1,6 @@
 # typed: false
 
 class WebhooksController < ApplicationController
-  layout 'pulse', only: [:index, :new, :show]
   before_action :require_user
   before_action :require_studio_admin
   before_action :set_sidebar_mode, only: [:index, :new, :show]

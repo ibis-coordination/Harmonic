@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <title><%= @page_title || 'Harmonic' %></title>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
     <link rel="icon" type="image/png" href="/<%= @current_app %>-favicon-32x32.png" sizes="32x32">
     <link rel="icon" type="image/png" href="/<%= @current_app %>-favicon-16x16.png" sizes="16x16">
     <link rel="icon" href="/<%= @current_app %>-favicon.ico" type="image/x-icon">
@@ -11,67 +12,87 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "root_variables", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "pulse", "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
   </head>
-  <body <%= @current_superagent.id == @current_tenant.main_superagent_id ? 'class="homepage"'.html_safe : '' %>>
+  <body>
     <div id="expanding-heart">
       <%= octicon 'heart' %>
     </div>
-    <% unless request.subdomain == ENV['AUTH_SUBDOMAIN'] || controller_name == 'sessions' %>
-      <nav style="display:block;min-height:16px;">
-        <% if false # %>
-          <%= render 'layouts/top_left_menu' %>
-        <% else %>
-          <%= render 'layouts/top_left_home_button' %>
-        <% end %>
-        <% unless @current_representation_session %>
-          <%= render 'layouts/top_right_menu' %>
-        <% end %>
-      </nav>
+    <% unless @hide_header %>
+      <header class="pulse-top-header">
+        <a href="/" class="pulse-logo">
+          <i class="tri-logo-icon icon-sm"></i>
+          <span>Harmonic</span>
+        </a>
+        <div class="pulse-top-header-right">
+          <%= yield :header_actions %>
+          <% unless @current_representation_session %>
+            <%= render 'layouts/top_right_menu' %>
+          <% end %>
+        </div>
+      </header>
     <% end %>
-    <div class="markdown-body<%= request.subdomain == ENV['AUTH_SUBDOMAIN'] ? ' login-form' : '' %>">
-      <% if notice || alert %>
+    <% if notice || alert %>
+      <div class="pulse-flash-messages">
         <% if notice %>
-          <div class="notice" style="display:<%= notice ? 'block' : 'none' %>;">
+          <div class="pulse-notice" data-pulse-flash>
             <%= markdown_inline(notice) %>
-            <span class="dismiss-button">&times;</span>
+            <button type="button" class="pulse-dismiss-btn" onclick="this.parentElement.remove()">&times;</button>
           </div>
         <% end %>
         <% if alert %>
-          <div class="alert" style="display:<%= alert ? 'block' : 'none' %>;">
+          <div class="pulse-alert" data-pulse-flash>
             <%= markdown_inline(alert) %>
-            <span class="dismiss-button">&times;</span>
+            <button type="button" class="pulse-dismiss-btn" onclick="this.parentElement.remove()">&times;</button>
           </div>
         <% end %>
-        <script>
-          [document.querySelector('.notice'), document.querySelector('.alert')].forEach(function(el) {
-            if (!el) return;
-            const dismissButton = el.querySelector('.dismiss-button');
-            dismissButton.addEventListener('click', function() {
-              el.remove();
-            });
-          });
-        </script>
+      </div>
+    <% end %>
+    <% if @current_subagent_user %>
+      <div class="pulse-session-banner pulse-alert">
+        <span>Acting as subagent <%= @current_subagent_user.display_name %>.</span>
+        <%= button_to "End Session", "#{@current_subagent_user.path}/impersonate", method: :delete, class: "pulse-banner-btn" %>
+      </div>
+    <% end %>
+    <% if @current_representation_session %>
+      <div class="pulse-session-banner pulse-alert">
+        <span><%= @current_subagent_user ? "As #{@current_subagent_user.display_name}, y" : "Y" %>ou are acting as a representative of <%= @current_user.display_name %>.</span>
+        <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
+      </div>
+    <% end %>
+    <%# Sidebar modes: full (default), resource, minimal, settings, admin, system_admin, app_admin, tenant_admin, none %>
+    <% sidebar_mode = @sidebar_mode || 'full' %>
+    <div class="pulse-container<%= ' no-sidebar' if sidebar_mode == 'none' %>" data-controller="pulse-filter">
+      <% case sidebar_mode %>
+      <% when 'full' %>
+        <%= render 'pulse/sidebar' %>
+      <% when 'resource' %>
+        <%= render 'pulse/sidebar_resource' %>
+      <% when 'settings' %>
+        <%= render 'pulse/sidebar_settings' %>
+      <% when 'minimal' %>
+        <%= render 'pulse/sidebar_minimal' %>
+      <% when 'admin' %>
+        <%= render 'pulse/sidebar_admin' %>
+      <% when 'system_admin' %>
+        <%= render 'pulse/sidebar_system_admin' %>
+      <% when 'app_admin' %>
+        <%= render 'pulse/sidebar_app_admin' %>
+      <% when 'tenant_admin' %>
+        <%= render 'pulse/sidebar_tenant_admin' %>
+      <% when 'none' %>
+        <%# No sidebar %>
       <% end %>
-      <% if @current_subagent_user %>
-        <div class="alert">
-          <span>Acting as subagent <%= @current_subagent_user.display_name %>.</span>
-          <%= button_to "End Session", "#{@current_subagent_user.path}/impersonate", method: :delete %>
-        </div>
-      <% end %>
-      <% if @current_representation_session %>
-        <div class="alert">
-          <span><%= @current_subagent_user ? "As #{@current_subagent_user.display_name}, y" : "Y" %>ou are acting as a representative of <%= @current_user.display_name %>.</span>
-          <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete %>
-        </div>
-      <% end %>
-      <%= yield %>
+      <main class="pulse-main">
+        <%= yield %>
+      </main>
     </div>
-    <p style="text-align:center;">
-      <a style="text-decoration: none; color:var(--color-fg-muted);" href="/motto">
+    <p class="pulse-motto-footer"
+      title="These words appear on every page in Harmonic as a tuning fork to facilitate social attunement between agents within Harmonic, both human and AI. Our social agency is strengthened by our mutual commitment to ethical behavior, motivated by Love ❤️."
+    >
       Do the right thing. ❤️
-      </a>
     </p>
   </body>
 </html>

@@ -1,7 +1,6 @@
 # typed: false
 
 class SubagentsController < ApplicationController
-  layout "pulse", only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_subagent]
   before_action :verify_current_user_path, except: [:index, :run_task, :execute_task, :runs, :show_run, :cancel_run]
   before_action :set_sidebar_mode, only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_subagent]
   before_action :require_subagents_enabled, only: [:index, :run_task, :execute_task, :runs, :show_run, :cancel_run]

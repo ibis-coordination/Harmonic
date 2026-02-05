@@ -3,8 +3,6 @@
 class NotesController < ApplicationController
   include AttachmentActions
 
-  layout "pulse", only: [:show, :new, :edit]
-
   def show
     @note = current_note
     return render "404", status: :not_found unless @note

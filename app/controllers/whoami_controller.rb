@@ -1,8 +1,6 @@
 # typed: false
 
 class WhoamiController < ApplicationController
-  layout "pulse"
-
   def index
     @page_title = "Who Am I?"
     @sidebar_mode = "minimal"

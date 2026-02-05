@@ -1,8 +1,6 @@
 # typed: false
 
 class PulseController < ApplicationController
-  layout "pulse"
-
   # Override to prevent ApplicationController from trying to find a Pulse model
   def current_resource_model
     nil

@@ -1,7 +1,6 @@
 # typed: false
 
 class NotificationsController < ApplicationController
-  layout 'pulse', only: [:index, :new]
   before_action :require_user
 
   def index

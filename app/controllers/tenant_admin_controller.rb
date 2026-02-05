@@ -12,7 +12,6 @@
 # - SystemAdminController: Manages system infrastructure (Sidekiq, monitoring)
 # - AppAdminController: Manages tenants and users across ALL tenants (including suspension)
 class TenantAdminController < ApplicationController
-  layout 'pulse'
   before_action :ensure_tenant_admin
   before_action :ensure_subagent_admin_access
   before_action :block_subagent_admin_writes_in_production
@@ -177,7 +176,7 @@ class TenantAdminController < ApplicationController
   def ensure_tenant_admin
     unless @current_tenant.is_admin?(@current_user)
       @sidebar_mode = 'none'
-      render status: :forbidden, layout: 'pulse', template: 'tenant_admin/403_not_admin'
+      render status: :forbidden, layout: 'application', template: 'tenant_admin/403_not_admin'
     end
   end
 
