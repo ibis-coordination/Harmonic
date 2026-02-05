@@ -1,6 +1,7 @@
 # Task Run: <%= @task_run.success ? 'Success' : 'Failed' %>
 
 **Agent:** <%= @subagent.name %>
+**Model:** `<%= @task_run.model || "default" %>`
 **Status:** <%= @task_run.success ? 'Completed' : 'Failed' %>
 **Steps:** <%= @task_run.steps_count %><% if @task_run.formatted_duration %>
 **Duration:** <%= @task_run.formatted_duration %><% end %>
@@ -71,16 +72,33 @@ Params: `<%= detail[:params].to_json %>`
 <% end -%>
 
 <% when "think" -%>
-LLM reasoning (step <%= detail[:step_number].to_i + 1 %>)
-<% if detail[:response_preview].present? -%>
+LLM reasoning (step <%= detail[:step_number].to_i + 1 %>)<% if detail[:llm_error].present? %> ⚠️ LLM Error<% end %>
+<% if detail[:llm_error].present? -%>
+
+**LLM Error:** <%= detail[:llm_error] %>
+<% end -%>
+<% if params[:debug] == "true" && detail[:prompt_preview].present? -%>
+
+<details>
+<summary>Prompt sent to LLM</summary>
+
+```
+<%= detail[:prompt_preview] %>
+```
+
+</details>
+<% end -%>
 
 <details>
 <summary>LLM response</summary>
 
+<% if detail[:response_preview].present? -%>
 <%= strip_trailing_json_action(detail[:response_preview]) %>
+<% else -%>
+*[No response content]*
+<% end -%>
 
 </details>
-<% end -%>
 
 <% when "done" -%>
 <%= detail[:message] %>

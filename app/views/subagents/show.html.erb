@@ -42,6 +42,12 @@
             <th style="text-align: left; padding-right: 24px;">Mode</th>
             <td><%= @subagent.internal_subagent? ? "Internal" : "External" %></td>
           </tr>
+          <% if @subagent.internal_subagent? %>
+            <tr>
+              <th style="text-align: left; padding-right: 24px;">Model</th>
+              <td><code><%= @subagent.agent_configuration["model"] || "default" %></code></td>
+            </tr>
+          <% end %>
           <% if @token && @token.plaintext_token.present? %>
             <tr>
               <th style="text-align: left; padding-right: 24px;">API Token</th>

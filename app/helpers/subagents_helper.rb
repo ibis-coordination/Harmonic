@@ -14,4 +14,15 @@ module SubagentsHelper
       .sub(/\{"type":\s*"[^"]+",.*\}\s*\z/m, "")
       .strip
   end
+
+  # Returns list of available LLM model names from litellm_config.yaml
+  def available_llm_models
+    config_path = Rails.root.join("config/litellm_config.yaml")
+    return ["default"] unless File.exist?(config_path)
+
+    config = YAML.load_file(config_path)
+    model_list = config["model_list"] || []
+    models = model_list.filter_map { |m| m["model_name"] }
+    models.presence || ["default"]
+  end
 end

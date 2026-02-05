@@ -8,6 +8,9 @@ class AgentQueueProcessorJob < ApplicationJob
   # Allow injecting a mock navigator class for testing
   class_attribute :navigator_class, default: AgentNavigator
 
+  # Tasks running longer than this are considered stuck and will be marked as failed
+  STUCK_TASK_TIMEOUT = 15.minutes
+
   sig { params(subagent_id: String, tenant_id: String).void }
   def perform(subagent_id:, tenant_id:)
     tenant = Tenant.find_by(id: tenant_id)
@@ -38,6 +41,9 @@ class AgentQueueProcessorJob < ApplicationJob
     claimed_task = T.let(nil, T.nilable(SubagentTaskRun))
 
     subagent.with_lock do
+      # Check for stuck tasks first - recover before checking if something is running
+      recover_stuck_tasks(subagent, tenant)
+
       # Already running? Exit - the running job will trigger us when done
       next if SubagentTaskRun.exists?(subagent: subagent, tenant: tenant, status: "running")
 
@@ -57,12 +63,35 @@ class AgentQueueProcessorJob < ApplicationJob
     claimed_task
   end
 
+  sig { params(subagent: User, tenant: Tenant).void }
+  def recover_stuck_tasks(subagent, tenant)
+    stuck_tasks = SubagentTaskRun
+      .where(subagent: subagent, tenant: tenant, status: "running")
+      .where("started_at < ?", STUCK_TASK_TIMEOUT.ago)
+
+    stuck_tasks.find_each do |task|
+      Rails.logger.warn(
+        "[AgentQueueProcessorJob] Recovering stuck task " \
+        "id=#{task.id} subagent_id=#{subagent.id} " \
+        "started_at=#{task.started_at} duration=#{Time.current - task.started_at}s"
+      )
+
+      task.update!(
+        status: "failed",
+        success: false,
+        error: "Task timed out after #{STUCK_TASK_TIMEOUT.inspect} - job may have crashed or been killed",
+        completed_at: Time.current
+      )
+    end
+  end
+
   sig { params(task_run: SubagentTaskRun).void }
   def run_task(task_run)
     navigator = self.class.navigator_class.new(
       user: task_run.subagent,
       tenant: task_run.tenant,
-      superagent: resolve_superagent(task_run)
+      superagent: resolve_superagent(task_run),
+      model: task_run.model
     )
 
     result = navigator.run(task: task_run.task, max_steps: task_run.max_steps)

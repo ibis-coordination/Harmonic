@@ -1,4 +1,4 @@
-\restrict UhSeUAaxoRqMt1lNjJ6aMy5s7lCdmgJZVM3XZIS9RJ3oIFy3fSMkq4e69DrxVZq
+\restrict 55YvfpoGzfJPf6lKm4EICusk4tNNyqIznEhnwTjKzQ5GHRK5tt8BfSjA52WltZs
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -1239,7 +1239,8 @@ CREATE TABLE public.subagent_task_runs (
     started_at timestamp(6) without time zone,
     completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    model character varying
 );
 
 
@@ -8118,7 +8119,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict UhSeUAaxoRqMt1lNjJ6aMy5s7lCdmgJZVM3XZIS9RJ3oIFy3fSMkq4e69DrxVZq
+\unrestrict 55YvfpoGzfJPf6lKm4EICusk4tNNyqIznEhnwTjKzQ5GHRK5tt8BfSjA52WltZs
 
 SET search_path TO "$user", public;
 
@@ -8250,6 +8251,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260203032407'),
 ('20260203044904'),
 ('20260203055419'),
-('20260204110122');
+('20260204110122'),
+('20260205034909');
 
 

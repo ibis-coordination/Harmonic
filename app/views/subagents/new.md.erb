@@ -6,8 +6,9 @@ Create a new subagent. Subagents are virtual identities that you manage. These i
 
 * **name** (string): The name of the subagent
 * **identity_prompt** (string, optional): A prompt shown to the agent on /whoami, providing context about their identity and purpose
+* **model** (string, optional): The LLM model for internal subagents to use (default: "default"). Available models: <%= available_llm_models.join(", ") %>
 * **generate_token** (boolean, optional): If true, automatically generate an API token for this subagent (default: false)
 
 ## [Actions](<%= @current_user.path %>/settings/subagents/new/actions)
 
-* [`create_subagent(name, identity_prompt, generate_token)`](<%= @current_user.path %>/settings/subagents/new/actions/create_subagent) - Create the subagent
+* [`create_subagent(name, identity_prompt, model, generate_token)`](<%= @current_user.path %>/settings/subagents/new/actions/create_subagent) - Create the subagent

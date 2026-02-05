@@ -7,6 +7,10 @@ Successfully created subagent **<%= raw @subagent.display_name %>**.
 | Name | <%= raw @subagent.name %> |
 | Handle | `<%= @subagent.handle %>` |
 | Profile | [<%= @subagent.path %>](<%= @subagent.path %>) |
+| Mode | <%= @subagent.internal_subagent? ? "Internal" : "External" %> |
+<% if @subagent.internal_subagent? %>
+| Model | `<%= @subagent.agent_configuration["model"] || "default" %>` |
+<% end %>
 <% if @token && @token.plaintext_token.present? %>
 | API Token | `<%= @token.plaintext_token %>` |
 | Token Expires | in <%= time_ago_in_words(@token.expires_at) %> |

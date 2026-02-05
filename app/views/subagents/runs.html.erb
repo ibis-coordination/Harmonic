@@ -49,6 +49,8 @@
                 <%= task_run.status.upcase %>
               </div>
               <div class="pulse-feed-item-meta">
+                <span><code style="font-size: 11px;"><%= task_run.model || "default" %></code></span>
+                <span>&middot;</span>
                 <span><%= task_run.steps_count %> steps</span>
                 <% if task_run.formatted_duration %>
                   <span>&middot;</span>

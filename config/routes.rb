@@ -13,6 +13,7 @@ Rails.application.routes.draw do
   post 'subagents/:handle/run' => 'subagents#execute_task', as: 'subagent_execute_task'
   get 'subagents/:handle/runs' => 'subagents#runs', as: 'subagent_runs'
   get 'subagents/:handle/runs/:run_id' => 'subagents#show_run', as: 'subagent_run'
+  post 'subagents/:handle/runs/:run_id/cancel' => 'subagents#cancel_run', as: 'cancel_subagent_run'
 
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'

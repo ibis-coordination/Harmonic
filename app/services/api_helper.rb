@@ -485,6 +485,9 @@ class ApiHelper
         agent_config["capabilities"] = []
       end
 
+      # Handle model selection for internal subagents
+      agent_config["model"] = params[:model] if params[:model].present?
+
       user = User.create!(
         name: params[:name],
         email: SecureRandom.uuid + "@not-a-real-email.com",

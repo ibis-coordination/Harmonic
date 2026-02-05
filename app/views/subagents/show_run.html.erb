@@ -10,6 +10,7 @@
         data-controller="task-run-status"
         data-task-run-status-url-value="<%= subagent_run_path(@subagent.handle, @task_run.id) %>"
         data-task-run-status-status-value="<%= @task_run.status %>"
+        data-task-run-status-steps-count-value="<%= @task_run.steps_count %>"
         <% end %>>
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
@@ -18,6 +19,15 @@
         Task Run
       </span>
       <div style="margin-left: auto; display: flex; gap: 12px;">
+        <% if @task_run.status.in?(%w[queued running]) %>
+          <%= button_to cancel_subagent_run_path(@subagent.handle, @task_run.id),
+                method: :post,
+                class: "pulse-feed-action-link",
+                style: "color: var(--color-danger-fg);",
+                data: { confirm: "Are you sure you want to cancel this task?" } do %>
+            <%= octicon 'x-circle', height: 14 %> Cancel
+          <% end %>
+        <% end %>
         <a href="<%= subagent_runs_path(@subagent.handle) %>" class="pulse-feed-action-link">
           <%= octicon 'history', height: 14 %> All Runs
         </a>
@@ -91,6 +101,7 @@
       <% end %>
       <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 12px;">
         Agent: <%= @subagent.name %> |
+        Model: <code><%= @task_run.model || "default" %></code> |
         Steps: <%= @task_run.steps_count %>
         <% if @task_run.formatted_duration %>
           | Duration: <%= @task_run.formatted_duration %>
@@ -240,18 +251,41 @@
             <% when "think" %>
               <div class="pulse-feed-item-content">
                 LLM reasoning (step <%= detail[:step_number].to_i + 1 %>)
+                <% if detail[:llm_error].present? %>
+                  <span style="color: var(--color-danger-fg); margin-left: 8px;">
+                    <%= octicon 'alert', height: 14 %> LLM Error
+                  </span>
+                <% end %>
               </div>
-              <% if detail[:response_preview].present? %>
+              <% if detail[:llm_error].present? %>
+                <p style="color: var(--color-danger-fg); margin: 8px 0 0 0; font-size: 13px;">
+                  <%= detail[:llm_error] %>
+                </p>
+              <% end %>
+              <% if params[:debug] == "true" && detail[:prompt_preview].present? %>
                 <details class="pulse-accordion" style="margin-top: 12px;">
                   <summary class="pulse-accordion-header">
-                    <span class="pulse-accordion-title">View LLM response</span>
+                    <span class="pulse-accordion-title">View prompt sent to LLM</span>
                     <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
                   </summary>
                   <div class="pulse-accordion-content">
-                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= strip_trailing_json_action(detail[:response_preview]) %></pre>
+                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= detail[:prompt_preview] %></pre>
                   </div>
                 </details>
               <% end %>
+              <details class="pulse-accordion" style="margin-top: 12px;">
+                <summary class="pulse-accordion-header">
+                  <span class="pulse-accordion-title">View LLM response</span>
+                  <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                </summary>
+                <div class="pulse-accordion-content">
+                  <% if detail[:response_preview].present? %>
+                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= strip_trailing_json_action(detail[:response_preview]) %></pre>
+                  <% else %>
+                    <p class="pulse-muted" style="margin: 0; font-style: italic;">[No response content]</p>
+                  <% end %>
+                </div>
+              </details>
 
             <% when "done" %>
               <div class="pulse-feed-item-content" style="color: var(--color-success-fg);">

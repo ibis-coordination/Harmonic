@@ -16,23 +16,19 @@ model_list:
       model: gpt-4o
       api_key: os.environ/OPENAI_API_KEY
 
-  # Local Ollama models (1B params - lightweight)
-  - model_name: llama3.2-1b
+  # Local Ollama models (via host.docker.internal)
+  # Use ollama_chat/ prefix for proper chat API support
+  - model_name: deepseek-r1
     litellm_params:
-      model: ollama/llama3.2:1b
-      api_base: http://ollama:11434
+      model: ollama_chat/deepseek-r1:latest
+      api_base: http://host.docker.internal:11434
 
-  - model_name: llama3.2-3b
+  - model_name: gemma3
     litellm_params:
-      model: ollama/llama3.2:3b
-      api_base: http://ollama:11434
+      model: ollama_chat/gemma3:4b
+      api_base: http://host.docker.internal:11434
 
-  - model_name: mistral
+  - model_name: llama3
     litellm_params:
-      model: ollama/mistral
-      api_base: http://ollama:11434
-
-  - model_name: gemma2
-    litellm_params:
-      model: ollama/gemma2:2b
-      api_base: http://ollama:11434
+      model: ollama_chat/llama3:latest
+      api_base: http://host.docker.internal:11434

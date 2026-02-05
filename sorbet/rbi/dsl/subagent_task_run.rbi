@@ -904,6 +904,51 @@ class SubagentTaskRun
     sig { void }
     def max_steps_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def model; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def model=(value); end
+
+    sig { returns(T::Boolean) }
+    def model?; end
+
+    sig { returns(T.nilable(::String)) }
+    def model_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def model_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def model_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def model_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def model_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def model_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def model_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def model_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def model_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def model_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def model_was; end
+
+    sig { void }
+    def model_will_change!; end
+
     sig { void }
     def restore_completed_at!; end
 
@@ -924,6 +969,9 @@ class SubagentTaskRun
 
     sig { void }
     def restore_max_steps!; end
+
+    sig { void }
+    def restore_model!; end
 
     sig { void }
     def restore_started_at!; end
@@ -993,6 +1041,12 @@ class SubagentTaskRun
 
     sig { returns(T::Boolean) }
     def saved_change_to_max_steps?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_model; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_model?; end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_started_at; end
@@ -1483,6 +1537,9 @@ class SubagentTaskRun
 
     sig { returns(T::Boolean) }
     def will_save_change_to_max_steps?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_model?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_started_at?; end

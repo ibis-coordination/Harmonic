@@ -6,10 +6,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   class MockNavigator
     attr_accessor :mock_result
 
-    def initialize(user:, tenant:, superagent:)
+    def initialize(user:, tenant:, superagent:, model: nil)
       @user = user
       @tenant = tenant
       @superagent = superagent
+      @model = model
     end
 
     def run(task:, max_steps:)
@@ -25,9 +26,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
       attr_accessor :mock_result
     end
 
-    def self.new(user:, tenant:, superagent:)
+    def self.new(user:, tenant:, superagent:, model: nil)
       instance = allocate
-      instance.send(:initialize, user: user, tenant: tenant, superagent: superagent)
+      instance.send(:initialize, user: user, tenant: tenant, superagent: superagent, model: model)
       instance.mock_result = @mock_result
       instance
     end

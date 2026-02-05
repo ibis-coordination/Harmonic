@@ -108,6 +108,12 @@
         </div>
       </section>
 
+      <section class="pulse-settings-section" data-subagent-mode-target="internalOnly">
+        <label for="model" class="pulse-label">Model</label>
+        <%= form.select :model, available_llm_models, {}, class: "pulse-form-select" %>
+        <small class="pulse-hint">The LLM model this subagent will use for reasoning. Models are defined in <code>config/litellm_config.yaml</code>.</small>
+      </section>
+
       <section class="pulse-settings-section" data-subagent-mode-target="externalOnly" style="display: none;">
         <label class="pulse-checkbox-label">
           <%= form.check_box :generate_token, checked: true %>

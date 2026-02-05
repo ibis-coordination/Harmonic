@@ -440,13 +440,11 @@ class NotificationDispatcher
       end
 
       # Create the task run record with "queued" status
-      SubagentTaskRun.create!(
-        tenant_id: event.tenant_id,
+      SubagentTaskRun.create_queued(
         subagent: subagent,
-        initiated_by_id: event.actor_id,
-        task: build_task_prompt(event, item_path),
-        max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS,
-        status: "queued"
+        tenant: tenant,
+        initiated_by: event.actor,
+        task: build_task_prompt(event, item_path)
       )
 
       # Kick off the queue processor

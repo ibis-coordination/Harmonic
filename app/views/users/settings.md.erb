@@ -8,6 +8,10 @@ Name: <%= raw @settings_user.name %>
 Handle: `<%= @settings_user.handle %>`
 <% if @settings_user.subagent? %>
 Type: Subagent (managed by <%= @settings_user.parent&.display_name || 'Unknown' %>)
+Mode: <%= @settings_user.internal_subagent? ? "Internal" : "External" %>
+<% if @settings_user.internal_subagent? %>
+Model: `<%= @settings_user.agent_configuration&.dig("model") || "default" %>`
+<% end %>
 <% end %>
 
 <% if is_own_settings && @settings_user.external_oauth_identities.any? %>

@@ -29,6 +29,29 @@ class SubagentTaskRun < ApplicationRecord
     def clear_thread_scope
       Thread.current[:subagent_task_run_id] = nil
     end
+
+    # Factory method for creating queued task runs with proper defaults.
+    # Centralizes the logic for extracting model from subagent config.
+    #
+    # @param subagent [User] The subagent to run the task
+    # @param tenant [Tenant] The tenant context
+    # @param initiated_by [User] The user who initiated the task
+    # @param task [String] The task description/prompt
+    # @param max_steps [Integer, nil] Optional max steps override
+    # @return [SubagentTaskRun] The created task run
+    def create_queued(subagent:, tenant:, initiated_by:, task:, max_steps: nil)
+      model = subagent.agent_configuration&.dig("model") || "default"
+
+      create!(
+        tenant: tenant,
+        subagent: subagent,
+        initiated_by: initiated_by,
+        task: task,
+        max_steps: max_steps || DEFAULT_MAX_STEPS,
+        model: model,
+        status: "queued"
+      )
+    end
   end
 
   # Convenience methods for querying created resources

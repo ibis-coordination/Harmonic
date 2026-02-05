@@ -167,13 +167,28 @@ class AgentNavigator
                path: path,
                resolved_path: result[:path],
                content_preview: result[:content],
-               available_actions: @current_actions.map { |a| a[:name] },
+               available_actions: @current_actions.map { |a| a["name"] },
                error: result[:error],
              })
   end
 
   sig { params(action_name: String, params: T::Hash[Symbol, T.untyped]).void }
   def execute_action(action_name, params)
+    # Validate that the action exists in the current page's available actions
+    valid_action_names = @current_actions.map { |a| a["name"] }
+    unless valid_action_names.include?(action_name)
+      error_msg = "Invalid action '#{action_name}'. Available actions: #{valid_action_names.join(", ")}"
+      add_step("execute", {
+                 action: action_name,
+                 params: params,
+                 success: false,
+                 content_preview: nil,
+                 error: error_msg,
+               })
+      @last_action_result = "FAILED: #{error_msg}"
+      return
+    end
+
     result = @service.execute_action(action_name, params)
 
     add_step("execute", {
@@ -201,8 +216,11 @@ class AgentNavigator
 
   sig { params(task: String, step_number: Integer).returns(String) }
   def think(task, step_number)
+    # Build the prompt for this step
+    prompt = build_prompt(task, step_number)
+
     # Add the current state as a user message
-    @messages << { role: "user", content: build_prompt(task, step_number) }
+    @messages << { role: "user", content: prompt }
 
     # Send full conversation history to the LLM
     result = @llm.chat(messages: @messages, system_prompt: system_prompt)
@@ -213,10 +231,14 @@ class AgentNavigator
     # Add the assistant's response to history
     @messages << { role: "assistant", content: result.content }
 
-    add_step("think", {
-               step_number: step_number,
-               response_preview: result.content,
-             })
+    step_detail = {
+      step_number: step_number,
+      prompt_preview: prompt,
+      response_preview: result.content,
+    }
+    step_detail[:llm_error] = result.error if result.error.present?
+
+    add_step("think", step_detail)
 
     result.content
   end
@@ -278,16 +300,19 @@ class AgentNavigator
       json_match = result.content.match(/```json\s*(.*?)\s*```/m) || result.content.match(/\{.*\}/m)
       if json_match
         json_str = json_match[1] || json_match[0]
-        parsed = JSON.parse(json_str.to_s)
+        # Sanitize the JSON string to remove invalid control characters before parsing
+        sanitized_json = sanitize_json_string(json_str.to_s)
+        parsed = JSON.parse(sanitized_json)
         if parsed["scratchpad"].present?
-          content = parsed["scratchpad"].to_s[0, 10_000] # Enforce max length
+          # Sanitize and truncate the content
+          content = sanitize_json_string(parsed["scratchpad"].to_s)[0, 10_000]
           @user.agent_configuration ||= {}
           @user.agent_configuration["scratchpad"] = content
           @user.save!
           add_step("scratchpad_update", { content: content })
         end
       end
-    rescue JSON::ParserError, StandardError => e
+    rescue StandardError => e
       # Log but don't fail the task for scratchpad errors
       add_step("scratchpad_update_failed", { error: e.message })
     end
@@ -295,14 +320,41 @@ class AgentNavigator
 
   sig { params(type: String, detail: T::Hash[Symbol, T.untyped]).void }
   def add_step(type, detail)
-    @steps << Step.new(type: type, detail: detail, timestamp: Time.current)
+    step = Step.new(type: type, detail: detail, timestamp: Time.current)
+    @steps << step
+
+    # Persist step incrementally for real-time visibility
+    persist_step(step)
+  end
+
+  sig { params(step: Step).void }
+  def persist_step(step)
+    task_run_id = SubagentTaskRun.current_id
+    return unless task_run_id
+
+    task_run = SubagentTaskRun.find_by(id: task_run_id)
+    return unless task_run
+
+    # Append the new step to steps_data
+    steps_data = task_run.steps_data || []
+    steps_data << { type: step.type, detail: step.detail, timestamp: step.timestamp.iso8601 }
+
+    task_run.update_columns(
+      steps_data: steps_data,
+      steps_count: steps_data.count
+    )
+  rescue StandardError => e
+    # Log but don't fail the task for persistence errors
+    Rails.logger.error("[AgentNavigator] Failed to persist step: #{e.message}")
   end
 
   sig { params(task: String, step_number: Integer).returns(String) }
   def build_prompt(task, step_number)
-    actions_list = @current_actions.map do |action|
-      params_desc = (action[:params] || []).map { |p| "#{p[:name]} (#{p[:required] ? "required" : "optional"})" }.join(", ")
-      "- #{action[:name]}: #{action[:description] || "No description"}" + (params_desc.present? ? " [params: #{params_desc}]" : "")
+    # Filter out actions without valid names before building the list
+    valid_actions = @current_actions.select { |action| action["name"].present? }
+    actions_list = valid_actions.map do |action|
+      params_desc = (action["params"] || []).map { |p| "#{p["name"]} (#{p["required"] ? "required" : "optional"})" }.join(", ")
+      "- #{action["name"]}: #{action["description"] || "No description"}" + (params_desc.present? ? " [params: #{params_desc}]" : "")
     end.join("\n")
 
     last_action_info = if @last_action_result
@@ -318,9 +370,9 @@ class AgentNavigator
       **Current Path**: #{@current_path || "Not navigated yet"}
       #{last_action_info}
       ### Current Page Content:
-      ```markdown
+      <pagecontent>
       #{@current_content&.first(4000) || "No content yet"}
-      ```
+      </pagecontent>
 
       ### Available Actions:
       #{actions_list.presence || "No actions available at this path"}
@@ -430,5 +482,13 @@ class AgentNavigator
 
       After each action, check the "Previous Action Result" section. If it says SUCCESS and your task is complete, respond with done. Do not repeat successful actions.
     PROMPT
+  end
+
+  # Sanitize a string for JSON parsing by removing invalid control characters.
+  # Some LLMs (especially local models) may output control characters that break JSON.
+  sig { params(str: String).returns(String) }
+  def sanitize_json_string(str)
+    # Remove ASCII control characters except tab (0x09), newline (0x0A), and carriage return (0x0D)
+    str.gsub(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
   end
 end

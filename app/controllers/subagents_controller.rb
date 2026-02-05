@@ -1,10 +1,10 @@
 # typed: false
 
 class SubagentsController < ApplicationController
-  layout "pulse", only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :create, :execute_create_subagent]
-  before_action :verify_current_user_path, except: [:index, :run_task, :execute_task, :runs, :show_run]
-  before_action :set_sidebar_mode, only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :create, :execute_create_subagent]
-  before_action :require_subagents_enabled, only: [:index, :run_task, :execute_task, :runs, :show_run]
+  layout "pulse", only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_subagent]
+  before_action :verify_current_user_path, except: [:index, :run_task, :execute_task, :runs, :show_run, :cancel_run]
+  before_action :set_sidebar_mode, only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_subagent]
+  before_action :require_subagents_enabled, only: [:index, :run_task, :execute_task, :runs, :show_run, :cancel_run]
 
   # GET /subagents - List all subagents owned by current user
   def index
@@ -49,49 +49,25 @@ class SubagentsController < ApplicationController
     @subagent = find_subagent_by_handle
     return render status: :not_found, plain: "404 Not Found" unless @subagent
 
-    @task_run = SubagentTaskRun.create!(
-      tenant: current_tenant,
+    max_steps = params[:max_steps].present? ? params[:max_steps].to_i : nil
+
+    @task_run = SubagentTaskRun.create_queued(
       subagent: @subagent,
+      tenant: current_tenant,
       initiated_by: current_user,
       task: params[:task],
-      max_steps: (params[:max_steps] || SubagentTaskRun::DEFAULT_MAX_STEPS).to_i,
-      status: "running",
-      started_at: Time.current
+      max_steps: max_steps
     )
 
-    navigator = AgentNavigator.new(
-      user: @subagent,
-      tenant: current_tenant,
-      superagent: current_superagent
+    # Enqueue background job to process the task
+    AgentQueueProcessorJob.perform_later(
+      subagent_id: @subagent.id,
+      tenant_id: current_tenant.id
     )
-
-    # Set task run context for resource tracking during synchronous execution
-    saved_task_run_id = SubagentTaskRun.current_id
-    SubagentTaskRun.current_id = @task_run.id
-
-    begin
-      result = navigator.run(
-        task: params[:task],
-        max_steps: @task_run.max_steps
-      )
-
-      @task_run.update!(
-        status: result.success ? "completed" : "failed",
-        success: result.success,
-        final_message: result.final_message,
-        error: result.error,
-        steps_count: result.steps.count,
-        steps_data: result.steps.map { |s| { type: s.type, detail: s.detail, timestamp: s.timestamp.iso8601 } },
-        completed_at: Time.current
-      )
-    ensure
-      # Restore previous context (or clear if none)
-      SubagentTaskRun.current_id = saved_task_run_id
-    end
 
     respond_to do |format|
       format.html { redirect_to subagent_run_path(@subagent.handle, @task_run.id) }
-      format.json { render json: serialize_result(result) }
+      format.json { render json: { id: @task_run.id, status: @task_run.status } }
     end
   end
 
@@ -130,8 +106,51 @@ class SubagentsController < ApplicationController
         @page_title = "Task Run - #{@subagent.display_name}"
       end
       format.json do
-        render json: { status: @task_run.status }
+        render json: {
+          status: @task_run.status,
+          steps_count: @task_run.steps_count,
+          steps: @task_run.steps_data,
+          final_message: @task_run.final_message,
+          error: @task_run.error,
+        }
       end
+    end
+  end
+
+  # POST /subagents/:handle/runs/:run_id/cancel - Cancel a running/queued task
+  def cancel_run
+    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can cancel task runs" unless current_user&.person?
+
+    @subagent = find_subagent_by_handle
+    return render status: :not_found, plain: "404 Not Found" unless @subagent
+
+    @task_run = SubagentTaskRun.find_by(id: params[:run_id], subagent: @subagent)
+    return render status: :not_found, plain: "404 Not Found" unless @task_run
+
+    unless @task_run.status.in?(%w[queued running])
+      flash[:error] = "Can only cancel queued or running tasks"
+      return redirect_to subagent_run_path(@subagent.handle, @task_run.id)
+    end
+
+    @task_run.update!(
+      status: "cancelled",
+      success: false,
+      error: "Cancelled by user",
+      completed_at: Time.current
+    )
+
+    # Trigger job to pick up any remaining queued tasks
+    AgentQueueProcessorJob.perform_later(
+      subagent_id: @subagent.id,
+      tenant_id: current_tenant.id
+    )
+
+    respond_to do |format|
+      format.html do
+        flash[:notice] = "Task run cancelled"
+        redirect_to subagent_run_path(@subagent.handle, @task_run.id)
+      end
+      format.json { render json: { status: @task_run.status } }
     end
   end
 
@@ -149,9 +168,7 @@ class SubagentsController < ApplicationController
 
     @subagent = api_helper.create_subagent
     # Only generate token for external subagents
-    if @subagent.external_subagent? && ["true", "1"].include?(params[:generate_token])
-      @token = api_helper.generate_token(@subagent)
-    end
+    @token = api_helper.generate_token(@subagent) if @subagent.external_subagent? && ["true", "1"].include?(params[:generate_token])
     flash.now[:notice] = "Subagent #{@subagent.display_name} created successfully."
     render :show
   end
@@ -185,9 +202,7 @@ class SubagentsController < ApplicationController
     end
     @subagent = api_helper.create_subagent
     # Only generate token for external subagents
-    if @subagent.external_subagent? && [true, "true", "1"].include?(params[:generate_token])
-      @token = api_helper.generate_token(@subagent)
-    end
+    @token = api_helper.generate_token(@subagent) if @subagent.external_subagent? && [true, "true", "1"].include?(params[:generate_token])
 
     flash.now[:notice] = "Subagent #{@subagent.display_name} created successfully."
     respond_to do |format|

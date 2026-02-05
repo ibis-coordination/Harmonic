@@ -230,8 +230,9 @@ class LLMClientTest < ActiveSupport::TestCase
     client = LLMClient.new
     result = client.chat(messages: [{ role: "user", content: "Test" }])
 
-    assert_includes result.content, "error"
+    assert_equal "", result.content
     assert_equal "error", result.finish_reason
+    assert_includes result.error, "JSON parse error" # 500 response body isn't valid JSON
   end
 
   test "returns error message on connection failure" do
@@ -241,8 +242,9 @@ class LLMClientTest < ActiveSupport::TestCase
     client = LLMClient.new
     result = client.chat(messages: [{ role: "user", content: "Test" }])
 
-    assert_includes result.content, "error connecting"
+    assert_equal "", result.content
     assert_equal "error", result.finish_reason
+    assert_includes result.error, "Connection refused"
   end
 
   test "returns error message on timeout" do
@@ -252,8 +254,9 @@ class LLMClientTest < ActiveSupport::TestCase
     client = LLMClient.new
     result = client.chat(messages: [{ role: "user", content: "Test" }])
 
-    assert_includes result.content, "error connecting"
+    assert_equal "", result.content
     assert_equal "error", result.finish_reason
+    assert_includes result.error, "Connection error"
   end
 
   test "returns error message on JSON parse error" do
@@ -267,8 +270,9 @@ class LLMClientTest < ActiveSupport::TestCase
     client = LLMClient.new
     result = client.chat(messages: [{ role: "user", content: "Test" }])
 
-    assert_includes result.content, "error parsing"
+    assert_equal "", result.content
     assert_equal "error", result.finish_reason
+    assert_includes result.error, "JSON parse error"
   end
 
   # === Multi-turn conversations ===

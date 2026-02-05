@@ -90,4 +90,21 @@ class SubagentsHelperTest < ActionView::TestCase
     assert_includes result, '{"example": "value"}'
     assert_not_includes result, '"type": "navigate"'
   end
+
+  test "available_llm_models returns models from litellm config" do
+    models = available_llm_models
+
+    assert_kind_of Array, models
+    assert_not_empty models
+    assert_includes models, "default"
+  end
+
+  test "available_llm_models returns all configured models" do
+    models = available_llm_models
+
+    # These models are defined in config/litellm_config.yaml
+    assert_includes models, "default"
+    assert_includes models, "claude-haiku-4"
+    assert_includes models, "llama3"
+  end
 end

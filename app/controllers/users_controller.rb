@@ -179,6 +179,12 @@ class UsersController < ApplicationController
       settings_user.agent_configuration["mode"] = %w[internal external].include?(mode) ? mode : "external"
       settings_user.save!
     end
+    # Handle model for internal subagents
+    if settings_user.subagent? && params.key?(:model)
+      settings_user.agent_configuration ||= {}
+      settings_user.agent_configuration["model"] = params[:model].presence
+      settings_user.save!
+    end
     # Handle capabilities for subagents
     # Checked = allowed, unchecked = blocked (standard checkbox model)
     # Empty array (all unchecked) = NO grantable actions allowed

@@ -35,12 +35,13 @@ class LLMClient
     const :model, T.nilable(String)
     const :usage, T.nilable(T::Hash[String, T.untyped])
     const :finish_reason, T.nilable(String)
+    const :error, T.nilable(String) # Actual error message for debugging
   end
 
   # Default configuration
   DEFAULT_BASE_URL = "http://litellm:4000"
   DEFAULT_MODEL = "default"
-  DEFAULT_MAX_TOKENS = 2048
+  DEFAULT_MAX_TOKENS = 4096
   DEFAULT_TEMPERATURE = 0.7
   DEFAULT_TIMEOUT = 120
 
@@ -87,17 +88,27 @@ class LLMClient
     full_messages = build_messages(messages, system_prompt)
     body = build_request_body(full_messages, max_tokens, temperature)
 
+    Rails.logger.info("[LLMClient] Request to model=#{@model} messages=#{full_messages.count} max_tokens=#{body[:max_tokens]}")
+    Rails.logger.debug { "[LLMClient] Full request body: #{body.to_json}" }
+
     response = make_request(body)
-    parse_response(response)
+    result = parse_response(response)
+
+    Rails.logger.info("[LLMClient] Response model=#{result.model} finish_reason=#{result.finish_reason} content_length=#{result.content.length}")
+    Rails.logger.debug { "[LLMClient] Response content: #{result.content.truncate(500)}" }
+
+    result
   rescue Faraday::Error => e
-    Rails.logger.error("LLMClient connection error: #{e.message}")
-    error_result("Sorry, there was an error connecting to the LLM service. Please try again later.")
+    Rails.logger.error("[LLMClient] Connection error: #{e.class} - #{e.message}")
+    error_result("Connection error: #{e.message}")
   rescue JSON::ParserError => e
-    Rails.logger.error("LLMClient parse error: #{e.message}")
-    error_result("Sorry, there was an error parsing the LLM response.")
+    Rails.logger.error("[LLMClient] JSON parse error: #{e.message}")
+    Rails.logger.debug { "[LLMClient] Raw response body: #{response&.body&.truncate(1000)}" }
+    error_result("JSON parse error: #{e.message}")
   rescue StandardError => e
-    Rails.logger.error("LLMClient error: #{e.class} - #{e.message}")
-    error_result("Sorry, an unexpected error occurred.")
+    Rails.logger.error("[LLMClient] Error: #{e.class} - #{e.message}")
+    Rails.logger.debug { e.backtrace&.first(5)&.join("\n") }
+    error_result("#{e.class}: #{e.message}")
   end
 
   # Simple ask interface - just provide a question and get an answer.
@@ -173,17 +184,19 @@ class LLMClient
       content: content.strip,
       model: model,
       usage: usage,
-      finish_reason: finish_reason
+      finish_reason: finish_reason,
+      error: nil
     )
   end
 
   sig { params(message: String).returns(Result) }
   def error_result(message)
     Result.new(
-      content: message,
+      content: "",
       model: nil,
       usage: nil,
-      finish_reason: "error"
+      finish_reason: "error",
+      error: message
     )
   end
 
