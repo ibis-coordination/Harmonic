@@ -308,7 +308,7 @@ class CommitmentsController < ApplicationController
         resource: @commitment,
         result: "Commitment pinned.",
       })
-    rescue => e
+    rescue StandardError => e
       render_action_error({
         action_name: 'pin_commitment',
         resource: @commitment,
@@ -331,7 +331,7 @@ class CommitmentsController < ApplicationController
         resource: @commitment,
         result: "Commitment unpinned.",
       })
-    rescue => e
+    rescue StandardError => e
       render_action_error({
         action_name: 'unpin_commitment',
         resource: @commitment,

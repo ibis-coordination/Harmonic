@@ -220,7 +220,7 @@ class DecisionsController < ApplicationController
         resource: @decision,
         result: "Decision pinned.",
       })
-    rescue => e
+    rescue StandardError => e
       render_action_error({
         action_name: 'pin_decision',
         resource: @decision,
@@ -243,7 +243,7 @@ class DecisionsController < ApplicationController
         resource: @decision,
         result: "Decision unpinned.",
       })
-    rescue => e
+    rescue StandardError => e
       render_action_error({
         action_name: 'unpin_decision',
         resource: @decision,

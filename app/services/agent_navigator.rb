@@ -62,7 +62,7 @@ class AgentNavigator
     @steps = T.let([], T::Array[Step])
     @current_path = T.let(nil, T.nilable(String))
     @current_content = T.let(nil, T.nilable(String))
-    @current_actions = T.let([], T::Array[T::Hash[Symbol, T.untyped]])
+    @current_actions = T.let([], T::Array[T::Hash[String, T.untyped]])
     @last_action_result = T.let(nil, T.nilable(String))
     @messages = T.let([], T::Array[T::Hash[Symbol, String]])
     @leakage_detector = T.let(IdentityPromptLeakageDetector.new, IdentityPromptLeakageDetector)
