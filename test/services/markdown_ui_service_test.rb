@@ -50,6 +50,26 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
     assert_includes result[:content], note.text
   end
 
+  test "navigate to note with @ in title still parses actions correctly" do
+    # This tests the fix for the YAML parsing bug where @ at the start of a value
+    # causes Psych::SyntaxError and results in empty actions array
+    note = Note.create!(
+      title: "@alice please draft a recruitment message",
+      text: "This note has a title starting with @",
+      created_by: @user,
+      deadline: Time.current + 1.week
+    )
+    result = @service.navigate(note.path)
+    assert_nil result[:error], "Expected no error, got: #{result[:error]}"
+    assert_includes result[:content], note.title
+
+    # The key assertion: actions should be parsed even with @ in title
+    assert result[:actions].is_a?(Array), "Expected actions to be an array"
+    action_names = result[:actions].map { |a| a["name"] }
+    assert_includes action_names, "confirm_read", "Expected confirm_read action to be available"
+    assert_includes action_names, "add_comment", "Expected add_comment action to be available"
+  end
+
   test "navigate with layout includes YAML front matter" do
     result = @service.navigate("/", include_layout: true)
     assert_nil result[:error]

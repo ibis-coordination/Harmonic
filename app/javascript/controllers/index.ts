@@ -44,6 +44,7 @@ import ScratchpadLinksController from "./scratchpad_links_controller"
 import SubagentManagerController from "./subagent_manager_controller"
 import SubagentModeController from "./subagent_mode_controller"
 import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
+import TaskRunStatusController from "./task_run_status_controller"
 import TimeagoController from "./timeago_controller"
 import TooltipController from "./tooltip_controller"
 import TopLeftMenuController from "./top_left_menu_controller"
@@ -85,6 +86,7 @@ application.register("scratchpad-links", ScratchpadLinksController)
 application.register("subagent-manager", SubagentManagerController)
 application.register("subagent-mode", SubagentModeController)
 application.register("subagent-superagent-adder", SubagentSuperagentAdderController)
+application.register("task-run-status", TaskRunStatusController)
 application.register("timeago", TimeagoController)
 application.register("tooltip", TooltipController)
 application.register("top-left-menu", TopLeftMenuController)

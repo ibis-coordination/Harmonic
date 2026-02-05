@@ -1,15 +1,27 @@
+<%
+# Helper to escape YAML values that contain special characters
+def yaml_escape(value)
+  str = value.to_s
+  needs_quoting = str.match?(/\A[@#*&!|>%\[\]{}'":\s-]/) ||
+                  str.include?(": ") ||
+                  str.include?(" #") ||
+                  str.match?(/\s\z/)
+  result = needs_quoting ? '"' + str.gsub('\\', '\\\\').gsub('"', '\\"') + '"' : str
+  result.html_safe
+end
+-%>
 ---
 app: Harmonic
 host: <%= "#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}" %>
 path: <%= @current_path %>
-title: <%= raw @page_title %>
+title: <%= yaml_escape(@page_title) %>
 timestamp: <%= Time.now.utc %>
 <% actions = available_actions_for_current_route -%>
 <% if actions.any? -%>
 actions:
 <% actions.each do |action| -%>
   - name: <%= action[:name] %>
-    description: <%= action[:description].to_s.gsub('"', '\\"') %>
+    description: <%= yaml_escape(action[:description]) %>
     path: <%= action[:path] %>
 <% if action[:params]&.any? -%>
     params:
@@ -18,7 +30,7 @@ actions:
         type: <%= param[:type] %>
         required: <%= param[:required] %>
 <% if param[:description] -%>
-        description: <%= param[:description].to_s.gsub('"', '\\"') %>
+        description: <%= yaml_escape(param[:description]) %>
 <% end -%>
 <% end -%>
 <% end -%>

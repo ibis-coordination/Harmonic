@@ -11,7 +11,8 @@
         data-task-run-status-url-value="<%= subagent_run_path(@subagent.handle, @task_run.id) %>"
         data-task-run-status-status-value="<%= @task_run.status %>"
         data-task-run-status-steps-count-value="<%= @task_run.steps_count %>"
-        <% end %>>
+        <% end %>
+        data-task-run-status-target="container">
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
@@ -19,7 +20,7 @@
         Task Run
       </span>
       <div style="margin-left: auto; display: flex; gap: 12px;">
-        <% if @task_run.status.in?(%w[queued running]) %>
+        <span data-task-run-status-target="cancelButton" style="<%= @task_run.status.in?(%w[queued running]) ? '' : 'display: none;' %>">
           <%= button_to cancel_subagent_run_path(@subagent.handle, @task_run.id),
                 method: :post,
                 class: "pulse-feed-action-link",
@@ -27,7 +28,7 @@
                 data: { confirm: "Are you sure you want to cancel this task?" } do %>
             <%= octicon 'x-circle', height: 14 %> Cancel
           <% end %>
-        <% end %>
+        </span>
         <a href="<%= subagent_runs_path(@subagent.handle) %>" class="pulse-feed-action-link">
           <%= octicon 'history', height: 14 %> All Runs
         </a>
@@ -36,7 +37,7 @@
         </a>
       </div>
     </div>
-    <h1 class="pulse-resource-title">
+    <h1 class="pulse-resource-title" data-task-run-status-target="title">
       <% case @task_run.status %>
       <% when "completed" %>
         <%= @task_run.success ? 'Success' : 'Failed' %>
@@ -63,8 +64,8 @@
                        when "running", "queued" then 'pulse-notice'
                        else 'pulse-notice'
                        end %>
-    <div class="<%= summary_class %>" style="margin-bottom: 24px; padding: 16px; border-radius: 6px;">
-      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+    <div class="<%= summary_class %>" style="margin-bottom: 24px; padding: 16px; border-radius: 6px;" data-task-run-status-target="summary">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;" data-task-run-status-target="statusHeader">
         <% case @task_run.status %>
         <% when "completed" %>
           <% if @task_run.success %>
@@ -89,20 +90,19 @@
         <% end %>
       </div>
       <% if @task_run.status.in?(%w[running queued]) %>
-        <p style="margin: 0;">
+        <p style="margin: 0;" data-task-run-status-target="statusMessage">
           <%= @task_run.status == "running" ? "The agent is working on this task..." : "Waiting for agent to start..." %>
-          <span class="pulse-muted">(auto-refreshing)</span>
         </p>
       <% else %>
-        <p style="margin: 0;"><%= @task_run.final_message %></p>
+        <p style="margin: 0;" data-task-run-status-target="statusMessage"><%= @task_run.final_message %></p>
       <% end %>
-      <% if @task_run.error.present? %>
-        <p style="margin: 8px 0 0 0; color: var(--color-danger-fg);">Error: <%= @task_run.error %></p>
-      <% end %>
+      <p style="margin: 8px 0 0 0; color: var(--color-danger-fg); display: <%= @task_run.error.present? ? 'block' : 'none' %>;" data-task-run-status-target="errorMessage">
+        <% if @task_run.error.present? %>Error: <%= @task_run.error %><% end %>
+      </p>
       <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 12px;">
         Agent: <%= @subagent.name %> |
         Model: <code><%= @task_run.model || "default" %></code> |
-        Steps: <%= @task_run.steps_count %>
+        Steps: <span data-task-run-status-target="stepsCount"><%= @task_run.steps_count %></span>
         <% if @task_run.formatted_duration %>
           | Duration: <%= @task_run.formatted_duration %>
         <% end %>
@@ -160,7 +160,7 @@
       <%= octicon 'list-ordered', height: 12 %> Execution Steps
     </div>
 
-    <div class="pulse-feed">
+    <div class="pulse-feed" data-task-run-status-target="feed">
       <% @task_run.steps_data.each_with_index do |step, index| %>
         <% step = step.with_indifferent_access %>
         <article class="pulse-feed-item<%= ' pulse-feed-item-closed' if step[:type] == 'done' %>">
