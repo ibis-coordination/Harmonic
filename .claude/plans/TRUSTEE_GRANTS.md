@@ -8,29 +8,59 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 2. **User-to-agent trustee grant** - A user can grant Trio permission to create notes, vote, etc. on their behalf
 3. **Transparency** - All delegated actions are attributed to a trustee user and logged in representation sessions
 
-## Current State
+---
 
-### What Exists
-- `TrusteeGrant` model with core fields:
-  - `granting_user` → the person delegating authority
-  - `trusted_user` → the person/agent receiving authority
-  - `trustee_user` → user of type `trustee` representing the relationship (auto-created)
-  - `permissions` JSONB → intended for granular grants (currently empty)
-  - `expires_at` → time-limited grants
-  - `relationship_phrase` → e.g., "{trusted_user} acts for {granting_user}"
-- `RepresentationSession` model - currently used for studio representation
-- `grant_permissions!` and `revoke_permissions!` methods
-- Test helper `create_trustee_grant`
+## Implementation Status
 
-### What's Missing
-1. **Permission schema** - No defined structure for what can be granted
-2. **Studio scoping** - Permissions need to be limited to specific studios
-3. **Acceptance workflow** - Trusted user must accept the grant
-4. **Authorization checks** - TODO at `User#can_represent?:140` for trustee grant trustees
-5. **Controllers/routes** - No CRUD endpoints for TrusteeGrant
-6. **UI** - No way for users to grant/manage permissions
-7. **Notifications** - No alerts when trustee takes actions
-8. **Enforcement** - No middleware to check permissions at action time
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **Phase 1** | Schema & Model Updates | ✅ Complete |
+| **Phase 2** | Controller & Routes | ✅ Complete |
+| **Phase 3** | User Interface | 🔶 Partial (3.3 missing) |
+| **Phase 4** | Representation Session Integration | 🔶 Partial (4.4 done) |
+| **Phase 5** | Notifications | ⬚ Not Started |
+| **Phase 6** | Trio Integration | ⬚ Not Started |
+| **Phase 7** | Replace Impersonation | 🔶 Partial (7.1 done) |
+
+### What's Complete
+- ✅ `TrusteeGrant` model with CAPABILITIES constant, state methods, studio scoping
+- ✅ Acceptance workflow (pending → active/declined/revoked/expired)
+- ✅ `TrusteeGrantsController` at `/u/:handle/settings/trustee-grants`
+- ✅ HTML and markdown views (index, new, show)
+- ✅ `User#can_represent?` checks TrusteeGrant for user representation
+- ✅ `TrusteeActionValidator` service (exists but not yet enforced)
+- ✅ Auto-create TrusteeGrant when subagent is created
+- ✅ Comprehensive tests for model, controller, and integration
+
+### What's Remaining
+- ⬚ **Phase 3.3**: Navigation integration (link from settings to trustee grants, pending badge)
+- ⬚ **Phase 4.1-4.3, 4.5**: RepresentationSession integration for user representation
+- ⬚ **Phase 4.5**: Enforce TrusteeActionValidator in api_helper.rb and markdown_ui_service.rb
+- ⬚ **Phase 5**: Notifications for trustee grant events
+- ⬚ **Phase 6**: Trio integration and "Trio Access" settings
+- ⬚ **Phase 7.2-7.6**: Replace impersonation with representation sessions
+
+---
+
+## Current State (as of initial planning - now outdated)
+
+~~### What Exists~~
+~~- `TrusteeGrant` model with core fields~~
+~~- `RepresentationSession` model - currently used for studio representation~~
+~~- `grant_permissions!` and `revoke_permissions!` methods~~
+~~- Test helper `create_trustee_grant`~~
+
+~~### What's Missing~~
+~~1. **Permission schema** - No defined structure for what can be granted~~
+~~2. **Studio scoping** - Permissions need to be limited to specific studios~~
+~~3. **Acceptance workflow** - Trusted user must accept the grant~~
+~~4. **Authorization checks** - TODO at `User#can_represent?:140` for trustee grant trustees~~
+~~5. **Controllers/routes** - No CRUD endpoints for TrusteeGrant~~
+~~6. **UI** - No way for users to grant/manage permissions~~
+~~7. **Notifications** - No alerts when trustee takes actions~~
+~~8. **Enforcement** - No middleware to check permissions at action time~~
+
+*See Implementation Status above for current state.*
 
 ## Design Decisions
 
@@ -201,11 +231,11 @@ Attribution:                        Attribution:
 
 ---
 
-## Phase 1: Schema & Model Updates
+## Phase 1: Schema & Model Updates ✅ COMPLETE
 
 **Goal**: Extend TrusteeGrant with acceptance workflow, studio scoping, and capability definitions.
 
-### 1.1 Database migration
+### 1.1 Database migration ✅
 
 **File**: `db/migrate/YYYYMMDD_extend_trustee_grants.rb`
 
@@ -225,7 +255,7 @@ class ExtendTrusteeGrants < ActiveRecord::Migration[7.0]
 end
 ```
 
-### 1.2 Add capability constants and state methods
+### 1.2 Add capability constants and state methods ✅
 
 **File**: `app/models/trustee_grant.rb`
 
@@ -310,7 +340,7 @@ scope :active, -> {
 }
 ```
 
-### 1.3 Implement authorization check
+### 1.3 Implement authorization check ✅
 
 **File**: `app/models/user.rb`
 
@@ -352,7 +382,7 @@ def pending_trustee_grant_requests
 end
 ```
 
-### 1.4 Tests
+### 1.4 Tests ✅
 
 **File**: `test/models/trustee_grant_test.rb`
 
@@ -364,11 +394,11 @@ end
 
 ---
 
-## Phase 2: Controller & Routes
+## Phase 2: Controller & Routes ✅ COMPLETE
 
 **Goal**: Create endpoints for managing trustee grants with acceptance workflow.
 
-### 2.1 Routes
+### 2.1 Routes ✅
 
 **File**: `config/routes.rb`
 
@@ -385,7 +415,7 @@ scope '/settings' do
 end
 ```
 
-### 2.2 Controller
+### 2.2 Controller ✅
 
 **File**: `app/controllers/trustee_grants_controller.rb`
 
@@ -458,17 +488,19 @@ class TrusteeGrantsController < ApplicationController
 end
 ```
 
-### 2.3 Markdown UI support
+### 2.3 Markdown UI support ✅
 
 Add `respond_to` blocks for markdown format in all actions.
 
 ---
 
-## Phase 3: User Interface
+## Phase 3: User Interface 🔶 PARTIAL
 
 **Goal**: Build UI for granting and managing permissions.
 
-### 3.1 Index view
+**Status**: Views complete (3.1, 3.2), but navigation integration (3.3) is not started.
+
+### 3.1 Index view ✅
 
 **File**: `app/views/trustee_grants/index.html.erb`
 
@@ -478,7 +510,7 @@ Sections:
 3. **Active trustee grants I've granted** - Who I can act for (with revoke)
 4. **Grant new trustee grant** button
 
-### 3.2 New permission form
+### 3.2 New permission form ✅
 
 **File**: `app/views/trustee_grants/new.html.erb`
 
@@ -491,23 +523,27 @@ Form fields:
   - Multi-select for studio list
 - Expiration (optional date picker)
 
-### 3.3 Navigation integration
+### 3.3 Navigation integration ⬚ NOT STARTED
 
 - Link from user profile/settings to trustee grants page
 - Badge on nav when pending requests exist
 
+**Note**: The trustee grants views exist but there's no link from the settings page yet.
+
 ---
 
-## Phase 4: Representation Session Integration
+## Phase 4: Representation Session Integration 🔶 PARTIAL
 
 **Goal**: Enable trustee grant trustees to use representation sessions.
+
+**Status**: Only 4.4 (TrusteeActionValidator) is complete. Sections 4.1-4.3, 4.5 remain.
 
 ### Key Constraints
 - **Single session**: A user can only have one active representation session at a time (studio OR trustee grant)
 - **Multi-studio**: A trustee grant session can span multiple studios (actions logged per-studio)
 - **Immediate capability changes**: Permission modifications apply immediately to active sessions
 
-### 4.1 Extend representation session start
+### 4.1 Extend representation session start ⬚ NOT STARTED
 
 **File**: `app/controllers/representation_sessions_controller.rb`
 
@@ -545,14 +581,14 @@ def create
 end
 ```
 
-### 4.2 Multi-studio session behavior
+### 4.2 Multi-studio session behavior ⬚ NOT STARTED
 
 For trustee grant trustees, the session can span studios:
 - Session is created in one studio context
 - Actions in other scoped studios are still logged to the same session
 - `superagent_id` on the session is the "home" studio, but `semantic_event[:superagent_id]` tracks where each action occurred
 
-### 4.3 Update representation UI
+### 4.3 Update representation UI ⬚ NOT STARTED
 
 Show both:
 - "Represent this studio" (existing)
@@ -560,7 +596,7 @@ Show both:
 
 Disable options when already in a session (show "Currently representing X")
 
-### 4.4 Capability enforcement during session
+### 4.4 Capability enforcement during session ✅ COMPLETE
 
 **File**: `app/services/trustee_action_validator.rb`
 
@@ -602,15 +638,17 @@ end
 
 **Note**: If a granting user revokes a capability while a session is active, the next action requiring that capability will fail immediately.
 
-### 4.5 Integrate enforcement
+### 4.5 Integrate enforcement ⬚ NOT STARTED
 
 **Files**: `app/services/markdown_ui_service.rb`, `app/services/api_helper.rb`
 
 Check permissions before executing actions.
 
+**Note**: `TrusteeActionValidator` exists but is not yet integrated into these files.
+
 ---
 
-## Phase 5: Notifications
+## Phase 5: Notifications ⬚ NOT STARTED
 
 **Goal**: Notify users of trustee grant events and actions.
 
@@ -639,7 +677,7 @@ Create notification types:
 
 ---
 
-## Phase 6: Trio Integration
+## Phase 6: Trio Integration ⬚ NOT STARTED
 
 **Goal**: Enable Trio to request and use delegated permissions.
 
@@ -687,11 +725,13 @@ Add to user settings:
 
 ---
 
-## Phase 7: Replace Impersonation with Representation
+## Phase 7: Replace Impersonation with Representation 🔶 PARTIAL
 
 **Goal**: Migrate from impersonation to representation sessions, ensuring all delegated actions are logged.
 
-### 7.1 Auto-create TrusteeGrant for subagents
+**Status**: Only 7.1 (auto-create TrusteeGrant for subagents) is complete. Sections 7.2-7.6 remain.
+
+### 7.1 Auto-create TrusteeGrant for subagents ✅ COMPLETE
 
 When a subagent is created, automatically create a TrusteeGrant:
 
@@ -716,7 +756,7 @@ def create_parent_trustee_grant!
 end
 ```
 
-### 7.2 Migration for existing subagents
+### 7.2 Migration for existing subagents ⬚ NOT STARTED
 
 **File**: `db/migrate/YYYYMMDD_create_trustee_grants_for_subagents.rb`
 
@@ -747,7 +787,7 @@ class CreateTrusteeGrantsForSubagents < ActiveRecord::Migration[7.0]
 end
 ```
 
-### 7.3 Update `can_impersonate?` to use representation
+### 7.3 Update `can_impersonate?` to use representation ⬚ NOT STARTED
 
 **File**: `app/models/user.rb`
 
@@ -780,14 +820,14 @@ def can_represent?(superagent_or_user)
 end
 ```
 
-### 7.4 Remove impersonation UI
+### 7.4 Remove impersonation UI ⬚ NOT STARTED
 
 **Files to update**:
 - Remove "Impersonate" buttons from user profiles
 - Remove impersonation session management from `ApplicationController`
 - Replace with "Represent" flow using representation sessions
 
-### 7.5 Update session management
+### 7.5 Update session management ⬚ NOT STARTED
 
 Current impersonation uses session cookies directly. Replace with representation session flow:
 
@@ -812,7 +852,7 @@ representation_session = RepresentationSession.create!(
 # All actions logged in activity_log
 ```
 
-### 7.6 Testing the migration
+### 7.6 Testing the migration ⬚ NOT STARTED
 
 1. Create subagent via API
 2. Verify TrusteeGrant auto-created
