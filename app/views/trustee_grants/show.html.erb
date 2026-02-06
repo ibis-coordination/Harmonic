@@ -1,0 +1,160 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/trustee-grants/#{@grant.truncated_id}"
+is_granting = @grant.granting_user == @target_user
+is_trusted = @grant.trusted_user == @target_user
+%>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@target_user.display_name, "/u/#{@target_user.handle}"],
+  ['Settings', "/u/#{@target_user.handle}/settings"],
+  ['Trustee Grants', "/u/#{@target_user.handle}/settings/trustee-grants"],
+  @grant.display_name
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
+        Trustee Grant
+      </span>
+      <% if @grant.active? %>
+        <span class="pulse-tag pulse-tag-success">Active</span>
+      <% elsif @grant.pending? %>
+        <span class="pulse-tag pulse-tag-warning">Pending</span>
+      <% elsif @grant.declined? %>
+        <span class="pulse-tag">Declined</span>
+      <% elsif @grant.revoked? %>
+        <span class="pulse-tag">Revoked</span>
+      <% elsif @grant.expired? %>
+        <span class="pulse-tag">Expired</span>
+      <% end %>
+    </div>
+    <h1 class="pulse-resource-title"><%= @grant.display_name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Details</h2>
+      <table class="pulse-table">
+        <tr>
+          <th style="width:150px;">Granting User</th>
+          <td>
+            <a href="/u/<%= @grant.granting_user.handle %>" class="pulse-link">
+              <%= @grant.granting_user.display_name || @grant.granting_user.handle %>
+            </a>
+            <% if is_granting %><span class="pulse-tag pulse-tag-small">You</span><% end %>
+          </td>
+        </tr>
+        <tr>
+          <th>Trusted User</th>
+          <td>
+            <a href="/u/<%= @grant.trusted_user.handle %>" class="pulse-link">
+              <%= @grant.trusted_user.display_name || @grant.trusted_user.handle %>
+            </a>
+            <% if is_trusted %><span class="pulse-tag pulse-tag-small">You</span><% end %>
+          </td>
+        </tr>
+        <tr>
+          <th>Capabilities</th>
+          <td>
+            <% if @grant.permissions.present? && @grant.permissions.any? %>
+              <% @grant.permissions.each do |capability, enabled| %>
+                <% next unless enabled %>
+                <span class="pulse-tag"><%= capability %></span>
+              <% end %>
+            <% else %>
+              <em>No capabilities granted</em>
+            <% end %>
+          </td>
+        </tr>
+        <tr>
+          <th>Studio Scope</th>
+          <td>
+            <% scope = @grant.studio_scope || { "mode" => "all" } %>
+            <% case scope["mode"] %>
+            <% when "all" %>
+              All studios where granting user is a member
+            <% when "include" %>
+              Only specific studios (<%= scope["studio_ids"]&.count || 0 %>)
+            <% when "exclude" %>
+              All studios except specific ones (<%= scope["studio_ids"]&.count || 0 %>)
+            <% end %>
+          </td>
+        </tr>
+        <tr>
+          <th>Created</th>
+          <td><%= @grant.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+        </tr>
+        <% if @grant.accepted_at %>
+          <tr>
+            <th>Accepted</th>
+            <td><%= @grant.accepted_at.strftime("%Y-%m-%d %H:%M") %></td>
+          </tr>
+        <% end %>
+        <% if @grant.declined_at %>
+          <tr>
+            <th>Declined</th>
+            <td><%= @grant.declined_at.strftime("%Y-%m-%d %H:%M") %></td>
+          </tr>
+        <% end %>
+        <% if @grant.revoked_at %>
+          <tr>
+            <th>Revoked</th>
+            <td><%= @grant.revoked_at.strftime("%Y-%m-%d %H:%M") %></td>
+          </tr>
+        <% end %>
+        <tr>
+          <th>Expires</th>
+          <td>
+            <% if @grant.expires_at %>
+              <%= @grant.expires_at.strftime("%Y-%m-%d %H:%M") %>
+              <% if @grant.expired? %>
+                <span class="pulse-tag pulse-tag-danger">Expired</span>
+              <% end %>
+            <% else %>
+              Never
+            <% end %>
+          </td>
+        </tr>
+      </table>
+    </section>
+
+    <% if @grant.pending? && is_trusted %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Respond to Request</h2>
+        <p>
+          <strong><%= @grant.granting_user.display_name || @grant.granting_user.handle %></strong>
+          is requesting for you to act on their behalf.
+        </p>
+        <div class="pulse-action-row">
+          <%= form_tag "#{base_path}/actions/accept_trustee_grant", method: :post, style: "display:inline;" do %>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+              <%= octicon "check" %> Accept
+            </button>
+          <% end %>
+
+          <%= form_tag "#{base_path}/actions/decline_trustee_grant", method: :post, style: "display:inline;" do %>
+            <button type="submit" class="pulse-action-btn">
+              <%= octicon "x" %> Decline
+            </button>
+          <% end %>
+        </div>
+      </section>
+    <% end %>
+
+    <% if is_granting && !@grant.revoked? && !@grant.declined? %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Manage</h2>
+        <div class="pulse-action-row">
+          <%= form_tag "#{base_path}/actions/revoke_trustee_grant", method: :post, style: "display:inline;" do %>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-danger" onclick="return confirm('Are you sure you want to revoke this trustee grant?')">
+              <%= octicon "x-circle" %> Revoke Trustee Grant
+            </button>
+          <% end %>
+        </div>
+      </section>
+    <% end %>
+  </div>
+</article>

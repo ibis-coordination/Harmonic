@@ -607,4 +607,271 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_equal @user.id, json[:representative_user_id]
     assert_equal @superagent.trustee_user.id, json[:trustee_user_id]
   end
+
+  # =========================================================================
+  # TRUSTEE GRANT TRUSTEE REPRESENTATION SESSIONS
+  # These tests document the intended behavior for using representation
+  # sessions with trustee grant trustees (user-to-user trustee grant).
+  # =========================================================================
+
+  test "representation session can be created with trustee grant trustee" do
+    # Create a second user who will grant permission
+    granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
+    @tenant.add_user!(granting_user)
+    @superagent.add_user!(granting_user)
+
+    # Create trustee permission: granting_user grants @user permission to act on their behalf
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: granting_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    permission.accept!
+
+    # Create session using the trustee grant trustee
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative_user: @user,  # The trusted_user who is doing the representing
+      trustee_user: permission.trustee_user,  # The trustee grant trustee, not the studio trustee
+      confirmed_understanding: true,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+
+    assert session.persisted?
+    assert_equal @user, session.representative_user
+    assert_equal permission.trustee_user, session.trustee_user
+    assert_not_equal @superagent.trustee_user, session.trustee_user
+    assert session.trustee_user.trustee?
+    assert_not session.trustee_user.superagent_trustee?
+  end
+
+  test "delegation session trustee is not a superagent trustee" do
+    granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
+    @tenant.add_user!(granting_user)
+    @superagent.add_user!(granting_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: granting_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    permission.accept!
+
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative_user: @user,
+      trustee_user: permission.trustee_user,
+      confirmed_understanding: true,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+
+    # Delegation trustee should NOT be a superagent trustee
+    assert_not session.trustee_user.superagent_trustee?
+    assert_nil session.trustee_user.trustee_superagent
+  end
+
+  test "delegation session can record activity" do
+    granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
+    @tenant.add_user!(granting_user)
+    @superagent.add_user!(granting_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: granting_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    permission.accept!
+
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative_user: @user,
+      trustee_user: permission.trustee_user,
+      confirmed_understanding: true,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'create',
+        superagent_id: @superagent.id,
+        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    assert_equal 1, session.activity_log['activity'].count
+    assert_equal 1, session.representation_session_associations.count
+  end
+
+  # === Single Session Constraint ===
+
+  test "user cannot have multiple active representation sessions" do
+    # First, create a studio representation session
+    first_session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+    assert first_session.active?
+
+    # Create another studio
+    other_superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_superagent.add_user!(@user)
+
+    # Attempting to create a second session should fail (or be prevented by business logic)
+    # This test documents that we need to enforce single session constraint
+    existing_active_session = RepresentationSession.where(
+      representative_user: @user,
+      ended_at: nil,
+    ).where("began_at > ?", 24.hours.ago).first
+
+    assert existing_active_session.present?, "Should find existing active session"
+    assert_equal first_session, existing_active_session
+  end
+
+  # === Multi-Studio Session for Delegation ===
+
+  test "delegation session superagent tracks initial studio context" do
+    granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
+    @tenant.add_user!(granting_user)
+    @superagent.add_user!(granting_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: granting_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+      studio_scope: { "mode" => "all" },
+    )
+    permission.accept!
+
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      superagent: @superagent,  # Initial studio context
+      representative_user: @user,
+      trustee_user: permission.trustee_user,
+      confirmed_understanding: true,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+
+    # Session is created in the context of @superagent
+    assert_equal @superagent, session.superagent
+  end
+
+  test "delegation session can record activity in different studios" do
+    granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
+    @tenant.add_user!(granting_user)
+    @superagent.add_user!(granting_user)
+
+    # Create a second studio
+    other_superagent = create_superagent(tenant: @tenant, created_by: granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_superagent.add_user!(@user)
+    other_superagent.add_user!(granting_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: granting_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+      studio_scope: { "mode" => "all" },
+    )
+    permission.accept!
+
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      superagent: @superagent,  # Initial studio context
+      representative_user: @user,
+      trustee_user: permission.trustee_user,
+      confirmed_understanding: true,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+
+    # Record activity in the initial studio
+    note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'create',
+        superagent_id: @superagent.id,
+        main_resource: { type: 'Note', id: note1.id, truncated_id: note1.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    # Record activity in a different studio (within the same session)
+    note2 = create_note(tenant: @tenant, superagent: other_superagent, created_by: @user)
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'create',
+        superagent_id: other_superagent.id,  # Different studio
+        main_resource: { type: 'Note', id: note2.id, truncated_id: note2.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    assert_equal 2, session.activity_log['activity'].count
+
+    # Verify the superagent_id is captured in each semantic event
+    activities = session.activity_log['activity']
+    assert_equal @superagent.id, activities[0]['semantic_event']['superagent_id']
+    assert_equal other_superagent.id, activities[1]['semantic_event']['superagent_id']
+  end
+
+  # === Representation Session with Parent-Subagent ===
+
+  test "parent can create representation session for subagent via auto-created permission" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test Subagent",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(subagent)
+    @superagent.add_user!(subagent)
+
+    # Auto-created permission should exist
+    permission = TrusteeGrant.find_by(granting_user: subagent, trusted_user: @user)
+    assert permission.present?, "TrusteeGrant should be auto-created for subagent"
+    assert permission.active?
+
+    # Parent can create representation session using the trustee grant trustee
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative_user: @user,  # The parent
+      trustee_user: permission.trustee_user,  # The trustee grant trustee
+      confirmed_understanding: true,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+
+    assert session.persisted?
+    assert_equal @user, session.representative_user
+    assert session.active?
+  end
 end

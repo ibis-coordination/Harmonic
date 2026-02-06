@@ -1,4 +1,4 @@
-\restrict 55YvfpoGzfJPf6lKm4EICusk4tNNyqIznEhnwTjKzQ5GHRK5tt8BfSjA52WltZs
+\restrict N4IEZ50Rk40qCLiaEC7KGtyL3VNofFETjL8PWF23Hpk50fPdDfbaBgIfYStm6h4
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -1317,10 +1317,10 @@ CREATE TABLE public.tenants (
 
 
 --
--- Name: trustee_permissions; Type: TABLE; Schema: public; Owner: -
+-- Name: trustee_grants; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.trustee_permissions (
+CREATE TABLE public.trustee_grants (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     trustee_user_id uuid NOT NULL,
     granting_user_id uuid NOT NULL,
@@ -1330,7 +1330,13 @@ CREATE TABLE public.trustee_permissions (
     permissions jsonb DEFAULT '{}'::jsonb,
     expires_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    tenant_id uuid,
+    accepted_at timestamp(6) without time zone,
+    declined_at timestamp(6) without time zone,
+    revoked_at timestamp(6) without time zone,
+    studio_scope jsonb DEFAULT '{"mode": "all"}'::jsonb,
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL
 );
 
 
@@ -2410,10 +2416,10 @@ ALTER TABLE ONLY public.tenants
 
 
 --
--- Name: trustee_permissions trustee_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: trustee_grants trustee_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.trustee_permissions
+ALTER TABLE ONLY public.trustee_grants
     ADD CONSTRAINT trustee_permissions_pkey PRIMARY KEY (id);
 
 
@@ -2575,6 +2581,13 @@ ALTER TABLE ONLY public.webhook_deliveries
 
 ALTER TABLE ONLY public.webhooks
     ADD CONSTRAINT webhooks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_active_trustee_grants; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_active_trustee_grants ON public.trustee_grants USING btree (granting_user_id, trusted_user_id) WHERE ((revoked_at IS NULL) AND (declined_at IS NULL));
 
 
 --
@@ -3523,24 +3536,45 @@ CREATE UNIQUE INDEX index_tenants_on_subdomain ON public.tenants USING btree (su
 
 
 --
--- Name: index_trustee_permissions_on_granting_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_trustee_grants_on_accepted_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_trustee_permissions_on_granting_user_id ON public.trustee_permissions USING btree (granting_user_id);
-
-
---
--- Name: index_trustee_permissions_on_trusted_user_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_trustee_permissions_on_trusted_user_id ON public.trustee_permissions USING btree (trusted_user_id);
+CREATE INDEX index_trustee_grants_on_accepted_at ON public.trustee_grants USING btree (accepted_at);
 
 
 --
--- Name: index_trustee_permissions_on_trustee_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_trustee_grants_on_granting_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_trustee_permissions_on_trustee_user_id ON public.trustee_permissions USING btree (trustee_user_id);
+CREATE INDEX index_trustee_grants_on_granting_user_id ON public.trustee_grants USING btree (granting_user_id);
+
+
+--
+-- Name: index_trustee_grants_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_trustee_grants_on_tenant_id ON public.trustee_grants USING btree (tenant_id);
+
+
+--
+-- Name: index_trustee_grants_on_truncated_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_trustee_grants_on_truncated_id ON public.trustee_grants USING btree (truncated_id);
+
+
+--
+-- Name: index_trustee_grants_on_trusted_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_trustee_grants_on_trusted_user_id ON public.trustee_grants USING btree (trusted_user_id);
+
+
+--
+-- Name: index_trustee_grants_on_trustee_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_trustee_grants_on_trustee_user_id ON public.trustee_grants USING btree (trustee_user_id);
 
 
 --
@@ -7644,10 +7678,10 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
--- Name: trustee_permissions fk_rails_61c22cd494; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: trustee_grants fk_rails_61c22cd494; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.trustee_permissions
+ALTER TABLE ONLY public.trustee_grants
     ADD CONSTRAINT fk_rails_61c22cd494 FOREIGN KEY (trusted_user_id) REFERENCES public.users(id);
 
 
@@ -7764,10 +7798,10 @@ ALTER TABLE ONLY public.attachments
 
 
 --
--- Name: trustee_permissions fk_rails_8bee20bb10; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: trustee_grants fk_rails_8bee20bb10; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.trustee_permissions
+ALTER TABLE ONLY public.trustee_grants
     ADD CONSTRAINT fk_rails_8bee20bb10 FOREIGN KEY (trustee_user_id) REFERENCES public.users(id);
 
 
@@ -7980,10 +8014,10 @@ ALTER TABLE ONLY public.representation_sessions
 
 
 --
--- Name: trustee_permissions fk_rails_dc3eb15db3; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: trustee_grants fk_rails_dc3eb15db3; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.trustee_permissions
+ALTER TABLE ONLY public.trustee_grants
     ADD CONSTRAINT fk_rails_dc3eb15db3 FOREIGN KEY (granting_user_id) REFERENCES public.users(id);
 
 
@@ -8001,6 +8035,14 @@ ALTER TABLE ONLY public.options
 
 ALTER TABLE ONLY public.tenant_users
     ADD CONSTRAINT fk_rails_e15916f8bf FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: trustee_grants fk_rails_e32a8a6734; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trustee_grants
+    ADD CONSTRAINT fk_rails_e32a8a6734 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8119,7 +8161,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 55YvfpoGzfJPf6lKm4EICusk4tNNyqIznEhnwTjKzQ5GHRK5tt8BfSjA52WltZs
+\unrestrict N4IEZ50Rk40qCLiaEC7KGtyL3VNofFETjL8PWF23Hpk50fPdDfbaBgIfYStm6h4
 
 SET search_path TO "$user", public;
 
@@ -8252,6 +8294,9 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260203044904'),
 ('20260203055419'),
 ('20260204110122'),
-('20260205034909');
+('20260205034909'),
+('20260206051044'),
+('20260206052934'),
+('20260206194042');
 
 

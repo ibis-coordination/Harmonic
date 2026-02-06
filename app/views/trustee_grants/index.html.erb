@@ -1,0 +1,180 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
+%>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@target_user.display_name, "/u/#{@target_user.handle}"],
+  ['Settings', "/u/#{@target_user.handle}/settings"],
+  'Trustee Grants'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
+        Trustee Grants
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Trustee Grants for <%= @target_user.display_name || @target_user.handle %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p class="pulse-text-muted">
+      Trustee grants allow you to grant other users authority to act on your behalf.
+    </p>
+
+    <p class="pulse-action-row">
+      <a href="<%= base_path %>/new" class="pulse-action-btn pulse-action-btn-primary">
+        <%= octicon "plus" %> Create New Trustee Grant
+      </a>
+    </p>
+
+    <% if @pending_requests.any? %>
+      <section class="pulse-section">
+        <h2 class="pulse-section-title">Pending Requests</h2>
+        <p class="pulse-text-muted">These users are requesting authority to act on your behalf.</p>
+
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>From</th>
+              <th>Capabilities</th>
+              <th>Expires</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @pending_requests.each do |grant| %>
+              <tr>
+                <td>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>" class="pulse-link">
+                    <%= grant.granting_user.display_name || grant.granting_user.handle %>
+                  </a>
+                </td>
+                <td><%= grant.permissions&.keys&.join(", ") || "None" %></td>
+                <td><%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %></td>
+                <td>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/accept_trustee_grant" class="pulse-action-btn pulse-action-btn-small pulse-action-btn-primary">Accept</a>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/decline_trustee_grant" class="pulse-action-btn pulse-action-btn-small">Decline</a>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </section>
+    <% end %>
+
+    <section class="pulse-section">
+      <h2 class="pulse-section-title">Trustee Grants I've Created</h2>
+      <p class="pulse-text-muted">These users can act on your behalf.</p>
+
+      <% granted_active = @granted.select(&:active?) %>
+      <% granted_pending = @granted.select(&:pending?) %>
+      <% granted_inactive = @granted.reject { |p| p.active? || p.pending? } %>
+
+      <% if granted_active.any? || granted_pending.any? %>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Trusted User</th>
+              <th>Capabilities</th>
+              <th>Status</th>
+              <th>Expires</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (granted_active + granted_pending).each do |grant| %>
+              <tr>
+                <td>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>" class="pulse-link">
+                    <%= grant.trusted_user.display_name || grant.trusted_user.handle %>
+                  </a>
+                </td>
+                <td><%= grant.permissions&.keys&.join(", ") || "None" %></td>
+                <td>
+                  <% if grant.active? %>
+                    <span class="pulse-tag pulse-tag-success">Active</span>
+                  <% elsif grant.pending? %>
+                    <span class="pulse-tag pulse-tag-warning">Pending</span>
+                  <% end %>
+                </td>
+                <td><%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="pulse-empty-content"><em>You haven't created any trustee grants yet.</em></p>
+      <% end %>
+
+      <% if granted_inactive.any? %>
+        <details class="pulse-details">
+          <summary>Show inactive trustee grants (<%= granted_inactive.count %>)</summary>
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <th>Trusted User</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% granted_inactive.each do |grant| %>
+                <tr>
+                  <td>
+                    <a href="<%= base_path %>/<%= grant.truncated_id %>" class="pulse-link">
+                      <%= grant.trusted_user.display_name || grant.trusted_user.handle %>
+                    </a>
+                  </td>
+                  <td>
+                    <% if grant.revoked? %>
+                      <span class="pulse-tag">Revoked</span>
+                    <% elsif grant.declined? %>
+                      <span class="pulse-tag">Declined</span>
+                    <% elsif grant.expired? %>
+                      <span class="pulse-tag">Expired</span>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </details>
+      <% end %>
+    </section>
+
+    <section class="pulse-section">
+      <h2 class="pulse-section-title">Trustee Grants I've Received</h2>
+      <p class="pulse-text-muted">You can act on behalf of these users.</p>
+
+      <% received_active = @received.select(&:active?) %>
+      <% if received_active.any? %>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Granting User</th>
+              <th>Capabilities</th>
+              <th>Expires</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% received_active.each do |grant| %>
+              <tr>
+                <td>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>" class="pulse-link">
+                    <%= grant.granting_user.display_name || grant.granting_user.handle %>
+                  </a>
+                </td>
+                <td><%= grant.permissions&.keys&.join(", ") || "None" %></td>
+                <td><%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="pulse-empty-content"><em>No one has granted you trustee authority yet.</em></p>
+      <% end %>
+    </section>
+  </div>
+</article>

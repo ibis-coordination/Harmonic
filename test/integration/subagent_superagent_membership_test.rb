@@ -9,12 +9,7 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     @parent = @global_user
     # Ensure parent has admin role on studio to have invite permission
     @parent.superagent_members.find_by(superagent: @superagent)&.add_role!('admin')
-    @subagent = User.create!(
-      email: "subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
-      name: "Subagent User",
-      user_type: "subagent",
-      parent_id: @parent.id,
-    )
+    @subagent = create_subagent(parent: @parent, name: "Subagent User")
     @tenant.add_user!(@subagent)
     # Note: @subagent is NOT added to @studio initially
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
@@ -58,12 +53,7 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
     # Create another parent with their own subagent
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
-    other_subagent = User.create!(
-      email: "other-subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
-      name: "Other Subagent",
-      user_type: "subagent",
-      parent_id: other_parent.id,
-    )
+    other_subagent = create_subagent(parent: other_parent, name: "Other Subagent")
     @tenant.add_user!(other_subagent)
 
     # @parent tries to add other_subagent to @studio
@@ -173,12 +163,7 @@ class SubagentStudioMembershipTest < ActionDispatch::IntegrationTest
   test "admin cannot add another user's subagent to studio via settings" do
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
-    other_subagent = User.create!(
-      email: "other-subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
-      name: "Other Subagent",
-      user_type: "subagent",
-      parent_id: other_parent.id,
-    )
+    other_subagent = create_subagent(parent: other_parent, name: "Other Subagent")
     @tenant.add_user!(other_subagent)
 
     sign_in_as(@parent, tenant: @tenant)

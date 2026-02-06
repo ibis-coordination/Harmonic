@@ -7,6 +7,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     @superagent = @global_superagent
     @superagent.enable_api!
     @user = @global_user
+
+    # Set tenant/superagent context for direct database operations
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+
     @api_token = ApiToken.create!(
       tenant: @tenant,
       user: @user,
@@ -752,6 +757,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     SuperagentMember.where(user: other_user).delete_all if other_user
     TenantUser.where(user: other_user).delete_all if other_user
+    Event.where(actor_id: other_user&.id).delete_all if other_user
     note&.destroy
     other_user&.destroy
   end

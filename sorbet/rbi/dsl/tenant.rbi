@@ -537,6 +537,48 @@ class Tenant
     sig { void }
     def reset_main_superagent; end
 
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :search_index`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::SearchIndex::PrivateCollectionProxy) }
+    def search_index; end
+
+    sig { params(value: T::Enumerable[::SearchIndex]).void }
+    def search_index=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def search_index_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def search_index_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def subagent_task_run_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def subagent_task_run_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def subagent_task_run_resource_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def subagent_task_run_resource_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :subagent_task_run_resources`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::SubagentTaskRunResource::PrivateCollectionProxy) }
+    def subagent_task_run_resources; end
+
+    sig { params(value: T::Enumerable[::SubagentTaskRunResource]).void }
+    def subagent_task_run_resources=(value); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :subagent_task_runs`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::SubagentTaskRun::PrivateCollectionProxy) }
+    def subagent_task_runs; end
+
+    sig { params(value: T::Enumerable[::SubagentTaskRun]).void }
+    def subagent_task_runs=(value); end
+
     sig { returns(T::Array[T.untyped]) }
     def superagent_ids; end
 
@@ -580,24 +622,38 @@ class Tenant
     def tenant_users=(value); end
 
     sig { returns(T::Array[T.untyped]) }
-    def trustee_permission_ids; end
+    def trustee_grant_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def trustee_permission_ids=(ids); end
+    def trustee_grant_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :trustee_permissions`.
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :trustee_grants`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::TrusteePermission::PrivateCollectionProxy) }
-    def trustee_permissions; end
+    sig { returns(::TrusteeGrant::PrivateCollectionProxy) }
+    def trustee_grants; end
 
-    sig { params(value: T::Enumerable[::TrusteePermission]).void }
-    def trustee_permissions=(value); end
+    sig { params(value: T::Enumerable[::TrusteeGrant]).void }
+    def trustee_grants=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def user_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def user_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :user_item_status`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserItemStatus::PrivateCollectionProxy) }
+    def user_item_status; end
+
+    sig { params(value: T::Enumerable[::UserItemStatus]).void }
+    def user_item_status=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def user_item_status_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def user_item_status_ids=(ids); end
 
     # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :users, through: :tenant_users`.
     # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)

@@ -123,12 +123,7 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
 
   test "update can update subagent user created by current user" do
     # Create a subagent user
-    subagent = User.create!(
-      email: "subagent-update-#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent for Update",
-      user_type: "subagent",
-      parent_id: @user.id
-    )
+    subagent = create_subagent(parent: @user, name: "Subagent for Update")
     @tenant.add_user!(subagent)
     update_params = { display_name: "Updated Subagent Name" }
     put api_path("/#{subagent.id}"), params: update_params.to_json, headers: @headers
@@ -146,12 +141,7 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
   end
 
   test "update can archive subagent user" do
-    subagent = User.create!(
-      email: "subagent-archive-#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent for Archive",
-      user_type: "subagent",
-      parent_id: @user.id
-    )
+    subagent = create_subagent(parent: @user, name: "Subagent for Archive")
     @tenant.add_user!(subagent)
     update_params = { archived: true }
     put api_path("/#{subagent.id}"), params: update_params.to_json, headers: @headers
@@ -163,12 +153,7 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
 
   # Delete
   test "delete deletes subagent user with no data" do
-        subagent = User.create!(
-      email: "subagent-delete-#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent for Delete",
-      user_type: "subagent",
-      parent_id: @user.id
-    )
+    subagent = create_subagent(parent: @user, name: "Subagent for Delete")
     @tenant.add_user!(subagent)
     assert_difference "User.count", -1 do
       delete api_path("/#{subagent.id}"), headers: @headers

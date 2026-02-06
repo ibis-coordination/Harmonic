@@ -1,0 +1,72 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
+-%>
+# Create New Trustee Grant
+
+Grant another user authority to act on your behalf. They will need to accept the trustee grant before they can use it.
+
+## [Actions](<%= base_path %>/new/actions)
+
+* [`create_trustee_grant(trusted_user_id, permissions, ...)`](<%= base_path %>/new/actions/create_trustee_grant) - Grant another user authority to act on your behalf
+
+## Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| trusted_user_id | string | yes | The ID of the user to grant authority to |
+| permissions | array | yes | Array of capability names to grant |
+| studio_scope_mode | string | no | Studio scope: "all" (default), "include", or "exclude" |
+| studio_ids | array | no | Array of studio IDs for include/exclude modes |
+| expires_at | datetime | no | When the trustee grant expires |
+| relationship_phrase | string | no | Description of the relationship |
+
+## Available Capabilities
+
+<% @capabilities.group_by { |_k, v| v[:category] }.each do |category, capabilities| -%>
+### <%= category.humanize %>
+
+<% capabilities.each do |key, cap| -%>
+* `<%= key %>` - <%= cap[:name] %>
+<% end -%>
+
+<% end -%>
+## Available Users
+
+<% if @available_users.any? -%>
+| ID | Name | Handle | Type |
+|----|------|--------|------|
+<% @available_users.each do |user| -%>
+| `<%= user.id %>` | <%= user.display_name || user.name %> | <%= user.handle %> | <%= user.user_type %> |
+<% end -%>
+<% else -%>
+*No users available for trustee grants.*
+<% end -%>
+
+## Studio Scope Modes
+
+| Mode | Description |
+|------|-------------|
+| `all` | All studios where you are a member (default) |
+| `include` | Only the specified studios |
+| `exclude` | All studios except the specified ones |
+
+## Available Studios
+
+<% if @available_studios.any? -%>
+| ID | Name |
+|----|------|
+<% @available_studios.each do |studio| -%>
+| `<%= studio.id %>` | <%= studio.name %> |
+<% end -%>
+<% else -%>
+*No studios available.*
+<% end -%>
+
+## Navigation
+
+* [All Trustee Grants](<%= base_path %>)
+<% if @target_user == @current_user -%>
+* [Settings](/settings)
+<% else -%>
+* [<%= @target_user.handle %>'s Profile](/u/<%= @target_user.handle %>)
+<% end -%>

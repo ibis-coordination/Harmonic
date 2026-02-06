@@ -661,6 +661,48 @@ class Superagent
     sig { void }
     def reset_updated_by; end
 
+    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :search_index`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::SearchIndex::PrivateCollectionProxy) }
+    def search_index; end
+
+    sig { params(value: T::Enumerable[::SearchIndex]).void }
+    def search_index=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def search_index_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def search_index_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def subagent_task_run_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def subagent_task_run_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def subagent_task_run_resource_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def subagent_task_run_resource_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :subagent_task_run_resources`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::SubagentTaskRunResource::PrivateCollectionProxy) }
+    def subagent_task_run_resources; end
+
+    sig { params(value: T::Enumerable[::SubagentTaskRunResource]).void }
+    def subagent_task_run_resources=(value); end
+
+    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :subagent_task_runs`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::SubagentTaskRun::PrivateCollectionProxy) }
+    def subagent_task_runs; end
+
+    sig { params(value: T::Enumerable[::SubagentTaskRun]).void }
+    def subagent_task_runs=(value); end
+
     sig { returns(T::Array[T.untyped]) }
     def superagent_member_ids; end
 
@@ -682,18 +724,18 @@ class Superagent
     def tenant=(value); end
 
     sig { returns(T::Array[T.untyped]) }
-    def trustee_permission_ids; end
+    def trustee_grant_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def trustee_permission_ids=(ids); end
+    def trustee_grant_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :trustee_permissions`.
+    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :trustee_grants`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::TrusteePermission::PrivateCollectionProxy) }
-    def trustee_permissions; end
+    sig { returns(::TrusteeGrant::PrivateCollectionProxy) }
+    def trustee_grants; end
 
-    sig { params(value: T::Enumerable[::TrusteePermission]).void }
-    def trustee_permissions=(value); end
+    sig { params(value: T::Enumerable[::TrusteeGrant]).void }
+    def trustee_grants=(value); end
 
     sig { returns(T.nilable(::User)) }
     def trustee_user; end
@@ -712,6 +754,20 @@ class Superagent
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def user_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :user_item_status`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserItemStatus::PrivateCollectionProxy) }
+    def user_item_status; end
+
+    sig { params(value: T::Enumerable[::UserItemStatus]).void }
+    def user_item_status=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def user_item_status_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def user_item_status_ids=(ids); end
 
     # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :users, through: :superagent_members`.
     # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
@@ -1173,6 +1229,51 @@ class Superagent
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T::Boolean) }
+    def internal; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def internal=(value); end
+
+    sig { returns(T::Boolean) }
+    def internal?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def internal_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def internal_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def internal_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def internal_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def internal_change_to_be_saved; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def internal_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def internal_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def internal_previous_change; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def internal_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def internal_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def internal_was; end
+
+    sig { void }
+    def internal_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def name; end
 
@@ -1234,6 +1335,9 @@ class Superagent
     def restore_id!; end
 
     sig { void }
+    def restore_internal!; end
+
+    sig { void }
     def restore_name!; end
 
     sig { void }
@@ -1283,6 +1387,12 @@ class Superagent
 
     sig { returns(T::Boolean) }
     def saved_change_to_id?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_internal; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_internal?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_name; end
@@ -1610,6 +1720,9 @@ class Superagent
 
     sig { returns(T::Boolean) }
     def will_save_change_to_id?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_internal?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_name?; end

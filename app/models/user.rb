@@ -20,7 +20,21 @@ class User < ApplicationRecord
   has_many :notification_recipients
   has_many :notifications, through: :notification_recipients
 
-  validates :user_type, inclusion: { in: %w(person subagent trustee) }
+  # Trustee grant associations
+  has_many :granted_trustee_grants, class_name: "TrusteeGrant",
+                                    foreign_key: "granting_user_id", inverse_of: :granting_user,
+                                    dependent: :destroy
+  has_many :received_trustee_grants, class_name: "TrusteeGrant",
+                                     foreign_key: "trusted_user_id", inverse_of: :trusted_user,
+                                     dependent: :destroy
+  has_many :trustee_grants_as_trustee, class_name: "TrusteeGrant",
+                                       foreign_key: "trustee_user_id", inverse_of: :trustee_user,
+                                       dependent: :destroy
+
+  # Auto-create TrusteeGrant when a subagent is created
+  after_create :create_parent_trustee_grant!, if: :subagent?
+
+  validates :user_type, inclusion: { in: ["person", "subagent", "trustee"] }
   validates :email, presence: true
   validates :name, presence: true
   validate :subagent_must_have_parent
@@ -73,14 +87,14 @@ class User < ApplicationRecord
     elsif parent_id.nil? && subagent?
       errors.add(:parent_id, "must be set for subagent users")
     end
-    if persisted? && parent_id == id
-      errors.add(:parent_id, "user cannot be its own parent")
-    end
+    return unless persisted? && parent_id == id
+
+    errors.add(:parent_id, "user cannot be its own parent")
   end
 
   sig { returns(T::Boolean) }
   def person?
-    user_type == 'person'
+    user_type == "person"
   end
 
   sig { returns(T::Boolean) }
@@ -100,7 +114,7 @@ class User < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def trustee?
-    user_type == 'trustee'
+    user_type == "trustee"
   end
 
   sig { returns(T::Boolean) }
@@ -112,15 +126,17 @@ class User < ApplicationRecord
   def trustee_superagent
     return nil unless trustee?
     return @trustee_superagent if defined?(@trustee_superagent)
+
     @trustee_superagent = Superagent.where(trustee_user: self).first
   end
 
   sig { params(user: User).returns(T::Boolean) }
   def can_impersonate?(user)
-    is_parent = user.subagent? && user.parent_id == self.id && !user.archived?
+    is_parent = user.subagent? && user.parent_id == id && !user.archived?
     return true if is_parent
+
     if user.superagent_trustee?
-      sm = self.superagent_members.find_by(superagent_id: T.must(user.trustee_superagent).id)
+      sm = superagent_members.find_by(superagent_id: T.must(user.trustee_superagent).id)
       return sm&.can_represent? || false
     end
     false
@@ -130,26 +146,41 @@ class User < ApplicationRecord
   def can_represent?(superagent_or_user)
     if superagent_or_user.is_a?(Superagent)
       superagent = superagent_or_user
-      is_trustee_of_superagent = self.trustee_superagent == superagent
-      return is_trustee_of_superagent if self.trustee?
-      sm = self.superagent_members.find_by(superagent_id: superagent.id)
+      is_trustee_of_superagent = trustee_superagent == superagent
+      return is_trustee_of_superagent if trustee?
+
+      sm = superagent_members.find_by(superagent_id: superagent.id)
       return sm&.can_represent? || false
     elsif superagent_or_user.is_a?(User)
       user = superagent_or_user
-      return can_impersonate?(user)
-      # TODO - check for trustee permissions for non-superagent trustee users
+      return true if can_impersonate?(user)
+
+      # Check for trustee grants
+      # The trusted_user (self) can represent the granting_user (user) if there's an active grant
+      grant = TrusteeGrant.active.find_by(
+        granting_user: user,
+        trusted_user: self
+      )
+      return grant.present?
     end
     false
   end
 
+  # Returns pending trustee grant requests where this user is the trusted_user
+  sig { returns(ActiveRecord::Relation) }
+  def pending_trustee_grant_requests
+    received_trustee_grants.pending
+  end
+
   sig { params(user: User).returns(T::Boolean) }
   def can_edit?(user)
-    user == self || (user.subagent? && user.parent_id == self.id)
+    user == self || (user.subagent? && user.parent_id == id)
   end
 
   sig { params(subagent: User, superagent: Superagent).returns(T::Boolean) }
   def can_add_subagent_to_superagent?(subagent, superagent)
-    return false unless subagent.subagent? && subagent.parent_id == self.id
+    return false unless subagent.subagent? && subagent.parent_id == id
+
     sm = superagent_members.find_by(superagent_id: superagent.id)
     sm&.can_invite? || false
   end
@@ -176,11 +207,9 @@ class User < ApplicationRecord
 
   sig { params(tu: TenantUser).void }
   def tenant_user=(tu)
-    if tu.user_id == self.id
-      @tenant_user = tu
-    else
-      raise "TenantUser user_id does not match User id"
-    end
+    raise "TenantUser user_id does not match User id" unless tu.user_id == id
+
+    @tenant_user = tu
   end
 
   sig { returns(T.nilable(TenantUser)) }
@@ -195,11 +224,9 @@ class User < ApplicationRecord
 
   sig { params(sm: SuperagentMember).void }
   def superagent_member=(sm)
-    if sm.user_id == self.id
-      @superagent_member = sm
-    else
-      raise "SuperagentMember user_id does not match User id"
-    end
+    raise "SuperagentMember user_id does not match User id" unless sm.user_id == id
+
+    @superagent_member = sm
   end
 
   sig { returns(T.nilable(SuperagentMember)) }
@@ -214,7 +241,7 @@ class User < ApplicationRecord
 
   sig { returns(ActiveRecord::Relation) }
   def superagents
-    @superagents ||= Superagent.joins(:superagent_members).where(superagent_members: {user_id: id})
+    @superagents ||= Superagent.joins(:superagent_members).where(superagent_members: { user_id: id })
   end
 
   sig { params(name: String).void }
@@ -234,6 +261,7 @@ class User < ApplicationRecord
   sig { returns(String) }
   def display_name_with_parent
     return display_name || "" unless subagent?
+
     parent_name = parent&.display_name || "unknown"
     "#{display_name} (subagent of #{parent_name})"
   end
@@ -241,6 +269,7 @@ class User < ApplicationRecord
   sig { returns(T.nilable(User)) }
   def parent
     return nil unless parent_id
+
     User.find_by(id: parent_id)
   end
 
@@ -253,7 +282,7 @@ class User < ApplicationRecord
   def handle
     if trustee?
       superagent = Superagent.where(trustee_user: self).first
-      superagent ? 'studios/' + T.must(superagent.handle) : nil
+      superagent ? "studios/" + T.must(superagent.handle) : nil
     else
       tenant_user&.handle
     end
@@ -305,27 +334,25 @@ class User < ApplicationRecord
 
   sig { params(invite: Invite).returns(SuperagentMember) }
   def accept_invite!(invite)
-    if invite.invited_user_id == self.id || invite.invited_user_id.nil?
-      SuperagentMember.find_or_create_by!(superagent_id: invite.superagent_id, user_id: self.id)
-      # TODO track invite accepted event
-    else
-      raise "Cannot accept invite for another user"
-    end
+    raise "Cannot accept invite for another user" unless invite.invited_user_id == id || invite.invited_user_id.nil?
+
+    SuperagentMember.find_or_create_by!(superagent_id: invite.superagent_id, user_id: id)
+    # TODO: track invite accepted event
   end
 
   sig { returns(ActiveRecord::Relation) }
   def superagents_minus_main
-    superagents.includes(:tenant).where('tenants.main_superagent_id != superagents.id')
+    superagents.includes(:tenant).where("tenants.main_superagent_id != superagents.id")
   end
 
   sig { returns(ActiveRecord::Relation) }
   def external_oauth_identities
-    oauth_identities.where.not(provider: 'identity')
+    oauth_identities.where.not(provider: "identity")
   end
 
   sig { returns(T.nilable(OmniAuthIdentity)) }
   def omni_auth_identity
-    OmniAuthIdentity.find_by(email: self.email)
+    OmniAuthIdentity.find_by(email: email)
   end
 
   sig { returns(OmniAuthIdentity) }
@@ -333,8 +360,8 @@ class User < ApplicationRecord
     oaid = omni_auth_identity
     if oaid.nil?
       oaid = OmniAuthIdentity.create!(
-        email: self.email,
-        name: self.name,
+        email: email,
+        name: name,
         password: SecureRandom.alphanumeric(32)
       )
     end
@@ -378,6 +405,7 @@ class User < ApplicationRecord
   sig { returns(T.nilable(User)) }
   def suspended_by
     return nil unless suspended_by_id
+
     User.find_by(id: suspended_by_id)
   end
 
@@ -404,11 +432,31 @@ class User < ApplicationRecord
 
   private
 
+  # Create a TrusteeGrant allowing the parent to represent this subagent
+  sig { void }
+  def create_parent_trustee_grant!
+    return unless subagent? && parent_id.present?
+
+    parent_user = User.find_by(id: parent_id)
+    return unless parent_user
+
+    # Build all capabilities hash
+    all_capabilities = TrusteeGrant::CAPABILITIES.keys.index_with { true }
+
+    TrusteeGrant.create!(
+      granting_user: self,              # The subagent grants
+      trusted_user: parent_user,        # The parent receives
+      accepted_at: Time.current,        # Pre-accepted
+      permissions: all_capabilities,    # All capabilities
+      studio_scope: { "mode" => "all" }, # All studios
+      relationship_phrase: "{trusted_user} acts for {granting_user}"
+    )
+  end
+
   sig { params(tenant_id: String).returns(T::Hash[String, Float]) }
   def cached_proximity_scores(tenant_id)
     Rails.cache.fetch("proximity:#{tenant_id}:#{id}", expires_in: 1.day) do
       SocialProximityCalculator.new(self, tenant_id: tenant_id).compute
     end
   end
-
 end

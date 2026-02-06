@@ -5,12 +5,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @superagent = @global_superagent
     @parent = @global_user
-    @subagent = User.create!(
-      email: "subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
-      name: "Subagent User",
-      user_type: "subagent",
-      parent_id: @parent.id,
-    )
+    @subagent = create_subagent(parent: @parent, name: "Subagent User")
     @tenant.add_user!(@subagent)
     @superagent.add_user!(@subagent)
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
@@ -34,12 +29,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
     @superagent.add_user!(other_parent)
-    other_subagent = User.create!(
-      email: "other-subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
-      name: "Other Subagent",
-      user_type: "subagent",
-      parent_id: other_parent.id,
-    )
+    other_subagent = create_subagent(parent: other_parent, name: "Other Subagent")
     @tenant.add_user!(other_subagent)
     @superagent.add_user!(other_subagent)
 

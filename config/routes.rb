@@ -267,6 +267,21 @@ Rails.application.routes.draw do
     post 'settings/webhooks/:webhook_id/actions/delete_webhook' => 'user_webhooks#execute_delete', on: :member
     get 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#describe_test', on: :member
     post 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#execute_test', on: :member
+    # Trustee grant management (TrusteeGrants)
+    get 'settings/trustee-grants' => 'trustee_grants#index', on: :member
+    get 'settings/trustee-grants/actions' => 'trustee_grants#actions_index', on: :member
+    get 'settings/trustee-grants/new' => 'trustee_grants#new', on: :member
+    get 'settings/trustee-grants/new/actions' => 'trustee_grants#actions_index_new', on: :member
+    get 'settings/trustee-grants/new/actions/create_trustee_grant' => 'trustee_grants#describe_create', on: :member
+    post 'settings/trustee-grants/new/actions/create_trustee_grant' => 'trustee_grants#execute_create', on: :member
+    get 'settings/trustee-grants/:grant_id' => 'trustee_grants#show', on: :member
+    get 'settings/trustee-grants/:grant_id/actions' => 'trustee_grants#actions_index_show', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/accept_trustee_grant' => 'trustee_grants#describe_accept', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/accept_trustee_grant' => 'trustee_grants#execute_accept', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#describe_decline', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#execute_decline', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#describe_revoke', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#execute_revoke', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|

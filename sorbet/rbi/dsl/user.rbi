@@ -330,6 +330,20 @@ class User
     sig { params(value: T::Enumerable[::DecisionParticipant]).void }
     def decision_participants=(value); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def granted_trustee_grant_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def granted_trustee_grant_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :granted_trustee_grants`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::TrusteeGrant::PrivateCollectionProxy) }
+    def granted_trustee_grants; end
+
+    sig { params(value: T::Enumerable[::TrusteeGrant]).void }
+    def granted_trustee_grants=(value); end
+
     sig { returns(T.nilable(::ActiveStorage::Attachment)) }
     def image_attachment; end
 
@@ -397,6 +411,20 @@ class User
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def oauth_identity_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def received_trustee_grant_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def received_trustee_grant_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :received_trustee_grants`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::TrusteeGrant::PrivateCollectionProxy) }
+    def received_trustee_grants; end
+
+    sig { params(value: T::Enumerable[::TrusteeGrant]).void }
+    def received_trustee_grants=(value); end
 
     sig { returns(T.nilable(::ActiveStorage::Attachment)) }
     def reload_image_attachment; end
@@ -479,6 +507,20 @@ class User
 
     sig { params(value: T::Enumerable[::Tenant]).void }
     def tenants=(value); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :trustee_grants_as_trustee`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::TrusteeGrant::PrivateCollectionProxy) }
+    def trustee_grants_as_trustee; end
+
+    sig { params(value: T::Enumerable[::TrusteeGrant]).void }
+    def trustee_grants_as_trustee=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def trustee_grants_as_trustee_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def trustee_grants_as_trustee_ids=(ids); end
 
     sig { returns(T::Array[T.untyped]) }
     def vote_ids; end

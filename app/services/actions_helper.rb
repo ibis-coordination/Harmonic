@@ -474,6 +474,39 @@ class ActionsHelper
       params: [],
       authorization: WEBHOOK_AUTHORIZATION,
     },
+
+    # Trustee Grant actions
+    "create_trustee_grant" => {
+      description: "Grant another user authority to act on your behalf",
+      params_string: "(trusted_user_id, permissions, studio_scope_mode, studio_ids, expires_at, relationship_phrase)",
+      params: [
+        { name: "trusted_user_id", type: "string", required: true, description: "The ID of the user to grant authority to" },
+        { name: "permissions", type: "array", required: true, description: "Array of capability names to grant (e.g., create_notes, vote, commit)" },
+        { name: "studio_scope_mode", type: "string", description: 'Studio scope mode: "all" (default), "include", or "exclude"' },
+        { name: "studio_ids", type: "array", description: "Array of studio IDs for include/exclude modes" },
+        { name: "expires_at", type: "datetime", description: "When the trustee grant expires (optional)" },
+        { name: "relationship_phrase", type: "string", description: 'Relationship description (optional, defaults to "{trusted_user} acts for {granting_user}")' },
+      ],
+      authorization: :self,
+    },
+    "accept_trustee_grant" => {
+      description: "Accept a trustee grant request",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
+    "decline_trustee_grant" => {
+      description: "Decline a trustee grant request",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
+    "revoke_trustee_grant" => {
+      description: "Revoke a trustee grant you previously created",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
   }.freeze
 
   # Route to actions mapping for actions index pages.
@@ -751,6 +784,21 @@ class ActionsHelper
         { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
         { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
       ],
+    },
+    "/u/:handle/settings/trustee-grants" => {
+      controller_actions: ["trustee_grants#index"],
+      actions: [],
+    },
+    "/u/:handle/settings/trustee-grants/new" => {
+      controller_actions: ["trustee_grants#new"],
+      actions: [
+        { name: "create_trustee_grant", params_string: ACTION_DEFINITIONS["create_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["create_trustee_grant"][:description] },
+      ],
+    },
+    "/u/:handle/settings/trustee-grants/:grant_id" => {
+      controller_actions: ["trustee_grants#show"],
+      actions: [],
+      # Actions are dynamically computed based on grant state - see TrusteeGrantsController#actions_index_show
     },
   }
 
