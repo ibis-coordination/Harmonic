@@ -33,8 +33,9 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 - ✅ Comprehensive tests for model, controller, and integration
 - ✅ Navigation links from settings page to trustee grants with pending badge
 - ✅ RepresentationSession extended with `trustee_grant_id` for user representation
-- ✅ UI to start user representation sessions via trustee grants
+- ✅ UI to start user representation sessions from trustee grants page (index and show)
 - ✅ Capability enforcement via `require_capability!` in ApiHelper
+- ✅ Subagent capability configuration for trustee grant actions (grantable, not always-allowed)
 
 ### What's Remaining
 - ⬚ **Phase 5**: Notifications for trustee grant events
@@ -569,13 +570,17 @@ For trustee grant trustees, the session can span studios:
 ### 4.3 Update representation UI ✅ COMPLETE
 
 **Files**:
-- `app/views/studios/represent.html.erb` - Updated to show both options
+- `app/views/trustee_grants/index.html.erb` - "Represent" button in received grants table
+- `app/views/trustee_grants/show.html.erb` - "Start Representing" section for active grants
+- `app/controllers/trustee_grants_controller.rb` - `start_representing` action
+- `config/routes.rb` - Route for `/u/:handle/settings/trustee-grants/:grant_id/represent`
 - `app/views/representation_sessions/representing.html.erb` - Updated to display user representation
 
 Features:
-- "Represent this studio" (studio representation)
-- "Act on behalf of [User]" for each active trustee grant (user representation)
-- Shows granted capabilities and available studios for user representation
+- User representation is initiated from the trustee grants settings page
+- "Represent" button appears for received active grants where user is the trusted_user
+- Creates RepresentationSession linked to the trustee grant
+- Session cookies set for `trustee_user_id` and `representation_session_id`
 
 ### 4.4 Capability enforcement during session ✅ COMPLETE
 
@@ -619,7 +624,20 @@ end
 
 **Note**: If a granting user revokes a capability while a session is active, the next action requiring that capability will fail immediately.
 
-### 4.5 Integrate enforcement ✅ COMPLETE
+### 4.5 Subagent capability configuration ✅ COMPLETE
+
+**Files**:
+- `app/services/capability_check.rb` - Added trustee grant actions to `SUBAGENT_GRANTABLE_ACTIONS`
+- `app/views/subagents/new.html.erb` - Added capability groups for trustee grant actions
+- `app/views/users/settings.html.erb` - Added capability groups in subagent edit form
+
+Trustee grant actions are grantable (not always-allowed) with different defaults:
+- **Trustee Grant Responses** (`accept_trustee_grant`, `decline_trustee_grant`) - Enabled by default
+- **Trustee Grant Admin** (`create_trustee_grant`, `revoke_trustee_grant`) - Disabled by default
+
+This allows parent users to control whether their subagents can accept/decline trustee grants or create/revoke them.
+
+### 4.6 Integrate enforcement ✅ COMPLETE
 
 **File**: `app/services/api_helper.rb`
 
@@ -854,11 +872,13 @@ representation_session = RepresentationSession.create!(
 | `app/models/trustee_grant.rb` | Core model with capabilities, states, scoping |
 | `app/models/user.rb` | Authorization methods |
 | `app/models/representation_session.rb` | Session model (works for both studio and user) |
-| `app/controllers/trustee_grants_controller.rb` | CRUD + accept/decline/revoke |
+| `app/controllers/trustee_grants_controller.rb` | CRUD + accept/decline/revoke + start_representing |
 | `app/controllers/representation_sessions_controller.rb` | Extended for trustee grant trustees |
 | `app/services/trustee_action_validator.rb` | Permission enforcement |
+| `app/services/capability_check.rb` | Subagent capability authorization |
 | `app/services/markdown_ui_service.rb` | Action execution with enforcement |
 | `app/views/trustee_grants/` | UI templates |
+| `app/views/subagents/new.html.erb` | Subagent creation with capability config |
 
 ---
 
@@ -921,3 +941,5 @@ representation_session = RepresentationSession.create!(
 | Replace impersonation | Yes - all impersonation replaced with representation sessions |
 | Parent-subagent representation | Auto-create TrusteeGrant when subagent is created; granting_user=subagent, trusted_user=parent; pre-accepted with full capabilities |
 | User type mixing | Never - user types (person, subagent, trustee) are mutually exclusive; each trustee grant creates a new trustee user |
+| Subagent trustee grant actions | Grantable (not always-allowed); Responses enabled by default, Admin actions disabled by default |
+| User representation entry point | Trustee grants settings page (`/u/:handle/settings/trustee-grants`) - not studio representation page |
