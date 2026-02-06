@@ -54,9 +54,10 @@ class RepresentationSessionsController < ApplicationController
 
   # Start a studio representation session
   def start_representing
+    # Block nested representation sessions - a user can only represent one entity at a time
     if current_representation_session
-      flash[:alert] = 'You have already started a representation session. You must end it before starting a new one.'
-      return redirect_to request.referrer
+      flash[:alert] = 'Nested representation sessions are not allowed. End your current session before starting a new one.'
+      return redirect_to '/representing'
     end
     return render status: 403, plain: '403 Unauthorized' unless current_user.superagent_member.can_represent?
     confirmed_understanding = params[:understand] == 'true' || params[:understand] == '1'
@@ -83,9 +84,10 @@ class RepresentationSessionsController < ApplicationController
 
   # Start a user representation session via trustee grant
   def start_representing_user
+    # Block nested representation sessions - a user can only represent one entity at a time
     if current_representation_session
-      flash[:alert] = 'You have already started a representation session. You must end it before starting a new one.'
-      return redirect_to request.referrer || root_path
+      flash[:alert] = 'Nested representation sessions are not allowed. End your current session before starting a new one.'
+      return redirect_to '/representing'
     end
 
     # Find the trustee grant

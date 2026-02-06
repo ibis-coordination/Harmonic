@@ -937,6 +937,7 @@ representation_session = RepresentationSession.create!(
 | Session duration | Same 24h limit as studio sessions |
 | Multiple studios | A trustee grant trustee session can span multiple studios (actions in any scoped studio) |
 | Concurrent sessions | No - a user can only represent a single entity (user or studio) at a time |
+| Nested sessions | Not allowed - if A represents B, A cannot start a session to represent C via B's grants; UI hides options and backend blocks with explicit error |
 | Capability changes | Immediate effect - permission changes apply to active sessions |
 | Replace impersonation | Yes - all impersonation replaced with representation sessions |
 | Parent-subagent representation | Auto-create TrusteeGrant when subagent is created; granting_user=subagent, trusted_user=parent; pre-accepted with full capabilities |

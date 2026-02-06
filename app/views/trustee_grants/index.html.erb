@@ -170,10 +170,14 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
                 <td><%= grant.permissions&.keys&.join(", ") || "None" %></td>
                 <td><%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %></td>
                 <td>
-                  <%= form_tag "#{base_path}/#{grant.truncated_id}/represent", method: :post, style: "display:inline;" do %>
-                    <button type="submit" class="pulse-action-btn pulse-action-btn-small pulse-action-btn-primary">
-                      <%= octicon "person", height: 12 %> Represent
-                    </button>
+                  <% if @current_representation_session %>
+                    <span class="pulse-text-muted" title="End current session first">—</span>
+                  <% else %>
+                    <%= form_tag "#{base_path}/#{grant.truncated_id}/represent", method: :post, style: "display:inline;" do %>
+                      <button type="submit" class="pulse-action-btn pulse-action-btn-small pulse-action-btn-primary">
+                        <%= octicon "person", height: 12 %> Represent
+                      </button>
+                    <% end %>
                   <% end %>
                 </td>
               </tr>

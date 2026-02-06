@@ -160,17 +160,24 @@ is_trusted = @grant.trusted_user == @target_user
     <% if @grant.active? && is_trusted %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Represent</h2>
-        <p>
-          You can act on behalf of <strong><%= @grant.granting_user.display_name || @grant.granting_user.handle %></strong>
-          using this trustee grant.
-        </p>
-        <div class="pulse-action-row">
-          <%= form_tag "#{base_path}/represent", method: :post, style: "display:inline;" do %>
-            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
-              <%= octicon "person" %> Start Representing <%= @grant.granting_user.display_name || @grant.granting_user.handle %>
-            </button>
-          <% end %>
-        </div>
+        <% if @current_representation_session %>
+          <p class="pulse-text-muted">
+            You are currently representing <%= @current_representation_session.trustee_user.display_name %>.
+            <a href="/representing" class="pulse-link">End that session</a> before starting a new one.
+          </p>
+        <% else %>
+          <p>
+            You can act on behalf of <strong><%= @grant.granting_user.display_name || @grant.granting_user.handle %></strong>
+            using this trustee grant.
+          </p>
+          <div class="pulse-action-row">
+            <%= form_tag "#{base_path}/represent", method: :post, style: "display:inline;" do %>
+              <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+                <%= octicon "person" %> Start Representing <%= @grant.granting_user.display_name || @grant.granting_user.handle %>
+              </button>
+            <% end %>
+          </div>
+        <% end %>
       </section>
     <% end %>
   </div>

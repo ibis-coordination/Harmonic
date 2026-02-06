@@ -287,9 +287,9 @@ class TrusteeGrantsController < ApplicationController
       return redirect_to trustee_grant_show_path(@grant)
     end
 
-    # Check for existing representation session
+    # Block nested representation sessions - a user can only represent one entity at a time
     if session[:representation_session_id].present?
-      flash[:alert] = "You already have an active representation session. End it before starting a new one."
+      flash[:alert] = "Nested representation sessions are not allowed. End your current session before starting a new one."
       return redirect_to "/representing"
     end
 

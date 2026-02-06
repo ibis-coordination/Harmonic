@@ -75,7 +75,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     follow_redirect!
-    assert_match /already started a representation session/, flash[:alert]
+    assert_match /Nested representation sessions are not allowed/, flash[:alert]
   end
 
   test "representation session is created when starting" do
