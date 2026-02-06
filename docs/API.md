@@ -581,14 +581,14 @@ Get a specific user.
 
 #### POST /api/v1/users
 
-Create a simulated user (for testing/automation).
+Create a subagent (automated user managed by the authenticated user).
 
 **Request Body:**
 ```json
 {
-  "name": "Simulated User",
-  "email": "sim@example.com",
-  "handle": "sim-user",
+  "name": "My Agent",
+  "email": "agent@example.com",
+  "handle": "my-agent",
   "generate_token": true
 }
 ```
@@ -597,7 +597,7 @@ Create a simulated user (for testing/automation).
 
 #### PUT /api/v1/users/{id}
 
-Update a user. Can only update own record or simulated users you created.
+Update a user. Can only update own record or subagents you created.
 
 **Request Body:**
 ```json
@@ -609,7 +609,7 @@ Update a user. Can only update own record or simulated users you created.
 
 #### DELETE /api/v1/users/{id}
 
-Delete a simulated user. Only allowed if user has no associated data.
+Delete a subagent. Only allowed if user has no associated data.
 
 ---
 

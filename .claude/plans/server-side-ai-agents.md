@@ -34,21 +34,33 @@ Enable users to create AI-powered subagents that run server-side, eliminating th
 - `/subagents/:handle/run` - Task submission form
 - `/subagents/:handle/runs` - Task run history
 - `/subagents/:handle/runs/:id` - Task run detail with steps and created resources
-- User settings - Identity prompt editing for subagents
+- User settings - Identity prompt, capabilities, and model editing for subagents
 
 #### Identity/Context
 - Identity prompt stored in `users.agent_configuration["identity_prompt"]`
 - Shown on `/whoami` page (agents navigate here first)
 - Agents see which studios they belong to, upcoming reminders, etc.
+- Capability restrictions shown on `/whoami` if configured
+
+#### Capability Restrictions
+- **`CapabilityCheck`** service - Enforces capability-based authorization
+- Always-allowed actions: `send_heartbeat`, `dismiss`, `dismiss_all`, `search`, `update_scratchpad`
+- Always-blocked actions: `create_studio`, `create_subagent`, `update_tenant_settings`, etc.
+- Grantable actions: `create_note`, `vote`, `join_commitment`, etc. (configurable per agent)
+- UI in user settings - Checkbox list to configure allowed capabilities
+- If `capabilities` key is absent, all grantable actions allowed (backwards compatible)
+
+#### Per-Agent Model Selection
+- Model stored in `users.agent_configuration["model"]`
+- Pulled from agent config when creating `SubagentTaskRun`
+- UI dropdown in subagent settings
 
 ### ❌ Not Yet Implemented
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Capability restrictions | Limit which actions an agent can take | High |
 | Approval workflow | Queue risky actions for human approval | High |
 | BYOK API Keys | Users provide their own Anthropic/OpenAI keys | Medium |
-| Per-agent model selection | Choose model per agent | Medium |
 | Cost tracking | Track tokens/cost per execution | Medium |
 | Cost alerts | Notify at $1, $5, $10 thresholds | Low |
 | Auto-pause | Pause agent at cost limit | Low |
@@ -138,45 +150,7 @@ Content Created/Updated
 
 ## Planned Features
 
-### Phase 1: Capability Restrictions (High Priority)
-
-Allow agent owners to restrict which actions their agents can take.
-
-#### Data Model Changes
-
-Extend `users.agent_configuration`:
-```json
-{
-  "identity_prompt": "You are a helpful assistant...",
-  "capabilities": ["create_note", "comment", "vote", "add_options"]
-}
-```
-
-If `capabilities` is null/empty, all actions are allowed (current behavior).
-If `capabilities` is set, only listed actions are permitted.
-
-#### Implementation
-
-1. **UI** - Checkbox list in subagent settings for allowed capabilities
-2. **Enforcement** - `MarkdownUiService.execute_action` checks capability before executing
-3. **Visibility** - `/whoami` shows agent their allowed capabilities
-4. **Action filtering** - Only show allowed actions in available actions list
-
-#### Capability List
-
-| Capability | Actions | Risk Level |
-|------------|---------|------------|
-| `create_note` | Create notes, comments | Low |
-| `create_decision` | Create decisions | Low |
-| `create_commitment` | Create commitments | Medium |
-| `add_options` | Add options to decisions | Low |
-| `vote` | Vote on decisions | Medium |
-| `commit` | Join commitments | Medium |
-| `update` | Update own content | Low |
-| `delete` | Delete own content | High |
-| `confirm_read` | Mark notes as read | Low |
-
-### Phase 2: Approval Workflow (High Priority)
+### Phase 1: Approval Workflow (High Priority)
 
 Queue certain actions for human approval before execution.
 
@@ -248,7 +222,7 @@ Agent decides to take action (e.g., vote)
 6. **Execute on approval** - Background job executes approved actions
 7. **Expiration** - Auto-reject after 24 hours (configurable)
 
-### Phase 3: BYOK API Keys (Medium Priority)
+### Phase 2: BYOK API Keys (Medium Priority)
 
 Allow users to provide their own API keys instead of using the shared LiteLLM proxy.
 
@@ -286,7 +260,7 @@ Extend `users.agent_configuration`:
 5. **Usage tracking** - Log tokens/cost per execution to the key record
 6. **Fallback** - If no key specified, use shared LiteLLM proxy (current behavior)
 
-### Phase 4: Cost Tracking & Alerts (Medium Priority)
+### Phase 3: Cost Tracking & Alerts (Medium Priority)
 
 Track usage and alert users when costs reach thresholds.
 
@@ -316,7 +290,7 @@ Extend `users.agent_configuration`:
 5. **Auto-pause** - Disable agent when limit reached
 6. **Dashboard** - Show cost graphs in `/subagents/:handle/usage`
 
-### Phase 5: Subscriptions (Low Priority)
+### Phase 4: Subscriptions (Low Priority)
 
 Allow agents to watch content and respond to changes (not just @mentions).
 
@@ -386,11 +360,12 @@ New table: `agent_subscriptions`
 
 ## Implementation Order
 
-1. **Capability Restrictions** - Essential safety feature, relatively simple
-2. **Approval Workflow** - Important for high-stakes actions
-3. **BYOK API Keys** - Enables user cost control
-4. **Cost Tracking** - Visibility into usage
-5. **Subscriptions** - Nice to have, lower priority
+1. ~~**Capability Restrictions** - Essential safety feature, relatively simple~~ ✅ **DONE**
+2. ~~**Per-agent Model Selection** - Choose model per agent~~ ✅ **DONE**
+3. **Approval Workflow** - Important for high-stakes actions
+4. **BYOK API Keys** - Enables user cost control
+5. **Cost Tracking** - Visibility into usage
+6. **Subscriptions** - Nice to have, lower priority
 
 ---
 

@@ -155,7 +155,7 @@ Link
 
 | Entity | Purpose |
 |--------|---------|
-| `User` | User account (types: person, simulated, trustee) |
+| `User` | User account (types: person, subagent, trustee) |
 | `Heartbeat` | Periodic presence signal for superagent access |
 | `RepresentationSession` | When user acts on behalf of a superagent |
 | `ApiToken` | Token for API authentication |

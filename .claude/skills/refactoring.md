@@ -28,9 +28,9 @@ Prefer pure functions that take inputs and return outputs without side effects. 
 This app uses subdomain-based multi-tenancy. When refactoring:
 
 - **Never remove** `default_scope` tenant filtering from models
-- `Tenant.current_id` and `Studio.current_id` are set via thread-local variables
-- Models use `default_scope { where(tenant_id: Tenant.current_id, studio_id: Studio.current_id) }` pattern in `ApplicationRecord`
-- New records auto-populate `tenant_id` and `studio_id` via `before_validation`
+- `Tenant.current_id` and `Superagent.current_id` are set via thread-local variables
+- Models use `default_scope { where(tenant_id: Tenant.current_id, superagent_id: Superagent.current_id) }` pattern in `ApplicationRecord`
+- New records auto-populate `tenant_id` and `superagent_id` via `before_validation`
 
 - Test helpers like `create_tenant_studio_user` handle tenant setup automatically
 

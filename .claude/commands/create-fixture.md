@@ -44,6 +44,6 @@ sign_in_as(user, tenant: tenant)
 
 ## Multi-Tenancy Notes
 
-- `Tenant.current_id` and `Studio.current_id` are set via thread-local variables
-- Models use `default_scope { where(tenant_id: Tenant.current_id, studio_id: Studio.current_id) }`
-- New records auto-populate `tenant_id` and `studio_id` via `before_validation`
+- `Tenant.current_id` and `Superagent.current_id` are set via thread-local variables
+- Models use `default_scope { where(tenant_id: Tenant.current_id, superagent_id: Superagent.current_id) }`
+- New records auto-populate `tenant_id` and `superagent_id` via `before_validation`
