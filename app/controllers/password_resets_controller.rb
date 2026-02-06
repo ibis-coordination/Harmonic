@@ -1,7 +1,6 @@
 # typed: false
 
 class PasswordResetsController < ApplicationController
-  layout "pulse"
   before_action :set_auth_layout
   before_action :find_identity_by_token, only: [:show, :update]
 

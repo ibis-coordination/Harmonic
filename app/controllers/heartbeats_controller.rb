@@ -1,7 +1,6 @@
 # typed: false
 
 class HeartbeatsController < ApplicationController
-  layout 'pulse', only: [:index]
   before_action :set_sidebar_mode, only: [:index]
 
   def index

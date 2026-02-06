@@ -63,57 +63,75 @@
         <% if @unread_count > 0 %>
           <button type="button"
                   class="pulse-action-btn-secondary"
-                  data-action="click->notification-actions#markAllRead"
-                  data-notification-actions-target="markAllReadButton">
-            Mark all read
+                  data-action="click->notification-actions#dismissAll"
+                  data-notification-actions-target="dismissAllButton">
+            Dismiss all
           </button>
         <% end %>
       </div>
 
-      <div class="pulse-notifications-list">
-        <% @notification_recipients.each do |recipient| %>
-          <div data-notification-item="<%= recipient.id %>"
-               class="pulse-notification <%= 'pulse-notification-unread' unless recipient.read? %>"
-               style="<%= 'opacity:0.6;' if recipient.read? %>">
-            <% unless recipient.read? %>
-              <div class="pulse-notification-indicator"></div>
-            <% end %>
-            <div class="pulse-notification-content">
-              <% if recipient.notification.url.present? %>
-                <a href="<%= recipient.notification.url %>" class="pulse-notification-message">
-                  <%= recipient.notification.title %>
-                </a>
-              <% else %>
-                <p class="pulse-notification-message"><%= recipient.notification.title %></p>
-              <% end %>
-              <% if recipient.notification.body.present? %>
-                <p class="pulse-notification-body" style="margin:4px 0 0 0; font-size:13px; color:var(--color-fg-muted);">
-                  <%= truncate(recipient.notification.body, length: 200) %>
-                </p>
-              <% end %>
-              <span class="pulse-notification-time"><%= time_ago_in_words(recipient.created_at) %> ago</span>
-            </div>
-            <div class="pulse-notification-actions">
-              <% unless recipient.read? %>
+      <div class="pulse-notifications-grouped">
+        <% @notifications_by_superagent.each do |superagent, recipients| %>
+          <% studio_id = superagent&.id || 'reminders' %>
+          <% studio_name = superagent&.name || 'Other' %>
+          <details class="pulse-accordion" open data-superagent-group="<%= studio_id %>">
+            <summary class="pulse-accordion-header">
+              <span class="pulse-accordion-title">
+                <% if superagent %>
+                  <%= octicon 'home', height: 14 %>
+                <% else %>
+                  <%= octicon 'bell', height: 14 %>
+                <% end %>
+                <%= studio_name %>
+                <span class="pulse-accordion-count">(<%= recipients.size %>)</span>
+              </span>
+              <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button"
-                        class="pulse-action-btn-icon"
-                        title="Mark as read"
-                        data-action="click->notification-actions#markRead"
-                        data-notification-id="<%= recipient.id %>">
-                  <%= octicon 'check', height: 14 %>
+                        class="pulse-action-btn-small pulse-action-btn-secondary"
+                        data-action="click->notification-actions#dismissForStudio"
+                        data-studio-id="<%= studio_id %>"
+                        style="font-size: 12px; padding: 4px 8px;">
+                  Dismiss all
                 </button>
-              <% end %>
-              <% unless recipient.dismissed? %>
-                <button type="button"
-                        class="pulse-action-btn-icon"
-                        title="Dismiss"
-                        data-action="click->notification-actions#dismiss"
-                        data-notification-id="<%= recipient.id %>">
-                  <%= octicon 'x', height: 14 %>
-                </button>
-              <% end %>
+                <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+              </div>
+            </summary>
+            <div class="pulse-accordion-content">
+              <div class="pulse-notifications-list">
+                <% recipients.each do |recipient| %>
+                  <div data-notification-item="<%= recipient.id %>"
+                       data-studio-id="<%= studio_id %>"
+                       class="pulse-notification pulse-notification-unread">
+                    <div class="pulse-notification-indicator"></div>
+                    <div class="pulse-notification-content">
+                      <% if recipient.notification.url.present? %>
+                        <a href="<%= recipient.notification.url %>" class="pulse-notification-message">
+                          <%= recipient.notification.title %>
+                        </a>
+                      <% else %>
+                        <p class="pulse-notification-message"><%= recipient.notification.title %></p>
+                      <% end %>
+                      <% if recipient.notification.body.present? %>
+                        <p class="pulse-notification-body" style="margin:4px 0 0 0; font-size:13px; color:var(--color-fg-muted);">
+                          <%= truncate(recipient.notification.body, length: 200) %>
+                        </p>
+                      <% end %>
+                      <span class="pulse-notification-time"><%= time_ago_in_words(recipient.created_at) %> ago</span>
+                    </div>
+                    <div class="pulse-notification-actions">
+                      <button type="button"
+                              class="pulse-action-btn-icon"
+                              title="Dismiss"
+                              data-action="click->notification-actions#dismiss"
+                              data-notification-id="<%= recipient.id %>">
+                        <%= octicon 'x', height: 14 %>
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
             </div>
-          </div>
+          </details>
         <% end %>
       </div>
     <% end %>

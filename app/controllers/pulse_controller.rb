@@ -1,8 +1,6 @@
 # typed: false
 
 class PulseController < ApplicationController
-  layout "pulse"
-
   # Override to prevent ApplicationController from trying to find a Pulse model
   def current_resource_model
     nil
@@ -10,6 +8,10 @@ class PulseController < ApplicationController
 
   def actions_index
     @page_title = "Actions | #{@current_superagent.name}"
+    @cycle = current_cycle
+    @pinned_items = @current_superagent.pinned_items
+    @team = @current_superagent.team
+    @heartbeats = Heartbeat.where_in_cycle(@cycle)
     render "shared/actions_index_studio", locals: {
       base_path: @current_superagent.path,
     }

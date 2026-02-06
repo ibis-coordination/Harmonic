@@ -1,8 +1,6 @@
 # typed: false
 
 class WhoamiController < ApplicationController
-  layout "pulse"
-
   def index
     @page_title = "Who Am I?"
     @sidebar_mode = "minimal"
@@ -12,6 +10,37 @@ class WhoamiController < ApplicationController
       end
       format.md
     end
+  end
+
+  def actions_index
+    render_actions_index(ActionsHelper.actions_for_route("/whoami"))
+  end
+
+  def describe_update_scratchpad
+    return render plain: "403 Unauthorized", status: 403 unless current_user&.subagent?
+    render_action_description(ActionsHelper.action_description("update_scratchpad"))
+  end
+
+  def execute_update_scratchpad
+    return render plain: "403 Unauthorized", status: 403 unless current_user&.subagent?
+
+    content = params[:content].to_s
+
+    if content.length > 10_000
+      return render_action_error({
+        action_name: "update_scratchpad",
+        error: "Scratchpad content exceeds maximum length of 10000 characters",
+      })
+    end
+
+    current_user.agent_configuration ||= {}
+    current_user.agent_configuration["scratchpad"] = content.presence
+    current_user.save!
+
+    render_action_success({
+      action_name: "update_scratchpad",
+      result: "Scratchpad updated successfully.",
+    })
   end
 
   private

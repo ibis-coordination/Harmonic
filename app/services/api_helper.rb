@@ -179,6 +179,7 @@ class ApiHelper
         created_by: current_user,
         commentable: commentable,
       )
+      track_task_run_resource(note, action_type: "create")
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -210,6 +211,7 @@ class ApiHelper
         deadline: params[:deadline],
         created_by: current_user,
       )
+      track_task_run_resource(decision, action_type: "create")
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -284,6 +286,7 @@ class ApiHelper
     history_event = T.let(nil, T.nilable(NoteHistoryEvent))
     ActiveRecord::Base.transaction do
       history_event = note.confirm_read!(current_user)
+      track_task_run_resource(history_event, action_type: "confirm")
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
@@ -307,9 +310,27 @@ class ApiHelper
     T.must(history_event)
   end
 
+  # Backwards-compatible method for REST API v1 (creates single option from params[:title])
   sig { returns(Option) }
   def create_decision_option
-    option = T.let(nil, T.nilable(Option))
+    title = params[:title]
+    raise ArgumentError, "title parameter is required" if title.blank?
+
+    # Wrap params to use the bulk method
+    original_params = params
+    @params = params.merge(titles: [title])
+    options = create_decision_options
+    @params = original_params
+    T.must(options.first)
+  end
+
+  sig { returns(T::Array[Option]) }
+  def create_decision_options
+    titles = params[:titles]
+    raise ArgumentError, "titles parameter is required" if titles.blank?
+    raise ArgumentError, "titles must be an array" unless titles.is_a?(Array)
+
+    options = T.let([], T::Array[Option])
     ActiveRecord::Base.transaction do
       current_decision_participant = DecisionParticipantManager.new(
         decision: T.must(current_decision),
@@ -318,39 +339,42 @@ class ApiHelper
       unless T.must(current_decision).can_add_options?(current_decision_participant)
         raise "Cannot add options to decision #{T.must(current_decision).id} for user #{current_user.id}"
       end
-      option = Option.create!(
-        decision: current_decision,
-        decision_participant: current_decision_participant,
-        title: params[:title],
-        description: params[:description],
-      )
+
+      titles.each do |title|
+        option = Option.create!(
+          decision: current_decision,
+          decision_participant: current_decision_participant,
+          title: title,
+        )
+        track_task_run_resource(option, action_type: "add_options")
+        options << option
+      end
+
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
           semantic_event: {
             timestamp: Time.current,
-            event_type: 'add_option',
+            event_type: "add_options",
             superagent_id: current_superagent.id,
             main_resource: {
-              type: 'Decision',
+              type: "Decision",
               id: T.must(current_decision).id,
               truncated_id: T.must(current_decision).truncated_id,
             },
-            sub_resources: [
-              {
-                type: 'Option',
-                id: option.id,
-              },
-            ],
+            sub_resources: options.map { |o| { type: "Option", id: o.id } },
           }
         )
       end
     end
-    T.must(option)
+    options
   end
 
+  # Backwards-compatible method for REST API v1 (creates single vote for current_option)
   sig { returns(Vote) }
   def vote
+    raise ArgumentError, "current_option is required" if current_option.blank?
+
     associations = {
       tenant: current_tenant,
       superagent: current_superagent,
@@ -359,39 +383,84 @@ class ApiHelper
       decision_participant: current_decision_participant,
     }
     # If the vote already exists, update it. Otherwise, create a new one.
-    # There should only be one vote record per decision + option + participant.
     vote = Vote.find_by(associations) || Vote.new(associations)
-    vote.accepted = params.has_key?(:accepted) ? params[:accepted] : params[:accept]
-    vote.preferred = params.has_key?(:preferred) ? params[:preferred] : params[:prefer]
+    vote.accepted = params[:accepted] if params[:accepted].present?
+    vote.preferred = params[:preferred] if params[:preferred].present?
+    vote.save!
+    track_task_run_resource(vote, action_type: "vote")
+
+    if current_representation_session
+      current_representation_session.record_activity!(
+        request: request,
+        semantic_event: {
+          timestamp: Time.current,
+          event_type: "vote",
+          superagent_id: current_superagent.id,
+          main_resource: {
+            type: "Decision",
+            id: T.must(current_decision).id,
+            truncated_id: T.must(current_decision).truncated_id,
+          },
+          sub_resources: [{ type: "Vote", id: vote.id }],
+        }
+      )
+    end
+    vote
+  end
+
+  sig { returns(T::Array[Vote]) }
+  def create_votes
+    votes_param = params[:votes]
+    raise ArgumentError, "votes parameter is required" if votes_param.blank?
+    raise ArgumentError, "votes must be an array" unless votes_param.is_a?(Array)
+
+    votes = T.let([], T::Array[Vote])
     ActiveRecord::Base.transaction do
-      vote.save!
+      votes_param.each do |vote_data|
+        option_title = vote_data[:option_title] || vote_data["option_title"]
+        raise ArgumentError, "option_title is required for each vote" if option_title.blank?
+
+        option = T.must(current_decision).options.find_by(title: option_title)
+        raise ArgumentError, "Option '#{option_title}' not found" if option.nil?
+
+        associations = {
+          tenant: current_tenant,
+          superagent: current_superagent,
+          decision: current_decision,
+          option: option,
+          decision_participant: current_decision_participant,
+        }
+        # If the vote already exists, update it. Otherwise, create a new one.
+        # There should only be one vote record per decision + option + participant.
+        vote = Vote.find_by(associations) || Vote.new(associations)
+        accept_value = vote_data[:accept] || vote_data["accept"] || vote_data[:accepted] || vote_data["accepted"]
+        prefer_value = vote_data[:prefer] || vote_data["prefer"] || vote_data[:preferred] || vote_data["preferred"]
+        # Convert boolean to integer (Vote model validates accepted/preferred as 0 or 1)
+        vote.accepted = accept_value ? 1 : 0
+        vote.preferred = prefer_value ? 1 : 0
+        vote.save!
+        track_task_run_resource(vote, action_type: "vote")
+        votes << vote
+      end
+
       if current_representation_session
         current_representation_session.record_activity!(
           request: request,
           semantic_event: {
             timestamp: Time.current,
-            event_type: 'vote',
+            event_type: "vote",
             superagent_id: current_superagent.id,
             main_resource: {
-              type: 'Decision',
+              type: "Decision",
               id: T.must(current_decision).id,
               truncated_id: T.must(current_decision).truncated_id,
             },
-            sub_resources: [
-              {
-                type: 'Option',
-                id: T.must(current_option).id,
-              },
-              {
-                type: 'Vote',
-                id: vote.id,
-              },
-            ],
+            sub_resources: votes.map { |v| { type: "Vote", id: v.id } },
           }
         )
       end
     end
-    vote
+    votes
   end
 
   sig { returns(User) }
@@ -399,11 +468,32 @@ class ApiHelper
     # Only subagent users can be created via the API
     user = T.let(nil, T.nilable(User))
     ActiveRecord::Base.transaction do
+      agent_config = {}
+      agent_config["identity_prompt"] = params[:identity_prompt] if params[:identity_prompt].present?
+
+      # Handle mode - internal (Harmonic-powered) or external (API key required)
+      mode = params[:mode]
+      agent_config["mode"] = %w[internal external].include?(mode) ? mode : "external"
+
+      # Handle capabilities - filter to only valid grantable actions
+      capabilities = params[:capabilities]
+      if capabilities.is_a?(Array) && capabilities.any?
+        valid_caps = capabilities & CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS
+        agent_config["capabilities"] = valid_caps
+      else
+        # All boxes unchecked or no capabilities param = empty array (nothing allowed except defaults)
+        agent_config["capabilities"] = []
+      end
+
+      # Handle model selection for internal subagents
+      agent_config["model"] = params[:model] if params[:model].present?
+
       user = User.create!(
         name: params[:name],
         email: SecureRandom.uuid + "@not-a-real-email.com",
         user_type: "subagent",
         parent_id: current_user.id,
+        agent_configuration: agent_config,
       )
       tenant_user = current_tenant.add_user!(user)
       user.tenant_user = tenant_user
@@ -638,6 +728,54 @@ class ApiHelper
       end
     end
     commitment
+  end
+
+  private
+
+  # Track resources created during a SubagentTaskRun for traceability
+  sig { params(resource: T.untyped, action_type: String).void }
+  def track_task_run_resource(resource, action_type:)
+    return unless SubagentTaskRun.current_id
+    return unless resource.respond_to?(:superagent_id) && resource.superagent_id.present?
+
+    SubagentTaskRunResource.create!(
+      subagent_task_run_id: SubagentTaskRun.current_id,
+      resource: resource,
+      resource_superagent_id: resource.superagent_id,
+      action_type: action_type,
+      display_path: compute_display_path(resource),
+    )
+  rescue ActiveRecord::RecordInvalid => e
+    # Log but don't fail the main operation
+    Rails.logger.warn("Failed to track task run resource: #{e.message}")
+  end
+
+  # Compute the linkable path for a resource at creation time
+  # (avoids scoping issues when displaying later)
+  sig { params(resource: T.untyped).returns(T.nilable(String)) }
+  def compute_display_path(resource)
+    # Use unscoped queries to handle cross-superagent resources
+    tenant_id = resource.tenant_id
+    case resource
+    when Note, Decision, Commitment
+      resource.path
+    when Option
+      decision = Decision.unscoped.find_by(id: resource.decision_id, tenant_id: tenant_id)
+      decision&.path
+    when Vote
+      option = Option.unscoped.find_by(id: resource.option_id, tenant_id: tenant_id)
+      return nil unless option
+      decision = Decision.unscoped.find_by(id: option.decision_id, tenant_id: tenant_id)
+      decision&.path
+    when NoteHistoryEvent
+      note = Note.unscoped.find_by(id: resource.note_id, tenant_id: tenant_id)
+      note&.path
+    when CommitmentParticipant
+      commitment = Commitment.unscoped.find_by(id: resource.commitment_id, tenant_id: tenant_id)
+      commitment&.path
+    else
+      nil
+    end
   end
 
 end

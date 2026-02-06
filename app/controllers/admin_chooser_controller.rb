@@ -7,8 +7,6 @@
 # - If they have multiple admin roles, show a chooser page
 # - If they have no admin roles, show access denied
 class AdminChooserController < ApplicationController
-  layout 'pulse'
-
   def index
     available_admins = []
 

@@ -42,12 +42,15 @@ import PulseFilterController from "./pulse_filter_controller"
 import RecoveryCodesController from "./recovery_codes_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
 import SubagentManagerController from "./subagent_manager_controller"
+import SubagentModeController from "./subagent_mode_controller"
 import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
+import TaskRunStatusController from "./task_run_status_controller"
 import TimeagoController from "./timeago_controller"
 import TooltipController from "./tooltip_controller"
 import TopLeftMenuController from "./top_left_menu_controller"
 import TopRightMenuController from "./top_right_menu_controller"
 import TrioLogoController from "./trio_logo_controller"
+import CheckboxGroupController from "./checkbox_group_controller"
 
 // Register all controllers
 application.register("trio-chat", TrioChatController)
@@ -81,11 +84,14 @@ application.register("pulse-filter", PulseFilterController)
 application.register("recovery-codes", RecoveryCodesController)
 application.register("scratchpad-links", ScratchpadLinksController)
 application.register("subagent-manager", SubagentManagerController)
+application.register("subagent-mode", SubagentModeController)
 application.register("subagent-superagent-adder", SubagentSuperagentAdderController)
+application.register("task-run-status", TaskRunStatusController)
 application.register("timeago", TimeagoController)
 application.register("tooltip", TooltipController)
 application.register("top-left-menu", TopLeftMenuController)
 application.register("top-right-menu", TopRightMenuController)
 application.register("trio-logo", TrioLogoController)
+application.register("checkbox-group", CheckboxGroupController)
 
 export { application }

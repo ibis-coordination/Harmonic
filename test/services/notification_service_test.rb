@@ -80,13 +80,13 @@ class NotificationServiceTest < ActiveSupport::TestCase
     NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "pending")
     NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "delivered")
 
-    # Create 1 read recipient
+    # Create 1 dismissed recipient (should not be counted)
     NotificationRecipient.create!(
       notification: notification1,
       user: user,
       channel: "in_app",
-      status: "read",
-      read_at: Time.current,
+      status: "dismissed",
+      dismissed_at: Time.current,
     )
 
     # Email recipients shouldn't be counted
@@ -95,7 +95,7 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal 2, NotificationService.unread_count_for(user, tenant: tenant)
   end
 
-  test "mark_all_read_for marks all in_app notifications as read" do
+  test "dismiss_all_for dismisses all in_app notifications" do
     tenant, superagent, user = create_tenant_superagent_user
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
@@ -112,19 +112,19 @@ class NotificationServiceTest < ActiveSupport::TestCase
     recipient2 = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
     email_recipient = NotificationRecipient.create!(notification: notification, user: user, channel: "email", status: "pending")
 
-    NotificationService.mark_all_read_for(user, tenant: tenant)
+    NotificationService.dismiss_all_for(user, tenant: tenant)
 
     recipient1.reload
     recipient2.reload
     email_recipient.reload
 
-    assert_equal "read", recipient1.status
-    assert recipient1.read_at.present?
-    assert_equal "read", recipient2.status
-    assert recipient2.read_at.present?
+    assert_equal "dismissed", recipient1.status
+    assert recipient1.dismissed_at.present?
+    assert_equal "dismissed", recipient2.status
+    assert recipient2.dismissed_at.present?
     # Email should be unchanged
     assert_equal "pending", email_recipient.status
-    assert_nil email_recipient.read_at
+    assert_nil email_recipient.dismissed_at
   end
 
   # === Tenant Scoping Tests ===
@@ -162,7 +162,7 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal 2, NotificationService.unread_count_for(user, tenant: tenant2), "Should only count notifications from tenant2"
   end
 
-  test "mark_all_read_for only marks notifications in current tenant as read" do
+  test "dismiss_all_for only dismisses notifications in current tenant" do
     # Create two tenants with the same user in both
     tenant1, superagent1, user = create_tenant_superagent_user
     tenant2 = create_tenant(subdomain: "other-tenant", name: "Other Tenant")
@@ -182,19 +182,103 @@ class NotificationServiceTest < ActiveSupport::TestCase
     notification2 = Notification.create!(tenant: tenant2, event: event2, notification_type: "mention", title: "Tenant2 notification")
     recipient2 = NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "pending", tenant: tenant2)
 
-    # Mark all read for tenant1
+    # Dismiss all for tenant1
     Superagent.scope_thread_to_superagent(subdomain: tenant1.subdomain, handle: superagent1.handle)
-    NotificationService.mark_all_read_for(user, tenant: tenant1)
+    NotificationService.dismiss_all_for(user, tenant: tenant1)
 
     recipient1.reload
     recipient2.reload
 
-    # Tenant1 notification should be marked as read
-    assert_equal "read", recipient1.status, "Tenant1 notification should be marked as read"
-    assert recipient1.read_at.present?, "Tenant1 notification should have read_at set"
+    # Tenant1 notification should be dismissed
+    assert_equal "dismissed", recipient1.status, "Tenant1 notification should be dismissed"
+    assert recipient1.dismissed_at.present?, "Tenant1 notification should have dismissed_at set"
 
-    # Tenant2 notification should still be unread
+    # Tenant2 notification should still be pending
     assert_equal "pending", recipient2.status, "Tenant2 notification should still be pending"
-    assert_nil recipient2.read_at, "Tenant2 notification should not have read_at set"
+    assert_nil recipient2.dismissed_at, "Tenant2 notification should not have dismissed_at set"
+  end
+
+  # === Studio Grouping Tests ===
+
+  test "dismiss_all_for_superagent only dismisses notifications for that studio" do
+    tenant, superagent1, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent1.handle)
+
+    # Create a second studio
+    superagent2 = Superagent.create!(tenant: tenant, name: "Second Studio", handle: "second-studio", created_by: user)
+
+    # Create notifications in studio 1
+    event1 = Event.create!(tenant: tenant, superagent: superagent1, event_type: "note.created", actor: user)
+    notification1 = Notification.create!(tenant: tenant, event: event1, notification_type: "mention", title: "Studio1 notification")
+    recipient1 = NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    # Create notifications in studio 2
+    event2 = Event.create!(tenant: tenant, superagent: superagent2, event_type: "note.created", actor: user)
+    notification2 = Notification.create!(tenant: tenant, event: event2, notification_type: "mention", title: "Studio2 notification")
+    recipient2 = NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    # Dismiss all for studio 1
+    count = NotificationService.dismiss_all_for_superagent(user, tenant: tenant, superagent_id: superagent1.id)
+
+    assert_equal 1, count, "Should have dismissed 1 notification"
+
+    recipient1.reload
+    recipient2.reload
+
+    # Studio 1 notification should be dismissed
+    assert_equal "dismissed", recipient1.status
+    assert recipient1.dismissed_at.present?
+
+    # Studio 2 notification should still be pending
+    assert_equal "pending", recipient2.status
+    assert_nil recipient2.dismissed_at
+  end
+
+  test "dismiss_all_for_superagent returns count of dismissed notifications" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created", actor: user)
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Test")
+
+    # Create 3 recipients
+    NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+    NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+    NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    count = NotificationService.dismiss_all_for_superagent(user, tenant: tenant, superagent_id: superagent.id)
+
+    assert_equal 3, count
+  end
+
+  test "dismiss_all_reminders only dismisses due reminders without events" do
+    tenant, superagent, user = create_tenant_superagent_user
+    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Tenant.current_id = tenant.id
+
+    # Create a reminder (notification without event)
+    reminder_notification = Notification.create!(tenant: tenant, event: nil, notification_type: "reminder", title: "Due reminder")
+    reminder_recipient = NotificationRecipient.create!(notification: reminder_notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    # Create a normal notification with an event
+    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created", actor: user)
+    normal_notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Normal notification")
+    normal_recipient = NotificationRecipient.create!(notification: normal_notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    # Dismiss all reminders
+    count = NotificationService.dismiss_all_reminders(user, tenant: tenant)
+
+    assert_equal 1, count, "Should have dismissed 1 reminder"
+
+    reminder_recipient.reload
+    normal_recipient.reload
+
+    # Reminder should be dismissed
+    assert_equal "dismissed", reminder_recipient.status
+    assert reminder_recipient.dismissed_at.present?
+
+    # Normal notification should still be pending
+    assert_equal "pending", normal_recipient.status
+    assert_nil normal_recipient.dismissed_at
   end
 end

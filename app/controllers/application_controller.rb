@@ -11,6 +11,11 @@ class ApplicationController < ActionController::Base
   before_action :check_session_timeout
   before_action :check_user_suspension
 
+  # Include ActionCapabilityCheck AFTER before_action declarations so that
+  # append_before_action puts check_capability_for_action at the END of the chain,
+  # after current_user is set
+  include ActionCapabilityCheck
+
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
   def check_auth_subdomain
@@ -89,7 +94,9 @@ class ApplicationController < ActionController::Base
   end
 
   def api_authorize!
-    unless current_superagent.api_enabled? && current_tenant.api_enabled?
+    # Internal tokens bypass API enabled checks - they are system-managed
+    # and used for internal operations like agent runners
+    unless current_token&.internal? || (current_superagent.api_enabled? && current_tenant.api_enabled?)
       superagent_or_tenant = current_tenant.api_enabled? ? 'studio' : 'tenant'
       return render json: { error: "API not enabled for this #{superagent_or_tenant}" }, status: 403
     end
@@ -165,7 +172,7 @@ class ApplicationController < ActionController::Base
       accepting_invite = current_invite && current_invite.superagent == @current_superagent
       if @current_tenant.require_login? && controller_name != 'sessions' && !accepting_invite
 @sidebar_mode = 'none'
-        render status: 403, layout: 'pulse', template: 'sessions/403_to_logout'
+        render status: 403, layout: 'application', template: 'sessions/403_to_logout'
       elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
         # The user still has to click "accept" to accept the invite to the superagent,
         # but they need to access the tenant to do so.

@@ -403,4 +403,138 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert_equal expected_hash, ApiToken.hash_token(token_string)
     assert_equal expected_hash, ApiToken.hash_token(token_string)  # Consistent
   end
+
+  # === Internal Token Tests ===
+
+  test "internal? returns false by default" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    assert_not token.internal?
+  end
+
+  test "internal scope returns only internal tokens" do
+    external = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now
+    )
+    internal = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+
+    internal_tokens = @user.api_tokens.internal
+    external_tokens = @user.api_tokens.external
+
+    assert_includes internal_tokens, internal
+    assert_not_includes internal_tokens, external
+    assert_includes external_tokens, external
+    assert_not_includes external_tokens, internal
+  end
+
+  # === Ephemeral Internal Token Tests ===
+
+  test "create_internal_token creates valid internal token" do
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+
+    assert token.internal?
+    assert_equal @user, token.user
+    assert_equal @tenant, token.tenant
+    assert_equal "Internal Agent Token", token.name
+    assert token.plaintext_token.present?, "plaintext_token should be available immediately after creation"
+  end
+
+  test "create_internal_token plaintext_token is valid for authentication" do
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    plaintext = token.plaintext_token
+
+    # Verify it matches by checking authentication works
+    authenticated = ApiToken.authenticate(plaintext, tenant_id: @tenant.id)
+    assert_equal token.id, authenticated.id
+  end
+
+  test "create_internal_token sets 1 hour default expiry" do
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+
+    assert_in_delta 1.hour.from_now, token.expires_at, 5.seconds
+  end
+
+  test "create_internal_token accepts custom expiry" do
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, expires_in: 30.minutes)
+
+    assert_in_delta 30.minutes.from_now, token.expires_at, 5.seconds
+  end
+
+  test "create_internal_token always creates new token" do
+    token1 = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    token2 = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+
+    # Each call creates a fresh token (ephemeral pattern)
+    assert_not_equal token1.id, token2.id
+  end
+
+  test "internal token can be destroyed for cleanup" do
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    token_id = token.id
+
+    token.destroy
+
+    # Token should be fully deleted (not soft-deleted)
+    assert_nil ApiToken.unscope(where: :internal).find_by(id: token_id)
+  end
+
+  # === Security: Internal Token Protection Tests ===
+
+  test "cannot create internal token via direct create with internal flag" do
+    # This simulates an attacker trying to pass internal: true through the API
+    assert_raises ActiveRecord::RecordInvalid do
+      ApiToken.create!(
+        user: @user,
+        tenant: @tenant,
+        internal: true,
+        scopes: ApiToken.read_scopes,
+        name: "Malicious Internal Token",
+        expires_at: 1.year.from_now
+      )
+    end
+  end
+
+  test "internal token creation via create! fails without allow_internal_token flag" do
+    token = ApiToken.new(
+      user: @user,
+      tenant: @tenant,
+      internal: true,
+      scopes: ApiToken.read_scopes,
+      name: "Malicious Internal Token",
+      expires_at: 1.year.from_now
+    )
+
+    assert_not token.valid?
+    assert_includes token.errors[:internal], "cannot be set to true via external API"
+  end
+
+  test "internal token creation via create_internal_token succeeds with allow flag" do
+    # This should work because create_internal_token sets allow_internal_token
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+
+    assert token.persisted?
+    assert token.internal?
+  end
+
+  test "setting internal to false does not require allow flag" do
+    # External tokens (internal: false) should be creatable normally
+    token = ApiToken.create!(
+      user: @user,
+      tenant: @tenant,
+      internal: false,
+      scopes: ApiToken.read_scopes,
+      name: "External Token",
+      expires_at: 1.year.from_now
+    )
+
+    assert token.persisted?
+    assert_not token.internal?
+  end
 end

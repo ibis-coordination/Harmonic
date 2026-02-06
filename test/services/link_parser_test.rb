@@ -131,6 +131,51 @@ class LinkParserTest < ActiveSupport::TestCase
     assert_equal 0, found_records.length
   end
 
+  test "parse extracts links from markdown with path-only URLs" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    text = "Check out [this note](/studios/#{@superagent.handle}/n/#{note.truncated_id}) for details."
+
+    found_records = []
+    LinkParser.parse(text, subdomain: @tenant.subdomain, superagent_handle: @superagent.handle) do |record|
+      found_records << record
+    end
+
+    assert_equal 1, found_records.length
+    assert_equal note.id, found_records.first.id
+  end
+
+  test "parse extracts multiple links mixing full URLs and path-only markdown" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+
+    text = <<~TEXT
+      Full URL: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@superagent.handle}/n/#{note.truncated_id}
+      Path-only: [vote here](/studios/#{@superagent.handle}/d/#{decision.truncated_id})
+    TEXT
+
+    found_records = []
+    LinkParser.parse(text, subdomain: @tenant.subdomain, superagent_handle: @superagent.handle) do |record|
+      found_records << record
+    end
+
+    assert_equal 2, found_records.length
+    assert_includes found_records.map(&:id), note.id
+    assert_includes found_records.map(&:id), decision.id
+  end
+
+  test "parse handles path-only markdown links with scenes prefix" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    text = "See [the note](/scenes/#{@superagent.handle}/n/#{note.truncated_id})"
+
+    found_records = []
+    LinkParser.parse(text, subdomain: @tenant.subdomain, superagent_handle: @superagent.handle) do |record|
+      found_records << record
+    end
+
+    assert_equal 1, found_records.length
+    assert_equal note.id, found_records.first.id
+  end
+
   test "parse handles scene URLs" do
     # Scene URLs follow the pattern /scenes/handle/...
     # The LinkParser regex handles both /studios/ and /scenes/

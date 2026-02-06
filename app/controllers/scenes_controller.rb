@@ -1,7 +1,6 @@
 # typed: false
 
 class ScenesController < ApplicationController
-  layout 'pulse', only: [:index, :new]
   before_action :set_sidebar_mode, only: [:index, :new]
 
   def index

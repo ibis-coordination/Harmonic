@@ -14,7 +14,6 @@ require 'sidekiq/api'
 # - AppAdminController: Manages tenants and users across all tenants
 # - TenantAdminController: Manages a single tenant's settings and users
 class SystemAdminController < ApplicationController
-  layout 'pulse'
   before_action :ensure_primary_tenant
   before_action :ensure_sys_admin
   before_action :set_sidebar_mode
@@ -133,7 +132,7 @@ class SystemAdminController < ApplicationController
   def ensure_sys_admin
     unless @current_user&.sys_admin?
       @sidebar_mode = 'none'
-      render status: :forbidden, layout: 'pulse', template: 'system_admin/403_not_sys_admin'
+      render status: :forbidden, layout: 'application', template: 'system_admin/403_not_sys_admin'
     end
   end
 

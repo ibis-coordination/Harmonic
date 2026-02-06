@@ -9,7 +9,7 @@
   <header class="pulse-resource-header">
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
-        <%= octicon 'hubot', height: 14, class: 'pulse-resource-icon' %>
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
         New Subagent
       </span>
     </div>
@@ -17,16 +17,104 @@
   </header>
 
   <div class="pulse-resource-body">
-    <p>Subagents are AI assistants that can act on your behalf in studios you belong to.</p>
+    <p>Subagents are identities for AI agents managed by you, the primary agent.</p>
 
-    <%= form_with url: "#{@current_user.path}/settings/subagents", class: "pulse-form" do |form| %>
+    <%= form_with url: "#{@current_user.path}/settings/subagents", class: "pulse-form", data: { controller: "subagent-mode" } do |form| %>
       <section class="pulse-settings-section">
         <label for="name" class="pulse-label">Name</label>
         <%= form.text_field :name, placeholder: 'My Assistant', class: "pulse-form-input" %>
-        <small class="pulse-hint">A descriptive name for your subagent.</small>
+        <small class="pulse-hint">This name will appear on the subagent's profile.</small>
       </section>
 
       <section class="pulse-settings-section">
+        <label for="identity_prompt" class="pulse-label">Identity Prompt</label>
+        <%= form.text_area :identity_prompt, placeholder: 'You are a helpful assistant...', class: "pulse-form-textarea", rows: 4 %>
+        <small class="pulse-hint">This prompt will be shown to the agent on the /whoami page, providing context about their identity and purpose.</small>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label class="pulse-label">Capabilities</label>
+        <small class="pulse-hint">Check the actions this agent is allowed to perform. Unchecked actions will be blocked.</small>
+
+        <%
+          # Group actions by resource type
+          action_groups = {
+            "Always Allowed" => CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED,
+            "Notes" => %w[create_note update_note confirm_read],
+            "Decisions" => %w[create_decision update_decision_settings vote add_options],
+            "Commitments" => %w[create_commitment update_commitment_settings join_commitment],
+            "Comments" => %w[add_comment],
+            "Pins" => %w[pin_note unpin_note pin_decision unpin_decision pin_commitment unpin_commitment],
+            "Attachments" => %w[add_attachment remove_attachment],
+            "Reminders" => %w[create_reminder delete_reminder],
+          }
+          # Groups that are disabled by default for new agents
+          disabled_by_default = %w[Attachments Reminders]
+        %>
+
+        <% action_groups.each do |group_name, actions| %>
+          <% is_always_allowed = group_name == "Always Allowed" %>
+          <div style="margin-top: 16px;" data-controller="<%= 'checkbox-group' unless is_always_allowed %>">
+            <div style="font-weight: 500; font-size: 13px; margin-bottom: 8px; color: <%= is_always_allowed ? 'var(--text-muted)' : 'var(--text-primary)' %>; display: flex; align-items: center; gap: 12px;">
+              <span><%= group_name %></span>
+              <% if is_always_allowed %>
+                <span style="font-weight: normal; font-size: 12px;">(cannot be disabled)</span>
+              <% else %>
+                <span style="font-weight: normal; font-size: 12px;">
+                  <a href="#" data-action="checkbox-group#checkAll" class="pulse-link">all</a>
+                  /
+                  <a href="#" data-action="checkbox-group#uncheckAll" class="pulse-link">none</a>
+                </span>
+              <% end %>
+            </div>
+            <div class="pulse-checkbox-group" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;">
+              <% actions.each do |action| %>
+                <% if is_always_allowed %>
+                  <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: not-allowed; opacity: 0.6;">
+                    <%= check_box_tag nil, action, true, disabled: true, id: "cap_#{action}" %>
+                    <code style="font-size: 12px;"><%= action %></code>
+                  </label>
+                <% else %>
+                  <% checked = !disabled_by_default.include?(group_name) %>
+                  <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <%= check_box_tag "capabilities[]", action, checked, id: "cap_#{action}", data: { checkbox_group_target: "checkbox" } %>
+                    <code style="font-size: 12px;"><%= action %></code>
+                  </label>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label class="pulse-label">Mode</label>
+        <small class="pulse-hint" style="margin-bottom: 12px; display: block;">Choose how this subagent will be powered.</small>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <%= radio_button_tag :mode, "internal", true, data: { action: "subagent-mode#updateVisibility" } %>
+            <span>
+              <strong>Internal</strong>
+              <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by Harmonic's agent runners. No API access.</small>
+            </span>
+          </label>
+          <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <%= radio_button_tag :mode, "external", false, data: { action: "subagent-mode#updateVisibility" } %>
+            <span>
+              <strong>External</strong>
+              <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Agent skill documents and MCP server are available.</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section" data-subagent-mode-target="internalOnly">
+        <label for="model" class="pulse-label">Model</label>
+        <%= form.select :model, available_llm_models, {}, class: "pulse-form-select" %>
+        <small class="pulse-hint">The LLM model this subagent will use for reasoning. Models are defined in <code>config/litellm_config.yaml</code>.</small>
+      </section>
+
+      <section class="pulse-settings-section" data-subagent-mode-target="externalOnly" style="display: none;">
         <label class="pulse-checkbox-label">
           <%= form.check_box :generate_token, checked: true %>
           Generate an API token for this subagent

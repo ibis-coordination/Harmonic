@@ -335,6 +335,9 @@ class ApiToken
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def extending(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def external(*args, &blk); end
+
     sig { params(association: Symbol).returns(T::Array[T.untyped]) }
     def extract_associated(association); end
 
@@ -386,6 +389,9 @@ class ApiToken
       ).returns(ActiveRecord::Result)
     end
     def insert_all!(attributes, returning: nil); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def internal(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def invert_where(*args, &blk); end
@@ -733,6 +739,96 @@ class ApiToken
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T::Boolean) }
+    def internal; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def internal=(value); end
+
+    sig { returns(T::Boolean) }
+    def internal?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def internal_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def internal_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def internal_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def internal_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def internal_change_to_be_saved; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def internal_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def internal_encrypted_token; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def internal_encrypted_token=(value); end
+
+    sig { returns(T::Boolean) }
+    def internal_encrypted_token?; end
+
+    sig { returns(T.nilable(::String)) }
+    def internal_encrypted_token_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def internal_encrypted_token_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def internal_encrypted_token_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def internal_encrypted_token_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def internal_encrypted_token_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def internal_encrypted_token_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def internal_encrypted_token_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def internal_encrypted_token_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def internal_encrypted_token_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def internal_encrypted_token_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def internal_encrypted_token_was; end
+
+    sig { void }
+    def internal_encrypted_token_will_change!; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def internal_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def internal_previous_change; end
+
+    sig { params(from: T::Boolean, to: T::Boolean).returns(T::Boolean) }
+    def internal_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def internal_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def internal_was; end
+
+    sig { void }
+    def internal_will_change!; end
+
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
     def last_used_at; end
 
@@ -849,6 +945,12 @@ class ApiToken
     def restore_id!; end
 
     sig { void }
+    def restore_internal!; end
+
+    sig { void }
+    def restore_internal_encrypted_token!; end
+
+    sig { void }
     def restore_last_used_at!; end
 
     sig { void }
@@ -907,6 +1009,18 @@ class ApiToken
 
     sig { returns(T::Boolean) }
     def saved_change_to_id?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_internal; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_internal?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_internal_encrypted_token; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_internal_encrypted_token?; end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_last_used_at; end
@@ -1344,6 +1458,12 @@ class ApiToken
     def will_save_change_to_id?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_internal?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_internal_encrypted_token?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_last_used_at?; end
 
     sig { returns(T::Boolean) }
@@ -1402,6 +1522,9 @@ class ApiToken
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def extending(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def external(*args, &blk); end
+
     sig { params(association: Symbol).returns(T::Array[T.untyped]) }
     def extract_associated(association); end
 
@@ -1419,6 +1542,9 @@ class ApiToken
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def includes(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def internal(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def invert_where(*args, &blk); end

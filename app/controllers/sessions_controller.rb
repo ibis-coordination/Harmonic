@@ -5,7 +5,6 @@
 # then all tenants redirect to that one auth subdomain to authenticate, and once authenticated, the user is
 # redirected back to the original tenant subdomain with a token cookie that can be used to log in with the tenant.
 class SessionsController < ApplicationController
-  layout 'pulse', only: [:new, :logout_success]
   before_action :set_auth_sidebar, only: [:new, :logout_success]
   skip_forgery_protection only: :oauth_callback
 
@@ -80,7 +79,7 @@ class SessionsController < ApplicationController
 @sidebar_mode = 'none'
       provider = ERB::Util.html_escape(request.env['omniauth.auth'].provider)
       subdomain = ERB::Util.html_escape(original_tenant.subdomain)
-      render status: 403, layout: 'pulse', html: "OAuth provider <code>#{provider}</code> is not enabled for subdomain <code>#{subdomain}</code>".html_safe
+      render status: 403, layout: 'application', html: "OAuth provider <code>#{provider}</code> is not enabled for subdomain <code>#{subdomain}</code>".html_safe
     end
   end
 
@@ -205,7 +204,7 @@ class SessionsController < ApplicationController
     if @current_user.suspended?
       SecurityAuditLog.log_suspended_login_attempt(user: @current_user, ip: request.remote_ip)
       @sidebar_mode = 'none'
-      render status: 403, layout: 'pulse', template: 'sessions/403_suspended'
+      render status: 403, layout: 'application', template: 'sessions/403_suspended'
       return
     end
 
@@ -219,7 +218,7 @@ class SessionsController < ApplicationController
     else
       # user is not allowed to access this tenant
       @sidebar_mode = 'none'
-      render status: 403, layout: 'pulse', template: 'sessions/403_to_logout'
+      render status: 403, layout: 'application', template: 'sessions/403_to_logout'
     end
   end
 

@@ -1,0 +1,350 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['My Subagents', subagents_path],
+  [@subagent.name, subagent_runs_path(@subagent.handle)],
+  'Task Run'
+] %>
+
+<article class="pulse-resource-detail"
+        <% if @task_run.status.in?(%w[running queued]) %>
+        data-controller="task-run-status"
+        data-task-run-status-url-value="<%= subagent_run_path(@subagent.handle, @task_run.id) %>"
+        data-task-run-status-status-value="<%= @task_run.status %>"
+        data-task-run-status-steps-count-value="<%= @task_run.steps_count %>"
+        <% end %>
+        data-task-run-status-target="container">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
+        Task Run
+      </span>
+      <div style="margin-left: auto; display: flex; gap: 12px;">
+        <span data-task-run-status-target="cancelButton" style="<%= @task_run.status.in?(%w[queued running]) ? '' : 'display: none;' %>">
+          <%= button_to cancel_subagent_run_path(@subagent.handle, @task_run.id),
+                method: :post,
+                class: "pulse-feed-action-link",
+                style: "color: var(--color-danger-fg);",
+                data: { confirm: "Are you sure you want to cancel this task?" } do %>
+            <%= octicon 'x-circle', height: 14 %> Cancel
+          <% end %>
+        </span>
+        <a href="<%= subagent_runs_path(@subagent.handle) %>" class="pulse-feed-action-link">
+          <%= octicon 'history', height: 14 %> All Runs
+        </a>
+        <a href="<%= subagent_run_task_path(@subagent.handle) %>" class="pulse-feed-action-link">
+          <%= octicon 'plus', height: 14 %> Run Another Task
+        </a>
+      </div>
+    </div>
+    <h1 class="pulse-resource-title" data-task-run-status-target="title">
+      <% case @task_run.status %>
+      <% when "completed" %>
+        <%= @task_run.success ? 'Success' : 'Failed' %>
+      <% when "failed" %>
+        Failed
+      <% when "running" %>
+        Running
+      <% when "queued" %>
+        Queued
+      <% else %>
+        <%= @task_run.status.titleize %>
+      <% end %>
+    </h1>
+    <p class="pulse-muted" style="margin-top: 8px; font-size: 14px;">
+      <%= @task_run.created_at.strftime("%B %-d, %Y at %-I:%M %p UTC") %>
+    </p>
+  </header>
+
+  <div class="pulse-resource-body">
+    <!-- Summary -->
+    <% summary_class = case @task_run.status
+                       when "completed" then @task_run.success ? 'pulse-notice' : 'pulse-alert-danger'
+                       when "failed" then 'pulse-alert-danger'
+                       when "running", "queued" then 'pulse-notice'
+                       else 'pulse-notice'
+                       end %>
+    <div class="<%= summary_class %>" style="margin-bottom: 24px; padding: 16px; border-radius: 6px;" data-task-run-status-target="summary">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;" data-task-run-status-target="statusHeader">
+        <% case @task_run.status %>
+        <% when "completed" %>
+          <% if @task_run.success %>
+            <%= octicon 'check-circle-fill', height: 16, style: 'color: var(--color-success-fg);' %>
+            <strong>Task Completed</strong>
+          <% else %>
+            <%= octicon 'x-circle-fill', height: 16, style: 'color: var(--color-danger-fg);' %>
+            <strong>Task Failed</strong>
+          <% end %>
+        <% when "failed" %>
+          <%= octicon 'x-circle-fill', height: 16, style: 'color: var(--color-danger-fg);' %>
+          <strong>Task Failed</strong>
+        <% when "running" %>
+          <%= octicon 'sync', height: 16, style: 'color: var(--color-accent-fg);' %>
+          <strong>Task Running</strong>
+        <% when "queued" %>
+          <%= octicon 'clock', height: 16, style: 'color: var(--color-attention-fg);' %>
+          <strong>Task Queued</strong>
+        <% else %>
+          <%= octicon 'question', height: 16 %>
+          <strong><%= @task_run.status.titleize %></strong>
+        <% end %>
+      </div>
+      <% if @task_run.status.in?(%w[running queued]) %>
+        <p style="margin: 0;" data-task-run-status-target="statusMessage">
+          <%= @task_run.status == "running" ? "The agent is working on this task..." : "Waiting for agent to start..." %>
+        </p>
+      <% else %>
+        <p style="margin: 0;" data-task-run-status-target="statusMessage"><%= @task_run.final_message %></p>
+      <% end %>
+      <p style="margin: 8px 0 0 0; color: var(--color-danger-fg); display: <%= @task_run.error.present? ? 'block' : 'none' %>;" data-task-run-status-target="errorMessage">
+        <% if @task_run.error.present? %>Error: <%= @task_run.error %><% end %>
+      </p>
+      <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 12px;">
+        Agent: <%= @subagent.name %> |
+        Model: <code><%= @task_run.model || "default" %></code> |
+        Steps: <span data-task-run-status-target="stepsCount"><%= @task_run.steps_count %></span>
+        <% if @task_run.formatted_duration %>
+          | Duration: <%= @task_run.formatted_duration %>
+        <% end %>
+        | <%= timeago(@task_run.created_at) %>
+      </p>
+    </div>
+
+    <!-- Task -->
+    <div class="pulse-section-label" style="margin-bottom: 8px;">
+      <%= octicon 'tasklist', height: 12 %> Task
+    </div>
+    <div style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; margin-bottom: 24px;">
+      <pre style="margin: 0; white-space: pre-wrap; font-size: 13px;"><%= @task_run.task %></pre>
+    </div>
+
+    <!-- Created Resources -->
+    <% if @created_resources.any? %>
+      <div class="pulse-section-label" style="margin-bottom: 12px;">
+        <%= octicon 'package', height: 12 %> Resources Created (<%= @created_resources.count %>)
+      </div>
+      <div style="margin-bottom: 24px;">
+        <% @created_resources.each do |task_run_resource| %>
+          <% resource = task_run_resource.resource_unscoped %>
+          <% next unless resource %>
+          <% superagent = task_run_resource.resource_superagent %>
+          <% resource_title = task_run_resource.display_title(resource) %>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--color-canvas-subtle); border-radius: 6px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+              <i class="<%= resource.class.to_s.downcase %>-icon icon-sm"></i>
+              <% if task_run_resource.display_path.present? %>
+                <a href="<%= task_run_resource.display_path %>" style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <%= resource_title %>
+                </a>
+              <% else %>
+                <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <%= resource_title %>
+                </span>
+              <% end %>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+              <span class="pulse-badge pulse-badge-muted" style="font-size: 11px;"><%= task_run_resource.action_type %></span>
+              <% if superagent && superagent != @current_superagent %>
+                <span class="pulse-badge pulse-badge-info" style="font-size: 11px;" title="Created in <%= superagent.name %>">
+                  <%= octicon 'home', height: 10 %> <%= superagent.name.to_s.truncate(15) %>
+                </span>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <!-- Steps Timeline -->
+    <div class="pulse-section-label" style="margin-bottom: 16px;">
+      <%= octicon 'list-ordered', height: 12 %> Execution Steps
+    </div>
+
+    <div class="pulse-feed" data-task-run-status-target="feed">
+      <% @task_run.steps_data.each_with_index do |step, index| %>
+        <% step = step.with_indifferent_access %>
+        <article class="pulse-feed-item<%= ' pulse-feed-item-closed' if step[:type] == 'done' %>">
+          <div class="pulse-feed-item-header">
+            <div class="pulse-feed-item-type">
+              <% case step[:type] %>
+              <% when "navigate" %>
+                <%= octicon 'arrow-right', height: 14 %>
+              <% when "execute" %>
+                <%= octicon 'play', height: 14 %>
+              <% when "think" %>
+                <%= octicon 'light-bulb', height: 14 %>
+              <% when "done" %>
+                <%= octicon 'check', height: 14 %>
+              <% when "error" %>
+                <%= octicon 'alert', height: 14 %>
+              <% when "scratchpad_update" %>
+                <%= octicon 'note', height: 14 %>
+              <% when "scratchpad_update_failed" %>
+                <%= octicon 'alert', height: 14 %>
+              <% when "security_warning" %>
+                <%= octicon 'shield', height: 14 %>
+              <% else %>
+                <%= octicon 'dot', height: 14 %>
+              <% end %>
+              <%= step[:type].upcase %>
+            </div>
+            <div class="pulse-feed-item-meta">
+              <span>Step <%= index + 1 %></span>
+              <span>&middot;</span>
+              <span><%= Time.parse(step[:timestamp]).strftime("%H:%M:%S") %></span>
+            </div>
+          </div>
+
+          <div class="pulse-feed-item-body">
+            <% detail = step[:detail].is_a?(Hash) ? step[:detail].with_indifferent_access : {} %>
+            <% case step[:type] %>
+            <% when "navigate" %>
+              <div class="pulse-feed-item-title">
+                Navigated to: <code class="pulse-code"><%= detail[:path] %></code>
+              </div>
+              <% if detail[:available_actions]&.any? %>
+                <p class="pulse-muted" style="margin: 8px 0 0 0;">
+                  Available actions: <%= detail[:available_actions].join(", ") %>
+                </p>
+              <% end %>
+              <% if detail[:content_preview].present? %>
+                <details class="pulse-accordion" style="margin-top: 12px;">
+                  <summary class="pulse-accordion-header">
+                    <span class="pulse-accordion-title">View page content</span>
+                    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                  </summary>
+                  <div class="pulse-accordion-content">
+                    <pre style="font-size: 12px; white-space: pre-wrap; margin: 0;"><%= detail[:content_preview] %></pre>
+                  </div>
+                </details>
+              <% end %>
+
+            <% when "execute" %>
+              <div class="pulse-feed-item-title">
+                Executed: <code class="pulse-code"><%= detail[:action] %></code>
+                <% if detail[:success] %>
+                  <%= octicon 'check-circle-fill', height: 14, style: 'color: var(--color-success-fg);' %>
+                <% else %>
+                  <%= octicon 'x-circle-fill', height: 14, style: 'color: var(--color-danger-fg);' %>
+                <% end %>
+              </div>
+              <% if detail[:params].present? && detail[:params].any? %>
+                <p class="pulse-muted" style="margin: 8px 0 0 0;">
+                  Params: <code class="pulse-code" style="font-size: 11px;"><%= detail[:params].to_json %></code>
+                </p>
+              <% end %>
+              <% if detail[:error].present? %>
+                <p style="color: var(--color-danger-fg); margin: 8px 0 0 0;">Error: <%= detail[:error] %></p>
+              <% end %>
+              <% if detail[:content_preview].present? %>
+                <details class="pulse-accordion" style="margin-top: 12px;">
+                  <summary class="pulse-accordion-header">
+                    <span class="pulse-accordion-title">View result</span>
+                    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                  </summary>
+                  <div class="pulse-accordion-content">
+                    <pre style="font-size: 12px; white-space: pre-wrap; margin: 0;"><%= detail[:content_preview] %></pre>
+                  </div>
+                </details>
+              <% end %>
+
+            <% when "think" %>
+              <div class="pulse-feed-item-content">
+                LLM reasoning (step <%= detail[:step_number].to_i + 1 %>)
+                <% if detail[:llm_error].present? %>
+                  <span style="color: var(--color-danger-fg); margin-left: 8px;">
+                    <%= octicon 'alert', height: 14 %> LLM Error
+                  </span>
+                <% end %>
+              </div>
+              <% if detail[:llm_error].present? %>
+                <p style="color: var(--color-danger-fg); margin: 8px 0 0 0; font-size: 13px;">
+                  <%= detail[:llm_error] %>
+                </p>
+              <% end %>
+              <% if params[:debug] == "true" && detail[:prompt_preview].present? %>
+                <details class="pulse-accordion" style="margin-top: 12px;">
+                  <summary class="pulse-accordion-header">
+                    <span class="pulse-accordion-title">View prompt sent to LLM</span>
+                    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                  </summary>
+                  <div class="pulse-accordion-content">
+                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= detail[:prompt_preview] %></pre>
+                  </div>
+                </details>
+              <% end %>
+              <details class="pulse-accordion" style="margin-top: 12px;">
+                <summary class="pulse-accordion-header">
+                  <span class="pulse-accordion-title">View LLM response</span>
+                  <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                </summary>
+                <div class="pulse-accordion-content">
+                  <% if detail[:response_preview].present? %>
+                    <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= strip_trailing_json_action(detail[:response_preview]) %></pre>
+                  <% else %>
+                    <p class="pulse-muted" style="margin: 0; font-style: italic;">[No response content]</p>
+                  <% end %>
+                </div>
+              </details>
+
+            <% when "done" %>
+              <div class="pulse-feed-item-content" style="color: var(--color-success-fg);">
+                <%= detail[:message] %>
+              </div>
+
+            <% when "error" %>
+              <div class="pulse-feed-item-content" style="color: var(--color-danger-fg);">
+                <%= detail[:message] %>
+              </div>
+              <% if detail[:backtrace]&.any? %>
+                <details class="pulse-accordion" style="margin-top: 12px;">
+                  <summary class="pulse-accordion-header">
+                    <span class="pulse-accordion-title">View backtrace</span>
+                    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                  </summary>
+                  <div class="pulse-accordion-content">
+                    <pre style="font-size: 12px; overflow-x: auto; margin: 0; color: var(--color-danger-fg);"><%= detail[:backtrace].join("\n") %></pre>
+                  </div>
+                </details>
+              <% end %>
+
+            <% when "scratchpad_update" %>
+              <div class="pulse-feed-item-content" style="color: var(--color-success-fg);">
+                <%= octicon 'note', height: 14 %> Scratchpad updated
+              </div>
+              <% if detail[:content].present? %>
+                <details class="pulse-accordion" style="margin-top: 12px;">
+                  <summary class="pulse-accordion-header">
+                    <span class="pulse-accordion-title">View scratchpad content</span>
+                    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                  </summary>
+                  <div class="pulse-accordion-content">
+                    <pre style="font-size: 12px; white-space: pre-wrap; margin: 0;"><%= detail[:content] %></pre>
+                  </div>
+                </details>
+              <% end %>
+
+            <% when "scratchpad_update_failed" %>
+              <div class="pulse-feed-item-content" style="color: var(--color-attention-fg);">
+                <%= octicon 'alert', height: 14 %> Scratchpad update failed
+              </div>
+              <p class="pulse-muted" style="margin: 8px 0 0 0;">
+                <%= detail[:error] %>
+              </p>
+
+            <% when "security_warning" %>
+              <div class="pulse-feed-item-content" style="color: var(--color-attention-fg);">
+                <%= octicon 'shield', height: 14 %> Security Warning: <%= detail[:type] %>
+              </div>
+              <% if detail[:reasons]&.any? %>
+                <p class="pulse-muted" style="margin: 8px 0 0 0;">
+                  Reasons: <%= detail[:reasons].join(", ") %>
+                </p>
+              <% end %>
+            <% end %>
+          </div>
+        </article>
+      <% end %>
+    </div>
+  </div>
+</article>

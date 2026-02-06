@@ -679,6 +679,51 @@ class User
   end
 
   module GeneratedAttributeMethods
+    sig { returns(T.untyped) }
+    def agent_configuration; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def agent_configuration=(value); end
+
+    sig { returns(T::Boolean) }
+    def agent_configuration?; end
+
+    sig { returns(T.untyped) }
+    def agent_configuration_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def agent_configuration_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def agent_configuration_came_from_user?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def agent_configuration_change; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def agent_configuration_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def agent_configuration_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def agent_configuration_in_database; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def agent_configuration_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def agent_configuration_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def agent_configuration_previously_was; end
+
+    sig { returns(T.untyped) }
+    def agent_configuration_was; end
+
+    sig { void }
+    def agent_configuration_will_change!; end
+
     sig { returns(T::Boolean) }
     def app_admin; end
 
@@ -1040,6 +1085,9 @@ class User
     def picture_url_will_change!; end
 
     sig { void }
+    def restore_agent_configuration!; end
+
+    sig { void }
     def restore_app_admin!; end
 
     sig { void }
@@ -1080,6 +1128,12 @@ class User
 
     sig { void }
     def restore_user_type!; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def saved_change_to_agent_configuration; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_agent_configuration?; end
 
     sig { returns(T.nilable([T::Boolean, T::Boolean])) }
     def saved_change_to_app_admin; end
@@ -1444,6 +1498,9 @@ class User
 
     sig { void }
     def user_type_will_change!; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_agent_configuration?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_app_admin?; end

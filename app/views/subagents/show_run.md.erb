@@ -1,0 +1,145 @@
+# Task Run: <%= @task_run.success ? 'Success' : 'Failed' %>
+
+**Agent:** <%= @subagent.name %>
+**Model:** `<%= @task_run.model || "default" %>`
+**Status:** <%= @task_run.success ? 'Completed' : 'Failed' %>
+**Steps:** <%= @task_run.steps_count %><% if @task_run.formatted_duration %>
+**Duration:** <%= @task_run.formatted_duration %><% end %>
+**Started:** <%= @task_run.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %>
+
+<% if @task_run.error.present? -%>
+**Error:** <%= @task_run.error %>
+
+<% end -%>
+## Result
+
+<%= @task_run.final_message %>
+
+## Task
+
+```
+<%= @task_run.task %>
+```
+
+## Execution Steps
+
+<% @task_run.steps_data.each_with_index do |step, index| -%>
+<% step = step.with_indifferent_access -%>
+<% detail = step[:detail].is_a?(Hash) ? step[:detail].with_indifferent_access : {} -%>
+### Step <%= index + 1 %>: <%= step[:type].upcase %>
+
+*<%= Time.parse(step[:timestamp]).strftime("%H:%M:%S") %>*
+
+<% case step[:type] -%>
+<% when "navigate" -%>
+Navigated to: `<%= detail[:path] %>`
+<% if detail[:available_actions]&.any? -%>
+
+Available actions: <%= detail[:available_actions].join(", ") %>
+<% end -%>
+<% if detail[:content_preview].present? -%>
+
+<details>
+<summary>Page content</summary>
+
+```markdown
+<%= detail[:content_preview] %>
+```
+
+</details>
+<% end -%>
+
+<% when "execute" -%>
+Executed: `<%= detail[:action] %>` - <%= detail[:success] ? 'Success' : 'Failed' %>
+<% if detail[:params].present? && detail[:params].any? -%>
+
+Params: `<%= detail[:params].to_json %>`
+<% end -%>
+<% if detail[:error].present? -%>
+
+**Error:** <%= detail[:error] %>
+<% end -%>
+<% if detail[:content_preview].present? -%>
+
+<details>
+<summary>Result</summary>
+
+```
+<%= detail[:content_preview] %>
+```
+
+</details>
+<% end -%>
+
+<% when "think" -%>
+LLM reasoning (step <%= detail[:step_number].to_i + 1 %>)<% if detail[:llm_error].present? %> ⚠️ LLM Error<% end %>
+<% if detail[:llm_error].present? -%>
+
+**LLM Error:** <%= detail[:llm_error] %>
+<% end -%>
+<% if params[:debug] == "true" && detail[:prompt_preview].present? -%>
+
+<details>
+<summary>Prompt sent to LLM</summary>
+
+```
+<%= detail[:prompt_preview] %>
+```
+
+</details>
+<% end -%>
+
+<details>
+<summary>LLM response</summary>
+
+<% if detail[:response_preview].present? -%>
+<%= strip_trailing_json_action(detail[:response_preview]) %>
+<% else -%>
+*[No response content]*
+<% end -%>
+
+</details>
+
+<% when "done" -%>
+<%= detail[:message] %>
+
+<% when "error" -%>
+**Error:** <%= detail[:message] %>
+<% if detail[:backtrace]&.any? -%>
+
+<details>
+<summary>Backtrace</summary>
+
+```
+<%= detail[:backtrace].join("\n") %>
+```
+
+</details>
+<% end -%>
+
+<% when "scratchpad_update" -%>
+Scratchpad updated
+<% if detail[:content].present? -%>
+
+<details>
+<summary>View scratchpad content</summary>
+
+```
+<%= detail[:content] %>
+```
+
+</details>
+<% end -%>
+
+<% when "scratchpad_update_failed" -%>
+Scratchpad update failed: <%= detail[:error] %>
+
+<% when "security_warning" -%>
+**Security Warning:** <%= detail[:type] %> - <%= detail[:reasons]&.join(", ") %>
+
+<% end -%>
+<% end -%>
+---
+
+* [All Runs](<%= subagent_runs_path(@subagent.handle) %>)
+* [Run Another Task](<%= subagent_run_task_path(@subagent.handle) %>)

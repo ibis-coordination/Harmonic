@@ -350,6 +350,37 @@
   color: var(--color-fg-muted);
 }
 
+/* Task Run Link */
+.pulse-task-run-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  margin-top: 4px;
+}
+
+.pulse-task-run-link a {
+  color: var(--color-accent-fg);
+}
+
+/* Task Run Link Inline (for comments) */
+.pulse-task-run-link-inline {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+}
+
+.pulse-task-run-link-inline a {
+  color: var(--color-fg-muted);
+  display: flex;
+  align-items: center;
+}
+
+.pulse-task-run-link-inline a:hover {
+  color: var(--color-accent-fg);
+}
+
 /* Updated Info */
 .pulse-feed-item-updated {
   font-size: 12px;

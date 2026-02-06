@@ -73,6 +73,15 @@ module ActionAuthorization
 
       target_user.id == user.id
     },
+    self_subagent: lambda { |user, context|
+      return false unless user&.subagent?
+
+      target_user = context[:target_user]
+      # No target_user context = permissive for listing (shows action to subagents)
+      return true unless target_user
+
+      target_user.id == user.id
+    },
     representative: lambda { |user, context|
       return false unless user
 
@@ -104,7 +113,13 @@ module ActionAuthorization
     auth = action[:authorization]
     return false if auth.nil? # No auth specified = denied (fail closed)
 
-    check_authorization(auth, user, context)
+    # Check base authorization first
+    return false unless check_authorization(auth, user, context)
+
+    # Then check capability restrictions for subagents
+    return false unless CapabilityCheck.allowed?(user, action_name)
+
+    true
   end
 
   # Check authorization against a specific authorization rule.

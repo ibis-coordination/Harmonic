@@ -403,7 +403,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_equal 'created', session.event_type_to_verb_phrase('create')
     assert_equal 'updated', session.event_type_to_verb_phrase('update')
     assert_equal 'confirmed reading', session.event_type_to_verb_phrase('confirm')
-    assert_equal 'added an option to', session.event_type_to_verb_phrase('add_option')
+    assert_equal 'added options to', session.event_type_to_verb_phrase('add_options')
     assert_equal 'voted on', session.event_type_to_verb_phrase('vote')
     assert_equal 'joined', session.event_type_to_verb_phrase('commit')
   end
@@ -417,6 +417,103 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_raises RuntimeError do
       session.event_type_to_verb_phrase('unknown')
     end
+  end
+
+  # === add_options Event Tracking Tests ===
+
+  test "validate_semantic_event! accepts add_options event type" do
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+    # Should not raise
+    session.validate_semantic_event!({
+      timestamp: Time.current.iso8601,
+      event_type: 'add_options',
+      superagent_id: @superagent.id,
+      main_resource: { type: 'Decision', id: '123', truncated_id: 'abc123' },
+      sub_resources: [{ type: 'Option', id: '456' }],
+    })
+  end
+
+  test "validate_semantic_event! rejects singular add_option event type" do
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+    # Should raise because add_option (singular) is not a valid event type
+    assert_raises RuntimeError, /Invalid event type/ do
+      session.validate_semantic_event!({
+        timestamp: Time.current.iso8601,
+        event_type: 'add_option',
+        superagent_id: @superagent.id,
+        main_resource: { type: 'Decision', id: '123', truncated_id: 'abc123' },
+        sub_resources: [{ type: 'Option', id: '456' }],
+      })
+    end
+  end
+
+  test "record_activity! tracks add_options event with sub_resources" do
+    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    option1 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 1")
+    option2 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 2")
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: 'req-456', method: 'POST', path: '/decisions/123/actions/add_options')
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'add_options',
+        superagent_id: @superagent.id,
+        main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
+        sub_resources: [
+          { type: 'Option', id: option1.id },
+          { type: 'Option', id: option2.id },
+        ],
+      },
+    )
+
+    assert_equal 1, session.activity_log['activity'].count
+    # Main resource association + 2 sub-resource associations
+    assert_equal 3, session.representation_session_associations.count
+
+    activity = session.activity_log['activity'].first
+    assert_equal 'add_options', activity['semantic_event']['event_type']
+    assert_equal 2, activity['semantic_event']['sub_resources'].count
+  end
+
+  test "human_readable_activity_log shows add_options as 'added options to'" do
+    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: 'req-789', method: 'POST', path: '/decisions/123/actions/add_options')
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: 'add_options',
+        superagent_id: @superagent.id,
+        main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
+        sub_resources: [{ type: 'Option', id: option.id }],
+      },
+    )
+
+    log = session.human_readable_activity_log
+    assert_equal 1, log.count
+    assert_equal 'added options to', log.first[:verb_phrase]
+    assert_equal decision, log.first[:main_resource]
   end
 
   # === human_readable_activity_log Tests ===

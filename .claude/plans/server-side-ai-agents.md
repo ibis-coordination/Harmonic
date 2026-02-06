@@ -1,82 +1,195 @@
-# Server-Side AI Agent Feature - Architecture Design
+# Server-Side AI Agent Feature
 
 ## Overview
 
 Enable users to create AI-powered subagents that run server-side, eliminating the need for users to set up their own API integration. The agent reuses Harmonic's existing markdown API interface.
 
-## Design Principles
+---
 
-1. **Reuse existing infrastructure** - Subagent user type, markdown API, Sidekiq
-2. **BYOK (Bring Your Own Key)** - Users provide their Anthropic API key
-3. **Same interface as external agents** - Server-side agents use the same markdown API that MCP clients use
-4. **Clear ownership** - Agents are subagents with parent person relationships
+## Current Implementation Status
+
+### ✅ Implemented
+
+#### Data Model
+- **`users.agent_configuration`** (jsonb) - Stores per-agent config including `identity_prompt`
+- **`subagent_task_runs`** - Tracks each agent execution with status, steps, timing
+- **`subagent_task_run_resources`** - Tracks resources created by each task run
+
+#### Core Agent Loop
+- **`AgentNavigator`** - Agentic loop: navigate → think → execute → repeat
+- **`MarkdownUiService`** - Internal rendering of markdown templates and action execution
+- **`LLMClient`** - OpenAI-compatible client using LiteLLM proxy
+
+#### Triggering
+- **@Mentions** - `MentionParser` extracts handles, `NotificationDispatcher.trigger_subagent_tasks` creates task runs
+- **Conversation replies** - When someone replies to agent-created content, agent is triggered
+- **Manual invocation** - `/subagents/:handle/run` form to run arbitrary tasks
+
+#### Rate Limiting
+- 3 task triggers per minute per subagent (in `NotificationDispatcher`)
+- Max steps per run (default 30, max 50)
+
+#### UI
+- `/subagents` - List subagents owned by current user
+- `/subagents/:handle/run` - Task submission form
+- `/subagents/:handle/runs` - Task run history
+- `/subagents/:handle/runs/:id` - Task run detail with steps and created resources
+- User settings - Identity prompt editing for subagents
+
+#### Identity/Context
+- Identity prompt stored in `users.agent_configuration["identity_prompt"]`
+- Shown on `/whoami` page (agents navigate here first)
+- Agents see which studios they belong to, upcoming reminders, etc.
+
+### ❌ Not Yet Implemented
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Capability restrictions | Limit which actions an agent can take | High |
+| Approval workflow | Queue risky actions for human approval | High |
+| BYOK API Keys | Users provide their own Anthropic/OpenAI keys | Medium |
+| Per-agent model selection | Choose model per agent | Medium |
+| Cost tracking | Track tokens/cost per execution | Medium |
+| Cost alerts | Notify at $1, $5, $10 thresholds | Low |
+| Auto-pause | Pause agent at cost limit | Low |
+| Subscriptions | Watch content for changes (not just @mentions) | Low |
+| Studio-owned agents | Agents owned by studio, not person | Low |
 
 ---
 
-## Data Model
+## Design Principles
 
-### New Tables
+1. **Reuse existing infrastructure** - Subagent user type, markdown API, Sidekiq
+2. **Same interface as external agents** - Server-side agents use the same markdown API that MCP clients use
+3. **Clear ownership** - Agents are subagents with parent person relationships
+4. **Audit trail** - All actions tracked via SubagentTaskRunResource
 
-#### `agent_configurations`
-Stores AI-specific settings for subagent users. **Studio-owned agents** are the primary use case.
+---
+
+## Architecture
+
+### Event Flow (Current)
+
+```
+Content Created/Updated
+        │
+        ▼
+┌─────────────────────────┐
+│ Event.emit!             │  (ActiveRecord callback)
+│ - note.created          │
+│ - decision.created      │
+│ - comment.created       │
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐
+│ NotificationDispatcher  │  (Sidekiq job)
+│ - Parse @mentions       │
+│ - Find subagent replies │
+│ - Rate limit check      │
+│ - Create SubagentTaskRun│
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐
+│ AgentQueueProcessorJob  │  (Sidekiq - claims & runs)
+│ - Claim next queued run │
+│ - Set thread context    │
+│ - Run AgentNavigator    │
+│ - Record results        │
+│ - Schedule next task    │
+└─────────────────────────┘
+```
+
+### Agent Execution Loop
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  AgentNavigator.run(task:)                               │
+├──────────────────────────────────────────────────────────┤
+│  1. Navigate to /whoami (get identity, context)          │
+│                                                          │
+│  2. Loop until done or max_steps:                        │
+│     a. Build prompt with current page + available actions│
+│     b. Send to LLM via LLMClient                         │
+│     c. Parse JSON response: navigate/execute/done/error  │
+│     d. Execute action via MarkdownUiService              │
+│     e. Record step                                       │
+│                                                          │
+│  3. Return Result with success, steps, final_message     │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `app/services/agent_navigator.rb` | Core agentic loop |
+| `app/services/llm_client.rb` | LLM API client (LiteLLM proxy) |
+| `app/services/markdown_ui_service.rb` | Internal markdown rendering |
+| `app/services/notification_dispatcher.rb` | Trigger routing including subagent tasks |
+| `app/services/mention_parser.rb` | @handle extraction |
+| `app/jobs/agent_queue_processor_job.rb` | Task execution job |
+| `app/models/subagent_task_run.rb` | Task run record |
+| `app/models/subagent_task_run_resource.rb` | Resource tracking |
+| `app/controllers/subagents_controller.rb` | UI and manual task submission |
+
+---
+
+## Planned Features
+
+### Phase 1: Capability Restrictions (High Priority)
+
+Allow agent owners to restrict which actions their agents can take.
+
+#### Data Model Changes
+
+Extend `users.agent_configuration`:
+```json
+{
+  "identity_prompt": "You are a helpful assistant...",
+  "capabilities": ["create_note", "comment", "vote", "add_options"]
+}
+```
+
+If `capabilities` is null/empty, all actions are allowed (current behavior).
+If `capabilities` is set, only listed actions are permitted.
+
+#### Implementation
+
+1. **UI** - Checkbox list in subagent settings for allowed capabilities
+2. **Enforcement** - `MarkdownUiService.execute_action` checks capability before executing
+3. **Visibility** - `/whoami` shows agent their allowed capabilities
+4. **Action filtering** - Only show allowed actions in available actions list
+
+#### Capability List
+
+| Capability | Actions | Risk Level |
+|------------|---------|------------|
+| `create_note` | Create notes, comments | Low |
+| `create_decision` | Create decisions | Low |
+| `create_commitment` | Create commitments | Medium |
+| `add_options` | Add options to decisions | Low |
+| `vote` | Vote on decisions | Medium |
+| `commit` | Join commitments | Medium |
+| `update` | Update own content | Low |
+| `delete` | Delete own content | High |
+| `confirm_read` | Mark notes as read | Low |
+
+### Phase 2: Approval Workflow (High Priority)
+
+Queue certain actions for human approval before execution.
+
+#### Data Model
+
+New table: `agent_pending_actions`
 
 | Column | Type | Purpose |
 |--------|------|---------|
-| `user_id` | uuid | Links to subagent user |
-| `studio_id` | uuid | **Studio that owns this agent** (nullable for personal agents) |
-| `provider` | string | 'anthropic' (only supported provider for now) |
-| `model` | string | e.g., 'claude-sonnet-4-20250514' |
-| `system_prompt` | text | Custom instructions |
-| `capabilities` | jsonb | `['create_note', 'vote', 'commit', 'comment']` |
-| `requires_approval` | jsonb | **Actions needing human approval** `['vote', 'commit']` |
-| `trigger_on_mention` | boolean | Respond to @mentions |
-| `trigger_on_subscription` | boolean | Watch content changes |
-| `max_actions_per_hour` | integer | Rate limit |
-| `max_tokens_per_day` | integer | Cost control |
-| `cooldown_seconds` | integer | Min time between responses |
-| `enabled` | boolean | On/off switch |
-| `paused_at` / `paused_reason` | timestamp/text | Auto-pause on issues |
-
-#### `agent_api_keys`
-Securely stores encrypted user API keys (BYOK).
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| `owner_id` | uuid | Person who owns the key |
-| `provider` | string | 'anthropic', 'openai' |
-| `encrypted_key` | bytea | Encrypted API key |
-| `key_hint` | string | Last 4 chars for display |
-| `total_tokens_used` | bigint | Usage tracking |
-| `total_cost_usd` | decimal | Cost tracking |
-
-#### `agent_executions`
-Audit trail for every agent invocation.
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| `agent_user_id` | uuid | Which agent ran |
-| `trigger_type` | string | 'mention', 'subscription', 'manual' |
-| `trigger_source_type/id` | string/uuid | What triggered it |
-| `status` | string | pending, running, completed, failed, rate_limited |
-| `actions_taken` | jsonb | Log of actions |
-| `input_tokens` / `output_tokens` | integer | Token usage |
-| `estimated_cost_usd` | decimal | Cost tracking |
-
-#### `agent_subscriptions`
-What content agents are watching.
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| `subscribable_type/id` | string/uuid | Studio, Note, Decision, etc. |
-| `events` | jsonb | `['create', 'update']` |
-| `enabled` | boolean | On/off |
-
-#### `agent_pending_actions`
-Queue for actions awaiting human approval.
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| `agent_execution_id` | uuid | Links to the execution |
+| `id` | uuid | Primary key |
+| `tenant_id` | uuid | Tenant |
+| `subagent_task_run_id` | uuid | Links to the execution |
+| `subagent_id` | uuid | The agent |
 | `action_name` | string | e.g., 'vote', 'commit' |
 | `action_params` | jsonb | Parameters for the action |
 | `context_summary` | text | What the agent was responding to |
@@ -85,94 +198,16 @@ Queue for actions awaiting human approval.
 | `reviewed_at` | timestamp | When reviewed |
 | `expires_at` | timestamp | Auto-expire if not reviewed |
 
----
-
-## Event Flow
-
-```
-Content Created/Updated
-        │
-        ▼
-┌─────────────────────────┐
-│ AgentTriggerable        │  (ActiveRecord callback concern)
-│ (after_commit)          │
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│ AgentTriggerJob         │  (Sidekiq - quick, fans out)
-│ - Parse @mentions       │
-│ - Check subscriptions   │
-│ - Rate limit check      │
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│ AgentExecutionJob       │  (Sidekiq - separate queue)
-│ - Build context         │
-│ - Call Anthropic API    │
-│ - Execute actions       │
-│ - Log results           │
-└─────────────────────────┘
+Extend `users.agent_configuration`:
+```json
+{
+  "identity_prompt": "...",
+  "capabilities": ["create_note", "vote", "commit"],
+  "requires_approval": ["vote", "commit"]
+}
 ```
 
----
-
-## Trigger Mechanisms
-
-### 1. @Mentions
-- `MentionParser` scans text for `@handle` patterns
-- Looks up handles in `tenant_users` table
-- Filters to enabled agent configurations
-- Enqueues execution for each mentioned agent
-
-### 2. Subscriptions
-- Agents can subscribe to Studios, Notes, Decisions, etc.
-- When subscribed content changes, agent is triggered
-- Configurable events: create, update
-
-### 3. Manual Invocation
-- UI button or markdown API action to invoke agent
-- User explicitly asks agent to respond to specific content
-
----
-
-## Agent Execution
-
-The `AgentExecutor` service runs an agentic loop:
-
-1. **Build context** - Fetch markdown view of trigger content
-2. **System prompt** - Include capabilities, custom instructions
-3. **Call AI** - Send to Anthropic API with tools
-4. **Process tool calls** - Execute navigate/execute_action
-5. **Loop** - Up to MAX_TURNS (10) or until agent stops
-6. **Record** - Log actions, tokens, cost
-
-### Tools Available to Agent
-
-```
-navigate(path)
-  - Navigate to a Harmonic page
-  - Returns markdown content + available actions
-
-execute_action(action, params)
-  - Execute an action on current page
-  - Filtered by agent's configured capabilities
-```
-
-### Key Insight: Internal Rendering
-
-Instead of making HTTP requests, the agent uses:
-- `InternalMarkdownRenderer` - Renders `.md.erb` templates directly
-- `InternalActionExecutor` - Calls `ApiHelper` methods directly
-
-This avoids network overhead while maintaining the same interface.
-
----
-
-## Approval Workflow
-
-When an agent attempts an action that requires approval:
+#### Workflow
 
 ```
 Agent decides to take action (e.g., vote)
@@ -190,10 +225,10 @@ Agent decides to take action (e.g., vote)
     │               │
     ▼               ▼
  Execute      Create PendingAction
- immediately  + Send Notification
+ immediately  + Notify parent user
                     │
                     ▼
-              Wait for human review
+              Wait for review
                     │
          ┌──────────┴──────────┐
          ▼                     ▼
@@ -201,186 +236,183 @@ Agent decides to take action (e.g., vote)
          │                     │
          ▼                     ▼
    Execute action         Log rejection
-   + Notify agent         + Notify agent
 ```
 
-### Approval UI
-- Studio admins see pending actions in a queue
-- Each pending action shows: agent name, action, context, timestamp
-- Approve/Reject buttons with optional feedback
-- Bulk approve/reject for efficiency
+#### Implementation
+
+1. **Check before execute** - `MarkdownUiService.execute_action` checks if action requires approval
+2. **Queue action** - Create `AgentPendingAction` record instead of executing
+3. **Agent response** - Agent receives "action queued for approval" message
+4. **Notification** - Notify parent user of pending approval
+5. **Approval UI** - `/subagents/:handle/pending` - list pending actions with approve/reject
+6. **Execute on approval** - Background job executes approved actions
+7. **Expiration** - Auto-reject after 24 hours (configurable)
+
+### Phase 3: BYOK API Keys (Medium Priority)
+
+Allow users to provide their own API keys instead of using the shared LiteLLM proxy.
+
+#### Data Model
+
+New table: `agent_api_keys`
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | uuid | Primary key |
+| `tenant_id` | uuid | Tenant |
+| `owner_id` | uuid | Person who owns the key |
+| `provider` | string | 'anthropic', 'openai' |
+| `encrypted_key` | bytea | Encrypted API key |
+| `key_hint` | string | Last 4 chars for display |
+| `total_tokens_used` | bigint | Usage tracking |
+| `total_cost_usd` | decimal | Cost tracking |
+| `created_at` | timestamp | |
+
+Extend `users.agent_configuration`:
+```json
+{
+  "identity_prompt": "...",
+  "api_key_id": "uuid-of-key-to-use",
+  "model": "claude-sonnet-4-20250514"
+}
+```
+
+#### Implementation
+
+1. **Key management UI** - `/u/:handle/settings/api-keys`
+2. **Encryption** - Use Rails ActiveRecord Encryption
+3. **Key selection** - Agent config specifies which key to use
+4. **Direct API calls** - When key specified, bypass LiteLLM, call provider directly
+5. **Usage tracking** - Log tokens/cost per execution to the key record
+6. **Fallback** - If no key specified, use shared LiteLLM proxy (current behavior)
+
+### Phase 4: Cost Tracking & Alerts (Medium Priority)
+
+Track usage and alert users when costs reach thresholds.
+
+#### Data Model
+
+Add columns to `subagent_task_runs`:
+- `input_tokens` (integer)
+- `output_tokens` (integer)
+- `estimated_cost_usd` (decimal)
+
+Extend `users.agent_configuration`:
+```json
+{
+  "cost_limit_usd": 100,
+  "alert_thresholds_usd": [1, 5, 10, 50],
+  "paused_at": null,
+  "paused_reason": null
+}
+```
+
+#### Implementation
+
+1. **Track tokens** - `LLMClient` returns usage, store on task run
+2. **Calculate cost** - Use per-model pricing tables
+3. **Aggregate** - Sum costs per agent per day/month
+4. **Alerts** - Notify parent when crossing thresholds
+5. **Auto-pause** - Disable agent when limit reached
+6. **Dashboard** - Show cost graphs in `/subagents/:handle/usage`
+
+### Phase 5: Subscriptions (Low Priority)
+
+Allow agents to watch content and respond to changes (not just @mentions).
+
+#### Data Model
+
+New table: `agent_subscriptions`
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | uuid | Primary key |
+| `tenant_id` | uuid | Tenant |
+| `subagent_id` | uuid | The watching agent |
+| `subscribable_type` | string | 'Superagent', 'Note', 'Decision', etc. |
+| `subscribable_id` | uuid | What to watch |
+| `events` | jsonb | `['create', 'update', 'comment']` |
+| `enabled` | boolean | On/off |
+
+#### Implementation
+
+1. **Subscribe action** - Markdown action to subscribe agent to content
+2. **Event routing** - `NotificationDispatcher` checks subscriptions
+3. **Trigger task** - Create task run when subscribed event fires
+4. **Unsubscribe action** - Remove subscription
+5. **Subscription list** - Show what agent is watching in settings
 
 ---
 
 ## Safety & Limits
 
-### Rate Limiting (Redis-based)
-- `max_actions_per_hour` - Hourly execution cap
-- `max_tokens_per_day` - Daily token budget
-- `cooldown_seconds` - Minimum gap between executions
+### Current Safeguards
+- Rate limiting: 3 triggers per minute per agent
+- Max steps: 30 default, 50 max per task run
+- Agents cannot trigger themselves (cooldown)
+- All actions go through normal permission checks
+
+### Planned Safeguards
+- Capability restrictions (Phase 1)
+- Approval workflow for risky actions (Phase 2)
+- Cost limits and auto-pause (Phase 4)
 
 ### Infinite Loop Prevention
-- Agents cannot trigger themselves
-- Turn limit per execution (MAX_TURNS = 10)
-- Cooldown enforced between executions
-
-### Capability Restrictions
-- Each agent has explicit capability list
-- Actions checked against capabilities before execution
-- Unknown actions rejected
-- **Approval check** - Some actions queue for human review instead of executing
-
-### Cost Controls
-- Token usage tracked per execution
-- Cost calculated and stored
-- Alert thresholds: $1, $5, $10, $50
-- Auto-pause at $100 (configurable)
-- **Notifications** sent at each threshold
+- Turn limit per execution (MAX_STEPS)
+- Rate limit on triggers
+- Agents excluded from triggering themselves via @mention
 
 ---
 
-## User Interface
+## UI Routes
 
-### Agent Creation (extends existing subagent flow)
-```
-/u/:handle/settings/subagents/new
-  [x] Enable as AI Agent
-  [ ] Provider: Anthropic / OpenAI
-  [ ] Model: claude-sonnet-4-20250514
-  [ ] System Prompt: ...
-  [ ] Capabilities: [create_note] [comment] [vote] [commit]
-```
+### Current
+- `GET /subagents` - List owned subagents
+- `GET /subagents/:handle/run` - Task submission form
+- `POST /subagents/:handle/run` - Execute task
+- `GET /subagents/:handle/runs` - Task run history
+- `GET /subagents/:handle/runs/:id` - Task run detail
+- `GET /u/:handle/settings` - Edit identity prompt (for subagents)
 
-### API Key Management
-```
-/u/:handle/settings/api-keys
-  Add AI Provider Key
-  - Provider: Anthropic
-  - API Key: sk-ant-... (encrypted)
-```
-
-### Agent Activity Dashboard
-```
-/u/:handle/settings/agents/:id/activity
-  - Recent executions (status, trigger, actions)
-  - Token usage graph
-  - Cost tracking
-  - Error logs
-```
+### Planned
+- `GET /subagents/:handle/settings` - Agent configuration (capabilities, approvals)
+- `GET /subagents/:handle/pending` - Pending approval queue
+- `POST /subagents/:handle/pending/:id/approve` - Approve action
+- `POST /subagents/:handle/pending/:id/reject` - Reject action
+- `GET /u/:handle/settings/api-keys` - API key management
+- `GET /subagents/:handle/usage` - Cost/usage dashboard
 
 ---
 
-## Key Files to Modify/Create
+## Implementation Order
 
-### Models
-- `app/models/agent_configuration.rb` (new)
-- `app/models/agent_api_key.rb` (new)
-- `app/models/agent_execution.rb` (new)
-- `app/models/agent_subscription.rb` (new)
-- `app/models/user.rb` - Add `has_one :agent_configuration`
-- `app/models/concerns/agent_triggerable.rb` (new)
-
-### Services
-- `app/services/agent_executor.rb` (new) - Core execution engine
-- `app/services/mention_parser.rb` (new) - @mention detection
-- `app/services/rate_limiter.rb` (new) - Redis-based limits
-- `app/services/internal_markdown_renderer.rb` (new)
-- `app/services/internal_action_executor.rb` (new)
-- `app/services/anthropic_client.rb` (new) - API wrapper
-
-### Jobs
-- `app/jobs/agent_trigger_job.rb` (new)
-- `app/jobs/agent_execution_job.rb` (new)
-
-### Controllers
-- `app/controllers/agent_configurations_controller.rb` (new)
-- `app/controllers/agent_api_keys_controller.rb` (new)
+1. **Capability Restrictions** - Essential safety feature, relatively simple
+2. **Approval Workflow** - Important for high-stakes actions
+3. **BYOK API Keys** - Enables user cost control
+4. **Cost Tracking** - Visibility into usage
+5. **Subscriptions** - Nice to have, lower priority
 
 ---
 
-## Prerequisites
+## Architectural Decisions
 
-### Notification System (MUST BUILD FIRST)
-The AI agent feature depends on a notification system to:
-- Notify users when agents take actions
-- Alert users when actions need approval
-- Send cost alerts and rate limit warnings
+### Why LiteLLM Proxy (Current)
+- **Simplicity** - Single point of configuration
+- **Flexibility** - Can route to different providers/models
+- **No key management** - Server handles API keys centrally
 
-This should be implemented before the agent feature.
+### Why BYOK (Planned)
+- **User cost control** - Users pay their own AI costs directly
+- **Privacy option** - Users can use their own accounts
+- **Flexibility** - Users choose models/providers
+- **Scalability** - Distributes infrastructure cost
 
----
+### Why Capability Restrictions
+- **Safety** - Prevent agents from taking unintended actions
+- **Trust building** - Users can start restrictive, loosen over time
+- **Compliance** - Some orgs may require certain actions be human-only
 
-## Implementation Phases
-
-### Phase 0: Notification System (Prerequisite)
-- Design notification data model
-- Build notification delivery (in-app, email)
-- Add notification preferences per user
-- Create notification UI
-
-### Phase 1: Foundation
-- Database migrations for agent tables
-- Models with validations
-- API key encryption (Rails credentials or separate encryption)
-
-### Phase 2: Event System
-- MentionParser service
-- AgentTriggerable concern (add to Note, Decision, Commitment)
-- AgentTriggerJob
-
-### Phase 3: Execution Engine
-- AnthropicClient wrapper
-- AgentExecutor with tool handling
-- InternalMarkdownRenderer
-- InternalActionExecutor
-- Rate limiting (Redis-based)
-
-### Phase 4: Approval Workflow
-- AgentPendingAction model and queue
-- Approval UI (list pending, approve/reject buttons)
-- Notification integration for approval requests
-- Expiration job for stale approvals
-
-### Phase 5: UI & Polish
-- Studio agent configuration pages
-- API key management UI
-- Activity dashboard
-- Cost alerts
-
----
-
-## Design Decisions
-
-1. **Provider** - Anthropic only for now (can extend later)
-2. **Conversation memory** - No special memory; agents access history through the app like any user
-3. **Studio-level agents** - Studios can have shared agents (primary use case); studio-owned like trustee users
-4. **Notification system** - PREREQUISITE: Must implement notification system first
-5. **Approval workflow** - Configurable per agent; owner chooses which actions need approval
-
----
-
-## Architectural Decision: Why This Approach?
-
-### Reusing Markdown API
-- **Consistency**: Agents see exactly what external MCP clients see
-- **Security**: Existing permission checks apply automatically
-- **Simplicity**: No parallel action system needed
-- **Audit trail**: All actions go through same logging
-
-### BYOK Model
-- **No billing complexity**: Users pay their own AI costs
-- **Privacy**: Harmonic never processes content through its own AI
-- **Flexibility**: Users choose models/providers
-- **Scalability**: No Harmonic infrastructure cost concerns
-
-### Subagent Foundation
-- **Existing infrastructure**: `user_type: "subagent"` already exists
-- **Clear ownership**: Studio-owned agents (like trustees) are primary use case
-- **Permission model**: Uses existing studio membership
-- **Audit trail**: Actions attributed to specific agent user
-
-### Studio-Owned Agents
-- Similar to how each studio has a trustee user, studios can have AI agent users
-- Studio admins can configure the agent
-- Any studio admin can approve pending actions
-- API key can be at studio level (shared) or provided by individual users
+### Why Approval Workflow
+- **Human oversight** - Critical for high-stakes decisions
+- **Reversibility** - Catch mistakes before they happen
+- **Audit** - Clear record of what was approved and by whom

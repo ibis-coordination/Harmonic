@@ -1,7 +1,6 @@
 # typed: false
 
 class UserWebhooksController < ApplicationController
-  layout 'pulse', only: [:index, :new, :show]
   before_action :require_login
   before_action :set_target_user
   before_action :authorize_webhook_management

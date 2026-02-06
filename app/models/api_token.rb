@@ -7,8 +7,22 @@ class ApiToken < ApplicationRecord
   belongs_to :tenant
   belongs_to :user
 
+  # Default scope to external tokens only (merged with tenant scope from ApplicationRecord)
+  # This prevents accidentally exposing internal tokens by forgetting to filter
+  default_scope { where(internal: false) }
+
+  # Scope for internal tokens - unscopes the external default but keeps tenant scope
+  scope :internal, -> { unscope(where: :internal).where(internal: true) }
+
+  # Explicit external scope (same as default, but useful for clarity)
+  scope :external, -> { where(internal: false) }
+
   # Plaintext token is only available immediately after creation
   attr_accessor :plaintext_token
+
+  # Internal flag for allowing internal token creation - must be set via create_internal_token
+  # This prevents external API requests from setting internal: true
+  attr_accessor :allow_internal_token
 
   # Clear plaintext_token on reload since it cannot be recovered from the database
   def reload(*args)
@@ -19,6 +33,7 @@ class ApiToken < ApplicationRecord
   validates :token_hash, presence: true, uniqueness: true
   validates :scopes, presence: true
   validate :validate_scopes
+  validate :internal_tokens_require_allow_flag
 
   before_validation :generate_token_hash
 
@@ -139,6 +154,35 @@ class ApiToken < ApplicationRecord
     tenant_admin == true
   end
 
+  sig { returns(T::Boolean) }
+  def internal?
+    internal == true
+  end
+
+  # Create a new ephemeral internal token for a task run.
+  # Token should be deleted when the run completes.
+  # The plaintext is available via token.plaintext_token immediately after creation.
+  #
+  # @param user [User] The user to create the token for
+  # @param tenant [Tenant] The tenant context
+  # @param expires_in [ActiveSupport::Duration] How long until the token expires (default: 1 hour)
+  # @return [ApiToken] The created token with plaintext_token available
+  sig { params(user: User, tenant: Tenant, expires_in: ActiveSupport::Duration).returns(ApiToken) }
+  def self.create_internal_token(user:, tenant:, expires_in: 1.hour)
+    token = new(
+      user: user,
+      tenant: tenant,
+      internal: true,
+      scopes: valid_scopes,
+      name: "Internal Agent Token",
+      expires_at: Time.current + expires_in,
+    )
+    # Set the allow flag to bypass the validation - only this method can create internal tokens
+    token.allow_internal_token = true
+    token.save!
+    token
+  end
+
   sig { void }
   def delete!
     self.deleted_at ||= T.cast(Time.current, ActiveSupport::TimeWithZone)
@@ -190,13 +234,14 @@ class ApiToken < ApplicationRecord
     can?('delete', resource_model)
   end
 
-  # Authenticate by hashing the provided token and looking up the hash
+  # Authenticate by hashing the provided token and looking up the hash.
+  # Note: This unscopes the default external-only filter to allow internal token auth.
   sig { params(token_string: String, tenant_id: T.untyped).returns(T.nilable(ApiToken)) }
   def self.authenticate(token_string, tenant_id:)
     return nil if token_string.blank?
 
     token_hash = hash_token(token_string)
-    find_by(token_hash: token_hash, deleted_at: nil, tenant_id: tenant_id)
+    unscope(where: :internal).find_by(token_hash: token_hash, deleted_at: nil, tenant_id: tenant_id)
   end
 
   sig { params(token_string: String).returns(String) }
@@ -228,6 +273,18 @@ class ApiToken < ApplicationRecord
       unless ApiToken.valid_scope?(scope)
         errors.add(:scopes, "Invalid scope: #{scope}")
       end
+    end
+  end
+
+  # Prevent external API requests from creating internal tokens by requiring
+  # the allow_internal_token flag which can only be set via create_internal_token
+  # Only validates on create - existing internal tokens in the DB are allowed to be updated
+  sig { void }
+  def internal_tokens_require_allow_flag
+    return unless new_record? # Only check on create, not update
+
+    if internal? && !allow_internal_token
+      errors.add(:internal, "cannot be set to true via external API")
     end
   end
 end

@@ -73,32 +73,6 @@ class NotificationRecipientTest < ActiveSupport::TestCase
     assert recipient.errors[:status].present?
   end
 
-  test "read! marks recipient as read" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
-
-    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
-    notification = Notification.create!(
-      tenant: tenant,
-      event: event,
-      notification_type: "mention",
-      title: "Test",
-    )
-
-    recipient = NotificationRecipient.create!(
-      notification: notification,
-      user: user,
-      channel: "in_app",
-      status: "delivered",
-    )
-
-    recipient.read!
-
-    assert_equal "read", recipient.status
-    assert recipient.read_at.present?
-    assert recipient.read?
-  end
-
   test "dismiss! marks recipient as dismissed" do
     tenant, superagent, user = create_tenant_superagent_user
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)

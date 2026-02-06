@@ -1,7 +1,6 @@
 # typed: false
 
 class StudiosController < ApplicationController
-  layout 'pulse', only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members]
   before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members]
 
   def index
@@ -140,7 +139,7 @@ class StudiosController < ApplicationController
       @addable_subagents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
     else
 @sidebar_mode = 'minimal'
-      return render layout: 'pulse', html: 'You must be an admin to access studio settings.'
+      return render layout: 'application', html: 'You must be an admin to access studio settings.'
     end
   end
 
@@ -417,7 +416,7 @@ class StudiosController < ApplicationController
   def invite
     unless @current_user.superagent_member.can_invite?
 @sidebar_mode = 'minimal'
-      return render layout: 'pulse', html: 'You do not have permission to invite members to this studio.'
+      return render layout: 'application', html: 'You do not have permission to invite members to this studio.'
     end
     @page_title = 'Invite to Studio'
     @invite = @current_superagent.find_or_create_shareable_invite(@current_user)

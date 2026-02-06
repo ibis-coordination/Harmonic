@@ -103,7 +103,7 @@ Studios require a "heartbeat" to access content for the current cycle:
 - Optional: description (markdown)
 - Two-phase voting: Accept (filter) then Prefer (select)
 - Results sorted by: acceptance, then preference, then random
-- Actions: `add_option(title)`, `vote(option_title, accept, prefer)`, `add_comment(text)`
+- Actions: `add_options(titles)`, `votes(votes)`, `add_comment(text)`
 
 ### Commitments
 - Require: title, critical_mass, deadline

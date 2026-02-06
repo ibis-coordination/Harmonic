@@ -127,7 +127,7 @@ current_representation_session.record_activity!(
 | `create` | New resource created |
 | `update` | Existing resource modified |
 | `confirm` | User confirmed reading a note |
-| `add_option` | Option added to decision |
+| `add_options` | Options added to decision |
 | `vote` | Voted on decision |
 | `commit` | Joined commitment |
 | `pin` | Pinned resource |

@@ -15,7 +15,6 @@
 # - SystemAdminController: Manages system infrastructure (Sidekiq, monitoring)
 # - TenantAdminController: Manages a single tenant's settings and users
 class AppAdminController < ApplicationController
-  layout 'pulse'
   before_action :ensure_primary_tenant
   before_action :ensure_app_admin
   before_action :set_sidebar_mode
@@ -319,7 +318,7 @@ class AppAdminController < ApplicationController
   def ensure_app_admin
     unless @current_user&.app_admin?
       @sidebar_mode = 'none'
-      render status: :forbidden, layout: 'pulse', template: 'app_admin/403_not_app_admin'
+      render status: :forbidden, layout: 'application', template: 'app_admin/403_not_app_admin'
     end
   end
 

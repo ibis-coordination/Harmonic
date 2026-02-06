@@ -1,8 +1,6 @@
 # typed: false
 
 class HomeController < ApplicationController
-  layout 'pulse'
-
   before_action :redirect_representing
 
   def index

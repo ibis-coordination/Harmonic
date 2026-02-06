@@ -205,7 +205,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
   # === Voting Tests ===
 
-  test "participant can vote on option" do
+  test "participant can vote on options" do
     sign_in_as(@user, tenant: @tenant)
 
     # Set up participant and option
@@ -221,7 +221,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     post "/studios/#{@superagent.handle}/d/#{@decision.truncated_id}/actions/vote",
-      params: { option_id: option.id }
+      params: { votes: [{ option_title: option.title, accept: true, prefer: false }] }
 
     assert_response :success
   end

@@ -1,12 +1,12 @@
 # typed: false
 
 class ApiTokensController < ApplicationController
-  layout "pulse", only: [:new, :show, :create]
   before_action :set_user
   before_action :set_sidebar_mode, only: [:new, :show, :create]
 
   def show
-    @token = @showing_user.api_tokens.find_by(id: params[:id])
+    # Never show internal tokens
+    @token = @showing_user.api_tokens.external.find_by(id: params[:id])
     return render status: :not_found, plain: "404 not token found" if @token.nil?
 
     respond_to do |format|
@@ -18,6 +18,8 @@ class ApiTokensController < ApplicationController
   def new
     # Only person accounts can create API tokens (for themselves or their subagents)
     return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+    # Internal subagents cannot have API tokens
+    return render status: :forbidden, plain: "403 Forbidden - Internal subagents cannot have API tokens" if @showing_user.internal_subagent?
 
     @token = @showing_user.api_tokens.new(user: @showing_user)
     respond_to do |format|
@@ -29,6 +31,8 @@ class ApiTokensController < ApplicationController
   def create
     # Only person accounts can create API tokens (for themselves or their subagents)
     return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+    # Internal subagents cannot have API tokens
+    return render status: :forbidden, plain: "403 Forbidden - Internal subagents cannot have API tokens" if @showing_user.internal_subagent?
 
     @token = @showing_user.api_tokens.new
     @token.name = token_params[:name]
@@ -42,7 +46,8 @@ class ApiTokensController < ApplicationController
   end
 
   def destroy
-    @token = @showing_user.api_tokens.find_by(id: params[:id])
+    # Never allow deleting internal tokens
+    @token = @showing_user.api_tokens.external.find_by(id: params[:id])
     return render status: :not_found, plain: "404 not token found" if @token.nil?
 
     @token.delete!
@@ -73,6 +78,14 @@ class ApiTokensController < ApplicationController
                                    action_name: "create_api_token",
                                    resource: @showing_user,
                                    error: "Only person accounts can create API tokens.",
+                                 })
+    end
+    # Internal subagents cannot have API tokens
+    if @showing_user.internal_subagent?
+      return render_action_error({
+                                   action_name: "create_api_token",
+                                   resource: @showing_user,
+                                   error: "Internal subagents cannot have API tokens.",
                                  })
     end
     @token = @showing_user.api_tokens.new

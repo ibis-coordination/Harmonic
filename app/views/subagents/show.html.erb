@@ -1,0 +1,87 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@current_user.display_name, @current_user.path],
+  ['Settings', "#{@current_user.path}/settings"],
+  'Subagent Created'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
+        Subagent
+      </span>
+    </div>
+    <h1 class="pulse-resource-title"><%= @subagent.display_name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if flash[:notice] %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;">
+        <%= flash[:notice] %>
+      </div>
+    <% end %>
+
+    <section class="pulse-settings-section">
+      <table class="pulse-table" style="width: auto;">
+        <tbody>
+          <tr>
+            <th style="text-align: left; padding-right: 24px;">Name</th>
+            <td><%= @subagent.name %></td>
+          </tr>
+          <tr>
+            <th style="text-align: left; padding-right: 24px;">Handle</th>
+            <td><code><%= @subagent.handle %></code></td>
+          </tr>
+          <tr>
+            <th style="text-align: left; padding-right: 24px;">Profile</th>
+            <td><a href="<%= @subagent.path %>" class="pulse-link"><%= @subagent.path %></a></td>
+          </tr>
+          <tr>
+            <th style="text-align: left; padding-right: 24px;">Mode</th>
+            <td><%= @subagent.internal_subagent? ? "Internal" : "External" %></td>
+          </tr>
+          <% if @subagent.internal_subagent? %>
+            <tr>
+              <th style="text-align: left; padding-right: 24px;">Model</th>
+              <td><code><%= @subagent.agent_configuration["model"] || "default" %></code></td>
+            </tr>
+          <% end %>
+          <% if @token && @token.plaintext_token.present? %>
+            <tr>
+              <th style="text-align: left; padding-right: 24px;">API Token</th>
+              <td>
+                <code class="pulse-monospace"><%= @token.plaintext_token %></code>
+                <span data-controller="clipboard">
+                  <input type="text" value="<%= @token.plaintext_token %>" data-clipboard-target="source" style="display:none;"/>
+                  <button class="pulse-action-btn pulse-action-btn-sm" data-action="click->clipboard#copy">
+                    <span data-clipboard-target="button"><%= octicon 'copy' %> Copy</span>
+                    <span class="pulse-tag pulse-tag-success" data-clipboard-target="successMessage" style="display:none;">Copied!</span>
+                  </button>
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <th style="text-align: left; padding-right: 24px;">Token Expires</th>
+              <td>in <%= time_ago_in_words(@token.expires_at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </section>
+
+    <% if @token && @token.plaintext_token.present? %>
+      <section class="pulse-settings-section">
+        <div class="pulse-notice pulse-notice-warning">
+          <strong>Important:</strong> Save this API token now. You won't be able to see the full token again.
+        </div>
+      </section>
+    <% end %>
+
+    <section class="pulse-settings-section pulse-action-row">
+      <a href="<%= @subagent.path %>/settings" class="pulse-action-btn pulse-action-btn-primary">Configure Subagent</a>
+      <a href="<%= @current_user.path %>/settings" class="pulse-action-btn">Back to Settings</a>
+    </section>
+  </div>
+</article>

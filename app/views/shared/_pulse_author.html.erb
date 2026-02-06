@@ -14,13 +14,23 @@
       <strong><%= author.display_name %></strong>
     </a>
     <% if author.subagent? && author.parent %>
-      <span class="pulse-subagent-label">(via <%= link_to author.parent.display_name, author.parent.path %>)</span>
+      <span class="pulse-subagent-label">(managed by <%= link_to author.parent.display_name, author.parent.path %>)</span>
     <% end %>
     <% if verb.present? %>
       <span><%= verb %></span>
     <% end %>
     <span class="pulse-timestamp"><%= timeago(resource.created_at) %></span>
   </div>
+  <%# Show task run link if the current user owns the subagent that created this %>
+  <% if author.subagent? && author.parent == @current_user %>
+    <% task_run = SubagentTaskRunResource.task_run_for(resource) %>
+    <% if task_run %>
+      <div class="pulse-task-run-link">
+        <%= octicon 'workflow', height: 12 %>
+        <%= link_to "View task run", subagent_run_path(author.handle, task_run.id) %>
+      </div>
+    <% end %>
+  <% end %>
   <% if resource.updated_at > resource.created_at + 1.minute %>
     <div class="pulse-feed-item-updated">
       <span>Updated <%= timeago(resource.updated_at) %></span>

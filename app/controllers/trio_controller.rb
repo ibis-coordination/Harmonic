@@ -1,7 +1,6 @@
 # typed: false
 
 class TrioController < ApplicationController
-  layout 'pulse', only: [:index]
   before_action :require_trio_enabled
   before_action :set_sidebar_mode, only: [:index]
 

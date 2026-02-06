@@ -1,4 +1,4 @@
-\restrict ILGuYEjXkNcGVTpKq0o7I0r6Mt5JjHfdUN8JTDtAjMHGdOZP7dSraAx17nZHfbl
+\restrict 55YvfpoGzfJPf6lKm4EICusk4tNNyqIznEhnwTjKzQ5GHRK5tt8BfSjA52WltZs
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -114,7 +114,8 @@ CREATE TABLE public.api_tokens (
     app_admin boolean DEFAULT false NOT NULL,
     tenant_admin boolean DEFAULT false NOT NULL,
     token_hash character varying,
-    token_prefix character varying(4)
+    token_prefix character varying(4),
+    internal boolean DEFAULT false NOT NULL
 );
 
 
@@ -1201,6 +1202,49 @@ CREATE TABLE public.search_index_p9 (
 
 
 --
+-- Name: subagent_task_run_resources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subagent_task_run_resources (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    subagent_task_run_id uuid NOT NULL,
+    resource_type character varying NOT NULL,
+    resource_id uuid NOT NULL,
+    resource_superagent_id uuid NOT NULL,
+    action_type character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    display_path character varying
+);
+
+
+--
+-- Name: subagent_task_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subagent_task_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    subagent_id uuid NOT NULL,
+    initiated_by_id uuid NOT NULL,
+    task text NOT NULL,
+    max_steps integer DEFAULT 30 NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    success boolean,
+    final_message text,
+    error text,
+    steps_count integer DEFAULT 0,
+    steps_data jsonb DEFAULT '[]'::jsonb,
+    started_at timestamp(6) without time zone,
+    completed_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    model character varying
+);
+
+
+--
 -- Name: superagent_members; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1232,7 +1276,8 @@ CREATE TABLE public.superagents (
     updated_by_id uuid NOT NULL,
     trustee_user_id uuid,
     description text,
-    superagent_type character varying DEFAULT 'studio'::character varying NOT NULL
+    superagent_type character varying DEFAULT 'studio'::character varying NOT NULL,
+    internal boolean DEFAULT false NOT NULL
 );
 
 
@@ -1682,7 +1727,8 @@ CREATE TABLE public.users (
     sys_admin boolean DEFAULT false NOT NULL,
     suspended_at timestamp(6) without time zone,
     suspended_by_id uuid,
-    suspended_reason character varying
+    suspended_reason character varying,
+    agent_configuration jsonb DEFAULT '{}'::jsonb
 );
 
 
@@ -2332,6 +2378,22 @@ ALTER TABLE ONLY public.superagents
 
 
 --
+-- Name: subagent_task_run_resources subagent_task_run_resources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_run_resources
+    ADD CONSTRAINT subagent_task_run_resources_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: subagent_task_runs subagent_task_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_runs
+    ADD CONSTRAINT subagent_task_runs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: tenant_users tenant_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2597,6 +2659,34 @@ CREATE INDEX idx_search_index_type ON ONLY public.search_index USING btree (tena
 --
 
 CREATE UNIQUE INDEX idx_search_index_unique_item ON ONLY public.search_index USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: idx_task_run_resources_on_resource; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_run_resources_on_resource ON public.subagent_task_run_resources USING btree (resource_type, resource_id);
+
+
+--
+-- Name: idx_task_run_resources_on_resource_superagent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_run_resources_on_resource_superagent ON public.subagent_task_run_resources USING btree (resource_superagent_id);
+
+
+--
+-- Name: idx_task_run_resources_on_task_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_run_resources_on_task_run_id ON public.subagent_task_run_resources USING btree (subagent_task_run_id);
+
+
+--
+-- Name: idx_task_run_resources_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_task_run_resources_unique ON public.subagent_task_run_resources USING btree (subagent_task_run_id, resource_id, resource_type);
 
 
 --
@@ -3297,6 +3387,55 @@ CREATE UNIQUE INDEX index_representation_sessions_on_truncated_id ON public.repr
 --
 
 CREATE INDEX index_representation_sessions_on_trustee_user_id ON public.representation_sessions USING btree (trustee_user_id);
+
+
+--
+-- Name: index_subagent_task_run_resources_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_subagent_task_run_resources_on_tenant_id ON public.subagent_task_run_resources USING btree (tenant_id);
+
+
+--
+-- Name: index_subagent_task_runs_on_initiated_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_subagent_task_runs_on_initiated_by_id ON public.subagent_task_runs USING btree (initiated_by_id);
+
+
+--
+-- Name: index_subagent_task_runs_on_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_subagent_task_runs_on_status ON public.subagent_task_runs USING btree (status);
+
+
+--
+-- Name: index_subagent_task_runs_on_subagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_subagent_task_runs_on_subagent_id ON public.subagent_task_runs USING btree (subagent_id);
+
+
+--
+-- Name: index_subagent_task_runs_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_subagent_task_runs_on_tenant_id ON public.subagent_task_runs USING btree (tenant_id);
+
+
+--
+-- Name: index_subagent_task_runs_on_tenant_id_and_initiated_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_subagent_task_runs_on_tenant_id_and_initiated_by_id ON public.subagent_task_runs USING btree (tenant_id, initiated_by_id);
+
+
+--
+-- Name: index_subagent_task_runs_on_tenant_id_and_subagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_subagent_task_runs_on_tenant_id_and_subagent_id ON public.subagent_task_runs USING btree (tenant_id, subagent_id);
 
 
 --
@@ -7289,6 +7428,14 @@ ALTER TABLE ONLY public.decisions
 
 
 --
+-- Name: subagent_task_run_resources fk_rails_15c1014d00; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_run_resources
+    ADD CONSTRAINT fk_rails_15c1014d00 FOREIGN KEY (subagent_task_run_id) REFERENCES public.subagent_task_runs(id);
+
+
+--
 -- Name: webhooks fk_rails_188617e004; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7318,6 +7465,14 @@ ALTER TABLE ONLY public.votes
 
 ALTER TABLE ONLY public.superagent_members
     ADD CONSTRAINT fk_rails_247e24a571 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: subagent_task_runs fk_rails_24b1563887; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_runs
+    ADD CONSTRAINT fk_rails_24b1563887 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -7457,6 +7612,14 @@ ALTER TABLE ONLY public.webhooks
 
 
 --
+-- Name: subagent_task_runs fk_rails_530eeec9cb; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_runs
+    ADD CONSTRAINT fk_rails_530eeec9cb FOREIGN KEY (initiated_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: superagent_members fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7577,6 +7740,14 @@ ALTER TABLE ONLY public.decisions
 
 
 --
+-- Name: subagent_task_run_resources fk_rails_803b260faa; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_run_resources
+    ADD CONSTRAINT fk_rails_803b260faa FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
+
+
+--
 -- Name: decision_participants fk_rails_81ebc9cc6f; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7641,6 +7812,14 @@ ALTER TABLE ONLY public.options
 
 
 --
+-- Name: subagent_task_run_resources fk_rails_a0e1c6c965; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_run_resources
+    ADD CONSTRAINT fk_rails_a0e1c6c965 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: votes fk_rails_a6ed1157e1; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7694,6 +7873,14 @@ ALTER TABLE ONLY public.votes
 
 ALTER TABLE ONLY public.webhook_deliveries
     ADD CONSTRAINT fk_rails_b1d1ee2779 FOREIGN KEY (event_id) REFERENCES public.events(id);
+
+
+--
+-- Name: subagent_task_runs fk_rails_b553b9912c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subagent_task_runs
+    ADD CONSTRAINT fk_rails_b553b9912c FOREIGN KEY (subagent_id) REFERENCES public.users(id);
 
 
 --
@@ -7932,7 +8119,7 @@ ALTER TABLE ONLY public.superagents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ILGuYEjXkNcGVTpKq0o7I0r6Mt5JjHfdUN8JTDtAjMHGdOZP7dSraAx17nZHfbl
+\unrestrict 55YvfpoGzfJPf6lKm4EICusk4tNNyqIznEhnwTjKzQ5GHRK5tt8BfSjA52WltZs
 
 SET search_path TO "$user", public;
 
@@ -8056,6 +8243,15 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260130190512'),
 ('20260130193043'),
 ('20260130194543'),
-('20260130204044');
+('20260130204044'),
+('20260131000001'),
+('20260131000002'),
+('20260201143513'),
+('20260202052258'),
+('20260203032407'),
+('20260203044904'),
+('20260203055419'),
+('20260204110122'),
+('20260205034909');
 
 

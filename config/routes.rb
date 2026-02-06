@@ -7,6 +7,14 @@ Rails.application.routes.draw do
     get 'dev/pulse' => 'dev#pulse_components'
   end
 
+  # Subagents management and task runner
+  get 'subagents' => 'subagents#index', as: 'subagents'
+  get 'subagents/:handle/run' => 'subagents#run_task', as: 'subagent_run_task'
+  post 'subagents/:handle/run' => 'subagents#execute_task', as: 'subagent_execute_task'
+  get 'subagents/:handle/runs' => 'subagents#runs', as: 'subagent_runs'
+  get 'subagents/:handle/runs/:run_id' => 'subagents#show_run', as: 'subagent_run'
+  post 'subagents/:handle/runs/:run_id/cancel' => 'subagents#cancel_run', as: 'cancel_subagent_run'
+
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'
     post 'login' => 'honor_system_sessions#create'
@@ -97,12 +105,12 @@ Rails.application.routes.draw do
   get 'notifications/new' => 'notifications#new'
   get 'notifications/unread_count' => 'notifications#unread_count'
   get 'notifications/actions' => 'notifications#actions_index'
-  get 'notifications/actions/mark_read' => 'notifications#describe_mark_read'
-  post 'notifications/actions/mark_read' => 'notifications#execute_mark_read'
   get 'notifications/actions/dismiss' => 'notifications#describe_dismiss'
   post 'notifications/actions/dismiss' => 'notifications#execute_dismiss'
-  get 'notifications/actions/mark_all_read' => 'notifications#describe_mark_all_read'
-  post 'notifications/actions/mark_all_read' => 'notifications#execute_mark_all_read'
+  get 'notifications/actions/dismiss_all' => 'notifications#describe_dismiss_all'
+  post 'notifications/actions/dismiss_all' => 'notifications#execute_dismiss_all'
+  get 'notifications/actions/dismiss_for_studio' => 'notifications#describe_dismiss_for_studio'
+  post 'notifications/actions/dismiss_for_studio' => 'notifications#execute_dismiss_for_studio'
   get 'notifications/actions/create_reminder' => 'notifications#describe_create_reminder'
   post 'notifications/actions/create_reminder' => 'notifications#execute_create_reminder'
   get 'notifications/actions/delete_reminder' => 'notifications#describe_delete_reminder'
@@ -117,6 +125,9 @@ Rails.application.routes.draw do
   get 'learn/memory' => 'learn#memory'
 
   get 'whoami' => 'whoami#index'
+  get 'whoami/actions' => 'whoami#actions_index'
+  get 'whoami/actions/update_scratchpad' => 'whoami#describe_update_scratchpad'
+  post 'whoami/actions/update_scratchpad' => 'whoami#execute_update_scratchpad'
   get 'motto' => 'motto#index'
 
   # Global search (tenant-level, searches across all accessible studios/scenes)
@@ -378,8 +389,8 @@ Rails.application.routes.draw do
     post "#{prefix}/decide/actions/create_decision" => 'decisions#create_decision'
     resources :decisions, only: [:show], path: "#{prefix}/d" do
       get '/actions' => 'decisions#actions_index_show'
-      get '/actions/add_option' => 'decisions#describe_add_option'
-      post '/actions/add_option' => 'decisions#add_option'
+      get '/actions/add_options' => 'decisions#describe_add_options'
+      post '/actions/add_options' => 'decisions#add_options'
       get '/actions/vote' => 'decisions#describe_vote'
       post '/actions/vote' => 'decisions#vote'
       get '/actions/add_comment' => 'decisions#describe_add_comment'

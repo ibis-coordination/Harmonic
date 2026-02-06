@@ -8,9 +8,31 @@ class LinkParser
     models = { 'n' => Note, 'c' => Commitment, 'd' => Decision, 'r' => RepresentationSession }
     domain = "#{subdomain}.#{ENV['HOSTNAME']}" + (superagent_handle ? "/(?:studios|scenes)/#{superagent_handle}" : '')
     prefixes = models.keys.join
-    pattern = Regexp.new("https://#{domain}/([#{prefixes}])/([0-9a-f-]+)")
+
+    # Pattern for full URLs: https://subdomain.hostname/studios/handle/n/id
+    full_url_pattern = Regexp.new("https://#{domain}/([#{prefixes}])/([0-9a-f-]+)")
+
+    # Pattern for path-only markdown links: [text](/studios/handle/n/id) or [text](/scenes/handle/n/id)
+    path_prefix = superagent_handle ? "/(?:studios|scenes)/#{superagent_handle}" : ''
+    path_only_pattern = Regexp.new("\\]\\(#{path_prefix}/([#{prefixes}])/([0-9a-f-]+)\\)")
+
     memo = {}
-    text.gsub(pattern) do |match|
+
+    # Process full URL matches
+    text.gsub(full_url_pattern) do |match|
+      prefix = $1
+      id = $2
+      model = models[prefix]
+      column_name = id.length == 8 ? :truncated_id : :id
+      record = model.find_by(column_name => id)
+      if record && !memo[record.id]
+        memo[record.id] = true
+        yield record
+      end
+    end
+
+    # Process path-only markdown link matches
+    text.gsub(path_only_pattern) do |match|
       prefix = $1
       id = $2
       model = models[prefix]

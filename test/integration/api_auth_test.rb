@@ -133,6 +133,81 @@ class ApiTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  # === Internal Token Bypass Tests ===
+
+  test "internal token bypasses studio-level API check" do
+    # Create a non-main studio with API disabled
+    non_main_superagent = Superagent.create!(
+      name: "Internal Test Studio",
+      handle: "internal-test-#{SecureRandom.hex(4)}",
+      tenant: @tenant,
+      superagent_type: "studio",
+      created_by: @user,
+      updated_by: @user
+    )
+    # Ensure API is disabled
+    non_main_superagent.settings['api_enabled'] = false
+    non_main_superagent.settings['feature_flags'] = { 'api' => false }
+    non_main_superagent.save!
+
+    # Create internal token
+    internal_token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    internal_headers = {
+      "Authorization" => "Bearer #{internal_token.plaintext_token}",
+      "Content-Type" => "application/json",
+    }
+
+    # Internal token should bypass the studio API check
+    non_main_api_endpoint = "#{non_main_superagent.path}/api/v1/cycles"
+    get non_main_api_endpoint, headers: internal_headers
+    assert_response :success
+  end
+
+  test "internal token bypasses tenant-level API check" do
+    # Disable API at tenant level
+    @tenant.set_feature_flag!("api", false)
+
+    # Create internal token
+    internal_token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    internal_headers = {
+      "Authorization" => "Bearer #{internal_token.plaintext_token}",
+      "Content-Type" => "application/json",
+    }
+
+    # Internal token should bypass the tenant API check
+    get v1_api_endpoint, headers: internal_headers
+    assert_response :success
+  end
+
+  test "external token still blocked when API disabled" do
+    # Disable API at tenant level
+    @tenant.set_feature_flag!("api", false)
+
+    # External token should still be blocked
+    get v1_api_endpoint, headers: @headers
+    assert_response :forbidden
+    assert_match /API not enabled/, JSON.parse(response.body)["error"]
+  end
+
+  test "API ignores internal param when creating tokens" do
+    # The V1 API only passes whitelisted params (name, scopes, expires_at)
+    # The internal param should be ignored, resulting in an external token
+    token_params = {
+      name: "Attempted Internal Token",
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+      internal: true,  # This should be ignored
+    }
+
+    post "/api/v1/users/#{@user.id}/tokens", params: token_params.to_json, headers: @headers
+    assert_response :success
+
+    # The created token should NOT be internal - the param was ignored
+    response_data = JSON.parse(response.body)
+    created_token = ApiToken.find(response_data["id"])
+    assert_not created_token.internal?, "Token should be external even though internal: true was passed"
+  end
+
   # === Token Scope Edge Cases ===
 
   test "token with empty scopes cannot be created" do

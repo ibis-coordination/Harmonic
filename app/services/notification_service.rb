@@ -48,13 +48,39 @@ class NotificationService
   end
 
   sig { params(user: User, tenant: Tenant).void }
-  def self.mark_all_read_for(user, tenant:)
-    # Exclude scheduled future reminders - they shouldn't be marked as read before they trigger
+  def self.dismiss_all_for(user, tenant:)
+    # Exclude scheduled future reminders - they shouldn't be dismissed before they trigger
     NotificationRecipient
       .where(user: user, tenant: tenant)
       .in_app.unread.not_scheduled.update_all(
-        read_at: Time.current,
-        status: "read"
+        dismissed_at: Time.current,
+        status: "dismissed"
       )
+  end
+
+  sig { params(user: User, tenant: Tenant, superagent_id: String).returns(Integer) }
+  def self.dismiss_all_for_superagent(user, tenant:, superagent_id:)
+    # Dismiss all notifications for a specific superagent (studio)
+    # We bypass the default_scope on Event by querying directly with unscoped
+    # Include tenant filter for efficiency (though final query also filters by tenant)
+    event_ids = Event.unscoped.where(superagent_id: superagent_id, tenant: tenant).pluck(:id)
+    notification_ids = Notification.unscoped.where(event_id: event_ids, tenant: tenant).pluck(:id)
+
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .where(notification_id: notification_ids)
+      .in_app.unread.not_scheduled
+      .update_all(dismissed_at: Time.current, status: "dismissed")
+  end
+
+  sig { params(user: User, tenant: Tenant).returns(Integer) }
+  def self.dismiss_all_reminders(user, tenant:)
+    # Dismiss all notifications without an event (i.e., reminders that have become due)
+    NotificationRecipient
+      .joins(:notification)
+      .where(user: user, tenant: tenant)
+      .where(notifications: { event_id: nil })
+      .in_app.unread.not_scheduled
+      .update_all(dismissed_at: Time.current, status: "dismissed")
   end
 end

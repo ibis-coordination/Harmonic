@@ -1,0 +1,107 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'My Subagents'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
+        Subagents
+      </span>
+      <a href="<%= @current_user.path %>/settings/subagents/new" class="pulse-feed-action-link" style="margin-left: auto;">
+        <%= octicon 'plus', height: 14 %> Create Subagent
+      </a>
+    </div>
+    <h1 class="pulse-resource-title">My Subagents</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p class="pulse-muted" style="margin-bottom: 24px;">
+      Subagents in Harmonic are identities for AI agents managed by you, the primary agent.
+    </p>
+    <p class="pulse-muted" style="margin-bottom: 24px;">
+      Subagents can be powered externally through the API or internally using Harmonic's agent runners.
+    </p>
+
+    <% if @subagents.any? %>
+      <div class="pulse-subagents-list">
+        <% @subagents.each do |subagent| %>
+          <% active_superagent_members = subagent.superagent_members.reject(&:archived?) %>
+          <% all_subagent_studios = active_superagent_members.map(&:superagent) %>
+          <% subagent_studios = all_subagent_studios.reject { |s| s == @current_tenant.main_superagent } %>
+
+          <div class="pulse-subagent-card">
+            <div class="pulse-subagent-header">
+              <img src="<%= subagent.image_url %>" alt="<%= subagent.name %>" class="pulse-subagent-avatar">
+              <div class="pulse-subagent-info">
+                <div class="pulse-subagent-name">
+                  <a href="<%= subagent.path %>"><%= subagent.name %></a>
+                  <% if subagent.archived? %>
+                    <span class="pulse-badge pulse-badge-muted">Archived</span>
+                  <% end %>
+                </div>
+                <span class="pulse-subagent-meta">Created <%= timeago(subagent.created_at) %></span>
+                <% latest_run = @latest_runs_by_subagent[subagent.id] %>
+                <% if latest_run %>
+                  <div class="pulse-subagent-latest-run" style="margin-top: 4px;">
+                    <a href="<%= subagent_run_path(subagent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id }&.handle, latest_run.id) %>" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; text-decoration: none;">
+                      <span class="pulse-muted">Last run <%= timeago(latest_run.created_at) %></span>
+                      <span class="pulse-badge <%= latest_run.status_badge_class %>" style="font-size: 10px;">
+                        <% case latest_run.status %>
+                        <% when "completed" %>
+                          <%= latest_run.success ? 'Success' : 'Failed' %>
+                        <% when "running" %>
+                          Running
+                        <% when "queued" %>
+                          Queued
+                        <% else %>
+                          <%= latest_run.status.titleize %>
+                        <% end %>
+                      </span>
+                    </a>
+                  </div>
+                <% end %>
+              </div>
+              <div class="pulse-subagent-actions">
+                <% unless subagent.archived? %>
+                  <a href="<%= subagent_run_task_path(subagent.handle) %>" class="pulse-action-btn-small">
+                    <%= octicon 'play', height: 12 %> Run Task
+                  </a>
+                  <a href="<%= subagent_runs_path(subagent.handle) %>" class="pulse-action-btn-small">
+                    <%= octicon 'history', height: 12 %> Runs
+                  </a>
+                <% end %>
+                <a href="<%= subagent.path %>/settings" class="pulse-action-btn-small">Settings</a>
+              </div>
+            </div>
+
+            <% if subagent_studios.any? %>
+              <div class="pulse-subagent-studios">
+                <label class="pulse-form-label">Studio Memberships</label>
+                <ul class="pulse-studio-membership-list">
+                  <% subagent_studios.each do |s| %>
+                    <li class="pulse-studio-membership-item">
+                      <a href="<%= s.path %>"><%= s.name %></a>
+                    </li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="pulse-empty-state" style="text-align: center; padding: 48px 24px;">
+        <%= octicon 'command-palette', height: 48, class: 'pulse-muted' %>
+        <h3 style="margin: 16px 0 8px 0;">No Subagents Yet</h3>
+        <p class="pulse-muted" style="margin-bottom: 16px;">Create a subagent to start running automated tasks.</p>
+        <a href="<%= @current_user.path %>/settings/subagents/new" class="pulse-action-btn">
+          <%= octicon 'person-add', height: 14 %>
+          Create Subagent
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>

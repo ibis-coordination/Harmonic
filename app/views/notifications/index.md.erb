@@ -17,17 +17,24 @@ No notifications.
 <% else -%>
 ## Recent Notifications
 
-| Status | Title | Time | Actions |
-|--------|-------|------|---------|
-<% @notification_recipients.each do |recipient| -%>
-| <%= recipient.read? ? 'read' : 'unread' %> | [<%= recipient.notification.title %>](<%= recipient.notification.url || '/notifications' %>) | <%= time_ago_in_words(recipient.created_at) %> ago | <% unless recipient.read? %>[mark_read](/notifications/actions/mark_read?id=<%= recipient.id %>)<% end %> <% unless recipient.dismissed? %>[dismiss](/notifications/actions/dismiss?id=<%= recipient.id %>)<% end %> |
+<% @notifications_by_superagent.each do |superagent, recipients| -%>
+<% studio_id = superagent&.id || 'reminders' -%>
+<% studio_name = superagent&.name || 'Other' -%>
+### <%= studio_name %> (<%= recipients.size %>) - [dismiss_for_studio](/notifications/actions/dismiss_for_studio?studio_id=<%= studio_id %>)
+
+| Title | Time | Actions |
+|-------|------|---------|
+<% recipients.each do |recipient| -%>
+| [<%= recipient.notification.title %>](<%= recipient.notification.url || '/notifications' %>) | <%= time_ago_in_words(recipient.created_at) %> ago | [dismiss](/notifications/actions/dismiss?id=<%= recipient.id %>) |
+<% end -%>
+
 <% end -%>
 <% end -%>
 
 ## [Actions](/notifications/actions)
 
-* [`mark_read(id)`](/notifications/actions/mark_read) - Mark a notification as read
 * [`dismiss(id)`](/notifications/actions/dismiss) - Dismiss a notification
-* [`mark_all_read()`](/notifications/actions/mark_all_read) - Mark all notifications as read
+* [`dismiss_all()`](/notifications/actions/dismiss_all) - Dismiss all notifications
+* [`dismiss_for_studio(studio_id)`](/notifications/actions/dismiss_for_studio) - Dismiss all notifications for a specific studio
 * [`create_reminder(title, scheduled_for, body, url)`](/notifications/actions/create_reminder) - Schedule a reminder for your future self
 * [`delete_reminder(id)`](/notifications/actions/delete_reminder) - Cancel a scheduled reminder

@@ -5,7 +5,6 @@
 # the studio in OTHER studios, not within the studio itself. Need to investigate what changed.
 
 class RepresentationSessionsController < ApplicationController
-  layout 'pulse', only: [:index, :show, :representing]
   before_action :set_sidebar_mode, only: [:index, :show, :representing]
 
   def index
@@ -40,7 +39,7 @@ class RepresentationSessionsController < ApplicationController
     else
       # TODO - design a better solution for this
 @sidebar_mode = 'minimal'
-      return render layout: 'pulse', html: 'You do not have permission to access this page.'
+      return render layout: 'application', html: 'You do not have permission to access this page.'
     end
   end
 

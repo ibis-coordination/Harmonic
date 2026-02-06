@@ -202,38 +202,51 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert Decision.exists?(question: "Test decision question?"), "Decision should have the correct question"
   end
 
-  test "POST add_option action adds option to decision and returns 200 markdown" do
+  test "POST add_options action adds multiple options to decision and returns 200 markdown" do
     decision = create_decision(superagent: @superagent, created_by: @user, question: "Test decision?")
     options_count_before = decision.options.count
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/add_option",
-      params: { title: "Test option" }.to_json,
+    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/add_options",
+      params: { titles: ["Option A", "Option B", "Option C"] }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    # Verify option was added
+    # Verify options were added
     decision.reload
-    assert_equal options_count_before + 1, decision.options.count, "Option should have been added"
-    assert decision.options.exists?(title: "Test option"), "Option should have the correct title"
+    assert_equal options_count_before + 3, decision.options.count, "Three options should have been added"
+    assert decision.options.exists?(title: "Option A"), "Option A should exist"
+    assert decision.options.exists?(title: "Option B"), "Option B should exist"
+    assert decision.options.exists?(title: "Option C"), "Option C should exist"
   end
 
-  test "POST vote action records vote and returns 200 markdown" do
+  test "POST vote action records multiple votes and returns 200 markdown" do
     decision = create_decision(superagent: @superagent, created_by: @user, question: "Test decision?")
-    # First add an option to vote on
-    option = create_option(decision: decision, title: "Option A")
+    # Add options to vote on
+    option_a = create_option(decision: decision, title: "Option A")
+    option_b = create_option(decision: decision, title: "Option B")
 
     post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/vote",
-      params: { option_title: "Option A", accept: true, prefer: false }.to_json,
+      params: {
+        votes: [
+          { option_title: "Option A", accept: true, prefer: false },
+          { option_title: "Option B", accept: true, prefer: true },
+        ]
+      }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    # Verify vote was recorded (votes belong to decision_participant, not user directly)
-    option.reload
-    vote = option.votes.joins(:decision_participant).find_by(decision_participants: { user_id: @user.id })
-    assert vote, "Vote should have been recorded"
-    assert_equal 1, vote.accepted, "Vote should be marked as accepted"
-    assert_equal 0, vote.preferred, "Vote should not be marked as preferred"
+    # Verify votes were recorded
+    option_a.reload
+    option_b.reload
+    vote_a = option_a.votes.joins(:decision_participant).find_by(decision_participants: { user_id: @user.id })
+    vote_b = option_b.votes.joins(:decision_participant).find_by(decision_participants: { user_id: @user.id })
+    assert vote_a, "Vote A should have been recorded"
+    assert vote_b, "Vote B should have been recorded"
+    assert_equal 1, vote_a.accepted
+    assert_equal 0, vote_a.preferred
+    assert_equal 1, vote_b.accepted
+    assert_equal 1, vote_b.preferred
   end
 
   # Commitment actions
@@ -334,6 +347,84 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       "Heartbeat should have been created"
   ensure
     Heartbeat.where(superagent: @superagent, user: @user).delete_all
+  end
+
+  test "send_heartbeat action appears in frontmatter when no heartbeat exists" do
+    # Ensure no heartbeat exists for this cycle
+    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+
+    get "/studios/#{@superagent.handle}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Extract frontmatter (between first two ---)
+    frontmatter = response.body.split("---")[1]
+    assert frontmatter, "Response should have frontmatter"
+
+    # Verify send_heartbeat action is in the frontmatter
+    assert frontmatter.include?("- name: send_heartbeat"),
+      "Frontmatter should include send_heartbeat action when no heartbeat exists"
+  ensure
+    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+  end
+
+  test "send_heartbeat action does not appear in frontmatter when heartbeat exists" do
+    # Create a heartbeat for the current cycle
+    heartbeat = Heartbeat.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      user: @user,
+      expires_at: 1.day.from_now,
+    )
+
+    get "/studios/#{@superagent.handle}", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Extract frontmatter (between first two ---)
+    frontmatter = response.body.split("---")[1]
+    assert frontmatter, "Response should have frontmatter"
+
+    # Verify send_heartbeat action is NOT in the frontmatter
+    refute frontmatter.include?("- name: send_heartbeat"),
+      "Frontmatter should NOT include send_heartbeat action when heartbeat exists"
+  ensure
+    heartbeat&.destroy
+  end
+
+  test "studio actions index shows send_heartbeat when no heartbeat exists" do
+    # Ensure no heartbeat exists for this cycle
+    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+
+    get "/studios/#{@superagent.handle}/actions", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should include the send_heartbeat action
+    assert response.body.include?("send_heartbeat"),
+      "Actions index should include send_heartbeat action when no heartbeat exists"
+  ensure
+    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+  end
+
+  test "studio actions index does not show send_heartbeat when heartbeat exists" do
+    # Create a heartbeat for the current cycle
+    heartbeat = Heartbeat.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      user: @user,
+      expires_at: 1.day.from_now,
+    )
+
+    get "/studios/#{@superagent.handle}/actions", headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+
+    # Should NOT include the send_heartbeat action
+    refute response.body.include?("send_heartbeat"),
+      "Actions index should NOT include send_heartbeat action when heartbeat exists"
+  ensure
+    heartbeat&.destroy
   end
 
   # add_comment action tests
@@ -1222,12 +1313,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to create a subagent - should be blocked
+    # Try to create a subagent - should be blocked by capability check
     post "/u/#{subagent.handle}/settings/subagents/new/actions/create_subagent",
       params: { name: "Nested Subagent" }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status  # render_action_error returns 200
-    assert_match(/Only person accounts can create subagents/, response.body)
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*create_subagent/, response.body)
   ensure
     token&.destroy
     TenantUser.where(user: subagent).delete_all if subagent
@@ -1291,12 +1382,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to create an API token for themselves - should be blocked
+    # Try to create an API token for themselves - should be blocked by capability check
     post "/u/#{subagent.handle}/settings/tokens/new/actions/create_api_token",
       params: { name: "Self Token" }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status  # render_action_error returns 200
-    assert_match(/Only person accounts can create API tokens/, response.body)
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*create_api_token/, response.body)
   ensure
     token&.destroy
     TenantUser.where(user: subagent).delete_all if subagent
@@ -1393,12 +1484,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to add another subagent to studio - should be blocked
+    # Try to add another subagent to studio - should be blocked by capability check
     post "/studios/#{@superagent.handle}/settings/actions/add_subagent_to_studio",
       params: { subagent_id: other_subagent.id }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status
-    assert_match(/Only person accounts can manage subagents/, response.body)
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*add_subagent_to_studio/, response.body)
   ensure
     token&.destroy
     SuperagentMember.where(user: [acting_subagent, other_subagent]).delete_all
@@ -1439,12 +1530,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to remove another subagent from studio - should be blocked
+    # Try to remove another subagent from studio - should be blocked by capability check
     post "/studios/#{@superagent.handle}/settings/actions/remove_subagent_from_studio",
       params: { subagent_id: other_subagent.id }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status
-    assert_match(/Only person accounts can manage subagents/, response.body)
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*remove_subagent_from_studio/, response.body)
   ensure
     token&.destroy
     SuperagentMember.where(user: [acting_subagent, other_subagent]).delete_all
@@ -1619,7 +1710,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # === Admin Panel Security: Subagent Production Write Restrictions ===
 
-  test "Subagent admin can perform write operations in development/test environment" do
+  test "Subagent admin cannot perform write operations even in development/test environment" do
     # Make parent user an admin
     parent_tu = @tenant.tenant_users.find_by(user: @user)
     parent_tu.add_role!('admin')
@@ -1647,23 +1738,17 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    original_name = @tenant.name
-
-    # In test environment, should be able to perform write operations
+    # Subagent admins cannot perform admin write operations - blocked by capability check
     post "/tenant-admin/settings/actions/update_tenant_settings",
       params: { name: "Subagent Updated Name" }.to_json,
       headers: subagent_headers
-    assert_equal 200, response.status
-    assert is_markdown?
-
-    @tenant.reload
-    assert_equal "Subagent Updated Name", @tenant.name, "Subagent should be able to update in test env"
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*update_tenant_settings/, response.body)
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
     TenantUser.where(user: subagent).delete_all if subagent
     subagent&.destroy
-    @tenant.update!(name: original_name) if @tenant
   end
 
   test "Subagent admin cannot perform write operations in production environment" do
@@ -1694,18 +1779,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Simulate production environment
-    Thread.current[:simulate_production] = true
-    begin
-      # Should NOT be able to perform write operations in production
-      post "/tenant-admin/settings/actions/update_tenant_settings",
-        params: { name: "Should Not Update" }.to_json,
-        headers: subagent_headers
-      assert_equal 403, response.status
-      assert_match(/Subagents cannot perform admin write operations in production/, response.body)
-    ensure
-      Thread.current[:simulate_production] = nil
-    end
+    # Subagents cannot perform admin write operations - blocked by capability check
+    # (The production restriction is now redundant since capability check blocks first)
+    post "/tenant-admin/settings/actions/update_tenant_settings",
+      params: { name: "Should Not Update" }.to_json,
+      headers: subagent_headers
+    assert_equal 403, response.status
+    assert_match(/capabilities do not include.*update_tenant_settings/, response.body)
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
@@ -2086,7 +2166,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       "Nav bar should display notification count of 0 when no unread notifications")
   end
 
-  test "markdown UI notification count updates after marking notification as read" do
+  test "markdown UI notification count updates after dismissing notification" do
     # Create another user to trigger a notification
     other_user = User.create!(
       name: "Other User",
@@ -2121,13 +2201,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/\| \[1\]\(\/notifications\) \|/, response.body,
       "Nav bar should display unread notification count of 1")
 
-    # Mark the notification as read (unread scope checks read_at: nil)
-    recipient.update!(status: "read", read_at: Time.current)
+    # Dismiss the notification (unread scope checks dismissed_at: nil)
+    recipient.update!(status: "dismissed", dismissed_at: Time.current)
 
     # Check that count is now 0
     get "/", headers: @headers
     assert_match(/\| \[0\]\(\/notifications\) \|/, response.body,
-      "Nav bar should display notification count of 0 after marking as read")
+      "Nav bar should display notification count of 0 after dismissing")
   ensure
     NotificationRecipient.where(notification: notification).delete_all if notification
     notification&.destroy
@@ -2253,5 +2333,79 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     comment&.destroy
     session&.destroy
+  end
+
+  # Subagent task run markdown tests
+  test "GET subagent task run returns markdown and strips JSON from think steps" do
+    # Enable subagents feature for this tenant
+    @tenant.enable_feature_flag!("subagents")
+
+    # Create a subagent
+    subagent = User.create!(
+      name: "Task Run Test Agent",
+      email: "task-run-test-#{SecureRandom.hex(4)}@not-real.com",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(subagent)
+    subagent.tenant_user = tu
+
+    # Create a task run with a think step containing JSON
+    think_response_with_json = <<~RESPONSE
+      I will navigate to the studio to create a note.
+
+      Let me check the available actions first.
+
+      ```json
+      {"type": "navigate", "path": "/studios/test"}
+      ```
+    RESPONSE
+
+    task_run = SubagentTaskRun.create!(
+      tenant: @tenant,
+      subagent: subagent,
+      initiated_by: @user,
+      task: "Create a test note",
+      max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS,
+      status: "completed",
+      success: true,
+      final_message: "Task completed successfully",
+      steps_count: 2,
+      steps_data: [
+        {
+          type: "think",
+          timestamp: Time.current.iso8601,
+          detail: {
+            step_number: 0,
+            response_preview: think_response_with_json,
+          },
+        },
+        {
+          type: "done",
+          timestamp: Time.current.iso8601,
+          detail: {
+            message: "Task completed successfully",
+          },
+        },
+      ],
+      started_at: 1.minute.ago,
+      completed_at: Time.current,
+    )
+
+    get "/subagents/#{subagent.handle}/runs/#{task_run.id}", headers: @headers
+    assert_equal 200, response.status
+    assert response.content_type.starts_with?("text/markdown"), "Response should be markdown"
+
+    # Should include the reasoning text
+    assert_match(/I will navigate to the studio/, response.body, "Should include reasoning text")
+    assert_match(/Let me check the available actions/, response.body, "Should include reasoning text")
+
+    # Should NOT include the JSON block (it's stripped for display)
+    assert_no_match(/```json/, response.body, "Should not include fenced JSON block")
+    assert_no_match(/"type":\s*"navigate"/, response.body, "Should not include JSON action")
+  ensure
+    task_run&.destroy
+    TenantUser.where(user: subagent).delete_all if subagent
+    subagent&.destroy
   end
 end

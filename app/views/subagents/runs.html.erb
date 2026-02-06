@@ -1,0 +1,91 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['My Subagents', subagents_path],
+  [@subagent.name, subagent_run_task_path(@subagent.handle)],
+  'Task Runs'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
+        Task Runs
+      </span>
+      <a href="<%= subagent_run_task_path(@subagent.handle) %>" class="pulse-feed-action-link" style="margin-left: auto;">
+        <%= octicon 'play', height: 14 %> Run New Task
+      </a>
+    </div>
+    <h1 class="pulse-resource-title">Task Runs for <%= @subagent.name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <div class="pulse-subagent-card" style="margin-bottom: 24px;">
+      <div class="pulse-subagent-header">
+        <img src="<%= @subagent.image_url %>" alt="<%= @subagent.name %>" class="pulse-subagent-avatar">
+        <div class="pulse-subagent-info">
+          <div class="pulse-subagent-name">
+            <a href="<%= @subagent.path %>"><%= @subagent.name %></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <% if @task_runs.any? %>
+      <div class="pulse-feed">
+        <% @task_runs.each do |task_run| %>
+          <article class="pulse-feed-item">
+            <div class="pulse-feed-item-header">
+              <div class="pulse-feed-item-type">
+                <% if task_run.success %>
+                  <%= octicon 'check-circle-fill', height: 14, style: 'color: var(--color-success-fg);' %>
+                <% elsif task_run.failed? %>
+                  <%= octicon 'x-circle-fill', height: 14, style: 'color: var(--color-danger-fg);' %>
+                <% elsif task_run.running? %>
+                  <%= octicon 'sync', height: 14 %>
+                <% else %>
+                  <%= octicon 'dot', height: 14 %>
+                <% end %>
+                <%= task_run.status.upcase %>
+              </div>
+              <div class="pulse-feed-item-meta">
+                <span><code style="font-size: 11px;"><%= task_run.model || "default" %></code></span>
+                <span>&middot;</span>
+                <span><%= task_run.steps_count %> steps</span>
+                <% if task_run.formatted_duration %>
+                  <span>&middot;</span>
+                  <span><%= task_run.formatted_duration %></span>
+                <% end %>
+                <span>&middot;</span>
+                <span><%= timeago(task_run.created_at) %></span>
+              </div>
+            </div>
+
+            <div class="pulse-feed-item-body">
+              <div class="pulse-feed-item-title">
+                <a href="<%= subagent_run_path(@subagent.handle, task_run.id) %>">
+                  <%= task_run.task_summary %>
+                </a>
+              </div>
+              <% if task_run.final_message.present? %>
+                <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 13px;">
+                  <%= truncate(task_run.final_message, length: 150) %>
+                </p>
+              <% end %>
+            </div>
+          </article>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="pulse-empty-state" style="text-align: center; padding: 48px 24px;">
+        <%= octicon 'history', height: 48, class: 'pulse-muted' %>
+        <h3 style="margin: 16px 0 8px 0;">No Task Runs Yet</h3>
+        <p class="pulse-muted" style="margin-bottom: 16px;">Run a task with this subagent to see execution history.</p>
+        <a href="<%= subagent_run_task_path(@subagent.handle) %>" class="pulse-action-btn">
+          <%= octicon 'play', height: 14 %>
+          Run Task
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>
