@@ -156,5 +156,22 @@ is_trusted = @grant.trusted_user == @target_user
         </div>
       </section>
     <% end %>
+
+    <% if @grant.active? && is_trusted %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Represent</h2>
+        <p>
+          You can act on behalf of <strong><%= @grant.granting_user.display_name || @grant.granting_user.handle %></strong>
+          using this trustee grant.
+        </p>
+        <div class="pulse-action-row">
+          <%= form_tag "#{base_path}/represent", method: :post, style: "display:inline;" do %>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+              <%= octicon "person" %> Start Representing <%= @grant.granting_user.display_name || @grant.granting_user.handle %>
+            </button>
+          <% end %>
+        </div>
+      </section>
+    <% end %>
   </div>
 </article>

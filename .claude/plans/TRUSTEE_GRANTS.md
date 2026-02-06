@@ -16,8 +16,8 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 |-------|-------------|--------|
 | **Phase 1** | Schema & Model Updates | ✅ Complete |
 | **Phase 2** | Controller & Routes | ✅ Complete |
-| **Phase 3** | User Interface | 🔶 Partial (3.3 missing) |
-| **Phase 4** | Representation Session Integration | 🔶 Partial (4.4 done) |
+| **Phase 3** | User Interface | ✅ Complete |
+| **Phase 4** | Representation Session Integration | ✅ Complete |
 | **Phase 5** | Notifications | ⬚ Not Started |
 | **Phase 6** | Trio Integration | ⬚ Not Started |
 | **Phase 7** | Replace Impersonation | 🔶 Partial (7.1 done) |
@@ -28,14 +28,15 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 - ✅ `TrusteeGrantsController` at `/u/:handle/settings/trustee-grants`
 - ✅ HTML and markdown views (index, new, show)
 - ✅ `User#can_represent?` checks TrusteeGrant for user representation
-- ✅ `TrusteeActionValidator` service (exists but not yet enforced)
+- ✅ `TrusteeActionValidator` service enforced in `api_helper.rb`
 - ✅ Auto-create TrusteeGrant when subagent is created
 - ✅ Comprehensive tests for model, controller, and integration
+- ✅ Navigation links from settings page to trustee grants with pending badge
+- ✅ RepresentationSession extended with `trustee_grant_id` for user representation
+- ✅ UI to start user representation sessions via trustee grants
+- ✅ Capability enforcement via `require_capability!` in ApiHelper
 
 ### What's Remaining
-- ⬚ **Phase 3.3**: Navigation integration (link from settings to trustee grants, pending badge)
-- ⬚ **Phase 4.1-4.3, 4.5**: RepresentationSession integration for user representation
-- ⬚ **Phase 4.5**: Enforce TrusteeActionValidator in api_helper.rb and markdown_ui_service.rb
 - ⬚ **Phase 5**: Notifications for trustee grant events
 - ⬚ **Phase 6**: Trio integration and "Trio Access" settings
 - ⬚ **Phase 7.2-7.6**: Replace impersonation with representation sessions
@@ -494,11 +495,9 @@ Add `respond_to` blocks for markdown format in all actions.
 
 ---
 
-## Phase 3: User Interface 🔶 PARTIAL
+## Phase 3: User Interface ✅ COMPLETE
 
 **Goal**: Build UI for granting and managing permissions.
-
-**Status**: Views complete (3.1, 3.2), but navigation integration (3.3) is not started.
 
 ### 3.1 Index view ✅
 
@@ -523,78 +522,60 @@ Form fields:
   - Multi-select for studio list
 - Expiration (optional date picker)
 
-### 3.3 Navigation integration ⬚ NOT STARTED
+### 3.3 Navigation integration ✅ COMPLETE
 
-- Link from user profile/settings to trustee grants page
-- Badge on nav when pending requests exist
+**Files**:
+- `app/views/users/settings.html.erb` - Added Trustee Grants accordion section
+- `app/views/users/settings.md.erb` - Added Trustee Grants section
+- `app/views/layouts/_top_right_menu.html.erb` - Added pending badge on Settings link
 
-**Note**: The trustee grants views exist but there's no link from the settings page yet.
+Features:
+- Link from user settings to trustee grants page
+- Badge showing pending request count on Settings menu item
+- Badge in settings accordion when pending requests exist
 
 ---
 
-## Phase 4: Representation Session Integration 🔶 PARTIAL
+## Phase 4: Representation Session Integration ✅ COMPLETE
 
 **Goal**: Enable trustee grant trustees to use representation sessions.
-
-**Status**: Only 4.4 (TrusteeActionValidator) is complete. Sections 4.1-4.3, 4.5 remain.
 
 ### Key Constraints
 - **Single session**: A user can only have one active representation session at a time (studio OR trustee grant)
 - **Multi-studio**: A trustee grant session can span multiple studios (actions logged per-studio)
 - **Immediate capability changes**: Permission modifications apply immediately to active sessions
 
-### 4.1 Extend representation session start ⬚ NOT STARTED
+### 4.1 Extend representation session start ✅ COMPLETE
 
-**File**: `app/controllers/representation_sessions_controller.rb`
+**Files**:
+- `db/migrate/20260206214518_add_trustee_grant_to_representation_sessions.rb` - Added `trustee_grant_id` column
+- `app/models/representation_session.rb` - Added `belongs_to :trustee_grant, optional: true` and helper methods
+- `app/controllers/representation_sessions_controller.rb` - Added `start_representing_user` action
+- `config/routes.rb` - Added route for `represent_user`
 
-Modify `create` to handle trustee grant trustees:
+Features:
+- `trustee_grant_id` column for linking session to grant
+- `studio_representation?` and `user_representation?` helper methods
+- `represented_user` and `representation_label` methods
+- Single session constraint enforced in controller
 
-```ruby
-def create
-  # Enforce single session constraint
-  existing = RepresentationSession.active.find_by(representative_user: current_user)
-  if existing
-    raise "Already representing #{existing.trustee_user.display_name}. End that session first."
-  end
-
-  if using_trustee grant_trustee?
-    permission = find_active_permission
-    raise "No active permission" unless permission
-    raise "Studio not in scope" unless permission.allows_studio?(@current_superagent)
-
-    @trustee = permission.trustee_user
-  else
-    @trustee = @current_superagent.trustee_user
-  end
-
-  @session = RepresentationSession.create!(
-    tenant: @current_tenant,
-    superagent: @current_superagent,  # Initial studio context
-    representative_user: current_user,
-    trustee_user: @trustee,
-    confirmed_understanding: true,
-    began_at: Time.current,
-    activity_log: { 'activity' => [] }
-  )
-
-  # Set session cookies...
-end
-```
-
-### 4.2 Multi-studio session behavior ⬚ NOT STARTED
+### 4.2 Multi-studio session behavior ✅ COMPLETE
 
 For trustee grant trustees, the session can span studios:
 - Session is created in one studio context
 - Actions in other scoped studios are still logged to the same session
 - `superagent_id` on the session is the "home" studio, but `semantic_event[:superagent_id]` tracks where each action occurred
 
-### 4.3 Update representation UI ⬚ NOT STARTED
+### 4.3 Update representation UI ✅ COMPLETE
 
-Show both:
-- "Represent this studio" (existing)
-- "Act on behalf of [User]" for each active trustee grant
+**Files**:
+- `app/views/studios/represent.html.erb` - Updated to show both options
+- `app/views/representation_sessions/representing.html.erb` - Updated to display user representation
 
-Disable options when already in a session (show "Currently representing X")
+Features:
+- "Represent this studio" (studio representation)
+- "Act on behalf of [User]" for each active trustee grant (user representation)
+- Shows granted capabilities and available studios for user representation
 
 ### 4.4 Capability enforcement during session ✅ COMPLETE
 
@@ -638,13 +619,16 @@ end
 
 **Note**: If a granting user revokes a capability while a session is active, the next action requiring that capability will fail immediately.
 
-### 4.5 Integrate enforcement ⬚ NOT STARTED
+### 4.5 Integrate enforcement ✅ COMPLETE
 
-**Files**: `app/services/markdown_ui_service.rb`, `app/services/api_helper.rb`
+**File**: `app/services/api_helper.rb`
 
-Check permissions before executing actions.
+Added capability enforcement:
+- `require_capability!(action_name)` method that validates using TrusteeActionValidator
+- `CapabilityError` exception class for capability violations
+- Capability checks in `create_note`, `create_decision`, `vote`, `create_votes`
 
-**Note**: `TrusteeActionValidator` exists but is not yet integrated into these files.
+**Note**: Capability is checked at action time, so permission changes apply immediately to active sessions.
 
 ---
 

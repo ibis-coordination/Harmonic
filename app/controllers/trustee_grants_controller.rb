@@ -18,6 +18,7 @@ class TrusteeGrantsController < ApplicationController
     :describe_accept, :execute_accept,
     :describe_decline, :execute_decline,
     :describe_revoke, :execute_revoke,
+    :start_representing,
   ]
 
   # Override to avoid model lookup issues
@@ -267,6 +268,50 @@ class TrusteeGrantsController < ApplicationController
                             result: "Trustee grant revoked",
                             redirect_to: trustee_grant_show_path(@grant),
                           })
+  end
+
+  # =========================================================================
+  # START REPRESENTING
+  # =========================================================================
+
+  def start_representing
+    # Verify the current user is the trusted user (the one who can represent)
+    unless @grant.trusted_user == @current_user
+      flash[:alert] = "You can only start representation for grants where you are the trusted user."
+      return redirect_to trustee_grant_show_path(@grant)
+    end
+
+    # Verify the grant is active
+    unless @grant.active?
+      flash[:alert] = "This trustee grant is not active."
+      return redirect_to trustee_grant_show_path(@grant)
+    end
+
+    # Check for existing representation session
+    if session[:representation_session_id].present?
+      flash[:alert] = "You already have an active representation session. End it before starting a new one."
+      return redirect_to "/representing"
+    end
+
+    # Use the main superagent as the initiation context
+    main_superagent = @current_tenant.main_superagent
+
+    rep_session = RepresentationSession.create!(
+      tenant: @current_tenant,
+      superagent: main_superagent,
+      representative_user: @current_user,
+      trustee_user: @grant.trustee_user,
+      trustee_grant: @grant,
+      confirmed_understanding: true,
+      began_at: Time.current,
+    )
+    rep_session.begin!
+
+    # Set session cookies for ApplicationController#current_user
+    session[:trustee_user_id] = @grant.trustee_user.id
+    session[:representation_session_id] = rep_session.id
+
+    redirect_to "/representing"
   end
 
   private

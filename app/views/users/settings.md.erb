@@ -54,6 +54,15 @@ Studio memberships:
 <% end %>
 <% end %>
 <% end %>
+
+## Trustee Grants
+
+<% pending_count = @settings_user.pending_trustee_grant_requests.count %>
+<% if pending_count > 0 %>
+**<%= pluralize(pending_count, 'pending request') %>** - Review who wants to act on your behalf.
+
+<% end %>
+* [Manage Trustee Grants](<%= @settings_user.path %>/settings/trustee-grants) - Manage who can act on your behalf
 <% end %>
 
 ## [Actions](<%= @settings_user.path %>/settings/actions)

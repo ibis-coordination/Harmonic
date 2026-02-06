@@ -34,15 +34,25 @@ class RepresentationSessionsController < ApplicationController
   end
 
   def represent
-    if @current_user.superagent_member.can_represent?
-      @page_title = "Represent #{current_superagent.name}"
+    can_represent_studio = @current_user.superagent_member&.can_represent?
+
+    # Load active trustee grants where the current user is the trusted user
+    # and the grant allows the current studio
+    @active_user_grants = @current_user.received_trustee_grants.active.select do |grant|
+      grant.allows_studio?(current_superagent)
+    end
+
+    if can_represent_studio || @active_user_grants.any?
+      @page_title = "Represent"
+      @can_represent_studio = can_represent_studio
     else
       # TODO - design a better solution for this
-@sidebar_mode = 'minimal'
+      @sidebar_mode = 'minimal'
       return render layout: 'application', html: 'You do not have permission to access this page.'
     end
   end
 
+  # Start a studio representation session
   def start_representing
     if current_representation_session
       flash[:alert] = 'You have already started a representation session. You must end it before starting a new one.'
@@ -67,6 +77,53 @@ class RepresentationSessionsController < ApplicationController
     # NOTE - both cookies need to be set for ApplicationController#current_user
     # to find the current RepresentationSession outside the scope of current_superagent
     session[:trustee_user_id] = trustee.id
+    session[:representation_session_id] = rep_session.id
+    redirect_to '/representing'
+  end
+
+  # Start a user representation session via trustee grant
+  def start_representing_user
+    if current_representation_session
+      flash[:alert] = 'You have already started a representation session. You must end it before starting a new one.'
+      return redirect_to request.referrer || root_path
+    end
+
+    # Find the trustee grant
+    grant_id = params[:trustee_grant_id]
+    return render status: 400, plain: '400 Bad Request - trustee_grant_id required' unless grant_id
+
+    # Find grant where current user is the trusted user (they can act on behalf of the granting user)
+    grant = TrusteeGrant.find_by(id: grant_id, trusted_user: current_user)
+    unless grant&.active?
+      flash[:alert] = 'Trustee grant not found or not active.'
+      return redirect_to request.referrer || root_path
+    end
+
+    # Verify the grant allows the current studio context
+    unless grant.allows_studio?(current_superagent)
+      flash[:alert] = 'This trustee grant does not include this studio.'
+      return redirect_to request.referrer || root_path
+    end
+
+    confirmed_understanding = params[:understand] == 'true' || params[:understand] == '1'
+    unless confirmed_understanding
+      flash[:alert] = 'You must confirm you understand.'
+      return redirect_to request.referrer || root_path
+    end
+
+    rep_session = RepresentationSession.create!(
+      tenant: current_tenant,
+      superagent: current_superagent,
+      representative_user: current_user,
+      trustee_user: grant.trustee_user,
+      trustee_grant: grant,
+      confirmed_understanding: confirmed_understanding,
+      began_at: Time.current,
+    )
+    rep_session.begin!
+
+    # Set session cookies for ApplicationController#current_user
+    session[:trustee_user_id] = grant.trustee_user.id
     session[:representation_session_id] = rep_session.id
     redirect_to '/representing'
   end

@@ -10,6 +10,7 @@ class RepresentationSession < ApplicationRecord
   belongs_to :superagent
   belongs_to :representative_user, class_name: 'User'
   belongs_to :trustee_user, class_name: 'User'
+  belongs_to :trustee_grant, optional: true
   has_many :representation_session_associations, dependent: :destroy
 
   validates :began_at, presence: true
@@ -74,6 +75,35 @@ class RepresentationSession < ApplicationRecord
   sig { returns(T::Boolean) }
   def expired?
     return ended? || Time.current > T.must(began_at) + 24.hours
+  end
+
+  # Returns true if this is a studio representation session (no trustee_grant)
+  sig { returns(T::Boolean) }
+  def studio_representation?
+    trustee_grant_id.nil?
+  end
+
+  # Returns true if this is a user representation session (has trustee_grant)
+  sig { returns(T::Boolean) }
+  def user_representation?
+    trustee_grant_id.present?
+  end
+
+  # Returns the user being represented (for user representation) or nil (for studio)
+  sig { returns(T.nilable(User)) }
+  def represented_user
+    return nil unless user_representation?
+    trustee_grant&.granting_user
+  end
+
+  # Returns a display name for what's being represented
+  sig { returns(String) }
+  def representation_label
+    if user_representation?
+      represented_user&.display_name || "User"
+    else
+      superagent&.name || "Studio"
+    end
   end
 
   sig { params(semantic_event: T::Hash[Symbol, T.untyped]).void }

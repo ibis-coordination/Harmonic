@@ -71,6 +71,11 @@ module CapabilityCheck
     "remove_attachment",
     "create_reminder",
     "delete_reminder",
+    # Trustee grant actions
+    "accept_trustee_grant",
+    "decline_trustee_grant",
+    "create_trustee_grant",
+    "revoke_trustee_grant",
   ].freeze
 
   # Check if a user has capability for an action

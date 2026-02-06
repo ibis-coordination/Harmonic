@@ -282,6 +282,7 @@ Rails.application.routes.draw do
     post 'settings/trustee-grants/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#execute_decline', on: :member
     get 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#describe_revoke', on: :member
     post 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#execute_revoke', on: :member
+    post 'settings/trustee-grants/:grant_id/represent' => 'trustee_grants#start_representing', on: :member
   end
 
   ['studios','scenes'].each do |studios_or_scenes|
@@ -341,6 +342,7 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}/:superagent_handle/join/actions/join_studio" => 'studios#join_studio_action'
     get "#{studios_or_scenes}/:superagent_handle/represent" => 'studios#represent'
     post "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#start_representing'
+    post "#{studios_or_scenes}/:superagent_handle/represent_user" => 'representation_sessions#start_representing_user'
     get '/representing' => 'representation_sessions#representing'
     delete "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#stop_representing'
     delete "#{studios_or_scenes}/:superagent_handle/r/:representation_session_id" => 'representation_sessions#stop_representing'

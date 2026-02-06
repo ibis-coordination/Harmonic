@@ -1,4 +1,4 @@
-\restrict N4IEZ50Rk40qCLiaEC7KGtyL3VNofFETjL8PWF23Hpk50fPdDfbaBgIfYStm6h4
+\restrict u6xjJhBaeB1CRaIebeh8LgwmCwTRfcxSfxJY3o5z0fnMADbs9J7X6wE3GDJMylM
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -607,7 +607,8 @@ CREATE TABLE public.representation_sessions (
     activity_log jsonb DEFAULT '{}'::jsonb,
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    trustee_grant_id uuid
 );
 
 
@@ -3393,6 +3394,13 @@ CREATE INDEX index_representation_sessions_on_tenant_id ON public.representation
 --
 
 CREATE UNIQUE INDEX index_representation_sessions_on_truncated_id ON public.representation_sessions USING btree (truncated_id);
+
+
+--
+-- Name: index_representation_sessions_on_trustee_grant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_representation_sessions_on_trustee_grant_id ON public.representation_sessions USING btree (trustee_grant_id);
 
 
 --
@@ -8158,10 +8166,18 @@ ALTER TABLE ONLY public.superagents
 
 
 --
+-- Name: representation_sessions fk_rails_fe74e74f22; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_sessions
+    ADD CONSTRAINT fk_rails_fe74e74f22 FOREIGN KEY (trustee_grant_id) REFERENCES public.trustee_grants(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict N4IEZ50Rk40qCLiaEC7KGtyL3VNofFETjL8PWF23Hpk50fPdDfbaBgIfYStm6h4
+\unrestrict u6xjJhBaeB1CRaIebeh8LgwmCwTRfcxSfxJY3o5z0fnMADbs9J7X6wE3GDJMylM
 
 SET search_path TO "$user", public;
 
@@ -8297,6 +8313,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260205034909'),
 ('20260206051044'),
 ('20260206052934'),
-('20260206194042');
+('20260206194042'),
+('20260206214518');
 
 

@@ -156,6 +156,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
               <th>Granting User</th>
               <th>Capabilities</th>
               <th>Expires</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -168,6 +169,13 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
                 </td>
                 <td><%= grant.permissions&.keys&.join(", ") || "None" %></td>
                 <td><%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %></td>
+                <td>
+                  <%= form_tag "#{base_path}/#{grant.truncated_id}/represent", method: :post, style: "display:inline;" do %>
+                    <button type="submit" class="pulse-action-btn pulse-action-btn-small pulse-action-btn-primary">
+                      <%= octicon "person", height: 12 %> Represent
+                    </button>
+                  <% end %>
+                </td>
               </tr>
             <% end %>
           </tbody>

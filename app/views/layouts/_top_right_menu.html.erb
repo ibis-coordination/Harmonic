@@ -49,6 +49,9 @@
         <li>
           <%= octicon 'gear' %>
           <a href="<%= @current_user.path %>/settings">Settings</a>
+          <% if (pending_grants = @current_user.pending_trustee_grant_requests.count) > 0 %>
+            <span class="notification-badge-count" style="position:relative;top:-2px;margin-left:4px;"><%= pending_grants %></span>
+          <% end %>
         </li>
         <% if @current_tenant.is_admin?(@current_user) %>
           <li>

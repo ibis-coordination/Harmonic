@@ -12,62 +12,110 @@
         Representation
       </span>
     </div>
-    <h1 class="pulse-resource-title">Represent <%= @current_superagent.name %></h1>
+    <h1 class="pulse-resource-title">Start a Representation Session</h1>
   </header>
 
   <div class="pulse-resource-body">
     <p>
-      Through representation, studio <strong><%= @current_superagent.name %></strong> can act as a singular unified entity and participate as a member of other studios.
+      Through representation, you can act on behalf of a studio or another user.
+      Your actions during a representation session will be recorded and attributed to the entity you are representing.
     </p>
 
-    <p>
-      Because you have been assigned the <code>representative</code> role in <%= @current_superagent.name %>, you are able to act on <%= @current_superagent.name %>'s behalf through representation sessions.
-    </p>
+    <% if @can_represent_studio %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">
+          <%= octicon 'organization', height: 16 %>
+          Represent <%= @current_superagent.name %>
+        </h2>
+        <p>
+          Because you have been assigned the <code>representative</code> role in <%= @current_superagent.name %>, you can act on the studio's behalf.
+        </p>
+        <ul class="pulse-list" style="margin-bottom: 16px;">
+          <li class="pulse-list-item">
+            You will assume the identity of <%= @current_superagent.name %> itself.
+          </li>
+          <li class="pulse-list-item">
+            Actions will be attributed to <%= @current_superagent.name %> as a whole.
+          </li>
+          <li class="pulse-list-item">
+            All actions will be recorded and visible to studio members.
+          </li>
+        </ul>
+        <%= form_with url: @current_superagent.path + '/represent', method: :post, class: 'pulse-form' do |f| %>
+          <label class="pulse-checkbox-label">
+            <%= f.check_box :understand, id: 'i-understand-studio-checkbox', class: 'pulse-checkbox-input' %>
+            <span>I understand that my actions will be recorded and visible to all members of <%= @current_superagent.name %>.</span>
+          </label>
+          <div class="pulse-form-actions">
+            <%= f.submit "Represent #{@current_superagent.name}", class: 'pulse-action-btn' %>
+          </div>
+        <% end %>
+      </section>
+    <% end %>
+
+    <% if @active_user_grants.any? %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">
+          <%= octicon 'person', height: 16 %>
+          Act on Behalf of Another User
+        </h2>
+        <p>
+          You have been granted permission to act on behalf of the following users within this studio.
+        </p>
+
+        <% @active_user_grants.each do |grant| %>
+          <div class="pulse-card" style="margin-bottom: 16px; padding: 16px; border: 1px solid var(--color-border-default); border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <img src="<%= grant.granting_user.image_url %>" alt="<%= grant.granting_user.display_name %>" style="width: 40px; height: 40px; border-radius: 50%;">
+              <div>
+                <strong><%= grant.granting_user.display_name %></strong>
+                <span class="pulse-muted" style="display: block; font-size: 13px;">@<%= grant.granting_user.handle %></span>
+              </div>
+            </div>
+
+            <% if grant.permissions.present? %>
+              <div style="margin-bottom: 12px;">
+                <span class="pulse-muted" style="font-size: 13px;">Capabilities:</span>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                  <% grant.permissions.each do |capability, enabled| %>
+                    <% next unless enabled %>
+                    <span class="pulse-tag pulse-tag-small"><%= capability %></span>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <%= form_with url: @current_superagent.path + '/represent_user', method: :post, class: 'pulse-form' do |f| %>
+              <%= hidden_field_tag :trustee_grant_id, grant.id %>
+              <label class="pulse-checkbox-label">
+                <%= f.check_box :understand, id: "i-understand-user-#{grant.id}", class: 'pulse-checkbox-input' %>
+                <span>I understand that my actions will be attributed to a trustee representing <%= grant.granting_user.display_name %>.</span>
+              </label>
+              <div class="pulse-form-actions">
+                <%= f.submit "Act as #{grant.granting_user.display_name}", class: 'pulse-action-btn' %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </section>
+    <% end %>
 
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">What to Expect</h2>
       <ul class="pulse-list">
         <li class="pulse-list-item">
-          When you click the button below, you will assume the identity of <%= @current_superagent.name %> itself and begin a representation session.
-        </li>
-        <li class="pulse-list-item">
-          During a representation session, your actions will be recorded and will be visible to all members of <%= @current_superagent.name %> (both current and future) because you are acting on their behalf.
-        </li>
-        <li class="pulse-list-item">
-          The set of studios that <%= @current_superagent.name %> is a member of will be different than the set of studios that you yourself are a member of.
-        </li>
-        <li class="pulse-list-item">
-          The actions you can perform as <%= @current_superagent.name %> include most of the normal actions that you are familiar with.
-          You can create notes, vote on decisions, join commitments, and so on.
-          However, these actions will be attributed to <%= @current_superagent.name %> as a whole rather than just you.
-        </li>
-        <li class="pulse-list-item">
-          You will not be able to perform actions that <%= @current_superagent.name %> itself does not have permission to perform, even if you yourself would otherwise be able to perform those actions.
-          For example, a studio cannot be a member of itself or create new studios.
+          During a representation session, your actions will be recorded and attributed to the entity you are representing.
         </li>
         <li class="pulse-list-item">
           You can end the session at any time by clicking the "End Session" button at the top of the page.
         </li>
         <li class="pulse-list-item">
-          After you finish the session, you will return to your own identity and resume your normal mode of interaction.
+          After you finish the session, you will return to your own identity and resume normal interaction.
         </li>
         <li class="pulse-list-item">
-          A log of your session activity will then be available to all members of <%= @current_superagent.name %>, and your individual identity will be visibly linked to that session log.
+          A log of your session activity will be available, and your individual identity will be linked to that session log.
         </li>
       </ul>
-    </section>
-
-    <section class="pulse-settings-section">
-      <h2 class="pulse-section-title">Begin a Representation Session</h2>
-      <%= form_with url: @current_superagent.path + '/represent', method: :post, class: 'pulse-form' do |f| %>
-        <label class="pulse-checkbox-label">
-          <%= f.check_box :understand, id: 'i-understand-checkbox', class: 'pulse-checkbox-input' %>
-          <span>I understand that my actions during this session will be recorded and made visible to all members of <%= @current_superagent.name %>.</span>
-        </label>
-        <div class="pulse-form-actions">
-          <%= f.submit "Begin Session", class: 'pulse-action-btn' %>
-        </div>
-      <% end %>
     </section>
   </div>
 </article>

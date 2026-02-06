@@ -47,9 +47,11 @@
             "Pins" => %w[pin_note unpin_note pin_decision unpin_decision pin_commitment unpin_commitment],
             "Attachments" => %w[add_attachment remove_attachment],
             "Reminders" => %w[create_reminder delete_reminder],
+            "Trustee Grant Responses" => %w[accept_trustee_grant decline_trustee_grant],
+            "Trustee Grant Admin" => %w[create_trustee_grant revoke_trustee_grant],
           }
           # Groups that are disabled by default for new agents
-          disabled_by_default = %w[Attachments Reminders]
+          disabled_by_default = %w[Attachments Reminders Trustee\ Grant\ Admin]
         %>
 
         <% action_groups.each do |group_name, actions| %>
