@@ -148,8 +148,7 @@ class ApplicationController < ActionController::Base
   # Resolves user identity for API token-authenticated requests.
   #
   # Currently, API requests always operate as the token's user directly.
-  # TODO: Implement API representation via X-Represent-As header to allow
-  # API callers to act as a trustee when they have an active TrusteeGrant.
+  # TODO: Implement API representation via X-Representation-Session-ID header.
   def resolve_api_user
     api_authorize!
     # NOTE: must set @current_user before calling validate_scope to avoid infinite loop
@@ -161,9 +160,25 @@ class ApplicationController < ActionController::Base
     validate_scope
 
     # TODO: Handle representation through the API
-    # When implementing, check for X-Represent-As header containing trustee_user_id,
-    # validate that the token's user is the trusted_user for that trustee's grant,
-    # and if valid, return the trustee_user instead.
+    #
+    # Design: Use X-Representation-Session-ID header (not X-Represent-As with trustee_user_id).
+    # This mirrors browser flow where a RepresentationSession must be started first.
+    #
+    # Implementation steps:
+    # 1. Check for X-Representation-Session-ID header
+    # 2. If present:
+    #    - Look up the RepresentationSession by ID
+    #    - Validate: session exists, is active (not ended/expired), grant is active
+    #    - Validate: token's user matches session's representative_user
+    #    - If valid, set @current_representation_session and return session.trustee_user
+    #    - If invalid, return 403 Forbidden with error details
+    # 3. If header is absent:
+    #    - Check if user has any active RepresentationSession
+    #    - If yes, return 409 Conflict with session ID in response body
+    #      (forces caller to be explicit about their intent)
+    #    - If no, proceed normally as the token's user
+    #
+    # See test/integration/api_representation_test.rb for expected behavior.
 
     user
   end
