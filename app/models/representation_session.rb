@@ -7,14 +7,45 @@ class RepresentationSession < ApplicationRecord
   include Commentable
   include HasTruncatedId
   belongs_to :tenant
-  belongs_to :superagent
+  belongs_to :superagent, optional: true
   belongs_to :representative_user, class_name: 'User'
   belongs_to :trustee_user, class_name: 'User'
   belongs_to :trustee_grant, optional: true
   has_many :representation_session_associations, dependent: :destroy
 
+  # Override to prevent parent class from adding superagent filter
+  # We handle superagent filtering ourselves in the custom default_scope below
+  sig { override.returns(T::Boolean) }
+  def self.belongs_to_superagent?
+    false
+  end
+
+  # Custom default scope: include both studio sessions (for current superagent) and user sessions (NULL superagent_id)
+  default_scope do
+    if Tenant.current_id
+      s = where(tenant_id: Tenant.current_id)
+      if Superagent.current_id
+        s = s.where(superagent_id: [Superagent.current_id, nil])
+      end
+      s
+    else
+      all
+    end
+  end
+
   validates :began_at, presence: true
   validates :confirmed_understanding, inclusion: { in: [true] }
+  validate :superagent_presence_matches_session_type
+
+  # Studio representation requires superagent_id; user representation must NOT have superagent_id
+  sig { void }
+  def superagent_presence_matches_session_type
+    if trustee_grant_id.present? && superagent_id.present?
+      errors.add(:superagent_id, "must be nil for user representation sessions")
+    elsif trustee_grant_id.nil? && superagent_id.nil?
+      errors.add(:superagent_id, "is required for studio representation sessions")
+    end
+  end
 
   sig { void }
   def parse_and_create_link_records!
@@ -191,7 +222,18 @@ class RepresentationSession < ApplicationRecord
 
   sig { returns(String) }
   def path
-    "/studios/#{T.must(superagent).handle}/r/#{truncated_id}"
+    if superagent
+      # Studio representation session - path is studio-relative
+      "/studios/#{T.must(superagent).handle}/r/#{truncated_id}"
+    else
+      # User representation session - path is via trustee grant
+      grant = trustee_grant
+      if grant
+        "/u/#{T.must(grant.granting_user).handle}/settings/trustee-grants/#{grant.truncated_id}"
+      else
+        raise "Invalid state: RepresentationSession #{id} has no superagent and no trustee_grant"
+      end
+    end
   end
 
   sig { returns(String) }

@@ -368,6 +368,20 @@ class TrusteeGrant
     sig { returns(T.nilable(::User)) }
     def reload_trustee_user; end
 
+    sig { returns(T::Array[T.untyped]) }
+    def representation_session_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def representation_session_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `TrusteeGrant` class because it declared `has_many :representation_sessions`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::RepresentationSession::PrivateCollectionProxy) }
+    def representation_sessions; end
+
+    sig { params(value: T::Enumerable[::RepresentationSession]).void }
+    def representation_sessions=(value); end
+
     sig { void }
     def reset_granting_user; end
 

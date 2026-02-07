@@ -41,6 +41,21 @@ scope = @grant.studio_scope || { "mode" => "all" }
 *No actions available.*
 <% end -%>
 
+## Session History
+
+<% if @sessions.empty? -%>
+*No representation sessions have occurred yet.*
+<% else -%>
+Sessions where **<%= @grant.trusted_user.display_name || @grant.trusted_user.handle %>** acted on behalf of **<%= @grant.granting_user.display_name || @grant.granting_user.handle %>**:
+
+| Session | Started | Duration | Actions | Status |
+|---------|---------|----------|---------|--------|
+<% @sessions.each do |session| -%>
+<% duration = (session.elapsed_time / 60).round -%>
+| [`<%= session.truncated_id %>`](<%= session.path %>) | <%= session.began_at.strftime("%Y-%m-%d %H:%M") %> | <%= duration %> min<%= duration == 1 ? '' : 's' %> | <%= session.action_count %> | <%= session.active? ? "Active" : "Ended" %> |
+<% end -%>
+<% end -%>
+
 ## Navigation
 
 * [All Trustee Grants](/u/<%= @target_user.handle %>/settings/trustee-grants)

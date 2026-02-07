@@ -21,6 +21,8 @@ class TrusteeGrant < ApplicationRecord
   belongs_to :granting_user, class_name: "User"
   belongs_to :trusted_user, class_name: "User"
 
+  has_many :representation_sessions, dependent: :restrict_with_error, inverse_of: :trustee_grant
+
   before_validation :create_trustee_user!, on: :create
 
   validate :all_users_conform_to_expectations

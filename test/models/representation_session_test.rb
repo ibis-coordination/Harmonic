@@ -40,10 +40,12 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_includes session.errors[:began_at], "can't be blank"
   end
 
-  test "representation session requires superagent" do
+  test "studio representation session requires superagent" do
+    # Studio representation (no trustee_grant) requires superagent_id
     session = RepresentationSession.new(
       tenant: @tenant,
       superagent: nil,
+      trustee_grant: nil,
       representative_user: @user,
       trustee_user: @superagent.trustee_user,
       confirmed_understanding: true,
@@ -51,7 +53,31 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       activity_log: { 'activity' => [] },
     )
     assert_not session.valid?
-    assert_includes session.errors[:superagent], "must exist"
+    assert_includes session.errors[:superagent_id], "is required for studio representation sessions"
+  end
+
+  test "user representation session must not have superagent" do
+    # User representation (has trustee_grant) must NOT have superagent_id
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @user,
+      trusted_user: create_user(email: "trusted_#{SecureRandom.hex(4)}@example.com"),
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+
+    session = RepresentationSession.new(
+      tenant: @tenant,
+      superagent: @superagent,
+      trustee_grant: grant,
+      representative_user: @user,
+      trustee_user: grant.trustee_user,
+      confirmed_understanding: true,
+      began_at: Time.current,
+      activity_log: { 'activity' => [] },
+    )
+    assert_not session.valid?
+    assert_includes session.errors[:superagent_id], "must be nil for user representation sessions"
   end
 
   test "representation session can be created with valid attributes" do

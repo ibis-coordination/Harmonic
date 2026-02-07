@@ -339,6 +339,9 @@ class RepresentationSession
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::TrusteeGrant) }
+    def build_trustee_grant(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_trustee_user(*args, &blk); end
 
@@ -374,6 +377,12 @@ class RepresentationSession
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant!(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::TrusteeGrant) }
+    def create_trustee_grant(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::TrusteeGrant) }
+    def create_trustee_grant!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_trustee_user(*args, &blk); end
 
@@ -402,6 +411,9 @@ class RepresentationSession
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
+
+    sig { returns(T.nilable(::TrusteeGrant)) }
+    def reload_trustee_grant; end
 
     sig { returns(T.nilable(::User)) }
     def reload_trustee_user; end
@@ -436,6 +448,9 @@ class RepresentationSession
     def reset_tenant; end
 
     sig { void }
+    def reset_trustee_grant; end
+
+    sig { void }
     def reset_trustee_user; end
 
     sig { returns(T.nilable(::Superagent)) }
@@ -449,6 +464,12 @@ class RepresentationSession
 
     sig { params(value: T.nilable(::Tenant)).void }
     def tenant=(value); end
+
+    sig { returns(T.nilable(::TrusteeGrant)) }
+    def trustee_grant; end
+
+    sig { params(value: T.nilable(::TrusteeGrant)).void }
+    def trustee_grant=(value); end
 
     sig { returns(T.nilable(::User)) }
     def trustee_user; end
@@ -994,6 +1015,9 @@ class RepresentationSession
     def restore_truncated_id!; end
 
     sig { void }
+    def restore_trustee_grant_id!; end
+
+    sig { void }
     def restore_trustee_user_id!; end
 
     sig { void }
@@ -1058,6 +1082,12 @@ class RepresentationSession
 
     sig { returns(T::Boolean) }
     def saved_change_to_truncated_id?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_trustee_grant_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_trustee_grant_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_trustee_user_id; end
@@ -1206,6 +1236,51 @@ class RepresentationSession
     sig { void }
     def truncated_id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def trustee_grant_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def trustee_grant_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def trustee_grant_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def trustee_grant_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def trustee_grant_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def trustee_grant_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def trustee_grant_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def trustee_grant_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def trustee_grant_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def trustee_grant_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def trustee_grant_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def trustee_grant_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def trustee_grant_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def trustee_grant_id_was; end
+
+    sig { void }
+    def trustee_grant_id_will_change!; end
+
     sig { returns(::String) }
     def trustee_user_id; end
 
@@ -1325,6 +1400,9 @@ class RepresentationSession
 
     sig { returns(T::Boolean) }
     def will_save_change_to_truncated_id?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_trustee_grant_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_trustee_user_id?; end

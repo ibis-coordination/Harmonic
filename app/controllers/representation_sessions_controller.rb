@@ -113,16 +113,7 @@ class RepresentationSessionsController < ApplicationController
       return redirect_to request.referrer || root_path
     end
 
-    rep_session = RepresentationSession.create!(
-      tenant: current_tenant,
-      superagent: current_superagent,
-      representative_user: current_user,
-      trustee_user: grant.trustee_user,
-      trustee_grant: grant,
-      confirmed_understanding: confirmed_understanding,
-      began_at: Time.current,
-    )
-    rep_session.begin!
+    rep_session = api_helper.start_user_representation_session(grant: grant)
 
     # Set session cookies for ApplicationController#current_user
     session[:trustee_user_id] = grant.trustee_user.id

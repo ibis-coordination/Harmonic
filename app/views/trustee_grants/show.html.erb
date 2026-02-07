@@ -180,5 +180,52 @@ is_trusted = @grant.trusted_user == @target_user
         <% end %>
       </section>
     <% end %>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Session History</h2>
+      <% if @sessions.empty? %>
+        <p class="pulse-empty-content"><em>No representation sessions have occurred yet.</em></p>
+      <% else %>
+        <p>
+          Sessions where <strong><%= @grant.trusted_user.display_name || @grant.trusted_user.handle %></strong>
+          acted on behalf of <strong><%= @grant.granting_user.display_name || @grant.granting_user.handle %></strong>:
+        </p>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>Started</th>
+              <th>Duration</th>
+              <th>Actions</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @sessions.each do |session| %>
+              <tr>
+                <td>
+                  <a href="<%= session.path %>" class="pulse-link">
+                    <code><%= session.truncated_id %></code>
+                  </a>
+                </td>
+                <td><%= session.began_at.strftime("%Y-%m-%d %H:%M") %></td>
+                <td>
+                  <% duration = (session.elapsed_time / 60).round %>
+                  <%= duration %> min<%= duration == 1 ? '' : 's' %>
+                </td>
+                <td><%= session.action_count %></td>
+                <td>
+                  <% if session.active? %>
+                    <span class="pulse-tag pulse-tag-success">Active</span>
+                  <% else %>
+                    <span class="pulse-tag">Ended</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </section>
   </div>
 </article>

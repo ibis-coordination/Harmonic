@@ -239,4 +239,87 @@ class ApiHelperTest < ActiveSupport::TestCase
     end
   end
 
+  test "ApiHelper.start_user_representation_session creates a user representation session" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    grant.accept!
+
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_superagent: @superagent,
+      current_tenant: @tenant,
+      params: {},
+      request: {}
+    )
+
+    rep_session = api_helper.start_user_representation_session(grant: grant)
+
+    assert rep_session.persisted?
+    assert_nil rep_session.superagent_id
+    assert_equal @user, rep_session.representative_user
+    assert_equal grant.trustee_user, rep_session.trustee_user
+    assert_equal grant, rep_session.trustee_grant
+    assert rep_session.confirmed_understanding
+  end
+
+  test "ApiHelper.start_user_representation_session raises error for inactive grant" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    # Grant is pending, not active
+
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_superagent: @superagent,
+      current_tenant: @tenant,
+      params: {},
+      request: {}
+    )
+
+    assert_raises ArgumentError do
+      api_helper.start_user_representation_session(grant: grant)
+    end
+  end
+
+  test "ApiHelper.start_user_representation_session raises error for wrong user" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @user,
+      trusted_user: other_user,  # other_user is trusted, not @user
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    grant.accept!
+
+    api_helper = ApiHelper.new(
+      current_user: @user,  # @user is NOT the trusted user
+      current_superagent: @superagent,
+      current_tenant: @tenant,
+      params: {},
+      request: {}
+    )
+
+    assert_raises ArgumentError do
+      api_helper.start_user_representation_session(grant: grant)
+    end
+  end
+
 end

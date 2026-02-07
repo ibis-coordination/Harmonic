@@ -677,6 +677,24 @@ class ApiHelper
     current_superagent
   end
 
+  sig { params(grant: TrusteeGrant).returns(RepresentationSession) }
+  def start_user_representation_session(grant:)
+    raise ArgumentError, "Grant must be active" unless grant.active?
+    raise ArgumentError, "Current user must be the trusted user" unless grant.trusted_user == current_user
+
+    rep_session = RepresentationSession.create!(
+      tenant: current_tenant,
+      superagent_id: nil,
+      representative_user: current_user,
+      trustee_user: grant.trustee_user,
+      trustee_grant: grant,
+      confirmed_understanding: true,
+      began_at: Time.current,
+    )
+    rep_session.begin!
+    rep_session
+  end
+
   sig { returns(Decision) }
   def update_decision_settings
     decision = T.must(current_decision)

@@ -1,4 +1,4 @@
-\restrict u6xjJhBaeB1CRaIebeh8LgwmCwTRfcxSfxJY3o5z0fnMADbs9J7X6wE3GDJMylM
+\restrict GAnfFhzoMVICaXinfrx2a99ast7A1ZF1TuTADMS432TQOxcYNMCFf7wTcATg3JQ
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -598,7 +598,7 @@ CREATE TABLE public.representation_session_associations (
 CREATE TABLE public.representation_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    superagent_id uuid NOT NULL,
+    superagent_id uuid,
     representative_user_id uuid NOT NULL,
     trustee_user_id uuid NOT NULL,
     began_at timestamp(6) without time zone NOT NULL,
@@ -8177,7 +8177,7 @@ ALTER TABLE ONLY public.representation_sessions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict u6xjJhBaeB1CRaIebeh8LgwmCwTRfcxSfxJY3o5z0fnMADbs9J7X6wE3GDJMylM
+\unrestrict GAnfFhzoMVICaXinfrx2a99ast7A1ZF1TuTADMS432TQOxcYNMCFf7wTcATg3JQ
 
 SET search_path TO "$user", public;
 
@@ -8314,6 +8314,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260206051044'),
 ('20260206052934'),
 ('20260206194042'),
-('20260206214518');
+('20260206214518'),
+('20260207001008');
 
 

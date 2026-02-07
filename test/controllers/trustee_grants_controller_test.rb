@@ -189,6 +189,49 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     assert is_markdown?
   end
 
+  test "show page displays session history when sessions exist" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @other_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    grant.accept!
+
+    # Create a user representation session linked to this grant (no superagent_id)
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      representative_user: @user,
+      trustee_user: grant.trustee_user,
+      trustee_grant: grant,
+      confirmed_understanding: true,
+      began_at: 1.hour.ago,
+      ended_at: 30.minutes.ago,
+      activity_log: { "activity" => [] },
+    )
+
+    get "/u/#{@user.handle}/settings/trustee-grants/#{grant.truncated_id}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "Session History"
+    assert_includes response.body, session.truncated_id
+  end
+
+  test "show page displays empty state when no sessions exist" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @user,
+      trusted_user: @other_user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+
+    get "/u/#{@user.handle}/settings/trustee-grants/#{grant.truncated_id}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "Session History"
+    assert_includes response.body, "No representation sessions"
+  end
+
   # === Accept Tests ===
 
   test "trusted_user can accept a pending trustee grant" do

@@ -36,6 +36,7 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 - ✅ UI to start user representation sessions from trustee grants page (index and show)
 - ✅ Capability enforcement via `require_capability!` in ApiHelper
 - ✅ Subagent capability configuration for trustee grant actions (grantable, not always-allowed)
+- ✅ Session history on trustee grant show page (Phase 4.7)
 
 ### What's Remaining
 - ⬚ **Phase 5**: Notifications for trustee grant events
@@ -648,6 +649,22 @@ Added capability enforcement:
 
 **Note**: Capability is checked at action time, so permission changes apply immediately to active sessions.
 
+### 4.7 Session history on trustee grant show page ✅ COMPLETE
+
+**Goal**: Allow granting users to see all representation sessions associated with a specific trustee grant.
+
+**Files**:
+- `app/models/trustee_grant.rb` - Added `has_many :representation_sessions, dependent: :nullify`
+- `app/views/trustee_grants/show.html.erb` - Added "Session History" section
+- `app/controllers/trustee_grants_controller.rb` - Load `@sessions` in `show` action
+
+**Implementation**:
+- Added association from TrusteeGrant to RepresentationSession
+- "Session History" section visible to both granting and trusted users on the trustee grant detail page
+- Lists all representation sessions linked to this trustee grant
+- Table shows: session ID (linked), started time, duration, action count, status (Active/Ended)
+- Empty state if no sessions yet
+
 ---
 
 ## Phase 5: Notifications ⬚ NOT STARTED
@@ -944,3 +961,4 @@ representation_session = RepresentationSession.create!(
 | User type mixing | Never - user types (person, subagent, trustee) are mutually exclusive; each trustee grant creates a new trustee user |
 | Subagent trustee grant actions | Grantable (not always-allowed); Responses enabled by default, Admin actions disabled by default |
 | User representation entry point | Trustee grants settings page (`/u/:handle/settings/trustee-grants`) - not studio representation page |
+| Session history visibility | On trustee grant show page - granting user can see all sessions and actions taken on their behalf via that grant |
