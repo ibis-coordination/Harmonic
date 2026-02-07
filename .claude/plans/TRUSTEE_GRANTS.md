@@ -217,12 +217,13 @@ Authorization:                      Authorization:
   can_represent?                      grants can_represent?
 
 Trustee user:                       Trustee user:
-  superagent.trustee_user             permission.trustee_user
+  superagent.trustee_user             grant.trustee_user
   (represents the studio)             (represents the trustee grant)
 
 Session creation:                   Session creation:
-  Same RepresentationSession          Same RepresentationSession
-  model for both                      model for both
+  RepresentationSession with          RepresentationSession with
+  superagent_id (required)            superagent_id = NULL
+                                      trustee_grant_id (required)
 
 Activity logging:                   Activity logging:
   Same - all actions logged           Same - all actions logged
@@ -230,6 +231,9 @@ Activity logging:                   Activity logging:
 
 Attribution:                        Attribution:
   Actions by "Studio Name"            Actions by "Bob via Alice"
+
+Path/URL:                           Path/URL:
+  /studios/:handle/r/:id              /u/:handle/settings/trustee-grants/:id
 ```
 
 ---
@@ -564,9 +568,10 @@ Features:
 ### 4.2 Multi-studio session behavior ✅ COMPLETE
 
 For trustee grant trustees, the session can span studios:
-- Session is created in one studio context
-- Actions in other scoped studios are still logged to the same session
-- `superagent_id` on the session is the "home" studio, but `semantic_event[:superagent_id]` tracks where each action occurred
+- User representation sessions have `superagent_id = NULL` (not tied to any specific studio)
+- Actions in any scoped studio are logged to the same session
+- Each action's `semantic_event[:superagent_id]` tracks which studio the action occurred in
+- Session path links to the trustee grant show page (not a studio-specific URL)
 
 ### 4.3 Update representation UI ✅ COMPLETE
 
@@ -654,14 +659,22 @@ Added capability enforcement:
 **Goal**: Allow granting users to see all representation sessions associated with a specific trustee grant.
 
 **Files**:
-- `app/models/trustee_grant.rb` - Added `has_many :representation_sessions, dependent: :nullify`
+- `app/models/trustee_grant.rb` - Added `has_many :representation_sessions, dependent: :restrict_with_error`
+- `app/models/representation_session.rb` - Updated with custom default_scope, validation, and path logic
 - `app/views/trustee_grants/show.html.erb` - Added "Session History" section
+- `app/views/trustee_grants/show.md.erb` - Added "Session History" section
 - `app/controllers/trustee_grants_controller.rb` - Load `@sessions` in `show` action
+- `app/services/api_helper.rb` - Added `start_user_representation_session` method
+- `db/migrate/20260207001008_allow_null_superagent_id_for_user_representation_sessions.rb`
 
 **Implementation**:
-- Added association from TrusteeGrant to RepresentationSession
+- User representation sessions have NULL superagent_id (they can span multiple studios)
+- Studio representation sessions require superagent_id (they are studio-specific)
+- Added validation `superagent_presence_matches_session_type` enforcing mutual exclusivity
+- Custom default_scope includes both studio sessions (for current superagent) and user sessions (NULL superagent_id)
+- Association uses `dependent: :restrict_with_error` to prevent deleting grants with session history
+- Extracted shared session creation logic to `ApiHelper.start_user_representation_session`
 - "Session History" section visible to both granting and trusted users on the trustee grant detail page
-- Lists all representation sessions linked to this trustee grant
 - Table shows: session ID (linked), started time, duration, action count, status (Active/Ended)
 - Empty state if no sessions yet
 
@@ -888,14 +901,16 @@ representation_session = RepresentationSession.create!(
 |------|---------|
 | `app/models/trustee_grant.rb` | Core model with capabilities, states, scoping |
 | `app/models/user.rb` | Authorization methods |
-| `app/models/representation_session.rb` | Session model (works for both studio and user) |
+| `app/models/representation_session.rb` | Session model (works for both studio and user); custom default_scope for tenant/superagent filtering |
 | `app/controllers/trustee_grants_controller.rb` | CRUD + accept/decline/revoke + start_representing |
 | `app/controllers/representation_sessions_controller.rb` | Extended for trustee grant trustees |
+| `app/services/api_helper.rb` | `start_user_representation_session` for shared session creation logic |
 | `app/services/trustee_action_validator.rb` | Permission enforcement |
 | `app/services/capability_check.rb` | Subagent capability authorization |
 | `app/services/markdown_ui_service.rb` | Action execution with enforcement |
 | `app/views/trustee_grants/` | UI templates |
 | `app/views/subagents/new.html.erb` | Subagent creation with capability config |
+| `db/migrate/20260207001008_allow_null_superagent_id_for_user_representation_sessions.rb` | Allow NULL superagent_id for user sessions |
 
 ---
 
@@ -962,3 +977,5 @@ representation_session = RepresentationSession.create!(
 | Subagent trustee grant actions | Grantable (not always-allowed); Responses enabled by default, Admin actions disabled by default |
 | User representation entry point | Trustee grants settings page (`/u/:handle/settings/trustee-grants`) - not studio representation page |
 | Session history visibility | On trustee grant show page - granting user can see all sessions and actions taken on their behalf via that grant |
+| User representation sessions | Have NULL superagent_id (can span studios); studio representation sessions require superagent_id; mutually exclusive via validation |
+| Grant deletion | Blocked if sessions exist (`dependent: :restrict_with_error`) - preserves audit history |
