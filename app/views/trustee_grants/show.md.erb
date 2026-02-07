@@ -37,6 +37,9 @@ scope = @grant.studio_scope || { "mode" => "all" }
 <% if is_granting && !@grant.revoked? && !@grant.declined? -%>
 * [`revoke_trustee_grant()`](<%= base_path %>/actions/revoke_trustee_grant) - Revoke this trustee grant
 <% end -%>
+<% if @grant.active? && is_trusted && @grant.trusted_user == @current_user -%>
+* [`start_representation()`](<%= base_path %>/actions/start_representation) - Start a representation session to act on behalf of <%= @grant.granting_user.display_name || @grant.granting_user.handle %>
+<% end -%>
 <% if (@grant.pending? && !is_trusted) || (@grant.revoked? || @grant.declined?) -%>
 *No actions available.*
 <% end -%>

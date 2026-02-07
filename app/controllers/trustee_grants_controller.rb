@@ -18,12 +18,14 @@ class TrusteeGrantsController < ApplicationController
     :describe_accept, :execute_accept,
     :describe_decline, :execute_decline,
     :describe_revoke, :execute_revoke,
+    :describe_start_representation, :execute_start_representation,
     :start_representing,
   ]
 
-  # Override to avoid model lookup issues
-  def current_resource_model
-    nil
+  # Override to return the grant instance for this controller
+  # (ApplicationController#current_resource only handles Decision/Commitment/Note)
+  def current_resource
+    @grant
   end
 
   # GET /u/:handle/settings/trustee-grants
@@ -73,30 +75,9 @@ class TrusteeGrantsController < ApplicationController
   end
 
   def actions_index_show
-    # Build dynamic actions based on grant state
-    actions = []
-
-    if @grant.pending? && @grant.trusted_user == @target_user
-      actions << {
-        name: "accept_trustee_grant",
-        params_string: "()",
-        description: "Accept this trustee grant request",
-      }
-      actions << {
-        name: "decline_trustee_grant",
-        params_string: "()",
-        description: "Decline this trustee grant request",
-      }
-    end
-
-    if @grant.granting_user == @target_user && !@grant.revoked? && !@grant.declined?
-      actions << {
-        name: "revoke_trustee_grant",
-        params_string: "()",
-        description: "Revoke this trustee grant",
-      }
-    end
-
+    # Get all possible actions from ActionsHelper, then filter based on grant state
+    all_actions = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants/:grant_id")[:actions]
+    actions = all_actions.select { |action| action_available_for_grant?(action[:name]) }
     render_actions_index({ actions: actions })
   end
 
@@ -273,7 +254,7 @@ class TrusteeGrantsController < ApplicationController
   end
 
   # =========================================================================
-  # START REPRESENTING
+  # START REPRESENTING (HTML form - redirects)
   # =========================================================================
 
   def start_representing
@@ -295,7 +276,64 @@ class TrusteeGrantsController < ApplicationController
     redirect_to trustee_grant_show_path(@grant)
   end
 
+  # =========================================================================
+  # START REPRESENTATION (Markdown API action)
+  # =========================================================================
+
+  def describe_start_representation
+    render_action_description(ActionsHelper.action_description("start_representation", resource: @grant))
+  end
+
+  def execute_start_representation
+    unless @grant.trusted_user == @current_user
+      return render_action_error({
+                                   action_name: "start_representation",
+                                   resource: @grant,
+                                   error: "You can only start representation for grants where you are the trusted user",
+                                 })
+    end
+
+    unless @grant.active?
+      return render_action_error({
+                                   action_name: "start_representation",
+                                   resource: @grant,
+                                   error: "This trustee grant is not active",
+                                 })
+    end
+
+    rep_session = api_helper.start_user_representation_session(grant: @grant)
+
+    # For API/markdown, we return success with session info (no cookies)
+    render_action_success({
+                            action_name: "start_representation",
+                            resource: rep_session,
+                            result: "Representation session started. You are now acting on behalf of #{@grant.granting_user.display_name || @grant.granting_user.handle}. Session ID: #{rep_session.truncated_id}",
+                            redirect_to: trustee_grant_show_path(@grant),
+                          })
+  rescue ArgumentError => e
+    render_action_error({
+                          action_name: "start_representation",
+                          resource: @grant,
+                          error: e.message,
+                        })
+  end
+
   private
+
+  # Determines which actions are available based on grant state and user role.
+  # Used by actions_index_show to filter the canonical action list from ActionsHelper.
+  def action_available_for_grant?(action_name)
+    case action_name
+    when "accept_trustee_grant", "decline_trustee_grant"
+      @grant.pending? && @grant.trusted_user == @target_user
+    when "revoke_trustee_grant"
+      @grant.granting_user == @target_user && !@grant.revoked? && !@grant.declined?
+    when "start_representation"
+      @grant.active? && @grant.trusted_user == @current_user
+    else
+      false
+    end
+  end
 
   def set_sidebar_mode
     @sidebar_mode = "minimal"
