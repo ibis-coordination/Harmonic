@@ -37,6 +37,8 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 - ✅ Capability enforcement via `require_capability!` in ApiHelper
 - ✅ Subagent capability configuration for trustee grant actions (grantable, not always-allowed)
 - ✅ Session history on trustee grant show page (Phase 4.7)
+- ✅ Markdown API actions for all trustee grant operations (Phase 4.8)
+- ✅ ActionsHelper integration with comprehensive test coverage (30 tests)
 
 ### What's Remaining
 - ⬚ **Phase 5**: Notifications for trustee grant events
@@ -678,6 +680,43 @@ Added capability enforcement:
 - Table shows: session ID (linked), started time, duration, action count, status (Active/Ended)
 - Empty state if no sessions yet
 
+### 4.8 Markdown API actions and ActionsHelper integration ✅ COMPLETE
+
+**Goal**: Provide full markdown API support for all trustee grant operations.
+
+**Files**:
+- `app/services/actions_helper.rb` - Added trustee grant action definitions and route mappings
+- `app/controllers/trustee_grants_controller.rb` - Added `current_resource`, `action_available_for_grant?`, action endpoints
+- `app/views/trustee_grants/show.md.erb` - Added action links for all available operations
+- `config/routes.rb` - Added routes for `describe_start_representation` and `execute_start_representation`
+- `test/services/actions_helper_test.rb` - Comprehensive tests for ActionsHelper (30 tests)
+- `test/services/action_authorization_test.rb` - Authorization tests for trustee grant actions
+
+**Action Definitions in ActionsHelper**:
+- `create_trustee_grant` - Create a new trustee grant
+- `accept_trustee_grant` - Accept a pending trustee grant request
+- `decline_trustee_grant` - Decline a pending trustee grant request
+- `revoke_trustee_grant` - Revoke an active trustee grant
+- `start_representation` - Start a representation session for an active grant
+
+**Route Mappings**:
+- `/u/:handle/settings/trustee-grants` → `create_trustee_grant`
+- `/u/:handle/settings/trustee-grants/new` → `create_trustee_grant`
+- `/u/:handle/settings/trustee-grants/:grant_id` → `accept_trustee_grant`, `decline_trustee_grant`, `revoke_trustee_grant`, `start_representation`
+
+**Controller Pattern**:
+- `current_resource` returns `@grant` (follows ApplicationController pattern for resource methods)
+- `action_available_for_grant?(action_name)` filters actions based on grant state and user role
+- `actions_index_show` uses ActionsHelper as source of truth, then filters using `action_available_for_grant?`
+
+**Action Availability Logic**:
+| Action | Available When |
+|--------|----------------|
+| `accept_trustee_grant` | Grant is pending AND user is trusted_user |
+| `decline_trustee_grant` | Grant is pending AND user is trusted_user |
+| `revoke_trustee_grant` | User is granting_user AND grant is not revoked/declined |
+| `start_representation` | Grant is active AND user is trusted_user AND user is current_user |
+
 ---
 
 ## Phase 5: Notifications ⬚ NOT STARTED
@@ -902,14 +941,18 @@ representation_session = RepresentationSession.create!(
 | `app/models/trustee_grant.rb` | Core model with capabilities, states, scoping |
 | `app/models/user.rb` | Authorization methods |
 | `app/models/representation_session.rb` | Session model (works for both studio and user); custom default_scope for tenant/superagent filtering |
-| `app/controllers/trustee_grants_controller.rb` | CRUD + accept/decline/revoke + start_representing |
+| `app/controllers/trustee_grants_controller.rb` | CRUD + accept/decline/revoke + start_representing; `current_resource` and `action_available_for_grant?` |
 | `app/controllers/representation_sessions_controller.rb` | Extended for trustee grant trustees |
 | `app/services/api_helper.rb` | `start_user_representation_session` for shared session creation logic |
+| `app/services/actions_helper.rb` | Single source of truth for action definitions and route mappings |
+| `app/services/action_authorization.rb` | Authorization checks for actions |
 | `app/services/trustee_action_validator.rb` | Permission enforcement |
 | `app/services/capability_check.rb` | Subagent capability authorization |
 | `app/services/markdown_ui_service.rb` | Action execution with enforcement |
-| `app/views/trustee_grants/` | UI templates |
+| `app/views/trustee_grants/` | UI templates (HTML and markdown) |
 | `app/views/subagents/new.html.erb` | Subagent creation with capability config |
+| `test/services/actions_helper_test.rb` | ActionsHelper tests (30 tests) |
+| `test/services/action_authorization_test.rb` | Authorization tests including trustee grant actions |
 | `db/migrate/20260207001008_allow_null_superagent_id_for_user_representation_sessions.rb` | Allow NULL superagent_id for user sessions |
 
 ---
@@ -979,3 +1022,5 @@ representation_session = RepresentationSession.create!(
 | Session history visibility | On trustee grant show page - granting user can see all sessions and actions taken on their behalf via that grant |
 | User representation sessions | Have NULL superagent_id (can span studios); studio representation sessions require superagent_id; mutually exclusive via validation |
 | Grant deletion | Blocked if sessions exist (`dependent: :restrict_with_error`) - preserves audit history |
+| Action definitions | ActionsHelper is single source of truth; controllers filter using state-based helpers (e.g., `action_available_for_grant?`) |
+| Controller resource pattern | Use `current_resource` (not `current_resource_model`) to return instance; `current_resource_model` returns the class |
