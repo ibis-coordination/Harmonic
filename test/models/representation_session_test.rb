@@ -900,4 +900,114 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_equal @user, session.representative_user
     assert session.active?
   end
+
+  # =========================================================================
+  # STUDIO REPRESENTATION REGRESSION TESTS
+  # These tests protect the existing studio representation behavior.
+  # Studio representation sessions should:
+  # - Have the correct superagent_id set on the session
+  # - Have the correct superagent_id set on association records
+  # - Be queryable within the studio context
+  # =========================================================================
+
+  test "studio representation session gets correct superagent_id" do
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+
+    assert_equal @superagent.id, session.superagent_id,
+                 "Studio representation session must have correct superagent_id"
+  end
+
+  test "studio representation session associations get correct superagent_id" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: "req-123", method: "POST", path: "/notes")
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: "create",
+        superagent_id: @superagent.id,
+        main_resource: { type: "Note", id: note.id, truncated_id: note.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    association = session.representation_session_associations.first
+    assert_equal @superagent.id, association.superagent_id,
+                 "Association must have correct superagent_id"
+    assert_equal @superagent.id, association.resource_superagent_id,
+                 "Association must have correct resource_superagent_id"
+  end
+
+  test "studio representation session is findable via has_many association" do
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: "req-123", method: "POST", path: "/notes")
+    session.record_activity!(
+      request: mock_request,
+      semantic_event: {
+        timestamp: Time.current.iso8601,
+        event_type: "create",
+        superagent_id: @superagent.id,
+        main_resource: { type: "Note", id: note.id, truncated_id: note.truncated_id },
+        sub_resources: [],
+      },
+    )
+
+    # Should be able to find associations through the session
+    assert_equal 1, session.representation_session_associations.count
+    assert_equal note.id, session.representation_session_associations.first.resource_id
+  end
+
+  test "multiple activity recordings in studio session all get correct superagent_id" do
+    note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: "req-123", method: "POST", path: "/notes")
+
+    # Record multiple activities
+    [
+      { type: "Note", id: note1.id, truncated_id: note1.truncated_id },
+      { type: "Note", id: note2.id, truncated_id: note2.truncated_id },
+      { type: "Decision", id: decision.id, truncated_id: decision.truncated_id },
+    ].each do |resource|
+      session.record_activity!(
+        request: mock_request,
+        semantic_event: {
+          timestamp: Time.current.iso8601,
+          event_type: "create",
+          superagent_id: @superagent.id,
+          main_resource: resource,
+          sub_resources: [],
+        },
+      )
+    end
+
+    # All associations should have correct superagent_id
+    session.representation_session_associations.each do |assoc|
+      assert_equal @superagent.id, assoc.superagent_id,
+                   "All associations must have correct superagent_id"
+    end
+  end
 end

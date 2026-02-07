@@ -147,8 +147,8 @@ class ApplicationController < ActionController::Base
 
   # Resolves user identity for API token-authenticated requests.
   #
-  # Currently, API requests always operate as the token's user directly.
-  # TODO: Implement API representation via X-Representation-Session-ID header.
+  # Supports representation via X-Representation-Session-ID header.
+  # This mirrors the browser flow where a RepresentationSession must be started first.
   def resolve_api_user
     api_authorize!
     # NOTE: must set @current_user before calling validate_scope to avoid infinite loop
@@ -159,27 +159,154 @@ class ApplicationController < ActionController::Base
     @current_user = user
     validate_scope
 
-    # TODO: Handle representation through the API
-    #
-    # Design: Use X-Representation-Session-ID header (not X-Represent-As with trustee_user_id).
-    # This mirrors browser flow where a RepresentationSession must be started first.
-    #
-    # Implementation steps:
-    # 1. Check for X-Representation-Session-ID header
-    # 2. If present:
-    #    - Look up the RepresentationSession by ID
-    #    - Validate: session exists, is active (not ended/expired), grant is active
-    #    - Validate: token's user matches session's representative_user
-    #    - If valid, set @current_representation_session and return session.trustee_user
-    #    - If invalid, return 403 Forbidden with error details
-    # 3. If header is absent:
-    #    - Check if user has any active RepresentationSession
-    #    - If yes, return 409 Conflict with session ID in response body
-    #      (forces caller to be explicit about their intent)
-    #    - If no, proceed normally as the token's user
-    #
-    # See test/integration/api_representation_test.rb for expected behavior.
+    # Handle representation through the API
+    session_id = request.headers["X-Representation-Session-ID"]
 
+    if session_id.present?
+      resolve_api_representation(user, session_id)
+    else
+      check_for_active_representation_session(user)
+    end
+  end
+
+  # Validates and applies API representation from X-Representation-Session-ID header.
+  #
+  # Requires additional security headers for non-DELETE requests:
+  # - User representation: X-Representing-User header with granting user's handle
+  # - Studio representation: X-Representing-Studio header with studio's handle
+  #
+  # @param user [User] The token's user (representative)
+  # @param session_id [String] The representation session ID from header (full UUID or truncated_id)
+  # @return [User] The trustee user if valid, or renders error and returns nil
+  def resolve_api_representation(user, session_id)
+    # Store the original token user for use in session-ending operations
+    @api_token_user = user
+
+    # Look up the RepresentationSession by ID
+    # Support both full UUID and 8-char truncated_id
+    column = session_id.length == 8 ? "truncated_id" : "id"
+    rep_session = RepresentationSession.find_by(column => session_id, tenant_id: current_tenant.id)
+
+    # Validate: session exists
+    unless rep_session
+      render json: { error: "Invalid representation session ID" }, status: :forbidden
+      return nil
+    end
+
+    # Validate: session is active (not ended)
+    if rep_session.ended?
+      render json: { error: "Representation session has ended" }, status: :forbidden
+      return nil
+    end
+
+    # Validate: session is not expired
+    if rep_session.expired?
+      render json: { error: "Representation session has expired" }, status: :forbidden
+      return nil
+    end
+
+    # Validate: grant is still active (for user representation sessions)
+    if rep_session.trustee_grant && !rep_session.trustee_grant.active?
+      render json: { error: "Trustee grant is no longer active" }, status: :forbidden
+      return nil
+    end
+
+    # Validate: token's user matches session's representative_user
+    unless rep_session.representative_user_id == user.id
+      render json: { error: "Token user is not the session's representative" }, status: :forbidden
+      return nil
+    end
+
+    # Validate representing headers (skip for session-ending DELETE requests)
+    return nil if !ending_representation_session? && !validate_representing_headers(rep_session)
+
+    # All validations passed - apply representation
+    @current_representation_session = rep_session
+    @current_user = rep_session.trustee_user
+    rep_session.trustee_user
+  end
+
+  # Validates the X-Representing-User or X-Representing-Studio header based on session type.
+  # This adds an extra layer of security by requiring the API client to know exactly
+  # who or what they are representing.
+  #
+  # @param session [RepresentationSession] The representation session
+  # @return [Boolean] true if valid, false if error was rendered
+  def validate_representing_headers(session)
+    if session.user_representation?
+      # User representation requires X-Representing-User header
+      representing_user_header = request.headers["X-Representing-User"]
+      expected_handle = session.trustee_grant&.granting_user&.handle
+
+      unless representing_user_header.present?
+        render json: { error: "X-Representing-User header required for user representation" }, status: :forbidden
+        return false
+      end
+
+      unless representing_user_header == expected_handle
+        render json: { error: "X-Representing-User header does not match the represented user" }, status: :forbidden
+        return false
+      end
+    else
+      # Studio representation requires X-Representing-Studio header
+      representing_studio_header = request.headers["X-Representing-Studio"]
+      expected_handle = session.superagent&.handle
+
+      unless representing_studio_header.present?
+        render json: { error: "X-Representing-Studio header required for studio representation" }, status: :forbidden
+        return false
+      end
+
+      unless representing_studio_header == expected_handle
+        render json: { error: "X-Representing-Studio header does not match the represented studio" }, status: :forbidden
+        return false
+      end
+    end
+
+    true
+  end
+
+  # Checks if the current request is ending a representation session.
+  # These requests don't require the X-Representing-* headers.
+  #
+  # @return [Boolean] true if this is a session-ending request
+  def ending_representation_session?
+    return false unless request.delete?
+
+    # DELETE /representing - end user representation
+    # DELETE /studios/:handle/represent - end studio representation
+    # DELETE /studios/:handle/r/:id - end specific session
+    # DELETE /scenes/:handle/represent - end studio representation (scenes)
+    # DELETE /scenes/:handle/r/:id - end specific session (scenes)
+    request.path == "/representing" ||
+      request.path.match?(%r{^/studios/[^/]+/represent$}) ||
+      request.path.match?(%r{^/studios/[^/]+/r/[^/]+$}) ||
+      request.path.match?(%r{^/scenes/[^/]+/represent$}) ||
+      request.path.match?(%r{^/scenes/[^/]+/r/[^/]+$})
+  end
+
+  # Checks if the user has any active representation sessions when no header is provided.
+  # Returns 409 Conflict if active session exists, forcing explicit intent.
+  #
+  # @param user [User] The token's user
+  # @return [User] The user if no active sessions, or renders error and returns nil
+  def check_for_active_representation_session(user)
+    # Check for active representation sessions where this user is the representative
+    active_session = RepresentationSession.unscoped.where(
+      representative_user_id: user.id,
+      tenant_id: current_tenant.id,
+      ended_at: nil
+    ).where("began_at > ?", 24.hours.ago).first
+
+    if active_session
+      render json: {
+        error: "Active representation session exists. Include X-Representation-Session-ID header to act as trustee, or end the session first.",
+        active_session_id: active_session.id,
+      }, status: :conflict
+      return nil
+    end
+
+    # No active session - proceed as the token's user
     user
   end
 
@@ -203,15 +330,9 @@ class ApplicationController < ActionController::Base
   #
   # Each lookup explicitly filters by user_type to ensure type safety.
   def load_session_users
-    @current_person_user = if session[:user_id].present?
-                             User.find_by(id: session[:user_id], user_type: "person")
-                           end
-    @current_subagent_user = if session[:subagent_user_id].present?
-                               User.find_by(id: session[:subagent_user_id], user_type: "subagent")
-                             end
-    @current_trustee_user = if session[:trustee_user_id].present?
-                              User.find_by(id: session[:trustee_user_id], user_type: "trustee")
-                            end
+    @current_person_user = (User.find_by(id: session[:user_id], user_type: "person") if session[:user_id].present?)
+    @current_subagent_user = (User.find_by(id: session[:subagent_user_id], user_type: "subagent") if session[:subagent_user_id].present?)
+    @current_trustee_user = (User.find_by(id: session[:trustee_user_id], user_type: "trustee") if session[:trustee_user_id].present?)
   end
 
   # Determines the effective user from the identity stack.

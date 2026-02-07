@@ -2,10 +2,11 @@
 
 class RepresentationSessionAssociation < ApplicationRecord
   extend T::Sig
+  include MightNotBelongToSuperagent
 
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :superagent
+  belongs_to :superagent, optional: true
   before_validation :set_superagent_id
   belongs_to :representation_session
   belongs_to :resource, polymorphic: true
@@ -21,6 +22,7 @@ class RepresentationSessionAssociation < ApplicationRecord
 
   sig { void }
   def set_superagent_id
+    # Inherits superagent_id from the session (NULL for user representation, studio ID for studio representation)
     self.superagent_id = T.must(representation_session).superagent_id
   end
 

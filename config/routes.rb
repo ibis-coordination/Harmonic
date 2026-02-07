@@ -284,6 +284,8 @@ Rails.application.routes.draw do
     post 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#execute_revoke', on: :member
     get 'settings/trustee-grants/:grant_id/actions/start_representation' => 'trustee_grants#describe_start_representation', on: :member
     post 'settings/trustee-grants/:grant_id/actions/start_representation' => 'trustee_grants#execute_start_representation', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/end_representation' => 'trustee_grants#describe_end_representation', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/end_representation' => 'trustee_grants#execute_end_representation', on: :member
     post 'settings/trustee-grants/:grant_id/represent' => 'trustee_grants#start_representing', on: :member
   end
 

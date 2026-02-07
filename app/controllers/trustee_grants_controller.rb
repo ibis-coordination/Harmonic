@@ -5,8 +5,8 @@
 #
 # Key concepts:
 # - granting_user: The user who grants authority (the "principal")
-# - trusted_user: The user who receives authority (the "trustee")
-# - trustee_user: A synthetic "trustee" user created to represent the grant relationship
+# - trusted_user: The user who receives authority
+# - trustee_user: A user record of type "trustee" created to represent the grant relationship
 #
 # Routes are under /u/:handle/settings/trustee-grants
 class TrusteeGrantsController < ApplicationController
@@ -19,6 +19,7 @@ class TrusteeGrantsController < ApplicationController
     :describe_decline, :execute_decline,
     :describe_revoke, :execute_revoke,
     :describe_start_representation, :execute_start_representation,
+    :describe_end_representation, :execute_end_representation,
     :start_representing,
   ]
 
@@ -304,10 +305,14 @@ class TrusteeGrantsController < ApplicationController
     rep_session = api_helper.start_user_representation_session(grant: @grant)
 
     # For API/markdown, we return success with session info (no cookies)
+    # Include both full ID and truncated_id - the X-Representation-Session-ID header accepts either
     render_action_success({
                             action_name: "start_representation",
                             resource: rep_session,
-                            result: "Representation session started. You are now acting on behalf of #{@grant.granting_user.display_name || @grant.granting_user.handle}. Session ID: #{rep_session.truncated_id}",
+                            result: "Representation session started. You are now acting on behalf of #{@grant.granting_user.display_name || @grant.granting_user.handle}.\n\n" \
+                                    "Session ID: `#{rep_session.id}`\n" \
+                                    "Short ID: `#{rep_session.truncated_id}`\n\n" \
+                                    "Use the session ID in the `X-Representation-Session-ID` header for subsequent API requests.",
                             redirect_to: trustee_grant_show_path(@grant),
                           })
   rescue ArgumentError => e
@@ -316,6 +321,57 @@ class TrusteeGrantsController < ApplicationController
                           resource: @grant,
                           error: e.message,
                         })
+  end
+
+  # =========================================================================
+  # END REPRESENTATION (Markdown API action)
+  # =========================================================================
+
+  def describe_end_representation
+    render_action_description(ActionsHelper.action_description("end_representation", resource: @grant))
+  end
+
+  def execute_end_representation
+    unless [@current_user, @api_token_user].include?(@grant.trusted_user)
+      return render_action_error({
+                                   action_name: "end_representation",
+                                   resource: @grant,
+                                   error: "You can only end representation for grants where you are the trusted user",
+                                 })
+    end
+
+    # Find active representation session for this grant
+    rep_session = RepresentationSession.find_by(
+      trustee_grant: @grant,
+      ended_at: nil
+    )
+
+    unless rep_session
+      return render_action_error({
+                                   action_name: "end_representation",
+                                   resource: @grant,
+                                   error: "No active representation session found for this grant",
+                                 })
+    end
+
+    # Verify the caller is the representative
+    caller_user = @api_token_user || @current_user
+    unless rep_session.representative_user == caller_user
+      return render_action_error({
+                                   action_name: "end_representation",
+                                   resource: @grant,
+                                   error: "You are not the representative for this session",
+                                 })
+    end
+
+    rep_session.end!
+
+    render_action_success({
+                            action_name: "end_representation",
+                            resource: @grant,
+                            result: "Representation session ended. You are no longer acting on behalf of #{@grant.granting_user.display_name || @grant.granting_user.handle}.",
+                            redirect_to: trustee_grant_show_path(@grant),
+                          })
   end
 
   private
@@ -329,10 +385,21 @@ class TrusteeGrantsController < ApplicationController
     when "revoke_trustee_grant"
       @grant.granting_user == @target_user && !@grant.revoked? && !@grant.declined?
     when "start_representation"
-      @grant.active? && @grant.trusted_user == @current_user
+      @grant.active? && @grant.trusted_user == @current_user && !has_active_session_for_grant?
+    when "end_representation"
+      @grant.active? && @grant.trusted_user == @current_user && has_active_session_for_grant?
     else
       false
     end
+  end
+
+  def has_active_session_for_grant?
+    return false unless @grant
+
+    RepresentationSession.exists?(
+      trustee_grant: @grant,
+      ended_at: nil
+    )
   end
 
   def set_sidebar_mode
@@ -380,7 +447,9 @@ class TrusteeGrantsController < ApplicationController
 
   def authorize_grant_management
     # User can manage their own trustee grants
+    # For API requests with representation, also check the original token user
     return if @target_user == @current_user
+    return if @api_token_user && @target_user == @api_token_user
 
     respond_to do |format|
       format.html { redirect_to "/", alert: "You don't have permission to manage trustee grants for this user" }

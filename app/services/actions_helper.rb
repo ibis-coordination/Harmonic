@@ -513,6 +513,12 @@ class ActionsHelper
       params: [],
       authorization: :self,
     },
+    "end_representation" => {
+      description: "End an active representation session for this grant",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
   }.freeze
 
   # Route to actions mapping for actions index pages.
@@ -808,6 +814,7 @@ class ActionsHelper
         { name: "decline_trustee_grant", params_string: ACTION_DEFINITIONS["decline_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["decline_trustee_grant"][:description] },
         { name: "revoke_trustee_grant", params_string: ACTION_DEFINITIONS["revoke_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["revoke_trustee_grant"][:description] },
         { name: "start_representation", params_string: ACTION_DEFINITIONS["start_representation"][:params_string], description: ACTION_DEFINITIONS["start_representation"][:description] },
+        { name: "end_representation", params_string: ACTION_DEFINITIONS["end_representation"][:params_string], description: ACTION_DEFINITIONS["end_representation"][:description] },
       ],
     },
   }
