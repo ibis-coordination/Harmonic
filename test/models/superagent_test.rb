@@ -16,28 +16,28 @@ class SuperagentTest < ActiveSupport::TestCase
     superagent = Superagent.create!(
       tenant: tenant,
       created_by: user,
-      name: 'Test Studio',
-      handle: 'test',
+      name: "Test Studio",
+      handle: "test"
     )
     assert superagent.persisted?
-    assert_equal 'Test Tenant', superagent.tenant.name
-    assert_equal 'Test Person', superagent.created_by.name
-    assert_equal 'Test Studio', superagent.name
-    assert_equal 'test', superagent.handle
+    assert_equal "Test Tenant", superagent.tenant.name
+    assert_equal "Test Person", superagent.created_by.name
+    assert_equal "Test Studio", superagent.name
+    assert_equal "test", superagent.handle
   end
 
   test "Superagent.handle_is_valid validation" do
     tenant = create_tenant
     user = create_user
     begin
-      superagent = Superagent.create!(
+      Superagent.create!(
         tenant: tenant,
         created_by: user,
         name: "Invalid Handle Studio",
         handle: "invalid handle!" # Invalid handle
       )
     rescue ActiveRecord::RecordInvalid => e
-      assert_match /handle must be alphanumeric with dashes/, e.message.downcase
+      assert_match(/handle must be alphanumeric with dashes/, e.message.downcase)
     end
   end
 
@@ -45,14 +45,14 @@ class SuperagentTest < ActiveSupport::TestCase
     tenant = create_tenant
     trustee_user = create_user(user_type: "trustee")
     begin
-      superagent = Superagent.create!(
+      Superagent.create!(
         tenant: tenant,
         created_by: trustee_user,
         name: "Trustee Studio",
         handle: "trustee-studio"
       )
     rescue ActiveRecord::RecordInvalid => e
-      assert_match /created by cannot be a trustee/, e.message.downcase
+      assert_match(/created by cannot be a trustee/, e.message.downcase)
     end
   end
 
@@ -355,5 +355,189 @@ class SuperagentTest < ActiveSupport::TestCase
 
     recent = superagent.recent_notes(time_window: 1.week)
     assert_includes recent, note
+  end
+
+  # =========================================================================
+  # accessible_by? tests
+  # =========================================================================
+
+  test "accessible_by? returns true for members" do
+    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    superagent = Superagent.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Access Test Studio",
+      handle: "access-test-#{SecureRandom.hex(4)}"
+    )
+    superagent.add_user!(user)
+
+    assert superagent.accessible_by?(user)
+  end
+
+  test "accessible_by? returns false for non-members" do
+    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
+    user = create_user(name: "Owner User")
+    other_user = create_user(name: "Other User")
+    tenant.add_user!(user)
+    tenant.add_user!(other_user)
+    superagent = Superagent.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Access Test Studio",
+      handle: "access-test-#{SecureRandom.hex(4)}"
+    )
+    superagent.add_user!(user)
+    # other_user is NOT added to superagent
+
+    assert_not superagent.accessible_by?(other_user)
+  end
+
+  test "accessible_by? returns true for superagent trustee accessing own superagent" do
+    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    superagent = Superagent.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Access Test Studio",
+      handle: "access-test-#{SecureRandom.hex(4)}"
+    )
+    superagent.add_user!(user)
+    superagent.create_trustee!
+
+    trustee = superagent.trustee_user
+    assert trustee.superagent_trustee?
+    assert superagent.accessible_by?(trustee)
+  end
+
+  test "accessible_by? returns false for superagent trustee accessing different superagent" do
+    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    superagent1 = Superagent.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Studio 1",
+      handle: "studio-1-#{SecureRandom.hex(4)}"
+    )
+    superagent1.add_user!(user)
+    superagent1.create_trustee!
+
+    superagent2 = Superagent.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Studio 2",
+      handle: "studio-2-#{SecureRandom.hex(4)}"
+    )
+    superagent2.add_user!(user)
+
+    trustee = superagent1.trustee_user
+    assert trustee.superagent_trustee?
+    # Trustee of superagent1 should not have access to superagent2
+    assert_not superagent2.accessible_by?(trustee)
+  end
+
+  test "accessible_by? returns true for trustee grant trustee when granting user is member and grant allows studio" do
+    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
+    alice = create_user(name: "Alice")
+    bob = create_user(name: "Bob")
+    tenant.add_user!(alice)
+    tenant.add_user!(bob)
+    superagent = Superagent.create!(
+      tenant: tenant,
+      created_by: alice,
+      name: "Access Test Studio",
+      handle: "access-test-#{SecureRandom.hex(4)}"
+    )
+    superagent.add_user!(alice)
+    superagent.add_user!(bob)
+
+    grant = TrusteeGrant.create!(
+      tenant: tenant,
+      granting_user: alice,
+      trusted_user: bob,
+      relationship_phrase: "Bob acts for Alice",
+      permissions: { "create_notes" => true },
+      studio_scope: { "mode" => "all" }
+    )
+    grant.accept!
+
+    trustee = grant.trustee_user
+    assert trustee.trustee?
+    assert_not trustee.superagent_trustee?
+    assert superagent.accessible_by?(trustee)
+  end
+
+  test "accessible_by? returns false for trustee grant trustee when grant excludes studio" do
+    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
+    alice = create_user(name: "Alice")
+    bob = create_user(name: "Bob")
+    tenant.add_user!(alice)
+    tenant.add_user!(bob)
+    superagent = Superagent.create!(
+      tenant: tenant,
+      created_by: alice,
+      name: "Access Test Studio",
+      handle: "access-test-#{SecureRandom.hex(4)}"
+    )
+    superagent.add_user!(alice)
+    superagent.add_user!(bob)
+
+    grant = TrusteeGrant.create!(
+      tenant: tenant,
+      granting_user: alice,
+      trusted_user: bob,
+      relationship_phrase: "Bob acts for Alice",
+      permissions: { "create_notes" => true },
+      studio_scope: { "mode" => "exclude", "studio_ids" => [superagent.id] }
+    )
+    grant.accept!
+
+    trustee = grant.trustee_user
+    assert_not superagent.accessible_by?(trustee)
+  end
+
+  test "accessible_by? returns false for trustee grant trustee when granting user is not a member" do
+    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
+    alice = create_user(name: "Alice")
+    bob = create_user(name: "Bob")
+    tenant.add_user!(alice)
+    tenant.add_user!(bob)
+
+    # Alice creates one studio she's a member of
+    alices_studio = Superagent.create!(
+      tenant: tenant,
+      created_by: alice,
+      name: "Alice's Studio",
+      handle: "alices-studio-#{SecureRandom.hex(4)}"
+    )
+    alices_studio.add_user!(alice)
+
+    # Bob creates a studio that Alice is NOT a member of
+    bobs_studio = Superagent.create!(
+      tenant: tenant,
+      created_by: bob,
+      name: "Bob's Studio",
+      handle: "bobs-studio-#{SecureRandom.hex(4)}"
+    )
+    bobs_studio.add_user!(bob)
+
+    grant = TrusteeGrant.create!(
+      tenant: tenant,
+      granting_user: alice,
+      trusted_user: bob,
+      relationship_phrase: "Bob acts for Alice",
+      permissions: { "create_notes" => true },
+      studio_scope: { "mode" => "all" }
+    )
+    grant.accept!
+
+    trustee = grant.trustee_user
+    # Trustee should have access to Alice's studio (granting user is member)
+    assert alices_studio.accessible_by?(trustee)
+    # Trustee should NOT have access to Bob's studio (granting user is not a member)
+    assert_not bobs_studio.accessible_by?(trustee)
   end
 end

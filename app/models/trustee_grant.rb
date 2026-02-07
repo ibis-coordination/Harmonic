@@ -144,11 +144,19 @@ class TrusteeGrant < ApplicationRecord
   def create_trustee_user!
     return if trustee_user
 
-    self.trustee_user = User.create!(
+    trustee = User.create!(
       name: display_name,
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
       user_type: "trustee"
     )
+    # Create TenantUser for the trustee, matching the pattern in Superagent#create_trustee!
+    TenantUser.create!(
+      tenant: tenant,
+      user: trustee,
+      display_name: trustee.name,
+      handle: SecureRandom.hex(16)
+    )
+    self.trustee_user = trustee
   end
 
   sig { void }

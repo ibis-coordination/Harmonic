@@ -59,7 +59,11 @@
     <% if @current_representation_session %>
       <div class="pulse-session-banner pulse-alert">
         <span><%= @current_subagent_user ? "As #{@current_subagent_user.display_name}, y" : "Y" %>ou are acting as a representative of <%= @current_user.display_name %>.</span>
-        <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
+        <% if @current_representation_session.user_representation? %>
+          <%= button_to "End Session", "/representing", method: :delete, class: "pulse-banner-btn" %>
+        <% else %>
+          <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
+        <% end %>
       </div>
     <% end %>
     <%# Sidebar modes: full (default), resource, minimal, settings, admin, system_admin, app_admin, tenant_admin, none %>

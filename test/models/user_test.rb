@@ -860,6 +860,70 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.can_represent?(other_user)
   end
 
+  # === is_trusted_as? Tests ===
+
+  test "is_trusted_as? returns true for trusted_user with active grant" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    permission.accept!
+
+    # @user should be trusted as the trustee_user from the grant
+    assert @user.is_trusted_as?(permission.trustee_user)
+  end
+
+  test "is_trusted_as? returns false for non-trustee user" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    # other_user is a person, not a trustee
+    assert_not @user.is_trusted_as?(other_user)
+  end
+
+  test "is_trusted_as? returns false for trustee from someone else's grant" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    third_user = create_user(email: "third_#{SecureRandom.hex(4)}@example.com", name: "Third User")
+    @tenant.add_user!(other_user)
+    @tenant.add_user!(third_user)
+
+    # Grant from other_user to third_user (not @user)
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trusted_user: third_user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    permission.accept!
+
+    # @user is not the trusted_user for this grant
+    assert_not @user.is_trusted_as?(permission.trustee_user)
+  end
+
+  test "is_trusted_as? returns false for revoked grant" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trusted_user: @user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: { "create_notes" => true },
+    )
+    permission.accept!
+    permission.revoke!
+
+    assert_not @user.is_trusted_as?(permission.trustee_user)
+  end
+
   # === Auto-creation of TrusteeGrant for Subagents (Phase 7) ===
 
   test "creating a subagent auto-creates TrusteeGrant for parent" do

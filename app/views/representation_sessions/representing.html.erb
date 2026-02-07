@@ -1,11 +1,19 @@
 <% is_user_representation = @representation_session.user_representation? %>
 <% represented_user = @representation_session.represented_user %>
 
-<%= render 'shared/pulse_breadcrumb', items: [
-  [@studio.name, @studio.path],
-  ['Representation', @studio.path + '/representation'],
-  'Active Session'
-] %>
+<% if is_user_representation %>
+  <%= render 'shared/pulse_breadcrumb', items: [
+    ['Home', '/'],
+    ['Trustee Grants', "/u/#{@current_person_user.handle}/settings/trustee-grants"],
+    'Active Session'
+  ] %>
+<% else %>
+  <%= render 'shared/pulse_breadcrumb', items: [
+    [@studio.name, @studio.path],
+    ['Representation', @studio.path + '/representation'],
+    'Active Session'
+  ] %>
+<% end %>
 
 <article class="pulse-resource-detail">
   <header class="pulse-resource-header">

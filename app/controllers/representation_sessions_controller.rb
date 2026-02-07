@@ -127,7 +127,9 @@ class RepresentationSessionsController < ApplicationController
     @representation_session = current_representation_session
     return redirect_to root_path unless @representation_session
     @studio = @representation_session.superagent
-    @other_studios = current_user.superagents.where.not(id: @current_tenant.main_superagent_id)
+    # For user representation, use the person user's studios (trustee user doesn't have superagent memberships)
+    studios_user = @representation_session.user_representation? ? @current_person_user : current_user
+    @other_studios = studios_user.superagents.where.not(id: @current_tenant.main_superagent_id)
   end
 
   def stop_representing
@@ -151,6 +153,28 @@ class RepresentationSessionsController < ApplicationController
       flash[:alert] = 'Could not find representation session.'
     end
     redirect_to current_superagent.path
+  end
+
+  def stop_representing_user
+    @current_representation_session = current_representation_session
+    exists_and_active = @current_representation_session && @current_representation_session.active?
+    acting_user_is_rep = exists_and_active && [@current_person_user, @current_subagent_user].include?(@current_representation_session.representative_user)
+    if exists_and_active && acting_user_is_rep
+      grant = @current_representation_session.trustee_grant
+      @current_representation_session.end!
+      session.delete(:trustee_user_id)
+      session.delete(:representation_session_id)
+      if grant
+        flash[:notice] = "Your representation session has ended."
+        redirect_to "/u/#{@current_person_user.handle}/settings/trustee-grants/#{grant.truncated_id}"
+      else
+        flash[:notice] = "Your representation session has ended."
+        redirect_to root_path
+      end
+    else
+      flash[:alert] = 'Could not find representation session.'
+      redirect_to root_path
+    end
   end
 
   private

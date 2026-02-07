@@ -287,6 +287,10 @@ Rails.application.routes.draw do
     post 'settings/trustee-grants/:grant_id/represent' => 'trustee_grants#start_representing', on: :member
   end
 
+  # Representation session routes (not scoped to a specific studio)
+  get '/representing' => 'representation_sessions#representing'
+  delete '/representing' => 'representation_sessions#stop_representing_user'
+
   ['studios','scenes'].each do |studios_or_scenes|
     get "#{studios_or_scenes}" => "#{studios_or_scenes}#index"
     get "#{studios_or_scenes}/actions" => "#{studios_or_scenes}#actions_index"
@@ -345,7 +349,6 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/represent" => 'studios#represent'
     post "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#start_representing'
     post "#{studios_or_scenes}/:superagent_handle/represent_user" => 'representation_sessions#start_representing_user'
-    get '/representing' => 'representation_sessions#representing'
     delete "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#stop_representing'
     delete "#{studios_or_scenes}/:superagent_handle/r/:representation_session_id" => 'representation_sessions#stop_representing'
     get "#{studios_or_scenes}/:superagent_handle/representation.html" => 'representation_sessions#index_partial'

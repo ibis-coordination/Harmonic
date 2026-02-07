@@ -142,6 +142,19 @@ class User < ApplicationRecord
     false
   end
 
+  # Check if this user is authorized to use the given trustee identity.
+  # Used to validate that a trustee_user_id in the session belongs to a grant where self is the trusted_user.
+  sig { params(trustee_user: User).returns(T::Boolean) }
+  def is_trusted_as?(trustee_user)
+    return false unless trustee_user.trustee?
+
+    grant = TrusteeGrant.active.find_by(
+      trustee_user: trustee_user,
+      trusted_user: self
+    )
+    grant.present?
+  end
+
   sig { params(superagent_or_user: T.any(Superagent, User)).returns(T::Boolean) }
   def can_represent?(superagent_or_user)
     if superagent_or_user.is_a?(Superagent)
@@ -155,7 +168,6 @@ class User < ApplicationRecord
       user = superagent_or_user
       return true if can_impersonate?(user)
 
-      # Check for trustee grants
       # The trusted_user (self) can represent the granting_user (user) if there's an active grant
       grant = TrusteeGrant.active.find_by(
         granting_user: user,

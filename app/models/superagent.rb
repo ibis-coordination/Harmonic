@@ -8,24 +8,24 @@ class Superagent < ApplicationRecord
   include HasFeatureFlags
   self.implicit_order_column = "created_at"
   belongs_to :tenant
-  belongs_to :created_by, class_name: 'User'
-  belongs_to :updated_by, class_name: 'User'
-  belongs_to :trustee_user, class_name: 'User'
+  belongs_to :created_by, class_name: "User"
+  belongs_to :updated_by, class_name: "User"
+  belongs_to :trustee_user, class_name: "User"
   before_validation :create_trustee!
   before_create :set_defaults
   tables = ActiveRecord::Base.connection.tables - [
-    'tenants', 'users', 'tenant_users',
-    'superagents', 'api_tokens', 'oauth_identities',
+    "tenants", "users", "tenant_users",
+    "superagents", "api_tokens", "oauth_identities",
     # Rails internal tables
-    'ar_internal_metadata', 'schema_migrations',
-    'active_storage_attachments', 'active_storage_blobs',
-    'active_storage_variant_records',
+    "ar_internal_metadata", "schema_migrations",
+    "active_storage_attachments", "active_storage_blobs",
+    "active_storage_variant_records",
   ]
   tables.each do |table|
     has_many table.to_sym
   end
   has_many :users, through: :superagent_members
-  validates :superagent_type, inclusion: { in: %w[studio scene] }
+  validates :superagent_type, inclusion: { in: ["studio", "scene"] }
   validate :handle_is_valid
   validate :creator_is_not_trustee, on: :create
 
@@ -38,21 +38,19 @@ class Superagent < ApplicationRecord
   sig { params(subdomain: String, handle: T.nilable(String)).returns(Superagent) }
   def self.scope_thread_to_superagent(subdomain:, handle:)
     # In single-tenant mode, treat empty/blank subdomain as PRIMARY_SUBDOMAIN
-    if Tenant.single_tenant_mode? && subdomain.blank?
-      subdomain = Tenant.single_tenant_subdomain.to_s
-    end
+    subdomain = Tenant.single_tenant_subdomain.to_s if Tenant.single_tenant_mode? && subdomain.blank?
 
     tenant = Tenant.scope_thread_to_tenant(subdomain: subdomain)
     superagent = handle ? tenant.superagents.find_by!(handle: handle) : tenant.main_superagent
-    if superagent.nil? && subdomain == ENV['AUTH_SUBDOMAIN']
+    if superagent.nil? && subdomain == ENV["AUTH_SUBDOMAIN"]
       # This is a special case for the auth subdomain.
       # We only need a temporary superagent object to set the thread scope.
       # It will not be persisted to the database.
       superagent = Superagent.new(
         id: SecureRandom.uuid,
-        name: 'Harmonic',
+        name: "Harmonic",
         handle: SecureRandom.hex(16),
-        tenant: tenant,
+        tenant: tenant
       )
       tenant.main_superagent = superagent
     elsif superagent.nil? && tenant.main_superagent.nil?
@@ -88,15 +86,15 @@ class Superagent < ApplicationRecord
 
   sig { void }
   def set_defaults
-    self.updated_by ||= self.created_by
+    self.updated_by ||= created_by
     self.settings = {
       unlisted: true,
       invite_only: true,
-      timezone: 'UTC',
+      timezone: "UTC",
       all_members_can_invite: false,
       any_member_can_represent: false,
-      tempo: 'weekly',
-      synchronization_mode: 'improv',
+      tempo: "weekly",
+      synchronization_mode: "improv",
       allow_file_uploads: true,
       file_upload_limit: 100.megabytes,
       pinned: {},
@@ -104,26 +102,26 @@ class Superagent < ApplicationRecord
         api: false,
       },
     }.merge(
-      T.must(self.tenant).default_studio_settings
+      T.must(tenant).default_studio_settings
     ).merge(
-      self.settings || {}
+      settings || {}
     )
   end
 
   sig { returns(T::Boolean) }
   def is_main_superagent?
-    T.must(self.tenant).main_superagent_id == self.id
+    T.must(tenant).main_superagent_id == id
   end
 
   sig { returns(T::Boolean) }
   def is_scene?
-    superagent_type == 'scene'
+    superagent_type == "scene"
   end
 
   sig { params(value: T::Boolean).void }
   def open_scene=(value)
-    if value == true || value == false
-      self.settings = (self.settings || {}).merge('open_scene' => value)
+    if [true, false].include?(value)
+      self.settings = (settings || {}).merge("open_scene" => value)
     else
       errors.add(:settings, "'open_scene' must be a boolean")
     end
@@ -132,7 +130,7 @@ class Superagent < ApplicationRecord
   sig { returns(T::Boolean) }
   def scene_is_open?
     # An open scene is a scene that does not require an invite to join
-    is_scene? && settings['open_scene'] == true
+    is_scene? && settings["open_scene"] == true
   end
 
   sig { returns(T::Boolean) }
@@ -161,6 +159,7 @@ class Superagent < ApplicationRecord
   def api_enabled?
     # Main superagent always has API enabled
     return true if is_main_superagent?
+
     FeatureFlagService.superagent_enabled?(self, "api")
   end
 
@@ -182,15 +181,15 @@ class Superagent < ApplicationRecord
 
   sig { params(value: T.nilable(String)).void }
   def timezone=(value)
-    if value.present?
-      @timezone = ActiveSupport::TimeZone[value]
-      self.settings = (self.settings || {}).merge('timezone' => T.must(@timezone).name)
-    end
+    return unless value.present?
+
+    @timezone = ActiveSupport::TimeZone[value]
+    self.settings = (settings || {}).merge("timezone" => T.must(@timezone).name)
   end
 
   sig { returns(ActiveSupport::TimeZone) }
   def timezone
-    @timezone ||= self.settings['timezone'] ? ActiveSupport::TimeZone[self.settings['timezone']] : ActiveSupport::TimeZone['UTC']
+    @timezone ||= settings["timezone"] ? ActiveSupport::TimeZone[settings["timezone"]] : ActiveSupport::TimeZone["UTC"]
   end
 
   sig { params(time: T.any(Time, ActiveSupport::TimeWithZone)).returns(ActiveSupport::TimeWithZone) }
@@ -200,67 +199,67 @@ class Superagent < ApplicationRecord
 
   sig { params(value: T.nilable(String)).void }
   def tempo=(value)
-    if ['daily', 'weekly', 'monthly'].include?(value)
-      set_defaults
-      self.settings = self.settings.merge('tempo' => value)
-    end
+    return unless ["daily", "weekly", "monthly"].include?(value)
+
+    set_defaults
+    self.settings = settings.merge("tempo" => value)
   end
 
   sig { returns(String) }
   def tempo
-    self.settings['tempo'] || 'weekly'
+    settings["tempo"] || "weekly"
   end
 
   sig { returns(T.nilable(String)) }
   def tempo_unit
     case tempo
-    when 'daily'
-      'day'
-    when 'weekly'
-      'week'
-    when 'monthly'
-      'month'
-    when 'yearly'
-      'year'
+    when "daily"
+      "day"
+    when "weekly"
+      "week"
+    when "monthly"
+      "month"
+    when "yearly"
+      "year"
     end
   end
 
   sig { returns(T.nilable(String)) }
   def current_cycle_name
     case tempo
-    when 'daily'
-      'today'
-    when 'weekly'
-      'this-week'
-    when 'monthly'
-      'this-month'
-    when 'yearly'
-      'this-year'
+    when "daily"
+      "today"
+    when "weekly"
+      "this-week"
+    when "monthly"
+      "this-month"
+    when "yearly"
+      "this-year"
     end
   end
 
   sig { returns(String) }
   def current_cycle_path
-    "#{self.path}/cycles/#{current_cycle_name}"
+    "#{path}/cycles/#{current_cycle_name}"
   end
 
   sig { returns(T.nilable(String)) }
   def previous_cycle_name
     case tempo
-    when 'daily'
-      'yesterday'
-    when 'weekly'
-      'last-week'
-    when 'monthly'
-      'last-month'
-    when 'yearly'
-      'last-year'
+    when "daily"
+      "yesterday"
+    when "weekly"
+      "last-week"
+    when "monthly"
+      "last-month"
+    when "yearly"
+      "last-year"
     end
   end
 
   sig { returns(String) }
   def previous_cycle_path
-    "#{self.path}/cycles/#{previous_cycle_name}"
+    "#{path}/cycles/#{previous_cycle_name}"
   end
 
   sig { params(n: Integer).returns(ActiveSupport::TimeWithZone) }
@@ -270,25 +269,25 @@ class Superagent < ApplicationRecord
 
   sig { params(value: T.nilable(String)).void }
   def synchronization_mode=(value)
-    if ['improv', 'orchestra'].include?(value)
-      set_defaults
-      self.settings = self.settings.merge('synchronization_mode' => value)
-    end
+    return unless ["improv", "orchestra"].include?(value)
+
+    set_defaults
+    self.settings = settings.merge("synchronization_mode" => value)
   end
 
   sig { returns(String) }
   def synchronization_mode
-    self.settings['synchronization_mode'] || 'improv'
+    settings["synchronization_mode"] || "improv"
   end
 
   sig { returns(T::Boolean) }
   def improv?
-    self.synchronization_mode == 'improv'
+    synchronization_mode == "improv"
   end
 
   sig { returns(T::Boolean) }
   def orchestra?
-    self.synchronization_mode == 'orchestra'
+    synchronization_mode == "orchestra"
   end
 
   sig { params(flag_name: String).void }
@@ -303,7 +302,7 @@ class Superagent < ApplicationRecord
 
   sig { returns(Integer) }
   def file_storage_limit
-    self.settings['file_storage_limit'] || 100.megabytes
+    settings["file_storage_limit"] || 100.megabytes
   end
 
   sig { returns(String) }
@@ -355,17 +354,18 @@ class Superagent < ApplicationRecord
 
   sig { void }
   def create_trustee!
-    return if self.trustee_user
+    return if trustee_user
+
     trustee = User.create!(
-      name: self.name,
-      email: SecureRandom.uuid + '@not-a-real-email.com',
-      user_type: 'trustee',
+      name: name,
+      email: SecureRandom.uuid + "@not-a-real-email.com",
+      user_type: "trustee"
     )
     TenantUser.create!(
       tenant: tenant,
       user: trustee,
       display_name: trustee.name,
-      handle: SecureRandom.hex(16),
+      handle: SecureRandom.hex(16)
     )
     self.trustee_user = trustee
     save!
@@ -373,37 +373,37 @@ class Superagent < ApplicationRecord
 
   sig { params(time_window: ActiveSupport::Duration).returns(ActiveRecord::Relation) }
   def recent_notes(time_window: 1.week)
-    notes.where('created_at > ?', time_window.ago)
+    notes.where("created_at > ?", time_window.ago)
   end
 
   sig { returns(ActiveRecord::Relation) }
   def open_decisions
-    decisions.where('deadline > ?', Time.current)
+    decisions.where("deadline > ?", Time.current)
   end
 
   sig { returns(ActiveRecord::Relation) }
   def closed_decisions
-    decisions.where('deadline < ?', Time.current)
+    decisions.where("deadline < ?", Time.current)
   end
 
   sig { params(time_window: ActiveSupport::Duration).returns(ActiveRecord::Relation) }
   def recently_closed_decisions(time_window: 1.week)
-    closed_decisions.where('deadline > ?', time_window.ago)
+    closed_decisions.where("deadline > ?", time_window.ago)
   end
 
   sig { returns(ActiveRecord::Relation) }
   def open_commitments
-    commitments.where('deadline > ?', Time.current)
+    commitments.where("deadline > ?", Time.current)
   end
 
   sig { returns(ActiveRecord::Relation) }
   def closed_commitments
-    commitments.where('deadline < ?', Time.current)
+    commitments.where("deadline < ?", Time.current)
   end
 
   sig { params(time_window: ActiveSupport::Duration).returns(ActiveRecord::Relation) }
   def recently_closed_commitments(time_window: 1.week)
-    closed_commitments.where('deadline > ?', time_window.ago)
+    closed_commitments.where("deadline > ?", time_window.ago)
   end
 
   sig { returns(String) }
@@ -444,7 +444,7 @@ class Superagent < ApplicationRecord
     end
     sm = superagent_members.create!(
       tenant: tenant,
-      user: user,
+      user: user
     )
     sm.add_roles!(roles)
     sm
@@ -453,6 +453,34 @@ class Superagent < ApplicationRecord
   sig { params(user: User).returns(T::Boolean) }
   def user_is_member?(user)
     superagent_members.where(user: user).count > 0
+  end
+
+  # Check if a user can access this superagent.
+  # This consolidates access logic for all user types:
+  # - Normal members: check membership
+  # - Superagent trustees: require membership, except when accessing their own superagent
+  # - Trustee grant trustees: check grant scope AND granting_user membership
+  sig { params(user: User).returns(T::Boolean) }
+  def accessible_by?(user)
+    # Normal membership check first
+    return true if user_is_member?(user)
+
+    return false unless user.trustee?
+
+    if user.superagent_trustee?
+      # Superagent trustee accessing their own superagent
+      # Allow for now (ideally would be read-only, but that's out of scope)
+      return user.trustee_superagent == self
+    end
+
+    # Trustee grant trustee - check grant scope AND granting_user membership
+    grant = TrusteeGrant.find_by(trustee_user: user)
+    return false unless grant&.active?
+    return false unless grant.allows_studio?(self)
+
+    # Trustee can only access studios where granting_user is a member
+    # T.must is safe here because an active grant always has a granting_user
+    user_is_member?(T.must(grant.granting_user))
   end
 
   sig { params(limit: Integer).returns(T::Array[User]) }
@@ -469,7 +497,7 @@ class Superagent < ApplicationRecord
 
   sig { params(start_date: T.nilable(Time), end_date: T.nilable(Time), limit: Integer).returns(T.untyped) }
   def backlink_leaderboard(start_date: nil, end_date: nil, limit: 10)
-    Link.backlink_leaderboard(superagent_id: self.id)
+    Link.backlink_leaderboard(superagent_id: id)
   end
 
   sig { returns(T.noreturn) }
@@ -481,14 +509,14 @@ class Superagent < ApplicationRecord
   def find_or_create_shareable_invite(created_by)
     invite = Invite.where(
       superagent: self,
-      invited_user: nil,
-    ).where('expires_at > ?', Time.current + 2.days).first
+      invited_user: nil
+    ).where("expires_at > ?", 2.days.from_now).first
     if invite.nil?
       invite = Invite.create!(
         superagent: self,
         created_by: created_by,
         code: SecureRandom.hex(16),
-        expires_at: 1.week.from_now,
+        expires_at: 1.week.from_now
       )
     end
     invite
@@ -496,36 +524,35 @@ class Superagent < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def allow_invites?
-    open_to_all = !self.settings['invite_only']
-    all_members_can_invite = self.settings['all_members_can_invite']
+    open_to_all = !settings["invite_only"]
+    all_members_can_invite = settings["all_members_can_invite"]
     !!(open_to_all || all_members_can_invite)
   end
 
   sig { returns(T::Array[User]) }
   def representatives
-    T.unsafe(superagent_members).where_has_role('representative').map(&:user)
+    T.unsafe(superagent_members).where_has_role("representative").map(&:user)
   end
 
   sig { returns(T::Array[User]) }
   def admins
-    T.unsafe(superagent_members).where_has_role('admin').map(&:user)
+    T.unsafe(superagent_members).where_has_role("admin").map(&:user)
   end
 
   sig { returns(T::Boolean) }
   def all_members_can_invite?
-    !!self.settings['all_members_can_invite']
+    !!settings["all_members_can_invite"]
   end
 
   sig { returns(T::Boolean) }
   def any_member_can_represent?
-    !!self.settings['any_member_can_represent']
+    !!settings["any_member_can_represent"]
   end
 
   sig { returns(Cycle) }
   def current_cycle
     Cycle.new_from_superagent(self)
   end
-
 end
 
 # Constant alias for backwards compatibility (used in old migrations)

@@ -18,6 +18,8 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     @bob = create_user(email: "bob_#{SecureRandom.hex(4)}@example.com", name: "Bob")
     @tenant.add_user!(@alice)
     @tenant.add_user!(@bob)
+    # Create main superagent (required for sign_in_as to work)
+    @tenant.create_main_superagent!(created_by: @alice)
     @superagent = create_superagent(tenant: @tenant, created_by: @alice, handle: "trustee-grant-studio-#{SecureRandom.hex(4)}")
     @superagent.add_user!(@alice)
     @superagent.add_user!(@bob)
@@ -36,7 +38,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true, "vote" => true },
-      studio_scope: { "mode" => "all" },
+      studio_scope: { "mode" => "all" }
     )
 
     assert permission.pending?
@@ -56,7 +58,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       trustee_user: permission.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
+      activity_log: { "activity" => [] }
     )
 
     assert session.active?
@@ -69,19 +71,19 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       created_by: @bob, # In practice, this would be the trustee_user during representation
       title: "Note created while representing Alice",
       text: "This is a test note.",
-      deadline: 1.week.from_now,
+      deadline: 1.week.from_now
     )
 
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    mock_request = OpenStruct.new(request_id: "req-123", method: "POST", path: "/notes")
     session.record_activity!(
       request: mock_request,
       semantic_event: {
         timestamp: Time.current.iso8601,
-        event_type: 'create',
+        event_type: "create",
         superagent_id: @superagent.id,
-        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
+        main_resource: { type: "Note", id: note.id, truncated_id: note.truncated_id },
         sub_resources: [],
-      },
+      }
     )
 
     assert_equal 1, session.action_count
@@ -95,7 +97,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Step 6: Activity is preserved and visible
     assert_equal 1, session.human_readable_activity_log.count
     activity = session.human_readable_activity_log.first
-    assert_equal 'created', activity[:verb_phrase]
+    assert_equal "created", activity[:verb_phrase]
     assert_equal note, activity[:main_resource]
   end
 
@@ -105,7 +107,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_notes" => true }
     )
 
     permission.decline!
@@ -120,7 +122,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_notes" => true }
     )
     permission.accept!
 
@@ -139,7 +141,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
-      expires_at: 1.hour.from_now,
+      expires_at: 1.hour.from_now
     )
     permission.accept!
 
@@ -162,7 +164,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true, "vote" => false },
+      permissions: { "create_notes" => true, "vote" => false }
     )
     permission.accept!
 
@@ -182,18 +184,18 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true, "vote" => true },
+      permissions: { "create_notes" => true, "vote" => true }
     )
     permission.accept!
 
-    session = RepresentationSession.create!(
+    RepresentationSession.create!(
       tenant: @tenant,
       superagent: @superagent,
       representative_user: @bob,
       trustee_user: permission.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
+      activity_log: { "activity" => [] }
     )
 
     # Initially, vote is allowed
@@ -223,7 +225,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] },
+      studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] }
     )
     permission.accept!
 
@@ -249,7 +251,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] },
+      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
     )
     permission.accept!
 
@@ -266,7 +268,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       email: "subagent_#{SecureRandom.hex(4)}@example.com",
       name: "Alice's Bot",
       user_type: "subagent",
-      parent_id: @alice.id,
+      parent_id: @alice.id
     )
     @tenant.add_user!(subagent)
     @superagent.add_user!(subagent)
@@ -287,7 +289,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       trustee_user: permission.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
+      activity_log: { "activity" => [] }
     )
 
     assert session.persisted?
@@ -305,7 +307,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "Bob acts for Alice",
-      permissions: { "create_notes" => true },
+      permissions: { "create_notes" => true }
     )
     permission1.accept!
 
@@ -320,7 +322,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: carol,
       trusted_user: @bob,
       relationship_phrase: "Bob acts for Carol",
-      permissions: { "create_notes" => true },
+      permissions: { "create_notes" => true }
     )
     permission2.accept!
 
@@ -332,7 +334,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       trustee_user: permission1.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
+      activity_log: { "activity" => [] }
     )
 
     assert session1.active?
@@ -341,7 +343,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # (This constraint should be enforced by the controller/service layer)
     active_sessions = RepresentationSession.where(
       representative_user: @bob,
-      ended_at: nil,
+      ended_at: nil
     ).where("began_at > ?", 24.hours.ago)
 
     assert_equal 1, active_sessions.count
@@ -358,7 +360,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_notes" => true }
     )
     permission.accept!
 
@@ -369,7 +371,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       trustee_user: permission.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
+      activity_log: { "activity" => [] }
     )
 
     # The representative_user is Bob (the one doing the representing)
@@ -382,5 +384,134 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     # The trustee_user's name should indicate the trustee grant relationship
     assert_equal "Bob acts for Alice", permission.trustee_user.name
+  end
+
+  # =========================================================================
+  # HTTP ACCESS VALIDATION DURING USER REPRESENTATION SESSIONS
+  # These tests verify that the controller properly validates access to studios
+  # during user representation sessions, checking both:
+  # 1. The granting user's membership in the studio
+  # 2. The grant's studio scope configuration
+  # =========================================================================
+
+  test "user representation session denies access to studio where granting user is not a member" do
+    # Create a studio that only Bob is a member of (not Alice)
+    bobs_studio = create_superagent(tenant: @tenant, created_by: @bob, handle: "bobs-studio-#{SecureRandom.hex(4)}")
+    bobs_studio.add_user!(@bob)
+    # Alice is NOT a member of bobs_studio
+
+    # Alice grants Bob permission to act on her behalf
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trusted_user: @bob,
+      relationship_phrase: "Bob acts for Alice",
+      permissions: { "create_notes" => true },
+      studio_scope: { "mode" => "all" } # Grant allows all studios
+    )
+    grant.accept!
+
+    # Sign in as Bob
+    sign_in_as(@bob, tenant: @tenant)
+
+    # Bob starts a representation session via the controller endpoint
+    # Note: Bob accesses the grant through HIS own URL (as trusted_user), not Alice's
+    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
+
+    # Verify representation session started (should redirect to /representing)
+    assert_redirected_to "/representing"
+
+    # Now Bob (as trustee) tries to access bobs_studio
+    # Since Alice is not a member, this should be denied
+    get bobs_studio.path
+
+    # This test documents expected behavior:
+    # Access should be denied because Alice (granting_user) is not a member of bobs_studio.
+    # The trustee shouldn't be able to access studios the granting user can't access.
+    #
+    # If response is 200 and shows studio content, the validation is broken.
+    # Expected: either redirect to /representing, 403, or redirect to join page.
+    assert response.status != 200 || !response.body.include?(bobs_studio.name),
+           "User representation session should not allow access to studios where granting user is not a member. " \
+           "Got status #{response.status}"
+  end
+
+  test "user representation session denies access to studio excluded by grant scope" do
+    # Create another studio that both Alice and Bob are members of
+    excluded_studio = create_superagent(tenant: @tenant, created_by: @alice, handle: "excluded-studio-#{SecureRandom.hex(4)}")
+    excluded_studio.add_user!(@alice)
+    excluded_studio.add_user!(@bob)
+
+    # Alice grants Bob permission, but excludes this studio
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trusted_user: @bob,
+      relationship_phrase: "Bob acts for Alice",
+      permissions: { "create_notes" => true },
+      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
+    )
+    grant.accept!
+
+    # Verify grant scope configuration
+    assert grant.allows_studio?(@superagent)
+    assert_not grant.allows_studio?(excluded_studio)
+
+    # Sign in as Bob
+    sign_in_as(@bob, tenant: @tenant)
+
+    # Bob starts a representation session via the controller endpoint
+    # Note: Bob accesses the grant through HIS own URL (as trusted_user), not Alice's
+    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
+
+    # Verify representation session started
+    assert_redirected_to "/representing"
+
+    # Now Bob (as trustee) tries to access the excluded studio
+    # Since the grant excludes this studio, access should be denied
+    get excluded_studio.path
+
+    # Expected behavior: Should deny access because the grant's studio_scope excludes this studio
+    assert response.status != 200 || !response.body.include?(excluded_studio.name),
+           "User representation session should not allow access to studios excluded by grant scope. " \
+           "Got status #{response.status}"
+  end
+
+  test "user representation session allows access to studio in grant scope where granting user is member" do
+    # This is the positive case - access should work
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trusted_user: @bob,
+      relationship_phrase: "Bob acts for Alice",
+      permissions: { "create_notes" => true },
+      studio_scope: { "mode" => "all" }
+    )
+    grant.accept!
+
+    # Alice is already a member of @superagent (from setup)
+    assert @superagent.superagent_members.exists?(user: @alice)
+    assert grant.allows_studio?(@superagent)
+
+    # Sign in as Bob
+    sign_in_as(@bob, tenant: @tenant)
+
+    # Bob starts a representation session via the controller endpoint
+    # Note: Bob accesses the grant through HIS own URL (as trusted_user), not Alice's
+    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
+
+    # Verify representation session started
+    assert_redirected_to "/representing"
+
+    # Follow the redirect to /representing first
+    follow_redirect!
+
+    # Now Bob (as trustee) accesses the allowed studio
+    get @superagent.path
+
+    # Access should be allowed - we should see the studio content, not a redirect to join
+    assert_response :success,
+                    "User representation session should allow access to studios in grant scope where granting user is a member. " \
+                    "Got status #{response.status}"
   end
 end
