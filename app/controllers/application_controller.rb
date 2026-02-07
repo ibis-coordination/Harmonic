@@ -121,46 +121,159 @@ class ApplicationController < ActionController::Base
       request.path.starts_with?("/api/") # Allow all API endpoints
   end
 
+  # Determines the current user for this request.
+  #
+  # There are two authentication paths:
+  # 1. API token authentication (Authorization header present)
+  # 2. Browser session authentication (cookie-based)
+  #
+  # For browser sessions, there's an "identity stack" that can layer multiple identities:
+  # - Base layer: Person user (the logged-in human)
+  # - Impersonation layer: Subagent user (if person is impersonating their AI agent)
+  # - Representation layer: Trustee user (if person/subagent is acting on behalf of another user)
+  #
+  # The effective current_user is the topmost valid identity in this stack.
   def current_user
     return @current_user if defined?(@current_user)
 
-    if api_token_present?
-      api_authorize!
-      # NOTE: must set @current_user before calling validate_scope to avoid infinite loop
-      @current_user = @current_token&.user
-      return nil if @current_user.nil?
+    @current_user = if api_token_present?
+                      resolve_api_user
+                    else
+                      resolve_browser_session_user
+                    end
+  end
 
-      validate_scope
-      # How do we handle representation through the API?
-      return @current_user
-    end
-    @current_person_user = User.find_by(id: session[:user_id], user_type: "person") if session[:user_id].present?
-    @current_subagent_user = User.find_by(id: session[:subagent_user_id], user_type: "subagent") if session[:subagent_user_id].present?
-    @current_trustee_user = User.find_by(id: session[:trustee_user_id], user_type: "trustee") if session[:trustee_user_id].present?
-    if @current_subagent_user && @current_person_user&.can_impersonate?(@current_subagent_user)
-      @current_user = @current_subagent_user
-    elsif @current_subagent_user
+  private
+
+  # Resolves user identity for API token-authenticated requests.
+  #
+  # Currently, API requests always operate as the token's user directly.
+  # TODO: Implement API representation via X-Represent-As header to allow
+  # API callers to act as a trustee when they have an active TrusteeGrant.
+  def resolve_api_user
+    api_authorize!
+    # NOTE: must set @current_user before calling validate_scope to avoid infinite loop
+    user = @current_token&.user
+    return nil if user.nil?
+
+    # Set @current_user temporarily for validate_scope (which calls current_user)
+    @current_user = user
+    validate_scope
+
+    # TODO: Handle representation through the API
+    # When implementing, check for X-Represent-As header containing trustee_user_id,
+    # validate that the token's user is the trusted_user for that trustee's grant,
+    # and if valid, return the trustee_user instead.
+
+    user
+  end
+
+  # Resolves user identity for browser session-authenticated requests.
+  #
+  # Handles the identity stack: person → subagent → trustee
+  # Each layer is validated before being applied.
+  def resolve_browser_session_user
+    load_session_users
+    resolve_effective_identity
+    validate_access
+    @current_user
+  end
+
+  # Loads user records from session data.
+  #
+  # Session keys and their purposes:
+  # - :user_id - The logged-in person user (only person users can log in via browser)
+  # - :subagent_user_id - The subagent being impersonated (if any)
+  # - :trustee_user_id - The trustee identity for representation (if any)
+  #
+  # Each lookup explicitly filters by user_type to ensure type safety.
+  def load_session_users
+    @current_person_user = if session[:user_id].present?
+                             User.find_by(id: session[:user_id], user_type: "person")
+                           end
+    @current_subagent_user = if session[:subagent_user_id].present?
+                               User.find_by(id: session[:subagent_user_id], user_type: "subagent")
+                             end
+    @current_trustee_user = if session[:trustee_user_id].present?
+                              User.find_by(id: session[:trustee_user_id], user_type: "trustee")
+                            end
+  end
+
+  # Determines the effective user from the identity stack.
+  #
+  # The stack is evaluated bottom-up:
+  # 1. Start with the person user (base layer)
+  # 2. Apply impersonation if valid (person → subagent)
+  # 3. Apply representation if valid (person/subagent → trustee)
+  #
+  # If any layer is invalid (e.g., impersonation no longer allowed),
+  # the entire impersonation/representation state is cleared.
+  def resolve_effective_identity
+    # Start with the base identity (person user)
+    @current_user = @current_person_user
+
+    # Try to apply impersonation layer
+    @current_user = apply_impersonation_layer(@current_user)
+
+    # Try to apply representation layer
+    @current_user = apply_representation_layer(@current_user)
+
+    # Ensure we have a user (could be nil if not logged in)
+    @current_user ||= @current_person_user
+  end
+
+  # Applies the impersonation layer if valid.
+  #
+  # A person user can impersonate a subagent user if:
+  # - There's a subagent_user_id in the session
+  # - The person user has permission to impersonate that subagent (via can_impersonate?)
+  #
+  # @param base_user [User, nil] The current effective user (should be person user)
+  # @return [User, nil] The subagent user if impersonation is valid, otherwise base_user
+  def apply_impersonation_layer(base_user)
+    return base_user unless @current_subagent_user
+
+    if base_user&.can_impersonate?(@current_subagent_user)
+      @current_subagent_user
+    else
+      # Impersonation is no longer valid - clear all layers
       clear_impersonations_and_representations!
       @current_subagent_user = nil
-      @current_user = @current_person_user
-    else
-      @current_user = @current_person_user
+      @current_person_user
     end
-    if @current_trustee_user && @current_user&.is_trusted_as?(@current_trustee_user)
-      @current_user = @current_trustee_user
-    elsif @current_trustee_user
+  end
+
+  # Applies the representation layer if valid.
+  #
+  # A user (person or subagent) can represent as a trustee user if:
+  # - There's a trustee_user_id in the session
+  # - The current user is authorized to use that trustee identity (via is_trusted_as?)
+  #
+  # @param base_user [User, nil] The current effective user (person or subagent)
+  # @return [User, nil] The trustee user if representation is valid, otherwise base_user
+  def apply_representation_layer(base_user)
+    return base_user unless @current_trustee_user
+
+    if base_user&.is_trusted_as?(@current_trustee_user)
+      @current_trustee_user
+    else
+      # Representation is no longer valid - clear all layers
       clear_impersonations_and_representations!
       @current_trustee_user = nil
-      @current_user = @current_person_user
+      @current_person_user
     end
-    @current_user ||= @current_person_user
+  end
+
+  # Validates access for the resolved user identity.
+  def validate_access
     if @current_user
       validate_authenticated_access
     else
       validate_unauthenticated_access
     end
-    @current_user
   end
+
+  public
 
   def current_invite
     return @current_invite if defined?(@current_invite)

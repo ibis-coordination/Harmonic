@@ -143,11 +143,26 @@ class User < ApplicationRecord
   end
 
   # Check if this user is authorized to use the given trustee identity.
-  # Used to validate that a trustee_user_id in the session belongs to a grant where self is the trusted_user.
+  # Used to validate that a trustee_user_id in the session is legitimate.
+  #
+  # There are two types of trustees:
+  # 1. Superagent trustees (studio representation) - created when someone represents a studio
+  # 2. TrusteeGrant trustees (user representation) - created when someone represents another user
+  #
+  # For superagent trustees, we check if self can represent the superagent.
+  # For TrusteeGrant trustees, we check if there's an active grant where self is the trusted_user.
   sig { params(trustee_user: User).returns(T::Boolean) }
   def is_trusted_as?(trustee_user)
     return false unless trustee_user.trustee?
 
+    # Case 1: Superagent trustee (studio representation)
+    if trustee_user.superagent_trustee?
+      superagent = trustee_user.trustee_superagent
+      return can_represent?(superagent) if superagent
+      return false
+    end
+
+    # Case 2: TrusteeGrant trustee (user representation)
     grant = TrusteeGrant.active.find_by(
       trustee_user: trustee_user,
       trusted_user: self
