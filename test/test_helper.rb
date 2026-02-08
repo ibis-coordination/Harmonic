@@ -82,7 +82,7 @@ class ActiveSupport::TestCase
       # so it's necessary to manually delete association records first, before the referenced records, to avoid foreign key violations.
       WebhookDelivery, Webhook,
       NotificationRecipient, Notification, Event,
-      RepresentationSessionAssociation, RepresentationSession,
+      RepresentationSessionEvent, RepresentationSessionAssociation, RepresentationSession,
       Link, NoteHistoryEvent, Note,
       Vote, Option, DecisionParticipant, Decision,
       CommitmentParticipant, Commitment,

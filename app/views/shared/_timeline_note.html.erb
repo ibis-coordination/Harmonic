@@ -1,8 +1,17 @@
 <div class="timeline-note" onclick="location.href='<%= note.path %>'">
   <div class="timeline-note-created-by">
-    <%= profile_pic(note.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
-    <strong><%= note.created_by.display_name %></strong>
-    <%= link_to "@#{note.created_by.handle}", note.created_by.path %>
+    <% if note.respond_to?(:created_via_representation?) && note.created_via_representation? && note.representative_user %>
+      <%# Representation: show "Alice on behalf of Bob" %>
+      <%= profile_pic(note.representative_user, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
+      <strong><%= note.representative_user.display_name %></strong>
+      <%= link_to "@#{note.representative_user.handle}", note.representative_user.path %>
+      <span class="representation-attribution">on behalf of <%= link_to note.created_by.display_name, note.created_by.path %></span>
+    <% else %>
+      <%# Normal case %>
+      <%= profile_pic(note.created_by, size: 20, style: 'vertical-align:bottom;margin-right:0;margin-bottom:0px;') %>
+      <strong><%= note.created_by.display_name %></strong>
+      <%= link_to "@#{note.created_by.handle}", note.created_by.path %>
+    <% end %>
     <span style="opacity:0.6;">- <%= timeago(note.created_at) %></span>
   </div>
   <div class="timeline-note-text" style="white-space:pre-line;"><a href="<%= note.path %>" class="a-tag-sans-link-style"><%= note.text.truncate(512) %></a></div>

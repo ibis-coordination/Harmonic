@@ -46,21 +46,28 @@
       <span><%= display_type %></span>
     </div>
     <div class="pulse-feed-item-meta">
-      <% if created_by %>
+      <%
+        is_representation = item.respond_to?(:created_via_representation?) && item.created_via_representation? && item.representative_user
+        display_author = is_representation ? item.representative_user : created_by
+      %>
+      <% if display_author %>
         <%
-          name = created_by.display_name || created_by.handle || "?"
+          name = display_author.display_name || display_author.handle || "?"
           parts = name.to_s.split(/[\s\-_]+/)
           initials = parts.length >= 2 ? "#{parts[0][0]}#{parts[1][0]}".upcase : name[0..1].upcase
         %>
-        <a href="<%= created_by.path %>" class="pulse-feed-item-author">
-          <div class="pulse-author-avatar" title="<%= created_by.display_name %>">
+        <a href="<%= display_author.path %>" class="pulse-feed-item-author">
+          <div class="pulse-author-avatar" title="<%= display_author.display_name %>">
             <span class="pulse-avatar-initials"><%= initials %></span>
-            <% if created_by.image_url.present? && created_by.image_url != '/placeholder.png' %>
-              <img src="<%= created_by.image_url %>" alt="<%= created_by.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
+            <% if display_author.image_url.present? && display_author.image_url != '/placeholder.png' %>
+              <img src="<%= display_author.image_url %>" alt="<%= display_author.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
             <% end %>
           </div>
-          <span><%= created_by.display_name %></span>
+          <span><%= display_author.display_name %></span>
         </a>
+        <% if is_representation %>
+          <span class="pulse-representation-label">on behalf of <%= link_to created_by.display_name, created_by.path %></span>
+        <% end %>
       <% else %>
         <span>Anonymous</span>
       <% end %>

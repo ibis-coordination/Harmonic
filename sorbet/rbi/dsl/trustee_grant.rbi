@@ -321,9 +321,6 @@ class TrusteeGrant
     def build_tenant(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def build_trusted_user(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_trustee_user(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
@@ -337,12 +334,6 @@ class TrusteeGrant
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_trusted_user(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_trusted_user!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_trustee_user(*args, &blk); end
@@ -361,9 +352,6 @@ class TrusteeGrant
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
-
-    sig { returns(T.nilable(::User)) }
-    def reload_trusted_user; end
 
     sig { returns(T.nilable(::User)) }
     def reload_trustee_user; end
@@ -389,9 +377,6 @@ class TrusteeGrant
     def reset_tenant; end
 
     sig { void }
-    def reset_trusted_user; end
-
-    sig { void }
     def reset_trustee_user; end
 
     sig { returns(T.nilable(::Tenant)) }
@@ -399,12 +384,6 @@ class TrusteeGrant
 
     sig { params(value: T.nilable(::Tenant)).void }
     def tenant=(value); end
-
-    sig { returns(T.nilable(::User)) }
-    def trusted_user; end
-
-    sig { params(value: T.nilable(::User)).void }
-    def trusted_user=(value); end
 
     sig { returns(T.nilable(::User)) }
     def trustee_user; end
@@ -1027,9 +1006,6 @@ class TrusteeGrant
     def restore_truncated_id!; end
 
     sig { void }
-    def restore_trusted_user_id!; end
-
-    sig { void }
     def restore_trustee_user_id!; end
 
     sig { void }
@@ -1161,12 +1137,6 @@ class TrusteeGrant
 
     sig { returns(T::Boolean) }
     def saved_change_to_truncated_id?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_trusted_user_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_trusted_user_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_trustee_user_id; end
@@ -1316,51 +1286,6 @@ class TrusteeGrant
     def truncated_id_will_change!; end
 
     sig { returns(::String) }
-    def trusted_user_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def trusted_user_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def trusted_user_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def trusted_user_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def trusted_user_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def trusted_user_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def trusted_user_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def trusted_user_id_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def trusted_user_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def trusted_user_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def trusted_user_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def trusted_user_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def trusted_user_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def trusted_user_id_was; end
-
-    sig { void }
-    def trusted_user_id_will_change!; end
-
-    sig { returns(::String) }
     def trustee_user_id; end
 
     sig { params(value: ::String).returns(::String) }
@@ -1485,9 +1410,6 @@ class TrusteeGrant
 
     sig { returns(T::Boolean) }
     def will_save_change_to_truncated_id?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_trusted_user_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_trustee_user_id?; end

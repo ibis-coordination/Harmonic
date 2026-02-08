@@ -1,4 +1,4 @@
-\restrict 2hmw5n7oUGuJ8vCsH7XQmqPcleFOELEHl3zJ3EtCOMhdM8k8l7vaIVaeDauGtV0
+\restrict Yc8NYDNwN5a8B2xZ7hvs5hPCxYhdUDWblr0WRYezMHfMSVQ7XoupE45eHmGzcdX
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -586,6 +586,27 @@ CREATE TABLE public.representation_session_associations (
     resource_type character varying NOT NULL,
     resource_id uuid NOT NULL,
     resource_superagent_id uuid NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: representation_session_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.representation_session_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid,
+    representation_session_id uuid NOT NULL,
+    action_name character varying NOT NULL,
+    resource_type character varying NOT NULL,
+    resource_id uuid NOT NULL,
+    context_resource_type character varying,
+    context_resource_id uuid,
+    resource_superagent_id uuid NOT NULL,
+    request_id character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -2206,6 +2227,14 @@ ALTER TABLE ONLY public.representation_session_associations
 
 
 --
+-- Name: representation_session_events representation_session_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT representation_session_events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: representation_sessions representation_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2593,6 +2622,48 @@ CREATE INDEX idx_members_superagent_id ON public.superagent_members USING btree 
 --
 
 CREATE UNIQUE INDEX idx_members_tenant_superagent_user ON public.superagent_members USING btree (tenant_id, superagent_id, user_id);
+
+
+--
+-- Name: idx_rep_events_context; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_context ON public.representation_session_events USING btree (tenant_id, context_resource_type, context_resource_id);
+
+
+--
+-- Name: idx_rep_events_request; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_request ON public.representation_session_events USING btree (tenant_id, request_id);
+
+
+--
+-- Name: idx_rep_events_resource_action; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_resource_action ON public.representation_session_events USING btree (tenant_id, resource_type, resource_id, action_name);
+
+
+--
+-- Name: idx_rep_events_resource_superagent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_resource_superagent ON public.representation_session_events USING btree (resource_superagent_id);
+
+
+--
+-- Name: idx_rep_events_session_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_session_id ON public.representation_session_events USING btree (representation_session_id);
+
+
+--
+-- Name: idx_rep_events_session_timeline; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_session_timeline ON public.representation_session_events USING btree (tenant_id, representation_session_id, created_at);
 
 
 --
@@ -3356,6 +3427,20 @@ CREATE INDEX index_representation_session_associations_on_superagent_id ON publi
 --
 
 CREATE INDEX index_representation_session_associations_on_tenant_id ON public.representation_session_associations USING btree (tenant_id);
+
+
+--
+-- Name: index_representation_session_events_on_superagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_representation_session_events_on_superagent_id ON public.representation_session_events USING btree (superagent_id);
+
+
+--
+-- Name: index_representation_session_events_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_representation_session_events_on_tenant_id ON public.representation_session_events USING btree (tenant_id);
 
 
 --
@@ -7670,6 +7755,14 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
+-- Name: representation_session_events fk_rails_649adaf955; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT fk_rails_649adaf955 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: heartbeats fk_rails_65aa64ba75; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7779,6 +7872,22 @@ ALTER TABLE ONLY public.attachments
 
 ALTER TABLE ONLY public.superagents
     ADD CONSTRAINT fk_rails_8d8050599b FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: representation_session_events fk_rails_8dca449045; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT fk_rails_8dca449045 FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
+
+
+--
+-- Name: representation_session_events fk_rails_901c70e333; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT fk_rails_901c70e333 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -8134,10 +8243,18 @@ ALTER TABLE ONLY public.representation_sessions
 
 
 --
+-- Name: representation_session_events fk_rails_fe84af3d85; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT fk_rails_fe84af3d85 FOREIGN KEY (representation_session_id) REFERENCES public.representation_sessions(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 2hmw5n7oUGuJ8vCsH7XQmqPcleFOELEHl3zJ3EtCOMhdM8k8l7vaIVaeDauGtV0
+\unrestrict Yc8NYDNwN5a8B2xZ7hvs5hPCxYhdUDWblr0WRYezMHfMSVQ7XoupE45eHmGzcdX
 
 SET search_path TO "$user", public;
 
@@ -8279,6 +8396,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260207085452'),
 ('20260207141046'),
 ('20260208044921'),
-('20260208054634');
+('20260208054634'),
+('20260208112506');
 
 

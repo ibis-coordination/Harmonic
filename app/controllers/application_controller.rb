@@ -820,25 +820,48 @@ class ApplicationController < ActionController::Base
     @pin_click_title = "Click to " + (@is_pinned ? "unpin from " : "pin to ") + pin_destination
   end
 
-  def api_helper
-    @api_helper ||= ApiHelper.new(
-      current_user: current_user,
-      current_superagent: current_superagent,
-      current_tenant: current_tenant,
-      current_representation_session: current_representation_session,
-      current_cycle: current_cycle,
-      current_heartbeat: current_heartbeat,
-      current_resource_model: current_resource_model,
-      current_resource: current_resource,
-      current_note: current_note,
-      current_decision: current_decision,
-      current_decision_participant: current_decision_participant,
-      current_commitment: current_commitment,
-      current_commitment_participant: current_commitment_participant,
-      model_params: model_params,
-      params: params,
-      request: request
-    )
+  def api_helper(params: nil)
+    # If params are provided, create a new instance with those params
+    # Otherwise, use the memoized instance with controller params
+    if params
+      ApiHelper.new(
+        current_user: current_user,
+        current_superagent: current_superagent,
+        current_tenant: current_tenant,
+        current_representation_session: current_representation_session,
+        current_cycle: current_cycle,
+        current_heartbeat: current_heartbeat,
+        current_resource_model: current_resource_model,
+        current_resource: current_resource,
+        current_note: current_note,
+        current_decision: current_decision,
+        current_decision_participant: current_decision_participant,
+        current_commitment: current_commitment,
+        current_commitment_participant: current_commitment_participant,
+        model_params: params,
+        params: params,
+        request: request
+      )
+    else
+      @api_helper ||= ApiHelper.new(
+        current_user: current_user,
+        current_superagent: current_superagent,
+        current_tenant: current_tenant,
+        current_representation_session: current_representation_session,
+        current_cycle: current_cycle,
+        current_heartbeat: current_heartbeat,
+        current_resource_model: current_resource_model,
+        current_resource: current_resource,
+        current_note: current_note,
+        current_decision: current_decision,
+        current_decision_participant: current_decision_participant,
+        current_commitment: current_commitment,
+        current_commitment_participant: current_commitment_participant,
+        model_params: model_params,
+        params: self.params,
+        request: request
+      )
+    end
   end
 
   def create_comment

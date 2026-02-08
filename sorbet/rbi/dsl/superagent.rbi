@@ -630,6 +630,20 @@ class Superagent
     def representation_session_associations=(value); end
 
     sig { returns(T::Array[T.untyped]) }
+    def representation_session_event_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def representation_session_event_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :representation_session_events`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::RepresentationSessionEvent::PrivateCollectionProxy) }
+    def representation_session_events; end
+
+    sig { params(value: T::Enumerable[::RepresentationSessionEvent]).void }
+    def representation_session_events=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def representation_session_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }

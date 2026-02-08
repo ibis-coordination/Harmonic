@@ -342,9 +342,6 @@ class RepresentationSession
     sig { params(args: T.untyped, blk: T.untyped).returns(::TrusteeGrant) }
     def build_trustee_grant(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def build_trustee_user(*args, &blk); end
-
     sig { returns(T::Array[T.untyped]) }
     def comment_ids; end
 
@@ -383,12 +380,6 @@ class RepresentationSession
     sig { params(args: T.untyped, blk: T.untyped).returns(::TrusteeGrant) }
     def create_trustee_grant!(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_trustee_user(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_trustee_user!(*args, &blk); end
-
     sig { returns(T::Array[T.untyped]) }
     def link_ids; end
 
@@ -415,9 +406,6 @@ class RepresentationSession
     sig { returns(T.nilable(::TrusteeGrant)) }
     def reload_trustee_grant; end
 
-    sig { returns(T.nilable(::User)) }
-    def reload_trustee_user; end
-
     sig { returns(T::Array[T.untyped]) }
     def representation_session_association_ids; end
 
@@ -431,6 +419,20 @@ class RepresentationSession
 
     sig { params(value: T::Enumerable[::RepresentationSessionAssociation]).void }
     def representation_session_associations=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def representation_session_event_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def representation_session_event_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `RepresentationSession` class because it declared `has_many :representation_session_events`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::RepresentationSessionEvent::PrivateCollectionProxy) }
+    def representation_session_events; end
+
+    sig { params(value: T::Enumerable[::RepresentationSessionEvent]).void }
+    def representation_session_events=(value); end
 
     sig { returns(T.nilable(::User)) }
     def representative_user; end
@@ -450,9 +452,6 @@ class RepresentationSession
     sig { void }
     def reset_trustee_grant; end
 
-    sig { void }
-    def reset_trustee_user; end
-
     sig { returns(T.nilable(::Superagent)) }
     def superagent; end
 
@@ -470,12 +469,6 @@ class RepresentationSession
 
     sig { params(value: T.nilable(::TrusteeGrant)).void }
     def trustee_grant=(value); end
-
-    sig { returns(T.nilable(::User)) }
-    def trustee_user; end
-
-    sig { params(value: T.nilable(::User)).void }
-    def trustee_user=(value); end
   end
 
   module GeneratedAssociationRelationMethods
@@ -1018,9 +1011,6 @@ class RepresentationSession
     def restore_trustee_grant_id!; end
 
     sig { void }
-    def restore_trustee_user_id!; end
-
-    sig { void }
     def restore_updated_at!; end
 
     sig { returns(T.nilable([T.untyped, T.untyped])) }
@@ -1088,12 +1078,6 @@ class RepresentationSession
 
     sig { returns(T::Boolean) }
     def saved_change_to_trustee_grant_id?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_trustee_user_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_trustee_user_id?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
@@ -1281,51 +1265,6 @@ class RepresentationSession
     sig { void }
     def trustee_grant_id_will_change!; end
 
-    sig { returns(::String) }
-    def trustee_user_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def trustee_user_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def trustee_user_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def trustee_user_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def trustee_user_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def trustee_user_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def trustee_user_id_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def trustee_user_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def trustee_user_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def trustee_user_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id_was; end
-
-    sig { void }
-    def trustee_user_id_will_change!; end
-
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
 
@@ -1403,9 +1342,6 @@ class RepresentationSession
 
     sig { returns(T::Boolean) }
     def will_save_change_to_trustee_grant_id?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_trustee_user_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_updated_at?; end

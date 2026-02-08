@@ -7,54 +7,28 @@ module Api::V1
     end
 
     def create
-      begin
-        note = api_helper.create_note
-        render json: note.api_json
-      rescue ActiveRecord::RecordInvalid => e
-        render json: { error: e.message }, status: 400
-      end
+      note = api_helper.create_note
+      render json: note.api_json
+    rescue ActiveRecord::RecordInvalid => e
+      render json: { error: e.message }, status: 400
     end
 
     def update
-      note = current_note
-      return render json: { error: 'Note not found' }, status: 404 unless note
-      updatable_attributes.each do |attribute|
-        note[attribute] = params[attribute] if params.has_key?(attribute)
-      end
-      if note.changed?
-        note.updated_by = current_user
-        ActiveRecord::Base.transaction do
-          note.save!
-          if current_representation_session
-            current_representation_session.record_activity!(
-              request: request,
-              semantic_event: {
-                timestamp: Time.current,
-                event_type: 'update',
-                superagent_id: current_superagent.id,
-                main_resource: {
-                  type: 'Note',
-                  id: note.id,
-                  truncated_id: note.truncated_id,
-                },
-                sub_resources: [],
-              }
-            )
-          end
-        end
-      end
+      note = api_helper.update_note
       render json: note.api_json
+    rescue ActiveRecord::RecordNotFound
+      render json: { error: 'Note not found' }, status: 404
+    rescue StandardError => e
+      if e.message.include?('Unauthorized')
+        render json: { error: 'Unauthorized' }, status: 403
+      else
+        render json: { error: e.message }, status: 400
+      end
     end
 
     def confirm
       history_event = api_helper.confirm_read
       render json: history_event.api_json
-    end
-
-    private
-
-    def updatable_attributes
-      [:title, :text, :deadline]
     end
   end
 end

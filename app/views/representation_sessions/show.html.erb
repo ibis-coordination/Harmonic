@@ -39,8 +39,8 @@
       </div>
     <% end %>
 
-    <%= render 'shared/pulse_accordion', title: 'Actions', open: true, count: @representation_session.human_readable_activity_log.length do %>
-      <% if @representation_session.human_readable_activity_log.empty? %>
+    <%= render 'shared/pulse_accordion', title: 'Actions', open: true, count: @representation_session.activity_log_entries.length do %>
+      <% if @representation_session.activity_log_entries.empty? %>
         <p class="pulse-empty-content"><em>No actions were performed during this session.</em></p>
       <% else %>
         <p>
@@ -57,7 +57,7 @@
             </tr>
           </thead>
           <tbody>
-            <% @representation_session.human_readable_activity_log.each.with_index do |activity_item, i| %>
+            <% @representation_session.activity_log_entries.each.with_index do |activity_item, i| %>
               <tr>
                 <td><%= i + 1 %></td>
                 <td><%= activity_item[:happened_at].to_time.in_time_zone(@current_superagent.timezone.name).strftime('%H:%M %Z') %></td>
@@ -69,8 +69,8 @@
                   </a>
                 </td>
                 <td>
-                  <% if activity_item[:studio] %>
-                    <a href="<%= activity_item[:studio].path %>" class="pulse-link"><%= activity_item[:studio].name %></a>
+                  <% if activity_item[:superagent] %>
+                    <a href="<%= activity_item[:superagent].path %>" class="pulse-link"><%= activity_item[:superagent].name %></a>
                   <% end %>
                 </td>
               </tr>

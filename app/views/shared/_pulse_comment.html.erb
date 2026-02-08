@@ -3,17 +3,32 @@
 <% show_reply_button = local_assigns.fetch(:show_reply_button, true) %>
 <div class="pulse-comment" id="n-<%= comment.truncated_id %>">
   <div class="pulse-comment-header">
-    <div class="pulse-author-avatar">
-      <% if comment.created_by.image.attached? %>
-        <img src="<%= comment.created_by.image_path %>" alt="" class="pulse-avatar-img">
+    <% if comment.respond_to?(:created_via_representation?) && comment.created_via_representation? && comment.representative_user %>
+      <%# Representation: show "Alice on behalf of Bob" %>
+      <div class="pulse-author-avatar">
+        <% if comment.representative_user.image.attached? %>
+          <img src="<%= comment.representative_user.image_path %>" alt="" class="pulse-avatar-img">
+        <% end %>
+        <span class="pulse-avatar-initials"><%= comment.representative_user.display_name.first.upcase %></span>
+      </div>
+      <a href="<%= comment.representative_user.path %>" class="pulse-comment-author">
+        <%= comment.representative_user.display_name %>
+      </a>
+      <span class="pulse-representation-label">on behalf of <%= link_to comment.created_by.display_name, comment.created_by.path %></span>
+    <% else %>
+      <%# Normal case: show created_by %>
+      <div class="pulse-author-avatar">
+        <% if comment.created_by.image.attached? %>
+          <img src="<%= comment.created_by.image_path %>" alt="" class="pulse-avatar-img">
+        <% end %>
+        <span class="pulse-avatar-initials"><%= comment.created_by.display_name.first.upcase %></span>
+      </div>
+      <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
+        <%= comment.created_by.display_name %>
+      </a>
+      <% if comment.created_by.subagent? && comment.created_by.parent %>
+        <span class="pulse-subagent-label">(managed by <%= link_to comment.created_by.parent.display_name, comment.created_by.parent.path %>)</span>
       <% end %>
-      <span class="pulse-avatar-initials"><%= comment.created_by.display_name.first.upcase %></span>
-    </div>
-    <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
-      <%= comment.created_by.display_name %>
-    </a>
-    <% if comment.created_by.subagent? && comment.created_by.parent %>
-      <span class="pulse-subagent-label">(managed by <%= link_to comment.created_by.parent.display_name, comment.created_by.parent.path %>)</span>
     <% end %>
     <a href="<%= comment.path %>" class="pulse-comment-timestamp"><%= timeago(comment.created_at) %></a>
     <%# Show task run link if the current user owns the subagent that created this comment %>

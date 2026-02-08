@@ -52,7 +52,7 @@
     <% end %>
     <% if @current_representation_session %>
       <div class="pulse-session-banner pulse-alert">
-        <span>You are acting as a representative of <%= @current_representation_session.represented_user&.display_name || @current_representation_session.superagent&.name %>.</span>
+        <span>You are acting on behalf of <%= @current_representation_session.represented_user&.display_name || @current_representation_session.superagent&.name %>.</span>
         <% if @current_representation_session.user_representation? %>
           <%= button_to "End Session", "/representing", method: :delete, class: "pulse-banner-btn" %>
         <% else %>

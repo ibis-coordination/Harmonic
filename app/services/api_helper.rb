@@ -164,6 +164,11 @@ class ApiHelper
             sub_resources: [],
           }
         )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "send_heartbeat",
+          resource: heartbeat
+        )
       end
     end
     T.must(heartbeat)
@@ -195,6 +200,12 @@ class ApiHelper
             },
             sub_resources: [],
           }
+        )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: commentable.present? ? "add_comment" : "create_note",
+          resource: note,
+          context_resource: commentable
         )
       end
     end
@@ -228,6 +239,11 @@ class ApiHelper
             sub_resources: [],
           }
         )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "create_decision",
+          resource: decision
+        )
       end
     end
     T.must(decision)
@@ -235,15 +251,99 @@ class ApiHelper
 
   sig { returns(Commitment) }
   def create_commitment
-    raise NotImplementedError
+    commitment = T.let(nil, T.nilable(Commitment))
+    ActiveRecord::Base.transaction do
+      commitment = Commitment.create!(
+        title: params[:title],
+        description: params[:description],
+        deadline: params[:deadline],
+        critical_mass: params[:critical_mass],
+        created_by: current_user,
+      )
+      # Handle close_at_critical_mass option
+      if params[:close_at_critical_mass] == true || params[:close_at_critical_mass] == "true"
+        commitment.limit = commitment.critical_mass
+        commitment.save!
+      end
+      track_task_run_resource(commitment, action_type: "create")
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: "create",
+            superagent_id: current_superagent.id,
+            main_resource: {
+              type: "Commitment",
+              id: commitment.id,
+              truncated_id: commitment.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "create_commitment",
+          resource: commitment
+        )
+      end
+    end
+    T.must(commitment)
+  end
+
+  sig { returns(CommitmentParticipant) }
+  def join_commitment
+    commitment = T.must(current_commitment)
+    raise "Commitment is closed" if commitment.closed?
+
+    participant = T.let(nil, T.nilable(CommitmentParticipant))
+    ActiveRecord::Base.transaction do
+      participant = CommitmentParticipantManager.new(
+        commitment: commitment,
+        user: current_user
+      ).find_or_create_participant
+      participant.committed = true
+      participant.save!
+      commitment.close_if_limit_reached!
+      track_task_run_resource(participant, action_type: "join")
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: "commit",
+            superagent_id: current_superagent.id,
+            main_resource: {
+              type: "Commitment",
+              id: commitment.id,
+              truncated_id: commitment.truncated_id,
+            },
+            sub_resources: [
+              {
+                type: "CommitmentParticipant",
+                id: participant.id,
+              },
+            ],
+          }
+        )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "join_commitment",
+          resource: participant,
+          context_resource: commitment
+        )
+      end
+    end
+    T.must(participant)
   end
 
   sig { returns(Note) }
   def update_note
     note = T.must(current_note)
     raise 'Unauthorized' unless note.user_can_edit?(current_user)
-    note.title = model_params[:title]
-    note.text = model_params[:text]
+    note.title = model_params[:title] if model_params[:title].present?
+    note.text = model_params[:text] if model_params[:text].present?
+    note.deadline = model_params[:deadline] if model_params[:deadline].present?
     # Add files to note, but don't remove existing files
     if model_params[:files]
       model_params[:files].each do |file|
@@ -273,6 +373,11 @@ class ApiHelper
               },
               sub_resources: [],
             }
+          )
+          current_representation_session.record_event!(
+            request: request,
+            action_name: "update_note",
+            resource: note
           )
         end
       end
@@ -305,6 +410,12 @@ class ApiHelper
               id: history_event.id,
             }],
           }
+        )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "confirm_read",
+          resource: history_event,
+          context_resource: note
         )
       end
     end
@@ -366,6 +477,12 @@ class ApiHelper
             sub_resources: options.map { |o| { type: "Option", id: o.id } },
           }
         )
+        current_representation_session.record_events!(
+          request: request,
+          action_name: "add_options",
+          resources: options,
+          context_resource: current_decision
+        )
       end
     end
     options
@@ -404,6 +521,12 @@ class ApiHelper
           },
           sub_resources: [{ type: "Vote", id: vote.id }],
         }
+      )
+      current_representation_session.record_event!(
+        request: request,
+        action_name: "vote",
+        resource: vote,
+        context_resource: current_decision
       )
     end
     vote
@@ -458,6 +581,12 @@ class ApiHelper
             },
             sub_resources: votes.map { |v| { type: "Vote", id: v.id } },
           }
+        )
+        current_representation_session.record_events!(
+          request: request,
+          action_name: "vote",
+          resources: votes,
+          context_resource: current_decision
         )
       end
     end
@@ -683,7 +812,10 @@ class ApiHelper
     ActiveRecord::Base.transaction do
       decision.question = params[:question] if params[:question].present?
       decision.description = params[:description] if params[:description].present?
-      decision.options_open = params[:options_open] if params.has_key?(:options_open)
+      # options_open is a boolean, so we need to check has_key? AND the value is not nil
+      if params.has_key?(:options_open) && !params[:options_open].nil?
+        decision.options_open = params[:options_open]
+      end
       decision.deadline = params[:deadline] if params[:deadline].present?
 
       decision.save!
@@ -702,6 +834,11 @@ class ApiHelper
             },
             sub_resources: [],
           }
+        )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "update_decision_settings",
+          resource: decision
         )
       end
     end
@@ -743,9 +880,181 @@ class ApiHelper
             sub_resources: [],
           }
         )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "update_commitment_settings",
+          resource: commitment
+        )
       end
     end
     commitment
+  end
+
+  # Pin a resource (Note, Decision, or Commitment)
+  sig { params(resource: T.any(Note, Decision, Commitment)).returns(T.any(Note, Decision, Commitment)) }
+  def pin_resource(resource)
+    resource.pin!(tenant: current_tenant, superagent: current_superagent, user: current_user)
+    if current_representation_session
+      action_name = "pin_#{resource.class.name.underscore}"
+      current_representation_session.record_activity!(
+        request: request,
+        semantic_event: {
+          timestamp: Time.current,
+          event_type: "pin",
+          superagent_id: current_superagent.id,
+          main_resource: {
+            type: resource.class.name,
+            id: resource.id,
+            truncated_id: resource.truncated_id,
+          },
+          sub_resources: [],
+        }
+      )
+      current_representation_session.record_event!(
+        request: request,
+        action_name: action_name,
+        resource: resource
+      )
+    end
+    resource
+  end
+
+  # Unpin a resource (Note, Decision, or Commitment)
+  sig { params(resource: T.any(Note, Decision, Commitment)).returns(T.any(Note, Decision, Commitment)) }
+  def unpin_resource(resource)
+    resource.unpin!(tenant: current_tenant, superagent: current_superagent, user: current_user)
+    if current_representation_session
+      action_name = "unpin_#{resource.class.name.underscore}"
+      current_representation_session.record_activity!(
+        request: request,
+        semantic_event: {
+          timestamp: Time.current,
+          event_type: "unpin",
+          superagent_id: current_superagent.id,
+          main_resource: {
+            type: resource.class.name,
+            id: resource.id,
+            truncated_id: resource.truncated_id,
+          },
+          sub_resources: [],
+        }
+      )
+      current_representation_session.record_event!(
+        request: request,
+        action_name: action_name,
+        resource: resource
+      )
+    end
+    resource
+  end
+
+  # Update option title
+  sig { params(option: Option).returns(Option) }
+  def update_option(option)
+    raise "Option not found" unless option
+    ActiveRecord::Base.transaction do
+      option.title = params[:title] if params[:title].present?
+      option.save!
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: "update",
+            superagent_id: current_superagent.id,
+            main_resource: {
+              type: "Decision",
+              id: option.decision.id,
+              truncated_id: option.decision.truncated_id,
+            },
+            sub_resources: [{ type: "Option", id: option.id }],
+          }
+        )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "update_option",
+          resource: option,
+          context_resource: option.decision
+        )
+      end
+    end
+    option
+  end
+
+  # Delete an option
+  sig { params(option: Option).void }
+  def delete_option(option)
+    raise "Option not found" unless option
+    decision = option.decision
+    ActiveRecord::Base.transaction do
+      option.destroy!
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: "delete",
+            superagent_id: current_superagent.id,
+            main_resource: {
+              type: "Decision",
+              id: decision.id,
+              truncated_id: decision.truncated_id,
+            },
+            sub_resources: [{ type: "Option", id: option.id }],
+          }
+        )
+        # Note: We don't record an event for deleted resources since the resource no longer exists
+      end
+    end
+  end
+
+  # Duplicate a decision
+  sig { returns(Decision) }
+  def duplicate_decision
+    original = T.must(current_decision)
+    new_decision = T.let(nil, T.nilable(Decision))
+    ActiveRecord::Base.transaction do
+      new_decision = Decision.create!(
+        question: "#{original.question} (copy)",
+        description: original.description,
+        options_open: original.options_open,
+        deadline: original.deadline,
+        created_by: current_user,
+      )
+      original.options.each do |opt|
+        Option.create!(
+          decision: new_decision,
+          title: opt.title,
+          decision_participant: DecisionParticipantManager.new(
+            decision: new_decision,
+            user: current_user
+          ).find_or_create_participant,
+        )
+      end
+      track_task_run_resource(new_decision, action_type: "create")
+      if current_representation_session
+        current_representation_session.record_activity!(
+          request: request,
+          semantic_event: {
+            timestamp: Time.current,
+            event_type: "create",
+            superagent_id: current_superagent.id,
+            main_resource: {
+              type: "Decision",
+              id: new_decision.id,
+              truncated_id: new_decision.truncated_id,
+            },
+            sub_resources: [],
+          }
+        )
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "create_decision",
+          resource: new_decision
+        )
+      end
+    end
+    T.must(new_decision)
   end
 
   private

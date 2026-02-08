@@ -508,20 +508,6 @@ class User
     sig { params(value: T::Enumerable[::Tenant]).void }
     def tenants=(value); end
 
-    # This method is created by ActiveRecord on the `User` class because it declared `has_many :trustee_grants_as_trustee`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::TrusteeGrant::PrivateCollectionProxy) }
-    def trustee_grants_as_trustee; end
-
-    sig { params(value: T::Enumerable[::TrusteeGrant]).void }
-    def trustee_grants_as_trustee=(value); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def trustee_grants_as_trustee_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def trustee_grants_as_trustee_ids=(ids); end
-
     sig { returns(T::Array[T.untyped]) }
     def vote_ids; end
 

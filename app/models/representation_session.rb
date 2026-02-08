@@ -13,6 +13,7 @@ class RepresentationSession < ApplicationRecord
   belongs_to :representative_user, class_name: "User"
   belongs_to :trustee_grant, optional: true
   has_many :representation_session_associations, dependent: :destroy
+  has_many :representation_session_events, dependent: :destroy
 
   validates :began_at, presence: true
   validates :confirmed_understanding, inclusion: { in: [true] }
@@ -222,6 +223,54 @@ class RepresentationSession < ApplicationRecord
     end
   end
 
+  # New event-based recording methods - these replace record_activity! eventually
+  sig do
+    params(
+      request: T.untyped,
+      action_name: String,
+      resource: T.untyped,
+      context_resource: T.untyped
+    ).returns(RepresentationSessionEvent)
+  end
+  def record_event!(request:, action_name:, resource:, context_resource: nil)
+    raise "Session has ended" if ended?
+    raise "Session has expired" if expired?
+
+    RepresentationSessionEvent.create!(
+      representation_session: self,
+      tenant_id: tenant_id,
+      superagent_id: superagent_id,
+      action_name: action_name,
+      resource: resource,
+      context_resource: context_resource,
+      resource_superagent_id: resource.superagent_id,
+      request_id: request.request_id
+    )
+  end
+
+  # For bulk actions - record one event per resource
+  sig do
+    params(
+      request: T.untyped,
+      action_name: String,
+      resources: T::Array[T.untyped],
+      context_resource: T.untyped
+    ).void
+  end
+  def record_events!(request:, action_name:, resources:, context_resource: nil)
+    raise "Session has ended" if ended?
+    raise "Session has expired" if expired?
+
+    resources.each do |resource|
+      record_event!(
+        request: request,
+        action_name: action_name,
+        resource: resource,
+        context_resource: context_resource
+      )
+    end
+  end
+
   sig { returns(String) }
   def title
     "Representation Session #{truncated_id}"
@@ -297,13 +346,53 @@ class RepresentationSession < ApplicationRecord
 
   sig { returns(Integer) }
   def action_count
-    human_readable_activity_log.count
+    # Use events if available, otherwise fall back to activity_log JSON
+    if representation_session_events.any?
+      representation_session_events.select(:request_id).distinct.count
+    else
+      human_readable_activity_log.count
+    end
+  end
+
+  # Unified activity log - uses new events table if available, falls back to JSON
+  sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
+  def activity_log_entries
+    if representation_session_events.any?
+      human_readable_events_log
+    else
+      human_readable_activity_log
+    end
+  end
+
+  # Activity log from events table - groups by request_id
+  sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
+  def human_readable_events_log
+    @human_readable_events_log ||= T.let(
+      representation_session_events
+        .includes(:resource, :context_resource)
+        .order(created_at: :asc)
+        .group_by(&:request_id)
+        .map do |_request_id, events|
+          # Take first event as representative (all share same action/context)
+          event = T.must(events.first)
+          display_resource = event.context_resource || event.resource
+          {
+            happened_at: event.created_at,
+            verb_phrase: event.verb_phrase,
+            superagent: display_resource.respond_to?(:superagent) ? display_resource.superagent : nil,
+            main_resource: display_resource,
+            event_count: events.size, # e.g., "voted on Decision (3 votes)"
+          }
+        end,
+      T.nilable(T::Array[T::Hash[Symbol, T.untyped]])
+    )
   end
 
   # Override reload to clear memoized instance variables
   sig { params(options: T.untyped).returns(T.self_type) }
   def reload(options = nil)
     @human_readable_activity_log = nil
+    @human_readable_events_log = nil
     super
   end
 end
