@@ -722,7 +722,7 @@ class UserTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: other_user,
+      trustee_user: other_user,
       permissions: { "create_notes" => true },
     )
 
@@ -730,14 +730,14 @@ class UserTest < ActiveSupport::TestCase
     assert_not_includes other_user.granted_trustee_grants, permission
   end
 
-  test "received_trustee_grants returns permissions where user is trusted_user" do
+  test "received_trustee_grants returns permissions where user is trustee_user" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_notes" => true },
     )
 
@@ -752,7 +752,7 @@ class UserTest < ActiveSupport::TestCase
     pending_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: {},
     )
 
@@ -761,7 +761,7 @@ class UserTest < ActiveSupport::TestCase
     accepted_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: third_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: {},
     )
     accepted_permission.accept!
@@ -773,30 +773,30 @@ class UserTest < ActiveSupport::TestCase
 
   # === Delegation Representation Tests ===
 
-  test "can_represent? returns true for trusted_user with active permission" do
+  test "can_represent? returns true for trustee_user with active permission" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_notes" => true },
     )
     permission.accept!
 
-    # @user (trusted_user) should be able to represent other_user (granting_user)
+    # @user (trustee_user) should be able to represent other_user (granting_user)
     assert @user.can_represent?(other_user)
   end
 
-  test "can_represent? returns false for trusted_user with pending permission" do
+  test "can_represent? returns false for trustee_user with pending permission" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
 
     TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_notes" => true },
     )
     # Permission is pending, not accepted
@@ -804,14 +804,14 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.can_represent?(other_user)
   end
 
-  test "can_represent? returns false for trusted_user with revoked permission" do
+  test "can_represent? returns false for trustee_user with revoked permission" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -820,14 +820,14 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.can_represent?(other_user)
   end
 
-  test "can_represent? returns false for trusted_user with expired permission" do
+  test "can_represent? returns false for trustee_user with expired permission" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_notes" => true },
       expires_at: 1.hour.ago,
     )
@@ -844,64 +844,42 @@ class UserTest < ActiveSupport::TestCase
   end
 
   # === is_trusted_as? Tests ===
+  # Note: is_trusted_as? now only applies to superagent trustees (studio representation),
+  # not user-to-user grants. User-to-user grants use can_represent? directly.
 
-  test "is_trusted_as? returns true for trusted_user with active grant" do
+  test "is_trusted_as? returns false for regular users" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
 
-    permission = TrusteeGrant.create!(
-      tenant: @tenant,
-      granting_user: other_user,
-      trusted_user: @user,
-      permissions: { "create_notes" => true },
-    )
-    permission.accept!
-
-    # @user should be trusted as the trustee_user from the grant
-    assert @user.is_trusted_as?(permission.trustee_user)
-  end
-
-  test "is_trusted_as? returns false for non-trustee user" do
-    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
-    @tenant.add_user!(other_user)
-
-    # other_user is a person, not a trustee
+    # Regular users are not trustee-type users
     assert_not @user.is_trusted_as?(other_user)
   end
 
-  test "is_trusted_as? returns false for trustee from someone else's grant" do
-    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
-    third_user = create_user(email: "third_#{SecureRandom.hex(4)}@example.com", name: "Third User")
-    @tenant.add_user!(other_user)
-    @tenant.add_user!(third_user)
+  test "is_trusted_as? returns true for superagent trustee when user is representative" do
+    # Create a studio and make @user a representative
+    studio = create_superagent(tenant: @tenant, created_by: @user, handle: "test-studio-#{SecureRandom.hex(4)}")
+    studio.add_user!(@user, roles: ["representative"])
 
-    # Grant from other_user to third_user (not @user)
-    permission = TrusteeGrant.create!(
-      tenant: @tenant,
-      granting_user: other_user,
-      trusted_user: third_user,
-      permissions: { "create_notes" => true },
-    )
-    permission.accept!
+    # Get the studio's trustee user
+    trustee = studio.trustee_user
+    assert trustee.trustee?
+    assert trustee.superagent_trustee?
 
-    # @user is not the trusted_user for this grant
-    assert_not @user.is_trusted_as?(permission.trustee_user)
+    # @user should be trusted as the superagent trustee
+    assert @user.is_trusted_as?(trustee)
   end
 
-  test "is_trusted_as? returns false for revoked grant" do
+  test "is_trusted_as? returns false for superagent trustee when user is not representative" do
+    # Create a studio without @user as representative
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
+    studio = create_superagent(tenant: @tenant, created_by: other_user, handle: "test-studio-#{SecureRandom.hex(4)}")
 
-    permission = TrusteeGrant.create!(
-      tenant: @tenant,
-      granting_user: other_user,
-      trusted_user: @user,
-      permissions: { "create_notes" => true },
-    )
-    permission.accept!
-    permission.revoke!
+    # @user is not a member of the studio
+    trustee = studio.trustee_user
 
-    assert_not @user.is_trusted_as?(permission.trustee_user)
+    # @user should not be trusted as this studio's trustee
+    assert_not @user.is_trusted_as?(trustee)
   end
 
   # === Auto-creation of TrusteeGrant for Subagents (Phase 7) ===
@@ -915,11 +893,13 @@ class UserTest < ActiveSupport::TestCase
     )
 
     # Should auto-create a TrusteeGrant
-    permission = TrusteeGrant.find_by(granting_user: subagent, trusted_user: @user)
+    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
     assert permission.present?, "TrusteeGrant should be auto-created when subagent is created"
     assert permission.active?, "Auto-created permission should be pre-accepted (active)"
     assert permission.accepted_at.present?
-    assert permission.trustee_user.trustee?
+    # trustee_user is the parent (a regular person, not a trustee type)
+    assert_equal @user, permission.trustee_user
+    assert_not permission.trustee_user.trustee?
   end
 
   test "parent can represent subagent via auto-created TrusteeGrant" do
@@ -943,7 +923,7 @@ class UserTest < ActiveSupport::TestCase
       parent_id: @user.id,
     )
 
-    permission = TrusteeGrant.find_by(granting_user: subagent, trusted_user: @user)
+    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
     assert permission.present?
 
     # Should have all grantable actions
@@ -960,7 +940,7 @@ class UserTest < ActiveSupport::TestCase
       parent_id: @user.id,
     )
 
-    permission = TrusteeGrant.find_by(granting_user: subagent, trusted_user: @user)
+    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
     assert permission.present?
     assert permission.allows_studio?(@superagent)
   end

@@ -5,8 +5,7 @@
 #
 # Key concepts:
 # - granting_user: The user who grants authority (the "principal")
-# - trusted_user: The user who receives authority
-# - trustee_user: A user record of type "trustee" created to represent the grant relationship
+# - trustee_user: The user who receives authority (the "trustee" - authorized to act on behalf)
 #
 # Routes are under /u/:handle/settings/trustee-grants
 class TrusteeGrantsController < ApplicationController
@@ -36,12 +35,12 @@ class TrusteeGrantsController < ApplicationController
     # Grants I've given to others (I am granting_user)
     @granted = TrusteeGrant.unscoped
       .where(granting_user: @target_user, tenant: @current_tenant)
-      .includes(:trusted_user, :trustee_user)
+      .includes(:trustee_user)
 
-    # Grants I've received from others (I am trusted_user)
+    # Grants I've received from others (I am trustee_user)
     @received = TrusteeGrant.unscoped
-      .where(trusted_user: @target_user, tenant: @current_tenant)
-      .includes(:granting_user, :trustee_user)
+      .where(trustee_user: @target_user, tenant: @current_tenant)
+      .includes(:granting_user)
 
     # Pending requests I need to respond to
     @pending_requests = @received.pending
@@ -100,12 +99,12 @@ class TrusteeGrantsController < ApplicationController
                                  })
     end
 
-    trusted_user = find_trusted_user(params[:trusted_user_id])
-    unless trusted_user
+    trustee = find_trustee_user(params[:trustee_user_id])
+    unless trustee
       return render_action_error({
                                    action_name: "create_trustee_grant",
                                    resource: nil,
-                                   error: "Trusted user not found",
+                                   error: "Trustee user not found",
                                  })
     end
 
@@ -121,18 +120,18 @@ class TrusteeGrantsController < ApplicationController
     grant = TrusteeGrant.new(
       tenant: @current_tenant,
       granting_user: @target_user,
-      trusted_user: trusted_user,
+      trustee_user: trustee,
       permissions: permissions,
       studio_scope: studio_scope,
       expires_at: expires_at
     )
 
     if grant.save
-      # TODO: Send notification to trusted_user
+      # TODO: Send notification to trustee_user
       render_action_success({
                               action_name: "create_trustee_grant",
                               resource: grant,
-                              result: "Trustee grant request sent to #{trusted_user.display_name || trusted_user.handle}",
+                              result: "Trustee grant request sent to #{trustee.display_name || trustee.handle}",
                               redirect_to: trustee_grant_show_path(grant),
                             })
     else
@@ -153,7 +152,7 @@ class TrusteeGrantsController < ApplicationController
   end
 
   def execute_accept
-    unless @grant.trusted_user == @target_user
+    unless @grant.trustee_user == @target_user
       return render_action_error({
                                    action_name: "accept_trustee_grant",
                                    resource: @grant,
@@ -188,7 +187,7 @@ class TrusteeGrantsController < ApplicationController
   end
 
   def execute_decline
-    unless @grant.trusted_user == @target_user
+    unless @grant.trustee_user == @target_user
       return render_action_error({
                                    action_name: "decline_trustee_grant",
                                    resource: @grant,
@@ -281,7 +280,7 @@ class TrusteeGrantsController < ApplicationController
   end
 
   def execute_start_representation
-    unless @grant.trusted_user == @current_user
+    unless @grant.trustee_user == @current_user
       return render_action_error({
                                    action_name: "start_representation",
                                    resource: @grant,
@@ -327,7 +326,7 @@ class TrusteeGrantsController < ApplicationController
   end
 
   def execute_end_representation
-    unless [@current_user, @api_token_user].include?(@grant.trusted_user)
+    unless [@current_user, @api_token_user].include?(@grant.trustee_user)
       return render_action_error({
                                    action_name: "end_representation",
                                    resource: @grant,
@@ -376,13 +375,13 @@ class TrusteeGrantsController < ApplicationController
   def action_available_for_grant?(action_name)
     case action_name
     when "accept_trustee_grant", "decline_trustee_grant"
-      @grant.pending? && @grant.trusted_user == @target_user
+      @grant.pending? && @grant.trustee_user == @target_user
     when "revoke_trustee_grant"
       @grant.granting_user == @target_user && !@grant.revoked? && !@grant.declined?
     when "start_representation"
-      @grant.active? && @grant.trusted_user == @current_user && !has_active_session_for_grant?
+      @grant.active? && @grant.trustee_user == @current_user && !has_active_session_for_grant?
     when "end_representation"
-      @grant.active? && @grant.trusted_user == @current_user && has_active_session_for_grant?
+      @grant.active? && @grant.trustee_user == @current_user && has_active_session_for_grant?
     else
       false
     end
@@ -428,14 +427,14 @@ class TrusteeGrantsController < ApplicationController
   def set_grant
     grant_id = params[:grant_id]
 
-    # Find grant by truncated_id, where target user is either granting or trusted
+    # Find grant by truncated_id, where target user is either granting or trustee
     @grant = TrusteeGrant.unscoped
       .where(tenant: @current_tenant)
-      .includes(:granting_user, :trusted_user, :trustee_user)
+      .includes(:granting_user, :trustee_user)
       .find_by!(truncated_id: grant_id)
 
     # Verify target user is involved in this grant
-    return if @grant.granting_user == @target_user || @grant.trusted_user == @target_user
+    return if @grant.granting_user == @target_user || @grant.trustee_user == @target_user
 
     raise ActiveRecord::RecordNotFound, "Trustee grant not found"
   end
@@ -464,19 +463,19 @@ class TrusteeGrantsController < ApplicationController
   def available_users_for_grant
     # Get users in the same tenant who can receive grants
     # Exclude current user, trustees, and users who already have grants
-    existing_trusted_user_ids = TrusteeGrant.unscoped
+    existing_trustee_user_ids = TrusteeGrant.unscoped
       .where(granting_user: @target_user, tenant: @current_tenant)
       .where(revoked_at: nil, declined_at: nil)
-      .pluck(:trusted_user_id)
+      .pluck(:trustee_user_id)
 
     User.joins(:tenant_users)
       .where(tenant_users: { tenant_id: @current_tenant.id })
       .where.not(id: @target_user.id)
-      .where.not(id: existing_trusted_user_ids)
+      .where.not(id: existing_trustee_user_ids)
       .where(user_type: ["person", "subagent"])
   end
 
-  def find_trusted_user(user_id)
+  def find_trustee_user(user_id)
     return nil if user_id.blank?
 
     User.joins(:tenant_users)

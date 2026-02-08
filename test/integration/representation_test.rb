@@ -9,8 +9,12 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(@subagent)
     @superagent.add_user!(@subagent)
     # The TrusteeGrant is auto-created when the subagent is created
-    @grant = TrusteeGrant.find_by!(granting_user: @subagent, trusted_user: @parent)
-    @trustee_user = @grant.trustee_user
+    @grant = TrusteeGrant.find_by!(granting_user: @subagent, trustee_user: @parent)
+    # After the migration:
+    # - trustee_user = the parent (the person trusted to act)
+    # - granting_user = the subagent (the person being represented)
+    # - effective_user = the granting_user (subagent) - content is attributed to them
+    @effective_user = @grant.granting_user  # = @subagent
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
@@ -96,48 +100,48 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "creating content while representing attributes it to trustee user" do
+  test "creating content while representing attributes it to the represented user" do
     sign_in_as(@parent, tenant: @tenant)
     start_representing
 
     # Create a note while representing
     post "/studios/#{@superagent.handle}/note", params: {
       note: {
-        title: "Note from trustee user",
-        text: "This should be attributed to the trustee user representing the subagent",
+        title: "Note from representation",
+        text: "This should be attributed to the subagent (the person being represented)",
       },
     }
 
     note = Note.last
-    # Content is now attributed to the trustee_user, not the subagent directly
-    assert_equal @trustee_user.id, note.created_by_id
+    # Content is attributed to the effective_user (the subagent being represented)
+    assert_equal @effective_user.id, note.created_by_id
+    assert_equal @subagent.id, note.created_by_id
     assert_not_equal @parent.id, note.created_by_id
-    assert_not_equal @subagent.id, note.created_by_id
   end
 
   # ====================
   # Actions While Representing
   # ====================
 
-  test "creating a note while representing attributes it to the trustee user" do
+  test "creating a note while representing attributes it to the represented user" do
     sign_in_as(@parent, tenant: @tenant)
     start_representing
 
     assert_difference "Note.count", 1 do
       post "/studios/#{@superagent.handle}/note", params: {
         note: {
-          title: "Trustee user's note",
-          text: "Created by trustee user representing subagent",
+          title: "Note created while representing",
+          text: "Created by parent representing subagent",
         },
       }
     end
 
     note = Note.last
-    # Content is attributed to the trustee_user
-    assert_equal @trustee_user.id, note.created_by_id
+    # Content is attributed to the effective_user (the subagent being represented)
+    assert_equal @effective_user.id, note.created_by_id
   end
 
-  test "voting on a decision while representing records the trustee user's participation" do
+  test "voting on a decision while representing records the represented user's participation" do
     sign_in_as(@parent, tenant: @tenant)
 
     # Create a decision first
@@ -165,9 +169,9 @@ class RepresentationTest < ActionDispatch::IntegrationTest
       votes: [{ option_title: option.title, accept: true, prefer: false }],
     }
 
-    # Check that the vote was recorded for the trustee user (not the subagent directly)
-    participant = decision.participants.find_by(user: @trustee_user)
-    assert_not_nil participant, "Trustee user should have a participant record"
+    # Check that the vote was recorded for the effective_user (the subagent being represented)
+    participant = decision.participants.find_by(user: @effective_user)
+    assert_not_nil participant, "Represented user (subagent) should have a participant record"
   end
 
   # ====================
@@ -192,8 +196,8 @@ class RepresentationTest < ActionDispatch::IntegrationTest
       note: { title: "Before stop", text: "Representing" },
     }
     note_while_representing = Note.last
-    # While representing, content is attributed to the trustee_user
-    assert_equal @trustee_user.id, note_while_representing.created_by_id
+    # While representing, content is attributed to the effective_user (the subagent)
+    assert_equal @effective_user.id, note_while_representing.created_by_id
 
     # Stop representing
     delete "/u/#{@subagent.handle}/represent", headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}" }
@@ -271,7 +275,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     }
 
     note = Note.last
-    # Content is attributed to trustee_user
-    assert_equal @trustee_user.id, note.created_by_id
+    # Content is attributed to effective_user (the subagent being represented)
+    assert_equal @effective_user.id, note.created_by_id
   end
 end

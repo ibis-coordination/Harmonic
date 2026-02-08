@@ -11,7 +11,6 @@ class RepresentationSession < ApplicationRecord
   belongs_to :tenant
   belongs_to :superagent, optional: true
   belongs_to :representative_user, class_name: "User"
-  belongs_to :trustee_user, class_name: "User"
   belongs_to :trustee_grant, optional: true
   has_many :representation_session_associations, dependent: :destroy
 
@@ -47,7 +46,7 @@ class RepresentationSession < ApplicationRecord
       activity_log: activity_log,
       superagent_id: superagent_id,
       representative_user_id: representative_user_id,
-      trustee_user_id: trustee_user_id,
+      effective_user_id: effective_user.id,
     }
   end
 
@@ -111,6 +110,18 @@ class RepresentationSession < ApplicationRecord
     return nil unless user_representation?
 
     trustee_grant&.granting_user
+  end
+
+  # Returns the user identity to use as current_user during this session.
+  # For user representation: returns the granting_user (the person being represented)
+  # For studio representation: returns the studio's trustee_user
+  sig { returns(User) }
+  def effective_user
+    if user_representation?
+      T.must(T.must(trustee_grant).granting_user)
+    else
+      T.must(T.must(superagent).trustee_user)
+    end
   end
 
   # Returns a display name for what's being represented

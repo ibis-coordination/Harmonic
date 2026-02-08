@@ -7,13 +7,13 @@ Grant another user authority to act on your behalf. They will need to accept the
 
 ## [Actions](<%= base_path %>/new/actions)
 
-* [`create_trustee_grant(trusted_user_id, permissions, ...)`](<%= base_path %>/new/actions/create_trustee_grant) - Grant another user authority to act on your behalf
+* [`create_trustee_grant(trustee_user_id, permissions, ...)`](<%= base_path %>/new/actions/create_trustee_grant) - Grant another user authority to act on your behalf
 
 ## Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| trusted_user_id | string | yes | The ID of the user to grant authority to |
+| trustee_user_id | string | yes | The ID of the user to grant authority to |
 | permissions | array | yes | Array of action names to grant |
 | studio_scope_mode | string | no | Studio scope: "all" (default), "include", or "exclude" |
 | studio_ids | array | no | Array of studio IDs for include/exclude modes |

@@ -36,7 +36,7 @@ class RepresentationSessionsController < ApplicationController
   def represent
     can_represent_studio = @current_user.superagent_member&.can_represent?
 
-    # Load active trustee grants where the current user is the trusted user
+    # Load active trustee grants where the current user is the trustee
     # and the grant allows the current studio
     @active_user_grants = @current_user.received_trustee_grants.active.select do |grant|
       grant.allows_studio?(current_superagent)
@@ -66,12 +66,10 @@ class RepresentationSessionsController < ApplicationController
       flash[:alert] = "You must check the box to confirm you understand."
       return redirect_to request.referer
     end
-    trustee = current_superagent.trustee_user
     rep_session = RepresentationSession.create!(
       tenant: current_tenant,
       superagent: current_superagent,
       representative_user: current_user,
-      trustee_user: trustee,
       confirmed_understanding: confirmed_understanding,
       began_at: Time.current
     )
@@ -94,8 +92,8 @@ class RepresentationSessionsController < ApplicationController
     grant_id = params[:trustee_grant_id]
     return render status: :bad_request, plain: "400 Bad Request - trustee_grant_id required" unless grant_id
 
-    # Find grant where current user is the trusted user (they can act on behalf of the granting user)
-    grant = TrusteeGrant.find_by(id: grant_id, trusted_user: current_user)
+    # Find grant where current user is the trustee (they can act on behalf of the granting user)
+    grant = TrusteeGrant.find_by(id: grant_id, trustee_user: current_user)
     unless grant&.active?
       flash[:alert] = "Trustee grant not found or not active."
       return redirect_to request.referer || root_path

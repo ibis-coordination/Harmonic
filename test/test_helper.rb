@@ -179,19 +179,18 @@ class ActiveSupport::TestCase
       tenant: tenant,
       superagent: superagent,
       representative_user: representative,
-      trustee_user: superagent.trustee_user,
       confirmed_understanding: confirmed_understanding,
       began_at: began_at,
       activity_log: { 'activity' => [] },
     )
   end
 
-  # Creates a trustee permission allowing trusted_user to act on behalf of granting_user
+  # Creates a trustee permission allowing trustee_user to act on behalf of granting_user
   # Note: This feature is scaffolded but not actively used in production
   def create_trustee_grant(
     tenant: nil,
     granting_user:,
-    trusted_user:,
+    trustee_user:,
     permissions: {},
     studio_scope: { "mode" => "all" },
     expires_at: nil,
@@ -200,7 +199,7 @@ class ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: tenant,
       granting_user: granting_user,
-      trusted_user: trusted_user,
+      trustee_user: trustee_user,
       permissions: permissions,
       studio_scope: studio_scope,
       expires_at: expires_at,
@@ -221,8 +220,8 @@ class ActiveSupport::TestCase
     RepresentationSession.create!(
       tenant: tenant,
       superagent: superagent,
-      representative_user: trustee_grant.trusted_user,
-      trustee_user: trustee_grant.trustee_user,
+      representative_user: trustee_grant.trustee_user,
+      trustee_grant: trustee_grant,
       confirmed_understanding: confirmed_understanding,
       began_at: began_at,
       activity_log: { 'activity' => [] },

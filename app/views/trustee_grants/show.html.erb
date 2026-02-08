@@ -1,7 +1,7 @@
 <%
 base_path = "/u/#{@target_user.handle}/settings/trustee-grants/#{@grant.truncated_id}"
 is_granting = @grant.granting_user == @target_user
-is_trusted = @grant.trusted_user == @target_user
+is_trustee = @grant.trustee_user == @target_user
 %>
 
 <%= render 'shared/pulse_breadcrumb', items: [
@@ -48,12 +48,12 @@ is_trusted = @grant.trusted_user == @target_user
           </td>
         </tr>
         <tr>
-          <th>Trusted User</th>
+          <th>Trustee</th>
           <td>
-            <a href="/u/<%= @grant.trusted_user.handle %>" class="pulse-link">
-              <%= @grant.trusted_user.display_name || @grant.trusted_user.handle %>
+            <a href="/u/<%= @grant.trustee_user.handle %>" class="pulse-link">
+              <%= @grant.trustee_user.display_name || @grant.trustee_user.handle %>
             </a>
-            <% if is_trusted %><span class="pulse-tag pulse-tag-small">You</span><% end %>
+            <% if is_trustee %><span class="pulse-tag pulse-tag-small">You</span><% end %>
           </td>
         </tr>
         <tr>
@@ -121,7 +121,7 @@ is_trusted = @grant.trusted_user == @target_user
       </table>
     </section>
 
-    <% if @grant.pending? && is_trusted %>
+    <% if @grant.pending? && is_trustee %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Respond to Request</h2>
         <p>
@@ -157,12 +157,12 @@ is_trusted = @grant.trusted_user == @target_user
       </section>
     <% end %>
 
-    <% if @grant.active? && is_trusted %>
+    <% if @grant.active? && is_trustee %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Represent</h2>
         <% if @current_representation_session %>
           <p class="pulse-text-muted">
-            You are currently representing <%= @current_representation_session.trustee_user.display_name %>.
+            You are currently representing <%= @current_representation_session.effective_user.display_name %>.
             <a href="/representing" class="pulse-link">End that session</a> before starting a new one.
           </p>
         <% else %>
@@ -187,7 +187,7 @@ is_trusted = @grant.trusted_user == @target_user
         <p class="pulse-empty-content"><em>No representation sessions have occurred yet.</em></p>
       <% else %>
         <p>
-          Sessions where <strong><%= @grant.trusted_user.display_name || @grant.trusted_user.handle %></strong>
+          Sessions where <strong><%= @grant.trustee_user.display_name || @grant.trustee_user.handle %></strong>
           acted on behalf of <strong><%= @grant.granting_user.display_name || @grant.granting_user.handle %></strong>:
         </p>
         <table class="pulse-table">

@@ -88,7 +88,8 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
     session = RepresentationSession.last
     assert_equal @user, session.representative_user
-    assert_equal @superagent.trustee_user, session.trustee_user
+    # effective_user is the superagent's trustee for studio representation
+    assert_equal @superagent.trustee_user, session.effective_user
     assert_equal @superagent, session.superagent
     assert session.active?
   end

@@ -217,7 +217,7 @@ class UsersController < ApplicationController
     # Find the TrusteeGrant for this parent-subagent relationship
     grant = TrusteeGrant.active.find_by(
       granting_user: target_user,
-      trusted_user: current_user
+      trustee_user: current_user
     )
     return render status: 403, plain: "403 Unauthorized - No active grant" unless grant
 

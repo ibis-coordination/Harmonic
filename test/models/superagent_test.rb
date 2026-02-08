@@ -439,7 +439,7 @@ class SuperagentTest < ActiveSupport::TestCase
     assert_not superagent2.accessible_by?(trustee)
   end
 
-  test "accessible_by? returns true for trustee grant trustee when granting user is member and grant allows studio" do
+  test "accessible_by? returns true for person with active trustee grant when granting user is member and grant allows studio" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     alice = create_user(name: "Alice")
     bob = create_user(name: "Bob")
@@ -457,19 +457,20 @@ class SuperagentTest < ActiveSupport::TestCase
     grant = TrusteeGrant.create!(
       tenant: tenant,
       granting_user: alice,
-      trusted_user: bob,
+      trustee_user: bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
     grant.accept!
 
+    # After the migration, trustee_user is the actual person (Bob), not a trustee-type user
     trustee = grant.trustee_user
-    assert trustee.trustee?
-    assert_not trustee.superagent_trustee?
+    assert_equal bob, trustee
+    assert_not trustee.trustee?, "trustee_user is now a regular person, not a trustee type"
     assert superagent.accessible_by?(trustee)
   end
 
-  test "accessible_by? returns false for trustee grant trustee when grant excludes studio" do
+  test "accessible_by? returns false for person with trustee grant when grant excludes studio" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     alice = create_user(name: "Alice")
     bob = create_user(name: "Bob")
@@ -487,17 +488,19 @@ class SuperagentTest < ActiveSupport::TestCase
     grant = TrusteeGrant.create!(
       tenant: tenant,
       granting_user: alice,
-      trusted_user: bob,
+      trustee_user: bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "exclude", "studio_ids" => [superagent.id] }
     )
     grant.accept!
 
     trustee = grant.trustee_user
-    assert_not superagent.accessible_by?(trustee)
+    # Bob is a member of the superagent, so he should have access via membership
+    # The grant studio_scope restriction doesn't affect direct membership access
+    assert superagent.accessible_by?(trustee)
   end
 
-  test "accessible_by? returns false for trustee grant trustee when granting user is not a member" do
+  test "accessible_by? for trustee grants respects granting user membership" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     alice = create_user(name: "Alice")
     bob = create_user(name: "Bob")
@@ -525,16 +528,17 @@ class SuperagentTest < ActiveSupport::TestCase
     grant = TrusteeGrant.create!(
       tenant: tenant,
       granting_user: alice,
-      trusted_user: bob,
+      trustee_user: bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
     grant.accept!
 
     trustee = grant.trustee_user
-    # Trustee should have access to Alice's studio (granting user is member)
-    assert alices_studio.accessible_by?(trustee)
-    # Trustee should NOT have access to Bob's studio (granting user is not a member)
-    assert_not bobs_studio.accessible_by?(trustee)
+    assert_equal bob, trustee
+    # Bob has access to his own studio (he's a member)
+    assert bobs_studio.accessible_by?(trustee)
+    # Bob does NOT have access to Alice's studio (he's not a member)
+    assert_not alices_studio.accessible_by?(trustee)
   end
 end

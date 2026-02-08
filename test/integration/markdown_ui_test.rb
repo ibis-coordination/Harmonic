@@ -2318,15 +2318,15 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "representation session with comments shows them in markdown" do
-    # Create a representation session
+    # Create a studio representation session (no trustee_grant, has superagent)
     session = RepresentationSession.create!(
       tenant: @tenant,
       superagent: @superagent,
       representative_user: @user,
-      trustee_user: @user,
       confirmed_understanding: true,
       began_at: 1.hour.ago,
       ended_at: 30.minutes.ago,
+      activity_log: { "activity" => [] },
     )
     comment = session.add_comment(text: "Comment on representation session", created_by: @user)
 

@@ -22,10 +22,10 @@ These users are requesting authority to act on your behalf.
 <% granted_active = @granted.select(&:active?) -%>
 <% granted_pending = @granted.select(&:pending?) -%>
 <% if granted_active.any? || granted_pending.any? -%>
-| Trusted User | Capabilities | Status | Expires |
-|--------------|-------------|--------|---------|
+| Trustee | Capabilities | Status | Expires |
+|---------|-------------|--------|---------|
 <% (granted_active + granted_pending).each do |grant| -%>
-| [<%= grant.trusted_user.display_name || grant.trusted_user.handle %>](<%= base_path %>/<%= grant.truncated_id %>) | <%= grant.permissions&.keys&.join(", ") || "None" %> | <%= grant.active? ? "Active" : "Pending" %> | <%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %> |
+| [<%= grant.trustee_user.display_name || grant.trustee_user.handle %>](<%= base_path %>/<%= grant.truncated_id %>) | <%= grant.permissions&.keys&.join(", ") || "None" %> | <%= grant.active? ? "Active" : "Pending" %> | <%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %> |
 <% end -%>
 <% else -%>
 *You haven't created any trustee grants yet.*
@@ -46,7 +46,7 @@ These users are requesting authority to act on your behalf.
 
 ## [Actions](<%= base_path %>/actions)
 
-* [`create_trustee_grant(trusted_user_id, permissions, ...)`](<%= base_path %>/new/actions/create_trustee_grant) - Grant another user authority to act on your behalf
+* [`create_trustee_grant(trustee_user_id, permissions, ...)`](<%= base_path %>/new/actions/create_trustee_grant) - Grant another user authority to act on your behalf
 
 ## Navigation
 

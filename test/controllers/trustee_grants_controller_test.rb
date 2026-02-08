@@ -44,7 +44,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
 
@@ -58,7 +58,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -97,7 +97,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     assert_difference "TrusteeGrant.unscoped.count" do
       post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
         params: {
-          trusted_user_id: @other_user.id,
+          trustee_user_id: @other_user.id,
           permissions: ["create_note", "vote"],
           studio_scope_mode: "all",
         }.to_json,
@@ -110,26 +110,26 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
 
     permission = TrusteeGrant.unscoped.order(created_at: :desc).first
     assert_equal @user, permission.granting_user
-    assert_equal @other_user, permission.trusted_user
+    assert_equal @other_user, permission.trustee_user
     assert permission.pending?
     assert permission.has_action_permission?("create_note")
     assert permission.has_action_permission?("vote")
   end
 
-  test "create_trustee_grant requires trusted_user_id" do
+  test "create_trustee_grant requires trustee_user_id" do
     post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
       params: { permissions: ["create_note"] }.to_json,
       headers: @headers
 
     assert_response :success
-    assert_includes response.body, "Trusted user not found"
+    assert_includes response.body, "Trustee user not found"
   end
 
   test "create_trustee_grant can set expiration" do
     expires = 1.week.from_now.iso8601
     post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
       params: {
-        trusted_user_id: @other_user.id,
+        trustee_user_id: @other_user.id,
         permissions: ["create_note"],
         expires_at: expires,
       }.to_json,
@@ -143,7 +143,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
   test "create_trustee_grant can set studio scope" do
     post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
       params: {
-        trusted_user_id: @other_user.id,
+        trustee_user_id: @other_user.id,
         permissions: ["create_note"],
         studio_scope_mode: "include",
         studio_ids: [@superagent.id],
@@ -162,7 +162,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
 
@@ -176,7 +176,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_note" => true },
     )
 
@@ -189,7 +189,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_note" => true },
     )
     grant.accept!
@@ -197,8 +197,8 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     # Create a user representation session linked to this grant (no superagent_id)
     session = RepresentationSession.create!(
       tenant: @tenant,
+      superagent: nil,  # User representation has no superagent
       representative_user: @user,
-      trustee_user: grant.trustee_user,
       trustee_grant: grant,
       confirmed_understanding: true,
       began_at: 1.hour.ago,
@@ -216,7 +216,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
 
@@ -228,11 +228,11 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
 
   # === Accept Tests ===
 
-  test "trusted_user can accept a pending trustee grant" do
+  test "trustee_user can accept a pending trustee grant" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_note" => true },
     )
 
@@ -252,7 +252,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
 
@@ -270,7 +270,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -284,11 +284,11 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
 
   # === Decline Tests ===
 
-  test "trusted_user can decline a pending trustee grant" do
+  test "trustee_user can decline a pending trustee grant" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_note" => true },
     )
 
@@ -306,7 +306,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
 
@@ -326,7 +326,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -345,7 +345,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
 
@@ -359,11 +359,11 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     assert permission.revoked?
   end
 
-  test "trusted_user cannot revoke a trustee grant" do
+  test "trustee_user cannot revoke a trustee grant" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -382,7 +382,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -410,7 +410,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     assert_no_difference "TrusteeGrant.unscoped.count" do
       post "/u/#{@other_user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
         params: {
-          trusted_user_id: third_user.id,
+          trustee_user_id: third_user.id,
           permissions: ["create_note"],
         }.to_json,
         headers: @headers
@@ -425,7 +425,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_note" => true },
     )
 
@@ -440,7 +440,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
 
@@ -455,7 +455,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: @other_user,
+      trustee_user: @other_user,
       permissions: { "create_note" => true },
     )
     permission.revoke!

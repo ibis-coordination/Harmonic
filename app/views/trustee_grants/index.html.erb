@@ -78,7 +78,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
         <table class="pulse-table">
           <thead>
             <tr>
-              <th>Trusted User</th>
+              <th>Trustee</th>
               <th>Capabilities</th>
               <th>Status</th>
               <th>Expires</th>
@@ -89,7 +89,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
               <tr>
                 <td>
                   <a href="<%= base_path %>/<%= grant.truncated_id %>" class="pulse-link">
-                    <%= grant.trusted_user.display_name || grant.trusted_user.handle %>
+                    <%= grant.trustee_user.display_name || grant.trustee_user.handle %>
                   </a>
                 </td>
                 <td><%= grant.permissions&.keys&.join(", ") || "None" %></td>
@@ -115,7 +115,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
           <table class="pulse-table">
             <thead>
               <tr>
-                <th>Trusted User</th>
+                <th>Trustee</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -124,7 +124,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
                 <tr>
                   <td>
                     <a href="<%= base_path %>/<%= grant.truncated_id %>" class="pulse-link">
-                      <%= grant.trusted_user.display_name || grant.trusted_user.handle %>
+                      <%= grant.trustee_user.display_name || grant.trustee_user.handle %>
                     </a>
                   </td>
                   <td>

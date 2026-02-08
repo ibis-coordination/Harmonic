@@ -21,15 +21,14 @@ class User < ApplicationRecord
   has_many :notifications, through: :notification_recipients
 
   # Trustee grant associations
+  # granted_trustee_grants: grants where this user is the granting party (e.g., a subagent granting authority)
   has_many :granted_trustee_grants, class_name: "TrusteeGrant",
                                     foreign_key: "granting_user_id", inverse_of: :granting_user,
                                     dependent: :destroy
+  # received_trustee_grants: grants where this user is the trustee (authorized to act on behalf of grantor)
   has_many :received_trustee_grants, class_name: "TrusteeGrant",
-                                     foreign_key: "trusted_user_id", inverse_of: :trusted_user,
+                                     foreign_key: "trustee_user_id", inverse_of: :trustee_user,
                                      dependent: :destroy
-  has_many :trustee_grants_as_trustee, class_name: "TrusteeGrant",
-                                       foreign_key: "trustee_user_id", inverse_of: :trustee_user,
-                                       dependent: :destroy
 
   # Auto-create TrusteeGrant when a subagent is created
   after_create :create_parent_trustee_grant!, if: :subagent?
@@ -133,29 +132,19 @@ class User < ApplicationRecord
   # Check if this user is authorized to use the given trustee identity.
   # Used to validate that a trustee_user_id in the session is legitimate.
   #
-  # There are two types of trustees:
-  # 1. Superagent trustees (studio representation) - created when someone represents a studio
-  # 2. TrusteeGrant trustees (user representation) - created when someone represents another user
-  #
-  # For superagent trustees, we check if self can represent the superagent.
-  # For TrusteeGrant trustees, we check if there's an active grant where self is the trusted_user.
+  # After the trustee_grant simplification, the only trustee-type users are Superagent trustees
+  # (for studio representation). TrusteeGrants no longer create synthetic trustee users.
   sig { params(trustee_user: User).returns(T::Boolean) }
   def is_trusted_as?(trustee_user)
     return false unless trustee_user.trustee?
 
-    # Case 1: Superagent trustee (studio representation)
-    if trustee_user.superagent_trustee?
-      superagent = trustee_user.trustee_superagent
-      return can_represent?(superagent) if superagent
-      return false
-    end
+    # Only superagent trustees should exist now
+    return false unless trustee_user.superagent_trustee?
 
-    # Case 2: TrusteeGrant trustee (user representation)
-    grant = TrusteeGrant.active.find_by(
-      trustee_user: trustee_user,
-      trusted_user: self
-    )
-    grant.present?
+    superagent = trustee_user.trustee_superagent
+    return false unless superagent
+
+    can_represent?(superagent)
   end
 
   sig { params(superagent_or_user: T.any(Superagent, User)).returns(T::Boolean) }
@@ -181,10 +170,10 @@ class User < ApplicationRecord
         return sm&.can_represent? || false
       end
 
-      # The trusted_user (self) can represent the granting_user (user) if there's an active grant
+      # The trustee_user (self) can represent the granting_user (user) if there's an active grant
       grant = TrusteeGrant.active.find_by(
         granting_user: user,
-        trusted_user: self
+        trustee_user: self
       )
       return grant.present?
     end
@@ -277,15 +266,8 @@ class User < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def display_name
     if trustee?
-      # Check for Superagent trustee (studio representation)
-      superagent_name = Superagent.where(trustee_user: self).first&.name
-      return superagent_name if superagent_name
-
-      # Check for TrusteeGrant trustee (user representation)
-      grant = TrusteeGrant.find_by(trustee_user: self)
-      return grant.display_name if grant
-
-      nil
+      # After trustee_grant simplification, only Superagent trustees exist
+      Superagent.where(trustee_user: self).first&.name
     else
       tenant_user&.display_name
     end
@@ -484,7 +466,7 @@ class User < ApplicationRecord
 
     TrusteeGrant.create!(
       granting_user: self,              # The subagent grants
-      trusted_user: parent_user,        # The parent receives
+      trustee_user: parent_user,        # The parent is the trustee
       accepted_at: Time.current,        # Pre-accepted
       permissions: all_permissions,     # All actions allowed
       studio_scope: { "mode" => "all" } # All studios

@@ -246,7 +246,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_notes" => true },
     )
     grant.accept!
@@ -264,7 +264,8 @@ class ApiHelperTest < ActiveSupport::TestCase
     assert rep_session.persisted?
     assert_nil rep_session.superagent_id
     assert_equal @user, rep_session.representative_user
-    assert_equal grant.trustee_user, rep_session.trustee_user
+    # effective_user is the granting_user (the person being represented)
+    assert_equal grant.granting_user, rep_session.effective_user
     assert_equal grant, rep_session.trustee_grant
     assert rep_session.confirmed_understanding
   end
@@ -276,7 +277,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: other_user,
-      trusted_user: @user,
+      trustee_user: @user,
       permissions: { "create_notes" => true },
     )
     # Grant is pending, not active
@@ -301,13 +302,13 @@ class ApiHelperTest < ActiveSupport::TestCase
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
-      trusted_user: other_user,  # other_user is trusted, not @user
+      trustee_user: other_user,  # other_user is trustee, not @user
       permissions: { "create_notes" => true },
     )
     grant.accept!
 
     api_helper = ApiHelper.new(
-      current_user: @user,  # @user is NOT the trusted user
+      current_user: @user,  # @user is NOT the trustee user
       current_superagent: @superagent,
       current_tenant: @tenant,
       params: {},

@@ -27,15 +27,15 @@ class TrusteeGrant < ApplicationRecord
   ].freeze, T::Array[String])
 
   belongs_to :tenant
-  belongs_to :trustee_user, class_name: "User"
   belongs_to :granting_user, class_name: "User"
-  belongs_to :trusted_user, class_name: "User"
+  # trustee_user is the actual person trusted to act on behalf of granting_user
+  # (After migration, this replaces the old trusted_user column)
+  belongs_to :trustee_user, class_name: "User"
 
   has_many :representation_sessions, dependent: :restrict_with_error, inverse_of: :trustee_grant
 
-  before_validation :create_trustee_user!, on: :create
-
   validate :all_users_conform_to_expectations
+  validate :no_duplicate_active_grant, on: :create
 
   # =========================================================================
   # STATE METHODS
@@ -91,7 +91,7 @@ class TrusteeGrant < ApplicationRecord
     raise "Cannot revoke: already revoked or declined" if revoked? || declined?
 
     update!(revoked_at: Time.current)
-    # TODO: Send notification to trusted_user
+    # TODO: Send notification to trustee_user
   end
 
   # =========================================================================
@@ -139,9 +139,9 @@ class TrusteeGrant < ApplicationRecord
 
   sig { returns(String) }
   def display_name
-    trusted_name = trusted_user&.display_name || trusted_user&.name || "Unknown"
+    trustee_name = trustee_user&.display_name || trustee_user&.name || "Unknown"
     granting_name = granting_user&.display_name || granting_user&.name || "Unknown"
-    "#{trusted_name} on behalf of #{granting_name}"
+    "#{trustee_name} on behalf of #{granting_name}"
   end
 
   # Override ApplicationRecord#path - TrusteeGrant paths are user-relative, not superagent-relative
@@ -155,47 +155,26 @@ class TrusteeGrant < ApplicationRecord
   end
 
   sig { void }
-  def create_trustee_user!
-    return if trustee_user
-
-    trustee = User.create!(
-      name: display_name,
-      email: "#{SecureRandom.uuid}@not-a-real-email.com",
-      user_type: "trustee"
-    )
-    # Create TenantUser for the trustee, matching the pattern in Superagent#create_trustee!
-    TenantUser.create!(
-      tenant: tenant,
-      user: trustee,
-      display_name: trustee.name,
-      handle: SecureRandom.hex(16)
-    )
-    self.trustee_user = trustee
-  end
-
-  sig { void }
   def all_users_conform_to_expectations
-    errors.add(:trustee_user, "must be a trustee user") unless T.must(trustee_user).trustee?
-    if granting_user == trusted_user
-      errors.add(:trusted_user, "cannot be the same as the granting user")
-    elsif granting_user == trustee_user
+    # Trustee user cannot be the same as granting user
+    if granting_user == trustee_user
       errors.add(:trustee_user, "cannot be the same as the granting user")
-    elsif trusted_user == trustee_user
-      errors.add(:trustee_user, "cannot be the same as the trusted user")
     end
-    if T.must(granting_user).trustee?
-      # Currently this case only makes sense if the granting user that is of type 'trustee' is a superagent trustee
-      # and the trusted user is a member of the superagent that the trustee user represents.
-      # In this case, the trusted user is acting as a representative of the superagent via the superagent trustee.
-      if !T.must(granting_user).superagent_trustee?
-        errors.add(:granting_user, "must be a superagent trustee if the granting user is of type 'trustee'")
-      elsif !T.must(granting_user).trustee_superagent&.users&.include?(trusted_user)
-        errors.add(:trusted_user, "must be a member of the superagent that the granting user represents")
-      end
-    end
-    return unless T.must(trusted_user).trustee?
 
-    errors.add(:trusted_user, "cannot be a trustee user")
+    # Trustee user cannot be a trustee-type user (only real persons can be trustees)
+    if trustee_user&.trustee?
+      errors.add(:trustee_user, "cannot be a trustee-type user")
+    end
+
+    # If granting_user is a superagent trustee, trustee_user must be a member of that superagent
+    if granting_user&.trustee? && granting_user&.superagent_trustee?
+      unless granting_user&.trustee_superagent&.users&.include?(trustee_user)
+        errors.add(:trustee_user, "must be a member of the superagent that the granting user represents")
+      end
+    elsif granting_user&.trustee?
+      # Non-superagent trustees cannot be granting users
+      errors.add(:granting_user, "must be a superagent trustee if the granting user is of type 'trustee'")
+    end
   end
 
   sig { params(permissions: T::Hash[String, T.untyped]).void }
@@ -208,5 +187,23 @@ class TrusteeGrant < ApplicationRecord
   def revoke_permissions!(permissions)
     self.permissions = T.must(self.permissions).except(*permissions)
     save!
+  end
+
+  private
+
+  sig { void }
+  def no_duplicate_active_grant
+    return if declined_at.present? || revoked_at.present?
+
+    existing = TrusteeGrant.where(
+      granting_user_id: granting_user_id,
+      trustee_user_id: trustee_user_id,
+      declined_at: nil,
+      revoked_at: nil,
+    ).where.not(id: id)
+
+    if existing.exists?
+      errors.add(:base, "A grant already exists for this user pair")
+    end
   end
 end

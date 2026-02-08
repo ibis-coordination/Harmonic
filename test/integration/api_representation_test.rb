@@ -84,7 +84,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       superagent: nil, # User representation sessions have NULL superagent_id
       representative_user: representative,
-      trustee_user: grant.trustee_user,
       trustee_grant: grant,
       confirmed_understanding: true,
       began_at: Time.current,
@@ -101,7 +100,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -127,7 +126,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -154,9 +153,9 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     assert_not_nil note
     assert_equal "Test Note", note.title
 
-    # Note should be attributed to the trustee_user, not Bob
-    assert_equal session.trustee_user, note.created_by,
-                 "Note should be attributed to trustee_user when X-Representation-Session-ID header is set, " \
+    # Note should be attributed to the effective_user (Alice, the granting_user), not Bob
+    assert_equal session.effective_user, note.created_by,
+                 "Note should be attributed to effective_user when X-Representation-Session-ID header is set, " \
                  "but was attributed to #{note.created_by.name} (#{note.created_by.user_type})"
   end
 
@@ -179,7 +178,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
     grant.accept!
@@ -207,7 +206,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
     grant.accept!
@@ -240,7 +239,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
     grant.accept!
@@ -282,7 +281,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
     grant.accept!
@@ -314,7 +313,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -377,7 +376,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -401,7 +400,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -426,7 +425,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -451,13 +450,11 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     # Set up Bob as a representative for the studio
     @superagent.superagent_members.find_by(user: @bob).add_role!("representative")
 
-    # Create a studio representation session
-    trustee = @superagent.trustee_user
+    # Create a studio representation session (no trustee_grant, has superagent)
     session = RepresentationSession.create!(
       tenant: @tenant,
       superagent: @superagent,
       representative_user: @bob,
-      trustee_user: trustee,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
@@ -477,12 +474,11 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   test "studio representation rejects wrong X-Representing-Studio header" do
     @superagent.superagent_members.find_by(user: @bob).add_role!("representative")
 
-    trustee = @superagent.trustee_user
+    # Create a studio representation session (no trustee_grant, has superagent)
     session = RepresentationSession.create!(
       tenant: @tenant,
       superagent: @superagent,
       representative_user: @bob,
-      trustee_user: trustee,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
@@ -503,12 +499,11 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   test "studio representation succeeds with correct X-Representing-Studio header" do
     @superagent.superagent_members.find_by(user: @bob).add_role!("representative")
 
-    trustee = @superagent.trustee_user
+    # Create a studio representation session (no trustee_grant, has superagent)
     session = RepresentationSession.create!(
       tenant: @tenant,
       superagent: @superagent,
       representative_user: @bob,
-      trustee_user: trustee,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
@@ -530,7 +525,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -559,13 +554,11 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     @superagent.superagent_members.find_by(user: @bob).add_role!("representative")
 
     # Studio representation sessions don't have an API start action yet,
-    # so we create directly for this test
-    trustee = @superagent.trustee_user
+    # so we create directly for this test (no trustee_grant, has superagent)
     session = RepresentationSession.create!(
       tenant: @tenant,
       superagent: @superagent,
       representative_user: @bob,
-      trustee_user: trustee,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
@@ -597,7 +590,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -618,10 +611,10 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
          headers: headers_with_representation
     assert_response :success
 
-    # Verify note was created by trustee
+    # Verify note was created by effective_user (the granting_user)
     note = Note.order(created_at: :desc).first
     session = RepresentationSession.find(session_id)
-    assert_equal session.trustee_user, note.created_by
+    assert_equal session.effective_user, note.created_by
 
     # Step 3: End representation session via API
     end_representation_session_via_api(grant: grant, session_id: session_id)

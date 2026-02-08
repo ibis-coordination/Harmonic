@@ -222,8 +222,8 @@ class ApplicationController < ActionController::Base
 
     # All validations passed - apply representation
     @current_representation_session = rep_session
-    @current_user = rep_session.trustee_user
-    rep_session.trustee_user
+    @current_user = rep_session.effective_user
+    rep_session.effective_user
   end
 
   # Validates the X-Representing-User or X-Representing-Studio header based on session type.
@@ -388,7 +388,7 @@ class ApplicationController < ActionController::Base
 
     # All validations passed - apply representation
     @current_representation_session = rep_session
-    @current_user = rep_session.trustee_user
+    @current_user = rep_session.effective_user
   end
 
   # Validates the representing_user or representing_studio cookie matches the session.
@@ -451,6 +451,17 @@ class ApplicationController < ActionController::Base
       # This assignment prevents unnecessary reloading.
       @current_user.tenant_user = tu
     end
+
+    # Check grant studio scope for user representation sessions
+    if @current_representation_session&.user_representation? && !current_superagent.is_main_superagent?
+      grant = @current_representation_session.trustee_grant
+      unless grant&.allows_studio?(current_superagent)
+        flash[:alert] = "This studio is not included in your representation grant."
+        redirect_to "/representing"
+        return
+      end
+    end
+
     sm = current_superagent.superagent_members.find_by(user: @current_user)
     if sm.nil?
       if current_superagent == current_tenant.main_superagent

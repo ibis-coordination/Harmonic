@@ -661,13 +661,12 @@ class ApiHelper
   sig { params(grant: TrusteeGrant).returns(RepresentationSession) }
   def start_user_representation_session(grant:)
     raise ArgumentError, "Grant must be active" unless grant.active?
-    raise ArgumentError, "Current user must be the trusted user" unless grant.trusted_user == current_user
+    raise ArgumentError, "Current user must be the trustee" unless grant.trustee_user == current_user
 
     rep_session = RepresentationSession.create!(
       tenant: current_tenant,
       superagent_id: nil,
       representative_user: current_user,
-      trustee_user: grant.trustee_user,
       trustee_grant: grant,
       confirmed_understanding: true,
       began_at: Time.current,

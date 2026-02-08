@@ -126,12 +126,13 @@ module ActionAuthorization
   end
 
   # Check if a trustee user is authorized for this action.
-  # Trustees must have the action in their grant permissions AND
-  # the granting_user must also be allowed to perform the action.
+  #
+  # For user representation sessions: checks grant permissions.
+  # For studio representation: superagent trustees have full access.
   #
   # @param user [User, nil] The user attempting the action
   # @param action_name [String] The action to check
-  # @param context [Hash] Additional context (studio, etc.)
+  # @param context [Hash] Additional context (studio, representation_session, etc.)
   # @return [Boolean] true if authorized, false otherwise
   sig do
     params(
@@ -141,21 +142,31 @@ module ActionAuthorization
     ).returns(T::Boolean)
   end
   def self.trustee_authorized?(user, action_name, context)
+    # Check if there's an active user representation session
+    # For user representation, current_user is the granting_user (not a trustee type),
+    # so we need to check grant permissions via the session
+    rep_session = context[:representation_session]
+    if rep_session&.user_representation?
+      grant = rep_session.trustee_grant
+      return false unless grant&.active?
+
+      # Check studio scope if context provided
+      studio = context[:studio]
+      return false if studio && !grant.allows_studio?(studio)
+
+      # Check if grant allows this action
+      return false unless grant.has_action_permission?(action_name)
+
+      # CRITICAL: Grant inherits granting_user's restrictions
+      return CapabilityCheck.allowed?(T.must(grant.granting_user), action_name)
+    end
+
+    # For studio representation: current_user is a trustee-type user
     return true unless user&.trustee?
     return true if user.superagent_trustee?  # Superagent trustees have full access
 
-    grant = TrusteeGrant.find_by(trustee_user: user)
-    return false unless grant&.active?
-
-    # Check studio scope if context provided
-    studio = context[:studio]
-    return false if studio && !grant.allows_studio?(studio)
-
-    # Check if grant allows this action
-    return false unless grant.has_action_permission?(action_name)
-
-    # CRITICAL: Trustee inherits granting_user's restrictions
-    CapabilityCheck.allowed?(T.must(grant.granting_user), action_name)
+    # No other trustee types should exist after cleanup migration
+    false
   end
 
   # Check authorization against a specific authorization rule.

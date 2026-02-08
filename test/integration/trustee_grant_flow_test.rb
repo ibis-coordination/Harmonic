@@ -35,7 +35,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true, "vote" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -49,12 +49,12 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     assert permission.active?
     assert @bob.can_represent?(@alice)
 
-    # Step 3: Bob starts a representation session
+    # Step 3: Bob starts a user representation session (no superagent, has trustee_grant)
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      superagent: nil,  # User representation has no superagent
+      trustee_grant: permission,
       representative_user: @bob,
-      trustee_user: permission.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
@@ -62,12 +62,14 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     assert session.active?
     assert_not session.ended?
+    assert session.user_representation?
 
     # Step 4: Bob performs actions (creates a note)
+    # During representation, content is attributed to the effective_user (Alice, the granting_user)
     note = Note.create!(
       tenant: @tenant,
       superagent: @superagent,
-      created_by: @bob, # In practice, this would be the trustee_user during representation
+      created_by: session.effective_user,  # Alice
       title: "Note created while representing Alice",
       text: "This is a test note.",
       deadline: 1.week.from_now
@@ -104,7 +106,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
 
@@ -118,7 +120,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
     permission.accept!
@@ -135,7 +137,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       expires_at: 1.hour.from_now
     )
@@ -154,11 +156,11 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
   # CAPABILITY ENFORCEMENT
   # =========================================================================
 
-  test "action permission enforcement during representation session" do
+  test "action permission enforcement via grant" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_note" => true, "vote" => false }
     )
     permission.accept!
@@ -166,39 +168,36 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Bob has create_note but not vote permission
     assert permission.has_action_permission?("create_note")
     assert_not permission.has_action_permission?("vote")
-
-    # ActionAuthorization should enforce this
-    assert ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: @superagent })
-    assert_not ActionAuthorization.trustee_authorized?(permission.trustee_user, "vote", { studio: @superagent })
   end
 
   test "permission changes take immediate effect during active session" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_note" => true, "vote" => true }
     )
     permission.accept!
 
-    RepresentationSession.create!(
+    # Create user representation session
+    session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      superagent: nil,  # User representation has no superagent
+      trustee_grant: permission,
       representative_user: @bob,
-      trustee_user: permission.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
     )
 
     # Initially, vote is allowed
-    assert ActionAuthorization.trustee_authorized?(permission.trustee_user, "vote", { studio: @superagent })
+    assert permission.has_action_permission?("vote")
 
     # Alice revokes the vote permission
     permission.update!(permissions: { "create_note" => true, "vote" => false })
 
     # Bob's next vote attempt should fail (immediate effect)
-    assert_not ActionAuthorization.trustee_authorized?(permission.trustee_user, "vote", { studio: @superagent })
+    assert_not permission.has_action_permission?("vote")
   end
 
   # =========================================================================
@@ -213,7 +212,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_note" => true },
       studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] }
     )
@@ -221,10 +220,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     assert permission.allows_studio?(@superagent)
     assert_not permission.allows_studio?(other_studio)
-
-    # ActionAuthorization should enforce studio scope
-    assert ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: @superagent })
-    assert_not ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: other_studio })
   end
 
   test "studio scope enforcement - exclude mode" do
@@ -235,7 +230,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_note" => true },
       studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
     )
@@ -243,10 +238,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     assert permission.allows_studio?(@superagent)
     assert_not permission.allows_studio?(excluded_studio)
-
-    # ActionAuthorization should enforce studio scope
-    assert ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: @superagent })
-    assert_not ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: excluded_studio })
   end
 
   # =========================================================================
@@ -264,19 +255,19 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     @superagent.add_user!(subagent)
 
     # Permission should be auto-created and pre-accepted
-    permission = TrusteeGrant.find_by(granting_user: subagent, trusted_user: @alice)
+    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @alice)
     assert permission.present?
     assert permission.active?
 
     # Alice can represent the subagent
     assert @alice.can_represent?(subagent)
 
-    # Alice can create a representation session for the subagent
+    # Alice can create a user representation session for the subagent
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      superagent: nil,  # User representation has no superagent
+      trustee_grant: permission,
       representative_user: @alice,
-      trustee_user: permission.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
@@ -284,6 +275,9 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     assert session.persisted?
     assert session.active?
+    assert session.user_representation?
+    # effective_user is the subagent (granting_user)
+    assert_equal subagent, session.effective_user
   end
 
   # =========================================================================
@@ -295,7 +289,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission1 = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
     permission1.accept!
@@ -309,7 +303,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission2 = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: carol,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
     permission2.accept!
@@ -317,9 +311,9 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Bob starts session representing Alice
     session1 = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      superagent: nil,  # User representation
+      trustee_grant: permission1,
       representative_user: @bob,
-      trustee_user: permission1.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
@@ -346,16 +340,16 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true }
     )
     permission.accept!
 
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      superagent: nil,  # User representation
+      trustee_grant: permission,
       representative_user: @bob,
-      trustee_user: permission.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
       activity_log: { "activity" => [] }
@@ -364,13 +358,13 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # The representative_user is Bob (the one doing the representing)
     assert_equal @bob, session.representative_user
 
-    # The trustee_user is the trustee grant trustee (not Alice herself)
-    assert_equal permission.trustee_user, session.trustee_user
-    assert permission.trustee_user.trustee?
-    assert_not permission.trustee_user.superagent_trustee?
+    # The effective_user is Alice (the granting_user, the person being represented)
+    assert_equal @alice, session.effective_user
 
-    # The trustee_user's name should indicate the trustee grant relationship
-    assert_equal "Bob on behalf of Alice", permission.trustee_user.name
+    # After the migration, trustee_user on TrusteeGrant is the actual person (Bob), not a trustee-type
+    assert_equal @bob, permission.trustee_user
+    assert_not permission.trustee_user.trustee?
+    assert_equal "Bob", permission.trustee_user.name
   end
 
   # =========================================================================
@@ -391,7 +385,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" } # Grant allows all studios
     )
@@ -401,7 +395,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     sign_in_as(@bob, tenant: @tenant)
 
     # Bob starts a representation session via the controller endpoint
-    # Note: Bob accesses the grant through HIS own URL (as trusted_user), not Alice's
+    # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
     post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
 
     # Verify representation session started (should redirect to /representing)
@@ -432,7 +426,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
     )
@@ -446,7 +440,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     sign_in_as(@bob, tenant: @tenant)
 
     # Bob starts a representation session via the controller endpoint
-    # Note: Bob accesses the grant through HIS own URL (as trusted_user), not Alice's
+    # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
     post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
 
     # Verify representation session started
@@ -467,7 +461,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
-      trusted_user: @bob,
+      trustee_user: @bob,
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -481,7 +475,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     sign_in_as(@bob, tenant: @tenant)
 
     # Bob starts a representation session via the controller endpoint
-    # Note: Bob accesses the grant through HIS own URL (as trusted_user), not Alice's
+    # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
     post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
 
     # Verify representation session started

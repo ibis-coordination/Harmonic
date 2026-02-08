@@ -26,8 +26,8 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
 
     <%= form_tag "#{base_path}/new/actions/create_trustee_grant", method: :post, class: "pulse-form" do %>
       <section class="pulse-settings-section">
-        <label for="trusted_user_id" class="pulse-label">Who should receive this trustee grant? *</label>
-        <select name="trusted_user_id" id="trusted_user_id" class="pulse-form-input" required>
+        <label for="trustee_user_id" class="pulse-label">Who should receive this trustee grant? *</label>
+        <select name="trustee_user_id" id="trustee_user_id" class="pulse-form-input" required>
           <option value="">Select a user...</option>
           <% @available_users.each do |user| %>
             <option value="<%= user.id %>">

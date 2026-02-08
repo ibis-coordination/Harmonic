@@ -1,4 +1,4 @@
-\restrict 2dkAgtUvNXngJQBPqYDul5SRPsF2dpuLugxTYgMe3IikunGltb0MpezpNAyM5xR
+\restrict 2hmw5n7oUGuJ8vCsH7XQmqPcleFOELEHl3zJ3EtCOMhdM8k8l7vaIVaeDauGtV0
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -600,7 +600,6 @@ CREATE TABLE public.representation_sessions (
     tenant_id uuid NOT NULL,
     superagent_id uuid,
     representative_user_id uuid NOT NULL,
-    trustee_user_id uuid NOT NULL,
     began_at timestamp(6) without time zone NOT NULL,
     ended_at timestamp(6) without time zone,
     confirmed_understanding boolean DEFAULT false NOT NULL,
@@ -1323,9 +1322,7 @@ CREATE TABLE public.tenants (
 
 CREATE TABLE public.trustee_grants (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    trustee_user_id uuid NOT NULL,
     granting_user_id uuid NOT NULL,
-    trusted_user_id uuid NOT NULL,
     description text DEFAULT ''::text NOT NULL,
     permissions jsonb DEFAULT '{}'::jsonb,
     expires_at timestamp(6) without time zone,
@@ -1336,7 +1333,8 @@ CREATE TABLE public.trustee_grants (
     declined_at timestamp(6) without time zone,
     revoked_at timestamp(6) without time zone,
     studio_scope jsonb DEFAULT '{"mode": "all"}'::jsonb,
-    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
+    trustee_user_id uuid NOT NULL
 );
 
 
@@ -2584,13 +2582,6 @@ ALTER TABLE ONLY public.webhooks
 
 
 --
--- Name: idx_active_trustee_grants; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX idx_active_trustee_grants ON public.trustee_grants USING btree (granting_user_id, trusted_user_id) WHERE ((revoked_at IS NULL) AND (declined_at IS NULL));
-
-
---
 -- Name: idx_members_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3403,13 +3394,6 @@ CREATE INDEX index_representation_sessions_on_trustee_grant_id ON public.represe
 
 
 --
--- Name: index_representation_sessions_on_trustee_user_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_representation_sessions_on_trustee_user_id ON public.representation_sessions USING btree (trustee_user_id);
-
-
---
 -- Name: index_subagent_task_run_resources_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3568,13 +3552,6 @@ CREATE INDEX index_trustee_grants_on_tenant_id ON public.trustee_grants USING bt
 --
 
 CREATE UNIQUE INDEX index_trustee_grants_on_truncated_id ON public.trustee_grants USING btree (truncated_id);
-
-
---
--- Name: index_trustee_grants_on_trusted_user_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_trustee_grants_on_trusted_user_id ON public.trustee_grants USING btree (trusted_user_id);
 
 
 --
@@ -7685,14 +7662,6 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
--- Name: trustee_grants fk_rails_61c22cd494; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.trustee_grants
-    ADD CONSTRAINT fk_rails_61c22cd494 FOREIGN KEY (trusted_user_id) REFERENCES public.users(id);
-
-
---
 -- Name: note_history_events fk_rails_63e2a8744d; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7802,14 +7771,6 @@ ALTER TABLE ONLY public.decision_participants
 
 ALTER TABLE ONLY public.attachments
     ADD CONSTRAINT fk_rails_87cce8e128 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
-
-
---
--- Name: trustee_grants fk_rails_8bee20bb10; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.trustee_grants
-    ADD CONSTRAINT fk_rails_8bee20bb10 FOREIGN KEY (trustee_user_id) REFERENCES public.users(id);
 
 
 --
@@ -7957,6 +7918,14 @@ ALTER TABLE ONLY public.webhooks
 
 
 --
+-- Name: trustee_grants fk_rails_c85c161771; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trustee_grants
+    ADD CONSTRAINT fk_rails_c85c161771 FOREIGN KEY (trustee_user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: commitment_participants fk_rails_ca2dcc834c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8085,14 +8054,6 @@ ALTER TABLE ONLY public.webhooks
 
 
 --
--- Name: representation_sessions fk_rails_ee2c2c283c; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_sessions
-    ADD CONSTRAINT fk_rails_ee2c2c283c FOREIGN KEY (trustee_user_id) REFERENCES public.users(id);
-
-
---
 -- Name: heartbeats fk_rails_ef017bd5f0; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8176,7 +8137,7 @@ ALTER TABLE ONLY public.representation_sessions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 2dkAgtUvNXngJQBPqYDul5SRPsF2dpuLugxTYgMe3IikunGltb0MpezpNAyM5xR
+\unrestrict 2hmw5n7oUGuJ8vCsH7XQmqPcleFOELEHl3zJ3EtCOMhdM8k8l7vaIVaeDauGtV0
 
 SET search_path TO "$user", public;
 
@@ -8317,6 +8278,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260207001008'),
 ('20260207085452'),
 ('20260207141046'),
-('20260208044921');
+('20260208044921'),
+('20260208054634');
 
 

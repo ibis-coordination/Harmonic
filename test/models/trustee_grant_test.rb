@@ -4,12 +4,12 @@ class TrusteeGrantTest < ActiveSupport::TestCase
   def setup
     @tenant = create_tenant(subdomain: "trustee-perm-#{SecureRandom.hex(4)}")
     @granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Alice")
-    @trusted_user = create_user(email: "trusted_#{SecureRandom.hex(4)}@example.com", name: "Bob")
+    @trustee_user = create_user(email: "trusted_#{SecureRandom.hex(4)}@example.com", name: "Bob")
     @tenant.add_user!(@granting_user)
-    @tenant.add_user!(@trusted_user)
+    @tenant.add_user!(@trustee_user)
     @superagent = create_superagent(tenant: @tenant, created_by: @granting_user, handle: "trustee-perm-studio-#{SecureRandom.hex(4)}")
     @superagent.add_user!(@granting_user)
-    @superagent.add_user!(@trusted_user)
+    @superagent.add_user!(@trustee_user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
@@ -21,40 +21,39 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
     assert permission.persisted?
     assert permission.trustee_user.present?
-    assert permission.trustee_user.trustee?
+    assert_equal @trustee_user, permission.trustee_user
   end
 
-  test "trustee permission auto-creates a trustee user" do
+  test "trustee_user is the actual person trusted to act" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
-    trustee = permission.trustee_user
-    assert trustee.present?
-    assert trustee.trustee?
-    assert_not trustee.superagent_trustee?
-    assert_equal "Bob on behalf of Alice", trustee.name
+    # trustee_user is now the actual person (Bob), not a synthetic user
+    assert_equal @trustee_user, permission.trustee_user
+    assert_not permission.trustee_user.trustee?
+    assert_equal "Bob", permission.trustee_user.name
   end
 
-  test "granting_user cannot be the same as trusted_user" do
+  test "granting_user cannot be the same as trustee_user" do
     permission = TrusteeGrant.new(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @granting_user,
+      trustee_user: @granting_user,
       permissions: {},
     )
     assert_not permission.valid?
-    assert_includes permission.errors[:trusted_user], "cannot be the same as the granting user"
+    assert_includes permission.errors[:trustee_user], "cannot be the same as the granting user"
   end
 
-  test "trusted_user cannot be a trustee user" do
+  test "trustee_user cannot be a trustee-type user" do
     some_trustee = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
       name: "Some Trustee",
@@ -63,11 +62,11 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.new(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: some_trustee,
+      trustee_user: some_trustee,
       permissions: {},
     )
     assert_not permission.valid?
-    assert_includes permission.errors[:trusted_user], "cannot be a trustee user"
+    assert_includes permission.errors[:trustee_user], "cannot be a trustee-type user"
   end
 
   # =========================================================================
@@ -78,7 +77,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
     )
     assert permission.pending?
@@ -91,7 +90,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
     )
     assert permission.pending?
@@ -107,7 +106,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -121,7 +120,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
     )
     assert permission.pending?
@@ -138,7 +137,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -152,7 +151,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -169,7 +168,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -184,7 +183,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
     )
     permission.decline!
@@ -202,7 +201,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
       expires_at: 1.hour.ago,
     )
@@ -216,7 +215,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
       expires_at: 1.week.from_now,
     )
@@ -230,7 +229,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_notes" => true },
       expires_at: nil,
     )
@@ -248,7 +247,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_note" => true, "vote" => true },
     )
 
@@ -260,7 +259,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_note" => true },
     )
 
@@ -272,7 +271,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: { "create_note" => true, "vote" => false },
     )
 
@@ -284,7 +283,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: nil,
     )
 
@@ -308,7 +307,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
       studio_scope: { "mode" => "all" },
     )
@@ -320,7 +319,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
       studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] },
     )
@@ -334,7 +333,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
       studio_scope: { "mode" => "include", "studio_ids" => [other_studio.id] },
     )
@@ -347,7 +346,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
       studio_scope: { "mode" => "exclude", "studio_ids" => [@superagent.id] },
     )
@@ -361,7 +360,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
       studio_scope: { "mode" => "exclude", "studio_ids" => [other_studio.id] },
     )
@@ -374,7 +373,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
       studio_scope: nil,
     )
@@ -390,7 +389,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     pending_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
 
@@ -399,7 +398,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     accepted_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: other_user,
+      trustee_user: other_user,
       permissions: {},
     )
     accepted_permission.accept!
@@ -414,7 +413,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     pending_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
 
@@ -424,7 +423,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     active_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: other_user1,
+      trustee_user: other_user1,
       permissions: {},
     )
     active_permission.accept!
@@ -435,7 +434,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     expired_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: other_user2,
+      trustee_user: other_user2,
       permissions: {},
       expires_at: 1.hour.ago,
     )
@@ -447,7 +446,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     revoked_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: other_user3,
+      trustee_user: other_user3,
       permissions: {},
     )
     revoked_permission.accept!
@@ -464,30 +463,31 @@ class TrusteeGrantTest < ActiveSupport::TestCase
   # UNIQUE CONSTRAINT
   # =========================================================================
 
-  test "cannot create duplicate active permission for same granting and trusted user pair" do
+  test "cannot create duplicate active permission for same granting and trustee user pair" do
     TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
 
     # Second active permission for same pair should fail
-    assert_raises ActiveRecord::RecordNotUnique do
+    error = assert_raises ActiveRecord::RecordInvalid do
       TrusteeGrant.create!(
         tenant: @tenant,
         granting_user: @granting_user,
-        trusted_user: @trusted_user,
+        trustee_user: @trustee_user,
         permissions: {},
       )
     end
+    assert_match(/A grant already exists for this user pair/, error.message)
   end
 
   test "can create new permission after previous one is revoked" do
     first_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
     first_permission.accept!
@@ -497,7 +497,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     second_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
     assert second_permission.persisted?
@@ -507,7 +507,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     first_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
     first_permission.decline!
@@ -516,7 +516,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     second_permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
-      trusted_user: @trusted_user,
+      trustee_user: @trustee_user,
       permissions: {},
     )
     assert second_permission.persisted?
