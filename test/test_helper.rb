@@ -209,17 +209,17 @@ class ActiveSupport::TestCase
   end
 
   # Creates a representation session for a user acting via a trustee grant
-  # (as opposed to a studio trustee)
+  # (as opposed to a studio trustee). User representation sessions do NOT have
+  # a superagent - only studio representation sessions have superagent.
   def create_trustee_grant_representation_session(
     tenant:,
-    superagent:,
     trustee_grant:,
     confirmed_understanding: true,
     began_at: Time.current
   )
     RepresentationSession.create!(
       tenant: tenant,
-      superagent: superagent,
+      superagent: nil,
       representative_user: trustee_grant.trustee_user,
       trustee_grant: trustee_grant,
       confirmed_understanding: confirmed_understanding,

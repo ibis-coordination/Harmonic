@@ -227,6 +227,48 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "representation index only shows studio representation sessions, not user representation sessions" do
+    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+
+    # Create a studio representation session (this SHOULD appear)
+    studio_session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+    studio_session.end!
+
+    # Create a user representation session via trustee grant (this should NOT appear)
+    subagent = create_user(email: "subagent_#{SecureRandom.hex(4)}@example.com", name: "Subagent User")
+    @tenant.add_user!(subagent)
+    @superagent.add_user!(subagent)
+    grant = create_trustee_grant(
+      tenant: @tenant,
+      granting_user: subagent,
+      trustee_user: @user,
+      accepted: true,
+    )
+    user_session = create_trustee_grant_representation_session(
+      tenant: @tenant,
+      trustee_grant: grant,
+    )
+    user_session.end!
+
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/studios/#{@superagent.handle}/representation"
+
+    assert_response :success
+
+    # The studio session ID should appear on the page
+    assert_match studio_session.truncated_id, response.body,
+      "Studio representation session should appear in the list"
+
+    # The user session ID should NOT appear - this is the bug we're testing
+    assert_no_match(/#{user_session.truncated_id}/, response.body,
+      "User representation session should NOT appear on the studio representation page")
+  end
+
   # ====================
   # Edge Cases
   # ====================
