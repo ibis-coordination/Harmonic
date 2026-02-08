@@ -20,7 +20,7 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 | **Phase 4** | Representation Session Integration | ✅ Complete |
 | **Phase 5** | Notifications | ⬚ Not Started |
 | **Phase 6** | Trio Integration | ⬚ Not Started |
-| **Phase 7** | Replace Impersonation | 🔶 Partial (7.1 done) |
+| **Phase 7** | Replace Impersonation | 🔶 Partial (7.4 remaining) |
 
 ### What's Complete
 - ✅ `TrusteeGrant` model with CAPABILITIES constant, state methods, studio scoping
@@ -28,7 +28,7 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 - ✅ `TrusteeGrantsController` at `/u/:handle/settings/trustee-grants`
 - ✅ HTML and markdown views (index, new, show)
 - ✅ `User#can_represent?` checks TrusteeGrant for user representation
-- ✅ `TrusteeActionValidator` service enforced in `api_helper.rb`
+- ✅ Capability enforcement consolidated into `ActionAuthorization` (TrusteeActionValidator removed)
 - ✅ Auto-create TrusteeGrant when subagent is created
 - ✅ Comprehensive tests for model, controller, and integration
 - ✅ Navigation links from settings page to trustee grants with pending badge
@@ -39,11 +39,15 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 - ✅ Session history on trustee grant show page (Phase 4.7)
 - ✅ Markdown API actions for all trustee grant operations (Phase 4.8)
 - ✅ ActionsHelper integration with comprehensive test coverage (30 tests)
+- ✅ Migration for existing subagents to create TrusteeGrants (Phase 7.2)
+- ✅ `User#is_trusted_as?` method for representation checks (Phase 7.3)
+- ✅ Session management uses representation sessions for parent-subagent (Phase 7.5)
+- ✅ Tests updated for representation flow (Phase 7.6)
 
 ### What's Remaining
 - ⬚ **Phase 5**: Notifications for trustee grant events
 - ⬚ **Phase 6**: Trio integration and "Trio Access" settings
-- ⬚ **Phase 7.2-7.6**: Replace impersonation with representation sessions
+- ⬚ **Phase 7.4**: Remove impersonation UI (replace "Impersonate" with "Represent" flow)
 
 ---
 
@@ -592,43 +596,9 @@ Features:
 
 ### 4.4 Capability enforcement during session ✅ COMPLETE
 
-**File**: `app/services/trustee_action_validator.rb`
+**File**: `app/services/action_authorization.rb` (formerly `trustee_action_validator.rb`)
 
-Permission is checked at action time (not cached), so changes take immediate effect:
-
-```ruby
-class TrusteeActionValidator
-  CAPABILITY_MAP = {
-    "create_note" => "create_notes",
-    "create_decision" => "create_decisions",
-    "create_commitment" => "create_commitments",
-    "vote" => "vote",
-    "commit" => "commit",
-    "create_comment" => "comment",
-    "pin" => "pin",
-    "unpin" => "pin",
-  }.freeze
-
-  def initialize(user, superagent:)
-    @user = user
-    @superagent = superagent
-  end
-
-  def can_perform?(action_name)
-    return true unless @user.trustee?
-    return true if @user.superagent_trustee?  # Studio trustees have full access
-
-    permission = TrusteeGrant.find_by(trustee_user: @user)
-    return false unless permission&.active?
-    return false unless permission.allows_studio?(@superagent)
-
-    required_capability = CAPABILITY_MAP[action_name]
-    return true unless required_capability  # Read/navigate always allowed
-
-    permission.has_capability?(required_capability)
-  end
-end
-```
+Permission is checked at action time (not cached), so changes take immediate effect. The capability enforcement logic has been consolidated into ActionAuthorization.
 
 **Note**: If a granting user revokes a capability while a session is active, the next action requiring that capability will fail immediately.
 
@@ -647,14 +617,14 @@ This allows parent users to control whether their subagents can accept/decline t
 
 ### 4.6 Integrate enforcement ✅ COMPLETE
 
-**File**: `app/services/api_helper.rb`
+**Files**: `app/services/api_helper.rb`, `app/services/action_authorization.rb`
 
 Added capability enforcement:
-- `require_capability!(action_name)` method that validates using TrusteeActionValidator
+- `require_capability!(action_name)` method that validates using ActionAuthorization
 - `CapabilityError` exception class for capability violations
 - Capability checks in `create_note`, `create_decision`, `vote`, `create_votes`
 
-**Note**: Capability is checked at action time, so permission changes apply immediately to active sessions.
+**Note**: Capability is checked at action time, so permission changes apply immediately to active sessions. TrusteeActionValidator logic has been consolidated into ActionAuthorization.
 
 ### 4.7 Session history on trustee grant show page ✅ COMPLETE
 
@@ -800,7 +770,7 @@ Add to user settings:
 
 **Goal**: Migrate from impersonation to representation sessions, ensuring all delegated actions are logged.
 
-**Status**: Only 7.1 (auto-create TrusteeGrant for subagents) is complete. Sections 7.2-7.6 remain.
+**Status**: 7.1-7.3, 7.5-7.6 complete. Only 7.4 (remove impersonation UI) remains.
 
 ### 7.1 Auto-create TrusteeGrant for subagents ✅ COMPLETE
 
@@ -827,9 +797,9 @@ def create_parent_trustee_grant!
 end
 ```
 
-### 7.2 Migration for existing subagents ⬚ NOT STARTED
+### 7.2 Migration for existing subagents ✅ COMPLETE
 
-**File**: `db/migrate/YYYYMMDD_create_trustee_grants_for_subagents.rb`
+**File**: `db/migrate/20260207141046_create_trustee_grants_for_existing_subagents.rb`
 
 ```ruby
 class CreateTrusteeGrantsForSubagents < ActiveRecord::Migration[7.0]
@@ -858,38 +828,23 @@ class CreateTrusteeGrantsForSubagents < ActiveRecord::Migration[7.0]
 end
 ```
 
-### 7.3 Update `can_impersonate?` to use representation ⬚ NOT STARTED
+### 7.3 Update `can_impersonate?` to use representation ✅ COMPLETE
 
 **File**: `app/models/user.rb`
 
-Deprecate `can_impersonate?` and redirect to representation:
+Added `is_trusted_as?` method for checking representation authorization:
 
 ```ruby
-# DEPRECATED: Use can_represent? and representation sessions instead
-def can_impersonate?(user)
-  Rails.logger.warn("DEPRECATION: can_impersonate? is deprecated. Use can_represent? instead.")
-  can_represent?(user)
-end
-
-def can_represent?(superagent_or_user)
-  if superagent_or_user.is_a?(Superagent)
-    # ... existing superagent logic ...
-  elsif superagent_or_user.is_a?(User)
-    user = superagent_or_user
-
-    # Check for active TrusteeGrant where:
-    # - granting_user is the user being represented
-    # - trusted_user is self (the person wanting to represent)
-    permission = TrusteeGrant.active.find_by(
-      granting_user: user,
-      trusted_user: self
-    )
-    permission.present?
-  else
-    false
-  end
+def is_trusted_as?(user)
+  # Check if self can act as the given user via TrusteeGrant
+  TrusteeGrant.active.exists?(
+    granting_user: user,
+    trusted_user: self
+  )
 end
 ```
+
+The `can_impersonate?` method now uses `is_trusted_as?` for parent-subagent representation checks.
 
 ### 7.4 Remove impersonation UI ⬚ NOT STARTED
 
@@ -898,39 +853,25 @@ end
 - Remove impersonation session management from `ApplicationController`
 - Replace with "Represent" flow using representation sessions
 
-### 7.5 Update session management ⬚ NOT STARTED
+### 7.5 Update session management ✅ COMPLETE
 
-Current impersonation uses session cookies directly. Replace with representation session flow:
+Session management updated to use representation sessions for parent-subagent flow:
 
-**Before (impersonation)**:
-```ruby
-session[:impersonating_user_id] = subagent.id
-# Actions attributed to subagent, no logging
-```
+**Files updated**:
+- `app/controllers/application_controller.rb` - Handle representation session ending for impersonation path
+- `app/controllers/representation_sessions_controller.rb` - Support user representation studios
+- `app/controllers/users_controller.rb` - Use representation sessions when impersonating subagents
 
-**After (representation)**:
-```ruby
-permission = TrusteeGrant.active.find_by!(granting_user: subagent, trusted_user: current_user)
-representation_session = RepresentationSession.create!(
-  tenant: current_tenant,
-  superagent: current_superagent,
-  representative_user: current_user,  # The parent
-  trustee_user: permission.trustee_user,  # The trustee grant trustee
-  confirmed_understanding: true,
-  began_at: Time.current,
-  activity_log: { 'activity' => [] }
-)
-# All actions logged in activity_log
-```
+Impersonation now creates a representation session linked to the TrusteeGrant, ensuring all actions are logged.
 
-### 7.6 Testing the migration ⬚ NOT STARTED
+### 7.6 Testing the migration ✅ COMPLETE
 
-1. Create subagent via API
-2. Verify TrusteeGrant auto-created
-3. Parent starts representation session
-4. Actions logged to session
-5. Session ends, activity visible
-6. Verify old impersonation code paths are removed
+**Files updated**:
+- `test/integration/impersonation_test.rb` - Updated to use representation sessions
+- `test/integration/trustee_grant_flow_test.rb` - Tests for representation flow
+- `test/models/user_test.rb` - Tests for `is_trusted_as?` method
+- `test/models/trustee_grant_test.rb` - Tests for auto-created grants
+- `test/controllers/trustee_grants_controller_test.rb` - Controller tests
 
 ---
 
@@ -945,8 +886,7 @@ representation_session = RepresentationSession.create!(
 | `app/controllers/representation_sessions_controller.rb` | Extended for trustee grant trustees |
 | `app/services/api_helper.rb` | `start_user_representation_session` for shared session creation logic |
 | `app/services/actions_helper.rb` | Single source of truth for action definitions and route mappings |
-| `app/services/action_authorization.rb` | Authorization checks for actions |
-| `app/services/trustee_action_validator.rb` | Permission enforcement |
+| `app/services/action_authorization.rb` | Authorization checks for actions (includes capability enforcement, formerly in TrusteeActionValidator) |
 | `app/services/capability_check.rb` | Subagent capability authorization |
 | `app/services/markdown_ui_service.rb` | Action execution with enforcement |
 | `app/views/trustee_grants/` | UI templates (HTML and markdown) |
@@ -954,6 +894,7 @@ representation_session = RepresentationSession.create!(
 | `test/services/actions_helper_test.rb` | ActionsHelper tests (30 tests) |
 | `test/services/action_authorization_test.rb` | Authorization tests including trustee grant actions |
 | `db/migrate/20260207001008_allow_null_superagent_id_for_user_representation_sessions.rb` | Allow NULL superagent_id for user sessions |
+| `db/migrate/20260207141046_create_trustee_grants_for_existing_subagents.rb` | Create TrusteeGrants for existing subagents |
 
 ---
 
@@ -963,9 +904,9 @@ representation_session = RepresentationSession.create!(
 - `TrusteeGrant` state transitions
 - `TrusteeGrant` capability and studio scope checks
 - `User#can_represent?` for trustee grant trustees
-- `TrusteeActionValidator` permission checks
+- `User#is_trusted_as?` for representation checks
+- `ActionAuthorization` capability enforcement
 - Auto-creation of TrusteeGrant when subagent is created
-- `can_impersonate?` deprecation warning
 
 ### Integration Tests
 - Full flow: request → accept → start session → act → end session
