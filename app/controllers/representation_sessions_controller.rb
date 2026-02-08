@@ -76,10 +76,9 @@ class RepresentationSessionsController < ApplicationController
       began_at: Time.current
     )
     rep_session.begin!
-    # NOTE: - both cookies need to be set for ApplicationController#current_user
-    # to find the current RepresentationSession outside the scope of current_superagent
-    session[:trustee_user_id] = trustee.id
+    # Set session cookies (matches API headers: X-Representation-Session-ID, X-Representing-Studio)
     session[:representation_session_id] = rep_session.id
+    session[:representing_studio] = current_superagent.handle
     redirect_to "/representing"
   end
 
@@ -116,9 +115,9 @@ class RepresentationSessionsController < ApplicationController
 
     rep_session = api_helper.start_user_representation_session(grant: grant)
 
-    # Set session cookies for ApplicationController#current_user
-    session[:trustee_user_id] = grant.trustee_user.id
+    # Set session cookies (matches API headers: X-Representation-Session-ID, X-Representing-User)
     session[:representation_session_id] = rep_session.id
+    session[:representing_user] = grant.granting_user.handle
     redirect_to "/representing"
   end
 
@@ -145,14 +144,15 @@ class RepresentationSessionsController < ApplicationController
     exists_and_active = @current_representation_session && @current_representation_session.active?
     # Check if acting user is representative: browser users via session, API users via token
     acting_user_is_rep = exists_and_active && (
-      [@current_person_user, @current_subagent_user].include?(@current_representation_session.representative_user) ||
+      @current_person_user == @current_representation_session.representative_user ||
       @api_token_user == @current_representation_session.representative_user
     )
     if exists_and_active && acting_user_is_rep
       session_url = @current_representation_session.url
       @current_representation_session.end!
-      session.delete(:trustee_user_id)
       session.delete(:representation_session_id)
+      session.delete(:representing_user)
+      session.delete(:representing_studio)
 
       respond_to do |format|
         format.html do
@@ -179,15 +179,16 @@ class RepresentationSessionsController < ApplicationController
     exists_and_active = @current_representation_session && @current_representation_session.active?
     # Check if acting user is representative: browser users via session, API users via token
     acting_user_is_rep = exists_and_active && (
-      [@current_person_user, @current_subagent_user].include?(@current_representation_session.representative_user) ||
+      @current_person_user == @current_representation_session.representative_user ||
       @api_token_user == @current_representation_session.representative_user
     )
     if exists_and_active && acting_user_is_rep
       grant = @current_representation_session.trustee_grant
       session_url = @current_representation_session.url
       @current_representation_session.end!
-      session.delete(:trustee_user_id)
       session.delete(:representation_session_id)
+      session.delete(:representing_user)
+      session.delete(:representing_studio)
 
       respond_to do |format|
         format.html do

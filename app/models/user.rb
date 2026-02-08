@@ -130,17 +130,6 @@ class User < ApplicationRecord
     @trustee_superagent = Superagent.where(trustee_user: self).first
   end
 
-  # DEPRECATED: Use can_represent?(user) instead.
-  # This method is being phased out in favor of TrusteeGrant-based representation.
-  sig { params(user: User).returns(T::Boolean) }
-  def can_impersonate?(user)
-    ActiveSupport::Deprecation.warn(
-      "can_impersonate? is deprecated. Use can_represent? instead.",
-      caller_locations(2)
-    )
-    can_represent?(user)
-  end
-
   # Check if this user is authorized to use the given trustee identity.
   # Used to validate that a trustee_user_id in the session is legitimate.
   #
@@ -183,7 +172,7 @@ class User < ApplicationRecord
       # Cannot represent archived users
       return false if user.archived?
 
-      # Check if self is the parent of user (legacy impersonation logic)
+      # Parent can represent their subagent
       return true if is_parent_of?(user)
 
       # Check if self can represent user's superagent trustee
@@ -288,7 +277,15 @@ class User < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def display_name
     if trustee?
-      Superagent.where(trustee_user: self).first&.name
+      # Check for Superagent trustee (studio representation)
+      superagent_name = Superagent.where(trustee_user: self).first&.name
+      return superagent_name if superagent_name
+
+      # Check for TrusteeGrant trustee (user representation)
+      grant = TrusteeGrant.find_by(trustee_user: self)
+      return grant.display_name if grant
+
+      nil
     else
       tenant_user&.display_name
     end
@@ -468,7 +465,7 @@ class User < ApplicationRecord
 
   private
 
-  # Check if self is the parent of the given user (for legacy impersonation)
+  # Check if self is the parent of the given user (for representation)
   sig { params(user: User).returns(T::Boolean) }
   def is_parent_of?(user)
     user.subagent? && user.parent_id == id && !user.archived?
@@ -490,8 +487,7 @@ class User < ApplicationRecord
       trusted_user: parent_user,        # The parent receives
       accepted_at: Time.current,        # Pre-accepted
       permissions: all_permissions,     # All actions allowed
-      studio_scope: { "mode" => "all" }, # All studios
-      relationship_phrase: "{trusted_user} acts for {granting_user}"
+      studio_scope: { "mode" => "all" } # All studios
     )
   end
 

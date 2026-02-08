@@ -682,6 +682,51 @@ class SubagentTaskRunResource
     sig { void }
     def created_at_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def display_path; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def display_path=(value); end
+
+    sig { returns(T::Boolean) }
+    def display_path?; end
+
+    sig { returns(T.nilable(::String)) }
+    def display_path_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def display_path_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def display_path_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def display_path_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def display_path_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def display_path_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def display_path_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def display_path_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def display_path_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def display_path_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def display_path_was; end
+
+    sig { void }
+    def display_path_will_change!; end
+
     sig { returns(::String) }
     def id; end
 
@@ -869,6 +914,9 @@ class SubagentTaskRunResource
     def restore_created_at!; end
 
     sig { void }
+    def restore_display_path!; end
+
+    sig { void }
     def restore_id!; end
 
     sig { void }
@@ -900,6 +948,12 @@ class SubagentTaskRunResource
 
     sig { returns(T::Boolean) }
     def saved_change_to_created_at?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_display_path; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_display_path?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
@@ -1083,6 +1137,9 @@ class SubagentTaskRunResource
 
     sig { returns(T::Boolean) }
     def will_save_change_to_created_at?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_display_path?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_id?; end

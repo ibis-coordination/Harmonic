@@ -6,28 +6,12 @@ This document describes how users can act on behalf of studios through represent
 
 Representation enables **collective agency**—the ability for a studio to act as a unified entity through designated representatives. When a user represents a studio:
 
-1. They impersonate the studio's trustee user
+1. They act through the studio's trustee user
 2. Their actions are attributed to the studio
 3. All activity is recorded in a representation session
 4. Other studio members can see what actions were taken on the studio's behalf
 
 ## Key Concepts
-
-### Impersonation vs Representation
-
-These terms are related but distinct:
-
-- **Impersonation** (`can_impersonate?`): The mechanical ability to act *as* another user
-- **Representation** (`can_represent?`): The permission to act *on behalf of* a studio
-
-**Flow:**
-```
-can_represent?(studio)
-    → grants ability to
-can_impersonate?(studio.trustee_user)
-    → creates
-RepresentationSession
-```
 
 ### Who Can Represent?
 
@@ -198,7 +182,7 @@ Sessions automatically expire after 24 hours even if not explicitly ended. Expir
 ### Role Revoked During Session
 
 If a user's `representative` role is removed while they have an active session:
-- Next request detects `can_impersonate?` returns false
+- Next request detects `can_represent?` returns false
 - Session is ended gracefully
 - User is returned to their person identity
 

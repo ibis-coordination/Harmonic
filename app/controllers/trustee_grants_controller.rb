@@ -118,15 +118,10 @@ class TrusteeGrantsController < ApplicationController
     # Parse expiration
     expires_at = parse_expires_at(params[:expires_at])
 
-    # Build relationship phrase
-    relationship_phrase = params[:relationship_phrase].presence ||
-                          "{trusted_user} acts for {granting_user}"
-
     grant = TrusteeGrant.new(
       tenant: @current_tenant,
       granting_user: @target_user,
       trusted_user: trusted_user,
-      relationship_phrase: relationship_phrase,
       permissions: permissions,
       studio_scope: studio_scope,
       expires_at: expires_at
@@ -267,9 +262,9 @@ class TrusteeGrantsController < ApplicationController
 
     rep_session = api_helper.start_user_representation_session(grant: @grant)
 
-    # Set session cookies for ApplicationController#current_user
-    session[:trustee_user_id] = @grant.trustee_user.id
+    # Set session cookies (matches API headers: X-Representation-Session-ID, X-Representing-User)
     session[:representation_session_id] = rep_session.id
+    session[:representing_user] = @grant.granting_user.handle
 
     redirect_to "/representing"
   rescue ArgumentError => e

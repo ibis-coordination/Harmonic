@@ -478,14 +478,13 @@ class ActionsHelper
     # Trustee Grant actions
     "create_trustee_grant" => {
       description: "Grant another user authority to act on your behalf",
-      params_string: "(trusted_user_id, permissions, studio_scope_mode, studio_ids, expires_at, relationship_phrase)",
+      params_string: "(trusted_user_id, permissions, studio_scope_mode, studio_ids, expires_at)",
       params: [
         { name: "trusted_user_id", type: "string", required: true, description: "The ID of the user to grant authority to" },
         { name: "permissions", type: "array", required: true, description: "Array of capability names to grant (e.g., create_notes, vote, commit)" },
         { name: "studio_scope_mode", type: "string", description: 'Studio scope mode: "all" (default), "include", or "exclude"' },
         { name: "studio_ids", type: "array", description: "Array of studio IDs for include/exclude modes" },
         { name: "expires_at", type: "datetime", description: "When the trustee grant expires (optional)" },
-        { name: "relationship_phrase", type: "string", description: 'Relationship description (optional, defaults to "{trusted_user} acts for {granting_user}")' },
       ],
       authorization: :self,
     },

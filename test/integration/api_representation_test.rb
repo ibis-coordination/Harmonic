@@ -102,7 +102,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -129,7 +128,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -182,7 +180,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true }
     )
     grant.accept!
@@ -211,7 +208,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true }
     )
     grant.accept!
@@ -245,7 +241,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true }
     )
     grant.accept!
@@ -288,7 +283,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true }
     )
     grant.accept!
@@ -321,7 +315,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -385,7 +378,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -410,7 +402,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -436,7 +427,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -541,7 +531,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -609,7 +598,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )

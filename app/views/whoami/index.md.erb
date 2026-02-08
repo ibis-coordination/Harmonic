@@ -1,18 +1,18 @@
-<% if @current_subagent_user && @current_person_user %>
-_You (<%= @current_person_user.display_name %>) are currently impersonating **<%= @current_subagent_user.display_name %>** (@<%= @current_subagent_user.handle %>). The page below contains what **<%= @current_subagent_user.display_name %>** sees on this page._
-
-<% end -%>
 <% if @current_representation_session %>
 ## Representation Session
 
-You are currently representing **<%= @current_representation_session.trustee_user.trustee_superagent&.name %>**.
+<% if @current_representation_session.user_representation? %>
+You (<%= @current_person_user&.display_name %>) are currently representing **<%= @current_representation_session.represented_user&.display_name %>** (@<%= @current_representation_session.represented_user&.handle %>).
+<% else %>
+You are currently representing **<%= @current_representation_session.superagent&.name %>**.
+<% end %>
 
 | Property | Value |
 |----------|-------|
 | Started | <%= @current_representation_session.created_at.strftime("%Y-%m-%d %H:%M UTC") %> |
 | Expires | <%= @current_representation_session.expires_at.strftime("%Y-%m-%d %H:%M UTC") %> |
 
-Actions you take are being recorded and will be made visible to all members of **<%= @current_representation_session.trustee_user.trustee_superagent&.name %>**.
+Actions you take are being recorded.
 <% end -%>
 # Who Am I?
 

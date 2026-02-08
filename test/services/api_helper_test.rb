@@ -247,7 +247,6 @@ class ApiHelperTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     grant.accept!
@@ -278,7 +277,6 @@ class ApiHelperTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     # Grant is pending, not active
@@ -304,7 +302,6 @@ class ApiHelperTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @user,
       trusted_user: other_user,  # other_user is trusted, not @user
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     grant.accept!

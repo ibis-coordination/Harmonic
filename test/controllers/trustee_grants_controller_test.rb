@@ -45,7 +45,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -60,7 +59,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -165,7 +163,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -180,7 +177,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -194,7 +190,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
     grant.accept!
@@ -222,7 +217,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -239,7 +233,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -260,7 +253,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -279,7 +271,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -298,7 +289,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -317,7 +307,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -338,7 +327,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -358,7 +346,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -377,7 +364,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -397,7 +383,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
     permission.accept!
@@ -441,7 +426,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -457,7 +441,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -473,7 +456,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @user,
       trusted_user: @other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
     permission.revoke!

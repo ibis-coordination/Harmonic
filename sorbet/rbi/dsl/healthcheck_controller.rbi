@@ -22,6 +22,8 @@ class HealthcheckController
     include ::ActionText::TagHelper
     include ::ActionController::Base::HelperMethods
     include ::ApplicationHelper
+    include ::MarkdownHelper
+    include ::SubagentsHelper
   end
 
   class HelperProxy < ::ActionView::Base

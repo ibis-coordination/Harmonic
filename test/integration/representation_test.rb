@@ -1,6 +1,6 @@
 require "test_helper"
 
-class ImpersonationTest < ActionDispatch::IntegrationTest
+class RepresentationTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @superagent = @global_superagent
@@ -14,22 +14,22 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
-  # Helper to start impersonation and handle the new representation flow
-  def start_impersonating
-    post "/u/#{@subagent.handle}/impersonate"
+  # Helper to start representation and handle the flow
+  def start_representing
+    post "/u/#{@subagent.handle}/represent"
     assert_response :redirect
-    # New flow redirects to /representing first
+    # Flow redirects to /representing first
     follow_redirect!
   end
 
   # ====================
-  # Starting Impersonation
+  # Starting Representation
   # ====================
 
-  test "parent can start impersonating their subagent user" do
+  test "parent can start representing their subagent user" do
     sign_in_as(@parent, tenant: @tenant)
 
-    start_impersonating
+    start_representing
 
     # Now at /representing page
     assert_response :success
@@ -37,7 +37,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     assert RepresentationSession.exists?(trustee_grant: @grant, representative_user: @parent)
   end
 
-  test "parent cannot impersonate another user's subagent user" do
+  test "parent cannot represent another user's subagent user" do
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
     @superagent.add_user!(other_parent)
@@ -47,36 +47,36 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{other_subagent.handle}/impersonate"
+    post "/u/#{other_subagent.handle}/represent"
 
     assert_response :forbidden
   end
 
-  test "parent cannot impersonate archived subagent user" do
+  test "parent cannot represent archived subagent user" do
     # Archive through tenant_user since archived_at is on TenantUser
     @subagent.tenant_user = @tenant.tenant_users.find_by(user: @subagent)
     @subagent.archive!
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{@subagent.handle}/impersonate"
+    post "/u/#{@subagent.handle}/represent"
 
     assert_response :forbidden
   end
 
-  test "parent cannot impersonate a regular person user" do
+  test "parent cannot represent a regular person user" do
     other_person = create_user(name: "Other Person")
     @tenant.add_user!(other_person)
     @superagent.add_user!(other_person)
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{other_person.handle}/impersonate"
+    post "/u/#{other_person.handle}/represent"
 
     assert_response :forbidden
   end
 
-  test "unauthenticated user cannot impersonate anyone" do
-    post "/u/#{@subagent.handle}/impersonate"
+  test "unauthenticated user cannot represent anyone" do
+    post "/u/#{@subagent.handle}/represent"
 
     # Should redirect to login or return error
     assert_response :redirect
@@ -86,9 +86,9 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   # Session Management
   # ====================
 
-  test "after impersonation starts current_user returns the trustee user" do
+  test "after representation starts current_user returns the trustee user" do
     sign_in_as(@parent, tenant: @tenant)
-    start_impersonating
+    start_representing
 
     # Access a page that shows current user info (non-home pages work normally)
     get "/studios/#{@superagent.handle}"
@@ -96,11 +96,11 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "creating content while impersonating attributes it to trustee user" do
+  test "creating content while representing attributes it to trustee user" do
     sign_in_as(@parent, tenant: @tenant)
-    start_impersonating
+    start_representing
 
-    # Create a note while impersonating
+    # Create a note while representing
     post "/studios/#{@superagent.handle}/note", params: {
       note: {
         title: "Note from trustee user",
@@ -116,12 +116,12 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   end
 
   # ====================
-  # Actions While Impersonating
+  # Actions While Representing
   # ====================
 
-  test "creating a note while impersonating attributes it to the trustee user" do
+  test "creating a note while representing attributes it to the trustee user" do
     sign_in_as(@parent, tenant: @tenant)
-    start_impersonating
+    start_representing
 
     assert_difference "Note.count", 1 do
       post "/studios/#{@superagent.handle}/note", params: {
@@ -137,7 +137,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     assert_equal @trustee_user.id, note.created_by_id
   end
 
-  test "voting on a decision while impersonating records the trustee user's participation" do
+  test "voting on a decision while representing records the trustee user's participation" do
     sign_in_as(@parent, tenant: @tenant)
 
     # Create a decision first
@@ -146,7 +146,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
       superagent: @superagent,
       created_by: @parent,
       question: "Test Decision?",
-      description: "Testing voting while impersonating",
+      description: "Testing voting while representing",
       deadline: Time.current + 1.week,
       options_open: true,
     )
@@ -158,8 +158,8 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
       title: "Option A",
     )
 
-    # Now impersonate and vote
-    start_impersonating
+    # Now represent and vote
+    start_representing
 
     post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/vote", params: {
       votes: [{ option_title: option.title, accept: true, prefer: false }],
@@ -171,34 +171,34 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
   end
 
   # ====================
-  # Stopping Impersonation
+  # Stopping Representation
   # ====================
 
-  test "parent can stop impersonating" do
+  test "parent can stop representing" do
     sign_in_as(@parent, tenant: @tenant)
-    start_impersonating
+    start_representing
 
-    delete "/u/#{@subagent.handle}/impersonate", headers: { "HTTP_REFERER" => "/" }
+    delete "/u/#{@subagent.handle}/represent", headers: { "HTTP_REFERER" => "/" }
 
     assert_response :redirect
   end
 
-  test "after stopping impersonation current_user returns the original person user" do
+  test "after stopping representation current_user returns the original person user" do
     sign_in_as(@parent, tenant: @tenant)
-    start_impersonating
+    start_representing
 
-    # Create a note while impersonating
+    # Create a note while representing
     post "/studios/#{@superagent.handle}/note", params: {
-      note: { title: "Before stop", text: "Impersonating" },
+      note: { title: "Before stop", text: "Representing" },
     }
-    note_while_impersonating = Note.last
-    # While impersonating, content is attributed to the trustee_user
-    assert_equal @trustee_user.id, note_while_impersonating.created_by_id
+    note_while_representing = Note.last
+    # While representing, content is attributed to the trustee_user
+    assert_equal @trustee_user.id, note_while_representing.created_by_id
 
-    # Stop impersonating
-    delete "/u/#{@subagent.handle}/impersonate", headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}" }
+    # Stop representing
+    delete "/u/#{@subagent.handle}/represent", headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}" }
 
-    # The stop_impersonating action should end the representation session
+    # The stop_representing action should end the representation session
     rep_session = RepresentationSession.unscoped.find_by(trustee_grant: @grant, representative_user: @parent)
     rep_session.reload
     assert rep_session.ended?, "Representation session should be ended"
@@ -207,7 +207,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
 
     # Create another note after stopping
     post "/studios/#{@superagent.handle}/note", params: {
-      note: { title: "After stop", text: "No longer impersonating" },
+      note: { title: "After stop", text: "No longer representing" },
     }
     note_after_stopping = Note.last
     assert_equal @parent.id, note_after_stopping.created_by_id
@@ -219,9 +219,9 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
 
   test "if subagent user is archived during session representation ends gracefully" do
     sign_in_as(@parent, tenant: @tenant)
-    start_impersonating
+    start_representing
 
-    # Archive the subagent user while impersonating
+    # Archive the subagent user while representing
     @subagent.tenant_user = @tenant.tenant_users.find_by(user: @subagent)
     @subagent.archive!
 
@@ -234,7 +234,7 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
 
   test "representation is cleared when parent can no longer represent" do
     sign_in_as(@parent, tenant: @tenant)
-    start_impersonating
+    start_representing
 
     # Revoke the grant (simulating an edge case where representation is no longer valid)
     @grant.revoke!
@@ -246,17 +246,17 @@ class ImpersonationTest < ActionDispatch::IntegrationTest
     # Session should clear representation since the grant is revoked
   end
 
-  test "cannot start impersonation for non-existent user" do
+  test "cannot start representation for non-existent user" do
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/nonexistent-handle/impersonate"
+    post "/u/nonexistent-handle/represent"
 
     assert_response :not_found
   end
 
   test "representation persists across multiple requests" do
     sign_in_as(@parent, tenant: @tenant)
-    start_impersonating
+    start_representing
 
     # Make multiple requests
     get "/studios/#{@superagent.handle}"

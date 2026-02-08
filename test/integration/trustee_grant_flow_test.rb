@@ -36,7 +36,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true, "vote" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -106,7 +105,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true }
     )
 
@@ -121,7 +119,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true }
     )
     permission.accept!
@@ -139,7 +136,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
       expires_at: 1.hour.from_now
     )
@@ -163,7 +159,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true, "vote" => false }
     )
     permission.accept!
@@ -182,7 +177,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true, "vote" => true }
     )
     permission.accept!
@@ -220,7 +214,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
       studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] }
     )
@@ -243,7 +236,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
       studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
     )
@@ -304,7 +296,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true }
     )
     permission1.accept!
@@ -319,7 +310,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: carol,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Carol",
       permissions: { "create_notes" => true }
     )
     permission2.accept!
@@ -357,7 +347,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true }
     )
     permission.accept!
@@ -381,7 +370,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     assert_not permission.trustee_user.superagent_trustee?
 
     # The trustee_user's name should indicate the trustee grant relationship
-    assert_equal "Bob acts for Alice", permission.trustee_user.name
+    assert_equal "Bob on behalf of Alice", permission.trustee_user.name
   end
 
   # =========================================================================
@@ -403,7 +392,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" } # Grant allows all studios
     )
@@ -445,7 +433,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
     )
@@ -481,7 +468,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )

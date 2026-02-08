@@ -328,7 +328,7 @@
                   </div>
                   <div class="pulse-subagent-actions">
                     <% unless subagent.archived? %>
-                      <%= button_to 'Impersonate', "#{subagent.path}/impersonate", method: :post, class: 'pulse-action-btn-small' %>
+                      <%= button_to 'Represent', "#{subagent.path}/represent", method: :post, class: 'pulse-action-btn-small' %>
                     <% end %>
                     <a href="<%= subagent.path %>/settings" class="pulse-action-btn-small">Settings</a>
                   </div>

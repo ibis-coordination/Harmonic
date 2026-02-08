@@ -127,12 +127,12 @@ class ApplicationController < ActionController::Base
   # 1. API token authentication (Authorization header present)
   # 2. Browser session authentication (cookie-based)
   #
-  # For browser sessions, there's an "identity stack" that can layer multiple identities:
-  # - Base layer: Person user (the logged-in human)
-  # - Impersonation layer: Subagent user (if person is impersonating their AI agent)
-  # - Representation layer: Trustee user (if person/subagent is acting on behalf of another user)
+  # Both paths support representation sessions:
+  # - API: via X-Representation-Session-ID + X-Representing-User/Studio headers
+  # - Browser: via representation_session_id + representing_user/studio cookies
   #
-  # The effective current_user is the topmost valid identity in this stack.
+  # The effective current_user is either the base person user or the trustee user
+  # from an active representation session.
   def current_user
     return @current_user if defined?(@current_user)
 
@@ -312,91 +312,100 @@ class ApplicationController < ActionController::Base
 
   # Resolves user identity for browser session-authenticated requests.
   #
-  # Handles the identity stack: person → subagent → trustee
-  # Each layer is validated before being applied.
+  # Uses cookies that mirror the API header structure:
+  # - representation_session_id: ID of the RepresentationSession
+  # - representing_user: handle of the user being represented
+  # - representing_studio: handle of the studio being represented
   def resolve_browser_session_user
-    load_session_users
-    resolve_effective_identity
+    load_session_user
+    resolve_browser_representation
     validate_access
     @current_user
   end
 
-  # Loads user records from session data.
+  # Loads the base person user from session.
   #
-  # Session keys and their purposes:
-  # - :user_id - The logged-in person user (only person users can log in via browser)
-  # - :subagent_user_id - The subagent being impersonated (if any)
-  # - :trustee_user_id - The trustee identity for representation (if any)
-  #
-  # Each lookup explicitly filters by user_type to ensure type safety.
-  def load_session_users
+  # Session key :user_id stores the logged-in person user.
+  # Only person users can log in via browser.
+  def load_session_user
     @current_person_user = (User.find_by(id: session[:user_id], user_type: "person") if session[:user_id].present?)
-    @current_subagent_user = (User.find_by(id: session[:subagent_user_id], user_type: "subagent") if session[:subagent_user_id].present?)
-    @current_trustee_user = (User.find_by(id: session[:trustee_user_id], user_type: "trustee") if session[:trustee_user_id].present?)
-  end
-
-  # Determines the effective user from the identity stack.
-  #
-  # The stack is evaluated bottom-up:
-  # 1. Start with the person user (base layer)
-  # 2. Apply impersonation if valid (person → subagent)
-  # 3. Apply representation if valid (person/subagent → trustee)
-  #
-  # If any layer is invalid (e.g., impersonation no longer allowed),
-  # the entire impersonation/representation state is cleared.
-  def resolve_effective_identity
-    # Start with the base identity (person user)
     @current_user = @current_person_user
-
-    # Try to apply impersonation layer
-    @current_user = apply_impersonation_layer(@current_user)
-
-    # Try to apply representation layer
-    @current_user = apply_representation_layer(@current_user)
-
-    # Ensure we have a user (could be nil if not logged in)
-    @current_user ||= @current_person_user
   end
 
-  # Applies the impersonation layer if valid.
+  # Resolves representation from browser cookies.
   #
-  # A person user can impersonate a subagent user if:
-  # - There's a subagent_user_id in the session
-  # - The person user has permission to impersonate that subagent (via can_impersonate?)
-  #
-  # @param base_user [User, nil] The current effective user (should be person user)
-  # @return [User, nil] The subagent user if impersonation is valid, otherwise base_user
-  def apply_impersonation_layer(base_user)
-    return base_user unless @current_subagent_user
+  # Mirrors the API header validation logic:
+  # - Validates representation_session_id exists and is active
+  # - Validates representing_user/studio cookie matches session target
+  # - Sets @current_user to the trustee user if valid
+  def resolve_browser_representation
+    return unless session[:representation_session_id].present?
+    return unless @current_person_user
 
-    if base_user&.can_impersonate?(@current_subagent_user)
-      @current_subagent_user
-    else
-      # Impersonation is no longer valid - clear all layers
-      clear_impersonations_and_representations!
-      @current_subagent_user = nil
-      @current_person_user
+    # Look up the RepresentationSession
+    rep_session = RepresentationSession.unscoped.find_by(
+      id: session[:representation_session_id],
+      tenant_id: current_tenant.id
+    )
+
+    # Validate: session exists
+    unless rep_session
+      clear_representation!
+      return
     end
+
+    # Validate: session is active (not ended)
+    if rep_session.ended?
+      clear_representation!
+      return
+    end
+
+    # Validate: session is not expired
+    if rep_session.expired?
+      clear_representation!
+      flash[:alert] = "Representation session expired."
+      return
+    end
+
+    # Validate: grant is still active (for user representation sessions)
+    if rep_session.trustee_grant && !rep_session.trustee_grant.active?
+      clear_representation!
+      flash[:alert] = "Trustee grant is no longer active."
+      return
+    end
+
+    # Validate: person user matches session's representative_user
+    unless rep_session.representative_user_id == @current_person_user.id
+      clear_representation!
+      return
+    end
+
+    # Validate: representing cookie matches session target
+    unless validate_representing_cookies(rep_session)
+      clear_representation!
+      return
+    end
+
+    # All validations passed - apply representation
+    @current_representation_session = rep_session
+    @current_user = rep_session.trustee_user
   end
 
-  # Applies the representation layer if valid.
+  # Validates the representing_user or representing_studio cookie matches the session.
   #
-  # A user (person or subagent) can represent as a trustee user if:
-  # - There's a trustee_user_id in the session
-  # - The current user is authorized to use that trustee identity (via is_trusted_as?)
-  #
-  # @param base_user [User, nil] The current effective user (person or subagent)
-  # @return [User, nil] The trustee user if representation is valid, otherwise base_user
-  def apply_representation_layer(base_user)
-    return base_user unless @current_trustee_user
-
-    if base_user&.is_trusted_as?(@current_trustee_user)
-      @current_trustee_user
+  # @param rep_session [RepresentationSession] The representation session
+  # @return [Boolean] true if valid, false otherwise
+  def validate_representing_cookies(rep_session)
+    if rep_session.user_representation?
+      # User representation requires representing_user cookie
+      representing_user = session[:representing_user]
+      expected_handle = rep_session.trustee_grant&.granting_user&.handle
+      representing_user.present? && representing_user == expected_handle
     else
-      # Representation is no longer valid - clear all layers
-      clear_impersonations_and_representations!
-      @current_trustee_user = nil
-      @current_person_user
+      # Studio representation requires representing_studio cookie
+      representing_studio = session[:representing_studio]
+      expected_handle = rep_session.superagent&.handle
+      representing_studio.present? && representing_studio == expected_handle
     end
   end
 
@@ -492,45 +501,37 @@ class ApplicationController < ActionController::Base
     render json: { error: "You do not have permission to perform that action" }, status: :forbidden
   end
 
-  def clear_impersonations_and_representations!
-    session.delete(:subagent_user_id)
+  # Clears the current representation session and related cookies.
+  #
+  # Cookie keys cleared:
+  # - representation_session_id: The session ID
+  # - representing_user: Handle of user being represented
+  # - representing_studio: Handle of studio being represented
+  def clear_representation!
     session.delete(:representation_session_id)
-    session.delete(:trustee_user_id)
+    session.delete(:representing_user)
+    session.delete(:representing_studio)
     @current_user = @current_person_user
-    @current_subagent_user = nil
     @current_representation_session&.end!
     @current_representation_session = nil
   end
 
-  attr_reader :current_person_user, :current_subagent_user
+  attr_reader :current_person_user
 
   def current_representation_session
     return @current_representation_session if defined?(@current_representation_session)
 
-    if session[:representation_session_id].present?
-      # Unscoped: RepresentationSession may belong to a different superagent than current context.
-      # Security: Validated by matching trustee_user, representative_user, superagent, and id.
-      @current_representation_session = RepresentationSession.unscoped.find_by(
-        trustee_user: @current_user,
-        # Person can be impersonating a subagent user who is representing the superagent via a representation session, all simultaneously.
-        representative_user: @current_subagent_user || @current_person_user,
-        superagent: @current_user.trustee_superagent,
-        id: session[:representation_session_id]
-      )
-      if @current_representation_session.nil?
-        # TODO: - not sure what to do here. What are the security concerns?
-        clear_impersonations_and_representations!
-        flash[:alert] = "Representation session not found. Please try again."
-      elsif @current_representation_session.expired?
-        clear_impersonations_and_representations!
-        flash[:alert] = "Representation session expired."
-      elsif !request.path.starts_with?("/representing") && !(request.path.starts_with?("/studios/") || request.path.starts_with?("/scenes/"))
-        # Representation session should always be scoped to a studio or the /representing page.
-        # The one exception is when ending representation/impersonation via DELETE /u/:handle/impersonate.
-        ending_representation = request.path.ends_with?("/impersonate") && request.delete?
-        if ending_representation
-          # Allow request to proceed. UsersController#stop_impersonating will handle the end of the representation session.
-        else
+    # For browser sessions, @current_representation_session is set by resolve_browser_representation
+    # For API requests, it's set by resolve_api_representation
+    # This method handles path validation for active sessions
+    if @current_representation_session&.active?
+      # Representation session should always be scoped to a studio or the /representing page.
+      # The one exception is when ending representation via DELETE /u/:handle/represent.
+      unless request.path.starts_with?("/representing") ||
+             request.path.starts_with?("/studios/") ||
+             request.path.starts_with?("/scenes/")
+        ending_representation = request.path.ends_with?("/represent") && request.delete?
+        unless ending_representation
           redirect_to "/representing"
         end
       end

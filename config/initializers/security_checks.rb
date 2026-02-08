@@ -12,7 +12,7 @@ if Rails.env.production?
       SECURITY ERROR: AUTH_MODE=honor_system is not allowed in production!
 
       Honor system authentication bypasses all security checks and allows
-      anyone to impersonate any user. This mode is only intended for local
+      anyone to log in as any user. This mode is only intended for local
       development and testing.
 
       To fix this, set AUTH_MODE=oauth in your environment configuration.

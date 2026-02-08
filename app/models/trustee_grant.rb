@@ -141,7 +141,7 @@ class TrusteeGrant < ApplicationRecord
   def display_name
     trusted_name = trusted_user&.display_name || trusted_user&.name || "Unknown"
     granting_name = granting_user&.display_name || granting_user&.name || "Unknown"
-    T.must(relationship_phrase).gsub("{trusted_user}", trusted_name).gsub("{granting_user}", granting_name)
+    "#{trusted_name} on behalf of #{granting_name}"
   end
 
   # Override ApplicationRecord#path - TrusteeGrant paths are user-relative, not superagent-relative

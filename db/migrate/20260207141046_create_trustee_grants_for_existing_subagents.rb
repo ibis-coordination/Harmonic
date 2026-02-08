@@ -31,7 +31,6 @@ class CreateTrusteeGrantsForExistingSubagents < ActiveRecord::Migration[7.0]
         accepted_at: Time.current,
         permissions: all_permissions,
         studio_scope: { "mode" => "all" },
-        relationship_phrase: "{trusted_user} acts for {granting_user}",
       )
     end
   end
@@ -42,7 +41,6 @@ class CreateTrusteeGrantsForExistingSubagents < ActiveRecord::Migration[7.0]
       grant = TrusteeGrant.unscoped.find_by(
         granting_user_id: subagent.id,
         trusted_user_id: subagent.parent_id,
-        relationship_phrase: "{trusted_user} acts for {granting_user}",
       )
       next unless grant
 

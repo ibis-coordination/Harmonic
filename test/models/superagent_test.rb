@@ -458,7 +458,6 @@ class SuperagentTest < ActiveSupport::TestCase
       tenant: tenant,
       granting_user: alice,
       trusted_user: bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )
@@ -489,7 +488,6 @@ class SuperagentTest < ActiveSupport::TestCase
       tenant: tenant,
       granting_user: alice,
       trusted_user: bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "exclude", "studio_ids" => [superagent.id] }
     )
@@ -528,7 +526,6 @@ class SuperagentTest < ActiveSupport::TestCase
       tenant: tenant,
       granting_user: alice,
       trusted_user: bob,
-      relationship_phrase: "Bob acts for Alice",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" }
     )

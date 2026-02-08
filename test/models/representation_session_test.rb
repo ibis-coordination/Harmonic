@@ -62,7 +62,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @user,
       trusted_user: create_user(email: "trusted_#{SecureRandom.hex(4)}@example.com"),
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
 
@@ -651,7 +650,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: granting_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -684,7 +682,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: granting_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -713,7 +710,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: granting_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -783,7 +779,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: granting_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" },
     )
@@ -817,7 +812,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: granting_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
       studio_scope: { "mode" => "all" },
     )

@@ -192,18 +192,15 @@ class ActiveSupport::TestCase
     tenant: nil,
     granting_user:,
     trusted_user:,
-    relationship_phrase: nil,
     permissions: {},
     studio_scope: { "mode" => "all" },
     expires_at: nil,
     accepted: false
   )
-    phrase = relationship_phrase || "{trusted_user} acts for {granting_user}"
     permission = TrusteeGrant.create!(
       tenant: tenant,
       granting_user: granting_user,
       trusted_user: trusted_user,
-      relationship_phrase: phrase,
       permissions: permissions,
       studio_scope: studio_scope,
       expires_at: expires_at,

@@ -89,13 +89,6 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
         <p class="pulse-text-muted">Leave blank for no expiration.</p>
       </section>
 
-      <section class="pulse-settings-section">
-        <label for="relationship_phrase" class="pulse-label">Relationship description (optional)</label>
-        <input type="text" name="relationship_phrase" id="relationship_phrase" class="pulse-form-input"
-               placeholder="{trusted_user} acts for {granting_user}">
-        <p class="pulse-text-muted">Describes the relationship. Use {trusted_user} and {granting_user} as placeholders.</p>
-      </section>
-
       <section class="pulse-settings-section pulse-action-row">
         <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Create Trustee Grant</button>
         <a href="<%= base_path %>" class="pulse-action-btn">Cancel</a>

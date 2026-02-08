@@ -19,6 +19,8 @@ class AdminController
     include ::ActionText::TagHelper
     include ::ActionController::Base::HelperMethods
     include ::ApplicationHelper
+    include ::MarkdownHelper
+    include ::SubagentsHelper
     include ::ApplicationController::HelperMethods
 
     sig { returns(T.untyped) }

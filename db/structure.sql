@@ -1,4 +1,4 @@
-\restrict FwJQITNawPavELoVpFkrrFvZsHE6zy4XuJmK3ZnrQ77XhoEoa2aDGLlEWvBF6wR
+\restrict 2dkAgtUvNXngJQBPqYDul5SRPsF2dpuLugxTYgMe3IikunGltb0MpezpNAyM5xR
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -1327,7 +1327,6 @@ CREATE TABLE public.trustee_grants (
     granting_user_id uuid NOT NULL,
     trusted_user_id uuid NOT NULL,
     description text DEFAULT ''::text NOT NULL,
-    relationship_phrase character varying DEFAULT '{trusted_user} on behalf of {granting_user}'::character varying NOT NULL,
     permissions jsonb DEFAULT '{}'::jsonb,
     expires_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
@@ -8177,7 +8176,7 @@ ALTER TABLE ONLY public.representation_sessions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict FwJQITNawPavELoVpFkrrFvZsHE6zy4XuJmK3ZnrQ77XhoEoa2aDGLlEWvBF6wR
+\unrestrict 2dkAgtUvNXngJQBPqYDul5SRPsF2dpuLugxTYgMe3IikunGltb0MpezpNAyM5xR
 
 SET search_path TO "$user", public;
 
@@ -8317,6 +8316,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260206214518'),
 ('20260207001008'),
 ('20260207085452'),
-('20260207141046');
+('20260207141046'),
+('20260208044921');
 
 

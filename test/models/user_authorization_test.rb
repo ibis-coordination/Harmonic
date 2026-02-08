@@ -79,9 +79,9 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert_includes user.errors[:user_type], "is not included in the list"
   end
 
-  # === Impersonation Tests ===
+  # === Representation Tests ===
 
-  test "parent can impersonate their subagent user" do
+  test "parent can represent their subagent user" do
     parent = create_unique_user
     @tenant.add_user!(parent)
 
@@ -91,10 +91,10 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     # Set tenant context for archived? check
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    assert parent.can_impersonate?(subagent)
+    assert parent.can_represent?(subagent)
   end
 
-  test "user cannot impersonate non-child subagent user" do
+  test "user cannot represent non-child subagent user" do
     parent1 = create_unique_user
     parent2 = create_unique_user
     @tenant.add_user!(parent1)
@@ -106,10 +106,10 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     # Set tenant context
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    assert_not parent2.can_impersonate?(subagent)
+    assert_not parent2.can_represent?(subagent)
   end
 
-  test "user cannot impersonate archived subagent user" do
+  test "user cannot represent archived subagent user" do
     parent = create_unique_user
     @tenant.add_user!(parent)
     subagent = create_subagent(parent: parent, name: "Subagent #{SecureRandom.hex(4)}")
@@ -122,10 +122,10 @@ class UserAuthorizationTest < ActiveSupport::TestCase
 
     subagent.tenant_user.update!(archived_at: Time.current)
 
-    assert_not parent.can_impersonate?(subagent)
+    assert_not parent.can_represent?(subagent)
   end
 
-  test "user cannot impersonate regular person user" do
+  test "user cannot represent regular person user" do
     user1 = create_unique_user
     user2 = create_unique_user
     @tenant.add_user!(user1)
@@ -134,7 +134,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     # Set tenant context
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    assert_not user1.can_impersonate?(user2)
+    assert_not user1.can_represent?(user2)
   end
 
   # === Edit Permission Tests ===

@@ -22,7 +22,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: {},
     )
     assert permission.persisted?
@@ -35,14 +34,13 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: {},
     )
     trustee = permission.trustee_user
     assert trustee.present?
     assert trustee.trustee?
     assert_not trustee.superagent_trustee?
-    assert_equal "Bob acts for Alice", trustee.name
+    assert_equal "Bob on behalf of Alice", trustee.name
   end
 
   test "granting_user cannot be the same as trusted_user" do
@@ -50,7 +48,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @granting_user,
-      relationship_phrase: "self delegation",
       permissions: {},
     )
     assert_not permission.valid?
@@ -67,7 +64,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: some_trustee,
-      relationship_phrase: "trustee as trusted",
       permissions: {},
     )
     assert_not permission.valid?
@@ -83,7 +79,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     assert permission.pending?
@@ -97,7 +92,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     assert permission.pending?
@@ -114,7 +108,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -129,7 +122,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     assert permission.pending?
@@ -147,7 +139,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -162,7 +153,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -180,7 +170,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -196,7 +185,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.decline!
@@ -215,7 +203,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
       expires_at: 1.hour.ago,
     )
@@ -230,7 +217,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
       expires_at: 1.week.from_now,
     )
@@ -245,7 +231,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
       expires_at: nil,
     )
@@ -264,7 +249,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true, "vote" => true },
     )
 
@@ -277,7 +261,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true },
     )
 
@@ -290,7 +273,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_note" => true, "vote" => false },
     )
 
@@ -303,7 +285,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: nil,
     )
 
@@ -328,7 +309,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: {},
       studio_scope: { "mode" => "all" },
     )
@@ -341,7 +321,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: {},
       studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] },
     )
@@ -356,7 +335,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: {},
       studio_scope: { "mode" => "include", "studio_ids" => [other_studio.id] },
     )
@@ -370,7 +348,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: {},
       studio_scope: { "mode" => "exclude", "studio_ids" => [@superagent.id] },
     )
@@ -385,7 +362,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: {},
       studio_scope: { "mode" => "exclude", "studio_ids" => [other_studio.id] },
     )
@@ -399,7 +375,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: {},
       studio_scope: nil,
     )
@@ -416,7 +391,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "pending",
       permissions: {},
     )
 
@@ -426,7 +400,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: other_user,
-      relationship_phrase: "accepted",
       permissions: {},
     )
     accepted_permission.accept!
@@ -442,7 +415,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "pending",
       permissions: {},
     )
 
@@ -453,7 +425,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: other_user1,
-      relationship_phrase: "active",
       permissions: {},
     )
     active_permission.accept!
@@ -465,7 +436,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: other_user2,
-      relationship_phrase: "expired",
       permissions: {},
       expires_at: 1.hour.ago,
     )
@@ -478,7 +448,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: other_user3,
-      relationship_phrase: "revoked",
       permissions: {},
     )
     revoked_permission.accept!
@@ -500,7 +469,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "first permission",
       permissions: {},
     )
 
@@ -510,7 +478,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
         tenant: @tenant,
         granting_user: @granting_user,
         trusted_user: @trusted_user,
-        relationship_phrase: "second permission",
         permissions: {},
       )
     end
@@ -521,7 +488,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "first permission",
       permissions: {},
     )
     first_permission.accept!
@@ -532,7 +498,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "second permission",
       permissions: {},
     )
     assert second_permission.persisted?
@@ -543,7 +508,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "first permission",
       permissions: {},
     )
     first_permission.decline!
@@ -553,7 +517,6 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
-      relationship_phrase: "second permission",
       permissions: {},
     )
     assert second_permission.persisted?

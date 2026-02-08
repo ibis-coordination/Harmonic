@@ -50,19 +50,13 @@
         <% end %>
       </div>
     <% end %>
-    <% if @current_subagent_user %>
-      <div class="pulse-session-banner pulse-alert">
-        <span>Acting as subagent <%= @current_subagent_user.display_name %>.</span>
-        <%= button_to "End Session", "#{@current_subagent_user.path}/impersonate", method: :delete, class: "pulse-banner-btn" %>
-      </div>
-    <% end %>
     <% if @current_representation_session %>
       <div class="pulse-session-banner pulse-alert">
-        <span><%= @current_subagent_user ? "As #{@current_subagent_user.display_name}, y" : "Y" %>ou are acting as a representative of <%= @current_user.display_name %>.</span>
+        <span>You are acting as a representative of <%= @current_representation_session.represented_user&.display_name || @current_representation_session.superagent&.name %>.</span>
         <% if @current_representation_session.user_representation? %>
           <%= button_to "End Session", "/representing", method: :delete, class: "pulse-banner-btn" %>
         <% else %>
-          <%= button_to "End Session", "#{@current_user.path}/represent", method: :delete, class: "pulse-banner-btn" %>
+          <%= button_to "End Session", "#{@current_representation_session.superagent.path}/represent", method: :delete, class: "pulse-banner-btn" %>
         <% end %>
       </div>
     <% end %>

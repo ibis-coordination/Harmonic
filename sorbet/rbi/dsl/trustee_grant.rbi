@@ -990,51 +990,6 @@ class TrusteeGrant
     sig { void }
     def permissions_will_change!; end
 
-    sig { returns(::String) }
-    def relationship_phrase; end
-
-    sig { params(value: ::String).returns(::String) }
-    def relationship_phrase=(value); end
-
-    sig { returns(T::Boolean) }
-    def relationship_phrase?; end
-
-    sig { returns(T.nilable(::String)) }
-    def relationship_phrase_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def relationship_phrase_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def relationship_phrase_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def relationship_phrase_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def relationship_phrase_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def relationship_phrase_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def relationship_phrase_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def relationship_phrase_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def relationship_phrase_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def relationship_phrase_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def relationship_phrase_was; end
-
-    sig { void }
-    def relationship_phrase_will_change!; end
-
     sig { void }
     def restore_accepted_at!; end
 
@@ -1058,9 +1013,6 @@ class TrusteeGrant
 
     sig { void }
     def restore_permissions!; end
-
-    sig { void }
-    def restore_relationship_phrase!; end
 
     sig { void }
     def restore_revoked_at!; end
@@ -1185,12 +1137,6 @@ class TrusteeGrant
 
     sig { returns(T::Boolean) }
     def saved_change_to_permissions?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_relationship_phrase; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_relationship_phrase?; end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_revoked_at; end
@@ -1527,9 +1473,6 @@ class TrusteeGrant
 
     sig { returns(T::Boolean) }
     def will_save_change_to_permissions?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_relationship_phrase?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_revoked_at?; end

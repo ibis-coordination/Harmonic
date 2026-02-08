@@ -295,54 +295,6 @@ class UserTest < ActiveSupport::TestCase
     assert_nil trustee.trustee_superagent
   end
 
-  # === Impersonation Authorization Tests ===
-
-  test "can_impersonate? returns true for parent impersonating subagent" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
-    assert @user.can_impersonate?(subagent)
-  end
-
-  test "can_impersonate? returns false for archived subagent" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
-    subagent.tenant_user.archive!
-    assert_not @user.can_impersonate?(subagent)
-  end
-
-  test "can_impersonate? returns false for non-parent user" do
-    other_parent = create_user(email: "other_parent_#{SecureRandom.hex(4)}@example.com", name: "Other Parent")
-    @tenant.add_user!(other_parent)
-    subagent = create_subagent(parent: other_parent, name: "Other Subagent")
-    @tenant.add_user!(subagent)
-    assert_not @user.can_impersonate?(subagent)
-  end
-
-  test "can_impersonate? returns true for representative impersonating studio trustee" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
-    trustee = @superagent.trustee_user
-    assert @user.can_impersonate?(trustee)
-  end
-
-  test "can_impersonate? returns false for non-representative trying to impersonate studio trustee" do
-    trustee = @superagent.trustee_user
-    assert_not @user.can_impersonate?(trustee)
-  end
-
-  test "can_impersonate? returns true when any_member_can_represent is enabled" do
-    @superagent.settings['any_member_can_represent'] = true
-    @superagent.save!
-    trustee = @superagent.trustee_user
-    assert @user.can_impersonate?(trustee)
-  end
-
-  test "can_impersonate? returns false for non-member trying to impersonate studio trustee" do
-    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
-    @tenant.add_user!(other_user)
-    trustee = @superagent.trustee_user
-    assert_not other_user.can_impersonate?(trustee)
-  end
-
   # === Representation Authorization Tests ===
 
   test "can_represent? returns true for trustee user representing their own studio" do
@@ -371,11 +323,50 @@ class UserTest < ActiveSupport::TestCase
     assert_not other_user.can_represent?(@superagent)
   end
 
-  test "can_represent? with user argument delegates to can_impersonate?" do
+  test "can_represent? returns true for parent representing subagent" do
     subagent = create_subagent(parent: @user, name: "Test Subagent For Rep")
     @tenant.add_user!(subagent)
     assert @user.can_represent?(subagent)
-    assert_equal @user.can_impersonate?(subagent), @user.can_represent?(subagent)
+  end
+
+  test "can_represent? returns false for archived subagent" do
+    subagent = create_subagent(parent: @user, name: "Test Subagent Archived")
+    @tenant.add_user!(subagent)
+    subagent.tenant_user.archive!
+    assert_not @user.can_represent?(subagent)
+  end
+
+  test "can_represent? returns false for non-parent user" do
+    other_parent = create_user(email: "other_parent_#{SecureRandom.hex(4)}@example.com", name: "Other Parent")
+    @tenant.add_user!(other_parent)
+    subagent = create_subagent(parent: other_parent, name: "Other Subagent")
+    @tenant.add_user!(subagent)
+    assert_not @user.can_represent?(subagent)
+  end
+
+  test "can_represent? returns true for representative representing studio trustee" do
+    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    trustee = @superagent.trustee_user
+    assert @user.can_represent?(trustee)
+  end
+
+  test "can_represent? returns false for non-representative trying to represent studio trustee" do
+    trustee = @superagent.trustee_user
+    assert_not @user.can_represent?(trustee)
+  end
+
+  test "can_represent? returns true for studio trustee when any_member_can_represent is enabled" do
+    @superagent.settings['any_member_can_represent'] = true
+    @superagent.save!
+    trustee = @superagent.trustee_user
+    assert @user.can_represent?(trustee)
+  end
+
+  test "can_represent? returns false for non-member trying to represent studio trustee" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+    trustee = @superagent.trustee_user
+    assert_not other_user.can_represent?(trustee)
   end
 
   # === Subagent Validation Tests ===
@@ -732,7 +723,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: @user,
       trusted_user: other_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
 
@@ -748,7 +738,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
 
@@ -764,7 +753,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "pending",
       permissions: {},
     )
 
@@ -774,7 +762,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: third_user,
       trusted_user: @user,
-      relationship_phrase: "accepted",
       permissions: {},
     )
     accepted_permission.accept!
@@ -794,7 +781,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -811,7 +797,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     # Permission is pending, not accepted
@@ -827,7 +812,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -844,7 +828,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
       expires_at: 1.hour.ago,
     )
@@ -870,7 +853,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -898,7 +880,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: third_user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!
@@ -915,7 +896,6 @@ class UserTest < ActiveSupport::TestCase
       tenant: @tenant,
       granting_user: other_user,
       trusted_user: @user,
-      relationship_phrase: "{trusted_user} acts for {granting_user}",
       permissions: { "create_notes" => true },
     )
     permission.accept!

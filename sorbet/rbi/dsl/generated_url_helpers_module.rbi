@@ -22,43 +22,7 @@ module GeneratedUrlHelpersModule
   def add_to_studio_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def admin_actions_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_security_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_settings_actions_update_tenant_settings_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_settings_actions_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_settings_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_sidekiq_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_tenants_new_actions_create_tenant_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_tenants_new_actions_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_tenants_new_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_tenants_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def admin_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def admin_users_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_app_admin_tenant_url(*args); end
@@ -157,7 +121,34 @@ module GeneratedUrlHelpersModule
   def api_v1_users_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def app_admin_security_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def app_admin_tenants_new_actions_create_tenant_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def app_admin_tenants_new_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def app_admin_tenants_new_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def app_admin_tenants_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def app_admin_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def app_admin_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def app_admin_users_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def auth_failure_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def cancel_subagent_run_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def commit_actions_create_commitment_url(*args); end
@@ -223,7 +214,7 @@ module GeneratedUrlHelpersModule
   def decision_actions_add_comment_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def decision_actions_add_option_url(*args); end
+  def decision_actions_add_options_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def decision_actions_url(*args); end
@@ -322,9 +313,6 @@ module GeneratedUrlHelpersModule
   def image_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def impersonate_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def learn_acceptance_voting_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -344,6 +332,45 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def learn_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_security_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_settings_actions_update_tenant_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_settings_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_sidekiq_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_tenants_new_actions_create_tenant_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_tenants_new_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_tenants_new_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_tenants_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def legacy_admin_users_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def login_callback_url(*args); end
@@ -478,13 +505,13 @@ module GeneratedUrlHelpersModule
   def notifications_actions_delete_reminder_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_dismiss_all_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def notifications_actions_dismiss_for_studio_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def notifications_actions_dismiss_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def notifications_actions_mark_all_read_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def notifications_actions_mark_read_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def notifications_actions_url(*args); end
@@ -583,6 +610,9 @@ module GeneratedUrlHelpersModule
   def remove_from_studio_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def represent_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def representing_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -607,6 +637,15 @@ module GeneratedUrlHelpersModule
   def scenes_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def search_actions_search_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def search_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def search_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def settings_actions_update_profile_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -626,6 +665,21 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def settings_tokens_new_actions_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_trustee_grants_actions_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_trustee_grants_new_actions_create_trustee_grant_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_trustee_grants_new_actions_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_trustee_grants_new_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_trustee_grants_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def settings_url(*args); end
@@ -667,7 +721,49 @@ module GeneratedUrlHelpersModule
   def studios_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def subagent_execute_task_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def subagent_run_task_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def subagent_run_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def subagent_runs_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def subagents_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def suspend_api_app_admin_tenant_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def system_admin_sidekiq_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def system_admin_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def tenant_admin_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def tenant_admin_settings_actions_update_tenant_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def tenant_admin_settings_actions_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def tenant_admin_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def tenant_admin_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def tenant_admin_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def tenant_admin_users_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def trio_url(*args); end
@@ -716,6 +812,12 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def whoami_actions_update_scratchpad_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def whoami_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def whoami_url(*args); end

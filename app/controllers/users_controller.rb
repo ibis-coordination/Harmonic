@@ -204,7 +204,9 @@ class UsersController < ApplicationController
     redirect_to "#{settings_user.path}/settings"
   end
 
-  def impersonate
+  # Start representing a user (typically a subagent).
+  # POST /u/:handle/represent
+  def represent
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?
 
@@ -222,20 +224,22 @@ class UsersController < ApplicationController
     # Create a RepresentationSession for audit logging
     rep_session = api_helper.start_user_representation_session(grant: grant)
 
-    # Set session cookies for representation (replaces old impersonation session key)
-    session[:trustee_user_id] = grant.trustee_user.id
+    # Set session cookies for representation (matches API headers)
     session[:representation_session_id] = rep_session.id
+    session[:representing_user] = target_user.handle
     redirect_to "/representing"
   end
 
-  def stop_impersonating
+  # Stop representing a user.
+  # DELETE /u/:handle/represent
+  def stop_representing
     # Explicitly look up and end the representation session if present
     if session[:representation_session_id].present?
       rep_session = RepresentationSession.find_by(id: session[:representation_session_id])
       rep_session&.end!
     end
-    clear_impersonations_and_representations!
-    redirect_to request.referrer
+    clear_representation!
+    redirect_to request.referrer || root_path
   end
 
   def update_image

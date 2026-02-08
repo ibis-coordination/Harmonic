@@ -239,8 +239,9 @@ Rails.application.routes.draw do
     resources :subagents,
               path: "settings/subagents",
               only: [:new, :create, :show, :destroy]
-    post 'impersonate' => 'users#impersonate', on: :member
-    delete 'impersonate' => 'users#stop_impersonating', on: :member
+    # Representation routes
+    post 'represent' => 'users#represent', on: :member
+    delete 'represent' => 'users#stop_representing', on: :member
     post 'add_to_studio' => 'users#add_subagent_to_studio', on: :member
     delete 'remove_from_studio' => 'users#remove_subagent_from_studio', on: :member
     # User settings actions
