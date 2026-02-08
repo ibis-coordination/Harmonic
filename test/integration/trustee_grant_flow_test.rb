@@ -158,33 +158,32 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
   # CAPABILITY ENFORCEMENT
   # =========================================================================
 
-  test "capability enforcement during representation session" do
+  test "action permission enforcement during representation session" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true, "vote" => false }
+      permissions: { "create_note" => true, "vote" => false }
     )
     permission.accept!
 
-    # Bob has create_notes but not vote capability
-    assert permission.has_capability?("create_notes")
-    assert_not permission.has_capability?("vote")
+    # Bob has create_note but not vote permission
+    assert permission.has_action_permission?("create_note")
+    assert_not permission.has_action_permission?("vote")
 
-    # TrusteeActionValidator should enforce this
-    validator = TrusteeActionValidator.new(permission.trustee_user, superagent: @superagent)
-    assert validator.can_perform?("create_note")
-    assert_not validator.can_perform?("vote")
+    # ActionAuthorization should enforce this
+    assert ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: @superagent })
+    assert_not ActionAuthorization.trustee_authorized?(permission.trustee_user, "vote", { studio: @superagent })
   end
 
-  test "capability changes take immediate effect during active session" do
+  test "permission changes take immediate effect during active session" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true, "vote" => true }
+      permissions: { "create_note" => true, "vote" => true }
     )
     permission.accept!
 
@@ -199,15 +198,13 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     )
 
     # Initially, vote is allowed
-    validator = TrusteeActionValidator.new(permission.trustee_user, superagent: @superagent)
-    assert validator.can_perform?("vote")
+    assert ActionAuthorization.trustee_authorized?(permission.trustee_user, "vote", { studio: @superagent })
 
-    # Alice revokes the vote capability
-    permission.update!(permissions: { "create_notes" => true, "vote" => false })
+    # Alice revokes the vote permission
+    permission.update!(permissions: { "create_note" => true, "vote" => false })
 
     # Bob's next vote attempt should fail (immediate effect)
-    validator = TrusteeActionValidator.new(permission.trustee_user, superagent: @superagent)
-    assert_not validator.can_perform?("vote")
+    assert_not ActionAuthorization.trustee_authorized?(permission.trustee_user, "vote", { studio: @superagent })
   end
 
   # =========================================================================
@@ -224,7 +221,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] }
     )
     permission.accept!
@@ -232,12 +229,9 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     assert permission.allows_studio?(@superagent)
     assert_not permission.allows_studio?(other_studio)
 
-    # Validator should enforce studio scope
-    validator_in_scope = TrusteeActionValidator.new(permission.trustee_user, superagent: @superagent)
-    assert validator_in_scope.can_perform?("create_note")
-
-    validator_out_of_scope = TrusteeActionValidator.new(permission.trustee_user, superagent: other_studio)
-    assert_not validator_out_of_scope.can_perform?("create_note")
+    # ActionAuthorization should enforce studio scope
+    assert ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: @superagent })
+    assert_not ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: other_studio })
   end
 
   test "studio scope enforcement - exclude mode" do
@@ -250,13 +244,17 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trusted_user: @bob,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
     )
     permission.accept!
 
     assert permission.allows_studio?(@superagent)
     assert_not permission.allows_studio?(excluded_studio)
+
+    # ActionAuthorization should enforce studio scope
+    assert ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: @superagent })
+    assert_not ActionAuthorization.trustee_authorized?(permission.trustee_user, "create_note", { studio: excluded_studio })
   end
 
   # =========================================================================

@@ -57,15 +57,15 @@ is_trusted = @grant.trusted_user == @target_user
           </td>
         </tr>
         <tr>
-          <th>Capabilities</th>
+          <th>Allowed Actions</th>
           <td>
             <% if @grant.permissions.present? && @grant.permissions.any? %>
-              <% @grant.permissions.each do |capability, enabled| %>
+              <% @grant.permissions.each do |action_name, enabled| %>
                 <% next unless enabled %>
-                <span class="pulse-tag"><%= capability %></span>
+                <span class="pulse-tag"><%= action_name %></span>
               <% end %>
             <% else %>
-              <em>No capabilities granted</em>
+              <em>No actions granted</em>
             <% end %>
           </td>
         </tr>

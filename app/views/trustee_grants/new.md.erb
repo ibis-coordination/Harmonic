@@ -14,22 +14,19 @@ Grant another user authority to act on your behalf. They will need to accept the
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | trusted_user_id | string | yes | The ID of the user to grant authority to |
-| permissions | array | yes | Array of capability names to grant |
+| permissions | array | yes | Array of action names to grant |
 | studio_scope_mode | string | no | Studio scope: "all" (default), "include", or "exclude" |
 | studio_ids | array | no | Array of studio IDs for include/exclude modes |
 | expires_at | datetime | no | When the trustee grant expires |
 | relationship_phrase | string | no | Description of the relationship |
 
-## Available Capabilities
+## Grantable Actions
 
-<% @capabilities.group_by { |_k, v| v[:category] }.each do |category, capabilities| -%>
-### <%= category.humanize %>
-
-<% capabilities.each do |key, cap| -%>
-* `<%= key %>` - <%= cap[:name] %>
+<% @grantable_actions.each do |action_name| -%>
+<% action_def = ActionsHelper::ACTION_DEFINITIONS[action_name] -%>
+* `<%= action_name %>` - <%= action_def&.dig(:description) || action_name.humanize %>
 <% end -%>
 
-<% end -%>
 ## Available Users
 
 <% if @available_users.any? -%>

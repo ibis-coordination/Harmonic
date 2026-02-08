@@ -207,13 +207,33 @@ class UsersController < ApplicationController
   def impersonate
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?
-    return render status: 403, plain: "403 Unauthorized" unless current_user.can_impersonate?(tu.user)
-    return render status: 403, plain: "403 Unauthorized" unless tu.user.subagent?
-    session[:subagent_user_id] = tu.user.id
-    redirect_to root_path
+
+    target_user = tu.user
+    return render status: 403, plain: "403 Unauthorized" unless target_user.subagent?
+    return render status: 403, plain: "403 Unauthorized" unless current_user.can_represent?(target_user)
+
+    # Find the TrusteeGrant for this parent-subagent relationship
+    grant = TrusteeGrant.active.find_by(
+      granting_user: target_user,
+      trusted_user: current_user
+    )
+    return render status: 403, plain: "403 Unauthorized - No active grant" unless grant
+
+    # Create a RepresentationSession for audit logging
+    rep_session = api_helper.start_user_representation_session(grant: grant)
+
+    # Set session cookies for representation (replaces old impersonation session key)
+    session[:trustee_user_id] = grant.trustee_user.id
+    session[:representation_session_id] = rep_session.id
+    redirect_to "/representing"
   end
 
   def stop_impersonating
+    # Explicitly look up and end the representation session if present
+    if session[:representation_session_id].present?
+      rep_session = RepresentationSession.find_by(id: session[:representation_session_id])
+      rep_session&.end!
+    end
     clear_impersonations_and_representations!
     redirect_to request.referrer
   end

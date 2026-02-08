@@ -57,18 +57,6 @@ class ApiHelper
   end
 
   # Check if the current user has the capability to perform an action.
-  # For trustee grant trustees, this validates against their granted capabilities.
-  # Raises an error if the action is not allowed.
-  sig { params(action_name: String).void }
-  def require_capability!(action_name)
-    validator = TrusteeActionValidator.new(current_user, superagent: current_superagent)
-    unless validator.can_perform?(action_name)
-      raise ApiHelper::CapabilityError.new("You do not have the capability to perform '#{action_name}'")
-    end
-  end
-
-  class CapabilityError < StandardError; end
-
   sig { returns(T.any(Note, Decision, Commitment)) }
   def create
     case @current_resource_model
@@ -183,9 +171,6 @@ class ApiHelper
 
   sig { params(commentable: T.nilable(T.any(Note, Decision, Commitment, RepresentationSession))).returns(Note) }
   def create_note(commentable: nil)
-    # Check capability for trustee grant users
-    require_capability!(commentable ? "create_comment" : "create_note")
-
     note = T.let(nil, T.nilable(Note))
     ActiveRecord::Base.transaction do
       note = Note.create!(
@@ -218,8 +203,6 @@ class ApiHelper
 
   sig { returns(Decision) }
   def create_decision
-    require_capability!("create_decision")
-
     decision = T.let(nil, T.nilable(Decision))
     ActiveRecord::Base.transaction do
       decision = Decision.create!(
@@ -391,7 +374,6 @@ class ApiHelper
   # Backwards-compatible method for REST API v1 (creates single vote for current_option)
   sig { returns(Vote) }
   def vote
-    require_capability!("vote")
     raise ArgumentError, "current_option is required" if current_option.blank?
 
     associations = {
@@ -429,7 +411,6 @@ class ApiHelper
 
   sig { returns(T::Array[Vote]) }
   def create_votes
-    require_capability!("vote")
     votes_param = params[:votes]
     raise ArgumentError, "votes parameter is required" if votes_param.blank?
     raise ArgumentError, "votes must be an array" unless votes_param.is_a?(Array)

@@ -39,20 +39,18 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
       </section>
 
       <section class="pulse-settings-section">
-        <label class="pulse-label">What capabilities should they have?</label>
+        <label class="pulse-label">What actions should they be able to perform?</label>
         <p class="pulse-text-muted">Select the actions they can perform on your behalf.</p>
 
-        <% @capabilities.group_by { |_k, v| v[:category] }.each do |category, capabilities| %>
-          <fieldset class="pulse-fieldset">
-            <legend class="pulse-legend"><%= category.humanize %></legend>
-            <% capabilities.each do |key, cap| %>
-              <label class="pulse-checkbox-label">
-                <input type="checkbox" name="permissions[]" value="<%= key %>" class="pulse-checkbox">
-                <%= cap[:name] %>
-              </label>
-            <% end %>
-          </fieldset>
-        <% end %>
+        <fieldset class="pulse-fieldset">
+          <% @grantable_actions.each do |action_name| %>
+            <% action_def = ActionsHelper::ACTION_DEFINITIONS[action_name] %>
+            <label class="pulse-checkbox-label">
+              <input type="checkbox" name="permissions[]" value="<%= action_name %>" class="pulse-checkbox">
+              <%= action_def&.dig(:description) || action_name.humanize %>
+            </label>
+          <% end %>
+        </fieldset>
       </section>
 
       <section class="pulse-settings-section">

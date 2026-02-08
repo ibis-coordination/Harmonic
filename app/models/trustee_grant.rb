@@ -4,17 +4,27 @@ class TrusteeGrant < ApplicationRecord
   extend T::Sig
   include HasTruncatedId
 
-  # Capability definitions for trustee grants
-  CAPABILITIES = T.let({
-    "create_notes" => { name: "Create notes", category: "content" },
-    "create_decisions" => { name: "Create decisions", category: "content" },
-    "create_commitments" => { name: "Create commitments", category: "content" },
-    "vote" => { name: "Vote on decisions", category: "participation" },
-    "commit" => { name: "Join commitments", category: "participation" },
-    "comment" => { name: "Add comments", category: "participation" },
-    "edit_own_content" => { name: "Edit trustee's content", category: "management" },
-    "pin" => { name: "Pin/unpin content", category: "management" },
-  }.freeze, T::Hash[String, T::Hash[Symbol, String]])
+  # Actions that can be granted to trustees
+  # Uses actual action names from ActionsHelper::ACTION_DEFINITIONS
+  GRANTABLE_ACTIONS = T.let([
+    "create_note",
+    "update_note",
+    "create_decision",
+    "update_decision_settings",
+    "create_commitment",
+    "update_commitment_settings",
+    "vote",
+    "add_options",
+    "join_commitment",
+    "add_comment",
+    "pin_note",
+    "unpin_note",
+    "pin_decision",
+    "unpin_decision",
+    "pin_commitment",
+    "unpin_commitment",
+    "send_heartbeat",
+  ].freeze, T::Array[String])
 
   belongs_to :tenant
   belongs_to :trustee_user, class_name: "User"
@@ -85,12 +95,16 @@ class TrusteeGrant < ApplicationRecord
   end
 
   # =========================================================================
-  # CAPABILITY METHODS
+  # ACTION PERMISSION METHODS
   # =========================================================================
 
-  sig { params(capability: String).returns(T::Boolean) }
-  def has_capability?(capability)
-    permissions&.dig(capability) == true
+  # Check if this grant allows the specified action
+  # @param action_name [String] Action name from ActionsHelper::ACTION_DEFINITIONS
+  # @return [Boolean] true if allowed
+  sig { params(action_name: String).returns(T::Boolean) }
+  def has_action_permission?(action_name)
+    return true if permissions.nil?  # nil = all allowed (backwards compatible)
+    permissions[action_name] == true
   end
 
   # =========================================================================

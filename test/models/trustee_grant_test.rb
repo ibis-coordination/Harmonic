@@ -256,53 +256,67 @@ class TrusteeGrantTest < ActiveSupport::TestCase
   end
 
   # =========================================================================
-  # CAPABILITIES
+  # ACTION PERMISSIONS
   # =========================================================================
 
-  test "has_capability? returns true for granted capability" do
+  test "has_action_permission? returns true for granted action" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true, "vote" => true },
+      permissions: { "create_note" => true, "vote" => true },
     )
 
-    assert permission.has_capability?("create_notes")
-    assert permission.has_capability?("vote")
+    assert permission.has_action_permission?("create_note")
+    assert permission.has_action_permission?("vote")
   end
 
-  test "has_capability? returns false for non-granted capability" do
+  test "has_action_permission? returns false for non-granted action" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
-    assert_not permission.has_capability?("vote")
-    assert_not permission.has_capability?("commit")
+    assert_not permission.has_action_permission?("vote")
+    assert_not permission.has_action_permission?("join_commitment")
   end
 
-  test "has_capability? returns false for explicitly denied capability" do
+  test "has_action_permission? returns false for explicitly denied action" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
       trusted_user: @trusted_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true, "vote" => false },
+      permissions: { "create_note" => true, "vote" => false },
     )
 
-    assert permission.has_capability?("create_notes")
-    assert_not permission.has_capability?("vote")
+    assert permission.has_action_permission?("create_note")
+    assert_not permission.has_action_permission?("vote")
   end
 
-  test "CAPABILITIES constant defines valid capabilities" do
-    assert TrusteeGrant::CAPABILITIES.is_a?(Hash)
-    assert TrusteeGrant::CAPABILITIES.key?("create_notes")
-    assert TrusteeGrant::CAPABILITIES.key?("vote")
-    assert TrusteeGrant::CAPABILITIES.key?("commit")
+  test "has_action_permission? returns true for all actions when permissions is nil" do
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @granting_user,
+      trusted_user: @trusted_user,
+      relationship_phrase: "{trusted_user} acts for {granting_user}",
+      permissions: nil,
+    )
+
+    assert permission.has_action_permission?("create_note")
+    assert permission.has_action_permission?("vote")
+    assert permission.has_action_permission?("any_action")
+  end
+
+  test "GRANTABLE_ACTIONS constant defines valid action names" do
+    assert TrusteeGrant::GRANTABLE_ACTIONS.is_a?(Array)
+    assert TrusteeGrant::GRANTABLE_ACTIONS.include?("create_note")
+    assert TrusteeGrant::GRANTABLE_ACTIONS.include?("vote")
+    assert TrusteeGrant::GRANTABLE_ACTIONS.include?("join_commitment")
   end
 
   # =========================================================================

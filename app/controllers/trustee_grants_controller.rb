@@ -60,7 +60,7 @@ class TrusteeGrantsController < ApplicationController
     @grant = TrusteeGrant.new
     @available_users = available_users_for_grant
     @available_studios = @target_user.superagents
-    @capabilities = TrusteeGrant::CAPABILITIES
+    @grantable_actions = TrusteeGrant::GRANTABLE_ACTIONS
   end
 
   # =========================================================================

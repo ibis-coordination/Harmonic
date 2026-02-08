@@ -129,8 +129,8 @@ class RepresentationSessionsController < ApplicationController
     return redirect_to root_path unless @representation_session
 
     @studio = @representation_session.superagent
-    # For user representation, use the person user's studios (trustee user doesn't have superagent memberships)
-    studios_user = @representation_session.user_representation? ? @current_person_user : current_user
+    # For user representation, use the represented user's (granting_user/subagent) studios, not the parent's
+    studios_user = @representation_session.user_representation? ? @representation_session.represented_user : current_user
     @other_studios = studios_user.superagents.where.not(id: @current_tenant.main_superagent_id)
   end
 

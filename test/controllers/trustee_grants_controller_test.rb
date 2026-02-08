@@ -46,7 +46,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     get "/u/#{@user.handle}/settings/trustee-grants", headers: @headers
@@ -61,7 +61,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @other_user,
       trusted_user: @user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
     permission.accept!
 
@@ -89,7 +89,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
   test "new page lists available capabilities" do
     get "/u/#{@user.handle}/settings/trustee-grants/new", headers: @headers
     assert_response :success
-    assert_includes response.body, "create_notes"
+    assert_includes response.body, "create_note"
     assert_includes response.body, "vote"
   end
 
@@ -100,7 +100,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
         params: {
           trusted_user_id: @other_user.id,
-          permissions: ["create_notes", "vote"],
+          permissions: ["create_note", "vote"],
           studio_scope_mode: "all",
         }.to_json,
         headers: @headers
@@ -114,13 +114,13 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user, permission.granting_user
     assert_equal @other_user, permission.trusted_user
     assert permission.pending?
-    assert permission.has_capability?("create_notes")
-    assert permission.has_capability?("vote")
+    assert permission.has_action_permission?("create_note")
+    assert permission.has_action_permission?("vote")
   end
 
   test "create_trustee_grant requires trusted_user_id" do
     post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
-      params: { permissions: ["create_notes"] }.to_json,
+      params: { permissions: ["create_note"] }.to_json,
       headers: @headers
 
     assert_response :success
@@ -132,7 +132,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
       params: {
         trusted_user_id: @other_user.id,
-        permissions: ["create_notes"],
+        permissions: ["create_note"],
         expires_at: expires,
       }.to_json,
       headers: @headers
@@ -146,7 +146,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
       params: {
         trusted_user_id: @other_user.id,
-        permissions: ["create_notes"],
+        permissions: ["create_note"],
         studio_scope_mode: "include",
         studio_ids: [@superagent.id],
       }.to_json,
@@ -166,7 +166,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}", headers: @headers
@@ -181,7 +181,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @other_user,
       trusted_user: @user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}", headers: @headers
@@ -195,7 +195,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @other_user,
       trusted_user: @user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
     grant.accept!
 
@@ -223,7 +223,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     get "/u/#{@user.handle}/settings/trustee-grants/#{grant.truncated_id}", headers: @headers
@@ -240,7 +240,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @other_user,
       trusted_user: @user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     assert permission.pending?
@@ -261,7 +261,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/accept_trustee_grant",
@@ -280,7 +280,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @other_user,
       trusted_user: @user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
     permission.accept!
 
@@ -299,7 +299,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @other_user,
       trusted_user: @user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/decline_trustee_grant",
@@ -318,7 +318,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/decline_trustee_grant",
@@ -339,7 +339,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
     permission.accept!
 
@@ -359,7 +359,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/revoke_trustee_grant",
@@ -378,7 +378,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @other_user,
       trusted_user: @user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
     permission.accept!
 
@@ -398,7 +398,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
     permission.accept!
     permission.revoke!
@@ -426,7 +426,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       post "/u/#{@other_user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
         params: {
           trusted_user_id: third_user.id,
-          permissions: ["create_notes"],
+          permissions: ["create_note"],
         }.to_json,
         headers: @headers
     end
@@ -442,7 +442,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @other_user,
       trusted_user: @user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions", headers: @headers
@@ -458,7 +458,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
 
     get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions", headers: @headers
@@ -474,7 +474,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       granting_user: @user,
       trusted_user: @other_user,
       relationship_phrase: "{trusted_user} acts for {granting_user}",
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
     )
     permission.revoke!
 

@@ -526,11 +526,9 @@ class ApplicationController < ActionController::Base
         flash[:alert] = "Representation session expired."
       elsif !request.path.starts_with?("/representing") && !(request.path.starts_with?("/studios/") || request.path.starts_with?("/scenes/"))
         # Representation session should always be scoped to a studio or the /representing page.
-        # The one edge case exception is when a person user is impersonating a subagent user and
-        # is ending the impersonation before ending the representation session.
-        # In this case, the representation session should be ended automatically.
-        ending_impersonation = @current_subagent_user && request.path.ends_with?("/impersonate")
-        if ending_impersonation
+        # The one exception is when ending representation/impersonation via DELETE /u/:handle/impersonate.
+        ending_representation = request.path.ends_with?("/impersonate") && request.delete?
+        if ending_representation
           # Allow request to proceed. UsersController#stop_impersonating will handle the end of the representation session.
         else
           redirect_to "/representing"

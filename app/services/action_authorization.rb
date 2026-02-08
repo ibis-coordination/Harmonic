@@ -119,7 +119,43 @@ module ActionAuthorization
     # Then check capability restrictions for subagents
     return false unless CapabilityCheck.allowed?(user, action_name)
 
+    # Then check trustee grant restrictions
+    return false unless trustee_authorized?(user, action_name, context)
+
     true
+  end
+
+  # Check if a trustee user is authorized for this action.
+  # Trustees must have the action in their grant permissions AND
+  # the granting_user must also be allowed to perform the action.
+  #
+  # @param user [User, nil] The user attempting the action
+  # @param action_name [String] The action to check
+  # @param context [Hash] Additional context (studio, etc.)
+  # @return [Boolean] true if authorized, false otherwise
+  sig do
+    params(
+      user: T.untyped,
+      action_name: String,
+      context: T::Hash[Symbol, T.untyped]
+    ).returns(T::Boolean)
+  end
+  def self.trustee_authorized?(user, action_name, context)
+    return true unless user&.trustee?
+    return true if user.superagent_trustee?  # Superagent trustees have full access
+
+    grant = TrusteeGrant.find_by(trustee_user: user)
+    return false unless grant&.active?
+
+    # Check studio scope if context provided
+    studio = context[:studio]
+    return false if studio && !grant.allows_studio?(studio)
+
+    # Check if grant allows this action
+    return false unless grant.has_action_permission?(action_name)
+
+    # CRITICAL: Trustee inherits granting_user's restrictions
+    CapabilityCheck.allowed?(T.must(grant.granting_user), action_name)
   end
 
   # Check authorization against a specific authorization rule.

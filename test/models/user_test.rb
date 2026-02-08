@@ -955,7 +955,7 @@ class UserTest < ActiveSupport::TestCase
     assert @user.can_represent?(subagent)
   end
 
-  test "auto-created TrusteeGrant has all capabilities" do
+  test "auto-created TrusteeGrant has all action permissions" do
     subagent = User.create!(
       email: "subagent_#{SecureRandom.hex(4)}@example.com",
       name: "Test Subagent",
@@ -966,9 +966,9 @@ class UserTest < ActiveSupport::TestCase
     permission = TrusteeGrant.find_by(granting_user: subagent, trusted_user: @user)
     assert permission.present?
 
-    # Should have all capabilities
-    TrusteeGrant::CAPABILITIES.keys.each do |capability|
-      assert permission.has_capability?(capability), "Auto-created permission should have #{capability} capability"
+    # Should have all grantable actions
+    TrusteeGrant::GRANTABLE_ACTIONS.each do |action_name|
+      assert permission.has_action_permission?(action_name), "Auto-created permission should have #{action_name} action"
     end
   end
 

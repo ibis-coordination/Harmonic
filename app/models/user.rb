@@ -130,16 +130,15 @@ class User < ApplicationRecord
     @trustee_superagent = Superagent.where(trustee_user: self).first
   end
 
+  # DEPRECATED: Use can_represent?(user) instead.
+  # This method is being phased out in favor of TrusteeGrant-based representation.
   sig { params(user: User).returns(T::Boolean) }
   def can_impersonate?(user)
-    is_parent = user.subagent? && user.parent_id == id && !user.archived?
-    return true if is_parent
-
-    if user.superagent_trustee?
-      sm = superagent_members.find_by(superagent_id: T.must(user.trustee_superagent).id)
-      return sm&.can_represent? || false
-    end
-    false
+    ActiveSupport::Deprecation.warn(
+      "can_impersonate? is deprecated. Use can_represent? instead.",
+      caller_locations(2)
+    )
+    can_represent?(user)
   end
 
   # Check if this user is authorized to use the given trustee identity.
@@ -181,7 +180,17 @@ class User < ApplicationRecord
       return sm&.can_represent? || false
     elsif superagent_or_user.is_a?(User)
       user = superagent_or_user
-      return true if can_impersonate?(user)
+      # Cannot represent archived users
+      return false if user.archived?
+
+      # Check if self is the parent of user (legacy impersonation logic)
+      return true if is_parent_of?(user)
+
+      # Check if self can represent user's superagent trustee
+      if user.superagent_trustee?
+        sm = superagent_members.find_by(superagent_id: T.must(user.trustee_superagent).id)
+        return sm&.can_represent? || false
+      end
 
       # The trusted_user (self) can represent the granting_user (user) if there's an active grant
       grant = TrusteeGrant.active.find_by(
@@ -459,6 +468,12 @@ class User < ApplicationRecord
 
   private
 
+  # Check if self is the parent of the given user (for legacy impersonation)
+  sig { params(user: User).returns(T::Boolean) }
+  def is_parent_of?(user)
+    user.subagent? && user.parent_id == id && !user.archived?
+  end
+
   # Create a TrusteeGrant allowing the parent to represent this subagent
   sig { void }
   def create_parent_trustee_grant!
@@ -467,14 +482,14 @@ class User < ApplicationRecord
     parent_user = User.find_by(id: parent_id)
     return unless parent_user
 
-    # Build all capabilities hash
-    all_capabilities = TrusteeGrant::CAPABILITIES.keys.index_with { true }
+    # Build permissions hash with all grantable actions
+    all_permissions = TrusteeGrant::GRANTABLE_ACTIONS.index_with { true }
 
     TrusteeGrant.create!(
       granting_user: self,              # The subagent grants
       trusted_user: parent_user,        # The parent receives
       accepted_at: Time.current,        # Pre-accepted
-      permissions: all_capabilities,    # All capabilities
+      permissions: all_permissions,     # All actions allowed
       studio_scope: { "mode" => "all" }, # All studios
       relationship_phrase: "{trusted_user} acts for {granting_user}"
     )
