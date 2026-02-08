@@ -58,8 +58,8 @@ class ActiveSupport::TestCase
   # Note: When running with COVERAGE=true, consider using workers: 1 for accurate results
   parallelize(workers: ENV['COVERAGE'] ? 1 : :number_of_processors)
 
-  # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
-  fixtures :all
+  # Note: No fixtures loaded - we create test data programmatically
+  # fixtures :all  # Removed - no fixture YAML files exist
 
   setup do
     Superagent.clear_thread_scope
@@ -72,27 +72,11 @@ class ActiveSupport::TestCase
     @global_superagent.add_user!(@global_user)
   end
 
+  # Clear thread-local state between tests
   teardown do
     Superagent.clear_thread_scope
     Tenant.clear_thread_scope
     SubagentTaskRun.clear_thread_scope
-    Tenant.update_all(main_superagent_id: nil) # Needed to avoid foreign key violation when deleting studios
-    [
-      # Note: order matters in this array. "Dependent destroy" doesn't always work for some reason (TODO debug),
-      # so it's necessary to manually delete association records first, before the referenced records, to avoid foreign key violations.
-      WebhookDelivery, Webhook,
-      NotificationRecipient, Notification, Event,
-      RepresentationSessionEvent, RepresentationSessionAssociation, RepresentationSession,
-      Link, NoteHistoryEvent, Note,
-      Vote, Option, DecisionParticipant, Decision,
-      CommitmentParticipant, Commitment,
-      SubagentTaskRunResource, SubagentTaskRun,
-      Heartbeat, Invite, SuperagentMember, Superagent,
-      ApiToken, TenantUser, TrusteeGrant, Tenant,
-      OauthIdentity, User
-    ].each do |model|
-      model.unscoped { model.delete_all }
-    end
   end
 
   def create_tenant(subdomain: "test", name: "Test Tenant")

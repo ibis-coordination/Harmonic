@@ -1,17 +1,7 @@
 require "test_helper"
 
 class NoteTest < ActiveSupport::TestCase
-  def create_tenant(subdomain: "test", name: "Test Tenant")
-    Tenant.create!(subdomain: subdomain, name: name)
-  end
-
-  def create_user(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
-    User.create!(email: email, name: name, user_type: user_type)
-  end
-
-  def create_superagent(tenant:, created_by:, name: "Test Studio", handle: "test-studio")
-    Superagent.create!(tenant: tenant, created_by: created_by, name: name, handle: handle)
-  end
+  # Note: create_tenant, create_user, create_superagent helpers are inherited from test_helper.rb
 
   test "Note.create works" do
     tenant = create_tenant
