@@ -21,6 +21,7 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 | **Phase 5** | Notifications | ⬚ Not Started |
 | **Phase 6** | Trio Integration | ⬚ Not Started |
 | **Phase 7** | Replace Impersonation | 🔶 Partial (7.4 remaining) |
+| **Phase 8** | Simplify TrusteeGrant (remove synthetic users) | ✅ Complete |
 
 ### What's Complete
 - ✅ `TrusteeGrant` model with CAPABILITIES constant, state methods, studio scoping
@@ -43,6 +44,9 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 - ✅ `User#is_trusted_as?` method for representation checks (Phase 7.3)
 - ✅ Session management uses representation sessions for parent-subagent (Phase 7.5)
 - ✅ Tests updated for representation flow (Phase 7.6)
+- ✅ **RepresentationSessionEvent** replaces old `activity_log` JSON column (2026-02-08)
+- ✅ **Simplified TrusteeGrant** - `trustee_user` is now the actual person, not a synthetic user (Phase 8)
+- ✅ `effective_user` returns `granting_user` for user representation (no synthetic user)
 
 ### What's Remaining
 - ⬚ **Phase 5**: Notifications for trustee grant events
@@ -77,18 +81,22 @@ Complete the trustee grants system to allow users to delegate specific capabilit
 
 **Key insight**: Use `RepresentationSession` for BOTH studio representation AND user representation.
 
-The existing `RepresentationSession` model already supports this:
-- `trustee_user` - can be either a studio's trustee OR a trustee grant trustee
+The `RepresentationSession` model supports both types:
 - `representative_user` - the person doing the acting
-- `superagent` - the studio context (for user representation, this is the studio where actions occur)
+- `superagent` - required for studio representation, NULL for user representation
+- `trustee_grant` - required for user representation, NULL for studio representation
+- `effective_user` method - returns the identity to use as `current_user`:
+  - Studio: `superagent.trustee_user`
+  - User: `trustee_grant.granting_user`
 
 **Flow comparison:**
 
 | Step | Studio Representation | User Representation |
 |------|----------------------|---------------------|
 | Authorization | Studio role grants `can_represent?` | `TrusteeGrant` grants access |
-| Session start | `POST /studios/:handle/represent` | Same, but using trustee grant trustee |
-| During session | Actions logged, attributed to studio trustee | Actions logged, attributed to trustee grant trustee |
+| Session start | `POST /studios/:handle/represent` | `POST /u/:handle/settings/trustee-grants/:id/represent` |
+| effective_user | `superagent.trustee_user` | `trustee_grant.granting_user` |
+| During session | Actions logged via `RepresentationSessionEvent` | Actions logged via `RepresentationSessionEvent` |
 | Session end | `DELETE /studios/:handle/represent` | Same |
 
 ### Permission Schema
@@ -167,45 +175,36 @@ Notify granting user when:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           TRUSTEE PERMISSION                                  │
+│                              TRUSTEE GRANT                                    │
 │  (Standing authorization - can exist without active session)                  │
 │                                                                               │
-│  granting_user ─────────────────────────────────────> trusted_user            │
-│       │              "allows to act on my behalf"          │                  │
-│       │                                                    │                  │
-│       │  States: pending → active (accepted)               │                  │
-│       │          pending → declined                        │                  │
-│       │          active  → revoked                         │                  │
-│       │          active  → expired                         │                  │
-│       │                                                    │                  │
-│       └──────────────┬─────────────────────────────────────┘                  │
-│                      │                                                        │
-│                      ▼                                                        │
-│              ┌──────────────┐                                                 │
-│              │ trustee_user │  (user of type 'trustee' for attribution)       │
-│              │ "Alice via   │                                                 │
-│              │  Bob"        │                                                 │
-│              └──────────────┘                                                 │
+│  granting_user ─────────────────────────────────────> trustee_user            │
+│  (the person      "allows to act on my behalf"        (the person             │
+│   represented)                                         doing the acting)      │
+│                                                                               │
+│  States: pending → active (accepted)                                          │
+│          pending → declined                                                   │
+│          active  → revoked                                                    │
+│          active  → expired                                                    │
+│                                                                               │
 └─────────────────────────────────────────────────────────────────────────────┘
                                        │
-                                       │ when trusted_user wants to act
+                                       │ when trustee_user wants to act
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         REPRESENTATION SESSION                               │
 │  (Active session - created when user starts representing)                    │
 │                                                                              │
-│  ┌───────────────────┐         ┌───────────────────┐                         │
-│  │ representative_   │ acts as │ trustee_user      │                         │
-│  │ user              │────────>│ (from permission) │                         │
-│  │ (the trusted_user)│         │                   │                         │
-│  └───────────────────┘         └───────────────────┘                         │
-│                                        │                                     │
-│  Within studio context:                │                                     │
-│  ┌───────────────────┐                 │                                     │
-│  │ superagent        │<────────────────┘                                     │
-│  │ (where actions    │   actions recorded in activity_log                    │
-│  │  happen)          │                                                       │
-│  └───────────────────┘                                                       │
+│  ┌───────────────────┐  represents   ┌───────────────────┐                   │
+│  │ representative_   │──────────────>│ effective_user    │                   │
+│  │ user              │               │ (granting_user)   │                   │
+│  │ (trustee_user)    │               │                   │                   │
+│  └───────────────────┘               └───────────────────┘                   │
+│                                                                              │
+│  User representation:                                                        │
+│  - superagent_id = NULL (can span studios)                                   │
+│  - trustee_grant_id = grant.id                                               │
+│  - Actions in any studio logged via RepresentationSessionEvent               │
 │                                                                              │
 │  States: active → ended (manual)                                             │
 │          active → expired (24h)                                              │
@@ -222,21 +221,21 @@ Authorization:                      Authorization:
   Studio role grants                  TrusteeGrant (accepted)
   can_represent?                      grants can_represent?
 
-Trustee user:                       Trustee user:
-  superagent.trustee_user             grant.trustee_user
-  (represents the studio)             (represents the trustee grant)
+effective_user:                     effective_user:
+  superagent.trustee_user             trustee_grant.granting_user
+  (studio's trustee)                  (person being represented)
 
 Session creation:                   Session creation:
   RepresentationSession with          RepresentationSession with
   superagent_id (required)            superagent_id = NULL
-                                      trustee_grant_id (required)
+  trustee_grant_id = NULL             trustee_grant_id (required)
 
 Activity logging:                   Activity logging:
-  Same - all actions logged           Same - all actions logged
-  in activity_log JSONB               in activity_log JSONB
+  RepresentationSessionEvent          RepresentationSessionEvent
+  records per action                  records per action
 
 Attribution:                        Attribution:
-  Actions by "Studio Name"            Actions by "Bob via Alice"
+  Actions by "Studio Name"            Actions by granting_user
 
 Path/URL:                           Path/URL:
   /studios/:handle/r/:id              /u/:handle/settings/trustee-grants/:id
@@ -735,23 +734,26 @@ When a user asks Trio to do something that requires trustee grant:
 
 ```ruby
 # Trio starts a session when acting on behalf of a user
-permission = TrusteeGrant.active.find_by!(
+grant = TrusteeGrant.active.find_by!(
   granting_user: user,
-  trusted_user: trio_user
+  trustee_user: trio_user
 )
 
 session = RepresentationSession.create!(
   tenant: tenant,
-  superagent: current_studio,
+  # superagent: nil - user representation has no superagent
   representative_user: trio_user,
-  trustee_user: permission.trustee_user,
+  trustee_grant: grant,
   confirmed_understanding: true,
   began_at: Time.current,
-  activity_log: { 'activity' => [] }
 )
 
-# Take actions within session
-# All actions logged automatically
+# Take actions within session - each action recorded via record_event!
+session.record_event!(
+  request: request,
+  action_name: "create_note",
+  resource: note
+)
 
 session.end!
 ```
@@ -784,16 +786,15 @@ after_create :create_parent_trustee_grant!, if: :subagent?
 private
 
 def create_parent_trustee_grant!
+  all_permissions = TrusteeGrant::GRANTABLE_ACTIONS.index_with { true }
+
   TrusteeGrant.create!(
-    tenant: tenant,
     granting_user: self,              # The subagent grants permission
-    trusted_user: parent,             # The parent receives permission
+    trustee_user: parent_user,        # The parent is the trustee
     accepted_at: Time.current,        # Pre-accepted
-    permissions: TrusteeGrant::CAPABILITIES.keys.index_with { true },  # All capabilities
-    studio_scope: { "mode" => "all" },  # All studios
-    relationship_phrase: "#{parent.display_name} acts for #{display_name}",
+    permissions: all_permissions,     # All actions allowed
+    studio_scope: { "mode" => "all" } # All studios
   )
-  # Note: trustee_user is auto-created by TrusteeGrant#create_trustee_user! callback
 end
 ```
 
@@ -805,22 +806,20 @@ end
 class CreateTrusteeGrantsForSubagents < ActiveRecord::Migration[7.0]
   def up
     User.where(user_type: 'subagent').where.not(parent_id: nil).find_each do |subagent|
-      next if TrusteeGrant.exists?(granting_user: subagent, trusted_user: subagent.parent)
+      next if TrusteeGrant.exists?(granting_user: subagent, trustee_user_id: subagent.parent_id)
 
+      all_permissions = TrusteeGrant::GRANTABLE_ACTIONS.index_with { true }
       TrusteeGrant.create!(
-        tenant: subagent.tenant,
         granting_user: subagent,
-        trusted_user: subagent.parent,
+        trustee_user: subagent.parent,
         accepted_at: Time.current,
-        permissions: TrusteeGrant::CAPABILITIES.keys.index_with { true },
-        studio_scope: { "mode" => "all" },
-        relationship_phrase: "#{subagent.parent.display_name} acts for #{subagent.display_name}",
+        permissions: all_permissions,
+        studio_scope: { "mode" => "all" }
       )
     end
   end
 
   def down
-    # TrusteeGrants for subagents are identified by granting_user being a subagent
     User.where(user_type: 'subagent').find_each do |subagent|
       TrusteeGrant.where(granting_user: subagent).destroy_all
     end
@@ -828,23 +827,34 @@ class CreateTrusteeGrantsForSubagents < ActiveRecord::Migration[7.0]
 end
 ```
 
-### 7.3 Update `can_impersonate?` to use representation ✅ COMPLETE
+### 7.3 Update `can_represent?` to check TrusteeGrant ✅ COMPLETE
 
 **File**: `app/models/user.rb`
 
-Added `is_trusted_as?` method for checking representation authorization:
+The `can_represent?(user)` method checks TrusteeGrant:
 
 ```ruby
-def is_trusted_as?(user)
-  # Check if self can act as the given user via TrusteeGrant
-  TrusteeGrant.active.exists?(
-    granting_user: user,
-    trusted_user: self
-  )
+def can_represent?(superagent_or_user)
+  # ... superagent handling ...
+
+  if superagent_or_user.is_a?(User)
+    user = superagent_or_user
+    return false if user.archived?
+
+    # Parent can represent their subagent
+    return true if is_parent_of?(user)
+
+    # The trustee_user (self) can represent the granting_user (user) if there's an active grant
+    grant = TrusteeGrant.active.find_by(
+      granting_user: user,
+      trustee_user: self
+    )
+    return grant.present?
+  end
 end
 ```
 
-The `can_impersonate?` method now uses `is_trusted_as?` for parent-subagent representation checks.
+Parent-subagent representation is allowed via `is_parent_of?` check, which then creates a TrusteeGrant session.
 
 ### 7.4 Remove impersonation UI ⬚ NOT STARTED
 
@@ -875,6 +885,39 @@ Impersonation now creates a representation session linked to the TrusteeGrant, e
 
 ---
 
+## Phase 8: Simplify TrusteeGrant ✅ COMPLETE
+
+**Goal**: Remove synthetic "trustee" users and simplify the data model for user representation.
+
+### What Changed
+
+1. **Column rename**: `trusted_user_id` → `trustee_user_id` (the actual person is now "the trustee")
+2. **Removed synthetic users**: TrusteeGrants no longer create User records of type "trustee"
+3. **`effective_user`**: For user representation, returns `trustee_grant.granting_user` directly
+4. **Validation**: `trustee_user` cannot be a trustee-type user (only real persons can be trustees)
+
+### Current Data Model
+
+```
+TrusteeGrant:
+  granting_user  → User (person being represented)
+  trustee_user   → User (person doing the representing - NOT type 'trustee')
+
+RepresentationSession (user representation):
+  representative_user  → trustee_grant.trustee_user
+  effective_user       → trustee_grant.granting_user (via method)
+  superagent_id        → NULL
+  trustee_grant_id     → the grant
+```
+
+### Files Updated
+
+- `app/models/trustee_grant.rb` - Removed `create_trustee_user!` callback, renamed column
+- `app/models/user.rb` - Updated `create_parent_trustee_grant!`, `can_represent?`
+- `app/models/representation_session.rb` - `effective_user` returns `granting_user` for user representation
+
+---
+
 ## Critical Files
 
 | File | Purpose |
@@ -893,8 +936,11 @@ Impersonation now creates a representation session linked to the TrusteeGrant, e
 | `app/views/subagents/new.html.erb` | Subagent creation with capability config |
 | `test/services/actions_helper_test.rb` | ActionsHelper tests (30 tests) |
 | `test/services/action_authorization_test.rb` | Authorization tests including trustee grant actions |
+| `app/models/representation_session_event.rb` | Event records for tracking actions during sessions |
+| `app/models/concerns/has_representation_session_events.rb` | Concern for models that can be created during representation |
 | `db/migrate/20260207001008_allow_null_superagent_id_for_user_representation_sessions.rb` | Allow NULL superagent_id for user sessions |
 | `db/migrate/20260207141046_create_trustee_grants_for_existing_subagents.rb` | Create TrusteeGrants for existing subagents |
+| `db/migrate/20260208191548_create_representation_session_events.rb` | Create events table |
 
 ---
 
@@ -932,13 +978,14 @@ Impersonation now creates a representation session linked to the TrusteeGrant, e
 
 ## Migration Path
 
-1. **Phase 1** - Add columns, deploy migration. No user-facing changes.
-2. **Phase 2** - Controller endpoints. Feature flagged.
-3. **Phase 3** - UI. Feature flagged, opt-in.
-4. **Phase 4** - Representation session integration. Users can start using.
-5. **Phase 5** - Notifications. Polish.
-6. **Phase 6** - Trio integration. Requires phases 1-5.
-7. **Phase 7** - Replace impersonation. Auto-create permissions for subagents, deprecate `can_impersonate?`.
+1. **Phase 1** ✅ - Add columns, deploy migration. No user-facing changes.
+2. **Phase 2** ✅ - Controller endpoints.
+3. **Phase 3** ✅ - UI.
+4. **Phase 4** ✅ - Representation session integration with RepresentationSessionEvent.
+5. **Phase 5** ⬚ - Notifications. Polish.
+6. **Phase 6** ⬚ - Trio integration. Requires phases 1-5.
+7. **Phase 7** 🔶 - Replace impersonation. 7.4 remaining.
+8. **Phase 8** ✅ - Simplify TrusteeGrant. Remove synthetic users.
 
 ---
 
@@ -946,18 +993,18 @@ Impersonation now creates a representation session linked to the TrusteeGrant, e
 
 | Question | Decision |
 |----------|----------|
-| Activity logging | Yes - use representation sessions for all trustee actions |
+| Activity logging | Yes - use `RepresentationSessionEvent` to record all actions during representation |
 | Notifications | Yes - notify at key events (request, accept, decline, revoke, session start/end) |
-| Acceptance workflow | Yes - trusted user must accept before permission is active |
+| Acceptance workflow | Yes - trustee_user must accept before grant is active |
 | Studio scoping | Yes - implement now with include/exclude modes |
 | Session duration | Same 24h limit as studio sessions |
-| Multiple studios | A trustee grant trustee session can span multiple studios (actions in any scoped studio) |
+| Multiple studios | A user representation session can span multiple studios (actions in any scoped studio) |
 | Concurrent sessions | No - a user can only represent a single entity (user or studio) at a time |
 | Nested sessions | Not allowed - if A represents B, A cannot start a session to represent C via B's grants; UI hides options and backend blocks with explicit error |
 | Capability changes | Immediate effect - permission changes apply to active sessions |
 | Replace impersonation | Yes - all impersonation replaced with representation sessions |
-| Parent-subagent representation | Auto-create TrusteeGrant when subagent is created; granting_user=subagent, trusted_user=parent; pre-accepted with full capabilities |
-| User type mixing | Never - user types (person, subagent, trustee) are mutually exclusive; each trustee grant creates a new trustee user |
+| Parent-subagent representation | Auto-create TrusteeGrant when subagent is created; granting_user=subagent, trustee_user=parent; pre-accepted with full capabilities |
+| Synthetic trustee users | **Removed** - TrusteeGrant.trustee_user is now the actual person (not a synthetic user of type 'trustee') |
 | Subagent trustee grant actions | Grantable (not always-allowed); Responses enabled by default, Admin actions disabled by default |
 | User representation entry point | Trustee grants settings page (`/u/:handle/settings/trustee-grants`) - not studio representation page |
 | Session history visibility | On trustee grant show page - granting user can see all sessions and actions taken on their behalf via that grant |
