@@ -40,6 +40,38 @@ class ApplicationRecord < ActiveRecord::Base
     self.column_names.include?("superagent_id")
   end
 
+  # Query with only tenant scoping (bypasses superagent scope).
+  # Use this instead of `unscoped` when you need cross-superagent access within a tenant.
+  # In request context, tenant_id defaults to Tenant.current_id.
+  # In background jobs, pass tenant_id explicitly.
+  sig { params(tenant_id: T.nilable(String)).returns(T.untyped) }
+  def self.tenant_scoped_only(tenant_id = Tenant.current_id)
+    raise ArgumentError, "tenant_id is required for tenant_scoped_only" if tenant_id.nil?
+    unscoped.where(tenant_id: tenant_id) # unscoped-allowed - this is the safe wrapper
+  end
+
+  # Query without any scoping, for app admin operations.
+  # Only callable by app admins or system admins.
+  # Use this for cross-tenant admin operations like user management.
+  sig { params(current_user: User).returns(T.untyped) }
+  def self.unscoped_for_admin(current_user)
+    unless current_user.app_admin? || current_user.sys_admin?
+      raise ArgumentError, "unscoped_for_admin requires an app_admin or system_admin user"
+    end
+    unscoped # unscoped-allowed - admin-only cross-tenant access
+  end
+
+  # Query without any scoping, for system background jobs.
+  # Only callable when no tenant context is set (i.e., in a background job).
+  # Use this for maintenance jobs like cleanup and backfills.
+  sig { returns(T.untyped) }
+  def self.unscoped_for_system_job
+    unless Tenant.current_id.nil?
+      raise ArgumentError, "unscoped_for_system_job can only be called outside of tenant context"
+    end
+    unscoped # unscoped-allowed - system job cross-tenant access
+  end
+
   sig { void }
   def set_superagent_id
     if self.class.belongs_to_superagent?

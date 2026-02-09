@@ -28,10 +28,12 @@ class CleanupExpiredTokensJobTest < ActiveJob::TestCase
       expires_at: 29.days.ago,
     )
 
+    # Clear tenant context to simulate background job environment
+    Tenant.current_id = nil
     CleanupExpiredTokensJob.perform_now
 
-    assert_nil ApiToken.unscoped.find_by(id: old_expired_token.id), "Old expired token should be deleted"
-    assert ApiToken.unscoped.find_by(id: recent_expired_token.id), "Recent expired token should be kept"
+    assert_nil ApiToken.find_by(id: old_expired_token.id), "Old expired token should be deleted"
+    assert ApiToken.find_by(id: recent_expired_token.id), "Recent expired token should be kept"
   end
 
   test "deletes tokens soft-deleted more than 30 days ago" do
@@ -51,10 +53,12 @@ class CleanupExpiredTokensJobTest < ActiveJob::TestCase
     )
     recent_deleted_token.update_columns(deleted_at: 29.days.ago)
 
+    # Clear tenant context to simulate background job environment
+    Tenant.current_id = nil
     CleanupExpiredTokensJob.perform_now
 
-    assert_nil ApiToken.unscoped.find_by(id: old_deleted_token.id), "Old deleted token should be deleted"
-    assert ApiToken.unscoped.find_by(id: recent_deleted_token.id), "Recent deleted token should be kept"
+    assert_nil ApiToken.find_by(id: old_deleted_token.id), "Old deleted token should be deleted"
+    assert ApiToken.find_by(id: recent_deleted_token.id), "Recent deleted token should be kept"
   end
 
   test "preserves active tokens" do
@@ -64,9 +68,11 @@ class CleanupExpiredTokensJobTest < ActiveJob::TestCase
       expires_at: 1.year.from_now,
     )
 
+    # Clear tenant context to simulate background job environment
+    Tenant.current_id = nil
     CleanupExpiredTokensJob.perform_now
 
-    assert ApiToken.unscoped.find_by(id: active_token.id), "Active token should be preserved"
+    assert ApiToken.find_by(id: active_token.id), "Active token should be preserved"
   end
 
   test "cleans up tokens across all tenants" do
@@ -96,9 +102,11 @@ class CleanupExpiredTokensJobTest < ActiveJob::TestCase
       expires_at: 31.days.ago,
     )
 
+    # Clear tenant context to simulate background job environment
+    Tenant.current_id = nil
     CleanupExpiredTokensJob.perform_now
 
-    assert_nil ApiToken.unscoped.find_by(id: old_token_tenant1.id), "Tenant1 old token should be deleted"
-    assert_nil ApiToken.unscoped.find_by(id: old_token_tenant2.id), "Tenant2 old token should be deleted"
+    assert_nil ApiToken.find_by(id: old_token_tenant1.id), "Tenant1 old token should be deleted"
+    assert_nil ApiToken.find_by(id: old_token_tenant2.id), "Tenant2 old token should be deleted"
   end
 end

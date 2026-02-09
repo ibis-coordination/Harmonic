@@ -17,7 +17,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   test "creating a read_confirmation NoteHistoryEvent enqueues reindex for the note" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note.id, tenant_id: @tenant.id }]) do
       NoteHistoryEvent.create!(
         tenant: @tenant,
         superagent: @superagent,
@@ -77,8 +77,8 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     clear_enqueued_jobs
 
     # Should enqueue 2 reindex jobs: one for each linked item
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_1.id }]) do
-      assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_1.id, tenant_id: @tenant.id }]) do
+      assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id, tenant_id: @tenant.id }]) do
         Link.create!(
           tenant: @tenant,
           superagent: @superagent,
@@ -102,8 +102,8 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_1.id }]) do
-      assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_1.id, tenant_id: @tenant.id }]) do
+      assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id, tenant_id: @tenant.id }]) do
         link.destroy!
       end
     end
@@ -119,7 +119,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during decision creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
     end
   end
@@ -131,7 +131,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       option.destroy!
     end
   end
@@ -148,7 +148,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during setup
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       Vote.create!(
         tenant: @tenant,
         superagent: @superagent,
@@ -178,7 +178,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       vote.destroy!
     end
   end
@@ -193,7 +193,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during commitment creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id, tenant_id: @tenant.id }]) do
       CommitmentParticipant.create!(
         tenant: @tenant,
         superagent: @superagent,
@@ -215,7 +215,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id, tenant_id: @tenant.id }]) do
       participant.update!(committed: true)
     end
   end
@@ -232,7 +232,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id, tenant_id: @tenant.id }]) do
       participant.destroy!
     end
   end
@@ -247,7 +247,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during parent creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: parent_note.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: parent_note.id, tenant_id: @tenant.id }]) do
       create_note(
         tenant: @tenant,
         superagent: @superagent,
@@ -264,7 +264,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # Clear any jobs enqueued during decision creation
     clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       create_note(
         tenant: @tenant,
         superagent: @superagent,

@@ -42,7 +42,7 @@ class SubagentTaskRunResource < ApplicationRecord
   def resource_unscoped
     return nil if resource_type.blank? || resource_id.blank?
 
-    resource_type.constantize.unscoped.find_by(id: resource_id, tenant_id: tenant_id)
+    resource_type.constantize.tenant_scoped_only(tenant_id).find_by(id: resource_id)
   end
 
   # Generate a human-readable title for display in the UI
@@ -62,15 +62,15 @@ class SubagentTaskRunResource < ApplicationRecord
     when Option
       "Option: #{resource.title.to_s.truncate(50)}"
     when Vote
-      option = Option.unscoped.find_by(id: resource.option_id, tenant_id: tenant_id)
+      option = Option.tenant_scoped_only(tenant_id).find_by(id: resource.option_id)
       option_title = option&.title || "unknown option"
       "Vote on: #{option_title.truncate(50)}"
     when NoteHistoryEvent
-      note = Note.unscoped.find_by(id: resource.note_id, tenant_id: tenant_id)
+      note = Note.tenant_scoped_only(tenant_id).find_by(id: resource.note_id)
       note_title = note&.title || "unknown note"
       "Confirmed: #{note_title.truncate(50)}"
     when CommitmentParticipant
-      commitment = Commitment.unscoped.find_by(id: resource.commitment_id, tenant_id: tenant_id)
+      commitment = Commitment.tenant_scoped_only(tenant_id).find_by(id: resource.commitment_id)
       commitment_title = commitment&.title || "unknown commitment"
       "Joined: #{commitment_title.truncate(50)}"
     else

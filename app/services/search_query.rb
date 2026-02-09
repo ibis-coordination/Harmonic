@@ -316,9 +316,9 @@ class SearchQuery
     # Require a query to show results - empty search page shows nothing
     return SearchIndex.none if @raw_query.blank?
 
-    # Use unscoped to bypass ApplicationRecord's default_scope which filters by Superagent.current_id
+    # Use tenant_scoped_only to bypass superagent scope while keeping tenant scope
     # We handle superagent filtering explicitly below with accessible_superagent_ids
-    @relation = SearchIndex.unscoped.where(tenant_id: @tenant.id)
+    @relation = SearchIndex.tenant_scoped_only(@tenant.id)
 
     # Apply superagent scope with access control
     # Always filter to accessible superagents to prevent information leakage

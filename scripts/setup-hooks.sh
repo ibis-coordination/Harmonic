@@ -26,6 +26,7 @@ chmod +x scripts/check-todo-index.sh 2>/dev/null || true
 chmod +x scripts/generate-todo-index.sh 2>/dev/null || true
 chmod +x scripts/check-debug-code.sh 2>/dev/null || true
 chmod +x scripts/check-secrets.sh 2>/dev/null || true
+chmod +x scripts/check-tenant-safety.sh 2>/dev/null || true
 
 echo ""
 echo "Git hooks installed successfully!"
@@ -33,6 +34,7 @@ echo ""
 echo "Hooks will:"
 echo "  - Block commits containing potential secrets/API keys"
 echo "  - Block commits containing debug code (binding.pry, console.log, etc.)"
+echo "  - Block commits containing banned .unscoped usage (tenant safety)"
 echo "  - Run Sorbet type checking"
 echo "  - Run TypeScript type checking (V1 legacy)"
 echo "  - Run V2 React client lint-staged (ESLint with functional programming rules)"

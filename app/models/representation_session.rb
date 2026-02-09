@@ -218,24 +218,54 @@ class RepresentationSession < ApplicationRecord
   sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
   def human_readable_events_log
     @human_readable_events_log ||= T.let(
-      representation_session_events
-        .includes(:resource, :context_resource)
-        .order(created_at: :asc)
-        .group_by(&:request_id)
-        .map do |_request_id, events|
+      begin
+        events = representation_session_events.order(created_at: :asc).to_a
+
+        # Preload resources unscoped to bypass default superagent scope
+        # (events may reference resources in different studios)
+        preload_polymorphic_unscoped(events, :resource)
+        preload_polymorphic_unscoped(events, :context_resource)
+
+        events.group_by(&:request_id).map do |_request_id, grouped_events|
           # Take first event as representative (all share same action/context)
-          event = T.must(events.first)
+          event = T.must(grouped_events.first)
           display_resource = event.context_resource || event.resource
           {
             happened_at: event.created_at,
             verb_phrase: event.verb_phrase,
-            superagent: display_resource.respond_to?(:superagent) ? display_resource.superagent : nil,
+            superagent: display_resource&.respond_to?(:superagent) ? display_resource.superagent : nil,
             main_resource: display_resource,
-            event_count: events.size, # e.g., "voted on Decision (3 votes)"
+            event_count: grouped_events.size, # e.g., "voted on Decision (3 votes)"
           }
-        end,
+        end
+      end,
       T.nilable(T::Array[T::Hash[Symbol, T.untyped]])
     )
+  end
+
+  # Preload polymorphic associations without default scope filtering
+  sig { params(records: T::Array[RepresentationSessionEvent], association: Symbol).void }
+  def preload_polymorphic_unscoped(records, association)
+    type_col = :"#{association}_type"
+    id_col = :"#{association}_id"
+
+    # Group by type
+    by_type = records.group_by(&type_col)
+    by_type.each do |type, type_records|
+      next if type.nil?
+
+      ids = type_records.map(&id_col).compact.uniq
+      next if ids.empty?
+
+      # Bypass superagent scope but keep tenant scope (records are from same tenant as session)
+      loaded = type.constantize.tenant_scoped_only(tenant_id).where(id: ids).index_by(&:id)
+
+      # Assign back to records
+      type_records.each do |record|
+        record_id = record.send(id_col)
+        record.association(association).target = loaded[record_id] if record_id
+      end
+    end
   end
 
   # Override reload to clear memoized instance variables

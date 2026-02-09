@@ -292,9 +292,9 @@ class ApplicationController < ActionController::Base
   # @return [User] The user if no active sessions, or renders error and returns nil
   def check_for_active_representation_session(user)
     # Check for active representation sessions where this user is the representative
-    active_session = RepresentationSession.unscoped.where(
+    # Uses tenant_scoped_only to bypass superagent scope but keep tenant scope
+    active_session = RepresentationSession.tenant_scoped_only(current_tenant.id).where(
       representative_user_id: user.id,
-      tenant_id: current_tenant.id,
       ended_at: nil
     ).where("began_at > ?", 24.hours.ago).first
 
@@ -342,10 +342,9 @@ class ApplicationController < ActionController::Base
     return unless session[:representation_session_id].present?
     return unless @current_person_user
 
-    # Look up the RepresentationSession
-    rep_session = RepresentationSession.unscoped.find_by(
-      id: session[:representation_session_id],
-      tenant_id: current_tenant.id
+    # Look up the RepresentationSession (bypass superagent scope)
+    rep_session = RepresentationSession.tenant_scoped_only(current_tenant.id).find_by(
+      id: session[:representation_session_id]
     )
 
     # Validate: session exists

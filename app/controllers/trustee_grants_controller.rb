@@ -33,13 +33,13 @@ class TrusteeGrantsController < ApplicationController
     @page_title = "Trustee Grants for #{@target_user.display_name || @target_user.handle}"
 
     # Grants I've given to others (I am granting_user)
-    @granted = TrusteeGrant.unscoped
-      .where(granting_user: @target_user, tenant: @current_tenant)
+    @granted = TrusteeGrant.tenant_scoped_only
+      .where(granting_user: @target_user)
       .includes(:trustee_user)
 
     # Grants I've received from others (I am trustee_user)
-    @received = TrusteeGrant.unscoped
-      .where(trustee_user: @target_user, tenant: @current_tenant)
+    @received = TrusteeGrant.tenant_scoped_only
+      .where(trustee_user: @target_user)
       .includes(:granting_user)
 
     # Pending requests I need to respond to
@@ -428,8 +428,7 @@ class TrusteeGrantsController < ApplicationController
     grant_id = params[:grant_id]
 
     # Find grant by truncated_id, where target user is either granting or trustee
-    @grant = TrusteeGrant.unscoped
-      .where(tenant: @current_tenant)
+    @grant = TrusteeGrant.tenant_scoped_only
       .includes(:granting_user, :trustee_user)
       .find_by!(truncated_id: grant_id)
 
@@ -463,8 +462,8 @@ class TrusteeGrantsController < ApplicationController
   def available_users_for_grant
     # Get users in the same tenant who can receive grants
     # Exclude current user, trustees, and users who already have grants
-    existing_trustee_user_ids = TrusteeGrant.unscoped
-      .where(granting_user: @target_user, tenant: @current_tenant)
+    existing_trustee_user_ids = TrusteeGrant.tenant_scoped_only
+      .where(granting_user: @target_user)
       .where(revoked_at: nil, declined_at: nil)
       .pluck(:trustee_user_id)
 

@@ -1,5 +1,12 @@
 # typed: true
 
+# DataDeletionManager handles destructive data operations for admin use.
+#
+# IMPORTANT: This class uses .unscoped intentionally to delete data across
+# all tenants/superagents. It is designed to be used only from Rails console
+# with explicit confirmation tokens. All .unscoped calls here are marked as
+# unscoped-allowed since this is a privileged admin operation.
+#
 class DataDeletionManager
   extend T::Sig
 
@@ -35,7 +42,7 @@ class DataDeletionManager
         CommitmentParticipant, Commitment,
         Invite, SuperagentMember
       ].each do |model|
-        model.unscoped.where(superagent_id: superagent.id).delete_all
+        model.unscoped.where(superagent_id: superagent.id).delete_all # unscoped-allowed
       end
       # Delete trustee user only if it does not have any conflicting associations
       # begin
@@ -59,19 +66,19 @@ class DataDeletionManager
       raise NotImplementedError, "full deletion of users is not implemented yet"
     end
     ActiveRecord::Base.transaction do
-      # OauthIdentities can be completely deleted
-      OauthIdentity.unscoped.where(user_id: user.id).delete_all
+      # OauthIdentities can be completely deleted (no tenant scope)
+      OauthIdentity.where(user_id: user.id).delete_all
       user.email = "#{SecureRandom.hex(10)}@deleted.user"
       user.name = "Deleted User"
       user.image.purge if user.image.attached?
       user.save!
       # API tokens are marked as deleted but not destroyed
-      ApiToken.unscoped.where(user_id: user.id).update_all(deleted_at: Time.current)
-      User.unscoped.where(parent_id: user.id).each do |subagent|
+      ApiToken.unscoped.where(user_id: user.id).update_all(deleted_at: Time.current) # unscoped-allowed
+      User.where(parent_id: user.id).each do |subagent| # User has no tenant scope
         # Subagent users are not modified, but their API tokens are marked as deleted
-        ApiToken.unscoped.where(user_id: subagent.id).update_all(deleted_at: Time.current)
+        ApiToken.unscoped.where(user_id: subagent.id).update_all(deleted_at: Time.current) # unscoped-allowed
       end
-      SuperagentMember.unscoped.where(user_id: user.id).each do |superagent_member|
+      SuperagentMember.unscoped.where(user_id: user.id).each do |superagent_member| # unscoped-allowed
         superagent_member_is_sole_admin = superagent_member.is_admin? && superagent_member.superagent.admins.count == 1
         if superagent_member_is_sole_admin
           # If the user is the only admin of the superagent, we need to assign a new admin
@@ -88,7 +95,7 @@ class DataDeletionManager
         superagent_member.archived_at = Time.current
         superagent_member.save!
       end
-      TenantUser.unscoped.where(user_id: user.id).each do |tenant_user|
+      TenantUser.unscoped.where(user_id: user.id).each do |tenant_user| # unscoped-allowed
         tenant_user.update!(
           display_name: "Deleted User",
           handle: "#{SecureRandom.hex(10)}-deleted",
@@ -109,11 +116,11 @@ class DataDeletionManager
     note_id = note.id
     ActiveRecord::Base.transaction do
       # Delete all associated data
-      NoteHistoryEvent.unscoped.where(note_id: note.id).each do |event|
+      NoteHistoryEvent.unscoped.where(note_id: note.id).each do |event| # unscoped-allowed
         event.destroy!
       end
       # Link where the note is the from_linkable or the to_linkable
-      Link.unscoped.where(from_linkable: note).or(Link.unscoped.where(to_linkable: note)).each do |link|
+      Link.unscoped.where(from_linkable: note).or(Link.unscoped.where(to_linkable: note)).each do |link| # unscoped-allowed
         link.destroy!
       end
       # Delete the note itself
@@ -132,16 +139,16 @@ class DataDeletionManager
     decision_id = decision.id
     ActiveRecord::Base.transaction do
       # Delete all associated data
-      Vote.unscoped.where(decision_id: decision.id).each do |vote|
+      Vote.unscoped.where(decision_id: decision.id).each do |vote| # unscoped-allowed
         vote.destroy!
       end
-      Option.unscoped.where(decision_id: decision.id).each do |option|
+      Option.unscoped.where(decision_id: decision.id).each do |option| # unscoped-allowed
         option.destroy!
       end
-      DecisionParticipant.unscoped.where(decision_id: decision.id).each do |participant|
+      DecisionParticipant.unscoped.where(decision_id: decision.id).each do |participant| # unscoped-allowed
         participant.destroy!
       end
-      Link.unscoped.where(from_linkable: decision).or(Link.unscoped.where(to_linkable: decision)).each do |link|
+      Link.unscoped.where(from_linkable: decision).or(Link.unscoped.where(to_linkable: decision)).each do |link| # unscoped-allowed
         link.destroy!
       end
       # Delete the decision itself
@@ -160,10 +167,10 @@ class DataDeletionManager
     commitment_id = commitment.id
     ActiveRecord::Base.transaction do
       # Delete all associated data
-      CommitmentParticipant.unscoped.where(commitment_id: commitment.id).each do |participant|
+      CommitmentParticipant.unscoped.where(commitment_id: commitment.id).each do |participant| # unscoped-allowed
         participant.destroy!
       end
-      Link.unscoped.where(from_linkable: commitment).or(Link.unscoped.where(to_linkable: commitment)).each do |link|
+      Link.unscoped.where(from_linkable: commitment).or(Link.unscoped.where(to_linkable: commitment)).each do |link| # unscoped-allowed
         link.destroy!
       end
       # Delete the commitment itself

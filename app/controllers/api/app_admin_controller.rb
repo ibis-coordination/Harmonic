@@ -25,9 +25,10 @@ class Api::AppAdminController < ApplicationController
     token = extract_token
     return render_unauthorized("Missing authorization token") unless token
 
-    # Use hash-based lookup (no tenant restriction for app_admin tokens)
+    # Use hash-based lookup (Tenant.current_id is nil because we skip current_tenant,
+    # so the default scope returns all records - no unscoped needed)
     token_hash = ApiToken.hash_token(token)
-    @current_token = ApiToken.unscoped.find_by(token_hash: token_hash, deleted_at: nil)
+    @current_token = ApiToken.find_by(token_hash: token_hash, deleted_at: nil)
     return render_unauthorized("Invalid token") unless @current_token
 
     if @current_token.expired?

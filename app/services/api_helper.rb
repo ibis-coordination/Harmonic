@@ -687,7 +687,7 @@ class ApiHelper
   def pin_resource(resource)
     resource.pin!(tenant: current_tenant, superagent: current_superagent, user: current_user)
     if current_representation_session
-      action_name = "pin_#{resource.class.name.underscore}"
+      action_name = "pin_#{T.must(resource.class.name).underscore}"
       current_representation_session.record_event!(
         request: request,
         action_name: action_name,
@@ -702,7 +702,7 @@ class ApiHelper
   def unpin_resource(resource)
     resource.unpin!(tenant: current_tenant, superagent: current_superagent, user: current_user)
     if current_representation_session
-      action_name = "unpin_#{resource.class.name.underscore}"
+      action_name = "unpin_#{T.must(resource.class.name).underscore}"
       current_representation_session.record_event!(
         request: request,
         action_name: action_name,
@@ -715,7 +715,6 @@ class ApiHelper
   # Update option title
   sig { params(option: Option).returns(Option) }
   def update_option(option)
-    raise "Option not found" unless option
     ActiveRecord::Base.transaction do
       option.title = params[:title] if params[:title].present?
       option.save!
@@ -734,7 +733,6 @@ class ApiHelper
   # Delete an option
   sig { params(option: Option).void }
   def delete_option(option)
-    raise "Option not found" unless option
     decision = option.decision
     ActiveRecord::Base.transaction do
       option.destroy!
@@ -807,18 +805,18 @@ class ApiHelper
     when Note, Decision, Commitment
       resource.path
     when Option
-      decision = Decision.unscoped.find_by(id: resource.decision_id, tenant_id: tenant_id)
+      decision = Decision.tenant_scoped_only(tenant_id).find_by(id: resource.decision_id)
       decision&.path
     when Vote
-      option = Option.unscoped.find_by(id: resource.option_id, tenant_id: tenant_id)
+      option = Option.tenant_scoped_only(tenant_id).find_by(id: resource.option_id)
       return nil unless option
-      decision = Decision.unscoped.find_by(id: option.decision_id, tenant_id: tenant_id)
+      decision = Decision.tenant_scoped_only(tenant_id).find_by(id: option.decision_id)
       decision&.path
     when NoteHistoryEvent
-      note = Note.unscoped.find_by(id: resource.note_id, tenant_id: tenant_id)
+      note = Note.tenant_scoped_only(tenant_id).find_by(id: resource.note_id)
       note&.path
     when CommitmentParticipant
-      commitment = Commitment.unscoped.find_by(id: resource.commitment_id, tenant_id: tenant_id)
+      commitment = Commitment.tenant_scoped_only(tenant_id).find_by(id: resource.commitment_id)
       commitment&.path
     else
       nil

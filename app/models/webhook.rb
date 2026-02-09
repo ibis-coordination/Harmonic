@@ -44,7 +44,7 @@ class Webhook < ApplicationRecord
       tu = TenantUser.find_by(tenant_id: tenant_id, user_id: user_id)
       "/u/#{tu&.handle}/settings/webhooks"
     else
-      s = Superagent.unscoped.find_by(id: superagent_id)
+      s = Superagent.tenant_scoped_only(tenant_id).find_by(id: superagent_id)
       "/studios/#{s&.handle}/settings/webhooks/#{truncated_id}"
     end
   end

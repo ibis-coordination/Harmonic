@@ -18,8 +18,8 @@ class WebhookDispatcher
 
   sig { params(event: Event).returns(T::Array[Webhook]) }
   def self.find_matching_webhooks(event)
-    # Use unscoped to bypass default_scope since we need to find webhooks with different superagent_id values
-    webhooks = Webhook.unscoped.where(tenant_id: event.tenant_id, enabled: true)
+    # Bypass superagent scope since we need to find webhooks with different superagent_id values
+    webhooks = Webhook.tenant_scoped_only(event.tenant_id).where(enabled: true)
 
     # For user-specific events (like reminders), also match user-level webhooks
     if event.actor_id.present? && user_scoped_event?(event.event_type)

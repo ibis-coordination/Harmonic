@@ -6,3 +6,4 @@
 --ignore=storage/
 --ignore=coverage/
 --ignore=node_modules/
+--ignore=ignore/

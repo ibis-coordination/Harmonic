@@ -13,8 +13,8 @@ class CleanupExpiredTokensJob < ApplicationJob
     cutoff = RETENTION_PERIOD.ago
 
     # Hard delete tokens that have been expired OR soft-deleted for more than RETENTION_PERIOD
-    # Using unscoped because tokens span all tenants and we need to clean up globally
-    deleted_count = ApiToken.unscoped
+    # Using unscoped_for_system_job because this runs outside tenant context
+    deleted_count = ApiToken.unscoped_for_system_job
       .where("deleted_at < ? OR expires_at < ?", cutoff, cutoff)
       .delete_all
 

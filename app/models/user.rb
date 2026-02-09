@@ -231,6 +231,17 @@ class User < ApplicationRecord
     @tenant_user ||= tenant_users.where(tenant_id: Tenant.current_id).first
   end
 
+  # Returns all tenants this user is a member of, across all tenants.
+  # This is a cross-tenant query but is safe because it only returns the user's own data.
+  sig { returns(T::Array[Tenant]) }
+  def own_tenants
+    TenantUser.unscoped # unscoped-allowed - User viewing own tenant memberships
+      .where(user_id: id, archived_at: nil)
+      .includes(:tenant)
+      .where(tenant: { archived_at: nil })
+      .map(&:tenant)
+  end
+
   sig { void }
   def save_tenant_user!
     T.must(tenant_user).save!
@@ -398,9 +409,11 @@ class User < ApplicationRecord
       suspended_reason: reason
     )
 
-    # Unscoped: Soft-delete all API tokens for this user across all tenants.
+    # Cross-tenant soft-delete of all API tokens for this user.
     # Security: Ensures suspended user cannot use any existing tokens.
-    ApiToken.unscoped.where(user_id: id, deleted_at: nil).find_each(&:delete!)
+    # Authorization: Callers must verify admin privileges before calling suspend!
+    # (e.g., AdminController.ensure_admin_user checks tenant-level admin role)
+    ApiToken.unscoped.where(user_id: id, deleted_at: nil).find_each(&:delete!) # unscoped-allowed
 
     # Recursively suspend all subagents
     subagents.where(suspended_at: nil).find_each do |subagent|

@@ -63,6 +63,9 @@ jobs:
       - name: Run Sorbet type check
         run: bundle exec srb tc
 
+      - name: Check tenant safety (no banned .unscoped)
+        run: ./scripts/check-tenant-safety.sh
+
       - name: Check Sorbet coverage
         run: bundle exec spoom srb coverage
 

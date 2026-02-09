@@ -5,7 +5,7 @@
 # the studio in OTHER studios, not within the studio itself. Need to investigate what changed.
 
 class RepresentationSessionsController < ApplicationController
-  before_action :set_sidebar_mode, only: [:index, :show, :representing]
+  before_action :set_sidebar_mode, only: [:index, :show, :represent, :representing]
 
   def index
     @representatives = current_superagent.representatives
@@ -34,17 +34,12 @@ class RepresentationSessionsController < ApplicationController
   end
 
   def represent
-    can_represent_studio = @current_user.superagent_member&.can_represent?
+    # Studio representation page - only shows option to represent the studio itself.
+    # User representation is initiated from the trustee grants settings page instead.
+    @can_represent_studio = @current_user.superagent_member&.can_represent?
 
-    # Load active trustee grants where the current user is the trustee
-    # and the grant allows the current studio
-    @active_user_grants = @current_user.received_trustee_grants.active.select do |grant|
-      grant.allows_studio?(current_superagent)
-    end
-
-    if can_represent_studio || @active_user_grants.any?
+    if @can_represent_studio
       @page_title = "Represent"
-      @can_represent_studio = can_represent_studio
     else
       # TODO: - design a better solution for this
       @sidebar_mode = "minimal"
@@ -134,7 +129,7 @@ class RepresentationSessionsController < ApplicationController
   def stop_representing
     if params[:representation_session_id]
       column = params[:representation_session_id].length == 8 ? "truncated_id" : "id"
-      rs = RepresentationSession.unscoped.find_by(column => params[:representation_session_id])
+      rs = RepresentationSession.tenant_scoped_only.find_by(column => params[:representation_session_id])
     else
       rs = nil
     end

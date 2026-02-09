@@ -349,7 +349,7 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/join/actions" => 'studios#actions_index_join'
     get "#{studios_or_scenes}/:superagent_handle/join/actions/join_studio" => 'studios#describe_join_studio'
     post "#{studios_or_scenes}/:superagent_handle/join/actions/join_studio" => 'studios#join_studio_action'
-    get "#{studios_or_scenes}/:superagent_handle/represent" => 'studios#represent'
+    get "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#represent'
     post "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#start_representing'
     post "#{studios_or_scenes}/:superagent_handle/represent_user" => 'representation_sessions#start_representing_user'
     delete "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#stop_representing'

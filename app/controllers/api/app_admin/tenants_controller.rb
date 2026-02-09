@@ -5,7 +5,7 @@ class Api::AppAdmin::TenantsController < Api::AppAdminController
 
   # GET /api/app_admin/tenants
   def index
-    tenants = Tenant.unscoped.all.order(created_at: :desc)
+    tenants = Tenant.all.order(created_at: :desc)
     render json: { tenants: tenants.map { |t| tenant_json(t) } }
   end
 
@@ -59,8 +59,8 @@ class Api::AppAdmin::TenantsController < Api::AppAdminController
 
   def set_tenant
     # Support lookup by ID or subdomain
-    @tenant = Tenant.unscoped.find_by(id: params[:id]) ||
-              Tenant.unscoped.find_by(subdomain: params[:id])
+    @tenant = Tenant.find_by(id: params[:id]) ||
+              Tenant.find_by(subdomain: params[:id])
 
     render_not_found("Tenant not found") unless @tenant
   end

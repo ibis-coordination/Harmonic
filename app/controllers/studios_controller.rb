@@ -1,7 +1,7 @@
 # typed: false
 
 class StudiosController < ApplicationController
-  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :represent, :views, :view, :members]
+  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :views, :view, :members]
 
   def index
     @page_title = "Studios"

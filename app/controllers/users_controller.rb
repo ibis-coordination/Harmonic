@@ -152,15 +152,14 @@ class UsersController < ApplicationController
     if params[:name].present?
       settings_user.name = params[:name]
       settings_user.save!
-      TenantUser.unscoped.where(user: settings_user).update_all(
+      TenantUser.unscoped.where(user: settings_user).update_all( # unscoped-allowed
         display_name: params[:name]
       )
     end
     if params[:new_handle].present?
       tu.handle = params[:new_handle]
       tu.save!
-      # Also update all other tenant_users for this user
-      TenantUser.unscoped.where(user: settings_user).where.not(id: tu.id).update_all(
+      TenantUser.unscoped.where(user: settings_user).where.not(id: tu.id).update_all( # unscoped-allowed
         handle: params[:new_handle]
       )
     end
@@ -287,15 +286,14 @@ class UsersController < ApplicationController
     if params[:name].present?
       @settings_user.name = params[:name]
       @settings_user.save!
-      TenantUser.unscoped.where(user: @settings_user).update_all(display_name: params[:name])
+      TenantUser.unscoped.where(user: @settings_user).update_all(display_name: params[:name]) # unscoped-allowed - User updating their own display_name across all tenants
     end
     # Use new_handle to avoid conflict with path parameter :handle
     # Note: handle is a virtual attribute that delegates to tenant_user
     if params[:new_handle].present?
       tu.handle = params[:new_handle]
       tu.save!
-      # Also update all other tenant_users for this user
-      TenantUser.unscoped.where(user: @settings_user).where.not(id: tu.id).update_all(handle: params[:new_handle])
+      TenantUser.unscoped.where(user: @settings_user).where.not(id: tu.id).update_all(handle: params[:new_handle]) # unscoped-allowed
     end
 
     @settings_user.tenant_user = tu

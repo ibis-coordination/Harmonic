@@ -19,7 +19,7 @@
     <% if @current_representation_session %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
         <p>
-          <strong>You are currently representing <%= @current_representation_session.trustee_user.display_name %>.</strong>
+          <strong>You are currently in a representation session.</strong>
         </p>
         <p>
           Nested representation sessions are not allowed. <a href="/representing" class="pulse-link">End your current session</a> before starting a new one.
@@ -27,8 +27,8 @@
       </div>
     <% else %>
       <p>
-        Through representation, you can act on behalf of a studio or another user.
-        Your actions during a representation session will be recorded and attributed to the entity you are representing.
+        Through representation, you can act on behalf of <%= @current_superagent.name %>.
+        Your actions during a representation session will be recorded and attributed to the studio.
       </p>
     <% end %>
 
@@ -59,53 +59,6 @@
           </label>
           <div class="pulse-form-actions">
             <%= f.submit "Represent #{@current_superagent.name}", class: 'pulse-action-btn' %>
-          </div>
-        <% end %>
-      </section>
-    <% end %>
-
-    <% if @active_user_grants&.any? && !@current_representation_session %>
-      <section class="pulse-settings-section">
-        <h2 class="pulse-section-title">
-          <%= octicon 'person', height: 16 %>
-          Act on Behalf of Another User
-        </h2>
-        <p>
-          You have been granted permission to act on behalf of the following users within this studio.
-        </p>
-
-        <% @active_user_grants.each do |grant| %>
-          <div class="pulse-card" style="margin-bottom: 16px; padding: 16px; border: 1px solid var(--color-border-default); border-radius: 8px;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <img src="<%= grant.granting_user.image_url %>" alt="<%= grant.granting_user.display_name %>" style="width: 40px; height: 40px; border-radius: 50%;">
-              <div>
-                <strong><%= grant.granting_user.display_name %></strong>
-                <span class="pulse-muted" style="display: block; font-size: 13px;">@<%= grant.granting_user.handle %></span>
-              </div>
-            </div>
-
-            <% if grant.permissions.present? %>
-              <div style="margin-bottom: 12px;">
-                <span class="pulse-muted" style="font-size: 13px;">Capabilities:</span>
-                <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
-                  <% grant.permissions.each do |capability, enabled| %>
-                    <% next unless enabled %>
-                    <span class="pulse-tag pulse-tag-small"><%= capability %></span>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= form_with url: @current_superagent.path + '/represent_user', method: :post, class: 'pulse-form' do |f| %>
-              <%= hidden_field_tag :trustee_grant_id, grant.id %>
-              <label class="pulse-checkbox-label">
-                <%= f.check_box :understand, id: "i-understand-user-#{grant.id}", class: 'pulse-checkbox-input' %>
-                <span>I understand that my actions will be attributed to a trustee representing <%= grant.granting_user.display_name %>.</span>
-              </label>
-              <div class="pulse-form-actions">
-                <%= f.submit "Act as #{grant.granting_user.display_name}", class: 'pulse-action-btn' %>
-              </div>
-            <% end %>
           </div>
         <% end %>
       </section>

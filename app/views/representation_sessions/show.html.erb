@@ -63,10 +63,14 @@
                 <td><%= activity_item[:happened_at].to_time.in_time_zone(@current_superagent.timezone.name).strftime('%H:%M %Z') %></td>
                 <td><%= activity_item[:verb_phrase] %></td>
                 <td>
-                  <a href="<%= activity_item[:main_resource].path %>" class="pulse-link">
-                    <%= activity_item[:main_resource].class.to_s %>
-                    <code><%= activity_item[:main_resource].truncated_id %></code>
-                  </a>
+                  <% if activity_item[:main_resource] %>
+                    <a href="<%= activity_item[:main_resource].path %>" class="pulse-link">
+                      <%= activity_item[:main_resource].class.to_s %>
+                      <code><%= activity_item[:main_resource].truncated_id %></code>
+                    </a>
+                  <% else %>
+                    <span class="pulse-muted">(deleted)</span>
+                  <% end %>
                 </td>
                 <td>
                   <% if activity_item[:superagent] %>

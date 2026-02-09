@@ -30,7 +30,7 @@ class WebhookTestService
   sig { params(webhook: Webhook, user: User).returns(String) }
   def self.build_test_payload(webhook, user)
     tenant = Tenant.find_by(id: webhook.tenant_id)
-    studio = Superagent.unscoped.find_by(id: webhook.superagent_id)
+    studio = tenant ? Superagent.tenant_scoped_only(tenant.id).find_by(id: webhook.superagent_id) : nil
 
     payload = {
       id: SecureRandom.uuid,
