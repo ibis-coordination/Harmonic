@@ -12,7 +12,6 @@ class RepresentationSession < ApplicationRecord
   belongs_to :superagent, optional: true
   belongs_to :representative_user, class_name: "User"
   belongs_to :trustee_grant, optional: true
-  has_many :representation_session_associations, dependent: :destroy
   has_many :representation_session_events, dependent: :destroy
 
   validates :began_at, presence: true
@@ -44,7 +43,6 @@ class RepresentationSession < ApplicationRecord
       began_at: began_at,
       ended_at: ended_at,
       elapsed_time: elapsed_time,
-      activity_log: activity_log,
       superagent_id: superagent_id,
       representative_user_id: representative_user_id,
       effective_user_id: effective_user.id,
@@ -58,7 +56,6 @@ class RepresentationSession < ApplicationRecord
 
     # TODO: - add more validations
     self.began_at = T.cast(Time.current, ActiveSupport::TimeWithZone) if began_at.nil?
-    T.must(activity_log)["activity"] ||= []
     save!
   end
 
@@ -78,7 +75,6 @@ class RepresentationSession < ApplicationRecord
   def end!
     return if ended?
 
-    T.must(activity_log)["activity"] ||= []
     self.ended_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
     save!
   end
@@ -135,95 +131,7 @@ class RepresentationSession < ApplicationRecord
     end
   end
 
-  sig { params(semantic_event: T::Hash[Symbol, T.untyped]).void }
-  def validate_semantic_event!(semantic_event)
-    # example = {
-    #   "timestamp": "2021-09-01T12:34:56Z",
-    #   "event_type": "create",
-    #   "studio_id": "12345678",
-    #   "main_resource": {
-    #     "type": "Note",
-    #     "id": "12345678",
-    #     "truncated_id": "12345678",
-    #   },
-    #   "sub_resources": [
-    #     {
-    #       "type": "Option",
-    #       "id": "87654321",
-    #     },
-    #   ],
-    # }
-    valid_keys = [:timestamp, :event_type, :superagent_id, :main_resource, :sub_resources].sort
-    raise "Invalid semantic event keys #{semantic_event.keys}" unless semantic_event.keys.sort == valid_keys
-
-    valid_event_types = ["create", "update", "confirm", "add_options", "vote", "commit", "pin", "unpin"].sort
-    raise "Invalid event type #{semantic_event[:event_type]}" unless valid_event_types.include?(semantic_event[:event_type])
-
-    valid_main_resource_types = ["Heartbeat", "Note", "Decision", "Commitment"].sort
-    unless valid_main_resource_types.include?(semantic_event[:main_resource][:type])
-      raise "Invalid main resource type #{semantic_event[:main_resource][:type]}"
-    end
-
-    valid_resource_keys = [:type, :id, :truncated_id].sort
-    raise "Invalid main resource keys #{semantic_event[:main_resource].keys}" unless semantic_event[:main_resource].keys.sort == valid_resource_keys
-
-    valid_sub_resource_types = ["NoteHistoryEvent", "Option", "Vote", "CommitmentParticipant"].sort
-    valid_sub_resource_keys = [:type, :id].sort
-    semantic_event[:sub_resources].each do |sub_resource|
-      raise "Invalid sub resource type #{sub_resource[:type]}" unless valid_sub_resource_types.include?(sub_resource[:type])
-      raise "Invalid sub resource keys #{sub_resource.keys}" unless sub_resource.keys.sort == valid_sub_resource_keys
-    end
-  end
-
-  sig { params(request: T.untyped, semantic_event: T::Hash[Symbol, T.untyped]).void }
-  def record_activity!(request:, semantic_event:)
-    raise "Session has ended" if ended?
-    raise "Session has expired" if expired?
-
-    validate_semantic_event!(semantic_event)
-
-    # resource_superagent_id tracks which studio the resource belongs to
-    resource_superagent_id = semantic_event[:superagent_id]
-
-    ActiveRecord::Base.transaction do
-      association = RepresentationSessionAssociation.find_or_create_by!(
-        representation_session: self,
-        tenant_id: tenant_id,
-        superagent_id: superagent_id,
-        resource_type: semantic_event[:main_resource][:type],
-        resource_id: semantic_event[:main_resource][:id],
-        resource_superagent_id: resource_superagent_id
-      )
-      semantic_event[:main_resource]["association_id"] = association.id
-      semantic_event[:sub_resources].each do |sub_resource|
-        RepresentationSessionAssociation.find_or_create_by!(
-          representation_session: self,
-          tenant_id: tenant_id,
-          superagent_id: superagent_id,
-          resource_type: sub_resource[:type],
-          resource_id: sub_resource[:id],
-          resource_superagent_id: resource_superagent_id
-        )
-        sub_resource[:association_id] = association.id
-      end
-      T.must(activity_log)["activity"] ||= []
-      T.must(activity_log)["activity"] << {
-        id: SecureRandom.uuid,
-        happened_at: Time.current,
-        semantic_event: semantic_event,
-        request: {
-          # Only include the basic information about the request
-          # Do not include params or anything that could violate access permissions across studios.
-          id: request.request_id,
-          method: request.method,
-          path: request.path,
-        },
-      }
-      save!
-    end
-  end
-
-  # New event-based recording methods - these replace record_activity! eventually
+  # Event-based recording methods
   sig do
     params(
       request: T.untyped,
@@ -296,72 +204,14 @@ class RepresentationSession < ApplicationRecord
     "#{T.must(tenant).url}#{path}"
   end
 
-  sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
-  def human_readable_activity_log
-    @human_readable_activity_log ||= T.let([T.must(activity_log)["activity"], nil].flatten.each_cons(2).map do |activity, next_activity|
-      next if activity.nil? || activity["semantic_event"].nil?
-
-      # for multiple sequential vote events for the same decision within the same session, only show the last vote
-      two_votes_on_same_decision = activity && next_activity &&
-                                   activity["semantic_event"]["event_type"] == "vote" &&
-                                   next_activity["semantic_event"]["event_type"] == "vote" &&
-                                   activity["semantic_event"]["main_resource"]["id"] == next_activity["semantic_event"]["main_resource"]["id"]
-      next if two_votes_on_same_decision || activity.nil?
-
-      happened_at = activity["happened_at"]
-      semantic_event = activity["semantic_event"]
-      verb_phrase = event_type_to_verb_phrase(semantic_event["event_type"])
-      resource_model = semantic_event["main_resource"]["type"].constantize
-      main_resource = resource_model.unscoped.find_by(id: semantic_event["main_resource"]["id"])
-      main_resource ||= DeletedRecordProxy.new
-      superagent = main_resource.superagent
-      {
-        happened_at: happened_at,
-        verb_phrase: verb_phrase,
-        superagent: superagent,
-        main_resource: main_resource,
-      }
-    end.compact, T.nilable(T::Array[T::Hash[Symbol, T.untyped]]))
-  end
-
-  sig { params(event_type: String).returns(String) }
-  def event_type_to_verb_phrase(event_type)
-    case event_type
-    when "create"
-      "created"
-    when "update"
-      "updated"
-    when "confirm"
-      "confirmed reading"
-    when "add_options"
-      "added options to"
-    when "vote"
-      "voted on"
-    when "commit"
-      "joined"
-    else
-      raise "Unknown event type #{event_type}"
-    end
-  end
-
   sig { returns(Integer) }
   def action_count
-    # Use events if available, otherwise fall back to activity_log JSON
-    if representation_session_events.any?
-      representation_session_events.select(:request_id).distinct.count
-    else
-      human_readable_activity_log.count
-    end
+    representation_session_events.select(:request_id).distinct.count
   end
 
-  # Unified activity log - uses new events table if available, falls back to JSON
   sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
   def activity_log_entries
-    if representation_session_events.any?
-      human_readable_events_log
-    else
-      human_readable_activity_log
-    end
+    human_readable_events_log
   end
 
   # Activity log from events table - groups by request_id
@@ -391,7 +241,6 @@ class RepresentationSession < ApplicationRecord
   # Override reload to clear memoized instance variables
   sig { params(options: T.untyped).returns(T.self_type) }
   def reload(options = nil)
-    @human_readable_activity_log = nil
     @human_readable_events_log = nil
     super
   end

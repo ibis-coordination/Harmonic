@@ -136,8 +136,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     }
 
     session = RepresentationSession.last
-    # The activity log should contain the note creation
-    assert session.activity_log['activity'].count > 0
+    # The session should have recorded events
     assert session.action_count > 0
   end
 

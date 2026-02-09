@@ -203,7 +203,6 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       confirmed_understanding: true,
       began_at: 1.hour.ago,
       ended_at: 30.minutes.ago,
-      activity_log: { "activity" => [] },
     )
 
     get "/u/#{@user.handle}/settings/trustee-grants/#{grant.truncated_id}", headers: @headers

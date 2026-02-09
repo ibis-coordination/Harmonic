@@ -4,7 +4,6 @@ class Heartbeat < ApplicationRecord
   extend T::Sig
 
   include HasTruncatedId
-  include HasRepresentationSessionAssociations
   include HasRepresentationSessionEvents
 
   belongs_to :tenant

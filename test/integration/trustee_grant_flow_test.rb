@@ -57,7 +57,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     assert session.active?
@@ -75,16 +74,11 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       deadline: 1.week.from_now
     )
 
-    mock_request = OpenStruct.new(request_id: "req-123", method: "POST", path: "/notes")
-    session.record_activity!(
+    mock_request = OpenStruct.new(request_id: "req-123")
+    session.record_event!(
       request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: "create",
-        superagent_id: @superagent.id,
-        main_resource: { type: "Note", id: note.id, truncated_id: note.truncated_id },
-        sub_resources: [],
-      }
+      action_name: "create_note",
+      resource: note
     )
 
     assert_equal 1, session.action_count
@@ -96,8 +90,8 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     assert_not session.active?
 
     # Step 6: Activity is preserved and visible
-    assert_equal 1, session.human_readable_activity_log.count
-    activity = session.human_readable_activity_log.first
+    assert_equal 1, session.activity_log_entries.count
+    activity = session.activity_log_entries.first
     assert_equal "created", activity[:verb_phrase]
     assert_equal note, activity[:main_resource]
   end
@@ -187,7 +181,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     # Initially, vote is allowed
@@ -270,7 +263,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       representative_user: @alice,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     assert session.persisted?
@@ -316,7 +308,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     assert session1.active?
@@ -352,7 +343,6 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     # The representative_user is Bob (the one doing the representing)

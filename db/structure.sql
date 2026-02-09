@@ -1,4 +1,4 @@
-\restrict Yc8NYDNwN5a8B2xZ7hvs5hPCxYhdUDWblr0WRYezMHfMSVQ7XoupE45eHmGzcdX
+\restrict U48sKmumPvqcUtQ7xtHay8iYkinoB6Pr2E1RrlHgikGbSOOMXJ66woWbqXxpOrp
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -575,23 +575,6 @@ CREATE TABLE public.options (
 
 
 --
--- Name: representation_session_associations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.representation_session_associations (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid NOT NULL,
-    superagent_id uuid,
-    representation_session_id uuid NOT NULL,
-    resource_type character varying NOT NULL,
-    resource_id uuid NOT NULL,
-    resource_superagent_id uuid NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-
---
 -- Name: representation_session_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -624,7 +607,6 @@ CREATE TABLE public.representation_sessions (
     began_at timestamp(6) without time zone NOT NULL,
     ended_at timestamp(6) without time zone,
     confirmed_understanding boolean DEFAULT false NOT NULL,
-    activity_log jsonb DEFAULT '{}'::jsonb,
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
@@ -2219,14 +2201,6 @@ ALTER TABLE ONLY public.options
 
 
 --
--- Name: representation_session_associations representation_session_associations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT representation_session_associations_pkey PRIMARY KEY (id);
-
-
---
 -- Name: representation_session_events representation_session_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3385,48 +3359,6 @@ CREATE INDEX index_options_on_superagent_id ON public.options USING btree (super
 --
 
 CREATE INDEX index_options_on_tenant_id ON public.options USING btree (tenant_id);
-
-
---
--- Name: index_rep_session_assoc_on_rep_session_and_resource; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_rep_session_assoc_on_rep_session_and_resource ON public.representation_session_associations USING btree (representation_session_id, resource_id, resource_type);
-
-
---
--- Name: index_rep_session_assoc_on_rep_session_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_rep_session_assoc_on_rep_session_id ON public.representation_session_associations USING btree (representation_session_id);
-
-
---
--- Name: index_rep_session_assoc_on_resource; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_rep_session_assoc_on_resource ON public.representation_session_associations USING btree (resource_type, resource_id);
-
-
---
--- Name: index_rep_session_assoc_on_resource_studio; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_rep_session_assoc_on_resource_studio ON public.representation_session_associations USING btree (resource_superagent_id);
-
-
---
--- Name: index_representation_session_associations_on_superagent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_representation_session_associations_on_superagent_id ON public.representation_session_associations USING btree (superagent_id);
-
-
---
--- Name: index_representation_session_associations_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_representation_session_associations_on_tenant_id ON public.representation_session_associations USING btree (tenant_id);
 
 
 --
@@ -7587,14 +7519,6 @@ ALTER TABLE ONLY public.invites
 
 
 --
--- Name: representation_session_associations fk_rails_2959985639; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_2959985639 FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
-
-
---
 -- Name: commitments fk_rails_2b0260c142; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7728,14 +7652,6 @@ ALTER TABLE ONLY public.subagent_task_runs
 
 ALTER TABLE ONLY public.superagent_members
     ADD CONSTRAINT fk_rails_55c1625b39 FOREIGN KEY (user_id) REFERENCES public.users(id);
-
-
---
--- Name: representation_session_associations fk_rails_57828aec4a; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_57828aec4a FOREIGN KEY (representation_session_id) REFERENCES public.representation_sessions(id);
 
 
 --
@@ -7888,14 +7804,6 @@ ALTER TABLE ONLY public.representation_session_events
 
 ALTER TABLE ONLY public.representation_session_events
     ADD CONSTRAINT fk_rails_901c70e333 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
-
-
---
--- Name: representation_session_associations fk_rails_9127d7fed8; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_9127d7fed8 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8064,14 +7972,6 @@ ALTER TABLE ONLY public.links
 
 ALTER TABLE ONLY public.api_tokens
     ADD CONSTRAINT fk_rails_ce1100e505 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
--- Name: representation_session_associations fk_rails_d26514fc52; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_d26514fc52 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -8254,7 +8154,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Yc8NYDNwN5a8B2xZ7hvs5hPCxYhdUDWblr0WRYezMHfMSVQ7XoupE45eHmGzcdX
+\unrestrict U48sKmumPvqcUtQ7xtHay8iYkinoB6Pr2E1RrlHgikGbSOOMXJ66woWbqXxpOrp
 
 SET search_path TO "$user", public;
 
@@ -8397,6 +8297,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260207141046'),
 ('20260208044921'),
 ('20260208054634'),
-('20260208112506');
+('20260208112506'),
+('20260208234822');
 
 

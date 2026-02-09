@@ -29,7 +29,7 @@ class DataDeletionManager
     ActiveRecord::Base.transaction do
       # Delete all associated data
       [
-        RepresentationSessionAssociation, RepresentationSession,
+        RepresentationSessionEvent, RepresentationSession,
         Link, NoteHistoryEvent, Note,
         Vote, Option, DecisionParticipant, Decision,
         CommitmentParticipant, Commitment,

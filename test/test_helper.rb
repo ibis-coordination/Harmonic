@@ -165,7 +165,6 @@ class ActiveSupport::TestCase
       representative_user: representative,
       confirmed_understanding: confirmed_understanding,
       began_at: began_at,
-      activity_log: { 'activity' => [] },
     )
   end
 
@@ -208,7 +207,6 @@ class ActiveSupport::TestCase
       trustee_grant: trustee_grant,
       confirmed_understanding: confirmed_understanding,
       began_at: began_at,
-      activity_log: { 'activity' => [] },
     )
   end
 

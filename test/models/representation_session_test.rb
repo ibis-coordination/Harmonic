@@ -19,7 +19,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,
       confirmed_understanding: false,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
     assert_not session.valid?
     assert_includes session.errors[:confirmed_understanding], "is not included in the list"
@@ -32,7 +31,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,
       confirmed_understanding: true,
       began_at: nil,
-      activity_log: { 'activity' => [] },
     )
     assert_not session.valid?
     assert_includes session.errors[:began_at], "can't be blank"
@@ -47,7 +45,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
     assert_not session.valid?
     assert_includes session.errors[:superagent_id], "is required for studio representation sessions"
@@ -69,7 +66,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: grant.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
     assert_not session.valid?
     assert_includes session.errors[:superagent_id], "must be nil for user representation sessions"
@@ -95,24 +91,21 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       superagent: @superagent,
       representative_user: @user,
       confirmed_understanding: false,
-      activity_log: { 'activity' => [] },
     )
     assert_raises RuntimeError, "Must confirm understanding" do
       session.begin!
     end
   end
 
-  test "begin! sets began_at and initializes activity_log" do
+  test "begin! sets began_at" do
     session = RepresentationSession.new(
       tenant: @tenant,
       superagent: @superagent,
       representative_user: @user,
       confirmed_understanding: true,
-      activity_log: {},
     )
     session.begin!
     assert session.began_at.present?
-    assert_equal [], session.activity_log['activity']
   end
 
   test "active? returns true when ended_at is nil" do
@@ -225,59 +218,9 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_in_delta 3600, elapsed, 5 # 1 hour duration
   end
 
-  # === Activity Recording Tests ===
+  # === Event Recording Tests ===
 
-  test "validate_semantic_event! raises for invalid event type" do
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-    assert_raises RuntimeError do
-      session.validate_semantic_event!({
-        timestamp: Time.current.iso8601,
-        event_type: 'invalid',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
-        sub_resources: [],
-      })
-    end
-  end
-
-  test "validate_semantic_event! raises for invalid main resource type" do
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-    assert_raises RuntimeError do
-      session.validate_semantic_event!({
-        timestamp: Time.current.iso8601,
-        event_type: 'create',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'InvalidType', id: '123', truncated_id: 'abc123' },
-        sub_resources: [],
-      })
-    end
-  end
-
-  test "validate_semantic_event! accepts valid event" do
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-    # Should not raise
-    session.validate_semantic_event!({
-      timestamp: Time.current.iso8601,
-      event_type: 'create',
-      superagent_id: @superagent.id,
-      main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
-      sub_resources: [],
-    })
-  end
-
-  test "record_activity! raises if session has ended" do
+  test "record_event! raises if session has ended" do
     session = create_representation_session(
       tenant: @tenant,
       superagent: @superagent,
@@ -285,22 +228,18 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     )
     session.end!
 
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    mock_request = OpenStruct.new(request_id: 'req-123')
     assert_raises RuntimeError, "Session has ended" do
-      session.record_activity!(
+      session.record_event!(
         request: mock_request,
-        semantic_event: {
-          timestamp: Time.current.iso8601,
-          event_type: 'create',
-          superagent_id: @superagent.id,
-          main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
-          sub_resources: [],
-        },
+        action_name: "create_note",
+        resource: note
       )
     end
   end
 
-  test "record_activity! raises if session has expired" do
+  test "record_event! raises if session has expired" do
     session = create_representation_session(
       tenant: @tenant,
       superagent: @superagent,
@@ -308,22 +247,18 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       began_at: 25.hours.ago,
     )
 
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    mock_request = OpenStruct.new(request_id: 'req-123')
     assert_raises RuntimeError, "Session has expired" do
-      session.record_activity!(
+      session.record_event!(
         request: mock_request,
-        semantic_event: {
-          timestamp: Time.current.iso8601,
-          event_type: 'create',
-          superagent_id: @superagent.id,
-          main_resource: { type: 'Note', id: '123', truncated_id: 'abc123' },
-          sub_resources: [],
-        },
+        action_name: "create_note",
+        resource: note
       )
     end
   end
 
-  test "record_activity! adds activity to log and creates association" do
+  test "record_event! creates RepresentationSessionEvent" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
@@ -331,23 +266,42 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative: @user,
     )
 
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
-    session.record_activity!(
+    mock_request = OpenStruct.new(request_id: 'req-123')
+    event = session.record_event!(
       request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'create',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
-        sub_resources: [],
-      },
+      action_name: "create_note",
+      resource: note
     )
 
-    assert_equal 1, session.activity_log['activity'].count
-    assert_equal 1, session.representation_session_associations.count
-    association = session.representation_session_associations.first
-    assert_equal 'Note', association.resource_type
-    assert_equal note.id, association.resource_id
+    assert event.persisted?
+    assert_equal "create_note", event.action_name
+    assert_equal note, event.resource
+    assert_equal @superagent.id, event.resource_superagent_id
+  end
+
+  test "record_events! creates multiple events" do
+    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    option1 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 1")
+    option2 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 2")
+    session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+
+    mock_request = OpenStruct.new(request_id: 'req-456')
+    session.record_events!(
+      request: mock_request,
+      action_name: "add_options",
+      resources: [option1, option2],
+      context_resource: decision
+    )
+
+    assert_equal 2, session.representation_session_events.count
+    session.representation_session_events.each do |event|
+      assert_equal "add_options", event.action_name
+      assert_equal decision, event.context_resource
+    end
   end
 
   # === Helper Method Tests ===
@@ -379,7 +333,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_match(/#{@tenant.subdomain}.*#{session.truncated_id}/, session.url)
   end
 
-  test "action_count returns 0 for session with no activity" do
+  test "action_count returns 0 for session with no events" do
     session = create_representation_session(
       tenant: @tenant,
       superagent: @superagent,
@@ -388,7 +342,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_equal 0, session.action_count
   end
 
-  test "action_count returns count of activities" do
+  test "action_count returns count of distinct request_ids" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
@@ -396,215 +350,14 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative: @user,
     )
 
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
-    session.record_activity!(
+    mock_request = OpenStruct.new(request_id: 'req-123')
+    session.record_event!(
       request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'create',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
-        sub_resources: [],
-      },
+      action_name: "create_note",
+      resource: note
     )
 
     assert_equal 1, session.action_count
-  end
-
-  # === event_type_to_verb_phrase Tests ===
-
-  test "event_type_to_verb_phrase returns correct phrases" do
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-
-    assert_equal 'created', session.event_type_to_verb_phrase('create')
-    assert_equal 'updated', session.event_type_to_verb_phrase('update')
-    assert_equal 'confirmed reading', session.event_type_to_verb_phrase('confirm')
-    assert_equal 'added options to', session.event_type_to_verb_phrase('add_options')
-    assert_equal 'voted on', session.event_type_to_verb_phrase('vote')
-    assert_equal 'joined', session.event_type_to_verb_phrase('commit')
-  end
-
-  test "event_type_to_verb_phrase raises for unknown event type" do
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-    assert_raises RuntimeError do
-      session.event_type_to_verb_phrase('unknown')
-    end
-  end
-
-  # === add_options Event Tracking Tests ===
-
-  test "validate_semantic_event! accepts add_options event type" do
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-    # Should not raise
-    session.validate_semantic_event!({
-      timestamp: Time.current.iso8601,
-      event_type: 'add_options',
-      superagent_id: @superagent.id,
-      main_resource: { type: 'Decision', id: '123', truncated_id: 'abc123' },
-      sub_resources: [{ type: 'Option', id: '456' }],
-    })
-  end
-
-  test "validate_semantic_event! rejects singular add_option event type" do
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-    # Should raise because add_option (singular) is not a valid event type
-    assert_raises RuntimeError, /Invalid event type/ do
-      session.validate_semantic_event!({
-        timestamp: Time.current.iso8601,
-        event_type: 'add_option',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Decision', id: '123', truncated_id: 'abc123' },
-        sub_resources: [{ type: 'Option', id: '456' }],
-      })
-    end
-  end
-
-  test "record_activity! tracks add_options event with sub_resources" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option1 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 1")
-    option2 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 2")
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-
-    mock_request = OpenStruct.new(request_id: 'req-456', method: 'POST', path: '/decisions/123/actions/add_options')
-    session.record_activity!(
-      request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'add_options',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
-        sub_resources: [
-          { type: 'Option', id: option1.id },
-          { type: 'Option', id: option2.id },
-        ],
-      },
-    )
-
-    assert_equal 1, session.activity_log['activity'].count
-    # Main resource association + 2 sub-resource associations
-    assert_equal 3, session.representation_session_associations.count
-
-    activity = session.activity_log['activity'].first
-    assert_equal 'add_options', activity['semantic_event']['event_type']
-    assert_equal 2, activity['semantic_event']['sub_resources'].count
-  end
-
-  test "human_readable_activity_log shows add_options as 'added options to'" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-
-    mock_request = OpenStruct.new(request_id: 'req-789', method: 'POST', path: '/decisions/123/actions/add_options')
-    session.record_activity!(
-      request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'add_options',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
-        sub_resources: [{ type: 'Option', id: option.id }],
-      },
-    )
-
-    log = session.human_readable_activity_log
-    assert_equal 1, log.count
-    assert_equal 'added options to', log.first[:verb_phrase]
-    assert_equal decision, log.first[:main_resource]
-  end
-
-  # === human_readable_activity_log Tests ===
-
-  test "human_readable_activity_log deduplicates consecutive votes on same decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/decisions')
-
-    # Record two votes on the same decision
-    2.times do
-      session.record_activity!(
-        request: mock_request,
-        semantic_event: {
-          timestamp: Time.current.iso8601,
-          event_type: 'vote',
-          superagent_id: @superagent.id,
-          main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
-          sub_resources: [],
-        },
-      )
-    end
-
-    # Should only show 1 vote (the last one)
-    assert_equal 2, session.activity_log['activity'].count
-    assert_equal 1, session.human_readable_activity_log.count
-    assert_equal 'voted on', session.human_readable_activity_log.first[:verb_phrase]
-  end
-
-  test "human_readable_activity_log shows all different actions" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    session = create_representation_session(
-      tenant: @tenant,
-      superagent: @superagent,
-      representative: @user,
-    )
-
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/test')
-
-    session.record_activity!(
-      request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'create',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
-        sub_resources: [],
-      },
-    )
-
-    session.record_activity!(
-      request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'vote',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Decision', id: decision.id, truncated_id: decision.truncated_id },
-        sub_resources: [],
-      },
-    )
-
-    log = session.human_readable_activity_log
-    assert_equal 2, log.count
-    assert_equal 'created', log[0][:verb_phrase]
-    assert_equal 'voted on', log[1][:verb_phrase]
   end
 
   # === API JSON Test ===
@@ -622,7 +375,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert json[:began_at].present?
     assert_nil json[:ended_at]
     assert json[:elapsed_time].is_a?(Numeric)
-    assert json[:activity_log].is_a?(Hash)
     assert_equal @superagent.id, json[:superagent_id]
     assert_equal @user.id, json[:representative_user_id]
     assert_equal @superagent.trustee_user.id, json[:effective_user_id]
@@ -657,7 +409,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,  # The trustee_user who is doing the representing
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
 
     assert session.persisted?
@@ -687,7 +438,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
 
     # For user representation, effective_user is the granting_user (who is being represented)
@@ -695,7 +445,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     # This is different from studio representation where effective_user is the studio trustee
   end
 
-  test "user representation session can record activity" do
+  test "user representation session can record events" do
     granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
     @tenant.add_user!(granting_user)
     @superagent.add_user!(granting_user)
@@ -715,25 +465,19 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
 
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: granting_user)
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
+    mock_request = OpenStruct.new(request_id: 'req-123')
 
-    session.record_activity!(
+    event = session.record_event!(
       request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'create',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Note', id: note.id, truncated_id: note.truncated_id },
-        sub_resources: [],
-      },
+      action_name: "create_note",
+      resource: note
     )
 
-    assert_equal 1, session.activity_log['activity'].count
-    assert_equal 1, session.representation_session_associations.count
+    assert_equal 1, session.representation_session_events.count
+    assert_equal note, event.resource
   end
 
   # === Single Session Constraint ===
@@ -785,7 +529,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
 
     # User representation sessions have no superagent_id
@@ -793,7 +536,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert session.user_representation?
   end
 
-  test "user representation session can record activity in different studios" do
+  test "user representation session can record events in different studios" do
     granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
     @tenant.add_user!(granting_user)
     @superagent.add_user!(granting_user)
@@ -819,42 +562,31 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
 
-    # Record activity in the first studio
+    # Record event in the first studio
     note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: granting_user)
-    mock_request = OpenStruct.new(request_id: 'req-123', method: 'POST', path: '/notes')
-    session.record_activity!(
+    mock_request = OpenStruct.new(request_id: 'req-123')
+    session.record_event!(
       request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'create',
-        superagent_id: @superagent.id,
-        main_resource: { type: 'Note', id: note1.id, truncated_id: note1.truncated_id },
-        sub_resources: [],
-      },
+      action_name: "create_note",
+      resource: note1
     )
 
-    # Record activity in a different studio (within the same session)
+    # Record event in a different studio (within the same session)
     note2 = create_note(tenant: @tenant, superagent: other_superagent, created_by: granting_user)
-    session.record_activity!(
+    session.record_event!(
       request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: 'create',
-        superagent_id: other_superagent.id,  # Different studio
-        main_resource: { type: 'Note', id: note2.id, truncated_id: note2.truncated_id },
-        sub_resources: [],
-      },
+      action_name: "create_note",
+      resource: note2
     )
 
-    assert_equal 2, session.activity_log['activity'].count
+    assert_equal 2, session.representation_session_events.count
 
-    # Verify the superagent_id is captured in each semantic event
-    activities = session.activity_log['activity']
-    assert_equal @superagent.id, activities[0]['semantic_event']['superagent_id']
-    assert_equal other_superagent.id, activities[1]['semantic_event']['superagent_id']
+    # Verify the resource_superagent_id is captured correctly
+    events = session.representation_session_events.order(:created_at)
+    assert_equal @superagent.id, events[0].resource_superagent_id
+    assert_equal other_superagent.id, events[1].resource_superagent_id
   end
 
   # === Representation Session with Parent-Subagent ===
@@ -882,7 +614,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative_user: @user,  # The parent (trustee_user)
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { 'activity' => [] },
     )
 
     assert session.persisted?
@@ -894,10 +625,6 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   # =========================================================================
   # STUDIO REPRESENTATION REGRESSION TESTS
   # These tests protect the existing studio representation behavior.
-  # Studio representation sessions should:
-  # - Have the correct superagent_id set on the session
-  # - Have the correct superagent_id set on association records
-  # - Be queryable within the studio context
   # =========================================================================
 
   test "studio representation session gets correct superagent_id" do
@@ -911,7 +638,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
                  "Studio representation session must have correct superagent_id"
   end
 
-  test "studio representation session associations get correct superagent_id" do
+  test "studio representation session events get correct superagent_id" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
@@ -919,23 +646,17 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative: @user,
     )
 
-    mock_request = OpenStruct.new(request_id: "req-123", method: "POST", path: "/notes")
-    session.record_activity!(
+    mock_request = OpenStruct.new(request_id: "req-123")
+    event = session.record_event!(
       request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: "create",
-        superagent_id: @superagent.id,
-        main_resource: { type: "Note", id: note.id, truncated_id: note.truncated_id },
-        sub_resources: [],
-      },
+      action_name: "create_note",
+      resource: note
     )
 
-    association = session.representation_session_associations.first
-    assert_equal @superagent.id, association.superagent_id,
-                 "Association must have correct superagent_id"
-    assert_equal @superagent.id, association.resource_superagent_id,
-                 "Association must have correct resource_superagent_id"
+    assert_equal @superagent.id, event.superagent_id,
+                 "Event must have correct superagent_id"
+    assert_equal @superagent.id, event.resource_superagent_id,
+                 "Event must have correct resource_superagent_id"
   end
 
   test "studio representation session is findable via has_many association" do
@@ -946,24 +667,19 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative: @user,
     )
 
-    mock_request = OpenStruct.new(request_id: "req-123", method: "POST", path: "/notes")
-    session.record_activity!(
+    mock_request = OpenStruct.new(request_id: "req-123")
+    session.record_event!(
       request: mock_request,
-      semantic_event: {
-        timestamp: Time.current.iso8601,
-        event_type: "create",
-        superagent_id: @superagent.id,
-        main_resource: { type: "Note", id: note.id, truncated_id: note.truncated_id },
-        sub_resources: [],
-      },
+      action_name: "create_note",
+      resource: note
     )
 
-    # Should be able to find associations through the session
-    assert_equal 1, session.representation_session_associations.count
-    assert_equal note.id, session.representation_session_associations.first.resource_id
+    # Should be able to find events through the session
+    assert_equal 1, session.representation_session_events.count
+    assert_equal note, session.representation_session_events.first.resource
   end
 
-  test "multiple activity recordings in studio session all get correct superagent_id" do
+  test "multiple event recordings in studio session all get correct superagent_id" do
     note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     note2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
@@ -974,30 +690,22 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       representative: @user,
     )
 
-    mock_request = OpenStruct.new(request_id: "req-123", method: "POST", path: "/notes")
+    mock_request = OpenStruct.new(request_id: "req-123")
 
-    # Record multiple activities
-    [
-      { type: "Note", id: note1.id, truncated_id: note1.truncated_id },
-      { type: "Note", id: note2.id, truncated_id: note2.truncated_id },
-      { type: "Decision", id: decision.id, truncated_id: decision.truncated_id },
-    ].each do |resource|
-      session.record_activity!(
+    # Record multiple events
+    [note1, note2, decision].each do |resource|
+      action = resource.is_a?(Decision) ? "create_decision" : "create_note"
+      session.record_event!(
         request: mock_request,
-        semantic_event: {
-          timestamp: Time.current.iso8601,
-          event_type: "create",
-          superagent_id: @superagent.id,
-          main_resource: resource,
-          sub_resources: [],
-        },
+        action_name: action,
+        resource: resource
       )
     end
 
-    # All associations should have correct superagent_id
-    session.representation_session_associations.each do |assoc|
-      assert_equal @superagent.id, assoc.superagent_id,
-                   "All associations must have correct superagent_id"
+    # All events should have correct superagent_id
+    session.representation_session_events.each do |event|
+      assert_equal @superagent.id, event.superagent_id,
+                   "All events must have correct superagent_id"
     end
   end
 end

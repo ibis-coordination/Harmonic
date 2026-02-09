@@ -87,7 +87,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       trustee_grant: grant,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
   end
 
@@ -457,7 +456,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     # Request WITH session ID but WITHOUT X-Representing-Studio header
@@ -481,7 +479,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     # Request with WRONG X-Representing-Studio header
@@ -506,7 +503,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     # Request with CORRECT X-Representing-Studio header
@@ -561,7 +557,6 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
-      activity_log: { "activity" => [] }
     )
 
     # DELETE request with session ID but WITHOUT X-Representing-Studio header should work

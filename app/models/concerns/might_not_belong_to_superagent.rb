@@ -5,8 +5,8 @@
 #
 # - RepresentationSession: User representation sessions have NULL superagent_id
 #   because they can span multiple studios
-# - RepresentationSessionAssociation: Inherits superagent_id from its session,
-#   so user representation associations also have NULL superagent_id
+# - RepresentationSessionEvent: Inherits superagent_id from its session,
+#   so user representation events also have NULL superagent_id
 #
 # These models still belong_to :superagent and have superagent_id, but:
 # 1. Queries should include records with superagent_id matching current OR NULL

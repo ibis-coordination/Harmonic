@@ -5,7 +5,6 @@ class NoteHistoryEvent < ApplicationRecord
 
   include InvalidatesSearchIndex
   include TracksUserItemStatus
-  include HasRepresentationSessionAssociations
   include HasRepresentationSessionEvents
 
   self.implicit_order_column = "created_at"

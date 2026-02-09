@@ -11,7 +11,6 @@ class Note < ApplicationRecord
   include Searchable
   include InvalidatesSearchIndex
   include TracksUserItemStatus
-  include HasRepresentationSessionAssociations
   include HasRepresentationSessionEvents
   self.implicit_order_column = "created_at"
   belongs_to :tenant

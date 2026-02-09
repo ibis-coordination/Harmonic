@@ -2326,7 +2326,6 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       confirmed_understanding: true,
       began_at: 1.hour.ago,
       ended_at: 30.minutes.ago,
-      activity_log: { "activity" => [] },
     )
     comment = session.add_comment(text: "Comment on representation session", created_by: @user)
 
