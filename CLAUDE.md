@@ -75,6 +75,21 @@ Subdomain-based multi-tenancy using thread-local variables:
 - Models use `default_scope { where(tenant_id: Tenant.current_id, superagent_id: Superagent.current_id) }` pattern in `ApplicationRecord`
 - New records auto-populate `tenant_id` and `superagent_id` via `before_validation`
 
+### Tenant Safety: Banned `.unscoped` Usage
+
+**Direct `.unscoped` calls are banned** to prevent accidental cross-tenant data leaks. Use these safe alternatives:
+
+| Method | Use Case | Runtime Check |
+|--------|----------|---------------|
+| `Model.tenant_scoped_only(tenant_id)` | Cross-superagent access within a tenant | Requires non-nil tenant_id (defaults to `Tenant.current_id`) |
+| `Model.unscoped_for_admin(user)` | Admin operations | Requires `app_admin?` or `sys_admin?` |
+| `Model.unscoped_for_system_job` | Background jobs | Requires `Tenant.current_id.nil?` |
+| `Model.for_user_across_tenants(user)` | User's own data across tenants | Requires model has `user_id` column |
+
+**Models without tenant scoping** (no restrictions): `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`
+
+**Static analysis**: Run `./scripts/check-tenant-safety.sh` to detect banned usage. This runs automatically in pre-commit hooks and CI.
+
 
 ### Core Domain Models (OODA Loop)
 
@@ -166,6 +181,24 @@ Key variables (see `.env.example`):
 - `AUTH_MODE`: `oauth` (production) or `honor_system` (development)
 - `HOSTNAME`: Base domain
 - `PRIMARY_SUBDOMAIN`: Main tenant subdomain
+
+## Static Analysis Checks
+
+These checks run in pre-commit hooks and CI:
+
+```bash
+# Check for banned .unscoped usage (tenant safety)
+./scripts/check-tenant-safety.sh
+
+# Check only staged files (used by pre-commit hook)
+./scripts/check-tenant-safety.sh --staged
+
+# Check for debug code (binding.pry, console.log, etc.)
+./scripts/check-debug-code.sh
+
+# Check for potential secrets/API keys
+./scripts/check-secrets.sh
+```
 
 ## TODO Management
 

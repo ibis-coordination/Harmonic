@@ -72,6 +72,39 @@ Tenant/superagent context is stored in `Thread.current`. This works because:
 - Context is set at the start of each request in `ApplicationController`
 - Context is cleared after request completes
 
+### Tenant Safety: Banned `.unscoped` Usage
+
+Direct `.unscoped` calls are **banned** to prevent accidental cross-tenant data leaks. Instead, use these safe wrapper methods defined in `ApplicationRecord`:
+
+```ruby
+# Cross-superagent access within the same tenant
+Model.tenant_scoped_only(tenant_id)
+# Runtime check: raises if tenant_id is nil (defaults to Tenant.current_id)
+
+# Admin operations (app_admin or sys_admin users only)
+Model.unscoped_for_admin(current_user)
+# Runtime check: raises unless user.app_admin? || user.sys_admin?
+
+# Background jobs running outside request context
+Model.unscoped_for_system_job
+# Runtime check: raises unless Tenant.current_id.nil?
+
+# User's own data across all tenants (e.g., viewing own memberships)
+Model.for_user_across_tenants(user)
+# Runtime check: raises if user is nil or model lacks user_id column
+```
+
+**Models without tenant scoping** (no restrictions apply):
+- `User` - Global user accounts
+- `Tenant` - Tenants themselves
+- `OauthIdentity` - OAuth provider identities
+- `OmniAuthIdentity` - OmniAuth provider identities
+
+**Enforcement**:
+- Static analysis: `./scripts/check-tenant-safety.sh` detects banned `.unscoped` usage
+- Pre-commit hook: Blocks commits with banned patterns
+- CI: Fails builds with banned patterns
+
 ## Data Model
 
 ### Core Entities (OODA Loop Mapping)

@@ -72,6 +72,15 @@ class ApplicationRecord < ActiveRecord::Base
     unscoped # unscoped-allowed - system job cross-tenant access
   end
 
+  # Query a user's own records across all tenants.
+  # Safe because it's constrained to the user's own data.
+  # Use this for cross-tenant queries of user's own memberships, tokens, etc.
+  sig { params(user: User).returns(T.untyped) }
+  def self.for_user_across_tenants(user)
+    raise ArgumentError, "#{name} does not have user_id column" unless column_names.include?("user_id")
+    unscoped.where(user_id: user.id) # unscoped-allowed - user's own data across tenants
+  end
+
   sig { void }
   def set_superagent_id
     if self.class.belongs_to_superagent?

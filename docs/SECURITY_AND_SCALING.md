@@ -20,6 +20,28 @@ Harmonic includes the following security measures:
 | Security audit logging | JSON logs for auth events, rate limiting, admin actions |
 | Redis authentication | Password-protected in production |
 
+### Multi-Tenant Data Isolation
+
+Harmonic uses **subdomain-based multi-tenancy** with strict data isolation:
+
+**Automatic scoping**: All models that belong to a tenant use `default_scope` to filter by `Tenant.current_id`. Queries automatically exclude data from other tenants.
+
+**Banned `.unscoped` calls**: Direct `.unscoped` usage is banned to prevent accidental cross-tenant data leaks. Instead, use these safe wrapper methods (defined in `ApplicationRecord`):
+
+| Method | Use Case | Runtime Check |
+|--------|----------|---------------|
+| `tenant_scoped_only(tenant_id)` | Cross-superagent access within same tenant | Raises if `tenant_id` is nil (defaults to `Tenant.current_id`) |
+| `unscoped_for_admin(user)` | Admin operations | Raises unless `user.app_admin?` or `user.sys_admin?` |
+| `unscoped_for_system_job` | Background jobs | Raises unless `Tenant.current_id.nil?` |
+| `for_user_across_tenants(user)` | User's own data across tenants | Raises if user nil or model lacks `user_id` |
+
+**Enforcement**:
+- Static analysis: `./scripts/check-tenant-safety.sh` detects banned patterns
+- Pre-commit hook: Blocks commits with banned `.unscoped` usage
+- CI: Fails builds with banned patterns
+
+**Models without tenant scoping** (global data): `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`
+
 ### Content Security Policy
 
 CSP headers are configured in `config/initializers/content_security_policy.rb`:

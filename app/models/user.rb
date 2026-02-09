@@ -235,8 +235,8 @@ class User < ApplicationRecord
   # This is a cross-tenant query but is safe because it only returns the user's own data.
   sig { returns(T::Array[Tenant]) }
   def own_tenants
-    TenantUser.unscoped # unscoped-allowed - User viewing own tenant memberships
-      .where(user_id: id, archived_at: nil)
+    TenantUser.for_user_across_tenants(self)
+      .where(archived_at: nil)
       .includes(:tenant)
       .where(tenant: { archived_at: nil })
       .map(&:tenant)
@@ -413,7 +413,7 @@ class User < ApplicationRecord
     # Security: Ensures suspended user cannot use any existing tokens.
     # Authorization: Callers must verify admin privileges before calling suspend!
     # (e.g., AdminController.ensure_admin_user checks tenant-level admin role)
-    ApiToken.unscoped.where(user_id: id, deleted_at: nil).find_each(&:delete!) # unscoped-allowed
+    ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!)
 
     # Recursively suspend all subagents
     subagents.where(suspended_at: nil).find_each do |subagent|
