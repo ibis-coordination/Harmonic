@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { fetchWithCsrf } from "../utils/csrf"
 
 interface HeartbeatResponse {
   other_heartbeats: number
@@ -34,22 +35,13 @@ export default class HeartbeatController extends Controller {
     }
   }
 
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   sendHeartbeat(): void {
     this.animateExpandingHeart()
     const url = (this.sendButtonTarget as HTMLElement).dataset.url
     if (!url) return
 
-    fetch(url, {
+    fetchWithCsrf(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": this.csrfToken,
-      },
       body: JSON.stringify({}),
     })
       .then((response) => {

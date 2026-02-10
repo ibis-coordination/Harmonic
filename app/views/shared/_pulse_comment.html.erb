@@ -5,24 +5,14 @@
   <div class="pulse-comment-header">
     <% if comment.respond_to?(:created_via_representation?) && comment.created_via_representation? && comment.representative_user %>
       <%# Representation: show "Alice on behalf of Bob" %>
-      <div class="pulse-author-avatar">
-        <% if comment.representative_user.image.attached? %>
-          <img src="<%= comment.representative_user.image_path %>" alt="" class="pulse-avatar-img">
-        <% end %>
-        <span class="pulse-avatar-initials"><%= comment.representative_user.display_name.first.upcase %></span>
-      </div>
+      <%= render "shared/avatar", user: comment.representative_user %>
       <a href="<%= comment.representative_user.path %>" class="pulse-comment-author">
         <%= comment.representative_user.display_name %>
       </a>
       <span class="pulse-representation-label">on behalf of <%= link_to comment.created_by.display_name, comment.created_by.path %></span>
     <% else %>
       <%# Normal case: show created_by %>
-      <div class="pulse-author-avatar">
-        <% if comment.created_by.image.attached? %>
-          <img src="<%= comment.created_by.image_path %>" alt="" class="pulse-avatar-img">
-        <% end %>
-        <span class="pulse-avatar-initials"><%= comment.created_by.display_name.first.upcase %></span>
-      </div>
+      <%= render "shared/avatar", user: comment.created_by %>
       <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
         <%= comment.created_by.display_name %>
       </a>

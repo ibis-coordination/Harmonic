@@ -51,18 +51,8 @@
         display_author = is_representation ? item.representative_user : created_by
       %>
       <% if display_author %>
-        <%
-          name = display_author.display_name || display_author.handle || "?"
-          parts = name.to_s.split(/[\s\-_]+/)
-          initials = parts.length >= 2 ? "#{parts[0][0]}#{parts[1][0]}".upcase : name[0..1].upcase
-        %>
         <a href="<%= display_author.path %>" class="pulse-feed-item-author">
-          <div class="pulse-author-avatar" title="<%= display_author.display_name %>">
-            <span class="pulse-avatar-initials"><%= initials %></span>
-            <% if display_author.image_url.present? && display_author.image_url != '/placeholder.png' %>
-              <img src="<%= display_author.image_url %>" alt="<%= display_author.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
-            <% end %>
-          </div>
+          <%= render "shared/avatar", user: display_author %>
           <span><%= display_author.display_name %></span>
         </a>
         <% if is_representation %>
@@ -121,18 +111,7 @@
         <div class="pulse-confirmed-reads">
           <div class="pulse-confirmed-avatars">
             <% read_confirmations.includes(:user).select(:user_id).distinct.limit(3).each do |event| %>
-              <%
-                user = event.user
-                name = user&.display_name || user&.handle || "?"
-                parts = name.to_s.split(/[\s\-_]+/)
-                initials = parts.length >= 2 ? "#{parts[0][0]}#{parts[1][0]}".upcase : name[0..1].upcase
-              %>
-              <div class="pulse-confirmed-avatar" title="<%= user&.display_name %>">
-                <span class="pulse-avatar-initials"><%= initials %></span>
-                <% if user&.image_url.present? && user.image_url != '/placeholder.png' %>
-                  <img src="<%= user.image_url %>" alt="<%= user.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
-                <% end %>
-              </div>
+              <%= render "shared/avatar", user: event.user, css_class: "pulse-confirmed-avatar" %>
             <% end %>
             <% if reads > 3 %>
               <div class="pulse-confirmed-avatar">+<%= reads - 3 %></div>

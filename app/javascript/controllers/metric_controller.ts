@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { getCsrfToken } from "../utils/csrf"
 
 interface MetricResponse {
   metric_title: string
@@ -14,11 +15,6 @@ export default class MetricController extends Controller {
 
   private refreshing = false
 
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   initialize(): void {
     document.addEventListener("metricChange", this.refreshMetric.bind(this))
     document.addEventListener("decisionDataUpdated", this.refreshMetric.bind(this))
@@ -33,7 +29,7 @@ export default class MetricController extends Controller {
       const response = await fetch(this.urlValue, {
         method: "GET",
         headers: {
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
         },
       })
 

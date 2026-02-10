@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { getCsrfToken } from "../utils/csrf"
 
 export default class DecisionResultsController extends Controller {
   static targets = ["header", "content"]
@@ -10,11 +11,6 @@ export default class DecisionResultsController extends Controller {
 
   private refreshing = false
   private previousHtml = ""
-
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
 
   initialize(): void {
     document.addEventListener("decisionDataUpdated", this.refreshResults.bind(this))
@@ -30,7 +26,7 @@ export default class DecisionResultsController extends Controller {
       const response = await fetch(this.urlValue, {
         method: "GET",
         headers: {
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
         },
       })
 

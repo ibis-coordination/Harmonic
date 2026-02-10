@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { getCsrfToken, fetchWithCsrf } from "../utils/csrf"
 
 export default class DecisionController extends Controller {
   static targets = ["input", "list", "optionsSection"]
@@ -32,11 +33,6 @@ export default class DecisionController extends Controller {
     }
   }
 
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   get decisionIsClosed(): boolean {
     if (!this.optionsSectionTarget.dataset.deadline) return false
     try {
@@ -55,12 +51,8 @@ export default class DecisionController extends Controller {
       throw new Error("No URL specified for creating option")
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithCsrf(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": this.csrfToken,
-      },
       body: JSON.stringify({ title }),
     })
 
@@ -110,12 +102,8 @@ export default class DecisionController extends Controller {
     }
 
     this.updatingVotes = true
-    await fetch(`${urlPrefix}/api/v1/decisions/${decisionId}/options/${optionId}/votes`, {
+    await fetchWithCsrf(`${urlPrefix}/api/v1/decisions/${decisionId}/options/${optionId}/votes`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": this.csrfToken,
-      },
       body: JSON.stringify({ accepted, preferred }),
     })
     this.updatingVotes = false
@@ -148,7 +136,7 @@ export default class DecisionController extends Controller {
       const response = await fetch(url, {
         method: "GET",
         headers: {
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
         },
       })
 

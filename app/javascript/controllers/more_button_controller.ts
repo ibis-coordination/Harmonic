@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { fetchWithCsrf } from "../utils/csrf"
 
 interface PinResponse {
   pinned: boolean
@@ -57,11 +58,6 @@ export default class MoreButtonController extends Controller {
     this.menuTarget.style.display = "none"
   }
 
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   togglePin(event: Event): void {
     const target = event.target as HTMLElement
     const originalText = target.textContent?.trim() ?? ""
@@ -71,12 +67,8 @@ export default class MoreButtonController extends Controller {
     const isPinned = originalText.split(" ")[0] === "Unpin"
     target.textContent = isPinned ? "Unpinning..." : "Pinning..."
 
-    fetch(url, {
+    fetchWithCsrf(url, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": this.csrfToken,
-      },
       body: JSON.stringify({
         pinned: !isPinned,
       }),

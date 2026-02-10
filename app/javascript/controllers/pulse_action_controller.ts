@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { getCsrfToken } from "../utils/csrf"
 
 /**
  * Handles AJAX-based action buttons in the Pulse feed.
@@ -19,13 +20,6 @@ export default class PulseActionController extends Controller {
 
   private isLoading = false
 
-  get csrfToken(): string {
-    const meta = document.querySelector(
-      "meta[name='csrf-token']"
-    ) as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   async performAction(event: Event): Promise<void> {
     event.preventDefault()
 
@@ -38,7 +32,7 @@ export default class PulseActionController extends Controller {
       const response = await fetch(this.urlValue, {
         method: "POST",
         headers: {
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
         },
       })
 

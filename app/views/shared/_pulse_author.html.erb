@@ -7,12 +7,7 @@
 <% display_author = is_representation ? representative : author %>
 <% if display_author %>
   <div class="pulse-feed-item-author">
-    <div class="pulse-author-avatar">
-      <% if display_author.image_url.present? && display_author.image_url != '/placeholder.png' %>
-        <img src="<%= display_author.image_url %>" alt="" class="pulse-avatar-img">
-      <% end %>
-      <span class="pulse-avatar-initials"><%= display_author.display_name.to_s.first&.upcase || '?' %></span>
-    </div>
+    <%= render "shared/avatar", user: display_author %>
     <a href="<%= display_author.path %>" class="pulse-feed-item-author">
       <strong><%= display_author.display_name %></strong>
     </a>

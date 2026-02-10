@@ -30,9 +30,4 @@ export default class TopRightMenuController extends Controller {
     this.menuTarget.style.right = `${window.innerWidth - rect.right}px`
     this.menuTarget.style.display = this.menuTarget.style.display === "none" ? "block" : "none"
   }
-
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
 }

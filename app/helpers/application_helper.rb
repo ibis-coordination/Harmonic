@@ -1,6 +1,19 @@
 # typed: false
 
 module ApplicationHelper
+  # Generate consistent avatar initials from a name
+  # Returns up to 2 uppercase characters
+  def avatar_initials(name)
+    return "?" if name.blank?
+
+    parts = name.to_s.split(/[\s\-_]+/)
+    if parts.length >= 2
+      "#{parts[0][0]}#{parts[1][0]}".upcase
+    else
+      name[0..1].upcase
+    end
+  end
+
   def timeago(datetime)
     ago_or_from_now = datetime < Time.now ? 'ago' : 'from now'
     "<time

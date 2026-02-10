@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { fetchWithCsrf } from "../utils/csrf"
 
 export default class AiAgentSuperagentAdderController extends Controller {
   static targets = ["form", "select", "superagentList"]
@@ -11,11 +12,6 @@ export default class AiAgentSuperagentAdderController extends Controller {
   declare readonly hasFormTarget: boolean
   declare readonly removeUrlValue: string
 
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   add(event: Event): void {
     event.preventDefault()
 
@@ -26,12 +22,10 @@ export default class AiAgentSuperagentAdderController extends Controller {
 
     const url = this.formTarget.action
 
-    fetch(url, {
+    fetchWithCsrf(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": this.csrfToken,
-        "Accept": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({ superagent_id: superagentId }),
     })
@@ -63,12 +57,10 @@ export default class AiAgentSuperagentAdderController extends Controller {
 
     if (!confirm(`Remove this ai_agent from ${superagentName}?`)) return
 
-    fetch(url, {
+    fetchWithCsrf(url, {
       method: "DELETE",
       headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": this.csrfToken,
-        "Accept": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({ superagent_id: superagentId }),
     })

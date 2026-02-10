@@ -3,6 +3,33 @@
   to expand the scope to :root instead of just .markdown-body
   so that they can be used throughout all custom css.
 */
+
+/* Spacing scale */
+:root {
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* Avatar sizes */
+  --avatar-size-sm: 20px;
+  --avatar-size-default: 32px;
+  --avatar-size-lg: 80px;
+
+  /* Border radius */
+  --border-radius-sm: 2px;
+  --border-radius-default: 4px;
+  --border-radius-lg: 6px;
+  --border-radius-full: 50%;
+
+  /* Button padding shortcuts */
+  --button-padding-sm: var(--spacing-xs) var(--spacing-sm);
+  --button-padding-default: var(--spacing-sm) var(--spacing-lg);
+  --button-padding-lg: var(--spacing-md) var(--spacing-xl);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
