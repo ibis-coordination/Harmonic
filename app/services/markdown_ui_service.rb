@@ -224,6 +224,9 @@ class MarkdownUiService
     headers = {
       "Accept" => "text/markdown",
       "Content-Type" => "application/json",
+      # Tell Rails we're already on HTTPS (like a reverse proxy would)
+      # Without this, force_ssl in production causes 301 redirects
+      "X-Forwarded-Proto" => "https",
     }
 
     if @plaintext_token.present?

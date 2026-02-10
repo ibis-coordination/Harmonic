@@ -25,8 +25,6 @@ services:
       - RAILS_SERVE_STATIC_FILES=true
     env_file:
       - .env
-    ports:
-      - "3000:3000"
     depends_on:
       redis:
         condition: service_healthy
@@ -65,6 +63,7 @@ services:
         reservations:
           memory: 256M
     networks:
+      - frontend  # needed for external DNS (database hostname)
       - backend
 
   redis:
@@ -111,6 +110,27 @@ services:
     volumes:
       - clamav_data:/var/lib/clamav
     networks:
+      - backend
+
+  # LiteLLM proxy for unified LLM API access (optional - enable with --profile llm)
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    restart: unless-stopped
+    profiles:
+      - llm
+    command: ["--config", "/app/litellm_config.yaml"]
+    volumes:
+      - ./config/litellm_config.yaml:/app/litellm_config.yaml
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - frontend  # needs external access for API calls
       - backend
 
   # cAdvisor for container metrics (optional - enable with --profile monitoring)
