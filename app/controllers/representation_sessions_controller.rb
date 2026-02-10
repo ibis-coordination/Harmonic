@@ -1,7 +1,7 @@
 # typed: false
 
 # TODO: Bug - representatives can perform actions within the studio they are representing AS the studio
-# (trustee user), which doesn't make sense. Representatives should only be able to act on behalf of
+# (proxy user), which doesn't make sense. Representatives should only be able to act on behalf of
 # the studio in OTHER studios, not within the studio itself. Need to investigate what changed.
 
 class RepresentationSessionsController < ApplicationController
