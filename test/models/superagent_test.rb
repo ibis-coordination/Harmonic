@@ -41,18 +41,18 @@ class SuperagentTest < ActiveSupport::TestCase
     end
   end
 
-  test "Superagent.creator_is_not_trustee validation" do
+  test "Superagent.creator_is_not_superagent_proxy validation" do
     tenant = create_tenant
-    trustee_user = create_user(user_type: "trustee")
+    proxy_user = create_user(user_type: "superagent_proxy")
     begin
       Superagent.create!(
         tenant: tenant,
-        created_by: trustee_user,
-        name: "Trustee Studio",
-        handle: "trustee-studio"
+        created_by: proxy_user,
+        name: "Proxy Studio",
+        handle: "proxy-studio"
       )
     rescue ActiveRecord::RecordInvalid => e
-      assert_match(/created by cannot be a trustee/, e.message.downcase)
+      assert_match(/created by cannot be a superagent proxy/, e.message.downcase)
     end
   end
 
@@ -87,17 +87,17 @@ class SuperagentTest < ActiveSupport::TestCase
     assert_not Superagent.handle_available?("existing-handle")
   end
 
-  test "Superagent.create_trustee! creates a trustee user" do
+  test "Superagent.create_proxy_user! creates a proxy user" do
     tenant = create_tenant
     user = create_user
     superagent = Superagent.create!(
       tenant: tenant,
       created_by: user,
-      name: "Trustee Studio",
-      handle: "trustee-studio"
+      name: "Proxy Studio",
+      handle: "proxy-studio"
     )
-    assert superagent.trustee_user.present?
-    assert_equal "trustee", superagent.trustee_user.user_type
+    assert superagent.proxy_user.present?
+    assert_equal "superagent_proxy", superagent.proxy_user.user_type
   end
 
   test "Superagent.within_file_upload_limit? returns true when usage is below limit" do
@@ -394,7 +394,7 @@ class SuperagentTest < ActiveSupport::TestCase
     assert_not superagent.accessible_by?(other_user)
   end
 
-  test "accessible_by? returns true for superagent trustee accessing own superagent" do
+  test "accessible_by? returns true for superagent proxy accessing own superagent" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
@@ -405,14 +405,14 @@ class SuperagentTest < ActiveSupport::TestCase
       handle: "access-test-#{SecureRandom.hex(4)}"
     )
     superagent.add_user!(user)
-    superagent.create_trustee!
+    superagent.create_proxy_user!
 
-    trustee = superagent.trustee_user
-    assert trustee.superagent_trustee?
-    assert superagent.accessible_by?(trustee)
+    proxy = superagent.proxy_user
+    assert proxy.proxy_superagent.present?
+    assert superagent.accessible_by?(proxy)
   end
 
-  test "accessible_by? returns false for superagent trustee accessing different superagent" do
+  test "accessible_by? returns false for superagent proxy accessing different superagent" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
@@ -423,7 +423,7 @@ class SuperagentTest < ActiveSupport::TestCase
       handle: "studio-1-#{SecureRandom.hex(4)}"
     )
     superagent1.add_user!(user)
-    superagent1.create_trustee!
+    superagent1.create_proxy_user!
 
     superagent2 = Superagent.create!(
       tenant: tenant,
@@ -433,74 +433,13 @@ class SuperagentTest < ActiveSupport::TestCase
     )
     superagent2.add_user!(user)
 
-    trustee = superagent1.trustee_user
-    assert trustee.superagent_trustee?
-    # Trustee of superagent1 should not have access to superagent2
-    assert_not superagent2.accessible_by?(trustee)
+    proxy = superagent1.proxy_user
+    assert proxy.proxy_superagent.present?
+    # Proxy of superagent1 should not have access to superagent2
+    assert_not superagent2.accessible_by?(proxy)
   end
 
-  test "accessible_by? returns true for person with active trustee grant when granting user is member and grant allows studio" do
-    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
-    alice = create_user(name: "Alice")
-    bob = create_user(name: "Bob")
-    tenant.add_user!(alice)
-    tenant.add_user!(bob)
-    superagent = Superagent.create!(
-      tenant: tenant,
-      created_by: alice,
-      name: "Access Test Studio",
-      handle: "access-test-#{SecureRandom.hex(4)}"
-    )
-    superagent.add_user!(alice)
-    superagent.add_user!(bob)
-
-    grant = TrusteeGrant.create!(
-      tenant: tenant,
-      granting_user: alice,
-      trustee_user: bob,
-      permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "all" }
-    )
-    grant.accept!
-
-    # After the migration, trustee_user is the actual person (Bob), not a trustee-type user
-    trustee = grant.trustee_user
-    assert_equal bob, trustee
-    assert_not trustee.trustee?, "trustee_user is now a regular person, not a trustee type"
-    assert superagent.accessible_by?(trustee)
-  end
-
-  test "accessible_by? returns false for person with trustee grant when grant excludes studio" do
-    tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
-    alice = create_user(name: "Alice")
-    bob = create_user(name: "Bob")
-    tenant.add_user!(alice)
-    tenant.add_user!(bob)
-    superagent = Superagent.create!(
-      tenant: tenant,
-      created_by: alice,
-      name: "Access Test Studio",
-      handle: "access-test-#{SecureRandom.hex(4)}"
-    )
-    superagent.add_user!(alice)
-    superagent.add_user!(bob)
-
-    grant = TrusteeGrant.create!(
-      tenant: tenant,
-      granting_user: alice,
-      trustee_user: bob,
-      permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "exclude", "studio_ids" => [superagent.id] }
-    )
-    grant.accept!
-
-    trustee = grant.trustee_user
-    # Bob is a member of the superagent, so he should have access via membership
-    # The grant studio_scope restriction doesn't affect direct membership access
-    assert superagent.accessible_by?(trustee)
-  end
-
-  test "accessible_by? for trustee grants respects granting user membership" do
+  test "accessible_by? returns false for non-member even with trustee grant" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     alice = create_user(name: "Alice")
     bob = create_user(name: "Bob")

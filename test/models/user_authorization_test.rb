@@ -26,7 +26,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert user.valid?
     assert user.person?
     assert_not user.subagent?
-    assert_not user.trustee?
+    assert_not user.superagent_proxy?
   end
 
   test "subagent user type requires parent_id" do
@@ -67,10 +67,10 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert_includes user.errors[:parent_id], "user cannot be its own parent"
   end
 
-  test "trustee user type is valid" do
-    user = User.new(email: "trustee@example.com", name: "Trustee", user_type: "trustee")
+  test "superagent_proxy user type is valid" do
+    user = User.new(email: "proxy@example.com", name: "Proxy", user_type: "superagent_proxy")
     assert user.valid?
-    assert user.trustee?
+    assert user.superagent_proxy?
   end
 
   test "invalid user type is rejected" do

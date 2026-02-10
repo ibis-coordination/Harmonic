@@ -464,13 +464,13 @@ class ApplicationController < ActionController::Base
     sm = current_superagent.superagent_members.find_by(user: @current_user)
     if sm.nil?
       if current_superagent == current_tenant.main_superagent
-        if controller_name.ends_with?("sessions") || @current_user.trustee?
-          # Do nothing - sessions controller or trustee user doesn't need superagent membership on main
+        if controller_name.ends_with?("sessions") || @current_user.superagent_proxy?
+          # Do nothing - sessions controller or superagent proxy user doesn't need superagent membership on main
         else
           current_superagent.add_user!(@current_user)
         end
       elsif current_superagent.accessible_by?(@current_user)
-        # User has access via trustee grant or other mechanism (e.g., superagent trustee accessing own studio)
+        # Superagent proxy user accessing their own superagent
         # No membership record needed, but access is allowed
       else
         # If this user has an invite to this superagent, they will see the option to accept on the superagent's join page.

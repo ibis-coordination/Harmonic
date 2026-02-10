@@ -80,7 +80,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert session.persisted?
     assert_equal @user, session.representative_user
     # effective_user returns the studio trustee for studio representation
-    assert_equal @superagent.trustee_user, session.effective_user
+    assert_equal @superagent.proxy_user, session.effective_user
   end
 
   # === Lifecycle Tests ===
@@ -377,7 +377,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert json[:elapsed_time].is_a?(Numeric)
     assert_equal @superagent.id, json[:superagent_id]
     assert_equal @user.id, json[:representative_user_id]
-    assert_equal @superagent.trustee_user.id, json[:effective_user_id]
+    assert_equal @superagent.proxy_user.id, json[:effective_user_id]
   end
 
   # =========================================================================

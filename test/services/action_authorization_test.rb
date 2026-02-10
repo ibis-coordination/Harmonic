@@ -335,16 +335,16 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("create_subagent", subagent, {})
     refute ActionAuthorization.authorized?("create_api_token", subagent, {})
 
-    # Create a trustee - trustees also cannot create subagents or API tokens
-    trustee = User.create!(
-      email: "trustee-test@example.com",
-      name: "Test Trustee",
-      user_type: "trustee"
+    # Create a superagent_proxy - proxy users also cannot create subagents or API tokens
+    proxy = User.create!(
+      email: "proxy-test@example.com",
+      name: "Test Proxy",
+      user_type: "superagent_proxy"
     )
-    @tenant.add_user!(trustee)
+    @tenant.add_user!(proxy)
 
-    refute ActionAuthorization.authorized?("create_subagent", trustee, {})
-    refute ActionAuthorization.authorized?("create_api_token", trustee, {})
+    refute ActionAuthorization.authorized?("create_subagent", proxy, {})
+    refute ActionAuthorization.authorized?("create_api_token", proxy, {})
   end
 
   test "person-only actions with context check self or representative" do

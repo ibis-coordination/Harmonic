@@ -26,7 +26,7 @@
 
 <p>Representation allows this studio (<%= @current_superagent.name %>) to act as an individual member of other studios.</p>
 
-<% if @current_superagent.trustee_user.superagents.empty? %>
+<% if @current_superagent.proxy_user.superagents.empty? %>
   <p class="pulse-muted">
     <%= @current_superagent.name %> is not currently a member of any other studios.
   </p>
@@ -35,7 +35,7 @@
     <%= @current_superagent.name %> is currently a member of the following studios:
   </p>
   <ul class="pulse-list">
-    <% @current_superagent.trustee_user.superagents.each do |studio| %>
+    <% @current_superagent.proxy_user.superagents.each do |studio| %>
       <li class="pulse-list-item">
         <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
       </li>

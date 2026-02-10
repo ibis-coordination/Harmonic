@@ -10,8 +10,8 @@ module HasRoles # TenantUser, SuperagentMember, ...
   def add_roles!(roles)
     return if roles.blank?
     raise "Invalid roles: #{roles - self.class.valid_roles}" unless (roles - self.class.valid_roles).empty?
-    if roles.include?('representative') && self.user.trustee?
-      raise "Trustees cannot be representatives"
+    if roles.include?('representative') && self.user.superagent_proxy?
+      raise "Superagent proxy users cannot be representatives"
     end
     settings['roles'] ||= []
     settings['roles'] = settings['roles'] | roles

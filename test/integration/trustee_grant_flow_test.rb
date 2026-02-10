@@ -351,9 +351,9 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # The effective_user is Alice (the granting_user, the person being represented)
     assert_equal @alice, session.effective_user
 
-    # After the migration, trustee_user on TrusteeGrant is the actual person (Bob), not a trustee-type
+    # After the migration, trustee_user on TrusteeGrant is the actual person (Bob), not a superagent_proxy
     assert_equal @bob, permission.trustee_user
-    assert_not permission.trustee_user.trustee?
+    assert_not permission.trustee_user.superagent_proxy?
     assert_equal "Bob", permission.trustee_user.name
   end
 

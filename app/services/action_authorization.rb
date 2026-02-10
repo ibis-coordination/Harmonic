@@ -161,11 +161,11 @@ module ActionAuthorization
       return CapabilityCheck.allowed?(T.must(grant.granting_user), action_name)
     end
 
-    # For studio representation: current_user is a trustee-type user
-    return true unless user&.trustee?
-    return true if user.superagent_trustee?  # Superagent trustees have full access
+    # For studio representation: current_user is a superagent_proxy user
+    return true unless user&.superagent_proxy?
+    return true if user.proxy_superagent.present?  # Superagent proxies have full access
 
-    # No other trustee types should exist after cleanup migration
+    # No other superagent_proxy types should exist
     false
   end
 

@@ -33,7 +33,7 @@ class User < ApplicationRecord
   # Auto-create TrusteeGrant when a subagent is created
   after_create :create_parent_trustee_grant!, if: :subagent?
 
-  validates :user_type, inclusion: { in: ["person", "subagent", "trustee"] }
+  validates :user_type, inclusion: { in: ["person", "subagent", "superagent_proxy"] }
   validates :email, presence: true
   validates :name, presence: true
   validate :subagent_must_have_parent
@@ -43,7 +43,7 @@ class User < ApplicationRecord
   def reload(options = nil)
     remove_instance_variable(:@tenant_user) if defined?(@tenant_user)
     remove_instance_variable(:@superagent_member) if defined?(@superagent_member)
-    remove_instance_variable(:@trustee_superagent) if defined?(@trustee_superagent)
+    remove_instance_variable(:@proxy_superagent) if defined?(@proxy_superagent)
     remove_instance_variable(:@superagents) if defined?(@superagents)
     super
   end
@@ -72,8 +72,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def image_url
-    if trustee?
-      Superagent.where(trustee_user: self).first&.image_path
+    if superagent_proxy?
+      Superagent.where(proxy_user: self).first&.image_path
     else
       image_path_no_placeholder || super || image_path
     end
@@ -112,36 +112,30 @@ class User < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def trustee?
-    user_type == "trustee"
+  def superagent_proxy?
+    user_type == "superagent_proxy"
   end
 
-  sig { returns(T::Boolean) }
-  def superagent_trustee?
-    trustee? && trustee_superagent.present?
-  end
-
+  # Returns the superagent this user is a proxy for, if any
   sig { returns(T.nilable(Superagent)) }
-  def trustee_superagent
-    return nil unless trustee?
-    return @trustee_superagent if defined?(@trustee_superagent)
+  def proxy_superagent
+    return nil unless superagent_proxy?
+    return @proxy_superagent if defined?(@proxy_superagent)
 
-    @trustee_superagent = Superagent.where(trustee_user: self).first
+    @proxy_superagent = Superagent.where(proxy_user: self).first
   end
 
-  # Check if this user is authorized to use the given trustee identity.
-  # Used to validate that a trustee_user_id in the session is legitimate.
+  # Check if this user is authorized to use the given proxy identity.
+  # Used to validate that a proxy_user_id in the session is legitimate.
   #
-  # After the trustee_grant simplification, the only trustee-type users are Superagent trustees
-  # (for studio representation). TrusteeGrants no longer create synthetic trustee users.
-  sig { params(trustee_user: User).returns(T::Boolean) }
-  def is_trusted_as?(trustee_user)
-    return false unless trustee_user.trustee?
+  # Superagent proxy users represent studios for collective agency.
+  # TrusteeGrants authorize users to act on behalf of other users (a separate concept).
+  sig { params(proxy_user: User).returns(T::Boolean) }
+  def is_trusted_as?(proxy_user)
+    return false unless proxy_user.superagent_proxy?
+    return false unless proxy_user.proxy_superagent.present?
 
-    # Only superagent trustees should exist now
-    return false unless trustee_user.superagent_trustee?
-
-    superagent = trustee_user.trustee_superagent
+    superagent = proxy_user.proxy_superagent
     return false unless superagent
 
     can_represent?(superagent)
@@ -151,8 +145,8 @@ class User < ApplicationRecord
   def can_represent?(superagent_or_user)
     if superagent_or_user.is_a?(Superagent)
       superagent = superagent_or_user
-      is_trustee_of_superagent = trustee_superagent == superagent
-      return is_trustee_of_superagent if trustee?
+      is_proxy_of_superagent = proxy_superagent == superagent
+      return is_proxy_of_superagent if superagent_proxy?
 
       sm = superagent_members.find_by(superagent_id: superagent.id)
       return sm&.can_represent? || false
@@ -164,9 +158,9 @@ class User < ApplicationRecord
       # Parent can represent their subagent
       return true if is_parent_of?(user)
 
-      # Check if self can represent user's superagent trustee
-      if user.superagent_trustee?
-        sm = superagent_members.find_by(superagent_id: T.must(user.trustee_superagent).id)
+      # Check if self can represent user's superagent proxy
+      if user.superagent_proxy?
+        sm = superagent_members.find_by(superagent_id: T.must(user.proxy_superagent).id)
         return sm&.can_represent? || false
       end
 
@@ -276,9 +270,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def display_name
-    if trustee?
-      # After trustee_grant simplification, only Superagent trustees exist
-      Superagent.where(trustee_user: self).first&.name
+    if superagent_proxy?
+      Superagent.where(proxy_user: self).first&.name
     else
       tenant_user&.display_name
     end
@@ -306,8 +299,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def handle
-    if trustee?
-      superagent = Superagent.where(trustee_user: self).first
+    if superagent_proxy?
+      superagent = Superagent.where(proxy_user: self).first
       superagent ? "studios/" + T.must(superagent.handle) : nil
     else
       tenant_user&.handle
@@ -316,8 +309,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def path
-    if trustee?
-      Superagent.where(trustee_user: self).first&.path
+    if superagent_proxy?
+      Superagent.where(proxy_user: self).first&.path
     else
       tenant_user&.path
     end

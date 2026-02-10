@@ -43,11 +43,11 @@ class DataDeletionManager
       ].each do |model|
         model.tenant_scoped_only(superagent.tenant_id).where(superagent_id: superagent.id).delete_all
       end
-      # Delete trustee user only if it does not have any conflicting associations
+      # Delete proxy user only if it does not have any conflicting associations
       # begin
-      #   delete_user!(user: superagent.trustee_user, confirmation_token: confirmation_token)
+      #   delete_user!(user: superagent.proxy_user, confirmation_token: confirmation_token)
       # rescue ActiveRecord::RecordNotDestroyed
-      #   Rails.logger.info "Trustee user for superagent '#{superagent_name}' (ID: #{superagent_id_value}) could not be deleted due to conflicting associations."
+      #   Rails.logger.info "Proxy user for superagent '#{superagent_name}' (ID: #{superagent_id_value}) could not be deleted due to conflicting associations."
       # end
       # Delete the superagent itself
       superagent.destroy!

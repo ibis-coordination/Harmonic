@@ -36,9 +36,9 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       trustee_user: @trustee_user,
       permissions: {},
     )
-    # trustee_user is now the actual person (Bob), not a synthetic user
+    # trustee_user is now the actual person (Bob), not a superagent_proxy user
     assert_equal @trustee_user, permission.trustee_user
-    assert_not permission.trustee_user.trustee?
+    assert_not permission.trustee_user.superagent_proxy?
     assert_equal "Bob", permission.trustee_user.name
   end
 
@@ -53,20 +53,20 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     assert_includes permission.errors[:trustee_user], "cannot be the same as the granting user"
   end
 
-  test "trustee_user cannot be a trustee-type user" do
-    some_trustee = User.create!(
+  test "trustee_user cannot be a superagent_proxy user" do
+    some_proxy = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
-      name: "Some Trustee",
-      user_type: "trustee",
+      name: "Some Proxy",
+      user_type: "superagent_proxy",
     )
     permission = TrusteeGrant.new(
       tenant: @tenant,
       granting_user: @granting_user,
-      trustee_user: some_trustee,
+      trustee_user: some_proxy,
       permissions: {},
     )
     assert_not permission.valid?
-    assert_includes permission.errors[:trustee_user], "cannot be a trustee-type user"
+    assert_includes permission.errors[:trustee_user], "cannot be a superagent proxy user"
   end
 
   # =========================================================================

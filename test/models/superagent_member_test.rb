@@ -115,40 +115,40 @@ class SuperagentMemberTest < ActiveSupport::TestCase
     assert_equal expected_path, @superagent_member.path
   end
 
-  test "path returns superagent path for trustee user" do
-    trustee = @superagent.trustee_user
-    @superagent.add_user!(trustee) rescue nil # May already be added
-    trustee_superagent_member = SuperagentMember.unscoped.find_by(user: trustee, superagent: @superagent)
-    # Trustee user's path should be the superagent path
-    if trustee_superagent_member
-      assert_equal @superagent.path, trustee_superagent_member.path
+  test "path returns superagent path for proxy user" do
+    proxy = @superagent.proxy_user
+    @superagent.add_user!(proxy) rescue nil # May already be added
+    proxy_superagent_member = SuperagentMember.unscoped.find_by(user: proxy, superagent: @superagent)
+    # Proxy user's path should be the superagent path
+    if proxy_superagent_member
+      assert_equal @superagent.path, proxy_superagent_member.path
     end
   end
 
-  # === Trustee Validation Tests ===
+  # === Proxy User Validation Tests ===
 
-  test "trustee user cannot be member of main superagent" do
+  test "proxy user cannot be member of main superagent" do
     @tenant.create_main_superagent!(created_by: @user)
     main_superagent = @tenant.main_superagent
-    trustee = @superagent.trustee_user
+    proxy = @superagent.proxy_user
 
     superagent_member = SuperagentMember.new(
       tenant: @tenant,
       superagent: main_superagent,
-      user: trustee,
+      user: proxy,
     )
     assert_not superagent_member.valid?
-    assert_includes superagent_member.errors[:user], "Trustee users cannot be members of the main superagent"
+    assert_includes superagent_member.errors[:user], "Superagent proxy users cannot be members of the main superagent"
   end
 
-  test "trustee user can be member of non-main superagent" do
-    trustee = @superagent.trustee_user
+  test "proxy user can be member of non-main superagent" do
+    proxy = @superagent.proxy_user
     other_superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
 
     superagent_member = SuperagentMember.new(
       tenant: @tenant,
       superagent: other_superagent,
-      user: trustee,
+      user: proxy,
     )
     assert superagent_member.valid?
   end

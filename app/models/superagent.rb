@@ -10,8 +10,8 @@ class Superagent < ApplicationRecord
   belongs_to :tenant
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
-  belongs_to :trustee_user, class_name: "User"
-  before_validation :create_trustee!
+  belongs_to :proxy_user, class_name: "User"
+  before_validation :create_proxy_user!
   before_create :set_defaults
   tables = ActiveRecord::Base.connection.tables - [
     "tenants", "users", "tenant_users",
@@ -27,7 +27,7 @@ class Superagent < ApplicationRecord
   has_many :users, through: :superagent_members
   validates :superagent_type, inclusion: { in: ["studio", "scene"] }
   validate :handle_is_valid
-  validate :creator_is_not_trustee, on: :create
+  validate :creator_is_not_superagent_proxy, on: :create
 
   # NOTE: This is commented out because there is a bug where
   # the corresponding note history event is not created
@@ -139,8 +139,8 @@ class Superagent < ApplicationRecord
   end
 
   sig { void }
-  def creator_is_not_trustee
-    errors.add(:created_by, "cannot be a trustee") if created_by&.trustee?
+  def creator_is_not_superagent_proxy
+    errors.add(:created_by, "cannot be a superagent proxy") if created_by&.superagent_proxy?
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
@@ -353,21 +353,21 @@ class Superagent < ApplicationRecord
   end
 
   sig { void }
-  def create_trustee!
-    return if trustee_user
+  def create_proxy_user!
+    return if proxy_user
 
-    trustee = User.create!(
+    proxy = User.create!(
       name: name,
       email: SecureRandom.uuid + "@not-a-real-email.com",
-      user_type: "trustee"
+      user_type: "superagent_proxy"
     )
     TenantUser.create!(
       tenant: tenant,
-      user: trustee,
-      display_name: trustee.name,
+      user: proxy,
+      display_name: proxy.name,
       handle: SecureRandom.hex(16)
     )
-    self.trustee_user = trustee
+    self.proxy_user = proxy
     save!
   end
 
@@ -456,31 +456,23 @@ class Superagent < ApplicationRecord
   end
 
   # Check if a user can access this superagent.
-  # This consolidates access logic for all user types:
-  # - Normal members: check membership
-  # - Superagent trustees: require membership, except when accessing their own superagent
-  # - Trustee grant trustees: check grant scope AND granting_user membership
+  # Access requires either:
+  # - Direct membership, OR
+  # - Being the superagent's own proxy user
+  #
+  # TrusteeGrants do NOT give direct access - they only work during
+  # active representation sessions (handled elsewhere in controller/session logic).
   sig { params(user: User).returns(T::Boolean) }
   def accessible_by?(user)
-    # Normal membership check first
+    # Direct membership check
     return true if user_is_member?(user)
 
-    return false unless user.trustee?
-
-    if user.superagent_trustee?
-      # Superagent trustee accessing their own superagent
-      # Allow for now (ideally would be read-only, but that's out of scope)
-      return user.trustee_superagent == self
+    # Superagent proxy accessing their own superagent
+    if user.superagent_proxy? && user.proxy_superagent.present?
+      return user.proxy_superagent == self
     end
 
-    # Trustee grant trustee - check grant scope AND granting_user membership
-    grant = TrusteeGrant.find_by(trustee_user: user)
-    return false unless grant&.active?
-    return false unless grant.allows_studio?(self)
-
-    # Trustee can only access studios where granting_user is a member
-    # T.must is safe here because an active grant always has a granting_user
-    user_is_member?(T.must(grant.granting_user))
+    false
   end
 
   sig { params(limit: Integer).returns(T::Array[User]) }

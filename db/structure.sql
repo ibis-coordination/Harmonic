@@ -1,4 +1,4 @@
-\restrict U48sKmumPvqcUtQ7xtHay8iYkinoB6Pr2E1RrlHgikGbSOOMXJ66woWbqXxpOrp
+\restrict MR0j0X8PHH2fn2hffR5uBvvH7inUqMZtZLNdHkYSignAJ4Gb0MrKx988tdfYi7q
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -1277,7 +1277,7 @@ CREATE TABLE public.superagents (
     updated_at timestamp(6) without time zone NOT NULL,
     created_by_id uuid NOT NULL,
     updated_by_id uuid NOT NULL,
-    trustee_user_id uuid,
+    proxy_user_id uuid,
     description text,
     superagent_type character varying DEFAULT 'studio'::character varying NOT NULL,
     internal boolean DEFAULT false NOT NULL
@@ -8154,7 +8154,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict U48sKmumPvqcUtQ7xtHay8iYkinoB6Pr2E1RrlHgikGbSOOMXJ66woWbqXxpOrp
+\unrestrict MR0j0X8PHH2fn2hffR5uBvvH7inUqMZtZLNdHkYSignAJ4Gb0MrKx988tdfYi7q
 
 SET search_path TO "$user", public;
 
@@ -8298,6 +8298,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260208044921'),
 ('20260208054634'),
 ('20260208112506'),
-('20260208234822');
+('20260208234822'),
+('20260209231143');
 
 

@@ -89,7 +89,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     session = RepresentationSession.last
     assert_equal @user, session.representative_user
     # effective_user is the superagent's trustee for studio representation
-    assert_equal @superagent.trustee_user, session.effective_user
+    assert_equal @superagent.proxy_user, session.effective_user
     assert_equal @superagent, session.superagent
     assert session.active?
   end
@@ -98,7 +98,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   # Actions While Representing
   # ====================
 
-  test "creating note while representing attributes it to trustee user" do
+  test "creating note while representing attributes it to proxy user" do
     @superagent.superagent_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
@@ -110,12 +110,12 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     post "/studios/#{@superagent.handle}/note", params: {
       note: {
         title: "Note from representation",
-        text: "This should be attributed to the trustee user",
+        text: "This should be attributed to the proxy user",
       },
     }
 
     note = Note.last
-    assert_equal @superagent.trustee_user.id, note.created_by_id
+    assert_equal @superagent.proxy_user.id, note.created_by_id
     assert_not_equal @user.id, note.created_by_id
   end
 
@@ -178,7 +178,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
       note: { title: "During representation", text: "Trustee note" },
     }
     note_during = Note.last
-    assert_equal @superagent.trustee_user.id, note_during.created_by_id
+    assert_equal @superagent.proxy_user.id, note_during.created_by_id
 
     # Stop representation
     delete "/studios/#{@superagent.handle}/represent"
@@ -347,6 +347,6 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     }
 
     note = Note.last
-    assert_equal @superagent.trustee_user.id, note.created_by_id
+    assert_equal @superagent.proxy_user.id, note.created_by_id
   end
 end

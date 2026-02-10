@@ -161,19 +161,19 @@ class TrusteeGrant < ApplicationRecord
       errors.add(:trustee_user, "cannot be the same as the granting user")
     end
 
-    # Trustee user cannot be a trustee-type user (only real persons can be trustees)
-    if trustee_user&.trustee?
-      errors.add(:trustee_user, "cannot be a trustee-type user")
+    # Trustee user cannot be a superagent_proxy (only real persons can be trustees)
+    if trustee_user&.superagent_proxy?
+      errors.add(:trustee_user, "cannot be a superagent proxy user")
     end
 
-    # If granting_user is a superagent trustee, trustee_user must be a member of that superagent
-    if granting_user&.trustee? && granting_user&.superagent_trustee?
-      unless granting_user&.trustee_superagent&.users&.include?(trustee_user)
+    # If granting_user is a superagent proxy, trustee_user must be a member of that superagent
+    if granting_user&.superagent_proxy? && granting_user&.proxy_superagent.present?
+      unless granting_user&.proxy_superagent&.users&.include?(trustee_user)
         errors.add(:trustee_user, "must be a member of the superagent that the granting user represents")
       end
-    elsif granting_user&.trustee?
-      # Non-superagent trustees cannot be granting users
-      errors.add(:granting_user, "must be a superagent trustee if the granting user is of type 'trustee'")
+    elsif granting_user&.superagent_proxy?
+      # Superagent proxies must have an associated superagent to be granting users
+      errors.add(:granting_user, "must have an associated superagent if the granting user is a superagent proxy")
     end
   end
 

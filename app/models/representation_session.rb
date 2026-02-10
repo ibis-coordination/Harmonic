@@ -111,13 +111,13 @@ class RepresentationSession < ApplicationRecord
 
   # Returns the user identity to use as current_user during this session.
   # For user representation: returns the granting_user (the person being represented)
-  # For studio representation: returns the studio's trustee_user
+  # For studio representation: returns the studio's proxy_user
   sig { returns(User) }
   def effective_user
     if user_representation?
       T.must(T.must(trustee_grant).granting_user)
     else
-      T.must(T.must(superagent).trustee_user)
+      T.must(T.must(superagent).proxy_user)
     end
   end
 
