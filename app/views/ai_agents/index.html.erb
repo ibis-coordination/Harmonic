@@ -1,0 +1,107 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'My AI Agents'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
+        AI Agents
+      </span>
+      <a href="<%= @current_user.path %>/settings/ai-agents/new" class="pulse-feed-action-link" style="margin-left: auto;">
+        <%= octicon 'plus', height: 14 %> Create AI Agent
+      </a>
+    </div>
+    <h1 class="pulse-resource-title">My AI Agents</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p class="pulse-muted" style="margin-bottom: 24px;">
+      AI Agents in Harmonic are identities for AI agents managed by you, the primary agent.
+    </p>
+    <p class="pulse-muted" style="margin-bottom: 24px;">
+      AI Agents can be powered externally through the API or internally using Harmonic's agent runners.
+    </p>
+
+    <% if @ai_agents.any? %>
+      <div class="pulse-ai-agents-list">
+        <% @ai_agents.each do |ai_agent| %>
+          <% active_superagent_members = ai_agent.superagent_members.reject(&:archived?) %>
+          <% all_ai_agent_studios = active_superagent_members.map(&:superagent) %>
+          <% ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_superagent } %>
+
+          <div class="pulse-ai-agent-card">
+            <div class="pulse-ai-agent-header">
+              <img src="<%= ai_agent.image_url %>" alt="<%= ai_agent.name %>" class="pulse-ai-agent-avatar">
+              <div class="pulse-ai-agent-info">
+                <div class="pulse-ai-agent-name">
+                  <a href="<%= ai_agent.path %>"><%= ai_agent.name %></a>
+                  <% if ai_agent.archived? %>
+                    <span class="pulse-badge pulse-badge-muted">Archived</span>
+                  <% end %>
+                </div>
+                <span class="pulse-ai-agent-meta">Created <%= timeago(ai_agent.created_at) %></span>
+                <% latest_run = @latest_runs_by_ai_agent[ai_agent.id] %>
+                <% if latest_run %>
+                  <div class="pulse-ai-agent-latest-run" style="margin-top: 4px;">
+                    <a href="<%= ai_agent_run_path(ai_agent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id }&.handle, latest_run.id) %>" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; text-decoration: none;">
+                      <span class="pulse-muted">Last run <%= timeago(latest_run.created_at) %></span>
+                      <span class="pulse-badge <%= latest_run.status_badge_class %>" style="font-size: 10px;">
+                        <% case latest_run.status %>
+                        <% when "completed" %>
+                          <%= latest_run.success ? 'Success' : 'Failed' %>
+                        <% when "running" %>
+                          Running
+                        <% when "queued" %>
+                          Queued
+                        <% else %>
+                          <%= latest_run.status.titleize %>
+                        <% end %>
+                      </span>
+                    </a>
+                  </div>
+                <% end %>
+              </div>
+              <div class="pulse-ai-agent-actions">
+                <% unless ai_agent.archived? %>
+                  <a href="<%= ai_agent_run_task_path(ai_agent.handle) %>" class="pulse-action-btn-small">
+                    <%= octicon 'play', height: 12 %> Run Task
+                  </a>
+                  <a href="<%= ai_agent_runs_path(ai_agent.handle) %>" class="pulse-action-btn-small">
+                    <%= octicon 'history', height: 12 %> Runs
+                  </a>
+                <% end %>
+                <a href="<%= ai_agent.path %>/settings" class="pulse-action-btn-small">Settings</a>
+              </div>
+            </div>
+
+            <% if ai_agent_studios.any? %>
+              <div class="pulse-ai-agent-studios">
+                <label class="pulse-form-label">Studio Memberships</label>
+                <ul class="pulse-studio-membership-list">
+                  <% ai_agent_studios.each do |s| %>
+                    <li class="pulse-studio-membership-item">
+                      <a href="<%= s.path %>"><%= s.name %></a>
+                    </li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="pulse-empty-state" style="text-align: center; padding: 48px 24px;">
+        <%= octicon 'command-palette', height: 48, class: 'pulse-muted' %>
+        <h3 style="margin: 16px 0 8px 0;">No AI Agents Yet</h3>
+        <p class="pulse-muted" style="margin-bottom: 16px;">Create an AI Agent to start running automated tasks.</p>
+        <a href="<%= @current_user.path %>/settings/ai-agents/new" class="pulse-action-btn">
+          <%= octicon 'person-add', height: 14 %>
+          Create AI Agent
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>

@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { getCsrfToken } from "../utils/csrf"
 
 /**
  * Handles inline reply forms within comment threads.
@@ -7,12 +8,6 @@ import { Controller } from "@hotwired/stimulus"
  * - Submits replies via AJAX and refreshes the thread
  */
 export default class CommentThreadController extends Controller {
-  get csrfToken(): string {
-    const meta = document.querySelector(
-      "meta[name='csrf-token']"
-    ) as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
 
   private async refreshCommentsList(): Promise<void> {
     // Find the parent comments section and get the refresh URL
@@ -176,7 +171,7 @@ export default class CommentThreadController extends Controller {
       const response = await fetch(`${commentPath}/actions/confirm_read`, {
         method: "POST",
         headers: {
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
           Accept: "application/json",
         },
       })
@@ -238,7 +233,7 @@ export default class CommentThreadController extends Controller {
       const response = await fetch(form.action, {
         method: "POST",
         headers: {
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
           Accept: "application/json",
         },
         body: formData,

@@ -5,7 +5,7 @@
 # for content created while someone was acting on behalf of another user.
 #
 # Display patterns:
-# - Subagent content: "Alice (managed by Bob)" - Alice is subagent, Bob is parent
+# - AI Agent content: "Alice (managed by Bob)" - Alice is AI agent, Bob is parent
 # - Representation content: "Alice on behalf of Bob" - Alice is representative, Bob is created_by
 module HasRepresentationSessionEvents
   extend ActiveSupport::Concern

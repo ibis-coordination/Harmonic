@@ -1,0 +1,37 @@
+<%#
+  Shared avatar partial for consistent avatar rendering across the app.
+
+  Required locals:
+    user: User object with display_name, image_url, and path methods
+
+  Optional locals:
+    size: CSS class suffix for size variant (e.g., "small", "large"). Default: nil (standard size)
+    show_link: Whether to wrap in a link to user.path. Default: false
+    title: Custom title attribute. Default: user.display_name
+    css_class: Replaces default class if provided. Default: "pulse-author-avatar"
+%>
+<%
+  size ||= nil
+  show_link ||= false
+  title ||= user&.display_name
+  css_class ||= "pulse-author-avatar"
+
+  initials = avatar_initials(user&.display_name || user&.handle)
+  has_image = user&.image_url.present? && user.image_url != "/placeholder.png"
+
+  avatar_class = css_class
+  avatar_class += " pulse-avatar-#{size}" if size
+%>
+<% avatar_content = capture do %>
+  <div class="<%= avatar_class %>" title="<%= title %>">
+    <span class="pulse-avatar-initials"><%= initials %></span>
+    <% if has_image %>
+      <img src="<%= user.image_url %>" alt="<%= user.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
+    <% end %>
+  </div>
+<% end %>
+<% if show_link && user&.respond_to?(:path) %>
+  <a href="<%= user.path %>"><%= avatar_content %></a>
+<% else %>
+  <%= avatar_content %>
+<% end %>

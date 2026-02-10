@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { fetchWithCsrf } from "../utils/csrf"
 
 export default class NoteController extends Controller {
   static targets = ["confirmButton", "confirmButtonMessage", "confirmSection", "historyLog"]
@@ -15,11 +16,6 @@ export default class NoteController extends Controller {
     // connected
   }
 
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   async confirm(event: Event): Promise<void> {
     event.preventDefault()
     if (this.editingName) return
@@ -29,12 +25,8 @@ export default class NoteController extends Controller {
     if (!url) return
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithCsrf(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": this.csrfToken,
-        },
         body: JSON.stringify({
           confirmed: true,
         }),

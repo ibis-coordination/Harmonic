@@ -73,11 +73,11 @@ module ActionAuthorization
 
       target_user.id == user.id
     },
-    self_subagent: lambda { |user, context|
-      return false unless user&.subagent?
+    self_ai_agent: lambda { |user, context|
+      return false unless user&.ai_agent?
 
       target_user = context[:target_user]
-      # No target_user context = permissive for listing (shows action to subagents)
+      # No target_user context = permissive for listing (shows action to AI agents)
       return true unless target_user
 
       target_user.id == user.id
@@ -116,7 +116,7 @@ module ActionAuthorization
     # Check base authorization first
     return false unless check_authorization(auth, user, context)
 
-    # Then check capability restrictions for subagents
+    # Then check capability restrictions for AI agents
     return false unless CapabilityCheck.allowed?(user, action_name)
 
     # Then check trustee grant restrictions

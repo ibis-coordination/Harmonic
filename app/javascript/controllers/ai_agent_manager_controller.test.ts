@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest"
 import { Application } from "@hotwired/stimulus"
-import SubagentManagerController from "./subagent_manager_controller"
+import AiAgentManagerController from "./ai_agent_manager_controller"
 
-describe("SubagentManagerController", () => {
+describe("AiAgentManagerController", () => {
   let application: Application
 
   beforeEach(() => {
@@ -14,19 +14,19 @@ describe("SubagentManagerController", () => {
 
     // Set up DOM
     document.body.innerHTML = `
-      <div data-controller="subagent-manager" data-subagent-manager-remove-url-value="/studio/settings/remove_subagent">
-        <div data-subagent-manager-target="list">
+      <div data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="/studio/settings/remove_ai_agent">
+        <div data-ai_agent-manager-target="list">
           <table>
             <tbody>
-              <tr data-subagent-id="1">
-                <td><a href="/u/subagent1">Subagent One</a></td>
+              <tr data-ai_agent-id="1">
+                <td><a href="/u/ai_agent1">AiAgent One</a></td>
                 <td><a href="/u/parent1">Parent One</a></td>
                 <td>
                   <button type="button" class="button-small button-danger"
-                          data-action="subagent-manager#remove"
-                          data-subagent-id="1"
-                          data-subagent-name="Subagent One"
-                          data-remove-url="/studio/settings/remove_subagent">
+                          data-action="ai_agent-manager#remove"
+                          data-ai_agent-id="1"
+                          data-ai_agent-name="AiAgent One"
+                          data-remove-url="/studio/settings/remove_ai_agent">
                     Remove
                   </button>
                 </td>
@@ -34,10 +34,10 @@ describe("SubagentManagerController", () => {
             </tbody>
           </table>
         </div>
-        <form data-subagent-manager-target="addForm" data-action="submit->subagent-manager#add" action="/studio/settings/add_subagent">
-          <select data-subagent-manager-target="select">
-            <option value="">Select a subagent...</option>
-            <option value="2">Subagent Two</option>
+        <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="/studio/settings/add_ai_agent">
+          <select data-ai_agent-manager-target="select">
+            <option value="">Select a ai_agent...</option>
+            <option value="2">AiAgent Two</option>
           </select>
           <button type="submit">Add</button>
         </form>
@@ -45,7 +45,7 @@ describe("SubagentManagerController", () => {
     `
 
     application = Application.start()
-    application.register("subagent-manager", SubagentManagerController)
+    application.register("ai_agent-manager", AiAgentManagerController)
   })
 
   afterEach(() => {
@@ -56,13 +56,13 @@ describe("SubagentManagerController", () => {
   })
 
   describe("add", () => {
-    it("sends POST request with selected subagent ID", async () => {
+    it("sends POST request with selected ai_agent ID", async () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          subagent_id: "2",
-          subagent_name: "Subagent Two",
-          subagent_path: "/u/subagent2",
+          ai_agent_id: "2",
+          ai_agent_name: "AiAgent Two",
+          ai_agent_path: "/u/ai_agent2",
           parent_name: "Parent Two",
           parent_path: "/u/parent2",
         }),
@@ -76,7 +76,7 @@ describe("SubagentManagerController", () => {
       form.dispatchEvent(new Event("submit", { bubbles: true }))
 
       expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/studio/settings/add_subagent"),
+        expect.stringContaining("/studio/settings/add_ai_agent"),
         expect.objectContaining({
           method: "POST",
           headers: {
@@ -84,7 +84,7 @@ describe("SubagentManagerController", () => {
             "X-CSRF-Token": "test-csrf-token",
             "Accept": "application/json",
           },
-          body: JSON.stringify({ subagent_id: "2" }),
+          body: JSON.stringify({ ai_agent_id: "2" }),
         })
       )
     })
@@ -93,9 +93,9 @@ describe("SubagentManagerController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          subagent_id: "2",
-          subagent_name: "Subagent Two",
-          subagent_path: "/u/subagent2",
+          ai_agent_id: "2",
+          ai_agent_name: "AiAgent Two",
+          ai_agent_path: "/u/ai_agent2",
           parent_name: "Parent Two",
           parent_path: "/u/parent2",
         }),
@@ -120,9 +120,9 @@ describe("SubagentManagerController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          subagent_id: "2",
-          subagent_name: "Subagent Two",
-          subagent_path: "/u/subagent2",
+          ai_agent_id: "2",
+          ai_agent_name: "AiAgent Two",
+          ai_agent_path: "/u/ai_agent2",
           parent_name: "Parent Two",
           parent_path: "/u/parent2",
         }),
@@ -141,7 +141,7 @@ describe("SubagentManagerController", () => {
       })
     })
 
-    it("does not submit if no subagent selected", () => {
+    it("does not submit if no ai_agent selected", () => {
       const select = document.querySelector("select") as HTMLSelectElement
       select.value = ""
 
@@ -156,10 +156,10 @@ describe("SubagentManagerController", () => {
     it("shows confirmation dialog before removing", () => {
       const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false)
 
-      const button = document.querySelector("button[data-action='subagent-manager#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-manager#remove']") as HTMLButtonElement
       button.click()
 
-      expect(confirmSpy).toHaveBeenCalledWith("Remove Subagent One from this studio?")
+      expect(confirmSpy).toHaveBeenCalledWith("Remove AiAgent One from this studio?")
       expect(fetch).not.toHaveBeenCalled()
     })
 
@@ -168,24 +168,24 @@ describe("SubagentManagerController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          subagent_id: "1",
-          subagent_name: "Subagent One",
+          ai_agent_id: "1",
+          ai_agent_name: "AiAgent One",
           can_readd: true,
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-manager#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-manager#remove']") as HTMLButtonElement
       button.click()
 
-      expect(fetch).toHaveBeenCalledWith("/studio/settings/remove_subagent", {
+      expect(fetch).toHaveBeenCalledWith("/studio/settings/remove_ai_agent", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           "X-CSRF-Token": "test-csrf-token",
           "Accept": "application/json",
         },
-        body: JSON.stringify({ subagent_id: "1" }),
+        body: JSON.stringify({ ai_agent_id: "1" }),
       })
     })
 
@@ -194,18 +194,18 @@ describe("SubagentManagerController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          subagent_id: "1",
-          subagent_name: "Subagent One",
+          ai_agent_id: "1",
+          ai_agent_name: "AiAgent One",
           can_readd: true,
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-manager#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-manager#remove']") as HTMLButtonElement
       button.click()
 
       await vi.waitFor(() => {
-        const row = document.querySelector("tr[data-subagent-id='1']")
+        const row = document.querySelector("tr[data-ai_agent-id='1']")
         expect(row).toBeNull()
       })
     })
@@ -215,20 +215,20 @@ describe("SubagentManagerController", () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
-          subagent_id: "1",
-          subagent_name: "Subagent One",
+          ai_agent_id: "1",
+          ai_agent_name: "AiAgent One",
           can_readd: true,
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-manager#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-manager#remove']") as HTMLButtonElement
       button.click()
 
       await vi.waitFor(() => {
         const option = document.querySelector("option[value='1']")
         expect(option).not.toBeNull()
-        expect(option?.textContent).toBe("Subagent One")
+        expect(option?.textContent).toBe("AiAgent One")
       })
     })
   })

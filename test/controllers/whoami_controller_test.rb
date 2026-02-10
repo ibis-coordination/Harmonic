@@ -71,17 +71,17 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "## Not Logged In"
   end
 
-  # === Subagent User Tests ===
+  # === AiAgent User Tests ===
 
-  test "whoami shows subagent parent info" do
+  test "whoami shows ai_agent parent info" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
 
-    # Create API token for subagent
+    # Create API token for ai_agent
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users],
@@ -92,19 +92,19 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       "Authorization" => "Bearer #{api_token.plaintext_token}",
     }
     assert_response :success
-    assert_includes response.body, "subagent"
+    assert_includes response.body, "managed by"
     assert_includes response.body, @user.display_name
   end
 
-  test "whoami shows subagent identity prompt when set" do
+  test "whoami shows ai_agent identity prompt when set" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Assistant")
-    subagent.update!(agent_configuration: { "identity_prompt" => "You are a helpful assistant for scheduling meetings." })
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test Assistant")
+    ai_agent.update!(agent_configuration: { "identity_prompt" => "You are a helpful assistant for scheduling meetings." })
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users],
@@ -122,11 +122,11 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami does not show identity prompt section when not set" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Agent")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test Agent")
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users],
@@ -199,14 +199,14 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
 
   # === Scratchpad Tests ===
 
-  test "whoami shows scratchpad section for subagents" do
+  test "whoami shows scratchpad section for ai_agents" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users],
@@ -223,12 +223,12 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows scratchpad content when set" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    subagent.update!(agent_configuration: { "scratchpad" => "Remember to check the weekly sync notes." })
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent.update!(agent_configuration: { "scratchpad" => "Remember to check the weekly sync notes." })
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users],
@@ -245,11 +245,11 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows empty scratchpad message when not set" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users],
@@ -273,14 +273,14 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
 
   # === Scratchpad Action Tests ===
 
-  test "actions_index shows update_scratchpad for subagents" do
+  test "actions_index shows update_scratchpad for ai_agents" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users create:all],
@@ -294,14 +294,14 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "update_scratchpad"
   end
 
-  test "update_scratchpad succeeds for subagents" do
+  test "update_scratchpad succeeds for ai_agents" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users create:all],
@@ -316,11 +316,11 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Scratchpad updated successfully"
 
-    subagent.reload
-    assert_equal "Important notes for next task.", subagent.agent_configuration["scratchpad"]
+    ai_agent.reload
+    assert_equal "Important notes for next task.", ai_agent.agent_configuration["scratchpad"]
   end
 
-  test "update_scratchpad returns 403 for non-subagents" do
+  test "update_scratchpad returns 403 for non-ai_agents" do
     sign_in_as(@user, tenant: @tenant)
 
     post "/whoami/actions/update_scratchpad",
@@ -332,11 +332,11 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "update_scratchpad rejects content exceeding max length" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users create:all],
@@ -357,12 +357,12 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "update_scratchpad clears scratchpad with empty content" do
     @tenant.enable_api!
 
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    subagent.update!(agent_configuration: { "scratchpad" => "Old notes" })
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent.update!(agent_configuration: { "scratchpad" => "Old notes" })
+    @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: %w[read:users create:all],
@@ -376,7 +376,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
          }
     assert_response :success
 
-    subagent.reload
-    assert_nil subagent.agent_configuration["scratchpad"]
+    ai_agent.reload
+    assert_nil ai_agent.agent_configuration["scratchpad"]
   end
 end

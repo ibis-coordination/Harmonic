@@ -4,7 +4,7 @@ class ApiAppAdminTest < ActionDispatch::IntegrationTest
   def setup
     # Use a unique subdomain to avoid conflicts with fixtures or other tests
     @primary_tenant = Tenant.create!(subdomain: "admin-api-test-#{SecureRandom.hex(4)}", name: "Admin API Test Tenant")
-    @admin_user = User.create!(email: "admin-#{SecureRandom.hex(4)}@example.com", name: "Admin User", user_type: "person")
+    @admin_user = User.create!(email: "admin-#{SecureRandom.hex(4)}@example.com", name: "Admin User", user_type: "human")
     @primary_tenant.add_user!(@admin_user)
     @primary_tenant.create_main_superagent!(created_by: @admin_user)
 

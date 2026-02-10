@@ -152,7 +152,7 @@ class UserWebhooksController < ApplicationController
     # User can manage their own webhooks
     return if @target_user == @current_user
 
-    # Parent can manage subagent webhooks
+    # Parent can manage ai_agent webhooks
     return if @target_user.parent == @current_user
 
     respond_to do |format|

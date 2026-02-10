@@ -32,7 +32,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
           <% @available_users.each do |user| %>
             <option value="<%= user.id %>">
               <%= user.display_name || user.name %> (<%= user.handle %>)
-              <% if user.subagent? %> - Subagent<% end %>
+              <% if user.ai_agent? %> - AI Agent<% end %>
             </option>
           <% end %>
         </select>

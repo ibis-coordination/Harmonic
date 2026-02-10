@@ -7,7 +7,7 @@
 # to create an autonomous agent that can complete tasks in the app.
 #
 # @example Run an agent to create a note
-#   agent = AgentNavigator.new(user: subagent, tenant: tenant, superagent: studio)
+#   agent = AgentNavigator.new(user: ai_agent, tenant: tenant, superagent: studio)
 #   result = agent.run(task: "Create a note saying hello to the team")
 #   result[:steps].each { |step| puts step[:type] }
 #
@@ -77,7 +77,7 @@ class AgentNavigator
   # @param max_steps [Integer] Maximum number of actions before stopping
   # @return [Result] The result including all steps taken
   sig { params(task: String, max_steps: Integer).returns(Result) }
-  def run(task:, max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS)
+  def run(task:, max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS)
     @service.with_internal_token do
       run_with_token(task: task, max_steps: max_steps)
     end
@@ -329,10 +329,10 @@ class AgentNavigator
 
   sig { params(step: Step).void }
   def persist_step(step)
-    task_run_id = SubagentTaskRun.current_id
+    task_run_id = AiAgentTaskRun.current_id
     return unless task_run_id
 
-    task_run = SubagentTaskRun.find_by(id: task_run_id)
+    task_run = AiAgentTaskRun.find_by(id: task_run_id)
     return unless task_run
 
     # Append the new step to steps_data

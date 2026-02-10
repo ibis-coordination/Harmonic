@@ -238,12 +238,12 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     studio_session.end!
 
     # Create a user representation session via trustee grant (this should NOT appear)
-    subagent = create_user(email: "subagent_#{SecureRandom.hex(4)}@example.com", name: "Subagent User")
-    @tenant.add_user!(subagent)
-    @superagent.add_user!(subagent)
+    ai_agent = create_user(email: "ai_agent_#{SecureRandom.hex(4)}@example.com", name: "AiAgent User")
+    @tenant.add_user!(ai_agent)
+    @superagent.add_user!(ai_agent)
     grant = create_trustee_grant(
       tenant: @tenant,
-      granting_user: subagent,
+      granting_user: ai_agent,
       trustee_user: @user,
       accepted: true,
     )

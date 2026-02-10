@@ -76,7 +76,7 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
     new_user = User.find_by(email: new_email)
     assert_not_nil new_user
     assert_equal "New User", new_user.name
-    assert_equal "person", new_user.user_type
+    assert_equal "human", new_user.user_type
   end
 
   # === Single Tenant Mode Tests ===
@@ -89,7 +89,7 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
     # Create tenant matching PRIMARY_SUBDOMAIN
     tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN']) ||
              Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
-    user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
+    user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
     tenant.add_user!(user)
     tenant.create_main_superagent!(created_by: user) unless tenant.main_superagent
 
@@ -110,7 +110,7 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
 
     tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN']) ||
              Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
-    user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
+    user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
     tenant.add_user!(user)
     tenant.create_main_superagent!(created_by: user) unless tenant.main_superagent
 

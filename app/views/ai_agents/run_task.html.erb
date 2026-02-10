@@ -1,7 +1,7 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   ['Home', '/'],
-  ['My Subagents', subagents_path],
-  @subagent.name
+  ['My AI Agents', ai_agents_path],
+  @ai_agent.name
 ] %>
 
 <article class="pulse-resource-detail">
@@ -11,26 +11,26 @@
         <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
         Run Task
       </span>
-      <a href="<%= subagent_runs_path(@subagent.handle) %>" class="pulse-feed-action-link" style="margin-left: auto;">
+      <a href="<%= ai_agent_runs_path(@ai_agent.handle) %>" class="pulse-feed-action-link" style="margin-left: auto;">
         <%= octicon 'history', height: 14 %> View Past Runs
       </a>
     </div>
-    <h1 class="pulse-resource-title">Run Task with <%= @subagent.name %></h1>
+    <h1 class="pulse-resource-title">Run Task with <%= @ai_agent.name %></h1>
   </header>
 
   <div class="pulse-resource-body">
-    <div class="pulse-subagent-card" style="margin-bottom: 24px;">
-      <div class="pulse-subagent-header">
-        <img src="<%= @subagent.image_url %>" alt="<%= @subagent.name %>" class="pulse-subagent-avatar">
-        <div class="pulse-subagent-info">
-          <div class="pulse-subagent-name">
-            <a href="<%= @subagent.path %>"><%= @subagent.name %></a>
+    <div class="pulse-ai-agent-card" style="margin-bottom: 24px;">
+      <div class="pulse-ai-agent-header">
+        <img src="<%= @ai_agent.image_url %>" alt="<%= @ai_agent.name %>" class="pulse-ai-agent-avatar">
+        <div class="pulse-ai-agent-info">
+          <div class="pulse-ai-agent-name">
+            <a href="<%= @ai_agent.path %>"><%= @ai_agent.name %></a>
           </div>
         </div>
       </div>
     </div>
 
-    <%= form_tag subagent_execute_task_path(@subagent.handle), method: :post do %>
+    <%= form_tag ai_agent_execute_task_path(@ai_agent.handle), method: :post do %>
       <div class="pulse-form-group">
         <label for="task" class="pulse-form-label">Task for the Agent</label>
         <textarea
@@ -62,7 +62,7 @@
         <button type="submit" class="pulse-action-btn">
           <%= octicon 'play', height: 14 %> Run Task
         </button>
-        <a href="<%= subagents_path %>" class="pulse-action-btn-secondary">Cancel</a>
+        <a href="<%= ai_agents_path %>" class="pulse-action-btn-secondary">Cancel</a>
       </div>
     <% end %>
 

@@ -11,16 +11,16 @@ class AgentQueueProcessorJob < ApplicationJob
   # Tasks running longer than this are considered stuck and will be marked as failed
   STUCK_TASK_TIMEOUT = 15.minutes
 
-  sig { params(subagent_id: String, tenant_id: String).void }
-  def perform(subagent_id:, tenant_id:)
+  sig { params(ai_agent_id: String, tenant_id: String).void }
+  def perform(ai_agent_id:, tenant_id:)
     tenant = Tenant.find_by(id: tenant_id)
-    subagent = User.find_by(id: subagent_id)
+    ai_agent = User.find_by(id: ai_agent_id)
 
-    return unless tenant && subagent
-    return unless subagent.subagent?
-    return unless tenant.subagents_enabled?
+    return unless tenant && ai_agent
+    return unless ai_agent.ai_agent?
+    return unless tenant.ai_agents_enabled?
 
-    task_run = claim_next_task(subagent, tenant)
+    task_run = claim_next_task(ai_agent, tenant)
     return unless task_run
 
     set_context(tenant, task_run)
@@ -30,26 +30,26 @@ class AgentQueueProcessorJob < ApplicationJob
     ensure
       restore_context
       # Check for more queued tasks
-      schedule_next_task(subagent_id, tenant_id)
+      schedule_next_task(ai_agent_id, tenant_id)
     end
   end
 
   private
 
-  sig { params(subagent: User, tenant: Tenant).returns(T.nilable(SubagentTaskRun)) }
-  def claim_next_task(subagent, tenant)
-    claimed_task = T.let(nil, T.nilable(SubagentTaskRun))
+  sig { params(ai_agent: User, tenant: Tenant).returns(T.nilable(AiAgentTaskRun)) }
+  def claim_next_task(ai_agent, tenant)
+    claimed_task = T.let(nil, T.nilable(AiAgentTaskRun))
 
-    subagent.with_lock do
+    ai_agent.with_lock do
       # Check for stuck tasks first - recover before checking if something is running
-      recover_stuck_tasks(subagent, tenant)
+      recover_stuck_tasks(ai_agent, tenant)
 
       # Already running? Exit - the running job will trigger us when done
-      next if SubagentTaskRun.exists?(subagent: subagent, tenant: tenant, status: "running")
+      next if AiAgentTaskRun.exists?(ai_agent: ai_agent, tenant: tenant, status: "running")
 
       # Get oldest queued task
-      next_task = SubagentTaskRun
-        .where(subagent: subagent, tenant: tenant, status: "queued")
+      next_task = AiAgentTaskRun
+        .where(ai_agent: ai_agent, tenant: tenant, status: "queued")
         .order(:created_at)
         .first
 
@@ -63,16 +63,16 @@ class AgentQueueProcessorJob < ApplicationJob
     claimed_task
   end
 
-  sig { params(subagent: User, tenant: Tenant).void }
-  def recover_stuck_tasks(subagent, tenant)
-    stuck_tasks = SubagentTaskRun
-      .where(subagent: subagent, tenant: tenant, status: "running")
+  sig { params(ai_agent: User, tenant: Tenant).void }
+  def recover_stuck_tasks(ai_agent, tenant)
+    stuck_tasks = AiAgentTaskRun
+      .where(ai_agent: ai_agent, tenant: tenant, status: "running")
       .where("started_at < ?", STUCK_TASK_TIMEOUT.ago)
 
     stuck_tasks.find_each do |task|
       Rails.logger.warn(
         "[AgentQueueProcessorJob] Recovering stuck task " \
-        "id=#{task.id} subagent_id=#{subagent.id} " \
+        "id=#{task.id} ai_agent_id=#{ai_agent.id} " \
         "started_at=#{task.started_at} duration=#{Time.current - task.started_at}s"
       )
 
@@ -85,10 +85,10 @@ class AgentQueueProcessorJob < ApplicationJob
     end
   end
 
-  sig { params(task_run: SubagentTaskRun).void }
+  sig { params(task_run: AiAgentTaskRun).void }
   def run_task(task_run)
     navigator = self.class.navigator_class.new(
-      user: task_run.subagent,
+      user: task_run.ai_agent,
       tenant: task_run.tenant,
       superagent: resolve_superagent(task_run),
       model: task_run.model
@@ -107,13 +107,13 @@ class AgentQueueProcessorJob < ApplicationJob
     )
   end
 
-  sig { params(task_run: SubagentTaskRun).returns(T.nilable(Superagent)) }
+  sig { params(task_run: AiAgentTaskRun).returns(T.nilable(Superagent)) }
   def resolve_superagent(task_run)
     # Extract superagent from task path if possible, or use first available
-    T.must(task_run.subagent).superagent_members.first&.superagent
+    T.must(task_run.ai_agent).superagent_members.first&.superagent
   end
 
-  sig { params(tenant: Tenant, task_run: SubagentTaskRun).void }
+  sig { params(tenant: Tenant, task_run: AiAgentTaskRun).void }
   def set_context(tenant, task_run)
     # Save existing context so we can restore it after the job completes
     # This is important for test isolation when jobs run inline
@@ -122,14 +122,14 @@ class AgentQueueProcessorJob < ApplicationJob
     @saved_main_superagent_id = Tenant.current_main_superagent_id
     @saved_superagent_id = Superagent.current_id
     @saved_superagent_handle = Superagent.current_handle
-    @saved_task_run_id = SubagentTaskRun.current_id
+    @saved_task_run_id = AiAgentTaskRun.current_id
 
     Tenant.current_subdomain = tenant.subdomain
     Tenant.current_id = tenant.id
     Tenant.current_main_superagent_id = tenant.main_superagent_id
 
     # Set task run context for resource tracking
-    SubagentTaskRun.current_id = task_run.id
+    AiAgentTaskRun.current_id = task_run.id
 
     # Clear any stale superagent context before conditionally setting new one
     Superagent.clear_thread_scope
@@ -150,11 +150,11 @@ class AgentQueueProcessorJob < ApplicationJob
     Thread.current[:main_superagent_id] = @saved_main_superagent_id
     Thread.current[:superagent_id] = @saved_superagent_id
     Thread.current[:superagent_handle] = @saved_superagent_handle
-    Thread.current[:subagent_task_run_id] = @saved_task_run_id
+    Thread.current[:ai_agent_task_run_id] = @saved_task_run_id
   end
 
-  sig { params(subagent_id: String, tenant_id: String).void }
-  def schedule_next_task(subagent_id, tenant_id)
-    AgentQueueProcessorJob.perform_later(subagent_id: subagent_id, tenant_id: tenant_id)
+  sig { params(ai_agent_id: String, tenant_id: String).void }
+  def schedule_next_task(ai_agent_id, tenant_id)
+    AgentQueueProcessorJob.perform_later(ai_agent_id: ai_agent_id, tenant_id: tenant_id)
   end
 end

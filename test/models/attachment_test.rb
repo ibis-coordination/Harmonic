@@ -5,7 +5,7 @@ require "test_helper"
 class AttachmentTest < ActiveSupport::TestCase
   def setup
     @tenant = Tenant.create!(subdomain: "attach-test-#{SecureRandom.hex(4)}", name: "Test Tenant")
-    @user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
+    @user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
     @superagent = Superagent.create!(tenant: @tenant, created_by: @user, name: "Test Studio", handle: "test-studio-#{SecureRandom.hex(4)}")
     Thread.current[:tenant_id] = @tenant.id
     Thread.current[:superagent_id] = @superagent.id

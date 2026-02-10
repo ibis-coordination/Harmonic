@@ -281,9 +281,6 @@ class Note
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
-    def build_representation_session_association(*args, &blk); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
     def build_superagent(*args, &blk); end
 
@@ -318,12 +315,6 @@ class Note
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
-    def create_representation_session_association(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
-    def create_representation_session_association!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
     def create_superagent(*args, &blk); end
@@ -383,9 +374,6 @@ class Note
     sig { returns(T.nilable(::User)) }
     def reload_created_by; end
 
-    sig { returns(T.nilable(::RepresentationSessionAssociation)) }
-    def reload_representation_session_association; end
-
     sig { returns(T.nilable(::Superagent)) }
     def reload_superagent; end
 
@@ -394,12 +382,6 @@ class Note
 
     sig { returns(T.nilable(::User)) }
     def reload_updated_by; end
-
-    sig { returns(T.nilable(::RepresentationSessionAssociation)) }
-    def representation_session_association; end
-
-    sig { params(value: T.nilable(::RepresentationSessionAssociation)).void }
-    def representation_session_association=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def representation_session_event_ids; end
@@ -420,9 +402,6 @@ class Note
 
     sig { void }
     def reset_created_by; end
-
-    sig { void }
-    def reset_representation_session_association; end
 
     sig { void }
     def reset_superagent; end

@@ -270,9 +270,6 @@ class Option
     sig { params(args: T.untyped, blk: T.untyped).returns(::DecisionParticipant) }
     def build_decision_participant(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
-    def build_representation_session_association(*args, &blk); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
     def build_superagent(*args, &blk); end
 
@@ -290,12 +287,6 @@ class Option
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::DecisionParticipant) }
     def create_decision_participant!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
-    def create_representation_session_association(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
-    def create_representation_session_association!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
     def create_superagent(*args, &blk); end
@@ -327,20 +318,11 @@ class Option
     sig { returns(T.nilable(::DecisionParticipant)) }
     def reload_decision_participant; end
 
-    sig { returns(T.nilable(::RepresentationSessionAssociation)) }
-    def reload_representation_session_association; end
-
     sig { returns(T.nilable(::Superagent)) }
     def reload_superagent; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
-
-    sig { returns(T.nilable(::RepresentationSessionAssociation)) }
-    def representation_session_association; end
-
-    sig { params(value: T.nilable(::RepresentationSessionAssociation)).void }
-    def representation_session_association=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def representation_session_event_ids; end
@@ -361,9 +343,6 @@ class Option
 
     sig { void }
     def reset_decision_participant; end
-
-    sig { void }
-    def reset_representation_session_association; end
 
     sig { void }
     def reset_superagent; end

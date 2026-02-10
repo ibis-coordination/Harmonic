@@ -16,22 +16,22 @@ class UserTest < ActiveSupport::TestCase
     user = User.create!(
       email: "#{SecureRandom.hex(8)}@example.com",
       name: 'Test Person',
-      user_type: 'person'
+      user_type: "human"
     )
     assert user.persisted?
     assert_equal 'Test Person', user.name
-    assert_equal 'person', user.user_type
+    assert_equal "human", user.user_type
     assert user.email.present?
   end
 
   test "User requires email" do
-    user = User.new(name: "No Email", user_type: "person")
+    user = User.new(name: "No Email", user_type: "human")
     assert_not user.valid?
     assert_includes user.errors[:email], "can't be blank"
   end
 
   test "User requires name" do
-    user = User.new(email: "noemail@example.com", user_type: "person")
+    user = User.new(email: "noemail@example.com", user_type: "human")
     assert_not user.valid?
     assert_includes user.errors[:name], "can't be blank"
   end
@@ -45,25 +45,25 @@ class UserTest < ActiveSupport::TestCase
   # === User Type Helper Methods ===
 
   test "person? returns true for person user type" do
-    user = User.new(user_type: "person")
-    assert user.person?
-    assert_not user.subagent?
+    user = User.new(user_type: "human")
+    assert user.human?
+    assert_not user.ai_agent?
     assert_not user.superagent_proxy?
   end
 
-  test "subagent? returns true for subagent user type" do
+  test "ai_agent? returns true for ai_agent user type" do
     parent = create_user
-    user = User.new(user_type: "subagent", parent_id: parent.id)
-    assert user.subagent?
-    assert_not user.person?
+    user = User.new(user_type: "ai_agent", parent_id: parent.id)
+    assert user.ai_agent?
+    assert_not user.human?
     assert_not user.superagent_proxy?
   end
 
   test "superagent_proxy? returns true for superagent_proxy user type" do
     user = User.new(user_type: "superagent_proxy")
     assert user.superagent_proxy?
-    assert_not user.person?
-    assert_not user.subagent?
+    assert_not user.human?
+    assert_not user.ai_agent?
   end
 
   # === Association Tests ===
@@ -87,16 +87,16 @@ class UserTest < ActiveSupport::TestCase
     assert tenant2_membership.present?, "User should be added to tenant2"
   end
 
-  test "user can have subagent users as children" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent User",
-      user_type: "subagent",
+  test "user can have ai_agent users as children" do
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "AiAgent User",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
 
-    assert_includes @user.subagents, subagent
-    assert_equal @user.id, subagent.parent_id
+    assert_includes @user.ai_agents, ai_agent
+    assert_equal @user.id, ai_agent.parent_id
   end
 
   # === Display Name and Handle Tests ===
@@ -117,27 +117,27 @@ class UserTest < ActiveSupport::TestCase
     assert_equal "Alice", @user.display_name_with_parent
   end
 
-  test "display_name_with_parent for subagent includes parent name" do
+  test "display_name_with_parent for ai_agent includes parent name" do
     @user.tenant_user.update!(display_name: "Bob")
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
       name: "Alice Bot",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent)
-    subagent.tenant_user.update!(display_name: "Alice")
-    assert_equal "Alice (subagent of Bob)", subagent.display_name_with_parent
+    @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user.update!(display_name: "Alice")
+    assert_equal "Alice (AI agent of Bob)", ai_agent.display_name_with_parent
   end
 
-  test "parent returns parent user for subagent" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent",
-      user_type: "subagent",
+  test "parent returns parent user for ai_agent" do
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    assert_equal @user, subagent.parent
+    assert_equal @user, ai_agent.parent
   end
 
   test "parent returns nil for person user" do
@@ -169,14 +169,14 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.can_edit?(other_user)
   end
 
-  test "parent can edit subagent child" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent User",
-      user_type: "subagent",
+  test "parent can edit ai_agent child" do
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "AiAgent User",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    assert @user.can_edit?(subagent)
+    assert @user.can_edit?(ai_agent)
   end
 
   # === Invite Acceptance Tests ===
@@ -311,25 +311,25 @@ class UserTest < ActiveSupport::TestCase
     assert_not other_user.can_represent?(@superagent)
   end
 
-  test "can_represent? returns true for parent representing subagent" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent For Rep")
-    @tenant.add_user!(subagent)
-    assert @user.can_represent?(subagent)
+  test "can_represent? returns true for parent representing ai_agent" do
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent For Rep")
+    @tenant.add_user!(ai_agent)
+    assert @user.can_represent?(ai_agent)
   end
 
-  test "can_represent? returns false for archived subagent" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent Archived")
-    @tenant.add_user!(subagent)
-    subagent.tenant_user.archive!
-    assert_not @user.can_represent?(subagent)
+  test "can_represent? returns false for archived ai_agent" do
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent Archived")
+    @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user.archive!
+    assert_not @user.can_represent?(ai_agent)
   end
 
   test "can_represent? returns false for non-parent user" do
     other_parent = create_user(email: "other_parent_#{SecureRandom.hex(4)}@example.com", name: "Other Parent")
     @tenant.add_user!(other_parent)
-    subagent = create_subagent(parent: other_parent, name: "Other Subagent")
-    @tenant.add_user!(subagent)
-    assert_not @user.can_represent?(subagent)
+    ai_agent = create_ai_agent(parent: other_parent, name: "Other AiAgent")
+    @tenant.add_user!(ai_agent)
+    assert_not @user.can_represent?(ai_agent)
   end
 
   test "can_represent? returns true for representative representing studio proxy" do
@@ -357,28 +357,28 @@ class UserTest < ActiveSupport::TestCase
     assert_not other_user.can_represent?(proxy)
   end
 
-  # === Subagent Validation Tests ===
+  # === AiAgent Validation Tests ===
 
-  test "subagent must have parent_id" do
-    subagent = User.new(
-      email: "subagent@example.com",
-      name: "Subagent Without Parent",
-      user_type: "subagent",
+  test "ai_agent must have parent_id" do
+    ai_agent = User.new(
+      email: "ai_agent@example.com",
+      name: "AiAgent Without Parent",
+      user_type: "ai_agent",
       parent_id: nil,
     )
-    assert_not subagent.valid?
-    assert_includes subagent.errors[:parent_id], "must be set for subagent users"
+    assert_not ai_agent.valid?
+    assert_includes ai_agent.errors[:parent_id], "must be set for AI agent users"
   end
 
   test "person cannot have parent_id" do
     person = User.new(
       email: "person@example.com",
       name: "Person With Parent",
-      user_type: "person",
+      user_type: "human",
       parent_id: @user.id,
     )
     assert_not person.valid?
-    assert_includes person.errors[:parent_id], "can only be set for subagent users"
+    assert_includes person.errors[:parent_id], "can only be set for AI agent users"
   end
 
   test "user cannot be their own parent" do
@@ -537,120 +537,120 @@ class UserTest < ActiveSupport::TestCase
     assert token2.deleted?, "Token 2 should be soft-deleted after user suspension"
   end
 
-  test "suspend! suspends all direct subagents" do
+  test "suspend! suspends all direct ai_agents" do
     admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
     @tenant.add_user!(admin)
 
-    # Create subagents for the user
-    subagent1 = User.create!(
-      email: "subagent1_#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent 1",
-      user_type: "subagent",
+    # Create ai_agents for the user
+    ai_agent1 = User.create!(
+      email: "ai_agent1_#{SecureRandom.hex(4)}@example.com",
+      name: "AiAgent 1",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent1)
+    @tenant.add_user!(ai_agent1)
 
-    subagent2 = User.create!(
-      email: "subagent2_#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent 2",
-      user_type: "subagent",
+    ai_agent2 = User.create!(
+      email: "ai_agent2_#{SecureRandom.hex(4)}@example.com",
+      name: "AiAgent 2",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent2)
+    @tenant.add_user!(ai_agent2)
 
-    assert_not subagent1.suspended?
-    assert_not subagent2.suspended?
+    assert_not ai_agent1.suspended?
+    assert_not ai_agent2.suspended?
 
     @user.suspend!(by: admin, reason: "Policy violation")
 
-    subagent1.reload
-    subagent2.reload
+    ai_agent1.reload
+    ai_agent2.reload
 
-    assert subagent1.suspended?, "Subagent 1 should be suspended when parent is suspended"
-    assert subagent2.suspended?, "Subagent 2 should be suspended when parent is suspended"
-    assert_equal admin.id, subagent1.suspended_by_id
-    assert_equal "Parent user suspended: Policy violation", subagent1.suspended_reason
+    assert ai_agent1.suspended?, "AiAgent 1 should be suspended when parent is suspended"
+    assert ai_agent2.suspended?, "AiAgent 2 should be suspended when parent is suspended"
+    assert_equal admin.id, ai_agent1.suspended_by_id
+    assert_equal "Parent user suspended: Policy violation", ai_agent1.suspended_reason
   end
 
-  test "suspend! recursively suspends nested subagents" do
+  test "suspend! recursively suspends nested ai_agents" do
     admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
     @tenant.add_user!(admin)
 
-    # Create a chain: user -> subagent1 -> nested_subagent
-    subagent1 = User.create!(
-      email: "subagent1_#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent 1",
-      user_type: "subagent",
+    # Create a chain: user -> ai_agent1 -> nested_ai_agent
+    ai_agent1 = User.create!(
+      email: "ai_agent1_#{SecureRandom.hex(4)}@example.com",
+      name: "AiAgent 1",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent1)
+    @tenant.add_user!(ai_agent1)
 
-    nested_subagent = User.create!(
+    nested_ai_agent = User.create!(
       email: "nested_#{SecureRandom.hex(4)}@example.com",
-      name: "Nested Subagent",
-      user_type: "subagent",
-      parent_id: subagent1.id
+      name: "Nested AiAgent",
+      user_type: "ai_agent",
+      parent_id: ai_agent1.id
     )
-    @tenant.add_user!(nested_subagent)
+    @tenant.add_user!(nested_ai_agent)
 
-    assert_not nested_subagent.suspended?
+    assert_not nested_ai_agent.suspended?
 
     @user.suspend!(by: admin, reason: "Policy violation")
 
-    nested_subagent.reload
+    nested_ai_agent.reload
 
-    assert nested_subagent.suspended?, "Nested subagent should be suspended when grandparent is suspended"
+    assert nested_ai_agent.suspended?, "Nested ai_agent should be suspended when grandparent is suspended"
   end
 
-  test "suspend! soft-deletes API tokens of all subagents recursively" do
+  test "suspend! soft-deletes API tokens of all ai_agents recursively" do
     admin = create_user(email: "admin_#{SecureRandom.hex(4)}@example.com", name: "Admin User")
     @tenant.add_user!(admin)
 
-    # Create a subagent with API tokens
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Subagent",
-      user_type: "subagent",
+    # Create a ai_agent with API tokens
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
 
-    # Create nested subagent with API tokens
-    nested_subagent = User.create!(
+    # Create nested ai_agent with API tokens
+    nested_ai_agent = User.create!(
       email: "nested_#{SecureRandom.hex(4)}@example.com",
-      name: "Nested Subagent",
-      user_type: "subagent",
-      parent_id: subagent.id
+      name: "Nested AiAgent",
+      user_type: "ai_agent",
+      parent_id: ai_agent.id
     )
-    @tenant.add_user!(nested_subagent)
+    @tenant.add_user!(nested_ai_agent)
 
-    # Create tokens for subagents
-    subagent_token = ApiToken.create!(
-      user: subagent,
+    # Create tokens for ai_agents
+    ai_agent_token = ApiToken.create!(
+      user: ai_agent,
       tenant: @tenant,
-      name: "Subagent Token",
+      name: "AiAgent Token",
       scopes: ["read:all"],
       expires_at: 1.year.from_now
     )
 
     nested_token = ApiToken.create!(
-      user: nested_subagent,
+      user: nested_ai_agent,
       tenant: @tenant,
       name: "Nested Token",
       scopes: ["read:all"],
       expires_at: 1.year.from_now
     )
 
-    assert subagent_token.active?
+    assert ai_agent_token.active?
     assert nested_token.active?
 
     @user.suspend!(by: admin, reason: "Policy violation")
 
-    subagent_token.reload
+    ai_agent_token.reload
     nested_token.reload
 
-    assert subagent_token.deleted?, "Subagent's token should be soft-deleted when parent is suspended"
-    assert nested_token.deleted?, "Nested subagent's token should be soft-deleted when grandparent is suspended"
+    assert ai_agent_token.deleted?, "AiAgent's token should be soft-deleted when parent is suspended"
+    assert nested_token.deleted?, "Nested ai_agent's token should be soft-deleted when grandparent is suspended"
   end
 
   test "suspend! soft-deletes API tokens across ALL tenants, not just current tenant" do
@@ -870,19 +870,19 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.is_trusted_as?(proxy)
   end
 
-  # === Auto-creation of TrusteeGrant for Subagents (Phase 7) ===
+  # === Auto-creation of TrusteeGrant for AiAgents (Phase 7) ===
 
-  test "creating a subagent auto-creates TrusteeGrant for parent" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Test Subagent",
-      user_type: "subagent",
+  test "creating a ai_agent auto-creates TrusteeGrant for parent" do
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
 
     # Should auto-create a TrusteeGrant
-    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
-    assert permission.present?, "TrusteeGrant should be auto-created when subagent is created"
+    permission = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @user)
+    assert permission.present?, "TrusteeGrant should be auto-created when ai_agent is created"
     assert permission.active?, "Auto-created permission should be pre-accepted (active)"
     assert permission.accepted_at.present?
     # trustee_user is the parent (a regular person, not a superagent_proxy type)
@@ -890,28 +890,28 @@ class UserTest < ActiveSupport::TestCase
     assert_not permission.trustee_user.superagent_proxy?
   end
 
-  test "parent can represent subagent via auto-created TrusteeGrant" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Test Subagent",
-      user_type: "subagent",
+  test "parent can represent ai_agent via auto-created TrusteeGrant" do
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    @tenant.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
 
-    # Parent should be able to represent the subagent
-    assert @user.can_represent?(subagent)
+    # Parent should be able to represent the ai_agent
+    assert @user.can_represent?(ai_agent)
   end
 
   test "auto-created TrusteeGrant has all action permissions" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Test Subagent",
-      user_type: "subagent",
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
 
-    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
+    permission = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @user)
     assert permission.present?
 
     # Should have all grantable actions
@@ -921,14 +921,14 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "auto-created TrusteeGrant allows all studios" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Test Subagent",
-      user_type: "subagent",
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
 
-    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
+    permission = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @user)
     assert permission.present?
     assert permission.allows_studio?(@superagent)
   end

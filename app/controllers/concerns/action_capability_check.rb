@@ -1,6 +1,6 @@
 # typed: false
 
-# ActionCapabilityCheck provides execution-time capability checking for subagent actions.
+# ActionCapabilityCheck provides execution-time capability checking for AI agent actions.
 #
 # This concern is a defense-in-depth measure that blocks unauthorized actions
 # even if they somehow bypass the action listing filter (e.g., cached pages,
@@ -65,7 +65,7 @@ module ActionCapabilityCheck
     # Studios - legacy HTML routes
     "studios#create" => "create_studio",
     "studios#update_settings" => "update_studio_settings",
-    "studios#add_subagent" => "add_subagent_to_studio",
+    "studios#add_ai_agent" => "add_ai_agent_to_studio",
     "studios#accept_invite" => "join_studio",
 
     # Studios - API v1 routes
@@ -74,7 +74,7 @@ module ActionCapabilityCheck
 
     # Users - legacy HTML routes
     "users#update_profile" => "update_profile",
-    "users#add_subagent_to_studio" => "add_subagent_to_studio",
+    "users#add_ai_agent_to_studio" => "add_ai_agent_to_studio",
   }.freeze
 
   included do

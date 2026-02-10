@@ -30,7 +30,7 @@ class DevController < ApplicationController
       path: "#",
       image: OpenStruct.new(attached?: false),
       image_url: nil,
-      subagent?: false,
+      ai_agent?: false,
       parent: nil
     )
 
@@ -41,7 +41,7 @@ class DevController < ApplicationController
       path: "#",
       image: OpenStruct.new(attached?: false),
       image_url: nil,
-      subagent?: false,
+      ai_agent?: false,
       parent: nil
     )
 

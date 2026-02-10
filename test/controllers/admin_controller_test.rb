@@ -755,14 +755,14 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   # ============================================================================
-  # SECTION 5: Subagent Admin Access Restrictions
+  # SECTION 5: AiAgent Admin Access Restrictions
   # ============================================================================
 
-  # Helper to create API token for subagent and make authenticated request
-  def subagent_api_request(method, path, subagent:, tenant:, params: {})
+  # Helper to create API token for ai_agent and make authenticated request
+  def ai_agent_api_request(method, path, ai_agent:, tenant:, params: {})
     tenant.enable_api!
     api_token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: tenant,
       name: "Test Token #{SecureRandom.hex(4)}",
       scopes: %w[read:all create:all update:all delete:all],
@@ -774,97 +774,97 @@ class AdminControllerTest < ActionDispatch::IntegrationTest
     })
   end
 
-  test "subagent without admin role cannot access admin pages" do
+  test "ai_agent without admin role cannot access admin pages" do
     # Create parent user as admin
     @primary_tenant.add_user!(@admin_user)
     tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
     tenant_user.add_role!("admin")
 
-    # Create subagent without admin role
-    subagent = create_subagent(parent: @admin_user, name: "Non-Admin Subagent")
-    @primary_tenant.add_user!(subagent)
+    # Create ai_agent without admin role
+    ai_agent = create_ai_agent(parent: @admin_user, name: "Non-Admin AiAgent")
+    @primary_tenant.add_user!(ai_agent)
 
-    subagent_api_request(:get, "/legacy-admin", subagent: subagent, tenant: @primary_tenant)
+    ai_agent_api_request(:get, "/legacy-admin", ai_agent: ai_agent, tenant: @primary_tenant)
     assert_response :forbidden
   end
 
-  test "subagent with admin role but non-admin parent cannot access admin pages" do
+  test "ai_agent with admin role but non-admin parent cannot access admin pages" do
     # Create parent user without admin role
     @primary_tenant.add_user!(@non_admin_user)
 
-    # Create subagent with admin role
-    subagent = create_subagent(parent: @non_admin_user, name: "Subagent With Admin Role")
-    @primary_tenant.add_user!(subagent)
-    subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
-    subagent_tenant_user.add_role!("admin")
+    # Create ai_agent with admin role
+    ai_agent = create_ai_agent(parent: @non_admin_user, name: "AiAgent With Admin Role")
+    @primary_tenant.add_user!(ai_agent)
+    ai_agent_tenant_user = @primary_tenant.tenant_users.find_by(user: ai_agent)
+    ai_agent_tenant_user.add_role!("admin")
 
-    subagent_api_request(:get, "/legacy-admin", subagent: subagent, tenant: @primary_tenant)
+    ai_agent_api_request(:get, "/legacy-admin", ai_agent: ai_agent, tenant: @primary_tenant)
     assert_response :forbidden
-    assert_match(/Subagent admin access requires both subagent and parent to be admins/, response.body)
+    assert_match(/AI agent admin access requires both AI agent and parent to be admins/, response.body)
   end
 
-  test "subagent with admin role and admin parent can access admin pages (read)" do
+  test "ai_agent with admin role and admin parent can access admin pages (read)" do
     # Create parent user as admin
     @primary_tenant.add_user!(@admin_user)
     parent_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
     parent_tenant_user.add_role!("admin")
 
-    # Create subagent with admin role
-    subagent = create_subagent(parent: @admin_user, name: "Admin Subagent")
-    @primary_tenant.add_user!(subagent)
-    subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
-    subagent_tenant_user.add_role!("admin")
+    # Create ai_agent with admin role
+    ai_agent = create_ai_agent(parent: @admin_user, name: "Admin AiAgent")
+    @primary_tenant.add_user!(ai_agent)
+    ai_agent_tenant_user = @primary_tenant.tenant_users.find_by(user: ai_agent)
+    ai_agent_tenant_user.add_role!("admin")
 
-    subagent_api_request(:get, "/legacy-admin", subagent: subagent, tenant: @primary_tenant)
+    ai_agent_api_request(:get, "/legacy-admin", ai_agent: ai_agent, tenant: @primary_tenant)
     assert_response :success
   end
 
-  test "subagent cannot perform admin write operations in production" do
+  test "ai_agent cannot perform admin write operations in production" do
     # Create parent user as admin
     @primary_tenant.add_user!(@admin_user)
     parent_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
     parent_tenant_user.add_role!("admin")
 
-    # Create subagent with admin role
-    subagent = create_subagent(parent: @admin_user, name: "Admin Subagent")
-    @primary_tenant.add_user!(subagent)
-    subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
-    subagent_tenant_user.add_role!("admin")
+    # Create ai_agent with admin role
+    ai_agent = create_ai_agent(parent: @admin_user, name: "Admin AiAgent")
+    @primary_tenant.add_user!(ai_agent)
+    ai_agent_tenant_user = @primary_tenant.tenant_users.find_by(user: ai_agent)
+    ai_agent_tenant_user.add_role!("admin")
 
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
-      subagent_api_request(:post, "/legacy-admin/settings", subagent: subagent, tenant: @primary_tenant, params: { name: "Changed By Subagent" })
+      ai_agent_api_request(:post, "/legacy-admin/settings", ai_agent: ai_agent, tenant: @primary_tenant, params: { name: "Changed By AiAgent" })
       assert_response :forbidden
-      assert_match(/Subagents cannot perform admin write operations in production/, response.body)
+      assert_match(/AI agents cannot perform admin write operations in production/, response.body)
 
       # Verify the tenant name was NOT changed
       @primary_tenant.reload
-      refute_equal "Changed By Subagent", @primary_tenant.name
+      refute_equal "Changed By AiAgent", @primary_tenant.name
     ensure
       Thread.current[:simulate_production] = false
     end
   end
 
-  test "subagent can still read admin pages in production" do
+  test "ai_agent can still read admin pages in production" do
     # Create parent user as admin
     @primary_tenant.add_user!(@admin_user)
     parent_tenant_user = @primary_tenant.tenant_users.find_by(user: @admin_user)
     parent_tenant_user.add_role!("admin")
 
-    # Create subagent with admin role
-    subagent = create_subagent(parent: @admin_user, name: "Admin Subagent")
-    @primary_tenant.add_user!(subagent)
-    subagent_tenant_user = @primary_tenant.tenant_users.find_by(user: subagent)
-    subagent_tenant_user.add_role!("admin")
+    # Create ai_agent with admin role
+    ai_agent = create_ai_agent(parent: @admin_user, name: "Admin AiAgent")
+    @primary_tenant.add_user!(ai_agent)
+    ai_agent_tenant_user = @primary_tenant.tenant_users.find_by(user: ai_agent)
+    ai_agent_tenant_user.add_role!("admin")
 
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
-      subagent_api_request(:get, "/legacy-admin", subagent: subagent, tenant: @primary_tenant)
+      ai_agent_api_request(:get, "/legacy-admin", ai_agent: ai_agent, tenant: @primary_tenant)
       assert_response :success
 
-      subagent_api_request(:get, "/legacy-admin/settings", subagent: subagent, tenant: @primary_tenant)
+      ai_agent_api_request(:get, "/legacy-admin/settings", ai_agent: ai_agent, tenant: @primary_tenant)
       assert_response :success
     ensure
       Thread.current[:simulate_production] = false

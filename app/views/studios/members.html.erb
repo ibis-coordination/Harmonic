@@ -21,15 +21,10 @@
       <div class="pulse-participants-list">
         <% @team.each do |u| %>
           <div class="pulse-participant">
-            <div class="pulse-author-avatar">
-              <% if u.image_url.present? && u.image_url != '/placeholder.png' %>
-                <img src="<%= u.image_url %>" alt="" class="pulse-avatar-img">
-              <% end %>
-              <span class="pulse-avatar-initials"><%= u.display_name.to_s.first&.upcase || '?' %></span>
-            </div>
+            <%= render "shared/avatar", user: u %>
             <a href="<%= u.superagent_member.path %>" class="pulse-participant-name"><%= u.display_name %></a>
-            <% if u.subagent? %>
-              <span class="pulse-badge pulse-badge-muted">subagent</span>
+            <% if u.ai_agent? %>
+              <span class="pulse-badge pulse-badge-muted">ai_agent</span>
             <% end %>
             <% if u.superagent_member.is_admin? %>
               <span class="pulse-badge pulse-badge-muted">admin</span>

@@ -1,17 +1,7 @@
 <div class="pulse-participants-list">
   <% @commitment.committed_participants.order(committed_at: :desc).limit(@participants_list_limit).each do |participant| %>
     <div class="pulse-participant">
-      <div class="pulse-author-avatar">
-        <% if participant.user&.image_url.present? && participant.user.image_url != '/placeholder.png' %>
-          <img src="<%= participant.user.image_url %>" alt="" class="pulse-avatar-img">
-        <% end %>
-        <%
-          name = participant.name || 'Anonymous'
-          parts = name.to_s.split(/[\s\-_]+/)
-          initials = parts.length >= 2 ? "#{parts[0][0]}#{parts[1][0]}".upcase : name[0..1].upcase
-        %>
-        <span class="pulse-avatar-initials"><%= initials %></span>
-      </div>
+      <%= render "shared/avatar", user: participant.user, title: participant.name || "Anonymous" %>
       <% if participant.user %>
         <a href="<%= participant.user.path %>" class="pulse-participant-name"><%= participant.name || 'Anonymous' %></a>
       <% else %>

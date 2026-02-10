@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { fetchWithCsrf } from "../utils/csrf"
 
 interface PinResponse {
   pinned: boolean
@@ -22,11 +23,6 @@ export default class PinController extends Controller {
     this.isPinned = this.pinButtonTarget.dataset.isPinned === "true"
   }
 
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   togglePin(): void {
     const url = this.pinButtonTarget.dataset.pinUrl
     if (!url) return
@@ -34,12 +30,8 @@ export default class PinController extends Controller {
     // Show loading state with opacity
     this.pinButtonTarget.style.opacity = "0.5"
 
-    fetch(url, {
+    fetchWithCsrf(url, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": this.csrfToken,
-      },
       body: JSON.stringify({
         pinned: !this.isPinned,
       }),

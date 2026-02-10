@@ -16,10 +16,10 @@ class ApiTokensController < ApplicationController
   end
 
   def new
-    # Only person accounts can create API tokens (for themselves or their subagents)
-    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
-    # Internal subagents cannot have API tokens
-    return render status: :forbidden, plain: "403 Forbidden - Internal subagents cannot have API tokens" if @showing_user.internal_subagent?
+    # Only human accounts can create API tokens (for themselves or their ai_agents)
+    return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create API tokens" unless current_user&.human?
+    # Internal AI agents cannot have API tokens
+    return render status: :forbidden, plain: "403 Forbidden - Internal AI agents cannot have API tokens" if @showing_user.internal_ai_agent?
 
     @token = @showing_user.api_tokens.new(user: @showing_user)
     respond_to do |format|
@@ -29,10 +29,10 @@ class ApiTokensController < ApplicationController
   end
 
   def create
-    # Only person accounts can create API tokens (for themselves or their subagents)
-    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
-    # Internal subagents cannot have API tokens
-    return render status: :forbidden, plain: "403 Forbidden - Internal subagents cannot have API tokens" if @showing_user.internal_subagent?
+    # Only human accounts can create API tokens (for themselves or their ai_agents)
+    return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create API tokens" unless current_user&.human?
+    # Internal AI agents cannot have API tokens
+    return render status: :forbidden, plain: "403 Forbidden - Internal AI agents cannot have API tokens" if @showing_user.internal_ai_agent?
 
     @token = @showing_user.api_tokens.new
     @token.name = token_params[:name]
@@ -57,35 +57,35 @@ class ApiTokensController < ApplicationController
   # Markdown API actions
 
   def actions_index
-    # Only person accounts can create API tokens
-    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+    # Only human accounts can create API tokens
+    return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create API tokens" unless current_user&.human?
 
     @page_title = "Actions | New API Token"
     render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/tokens/new"))
   end
 
   def describe_create_api_token
-    # Only person accounts can create API tokens
-    return render status: :forbidden, plain: "403 Unauthorized - Only person accounts can create API tokens" unless current_user&.person?
+    # Only human accounts can create API tokens
+    return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create API tokens" unless current_user&.human?
 
     render_action_description(ActionsHelper.action_description("create_api_token", resource: @showing_user))
   end
 
   def execute_create_api_token
-    # Only person accounts can create API tokens
-    unless current_user&.person?
+    # Only human accounts can create API tokens
+    unless current_user&.human?
       return render_action_error({
                                    action_name: "create_api_token",
                                    resource: @showing_user,
-                                   error: "Only person accounts can create API tokens.",
+                                   error: "Only human accounts can create API tokens.",
                                  })
     end
-    # Internal subagents cannot have API tokens
-    if @showing_user.internal_subagent?
+    # Internal AI agents cannot have API tokens
+    if @showing_user.internal_ai_agent?
       return render_action_error({
                                    action_name: "create_api_token",
                                    resource: @showing_user,
-                                   error: "Internal subagents cannot have API tokens.",
+                                   error: "Internal AI agents cannot have API tokens.",
                                  })
     end
     @token = @showing_user.api_tokens.new

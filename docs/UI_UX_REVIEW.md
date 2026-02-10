@@ -228,13 +228,13 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 - **Image upload UX**: "Click image to upload" isn't obvious; no upload button
 - **No section navigation**: Long page requires scrolling
 - **API section empty state**: "Create API Token" with no list feels bare
-- **Subagents section**: Complex concept with minimal explanation
+- **AI Agents section**: Complex concept with minimal explanation
 
 #### Recommendations
 1. Add sidebar navigation for settings sections
 2. Add a visible "Upload Image" button alongside the image
 3. Use collapsible sections for less-used features
-4. Add tooltips or expandable help for complex features like Subagents
+4. Add tooltips or expandable help for complex features like AI Agents
 
 ---
 

@@ -1,14 +1,14 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   ['Home', '/'],
-  ['My Subagents', subagents_path],
-  [@subagent.name, subagent_runs_path(@subagent.handle)],
+  ['My AI Agents', ai_agents_path],
+  [@ai_agent.name, ai_agent_runs_path(@ai_agent.handle)],
   'Task Run'
 ] %>
 
 <article class="pulse-resource-detail"
         <% if @task_run.status.in?(%w[running queued]) %>
         data-controller="task-run-status"
-        data-task-run-status-url-value="<%= subagent_run_path(@subagent.handle, @task_run.id) %>"
+        data-task-run-status-url-value="<%= ai_agent_run_path(@ai_agent.handle, @task_run.id) %>"
         data-task-run-status-status-value="<%= @task_run.status %>"
         data-task-run-status-steps-count-value="<%= @task_run.steps_count %>"
         <% end %>
@@ -21,7 +21,7 @@
       </span>
       <div style="margin-left: auto; display: flex; gap: 12px;">
         <span data-task-run-status-target="cancelButton" style="<%= @task_run.status.in?(%w[queued running]) ? '' : 'display: none;' %>">
-          <%= button_to cancel_subagent_run_path(@subagent.handle, @task_run.id),
+          <%= button_to cancel_ai_agent_run_path(@ai_agent.handle, @task_run.id),
                 method: :post,
                 class: "pulse-feed-action-link",
                 style: "color: var(--color-danger-fg);",
@@ -29,10 +29,10 @@
             <%= octicon 'x-circle', height: 14 %> Cancel
           <% end %>
         </span>
-        <a href="<%= subagent_runs_path(@subagent.handle) %>" class="pulse-feed-action-link">
+        <a href="<%= ai_agent_runs_path(@ai_agent.handle) %>" class="pulse-feed-action-link">
           <%= octicon 'history', height: 14 %> All Runs
         </a>
-        <a href="<%= subagent_run_task_path(@subagent.handle) %>" class="pulse-feed-action-link">
+        <a href="<%= ai_agent_run_task_path(@ai_agent.handle) %>" class="pulse-feed-action-link">
           <%= octicon 'plus', height: 14 %> Run Another Task
         </a>
       </div>
@@ -100,7 +100,7 @@
         <% if @task_run.error.present? %>Error: <%= @task_run.error %><% end %>
       </p>
       <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 12px;">
-        Agent: <%= @subagent.name %> |
+        Agent: <%= @ai_agent.name %> |
         Model: <code><%= @task_run.model || "default" %></code> |
         Steps: <span data-task-run-status-target="stepsCount"><%= @task_run.steps_count %></span>
         <% if @task_run.formatted_duration %>

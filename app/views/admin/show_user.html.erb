@@ -44,7 +44,7 @@
       <th>User Type</th>
       <td><%= @showing_user.user_type %></td>
     </tr>
-    <% if @showing_user.subagent? && @showing_user.parent %>
+    <% if @showing_user.ai_agent? && @showing_user.parent %>
       <% parent_tenant_user = @showing_user.parent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } %>
       <tr>
         <th>Parent</th>
@@ -81,7 +81,7 @@
               </div>
               <p class="pulse-form-hint" style="margin-bottom: 16px;">
                 <%= octicon 'alert', height: 12 %>
-                Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any subagents that they are the parent of.
+                Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any ai_agents that they are the parent of.
               </p>
               <div class="pulse-form-actions">
                 <button type="submit" class="pulse-action-btn-danger">Confirm Suspension</button>

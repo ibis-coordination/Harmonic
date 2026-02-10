@@ -16,12 +16,12 @@ class User < ApplicationRecord
   has_many :superagent_members
   has_many :superagents, through: :superagent_members
   has_many :api_tokens
-  has_many :subagents, class_name: "User", foreign_key: "parent_id"
+  has_many :ai_agents, class_name: "User", foreign_key: "parent_id"
   has_many :notification_recipients
   has_many :notifications, through: :notification_recipients
 
   # Trustee grant associations
-  # granted_trustee_grants: grants where this user is the granting party (e.g., a subagent granting authority)
+  # granted_trustee_grants: grants where this user is the granting party (e.g., an AI agent granting authority)
   has_many :granted_trustee_grants, class_name: "TrusteeGrant",
                                     foreign_key: "granting_user_id", inverse_of: :granting_user,
                                     dependent: :destroy
@@ -30,13 +30,13 @@ class User < ApplicationRecord
                                      foreign_key: "trustee_user_id", inverse_of: :trustee_user,
                                      dependent: :destroy
 
-  # Auto-create TrusteeGrant when a subagent is created
-  after_create :create_parent_trustee_grant!, if: :subagent?
+  # Auto-create TrusteeGrant when an AI agent is created
+  after_create :create_parent_trustee_grant!, if: :ai_agent?
 
-  validates :user_type, inclusion: { in: ["person", "subagent", "superagent_proxy"] }
+  validates :user_type, inclusion: { in: ["human", "ai_agent", "superagent_proxy"] }
   validates :email, presence: true
   validates :name, presence: true
-  validate :subagent_must_have_parent
+  validate :ai_agent_must_have_parent
 
   # Clear memoized associations on reload
   sig { params(options: T.untyped).returns(User) }
@@ -80,11 +80,11 @@ class User < ApplicationRecord
   end
 
   sig { void }
-  def subagent_must_have_parent
-    if parent_id.present? && !subagent?
-      errors.add(:parent_id, "can only be set for subagent users")
-    elsif parent_id.nil? && subagent?
-      errors.add(:parent_id, "must be set for subagent users")
+  def ai_agent_must_have_parent
+    if parent_id.present? && !ai_agent?
+      errors.add(:parent_id, "can only be set for AI agent users")
+    elsif parent_id.nil? && ai_agent?
+      errors.add(:parent_id, "must be set for AI agent users")
     end
     return unless persisted? && parent_id == id
 
@@ -92,23 +92,23 @@ class User < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def person?
-    user_type == "person"
+  def human?
+    user_type == "human"
   end
 
   sig { returns(T::Boolean) }
-  def subagent?
-    user_type == "subagent"
+  def ai_agent?
+    user_type == "ai_agent"
   end
 
   sig { returns(T::Boolean) }
-  def internal_subagent?
-    subagent? && agent_configuration&.dig("mode") == "internal"
+  def internal_ai_agent?
+    ai_agent? && agent_configuration&.dig("mode") == "internal"
   end
 
   sig { returns(T::Boolean) }
-  def external_subagent?
-    subagent? && !internal_subagent?
+  def external_ai_agent?
+    ai_agent? && !internal_ai_agent?
   end
 
   sig { returns(T::Boolean) }
@@ -155,7 +155,7 @@ class User < ApplicationRecord
       # Cannot represent archived users
       return false if user.archived?
 
-      # Parent can represent their subagent
+      # Parent can represent their AI agent
       return true if is_parent_of?(user)
 
       # Check if self can represent user's superagent proxy
@@ -182,12 +182,12 @@ class User < ApplicationRecord
 
   sig { params(user: User).returns(T::Boolean) }
   def can_edit?(user)
-    user == self || (user.subagent? && user.parent_id == id)
+    user == self || (user.ai_agent? && user.parent_id == id)
   end
 
-  sig { params(subagent: User, superagent: Superagent).returns(T::Boolean) }
-  def can_add_subagent_to_superagent?(subagent, superagent)
-    return false unless subagent.subagent? && subagent.parent_id == id
+  sig { params(ai_agent: User, superagent: Superagent).returns(T::Boolean) }
+  def can_add_ai_agent_to_superagent?(ai_agent, superagent)
+    return false unless ai_agent.ai_agent? && ai_agent.parent_id == id
 
     sm = superagent_members.find_by(superagent_id: superagent.id)
     sm&.can_invite? || false
@@ -279,10 +279,10 @@ class User < ApplicationRecord
 
   sig { returns(String) }
   def display_name_with_parent
-    return display_name || "" unless subagent?
+    return display_name || "" unless ai_agent?
 
     parent_name = parent&.display_name || "unknown"
-    "#{display_name} (subagent of #{parent_name})"
+    "#{display_name} (AI agent of #{parent_name})"
   end
 
   sig { returns(T.nilable(User)) }
@@ -408,9 +408,9 @@ class User < ApplicationRecord
     # (e.g., AdminController.ensure_admin_user checks tenant-level admin role)
     ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!)
 
-    # Recursively suspend all subagents
-    subagents.where(suspended_at: nil).find_each do |subagent|
-      subagent.suspend!(by: by, reason: "Parent user suspended: #{reason}")
+    # Recursively suspend all AI agents
+    ai_agents.where(suspended_at: nil).find_each do |ai_agent|
+      ai_agent.suspend!(by: by, reason: "Parent user suspended: #{reason}")
     end
   end
 
@@ -456,13 +456,13 @@ class User < ApplicationRecord
   # Check if self is the parent of the given user (for representation)
   sig { params(user: User).returns(T::Boolean) }
   def is_parent_of?(user)
-    user.subagent? && user.parent_id == id && !user.archived?
+    user.ai_agent? && user.parent_id == id && !user.archived?
   end
 
-  # Create a TrusteeGrant allowing the parent to represent this subagent
+  # Create a TrusteeGrant allowing the parent to represent this AI agent
   sig { void }
   def create_parent_trustee_grant!
-    return unless subagent? && parent_id.present?
+    return unless ai_agent? && parent_id.present?
 
     parent_user = User.find_by(id: parent_id)
     return unless parent_user
@@ -471,7 +471,7 @@ class User < ApplicationRecord
     all_permissions = TrusteeGrant::GRANTABLE_ACTIONS.index_with { true }
 
     TrusteeGrant.create!(
-      granting_user: self,              # The subagent grants
+      granting_user: self,              # The AI agent grants
       trustee_user: parent_user,        # The parent is the trustee
       accepted_at: Time.current,        # Pre-accepted
       permissions: all_permissions,     # All actions allowed

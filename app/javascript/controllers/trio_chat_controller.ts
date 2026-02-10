@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { fetchWithCsrf } from "../utils/csrf"
 
 interface Candidate {
   model: string
@@ -71,11 +72,6 @@ export default class TrioChatController extends Controller<HTMLElement> {
   private dotsAnimationId: number | null = null
   private dotsCount = 0
 
-  private get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   private get formAction(): string {
     // Use form's action URL if available, otherwise default to /trio
     if (this.hasFormTarget) {
@@ -139,11 +135,9 @@ export default class TrioChatController extends Controller<HTMLElement> {
         requestBody.synthesize_model = this.synthesizeModelTarget.value.trim()
       }
 
-      const response = await fetch(this.formAction, {
+      const response = await fetchWithCsrf(this.formAction, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": this.csrfToken,
           Accept: "application/json",
         },
         body: JSON.stringify(requestBody),

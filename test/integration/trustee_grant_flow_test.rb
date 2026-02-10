@@ -237,25 +237,25 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
   # PARENT-SUBAGENT TRUSTEE GRANT
   # =========================================================================
 
-  test "parent can represent subagent through auto-created permission" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+  test "parent can represent ai_agent through auto-created permission" do
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
       name: "Alice's Bot",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @alice.id
     )
-    @tenant.add_user!(subagent)
-    @superagent.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
+    @superagent.add_user!(ai_agent)
 
     # Permission should be auto-created and pre-accepted
-    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @alice)
+    permission = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @alice)
     assert permission.present?
     assert permission.active?
 
-    # Alice can represent the subagent
-    assert @alice.can_represent?(subagent)
+    # Alice can represent the ai_agent
+    assert @alice.can_represent?(ai_agent)
 
-    # Alice can create a user representation session for the subagent
+    # Alice can create a user representation session for the ai_agent
     session = RepresentationSession.create!(
       tenant: @tenant,
       superagent: nil,  # User representation has no superagent
@@ -268,8 +268,8 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     assert session.persisted?
     assert session.active?
     assert session.user_representation?
-    # effective_user is the subagent (granting_user)
-    assert_equal subagent, session.effective_user
+    # effective_user is the ai_agent (granting_user)
+    assert_equal ai_agent, session.effective_user
   end
 
   # =========================================================================

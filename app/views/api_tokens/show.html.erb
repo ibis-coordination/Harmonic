@@ -19,7 +19,7 @@
   <div class="pulse-resource-body">
     <% if @current_user != @showing_user %>
       <p class="pulse-notice">
-        This token belongs to subagent <a href="<%= @showing_user.path %>" class="pulse-link"><%= @showing_user.display_name %></a>, but you are able to view and edit this token because you are the owner of this subagent.
+        This token belongs to ai_agent <a href="<%= @showing_user.path %>" class="pulse-link"><%= @showing_user.display_name %></a>, but you are able to view and edit this token because you are the owner of this ai_agent.
       </p>
     <% end %>
 

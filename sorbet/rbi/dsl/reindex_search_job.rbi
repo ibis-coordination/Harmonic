@@ -11,12 +11,13 @@ class ReindexSearchJob
       params(
         item_type: T.untyped,
         item_id: T.untyped,
+        tenant_id: T.untyped,
         block: T.nilable(T.proc.params(job: ReindexSearchJob).void)
       ).returns(T.any(ReindexSearchJob, FalseClass))
     end
-    def perform_later(item_type:, item_id:, &block); end
+    def perform_later(item_type:, item_id:, tenant_id:, &block); end
 
-    sig { params(item_type: T.untyped, item_id: T.untyped).returns(T.untyped) }
-    def perform_now(item_type:, item_id:); end
+    sig { params(item_type: T.untyped, item_id: T.untyped, tenant_id: T.untyped).returns(T.untyped) }
+    def perform_now(item_type:, item_id:, tenant_id:); end
   end
 end

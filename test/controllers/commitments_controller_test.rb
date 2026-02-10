@@ -111,7 +111,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     other_user = User.create!(
       name: "Other User",
       email: "other-commitment-user-#{unique_id}@example.com",
-      user_type: "person"
+      user_type: "human"
     )
     @tenant.add_user!(other_user)
     @superagent.add_user!(other_user)

@@ -16,9 +16,9 @@ module MarkdownHelper
     # Combine static actions with conditional actions that pass their condition
     all_actions = (route_info[:actions] || []) + evaluate_conditional_actions(route_info)
 
-    # Filter by capability for subagents
+    # Filter by capability for ai_agents
     current_user = instance_variable_get(:@current_user)
-    all_actions = all_actions.select { |a| CapabilityCheck.allowed?(current_user, a[:name]) } if current_user&.subagent?
+    all_actions = all_actions.select { |a| CapabilityCheck.allowed?(current_user, a[:name]) } if current_user&.ai_agent?
 
     # Build full action info with path and params
     all_actions.map do |action|

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest"
 import { Application } from "@hotwired/stimulus"
-import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
+import AiAgentSuperagentAdderController from "./ai_agent_superagent_adder_controller"
 
-describe("SubagentSuperagentAdderController", () => {
+describe("AiAgentSuperagentAdderController", () => {
   let application: Application
 
   beforeEach(() => {
@@ -14,20 +14,20 @@ describe("SubagentSuperagentAdderController", () => {
 
     // Set up DOM
     document.body.innerHTML = `
-      <div data-controller="subagent-superagent-adder" data-subagent-superagent-adder-remove-url-value="/u/subagent1/remove_from_studio">
-        <ul class="studio-membership-list" data-subagent-superagent-adder-target="superagentList">
+      <div data-controller="ai_agent-superagent-adder" data-ai_agent-superagent-adder-remove-url-value="/u/ai_agent1/remove_from_studio">
+        <ul class="studio-membership-list" data-ai_agent-superagent-adder-target="superagentList">
           <li class="studio-item" data-superagent-id="1">
             <a href="/studios/studio1">Studio One</a>
             <button type="button" class="button-small button-danger"
-                    data-action="subagent-superagent-adder#remove"
+                    data-action="ai_agent-superagent-adder#remove"
                     data-superagent-id="1"
                     data-superagent-name="Studio One">
               Remove from studio
             </button>
           </li>
         </ul>
-        <form data-subagent-superagent-adder-target="form" data-action="submit->subagent-superagent-adder#add" action="/u/subagent1/add_to_studio">
-          <select data-subagent-superagent-adder-target="select">
+        <form data-ai_agent-superagent-adder-target="form" data-action="submit->ai_agent-superagent-adder#add" action="/u/ai_agent1/add_to_studio">
+          <select data-ai_agent-superagent-adder-target="select">
             <option value="">Add to studio...</option>
             <option value="2">Studio Two</option>
           </select>
@@ -37,7 +37,7 @@ describe("SubagentSuperagentAdderController", () => {
     `
 
     application = Application.start()
-    application.register("subagent-superagent-adder", SubagentSuperagentAdderController)
+    application.register("ai_agent-superagent-adder", AiAgentSuperagentAdderController)
   })
 
   afterEach(() => {
@@ -66,7 +66,7 @@ describe("SubagentSuperagentAdderController", () => {
       form.dispatchEvent(new Event("submit", { bubbles: true }))
 
       expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/u/subagent1/add_to_studio"),
+        expect.stringContaining("/u/ai_agent1/add_to_studio"),
         expect.objectContaining({
           method: "POST",
           headers: {
@@ -142,10 +142,10 @@ describe("SubagentSuperagentAdderController", () => {
     it("shows confirmation dialog before removing", () => {
       const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false)
 
-      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
-      expect(confirmSpy).toHaveBeenCalledWith("Remove this subagent from Studio One?")
+      expect(confirmSpy).toHaveBeenCalledWith("Remove this ai_agent from Studio One?")
       expect(fetch).not.toHaveBeenCalled()
     })
 
@@ -160,10 +160,10 @@ describe("SubagentSuperagentAdderController", () => {
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
-      expect(fetch).toHaveBeenCalledWith("/u/subagent1/remove_from_studio", {
+      expect(fetch).toHaveBeenCalledWith("/u/ai_agent1/remove_from_studio", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -185,7 +185,7 @@ describe("SubagentSuperagentAdderController", () => {
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
       await vi.waitFor(() => {
@@ -205,7 +205,7 @@ describe("SubagentSuperagentAdderController", () => {
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
       await vi.waitFor(() => {
@@ -226,7 +226,7 @@ describe("SubagentSuperagentAdderController", () => {
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const button = document.querySelector("button[data-action='subagent-superagent-adder#remove']") as HTMLButtonElement
+      const button = document.querySelector("button[data-action='ai_agent-superagent-adder#remove']") as HTMLButtonElement
       button.click()
 
       await vi.waitFor(() => {

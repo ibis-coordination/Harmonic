@@ -25,6 +25,21 @@ module GeneratedPathHelpersModule
   def admin_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def ai_agent_execute_task_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_run_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_run_task_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_runs_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agents_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def api_app_admin_tenant_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -148,7 +163,7 @@ module GeneratedPathHelpersModule
   def auth_failure_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def cancel_subagent_run_path(*args); end
+  def cancel_ai_agent_run_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def commit_actions_create_commitment_path(*args); end
@@ -316,6 +331,9 @@ module GeneratedPathHelpersModule
   def learn_acceptance_voting_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def learn_ai_agency_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def learn_awareness_indicators_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -326,9 +344,6 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def learn_reciprocal_commitment_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def learn_subagency_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def learn_superagency_path(*args); end
@@ -445,10 +460,10 @@ module GeneratedPathHelpersModule
   def new_rails_conductor_inbound_email_source_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_user_api_token_path(*args); end
+  def new_user_ai_agent_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_user_subagent_path(*args); end
+  def new_user_api_token_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def note_actions_add_comment_path(*args); end
@@ -652,16 +667,16 @@ module GeneratedPathHelpersModule
   def settings_actions_user_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def settings_ai_agents_new_actions_create_ai_agent_user_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_ai_agents_new_actions_user_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def settings_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def settings_profile_user_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_subagents_new_actions_create_subagent_user_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_subagents_new_actions_user_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def settings_tokens_new_actions_create_api_token_user_path(*args); end
@@ -719,21 +734,6 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def studios_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagent_execute_task_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagent_run_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagent_run_task_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagent_runs_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagents_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def suspend_api_app_admin_tenant_path(*args); end
@@ -799,6 +799,12 @@ module GeneratedPathHelpersModule
   def update_rails_disk_service_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def user_ai_agent_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def user_ai_agents_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def user_api_token_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -806,12 +812,6 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def user_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def user_subagent_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def user_subagents_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def whoami_actions_path(*args); end

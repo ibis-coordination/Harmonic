@@ -22,8 +22,8 @@ class ApplicationController
     include ::ActionText::TagHelper
     include ::ActionController::Base::HelperMethods
     include ::ApplicationHelper
+    include ::AiAgentsHelper
     include ::MarkdownHelper
-    include ::SubagentsHelper
   end
 
   class HelperProxy < ::ActionView::Base

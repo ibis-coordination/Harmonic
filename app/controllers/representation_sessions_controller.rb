@@ -121,7 +121,7 @@ class RepresentationSessionsController < ApplicationController
     return redirect_to root_path unless @representation_session
 
     @studio = @representation_session.superagent
-    # For user representation, use the represented user's (granting_user/subagent) studios, not the parent's
+    # For user representation, use the represented user's (granting_user/ai_agent) studios, not the parent's
     studios_user = @representation_session.user_representation? ? @representation_session.represented_user : current_user
     @other_studios = studios_user.superagents.where.not(id: @current_tenant.main_superagent_id)
   end
@@ -137,7 +137,7 @@ class RepresentationSessionsController < ApplicationController
     exists_and_active = @current_representation_session && @current_representation_session.active?
     # Check if acting user is representative: browser users via session, API users via token
     acting_user_is_rep = exists_and_active && (
-      @current_person_user == @current_representation_session.representative_user ||
+      @current_human_user == @current_representation_session.representative_user ||
       @api_token_user == @current_representation_session.representative_user
     )
     if exists_and_active && acting_user_is_rep
@@ -172,7 +172,7 @@ class RepresentationSessionsController < ApplicationController
     exists_and_active = @current_representation_session && @current_representation_session.active?
     # Check if acting user is representative: browser users via session, API users via token
     acting_user_is_rep = exists_and_active && (
-      @current_person_user == @current_representation_session.representative_user ||
+      @current_human_user == @current_representation_session.representative_user ||
       @api_token_user == @current_representation_session.representative_user
     )
     if exists_and_active && acting_user_is_rep
@@ -186,8 +186,8 @@ class RepresentationSessionsController < ApplicationController
       respond_to do |format|
         format.html do
           flash[:notice] = "Your representation session has ended."
-          if grant && @current_person_user
-            redirect_to "/u/#{@current_person_user.handle}/settings/trustee-grants/#{grant.truncated_id}"
+          if grant && @current_human_user
+            redirect_to "/u/#{@current_human_user.handle}/settings/trustee-grants/#{grant.truncated_id}"
           else
             redirect_to root_path
           end

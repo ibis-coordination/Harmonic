@@ -27,58 +27,58 @@ class LearnControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/learn"
     assert_response :success
-    assert_includes response.body, "Subagency"
+    assert_includes response.body, "AI Agency"
     assert_includes response.body, "Superagency"
     assert_includes response.body, "Awareness Indicators"
     assert_includes response.body, "Acceptance Voting"
     assert_includes response.body, "Reciprocal Commitment"
   end
 
-  # === Subagency (GET /learn/subagency) HTML Tests ===
+  # === AI Agency (GET /learn/ai-agency) HTML Tests ===
 
-  test "unauthenticated user can access subagency page when login not required" do
+  test "unauthenticated user can access ai_agency page when login not required" do
     @tenant.settings["require_login"] = false
     @tenant.save!
-    get "/learn/subagency"
+    get "/learn/ai-agency"
     assert_response :success
-    assert_includes response.body, "Subagency"
+    assert_includes response.body, "AI Agency"
   end
 
-  test "authenticated user can access subagency page" do
+  test "authenticated user can access ai_agency page" do
     sign_in_as(@user, tenant: @tenant)
-    get "/learn/subagency"
+    get "/learn/ai-agency"
     assert_response :success
-    assert_includes response.body, "Subagency"
+    assert_includes response.body, "AI Agency"
   end
 
-  test "subagency page explains what a subagent is" do
+  test "ai_agency page explains what a ai_agent is" do
     sign_in_as(@user, tenant: @tenant)
-    get "/learn/subagency"
+    get "/learn/ai-agency"
     assert_response :success
     assert_includes response.body, "parent user"
     assert_includes response.body, "responsible"
   end
 
-  test "subagency page explains visible accountability" do
+  test "ai_agency page explains visible accountability" do
     sign_in_as(@user, tenant: @tenant)
-    get "/learn/subagency"
+    get "/learn/ai-agency"
     assert_response :success
     assert_includes response.body, "Visible Accountability"
     assert_includes response.body, "transparency"
   end
 
-  # === Subagency (GET /learn/subagency) Markdown Tests ===
+  # === AI Agency (GET /learn/ai-agency) Markdown Tests ===
 
-  test "subagency responds to markdown format" do
+  test "ai_agency responds to markdown format" do
     sign_in_as(@user, tenant: @tenant)
-    get "/learn/subagency", headers: { "Accept" => "text/markdown" }
+    get "/learn/ai-agency", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_includes response.body, "# Subagency"
+    assert_includes response.body, "# AI Agency"
   end
 
-  test "markdown subagency includes key sections" do
+  test "markdown ai_agency includes key sections" do
     sign_in_as(@user, tenant: @tenant)
-    get "/learn/subagency", headers: { "Accept" => "text/markdown" }
+    get "/learn/ai-agency", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "## Visible Accountability"
   end

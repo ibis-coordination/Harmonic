@@ -2,7 +2,7 @@
   ['Home', '/'],
   [@current_user.display_name, @current_user.path],
   ['Settings', "#{@current_user.path}/settings"],
-  'New Subagent'
+  'New AI Agent'
 ] %>
 
 <article class="pulse-resource-detail">
@@ -10,20 +10,20 @@
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
         <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
-        New Subagent
+        New AI Agent
       </span>
     </div>
-    <h1 class="pulse-resource-title">Create Subagent</h1>
+    <h1 class="pulse-resource-title">Create AI Agent</h1>
   </header>
 
   <div class="pulse-resource-body">
-    <p>Subagents are identities for AI agents managed by you, the primary agent.</p>
+    <p>AI Agents are identities for AI agents managed by you, the primary agent.</p>
 
-    <%= form_with url: "#{@current_user.path}/settings/subagents", class: "pulse-form", data: { controller: "subagent-mode" } do |form| %>
+    <%= form_with url: "#{@current_user.path}/settings/ai-agents", class: "pulse-form", data: { controller: "ai-agent-mode" } do |form| %>
       <section class="pulse-settings-section">
         <label for="name" class="pulse-label">Name</label>
         <%= form.text_field :name, placeholder: 'My Assistant', class: "pulse-form-input" %>
-        <small class="pulse-hint">This name will appear on the subagent's profile.</small>
+        <small class="pulse-hint">This name will appear on the AI Agent's profile.</small>
       </section>
 
       <section class="pulse-settings-section">
@@ -39,7 +39,7 @@
         <%
           # Group actions by resource type
           action_groups = {
-            "Always Allowed" => CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED,
+            "Always Allowed" => CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED,
             "Notes" => %w[create_note update_note confirm_read],
             "Decisions" => %w[create_decision update_decision_settings vote add_options],
             "Commitments" => %w[create_commitment update_commitment_settings join_commitment],
@@ -91,17 +91,17 @@
 
       <section class="pulse-settings-section">
         <label class="pulse-label">Mode</label>
-        <small class="pulse-hint" style="margin-bottom: 12px; display: block;">Choose how this subagent will be powered.</small>
+        <small class="pulse-hint" style="margin-bottom: 12px; display: block;">Choose how this AI Agent will be powered.</small>
         <div style="display: flex; flex-direction: column; gap: 12px;">
           <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-            <%= radio_button_tag :mode, "internal", true, data: { action: "subagent-mode#updateVisibility" } %>
+            <%= radio_button_tag :mode, "internal", true, data: { action: "ai-agent-mode#updateVisibility" } %>
             <span>
               <strong>Internal</strong>
               <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by Harmonic's agent runners. No API access.</small>
             </span>
           </label>
           <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-            <%= radio_button_tag :mode, "external", false, data: { action: "subagent-mode#updateVisibility" } %>
+            <%= radio_button_tag :mode, "external", false, data: { action: "ai-agent-mode#updateVisibility" } %>
             <span>
               <strong>External</strong>
               <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Agent skill documents and MCP server are available.</small>
@@ -110,22 +110,22 @@
         </div>
       </section>
 
-      <section class="pulse-settings-section" data-subagent-mode-target="internalOnly">
+      <section class="pulse-settings-section" data-ai-agent-mode-target="internalOnly">
         <label for="model" class="pulse-label">Model</label>
         <%= form.select :model, available_llm_models, {}, class: "pulse-form-select" %>
-        <small class="pulse-hint">The LLM model this subagent will use for reasoning. Models are defined in <code>config/litellm_config.yaml</code>.</small>
+        <small class="pulse-hint">The LLM model this AI Agent will use for reasoning. Models are defined in <code>config/litellm_config.yaml</code>.</small>
       </section>
 
-      <section class="pulse-settings-section" data-subagent-mode-target="externalOnly" style="display: none;">
+      <section class="pulse-settings-section" data-ai-agent-mode-target="externalOnly" style="display: none;">
         <label class="pulse-checkbox-label">
           <%= form.check_box :generate_token, checked: true %>
-          Generate an API token for this subagent
+          Generate an API token for this AI Agent
         </label>
-        <small class="pulse-hint">Required for the subagent to access the API.</small>
+        <small class="pulse-hint">Required for the AI Agent to access the API.</small>
       </section>
 
       <section class="pulse-settings-section pulse-action-row">
-        <%= form.submit 'Create Subagent', class: "pulse-action-btn pulse-action-btn-primary" %>
+        <%= form.submit 'Create AI Agent', class: "pulse-action-btn pulse-action-btn-primary" %>
         <a href="<%= @current_user.path %>/settings" class="pulse-action-btn">Cancel</a>
       </section>
     <% end %>

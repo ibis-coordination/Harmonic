@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { fetchWithCsrf } from "../utils/csrf"
 
 export default class CommitmentController extends Controller {
   static targets = ["joinButton", "joinButtonMessage", "joinSection", "statusSection", "participantsSection"]
@@ -17,11 +18,6 @@ export default class CommitmentController extends Controller {
     // document.addEventListener('poll', this.refreshDisplay.bind(this))
   }
 
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   async join(event: Event): Promise<void> {
     event.preventDefault()
     if (this.editingName) return
@@ -31,12 +27,8 @@ export default class CommitmentController extends Controller {
     if (!url) return
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithCsrf(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": this.csrfToken,
-        },
         body: JSON.stringify({
           committed: true,
         }),

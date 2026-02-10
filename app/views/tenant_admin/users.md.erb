@@ -16,14 +16,14 @@ All users in `<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>` (<%= @tot
 <% if @page < @total_pages -%>[Next](<%= base_url %>page=<%= @page + 1 %>)<% end %>
 
 <% end -%>
-<% user_type_labels = { 'person' => 'People', 'subagent' => 'Subagents' } -%>
-<% ['person', 'subagent'].each do |user_type| -%>
+<% user_type_labels = { 'human' => 'People', 'ai_agent' => 'AI Agents' } -%>
+<% ['person', 'ai_agent'].each do |user_type| -%>
 <% users = @users_by_type[user_type] || [] -%>
 <% total_count = @counts_by_type[user_type] || 0 -%>
 ## <%= user_type_labels[user_type] || user_type.titleize %> (<%= total_count %> total)
 
 <% if users.any? -%>
-<% if user_type == 'subagent' -%>
+<% if user_type == 'ai_agent' -%>
 | Handle | Name | Status |
 |--------|------|--------|
 <% users.each do |user| -%>

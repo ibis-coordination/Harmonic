@@ -1,7 +1,7 @@
 # API Token
 
 <% if @current_user != @showing_user %>
-This token belongs to subagent [<%= raw @showing_user.display_name %>](<%= @showing_user.path %>), but you are able to view it because you are the owner of this subagent.
+This token belongs to ai_agent [<%= raw @showing_user.display_name %>](<%= @showing_user.path %>), but you are able to view it because you are the owner of this ai_agent.
 
 <% end %>
 <% if @token.plaintext_token.present? %>

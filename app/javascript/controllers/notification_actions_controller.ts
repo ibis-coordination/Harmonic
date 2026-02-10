@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { getCsrfToken } from "../utils/csrf"
 
 /**
  * NotificationActionsController handles AJAX actions for notifications:
@@ -21,11 +22,6 @@ export default class NotificationActionsController extends Controller<HTMLElemen
   declare readonly dismissAllButtonTarget: HTMLElement
   declare readonly hasDismissAllButtonTarget: boolean
 
-  private get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   async dismiss(event: Event): Promise<void> {
     event.preventDefault()
 
@@ -44,7 +40,7 @@ export default class NotificationActionsController extends Controller<HTMLElemen
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
           Accept: "application/json",
         },
         body: `id=${encodeURIComponent(notificationId)}`,
@@ -102,7 +98,7 @@ export default class NotificationActionsController extends Controller<HTMLElemen
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
           Accept: "application/json",
         },
       })
@@ -153,7 +149,7 @@ export default class NotificationActionsController extends Controller<HTMLElemen
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
           Accept: "application/json",
         },
         body: `studio_id=${encodeURIComponent(studioId)}`,

@@ -7,13 +7,13 @@ Rails.application.routes.draw do
     get 'dev/pulse' => 'dev#pulse_components'
   end
 
-  # Subagents management and task runner
-  get 'subagents' => 'subagents#index', as: 'subagents'
-  get 'subagents/:handle/run' => 'subagents#run_task', as: 'subagent_run_task'
-  post 'subagents/:handle/run' => 'subagents#execute_task', as: 'subagent_execute_task'
-  get 'subagents/:handle/runs' => 'subagents#runs', as: 'subagent_runs'
-  get 'subagents/:handle/runs/:run_id' => 'subagents#show_run', as: 'subagent_run'
-  post 'subagents/:handle/runs/:run_id/cancel' => 'subagents#cancel_run', as: 'cancel_subagent_run'
+  # AI Agents management and task runner
+  get 'ai-agents' => 'ai_agents#index', as: 'ai_agents'
+  get 'ai-agents/:handle/run' => 'ai_agents#run_task', as: 'ai_agent_run_task'
+  post 'ai-agents/:handle/run' => 'ai_agents#execute_task', as: 'ai_agent_execute_task'
+  get 'ai-agents/:handle/runs' => 'ai_agents#runs', as: 'ai_agent_runs'
+  get 'ai-agents/:handle/runs/:run_id' => 'ai_agents#show_run', as: 'ai_agent_run'
+  post 'ai-agents/:handle/runs/:run_id/cancel' => 'ai_agents#cancel_run', as: 'cancel_ai_agent_run'
 
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'
@@ -120,7 +120,7 @@ Rails.application.routes.draw do
   get 'learn/awareness-indicators' => 'learn#awareness_indicators'
   get 'learn/acceptance-voting' => 'learn#acceptance_voting'
   get 'learn/reciprocal-commitment' => 'learn#reciprocal_commitment'
-  get 'learn/subagency' => 'learn#subagency'
+  get 'learn/ai-agency' => 'learn#ai_agency'
   get 'learn/superagency' => 'learn#superagency'
   get 'learn/memory' => 'learn#memory'
 
@@ -236,14 +236,14 @@ Rails.application.routes.draw do
     resources :api_tokens,
               path: 'settings/tokens',
               only: [:new, :create, :show, :destroy]
-    resources :subagents,
-              path: "settings/subagents",
+    resources :ai_agents,
+              path: "settings/ai-agents",
               only: [:new, :create, :show, :destroy]
     # Representation routes
     post 'represent' => 'users#represent', on: :member
     delete 'represent' => 'users#stop_representing', on: :member
-    post 'add_to_studio' => 'users#add_subagent_to_studio', on: :member
-    delete 'remove_from_studio' => 'users#remove_subagent_from_studio', on: :member
+    post 'add_to_studio' => 'users#add_ai_agent_to_studio', on: :member
+    delete 'remove_from_studio' => 'users#remove_ai_agent_from_studio', on: :member
     # User settings actions
     get 'settings/actions' => 'users#actions_index', on: :member
     get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member
@@ -252,11 +252,11 @@ Rails.application.routes.draw do
     get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
     get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member
     post 'settings/tokens/new/actions/create_api_token' => 'api_tokens#execute_create_api_token', on: :member
-    # Subagent actions
-    get 'settings/subagents/new/actions' => 'subagents#actions_index', on: :member
-    get 'settings/subagents/new/actions/create_subagent' => 'subagents#describe_create_subagent', on: :member
-    post 'settings/subagents/new/actions/create_subagent' => 'subagents#execute_create_subagent', on: :member
-    # User/Subagent webhook routes (parent can manage subagent webhooks)
+    # AI Agent actions
+    get 'settings/ai-agents/new/actions' => 'ai_agents#actions_index', on: :member
+    get 'settings/ai-agents/new/actions/create_ai_agent' => 'ai_agents#describe_create_ai_agent', on: :member
+    post 'settings/ai-agents/new/actions/create_ai_agent' => 'ai_agents#execute_create_ai_agent', on: :member
+    # User/AI agent webhook routes (parent can manage AI agent webhooks)
     get 'settings/webhooks' => 'user_webhooks#index', on: :member
     get 'settings/webhooks/new' => 'user_webhooks#new', on: :member
     get 'settings/webhooks/new/actions' => 'user_webhooks#actions_index_new', on: :member
@@ -319,15 +319,15 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/members" => 'studios#members'
     get "#{studios_or_scenes}/:superagent_handle/settings" => 'studios#settings'
     post "#{studios_or_scenes}/:superagent_handle/settings" => 'studios#update_settings'
-    post "#{studios_or_scenes}/:superagent_handle/settings/add_subagent" => 'studios#add_subagent'
-    delete "#{studios_or_scenes}/:superagent_handle/settings/remove_subagent" => 'studios#remove_subagent'
+    post "#{studios_or_scenes}/:superagent_handle/settings/add_ai_agent" => 'studios#add_ai_agent'
+    delete "#{studios_or_scenes}/:superagent_handle/settings/remove_ai_agent" => 'studios#remove_ai_agent'
     get "#{studios_or_scenes}/:superagent_handle/settings/actions" => 'studios#actions_index_settings'
     get "#{studios_or_scenes}/:superagent_handle/settings/actions/update_studio_settings" => 'studios#describe_update_studio_settings'
     post "#{studios_or_scenes}/:superagent_handle/settings/actions/update_studio_settings" => 'studios#update_studio_settings_action'
-    get "#{studios_or_scenes}/:superagent_handle/settings/actions/add_subagent_to_studio" => 'studios#describe_add_subagent_to_studio'
-    post "#{studios_or_scenes}/:superagent_handle/settings/actions/add_subagent_to_studio" => 'studios#execute_add_subagent_to_studio'
-    get "#{studios_or_scenes}/:superagent_handle/settings/actions/remove_subagent_from_studio" => 'studios#describe_remove_subagent_from_studio'
-    post "#{studios_or_scenes}/:superagent_handle/settings/actions/remove_subagent_from_studio" => 'studios#execute_remove_subagent_from_studio'
+    get "#{studios_or_scenes}/:superagent_handle/settings/actions/add_ai_agent_to_studio" => 'studios#describe_add_ai_agent_to_studio'
+    post "#{studios_or_scenes}/:superagent_handle/settings/actions/add_ai_agent_to_studio" => 'studios#execute_add_ai_agent_to_studio'
+    get "#{studios_or_scenes}/:superagent_handle/settings/actions/remove_ai_agent_from_studio" => 'studios#describe_remove_ai_agent_from_studio'
+    post "#{studios_or_scenes}/:superagent_handle/settings/actions/remove_ai_agent_from_studio" => 'studios#execute_remove_ai_agent_from_studio'
     # Webhooks
     get "#{studios_or_scenes}/:superagent_handle/settings/webhooks" => 'webhooks#index'
     get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/new" => 'webhooks#new'

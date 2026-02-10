@@ -5,22 +5,22 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @superagent = @global_superagent
     @parent = @global_user
-    @subagent = create_subagent(parent: @parent, name: "Subagent User")
-    @tenant.add_user!(@subagent)
-    @superagent.add_user!(@subagent)
-    # The TrusteeGrant is auto-created when the subagent is created
-    @grant = TrusteeGrant.find_by!(granting_user: @subagent, trustee_user: @parent)
+    @ai_agent = create_ai_agent(parent: @parent, name: "AiAgent User")
+    @tenant.add_user!(@ai_agent)
+    @superagent.add_user!(@ai_agent)
+    # The TrusteeGrant is auto-created when the ai_agent is created
+    @grant = TrusteeGrant.find_by!(granting_user: @ai_agent, trustee_user: @parent)
     # After the migration:
     # - trustee_user = the parent (the person trusted to act)
-    # - granting_user = the subagent (the person being represented)
-    # - effective_user = the granting_user (subagent) - content is attributed to them
-    @effective_user = @grant.granting_user  # = @subagent
+    # - granting_user = the ai_agent (the person being represented)
+    # - effective_user = the granting_user (ai_agent) - content is attributed to them
+    @effective_user = @grant.granting_user  # = @ai_agent
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
   # Helper to start representation and handle the flow
   def start_representing
-    post "/u/#{@subagent.handle}/represent"
+    post "/u/#{@ai_agent.handle}/represent"
     assert_response :redirect
     # Flow redirects to /representing first
     follow_redirect!
@@ -30,7 +30,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
   # Starting Representation
   # ====================
 
-  test "parent can start representing their subagent user" do
+  test "parent can start representing their ai_agent user" do
     sign_in_as(@parent, tenant: @tenant)
 
     start_representing
@@ -41,28 +41,28 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     assert RepresentationSession.exists?(trustee_grant: @grant, representative_user: @parent)
   end
 
-  test "parent cannot represent another user's subagent user" do
+  test "parent cannot represent another user's ai_agent user" do
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
     @superagent.add_user!(other_parent)
-    other_subagent = create_subagent(parent: other_parent, name: "Other Subagent")
-    @tenant.add_user!(other_subagent)
-    @superagent.add_user!(other_subagent)
+    other_ai_agent = create_ai_agent(parent: other_parent, name: "Other AiAgent")
+    @tenant.add_user!(other_ai_agent)
+    @superagent.add_user!(other_ai_agent)
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{other_subagent.handle}/represent"
+    post "/u/#{other_ai_agent.handle}/represent"
 
     assert_response :forbidden
   end
 
-  test "parent cannot represent archived subagent user" do
+  test "parent cannot represent archived ai_agent user" do
     # Archive through tenant_user since archived_at is on TenantUser
-    @subagent.tenant_user = @tenant.tenant_users.find_by(user: @subagent)
-    @subagent.archive!
+    @ai_agent.tenant_user = @tenant.tenant_users.find_by(user: @ai_agent)
+    @ai_agent.archive!
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{@subagent.handle}/represent"
+    post "/u/#{@ai_agent.handle}/represent"
 
     assert_response :forbidden
   end
@@ -80,7 +80,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
   end
 
   test "unauthenticated user cannot represent anyone" do
-    post "/u/#{@subagent.handle}/represent"
+    post "/u/#{@ai_agent.handle}/represent"
 
     # Should redirect to login or return error
     assert_response :redirect
@@ -108,14 +108,14 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     post "/studios/#{@superagent.handle}/note", params: {
       note: {
         title: "Note from representation",
-        text: "This should be attributed to the subagent (the person being represented)",
+        text: "This should be attributed to the ai_agent (the person being represented)",
       },
     }
 
     note = Note.last
-    # Content is attributed to the effective_user (the subagent being represented)
+    # Content is attributed to the effective_user (the ai_agent being represented)
     assert_equal @effective_user.id, note.created_by_id
-    assert_equal @subagent.id, note.created_by_id
+    assert_equal @ai_agent.id, note.created_by_id
     assert_not_equal @parent.id, note.created_by_id
   end
 
@@ -131,13 +131,13 @@ class RepresentationTest < ActionDispatch::IntegrationTest
       post "/studios/#{@superagent.handle}/note", params: {
         note: {
           title: "Note created while representing",
-          text: "Created by parent representing subagent",
+          text: "Created by parent representing ai_agent",
         },
       }
     end
 
     note = Note.last
-    # Content is attributed to the effective_user (the subagent being represented)
+    # Content is attributed to the effective_user (the ai_agent being represented)
     assert_equal @effective_user.id, note.created_by_id
   end
 
@@ -169,9 +169,9 @@ class RepresentationTest < ActionDispatch::IntegrationTest
       votes: [{ option_title: option.title, accept: true, prefer: false }],
     }
 
-    # Check that the vote was recorded for the effective_user (the subagent being represented)
+    # Check that the vote was recorded for the effective_user (the ai_agent being represented)
     participant = decision.participants.find_by(user: @effective_user)
-    assert_not_nil participant, "Represented user (subagent) should have a participant record"
+    assert_not_nil participant, "Represented user (ai_agent) should have a participant record"
   end
 
   # ====================
@@ -182,7 +182,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     sign_in_as(@parent, tenant: @tenant)
     start_representing
 
-    delete "/u/#{@subagent.handle}/represent", headers: { "HTTP_REFERER" => "/" }
+    delete "/u/#{@ai_agent.handle}/represent", headers: { "HTTP_REFERER" => "/" }
 
     assert_response :redirect
   end
@@ -196,11 +196,11 @@ class RepresentationTest < ActionDispatch::IntegrationTest
       note: { title: "Before stop", text: "Representing" },
     }
     note_while_representing = Note.last
-    # While representing, content is attributed to the effective_user (the subagent)
+    # While representing, content is attributed to the effective_user (the ai_agent)
     assert_equal @effective_user.id, note_while_representing.created_by_id
 
     # Stop representing
-    delete "/u/#{@subagent.handle}/represent", headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}" }
+    delete "/u/#{@ai_agent.handle}/represent", headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}" }
 
     # The stop_representing action should end the representation session
     rep_session = RepresentationSession.unscoped.find_by(trustee_grant: @grant, representative_user: @parent)
@@ -221,13 +221,13 @@ class RepresentationTest < ActionDispatch::IntegrationTest
   # Edge Cases
   # ====================
 
-  test "if subagent user is archived during session representation ends gracefully" do
+  test "if ai_agent user is archived during session representation ends gracefully" do
     sign_in_as(@parent, tenant: @tenant)
     start_representing
 
-    # Archive the subagent user while representing
-    @subagent.tenant_user = @tenant.tenant_users.find_by(user: @subagent)
-    @subagent.archive!
+    # Archive the ai_agent user while representing
+    @ai_agent.tenant_user = @tenant.tenant_users.find_by(user: @ai_agent)
+    @ai_agent.archive!
 
     # Access a page - should no longer be representing
     get "/studios/#{@superagent.handle}"
@@ -275,7 +275,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     }
 
     note = Note.last
-    # Content is attributed to effective_user (the subagent being represented)
+    # Content is attributed to effective_user (the ai_agent being represented)
     assert_equal @effective_user.id, note.created_by_id
   end
 end

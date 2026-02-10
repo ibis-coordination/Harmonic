@@ -6,12 +6,12 @@
 class ActionsHelper
   extend T::Sig
 
-  # Authorization for actions restricted to "person" user types only.
-  # Subagents and trustees cannot create other subagents or API tokens.
-  PERSON_ONLY_AUTHORIZATION = T.let(
+  # Authorization for actions restricted to "human" user types only.
+  # AI agents and trustees cannot create other AI agents or API tokens.
+  HUMAN_ONLY_AUTHORIZATION = T.let(
     lambda { |user, context|
       return false unless user
-      return false unless user.user_type == "person"
+      return false unless user.user_type == "human"
 
       target_user = context[:target_user]
       target = context[:target]
@@ -113,19 +113,19 @@ class ActionsHelper
       ],
       authorization: :superagent_admin,
     },
-    "add_subagent_to_studio" => {
-      description: "Add one of your subagents to this studio",
-      params_string: "(subagent_id)",
+    "add_ai_agent_to_studio" => {
+      description: "Add one of your AI agents to this studio",
+      params_string: "(ai_agent_id)",
       params: [
-        { name: "subagent_id", type: "integer", description: "ID of the subagent to add" },
+        { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to add" },
       ],
       authorization: :superagent_admin,
     },
-    "remove_subagent_from_studio" => {
-      description: "Remove a subagent from this studio",
-      params_string: "(subagent_id)",
+    "remove_ai_agent_from_studio" => {
+      description: "Remove an AI agent from this studio",
+      params_string: "(ai_agent_id)",
       params: [
-        { name: "subagent_id", type: "integer", description: "ID of the subagent to remove" },
+        { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to remove" },
       ],
       authorization: :superagent_admin,
     },
@@ -310,7 +310,7 @@ class ActionsHelper
       params: [
         { name: "content", type: "string", description: "The new scratchpad content (max 10000 chars). Replaces existing content." },
       ],
-      authorization: :self_subagent,
+      authorization: :self_ai_agent,
     },
     "create_api_token" => {
       description: "Create a new API token",
@@ -321,17 +321,17 @@ class ActionsHelper
         { name: "duration", type: "integer", description: "How long the token is valid" },
         { name: "duration_unit", type: "string", description: 'Unit for duration: "days", "weeks", "months", or "years"' },
       ],
-      authorization: PERSON_ONLY_AUTHORIZATION,
+      authorization: HUMAN_ONLY_AUTHORIZATION,
     },
-    "create_subagent" => {
-      description: "Create a new subagent",
+    "create_ai_agent" => {
+      description: "Create a new AI agent",
       params_string: "(name, identity_prompt, generate_token)",
       params: [
-        { name: "name", type: "string", description: "The name of the subagent" },
+        { name: "name", type: "string", description: "The name of the AI agent" },
         { name: "identity_prompt", type: "string", description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose" },
-        { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the subagent" },
+        { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the AI agent" },
       ],
-      authorization: PERSON_ONLY_AUTHORIZATION,
+      authorization: HUMAN_ONLY_AUTHORIZATION,
     },
 
     # Admin actions
@@ -589,8 +589,8 @@ class ActionsHelper
       controller_actions: ["studios#settings"],
       actions: [
         { name: "update_studio_settings", params_string: ACTION_DEFINITIONS["update_studio_settings"][:params_string], description: ACTION_DEFINITIONS["update_studio_settings"][:description] },
-        { name: "add_subagent_to_studio", params_string: ACTION_DEFINITIONS["add_subagent_to_studio"][:params_string], description: ACTION_DEFINITIONS["add_subagent_to_studio"][:description] },
-        { name: "remove_subagent_from_studio", params_string: ACTION_DEFINITIONS["remove_subagent_from_studio"][:params_string], description: ACTION_DEFINITIONS["remove_subagent_from_studio"][:description] },
+        { name: "add_ai_agent_to_studio", params_string: ACTION_DEFINITIONS["add_ai_agent_to_studio"][:params_string], description: ACTION_DEFINITIONS["add_ai_agent_to_studio"][:description] },
+        { name: "remove_ai_agent_from_studio", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_studio"][:params_string], description: ACTION_DEFINITIONS["remove_ai_agent_from_studio"][:description] },
       ],
     },
     "/studios/:studio_handle/cycles" => {
@@ -710,10 +710,10 @@ class ActionsHelper
         { name: "create_api_token", params_string: ACTION_DEFINITIONS["create_api_token"][:params_string], description: ACTION_DEFINITIONS["create_api_token"][:description] },
       ],
     },
-    "/u/:handle/settings/subagents/new" => {
-      controller_actions: ["subagents#new"],
+    "/u/:handle/settings/ai-agents/new" => {
+      controller_actions: ["ai_agents#new"],
       actions: [
-        { name: "create_subagent", params_string: ACTION_DEFINITIONS["create_subagent"][:params_string], description: ACTION_DEFINITIONS["create_subagent"][:description] },
+        { name: "create_ai_agent", params_string: ACTION_DEFINITIONS["create_ai_agent"][:params_string], description: ACTION_DEFINITIONS["create_ai_agent"][:description] },
       ],
     },
     "/admin" => {

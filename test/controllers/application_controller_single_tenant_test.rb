@@ -6,7 +6,7 @@ class ApplicationControllerSingleTenantTest < ActionDispatch::IntegrationTest
     ENV['SINGLE_TENANT_MODE'] = 'true'
     @tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN']) ||
               Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
-    @user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "person")
+    @user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
     @tenant.add_user!(@user)
     @tenant.create_main_superagent!(created_by: @user) unless @tenant.main_superagent
     @superagent = @tenant.main_superagent

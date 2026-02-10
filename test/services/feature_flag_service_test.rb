@@ -11,7 +11,7 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert config.key?("api")
     assert config.key?("file_attachments")
     assert config.key?("trio")
-    assert config.key?("subagents")
+    assert config.key?("ai_agents")
   end
 
   test "all_flags returns list of flag names" do
@@ -19,7 +19,7 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert flags.include?("api")
     assert flags.include?("file_attachments")
     assert flags.include?("trio")
-    assert flags.include?("subagents")
+    assert flags.include?("ai_agents")
   end
 
   test "flag_metadata returns metadata hash for valid flag" do
@@ -148,19 +148,19 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not @superagent.trio_enabled?
   end
 
-  test "subagents flag is app enabled" do
-    assert FeatureFlagService.app_enabled?("subagents")
+  test "ai_agents flag is app enabled" do
+    assert FeatureFlagService.app_enabled?("ai_agents")
   end
 
-  test "subagents_enabled? on tenant uses feature flag service" do
-    @tenant.set_feature_flag!("subagents", true)
-    assert @tenant.subagents_enabled?
+  test "ai_agents_enabled? on tenant uses feature flag service" do
+    @tenant.set_feature_flag!("ai_agents", true)
+    assert @tenant.ai_agents_enabled?
 
-    @tenant.set_feature_flag!("subagents", false)
-    assert_not @tenant.subagents_enabled?
+    @tenant.set_feature_flag!("ai_agents", false)
+    assert_not @tenant.ai_agents_enabled?
   end
 
-  test "subagents default is false for tenant" do
-    assert_not FeatureFlagService.default_for_tenant("subagents")
+  test "ai_agents default is false for tenant" do
+    assert_not FeatureFlagService.default_for_tenant("ai_agents")
   end
 end

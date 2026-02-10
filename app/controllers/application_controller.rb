@@ -131,7 +131,7 @@ class ApplicationController < ActionController::Base
   # - API: via X-Representation-Session-ID + X-Representing-User/Studio headers
   # - Browser: via representation_session_id + representing_user/studio cookies
   #
-  # The effective current_user is either the base person user or the trustee user
+  # The effective current_user is either the base human user or the trustee user
   # from an active representation session.
   def current_user
     return @current_user if defined?(@current_user)
@@ -323,13 +323,13 @@ class ApplicationController < ActionController::Base
     @current_user
   end
 
-  # Loads the base person user from session.
+  # Loads the base human user from session.
   #
-  # Session key :user_id stores the logged-in person user.
-  # Only person users can log in via browser.
+  # Session key :user_id stores the logged-in human user.
+  # Only human users can log in via browser.
   def load_session_user
-    @current_person_user = (User.find_by(id: session[:user_id], user_type: "person") if session[:user_id].present?)
-    @current_user = @current_person_user
+    @current_human_user = (User.find_by(id: session[:user_id], user_type: "human") if session[:user_id].present?)
+    @current_user = @current_human_user
   end
 
   # Resolves representation from browser cookies.
@@ -340,7 +340,7 @@ class ApplicationController < ActionController::Base
   # - Sets @current_user to the trustee user if valid
   def resolve_browser_representation
     return unless session[:representation_session_id].present?
-    return unless @current_person_user
+    return unless @current_human_user
 
     # Look up the RepresentationSession (bypass superagent scope)
     rep_session = RepresentationSession.tenant_scoped_only(current_tenant.id).find_by(
@@ -373,8 +373,8 @@ class ApplicationController < ActionController::Base
       return
     end
 
-    # Validate: person user matches session's representative_user
-    unless rep_session.representative_user_id == @current_person_user.id
+    # Validate: human user matches session's representative_user
+    unless rep_session.representative_user_id == @current_human_user.id
       clear_representation!
       return
     end
@@ -521,12 +521,12 @@ class ApplicationController < ActionController::Base
     session.delete(:representation_session_id)
     session.delete(:representing_user)
     session.delete(:representing_studio)
-    @current_user = @current_person_user
+    @current_user = @current_human_user
     @current_representation_session&.end!
     @current_representation_session = nil
   end
 
-  attr_reader :current_person_user
+  attr_reader :current_human_user
 
   def current_representation_session
     return @current_representation_session if defined?(@current_representation_session)
@@ -968,7 +968,7 @@ class ApplicationController < ActionController::Base
 
     # Absolute timeout: session expires after fixed time from login (default 24 hours)
     if session[:logged_in_at].present? && Time.at(session[:logged_in_at]) < SESSION_ABSOLUTE_TIMEOUT.ago
-      SecurityAuditLog.log_logout(user: current_person_user, ip: request.remote_ip, reason: "session_absolute_timeout") if current_person_user
+      SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "session_absolute_timeout") if current_human_user
       reset_session
       flash[:alert] = "Your session has expired. Please log in again."
       redirect_to "/login"
@@ -977,7 +977,7 @@ class ApplicationController < ActionController::Base
 
     # Idle timeout: session expires after inactivity (default 2 hours)
     if session[:last_activity_at].present? && Time.at(session[:last_activity_at]) < SESSION_IDLE_TIMEOUT.ago
-      SecurityAuditLog.log_logout(user: current_person_user, ip: request.remote_ip, reason: "session_idle_timeout") if current_person_user
+      SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "session_idle_timeout") if current_human_user
       reset_session
       flash[:alert] = "Your session has expired due to inactivity. Please log in again."
       redirect_to "/login"

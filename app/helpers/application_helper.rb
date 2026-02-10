@@ -1,6 +1,19 @@
 # typed: false
 
 module ApplicationHelper
+  # Generate consistent avatar initials from a name
+  # Returns up to 2 uppercase characters
+  def avatar_initials(name)
+    return "?" if name.blank?
+
+    parts = name.to_s.split(/[\s\-_]+/)
+    if parts.length >= 2
+      "#{parts[0][0]}#{parts[1][0]}".upcase
+    else
+      name[0..1].upcase
+    end
+  end
+
   def timeago(datetime)
     ago_or_from_now = datetime < Time.now ? 'ago' : 'from now'
     "<time
@@ -100,22 +113,22 @@ module ApplicationHelper
     html.html_safe
   end
 
-  # Render a user link in markdown format, with parent attribution for subagents
+  # Render a user link in markdown format, with parent attribution for ai_agents
   def user_link_md(user, include_parent: true)
     return "" unless user
     base_link = "[#{user.display_name}](#{user.path})"
-    if include_parent && user.subagent? && user.parent
-      "#{base_link} (subagent of [#{user.parent.display_name}](#{user.parent.path}))"
+    if include_parent && user.ai_agent? && user.parent
+      "#{base_link} (ai_agent of [#{user.parent.display_name}](#{user.parent.path}))"
     else
       base_link
     end
   end
 
   def profile_pic(user, size: 30, style: '', show_parent: false)
-    title = user.subagent? && user.parent ? "#{user.display_name} (subagent of #{user.parent.display_name})" : user.display_name
+    title = user.ai_agent? && user.parent ? "#{user.display_name} (ai_agent of #{user.parent.display_name})" : user.display_name
     if user.image_url
       main_img = image_tag user.image_url, class: 'profile-pic', width: size, height: size, title: title, style: "width:#{size}px;height:#{size}px;line-height:#{size}px;" + style
-      if show_parent && user.subagent? && user.parent&.image_url
+      if show_parent && user.ai_agent? && user.parent&.image_url
         parent_size = (size * 0.4).to_i
         parent_img = image_tag user.parent.image_url, class: 'profile-pic-parent', width: parent_size, height: parent_size, title: "Managed by #{user.parent.display_name}", style: "position:absolute;bottom:-2px;right:-2px;width:#{parent_size}px;height:#{parent_size}px;border:1px solid var(--color-border-default);border-radius:50%;"
         "<span style='position:relative;display:inline-block;#{style}'>#{main_img}#{parent_img}</span>".html_safe

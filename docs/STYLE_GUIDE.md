@@ -174,7 +174,7 @@ input:focus, select:focus {
 
 **Flex Card:**
 ```css
-.subagent-card {
+.ai_agent-card {
   display: flex;
   gap: 16px;
   border: 1px solid var(--color-border-default);

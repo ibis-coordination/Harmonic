@@ -21,9 +21,9 @@ class Rails::Conductor::BaseController
     include ::ActionText::ContentHelper
     include ::ActionText::TagHelper
     include ::ActionController::Base::HelperMethods
+    include ::AiAgentsHelper
     include ::ApplicationHelper
     include ::MarkdownHelper
-    include ::SubagentsHelper
   end
 
   class HelperProxy < ::ActionView::Base

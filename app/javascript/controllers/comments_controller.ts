@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { getCsrfToken } from "../utils/csrf"
 
 /**
  * Handles inline comment submission and refreshing.
@@ -22,13 +23,6 @@ export default class CommentsController extends Controller {
 
   private isSubmitting = false
 
-  get csrfToken(): string {
-    const meta = document.querySelector(
-      "meta[name='csrf-token']"
-    ) as HTMLMetaElement | null
-    return meta?.content ?? ""
-  }
-
   async submit(event: Event): Promise<void> {
     event.preventDefault()
 
@@ -50,7 +44,7 @@ export default class CommentsController extends Controller {
       const response = await fetch(form.action, {
         method: "POST",
         headers: {
-          "X-CSRF-Token": this.csrfToken,
+          "X-CSRF-Token": getCsrfToken(),
           Accept: "application/json",
         },
         body: formData,

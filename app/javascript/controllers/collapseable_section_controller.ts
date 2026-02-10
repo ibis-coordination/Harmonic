@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { getCsrfToken } from "../utils/csrf"
 
 export default class CollapsableSectionController extends Controller {
   static targets = ["header", "body", "triangleRight", "triangleDown", "lazyLoad"]
@@ -32,11 +33,6 @@ export default class CollapsableSectionController extends Controller {
         this.bodyTarget.style.maxHeight = this.bodyTarget.scrollHeight + "px"
       })
     }
-  }
-
-  get csrfToken(): string {
-    const meta = document.querySelector("meta[name='csrf-token']") as HTMLMetaElement | null
-    return meta?.content ?? ""
   }
 
   toggle(): void {
@@ -81,7 +77,7 @@ export default class CollapsableSectionController extends Controller {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "X-CSRF-Token": this.csrfToken,
+            "X-CSRF-Token": getCsrfToken(),
           },
         })
           .then((response) => response.text())
