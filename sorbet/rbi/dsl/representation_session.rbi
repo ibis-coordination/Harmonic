@@ -407,20 +407,6 @@ class RepresentationSession
     def reload_trustee_grant; end
 
     sig { returns(T::Array[T.untyped]) }
-    def representation_session_association_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def representation_session_association_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `RepresentationSession` class because it declared `has_many :representation_session_associations`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::RepresentationSessionAssociation::PrivateCollectionProxy) }
-    def representation_session_associations; end
-
-    sig { params(value: T::Enumerable[::RepresentationSessionAssociation]).void }
-    def representation_session_associations=(value); end
-
-    sig { returns(T::Array[T.untyped]) }
     def representation_session_event_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -652,51 +638,6 @@ class RepresentationSession
   end
 
   module GeneratedAttributeMethods
-    sig { returns(T.untyped) }
-    def activity_log; end
-
-    sig { params(value: T.untyped).returns(T.untyped) }
-    def activity_log=(value); end
-
-    sig { returns(T::Boolean) }
-    def activity_log?; end
-
-    sig { returns(T.untyped) }
-    def activity_log_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def activity_log_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def activity_log_came_from_user?; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def activity_log_change; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def activity_log_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def activity_log_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.untyped) }
-    def activity_log_in_database; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def activity_log_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def activity_log_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.untyped) }
-    def activity_log_previously_was; end
-
-    sig { returns(T.untyped) }
-    def activity_log_was; end
-
-    sig { void }
-    def activity_log_will_change!; end
-
     sig { returns(::ActiveSupport::TimeWithZone) }
     def began_at; end
 
@@ -978,9 +919,6 @@ class RepresentationSession
     def representative_user_id_will_change!; end
 
     sig { void }
-    def restore_activity_log!; end
-
-    sig { void }
     def restore_began_at!; end
 
     sig { void }
@@ -1012,12 +950,6 @@ class RepresentationSession
 
     sig { void }
     def restore_updated_at!; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def saved_change_to_activity_log; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_activity_log?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_began_at; end
@@ -1309,9 +1241,6 @@ class RepresentationSession
 
     sig { void }
     def updated_at_will_change!; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_activity_log?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_began_at?; end
