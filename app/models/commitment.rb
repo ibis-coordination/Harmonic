@@ -10,6 +10,7 @@ class Commitment < ApplicationRecord
   include Attachable
   include Searchable
   include TracksUserItemStatus
+  include HasRepresentationSessionEvents
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id

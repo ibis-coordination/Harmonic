@@ -61,10 +61,9 @@ class NotificationService
   sig { params(user: User, tenant: Tenant, superagent_id: String).returns(Integer) }
   def self.dismiss_all_for_superagent(user, tenant:, superagent_id:)
     # Dismiss all notifications for a specific superagent (studio)
-    # We bypass the default_scope on Event by querying directly with unscoped
-    # Include tenant filter for efficiency (though final query also filters by tenant)
-    event_ids = Event.unscoped.where(superagent_id: superagent_id, tenant: tenant).pluck(:id)
-    notification_ids = Notification.unscoped.where(event_id: event_ids, tenant: tenant).pluck(:id)
+    # We bypass the superagent scope on Event by using tenant_scoped_only
+    event_ids = Event.tenant_scoped_only(tenant.id).where(superagent_id: superagent_id).pluck(:id)
+    notification_ids = Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
 
     NotificationRecipient
       .where(user: user, tenant: tenant)

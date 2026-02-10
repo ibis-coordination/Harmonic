@@ -2,18 +2,23 @@
 <%# Usage: render 'shared/pulse_author', resource: @note %>
 <% verb ||= nil %>
 <% author = resource.created_by %>
-<% if author %>
+<% representative = resource.respond_to?(:representative_user) ? resource.representative_user : nil %>
+<% is_representation = resource.respond_to?(:created_via_representation?) && resource.created_via_representation? && representative %>
+<% display_author = is_representation ? representative : author %>
+<% if display_author %>
   <div class="pulse-feed-item-author">
     <div class="pulse-author-avatar">
-      <% if author.image_url.present? && author.image_url != '/placeholder.png' %>
-        <img src="<%= author.image_url %>" alt="" class="pulse-avatar-img">
+      <% if display_author.image_url.present? && display_author.image_url != '/placeholder.png' %>
+        <img src="<%= display_author.image_url %>" alt="" class="pulse-avatar-img">
       <% end %>
-      <span class="pulse-avatar-initials"><%= author.display_name.to_s.first&.upcase || '?' %></span>
+      <span class="pulse-avatar-initials"><%= display_author.display_name.to_s.first&.upcase || '?' %></span>
     </div>
-    <a href="<%= author.path %>" class="pulse-feed-item-author">
-      <strong><%= author.display_name %></strong>
+    <a href="<%= display_author.path %>" class="pulse-feed-item-author">
+      <strong><%= display_author.display_name %></strong>
     </a>
-    <% if author.subagent? && author.parent %>
+    <% if is_representation %>
+      <span class="pulse-representation-label">on behalf of <%= link_to author.display_name, author.path %></span>
+    <% elsif author.subagent? && author.parent %>
       <span class="pulse-subagent-label">(managed by <%= link_to author.parent.display_name, author.parent.path %>)</span>
     <% end %>
     <% if verb.present? %>

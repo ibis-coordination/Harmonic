@@ -1,0 +1,536 @@
+# typed: false
+
+# TrusteeGrantsController manages user-to-user trustee grants.
+# This allows users to grant other users (or agents) authority to act on their behalf.
+#
+# Key concepts:
+# - granting_user: The user who grants authority (the "principal")
+# - trustee_user: The user who receives authority (the "trustee" - authorized to act on behalf)
+#
+# Routes are under /u/:handle/settings/trustee-grants
+class TrusteeGrantsController < ApplicationController
+  before_action :require_login
+  before_action :set_target_user
+  before_action :set_sidebar_mode, only: [:index, :new, :show]
+  before_action :set_grant, only: [
+    :show, :actions_index_show,
+    :describe_accept, :execute_accept,
+    :describe_decline, :execute_decline,
+    :describe_revoke, :execute_revoke,
+    :describe_start_representation, :execute_start_representation,
+    :describe_end_representation, :execute_end_representation,
+    :start_representing,
+  ]
+
+  # Override to return the grant instance for this controller
+  # (ApplicationController#current_resource only handles Decision/Commitment/Note)
+  def current_resource
+    @grant
+  end
+
+  # GET /u/:handle/settings/trustee-grants
+  def index
+    @page_title = "Trustee Grants for #{@target_user.display_name || @target_user.handle}"
+
+    # Grants I've given to others (I am granting_user)
+    @granted = TrusteeGrant.tenant_scoped_only
+      .where(granting_user: @target_user)
+      .includes(:trustee_user)
+
+    # Grants I've received from others (I am trustee_user)
+    @received = TrusteeGrant.tenant_scoped_only
+      .where(trustee_user: @target_user)
+      .includes(:granting_user)
+
+    # Pending requests I need to respond to
+    @pending_requests = @received.pending
+  end
+
+  # GET /u/:handle/settings/trustee-grants/:grant_id
+  def show
+    @page_title = "Trustee Grant: #{@grant.display_name}"
+    # Load representation sessions for this grant
+    @sessions = @grant.representation_sessions.order(began_at: :desc)
+  end
+
+  # GET /u/:handle/settings/trustee-grants/new
+  def new
+    @page_title = "Create Trustee Grant"
+    @grant = TrusteeGrant.new
+    @available_users = available_users_for_grant
+    @available_studios = @target_user.superagents
+    @grantable_actions = TrusteeGrant::GRANTABLE_ACTIONS
+  end
+
+  # =========================================================================
+  # ACTIONS INDEX METHODS
+  # =========================================================================
+
+  def actions_index
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants"))
+  end
+
+  def actions_index_new
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants/new"))
+  end
+
+  def actions_index_show
+    # Get all possible actions from ActionsHelper, then filter based on grant state
+    all_actions = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants/:grant_id")[:actions]
+    actions = all_actions.select { |action| action_available_for_grant?(action[:name]) }
+    render_actions_index({ actions: actions })
+  end
+
+  # =========================================================================
+  # CREATE TRUSTEE GRANT
+  # =========================================================================
+
+  def describe_create
+    render_action_description(ActionsHelper.action_description("create_trustee_grant", resource: nil))
+  end
+
+  def execute_create
+    # Only the target user can create their own grants
+    unless @target_user == @current_user
+      return render_action_error({
+                                   action_name: "create_trustee_grant",
+                                   resource: nil,
+                                   error: "You can only create trustee grants for yourself",
+                                 })
+    end
+
+    trustee = find_trustee_user(params[:trustee_user_id])
+    unless trustee
+      return render_action_error({
+                                   action_name: "create_trustee_grant",
+                                   resource: nil,
+                                   error: "Trustee user not found",
+                                 })
+    end
+
+    # Build permissions hash from params
+    permissions = build_permissions_hash(params[:permissions])
+
+    # Build studio scope
+    studio_scope = build_studio_scope(params[:studio_scope_mode], params[:studio_ids])
+
+    # Parse expiration
+    expires_at = parse_expires_at(params[:expires_at])
+
+    grant = TrusteeGrant.new(
+      tenant: @current_tenant,
+      granting_user: @target_user,
+      trustee_user: trustee,
+      permissions: permissions,
+      studio_scope: studio_scope,
+      expires_at: expires_at
+    )
+
+    if grant.save
+      # TODO: Send notification to trustee_user
+      render_action_success({
+                              action_name: "create_trustee_grant",
+                              resource: grant,
+                              result: "Trustee grant request sent to #{trustee.display_name || trustee.handle}",
+                              redirect_to: trustee_grant_show_path(grant),
+                            })
+    else
+      render_action_error({
+                            action_name: "create_trustee_grant",
+                            resource: nil,
+                            error: grant.errors.full_messages.join(", "),
+                          })
+    end
+  end
+
+  # =========================================================================
+  # ACCEPT TRUSTEE GRANT
+  # =========================================================================
+
+  def describe_accept
+    render_action_description(ActionsHelper.action_description("accept_trustee_grant", resource: @grant))
+  end
+
+  def execute_accept
+    unless @grant.trustee_user == @target_user
+      return render_action_error({
+                                   action_name: "accept_trustee_grant",
+                                   resource: @grant,
+                                   error: "You can only accept trustee grants granted to you",
+                                 })
+    end
+
+    unless @grant.pending?
+      return render_action_error({
+                                   action_name: "accept_trustee_grant",
+                                   resource: @grant,
+                                   error: "This trustee grant is not pending",
+                                 })
+    end
+
+    @grant.accept!
+
+    render_action_success({
+                            action_name: "accept_trustee_grant",
+                            resource: @grant,
+                            result: "Trustee grant accepted",
+                            redirect_to: trustee_grant_show_path(@grant),
+                          })
+  end
+
+  # =========================================================================
+  # DECLINE TRUSTEE GRANT
+  # =========================================================================
+
+  def describe_decline
+    render_action_description(ActionsHelper.action_description("decline_trustee_grant", resource: @grant))
+  end
+
+  def execute_decline
+    unless @grant.trustee_user == @target_user
+      return render_action_error({
+                                   action_name: "decline_trustee_grant",
+                                   resource: @grant,
+                                   error: "You can only decline trustee grants granted to you",
+                                 })
+    end
+
+    unless @grant.pending?
+      return render_action_error({
+                                   action_name: "decline_trustee_grant",
+                                   resource: @grant,
+                                   error: "This trustee grant is not pending",
+                                 })
+    end
+
+    @grant.decline!
+
+    render_action_success({
+                            action_name: "decline_trustee_grant",
+                            resource: @grant,
+                            result: "Trustee grant declined",
+                            redirect_to: trustee_grants_index_path,
+                          })
+  end
+
+  # =========================================================================
+  # REVOKE TRUSTEE GRANT
+  # =========================================================================
+
+  def describe_revoke
+    render_action_description(ActionsHelper.action_description("revoke_trustee_grant", resource: @grant))
+  end
+
+  def execute_revoke
+    unless @grant.granting_user == @target_user
+      return render_action_error({
+                                   action_name: "revoke_trustee_grant",
+                                   resource: @grant,
+                                   error: "You can only revoke trustee grants you created",
+                                 })
+    end
+
+    if @grant.revoked? || @grant.declined?
+      return render_action_error({
+                                   action_name: "revoke_trustee_grant",
+                                   resource: @grant,
+                                   error: "This trustee grant is already revoked or declined",
+                                 })
+    end
+
+    @grant.revoke!
+
+    render_action_success({
+                            action_name: "revoke_trustee_grant",
+                            resource: @grant,
+                            result: "Trustee grant revoked",
+                            redirect_to: trustee_grant_show_path(@grant),
+                          })
+  end
+
+  # =========================================================================
+  # START REPRESENTING (HTML form - redirects)
+  # =========================================================================
+
+  def start_representing
+    # Block nested representation sessions - a user can only represent one entity at a time
+    if session[:representation_session_id].present?
+      flash[:alert] = "Nested representation sessions are not allowed. End your current session before starting a new one."
+      return redirect_to "/representing"
+    end
+
+    rep_session = api_helper.start_user_representation_session(grant: @grant)
+
+    # Set session cookies (matches API headers: X-Representation-Session-ID, X-Representing-User)
+    session[:representation_session_id] = rep_session.id
+    session[:representing_user] = @grant.granting_user.handle
+
+    redirect_to "/representing"
+  rescue ArgumentError => e
+    flash[:alert] = e.message
+    redirect_to trustee_grant_show_path(@grant)
+  end
+
+  # =========================================================================
+  # START REPRESENTATION (Markdown API action)
+  # =========================================================================
+
+  def describe_start_representation
+    render_action_description(ActionsHelper.action_description("start_representation", resource: @grant))
+  end
+
+  def execute_start_representation
+    unless @grant.trustee_user == @current_user
+      return render_action_error({
+                                   action_name: "start_representation",
+                                   resource: @grant,
+                                   error: "You can only start representation for grants where you are the trusted user",
+                                 })
+    end
+
+    unless @grant.active?
+      return render_action_error({
+                                   action_name: "start_representation",
+                                   resource: @grant,
+                                   error: "This trustee grant is not active",
+                                 })
+    end
+
+    rep_session = api_helper.start_user_representation_session(grant: @grant)
+
+    # For API/markdown, we return success with session info (no cookies)
+    # Include both full ID and truncated_id - the X-Representation-Session-ID header accepts either
+    render_action_success({
+                            action_name: "start_representation",
+                            resource: rep_session,
+                            result: "Representation session started. You are now acting on behalf of #{@grant.granting_user.display_name || @grant.granting_user.handle}.\n\n" \
+                                    "Session ID: `#{rep_session.id}`\n" \
+                                    "Short ID: `#{rep_session.truncated_id}`\n\n" \
+                                    "Use the session ID in the `X-Representation-Session-ID` header for subsequent API requests.",
+                            redirect_to: trustee_grant_show_path(@grant),
+                          })
+  rescue ArgumentError => e
+    render_action_error({
+                          action_name: "start_representation",
+                          resource: @grant,
+                          error: e.message,
+                        })
+  end
+
+  # =========================================================================
+  # END REPRESENTATION (Markdown API action)
+  # =========================================================================
+
+  def describe_end_representation
+    render_action_description(ActionsHelper.action_description("end_representation", resource: @grant))
+  end
+
+  def execute_end_representation
+    unless [@current_user, @api_token_user].include?(@grant.trustee_user)
+      return render_action_error({
+                                   action_name: "end_representation",
+                                   resource: @grant,
+                                   error: "You can only end representation for grants where you are the trusted user",
+                                 })
+    end
+
+    # Find active representation session for this grant
+    rep_session = RepresentationSession.find_by(
+      trustee_grant: @grant,
+      ended_at: nil
+    )
+
+    unless rep_session
+      return render_action_error({
+                                   action_name: "end_representation",
+                                   resource: @grant,
+                                   error: "No active representation session found for this grant",
+                                 })
+    end
+
+    # Verify the caller is the representative
+    caller_user = @api_token_user || @current_user
+    unless rep_session.representative_user == caller_user
+      return render_action_error({
+                                   action_name: "end_representation",
+                                   resource: @grant,
+                                   error: "You are not the representative for this session",
+                                 })
+    end
+
+    rep_session.end!
+
+    render_action_success({
+                            action_name: "end_representation",
+                            resource: @grant,
+                            result: "Representation session ended. You are no longer acting on behalf of #{@grant.granting_user.display_name || @grant.granting_user.handle}.",
+                            redirect_to: trustee_grant_show_path(@grant),
+                          })
+  end
+
+  private
+
+  # Determines which actions are available based on grant state and user role.
+  # Used by actions_index_show to filter the canonical action list from ActionsHelper.
+  def action_available_for_grant?(action_name)
+    case action_name
+    when "accept_trustee_grant", "decline_trustee_grant"
+      @grant.pending? && @grant.trustee_user == @target_user
+    when "revoke_trustee_grant"
+      @grant.granting_user == @target_user && !@grant.revoked? && !@grant.declined?
+    when "start_representation"
+      @grant.active? && @grant.trustee_user == @current_user && !has_active_session_for_grant?
+    when "end_representation"
+      @grant.active? && @grant.trustee_user == @current_user && has_active_session_for_grant?
+    else
+      false
+    end
+  end
+
+  def has_active_session_for_grant?
+    return false unless @grant
+
+    RepresentationSession.exists?(
+      trustee_grant: @grant,
+      ended_at: nil
+    )
+  end
+
+  def set_sidebar_mode
+    @sidebar_mode = "minimal"
+  end
+
+  def require_login
+    return if @current_user
+
+    respond_to do |format|
+      format.html { redirect_to "/login" }
+      format.json { render json: { error: "Unauthorized" }, status: :unauthorized }
+      format.md { render plain: "# Error\n\nYou must be logged in to manage trustee grants.", status: :unauthorized }
+    end
+  end
+
+  def set_target_user
+    if params[:handle]
+      tu = @current_tenant.tenant_users.find_by(handle: params[:handle])
+      raise ActiveRecord::RecordNotFound, "User not found" if tu.nil?
+
+      @target_user = tu.user
+    else
+      @target_user = @current_user
+    end
+
+    # Verify user can manage trustee grants for this target
+    authorize_grant_management
+  end
+
+  def set_grant
+    grant_id = params[:grant_id]
+
+    # Find grant by truncated_id, where target user is either granting or trustee
+    @grant = TrusteeGrant.tenant_scoped_only
+      .includes(:granting_user, :trustee_user)
+      .find_by!(truncated_id: grant_id)
+
+    # Verify target user is involved in this grant
+    return if @grant.granting_user == @target_user || @grant.trustee_user == @target_user
+
+    raise ActiveRecord::RecordNotFound, "Trustee grant not found"
+  end
+
+  def authorize_grant_management
+    # User can manage their own trustee grants
+    # For API requests with representation, also check the original token user
+    return if @target_user == @current_user
+    return if @api_token_user && @target_user == @api_token_user
+
+    respond_to do |format|
+      format.html { redirect_to "/", alert: "You don't have permission to manage trustee grants for this user" }
+      format.json { render json: { error: "Forbidden" }, status: :forbidden }
+      format.md { render plain: "# Error\n\nYou don't have permission to manage trustee grants for this user.", status: :forbidden }
+    end
+  end
+
+  def trustee_grants_index_path
+    "/u/#{@target_user.handle}/settings/trustee-grants"
+  end
+
+  def trustee_grant_show_path(grant)
+    "/u/#{@target_user.handle}/settings/trustee-grants/#{grant.truncated_id}"
+  end
+
+  def available_users_for_grant
+    # Get users in the same tenant who can receive grants
+    # Exclude current user, trustees, and users who already have grants
+    existing_trustee_user_ids = TrusteeGrant.tenant_scoped_only
+      .where(granting_user: @target_user)
+      .where(revoked_at: nil, declined_at: nil)
+      .pluck(:trustee_user_id)
+
+    User.joins(:tenant_users)
+      .where(tenant_users: { tenant_id: @current_tenant.id })
+      .where.not(id: @target_user.id)
+      .where.not(id: existing_trustee_user_ids)
+      .where(user_type: ["person", "subagent"])
+  end
+
+  def find_trustee_user(user_id)
+    return nil if user_id.blank?
+
+    User.joins(:tenant_users)
+      .where(tenant_users: { tenant_id: @current_tenant.id })
+      .where.not(id: @target_user.id)
+      .find_by(id: user_id)
+  end
+
+  def build_permissions_hash(permissions_param)
+    return {} if permissions_param.blank?
+
+    if permissions_param.is_a?(Array)
+      permissions_param.index_with { true }
+    elsif permissions_param.is_a?(Hash)
+      permissions_param.transform_values { |v| ["true", true].include?(v) }
+    elsif permissions_param.is_a?(String)
+      permissions_param.split(",").map(&:strip).index_with { true }
+    else
+      {}
+    end
+  end
+
+  def build_studio_scope(mode, studio_ids)
+    mode = mode.presence || "all"
+
+    case mode
+    when "all"
+      { "mode" => "all" }
+    when "include"
+      ids = parse_studio_ids(studio_ids)
+      { "mode" => "include", "studio_ids" => ids }
+    when "exclude"
+      ids = parse_studio_ids(studio_ids)
+      { "mode" => "exclude", "studio_ids" => ids }
+    else
+      { "mode" => "all" }
+    end
+  end
+
+  def parse_studio_ids(studio_ids_param)
+    return [] if studio_ids_param.blank?
+
+    if studio_ids_param.is_a?(Array)
+      studio_ids_param
+    elsif studio_ids_param.is_a?(String)
+      studio_ids_param.split(",").map(&:strip)
+    else
+      []
+    end
+  end
+
+  def parse_expires_at(expires_at_param)
+    return nil if expires_at_param.blank?
+
+    Time.zone.parse(expires_at_param)
+  rescue ArgumentError
+    nil
+  end
+end

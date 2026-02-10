@@ -33,7 +33,8 @@ module InvalidatesSearchIndex
 
       ReindexSearchJob.perform_later(
         item_type: item.class.name,
-        item_id: item.id
+        item_id: item.id,
+        tenant_id: item.tenant_id
       )
     end
   end

@@ -239,8 +239,9 @@ Rails.application.routes.draw do
     resources :subagents,
               path: "settings/subagents",
               only: [:new, :create, :show, :destroy]
-    post 'impersonate' => 'users#impersonate', on: :member
-    delete 'impersonate' => 'users#stop_impersonating', on: :member
+    # Representation routes
+    post 'represent' => 'users#represent', on: :member
+    delete 'represent' => 'users#stop_representing', on: :member
     post 'add_to_studio' => 'users#add_subagent_to_studio', on: :member
     delete 'remove_from_studio' => 'users#remove_subagent_from_studio', on: :member
     # User settings actions
@@ -267,7 +268,31 @@ Rails.application.routes.draw do
     post 'settings/webhooks/:webhook_id/actions/delete_webhook' => 'user_webhooks#execute_delete', on: :member
     get 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#describe_test', on: :member
     post 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#execute_test', on: :member
+    # Trustee grant management (TrusteeGrants)
+    get 'settings/trustee-grants' => 'trustee_grants#index', on: :member
+    get 'settings/trustee-grants/actions' => 'trustee_grants#actions_index', on: :member
+    get 'settings/trustee-grants/new' => 'trustee_grants#new', on: :member
+    get 'settings/trustee-grants/new/actions' => 'trustee_grants#actions_index_new', on: :member
+    get 'settings/trustee-grants/new/actions/create_trustee_grant' => 'trustee_grants#describe_create', on: :member
+    post 'settings/trustee-grants/new/actions/create_trustee_grant' => 'trustee_grants#execute_create', on: :member
+    get 'settings/trustee-grants/:grant_id' => 'trustee_grants#show', on: :member
+    get 'settings/trustee-grants/:grant_id/actions' => 'trustee_grants#actions_index_show', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/accept_trustee_grant' => 'trustee_grants#describe_accept', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/accept_trustee_grant' => 'trustee_grants#execute_accept', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#describe_decline', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#execute_decline', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#describe_revoke', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#execute_revoke', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/start_representation' => 'trustee_grants#describe_start_representation', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/start_representation' => 'trustee_grants#execute_start_representation', on: :member
+    get 'settings/trustee-grants/:grant_id/actions/end_representation' => 'trustee_grants#describe_end_representation', on: :member
+    post 'settings/trustee-grants/:grant_id/actions/end_representation' => 'trustee_grants#execute_end_representation', on: :member
+    post 'settings/trustee-grants/:grant_id/represent' => 'trustee_grants#start_representing', on: :member
   end
+
+  # Representation session routes (not scoped to a specific studio)
+  get '/representing' => 'representation_sessions#representing'
+  delete '/representing' => 'representation_sessions#stop_representing_user'
 
   ['studios','scenes'].each do |studios_or_scenes|
     get "#{studios_or_scenes}" => "#{studios_or_scenes}#index"
@@ -324,9 +349,9 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/join/actions" => 'studios#actions_index_join'
     get "#{studios_or_scenes}/:superagent_handle/join/actions/join_studio" => 'studios#describe_join_studio'
     post "#{studios_or_scenes}/:superagent_handle/join/actions/join_studio" => 'studios#join_studio_action'
-    get "#{studios_or_scenes}/:superagent_handle/represent" => 'studios#represent'
+    get "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#represent'
     post "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#start_representing'
-    get '/representing' => 'representation_sessions#representing'
+    post "#{studios_or_scenes}/:superagent_handle/represent_user" => 'representation_sessions#start_representing_user'
     delete "#{studios_or_scenes}/:superagent_handle/represent" => 'representation_sessions#stop_representing'
     delete "#{studios_or_scenes}/:superagent_handle/r/:representation_session_id" => 'representation_sessions#stop_representing'
     get "#{studios_or_scenes}/:superagent_handle/representation.html" => 'representation_sessions#index_partial'

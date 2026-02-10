@@ -1,4 +1,4 @@
-\restrict 55YvfpoGzfJPf6lKm4EICusk4tNNyqIznEhnwTjKzQ5GHRK5tt8BfSjA52WltZs
+\restrict MR0j0X8PHH2fn2hffR5uBvvH7inUqMZtZLNdHkYSignAJ4Gb0MrKx988tdfYi7q
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -575,17 +575,21 @@ CREATE TABLE public.options (
 
 
 --
--- Name: representation_session_associations; Type: TABLE; Schema: public; Owner: -
+-- Name: representation_session_events; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.representation_session_associations (
+CREATE TABLE public.representation_session_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    superagent_id uuid NOT NULL,
+    superagent_id uuid,
     representation_session_id uuid NOT NULL,
+    action_name character varying NOT NULL,
     resource_type character varying NOT NULL,
     resource_id uuid NOT NULL,
+    context_resource_type character varying,
+    context_resource_id uuid,
     resource_superagent_id uuid NOT NULL,
+    request_id character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -598,16 +602,15 @@ CREATE TABLE public.representation_session_associations (
 CREATE TABLE public.representation_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    superagent_id uuid NOT NULL,
+    superagent_id uuid,
     representative_user_id uuid NOT NULL,
-    trustee_user_id uuid NOT NULL,
     began_at timestamp(6) without time zone NOT NULL,
     ended_at timestamp(6) without time zone,
     confirmed_understanding boolean DEFAULT false NOT NULL,
-    activity_log jsonb DEFAULT '{}'::jsonb,
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    trustee_grant_id uuid
 );
 
 
@@ -1274,7 +1277,7 @@ CREATE TABLE public.superagents (
     updated_at timestamp(6) without time zone NOT NULL,
     created_by_id uuid NOT NULL,
     updated_by_id uuid NOT NULL,
-    trustee_user_id uuid,
+    proxy_user_id uuid,
     description text,
     superagent_type character varying DEFAULT 'studio'::character varying NOT NULL,
     internal boolean DEFAULT false NOT NULL
@@ -1317,20 +1320,24 @@ CREATE TABLE public.tenants (
 
 
 --
--- Name: trustee_permissions; Type: TABLE; Schema: public; Owner: -
+-- Name: trustee_grants; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.trustee_permissions (
+CREATE TABLE public.trustee_grants (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    trustee_user_id uuid NOT NULL,
     granting_user_id uuid NOT NULL,
-    trusted_user_id uuid NOT NULL,
     description text DEFAULT ''::text NOT NULL,
-    relationship_phrase character varying DEFAULT '{trusted_user} on behalf of {granting_user}'::character varying NOT NULL,
     permissions jsonb DEFAULT '{}'::jsonb,
     expires_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    tenant_id uuid,
+    accepted_at timestamp(6) without time zone,
+    declined_at timestamp(6) without time zone,
+    revoked_at timestamp(6) without time zone,
+    studio_scope jsonb DEFAULT '{"mode": "all"}'::jsonb,
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
+    trustee_user_id uuid NOT NULL
 );
 
 
@@ -2194,11 +2201,11 @@ ALTER TABLE ONLY public.options
 
 
 --
--- Name: representation_session_associations representation_session_associations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: representation_session_events representation_session_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT representation_session_associations_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT representation_session_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -2410,10 +2417,10 @@ ALTER TABLE ONLY public.tenants
 
 
 --
--- Name: trustee_permissions trustee_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: trustee_grants trustee_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.trustee_permissions
+ALTER TABLE ONLY public.trustee_grants
     ADD CONSTRAINT trustee_permissions_pkey PRIMARY KEY (id);
 
 
@@ -2589,6 +2596,48 @@ CREATE INDEX idx_members_superagent_id ON public.superagent_members USING btree 
 --
 
 CREATE UNIQUE INDEX idx_members_tenant_superagent_user ON public.superagent_members USING btree (tenant_id, superagent_id, user_id);
+
+
+--
+-- Name: idx_rep_events_context; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_context ON public.representation_session_events USING btree (tenant_id, context_resource_type, context_resource_id);
+
+
+--
+-- Name: idx_rep_events_request; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_request ON public.representation_session_events USING btree (tenant_id, request_id);
+
+
+--
+-- Name: idx_rep_events_resource_action; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_resource_action ON public.representation_session_events USING btree (tenant_id, resource_type, resource_id, action_name);
+
+
+--
+-- Name: idx_rep_events_resource_superagent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_resource_superagent ON public.representation_session_events USING btree (resource_superagent_id);
+
+
+--
+-- Name: idx_rep_events_session_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_session_id ON public.representation_session_events USING btree (representation_session_id);
+
+
+--
+-- Name: idx_rep_events_session_timeline; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rep_events_session_timeline ON public.representation_session_events USING btree (tenant_id, representation_session_id, created_at);
 
 
 --
@@ -3313,45 +3362,17 @@ CREATE INDEX index_options_on_tenant_id ON public.options USING btree (tenant_id
 
 
 --
--- Name: index_rep_session_assoc_on_rep_session_and_resource; Type: INDEX; Schema: public; Owner: -
+-- Name: index_representation_session_events_on_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_rep_session_assoc_on_rep_session_and_resource ON public.representation_session_associations USING btree (representation_session_id, resource_id, resource_type);
-
-
---
--- Name: index_rep_session_assoc_on_rep_session_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_rep_session_assoc_on_rep_session_id ON public.representation_session_associations USING btree (representation_session_id);
+CREATE INDEX index_representation_session_events_on_superagent_id ON public.representation_session_events USING btree (superagent_id);
 
 
 --
--- Name: index_rep_session_assoc_on_resource; Type: INDEX; Schema: public; Owner: -
+-- Name: index_representation_session_events_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_rep_session_assoc_on_resource ON public.representation_session_associations USING btree (resource_type, resource_id);
-
-
---
--- Name: index_rep_session_assoc_on_resource_studio; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_rep_session_assoc_on_resource_studio ON public.representation_session_associations USING btree (resource_superagent_id);
-
-
---
--- Name: index_representation_session_associations_on_superagent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_representation_session_associations_on_superagent_id ON public.representation_session_associations USING btree (superagent_id);
-
-
---
--- Name: index_representation_session_associations_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_representation_session_associations_on_tenant_id ON public.representation_session_associations USING btree (tenant_id);
+CREATE INDEX index_representation_session_events_on_tenant_id ON public.representation_session_events USING btree (tenant_id);
 
 
 --
@@ -3383,10 +3404,10 @@ CREATE UNIQUE INDEX index_representation_sessions_on_truncated_id ON public.repr
 
 
 --
--- Name: index_representation_sessions_on_trustee_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_representation_sessions_on_trustee_grant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_representation_sessions_on_trustee_user_id ON public.representation_sessions USING btree (trustee_user_id);
+CREATE INDEX index_representation_sessions_on_trustee_grant_id ON public.representation_sessions USING btree (trustee_grant_id);
 
 
 --
@@ -3523,24 +3544,38 @@ CREATE UNIQUE INDEX index_tenants_on_subdomain ON public.tenants USING btree (su
 
 
 --
--- Name: index_trustee_permissions_on_granting_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_trustee_grants_on_accepted_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_trustee_permissions_on_granting_user_id ON public.trustee_permissions USING btree (granting_user_id);
-
-
---
--- Name: index_trustee_permissions_on_trusted_user_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_trustee_permissions_on_trusted_user_id ON public.trustee_permissions USING btree (trusted_user_id);
+CREATE INDEX index_trustee_grants_on_accepted_at ON public.trustee_grants USING btree (accepted_at);
 
 
 --
--- Name: index_trustee_permissions_on_trustee_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_trustee_grants_on_granting_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_trustee_permissions_on_trustee_user_id ON public.trustee_permissions USING btree (trustee_user_id);
+CREATE INDEX index_trustee_grants_on_granting_user_id ON public.trustee_grants USING btree (granting_user_id);
+
+
+--
+-- Name: index_trustee_grants_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_trustee_grants_on_tenant_id ON public.trustee_grants USING btree (tenant_id);
+
+
+--
+-- Name: index_trustee_grants_on_truncated_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_trustee_grants_on_truncated_id ON public.trustee_grants USING btree (truncated_id);
+
+
+--
+-- Name: index_trustee_grants_on_trustee_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_trustee_grants_on_trustee_user_id ON public.trustee_grants USING btree (trustee_user_id);
 
 
 --
@@ -7484,14 +7519,6 @@ ALTER TABLE ONLY public.invites
 
 
 --
--- Name: representation_session_associations fk_rails_2959985639; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_2959985639 FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
-
-
---
 -- Name: commitments fk_rails_2b0260c142; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7628,14 +7655,6 @@ ALTER TABLE ONLY public.superagent_members
 
 
 --
--- Name: representation_session_associations fk_rails_57828aec4a; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_57828aec4a FOREIGN KEY (representation_session_id) REFERENCES public.representation_sessions(id);
-
-
---
 -- Name: note_history_events fk_rails_601d54357c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7644,19 +7663,19 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
--- Name: trustee_permissions fk_rails_61c22cd494; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.trustee_permissions
-    ADD CONSTRAINT fk_rails_61c22cd494 FOREIGN KEY (trusted_user_id) REFERENCES public.users(id);
-
-
---
 -- Name: note_history_events fk_rails_63e2a8744d; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.note_history_events
     ADD CONSTRAINT fk_rails_63e2a8744d FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: representation_session_events fk_rails_649adaf955; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT fk_rails_649adaf955 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -7764,14 +7783,6 @@ ALTER TABLE ONLY public.attachments
 
 
 --
--- Name: trustee_permissions fk_rails_8bee20bb10; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.trustee_permissions
-    ADD CONSTRAINT fk_rails_8bee20bb10 FOREIGN KEY (trustee_user_id) REFERENCES public.users(id);
-
-
---
 -- Name: superagents fk_rails_8d8050599b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7780,11 +7791,19 @@ ALTER TABLE ONLY public.superagents
 
 
 --
--- Name: representation_session_associations fk_rails_9127d7fed8; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: representation_session_events fk_rails_8dca449045; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_9127d7fed8 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT fk_rails_8dca449045 FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
+
+
+--
+-- Name: representation_session_events fk_rails_901c70e333; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT fk_rails_901c70e333 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -7916,6 +7935,14 @@ ALTER TABLE ONLY public.webhooks
 
 
 --
+-- Name: trustee_grants fk_rails_c85c161771; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trustee_grants
+    ADD CONSTRAINT fk_rails_c85c161771 FOREIGN KEY (trustee_user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: commitment_participants fk_rails_ca2dcc834c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7948,14 +7975,6 @@ ALTER TABLE ONLY public.api_tokens
 
 
 --
--- Name: representation_session_associations fk_rails_d26514fc52; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_session_associations
-    ADD CONSTRAINT fk_rails_d26514fc52 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
-
-
---
 -- Name: representation_sessions fk_rails_d99c283120; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7980,10 +7999,10 @@ ALTER TABLE ONLY public.representation_sessions
 
 
 --
--- Name: trustee_permissions fk_rails_dc3eb15db3; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: trustee_grants fk_rails_dc3eb15db3; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.trustee_permissions
+ALTER TABLE ONLY public.trustee_grants
     ADD CONSTRAINT fk_rails_dc3eb15db3 FOREIGN KEY (granting_user_id) REFERENCES public.users(id);
 
 
@@ -8001,6 +8020,14 @@ ALTER TABLE ONLY public.options
 
 ALTER TABLE ONLY public.tenant_users
     ADD CONSTRAINT fk_rails_e15916f8bf FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: trustee_grants fk_rails_e32a8a6734; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trustee_grants
+    ADD CONSTRAINT fk_rails_e32a8a6734 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8033,14 +8060,6 @@ ALTER TABLE ONLY public.commitments
 
 ALTER TABLE ONLY public.webhooks
     ADD CONSTRAINT fk_rails_e567730fa3 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
-
-
---
--- Name: representation_sessions fk_rails_ee2c2c283c; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.representation_sessions
-    ADD CONSTRAINT fk_rails_ee2c2c283c FOREIGN KEY (trustee_user_id) REFERENCES public.users(id);
 
 
 --
@@ -8116,10 +8135,26 @@ ALTER TABLE ONLY public.superagents
 
 
 --
+-- Name: representation_sessions fk_rails_fe74e74f22; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_sessions
+    ADD CONSTRAINT fk_rails_fe74e74f22 FOREIGN KEY (trustee_grant_id) REFERENCES public.trustee_grants(id);
+
+
+--
+-- Name: representation_session_events fk_rails_fe84af3d85; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.representation_session_events
+    ADD CONSTRAINT fk_rails_fe84af3d85 FOREIGN KEY (representation_session_id) REFERENCES public.representation_sessions(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 55YvfpoGzfJPf6lKm4EICusk4tNNyqIznEhnwTjKzQ5GHRK5tt8BfSjA52WltZs
+\unrestrict MR0j0X8PHH2fn2hffR5uBvvH7inUqMZtZLNdHkYSignAJ4Gb0MrKx988tdfYi7q
 
 SET search_path TO "$user", public;
 
@@ -8252,6 +8287,18 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260203044904'),
 ('20260203055419'),
 ('20260204110122'),
-('20260205034909');
+('20260205034909'),
+('20260206051044'),
+('20260206052934'),
+('20260206194042'),
+('20260206214518'),
+('20260207001008'),
+('20260207085452'),
+('20260207141046'),
+('20260208044921'),
+('20260208054634'),
+('20260208112506'),
+('20260208234822'),
+('20260209231143');
 
 

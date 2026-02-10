@@ -1,0 +1,69 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/trustee-grants/#{@grant.truncated_id}"
+is_granting = @grant.granting_user == @target_user
+is_trustee = @grant.trustee_user == @target_user
+scope = @grant.studio_scope || { "mode" => "all" }
+-%>
+# Trustee Grant: <%= @grant.display_name %>
+
+**Status:** <%= @grant.active? ? "Active" : @grant.pending? ? "Pending" : @grant.declined? ? "Declined" : @grant.revoked? ? "Revoked" : @grant.expired? ? "Expired" : "Unknown" %>
+
+## Details
+
+| Field | Value |
+|-------|-------|
+| Granting User | [<%= @grant.granting_user.display_name || @grant.granting_user.handle %>](/u/<%= @grant.granting_user.handle %>)<%= is_granting ? " (You)" : "" %> |
+| Trustee | [<%= @grant.trustee_user.display_name || @grant.trustee_user.handle %>](/u/<%= @grant.trustee_user.handle %>)<%= is_trustee ? " (You)" : "" %> |
+| Capabilities | <%= @grant.permissions&.select { |_k, v| v }&.keys&.join(", ") || "None" %> |
+| Studio Scope | <%= scope["mode"] == "all" ? "All studios" : scope["mode"] == "include" ? "Only specific studios (#{scope["studio_ids"]&.count || 0})" : "All except specific studios (#{scope["studio_ids"]&.count || 0})" %> |
+| Created | <%= @grant.created_at.strftime("%Y-%m-%d %H:%M") %> |
+<% if @grant.accepted_at -%>
+| Accepted | <%= @grant.accepted_at.strftime("%Y-%m-%d %H:%M") %> |
+<% end -%>
+<% if @grant.declined_at -%>
+| Declined | <%= @grant.declined_at.strftime("%Y-%m-%d %H:%M") %> |
+<% end -%>
+<% if @grant.revoked_at -%>
+| Revoked | <%= @grant.revoked_at.strftime("%Y-%m-%d %H:%M") %> |
+<% end -%>
+| Expires | <%= @grant.expires_at ? @grant.expires_at.strftime("%Y-%m-%d %H:%M") + (@grant.expired? ? " (Expired)" : "") : "Never" %> |
+
+## [Actions](<%= base_path %>/actions)
+
+<% if @grant.pending? && is_trustee -%>
+* [`accept_trustee_grant()`](<%= base_path %>/actions/accept_trustee_grant) - Accept this trustee grant request
+* [`decline_trustee_grant()`](<%= base_path %>/actions/decline_trustee_grant) - Decline this trustee grant request
+<% end -%>
+<% if is_granting && !@grant.revoked? && !@grant.declined? -%>
+* [`revoke_trustee_grant()`](<%= base_path %>/actions/revoke_trustee_grant) - Revoke this trustee grant
+<% end -%>
+<% if @grant.active? && is_trustee && @grant.trustee_user == @current_user -%>
+* [`start_representation()`](<%= base_path %>/actions/start_representation) - Start a representation session to act on behalf of <%= @grant.granting_user.display_name || @grant.granting_user.handle %>
+<% end -%>
+<% if (@grant.pending? && !is_trustee) || (@grant.revoked? || @grant.declined?) -%>
+*No actions available.*
+<% end -%>
+
+## Session History
+
+<% if @sessions.empty? -%>
+*No representation sessions have occurred yet.*
+<% else -%>
+Sessions where **<%= @grant.trustee_user.display_name || @grant.trustee_user.handle %>** acted on behalf of **<%= @grant.granting_user.display_name || @grant.granting_user.handle %>**:
+
+| Session | Started | Duration | Actions | Status |
+|---------|---------|----------|---------|--------|
+<% @sessions.each do |session| -%>
+<% duration = (session.elapsed_time / 60).round -%>
+| [`<%= session.truncated_id %>`](<%= session.path %>) | <%= session.began_at.strftime("%Y-%m-%d %H:%M") %> | <%= duration %> min<%= duration == 1 ? '' : 's' %> | <%= session.action_count %> | <%= session.active? ? "Active" : "Ended" %> |
+<% end -%>
+<% end -%>
+
+## Navigation
+
+* [All Trustee Grants](/u/<%= @target_user.handle %>/settings/trustee-grants)
+<% if @target_user == @current_user -%>
+* [Settings](/settings)
+<% else -%>
+* [<%= @target_user.handle %>'s Profile](/u/<%= @target_user.handle %>)
+<% end -%>

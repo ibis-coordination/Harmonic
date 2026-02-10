@@ -16,36 +16,21 @@ class DecisionsController < ApplicationController
 
   def create
     begin
-      ActiveRecord::Base.transaction do
-        @decision = @current_decision = Decision.create!(
-          question: decision_params[:question],
-          description: decision_params[:description],
-          options_open: decision_params[:options_open],
-          deadline: deadline_from_params,
-          created_by: current_user,
-        )
-        if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
-          @decision.attach!(params[:files])
-        end
-        if params[:pinned] == '1' && current_superagent.id != current_tenant.main_studio_id
-          current_superagent.pin_item!(@decision)
-        end
-        if current_representation_session
-          current_representation_session.record_activity!(
-            request: request,
-            semantic_event: {
-              timestamp: Time.current,
-              event_type: 'create',
-              superagent_id: current_superagent.id,
-              main_resource: {
-                type: 'Decision',
-                id: @decision.id,
-                truncated_id: @decision.truncated_id,
-              },
-              sub_resources: [],
-            }
-          )
-        end
+      # Build params for ApiHelper
+      helper_params = {
+        question: decision_params[:question],
+        description: decision_params[:description],
+        options_open: decision_params[:options_open],
+        deadline: deadline_from_params,
+      }
+      @decision = @current_decision = api_helper(params: helper_params).create_decision
+      # Handle file attachments separately (HTML form specific)
+      if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
+        @decision.attach!(params[:files])
+      end
+      # Handle pinning (HTML form specific)
+      if params[:pinned] == '1' && current_superagent.id != current_tenant.main_studio_id
+        api_helper.pin_resource(@decision)
       end
       redirect_to @decision.path
     rescue ActiveRecord::RecordInvalid => e
@@ -81,52 +66,7 @@ class DecisionsController < ApplicationController
   def duplicate
     @decision = current_decision
     return render '404', status: 404 unless @decision
-    @new_decision = Decision.new(
-      tenant_id: @decision.tenant_id,
-      superagent_id: @decision.superagent_id,
-      question: @decision.question,
-      description: @decision.description,
-      options_open: @decision.options_open,
-      deadline: Time.current + (@decision.deadline - @decision.created_at),
-      created_by: current_user,
-    )
-    ActiveRecord::Base.transaction do
-      @new_decision.save!
-      dp = DecisionParticipantManager.new(
-        decision: @new_decision,
-        user: current_user
-      ).find_or_create_participant
-      options = @decision.options.map do |option|
-        Option.create!(
-          tenant_id: option.tenant_id,
-          superagent_id: option.studio_id,
-          decision_id: @new_decision.id,
-          decision_participant_id: dp.id,
-          title: option.title,
-        )
-      end
-      if current_representation_session
-        current_representation_session.record_activity!(
-          request: request,
-          semantic_event: {
-            timestamp: Time.current,
-            event_type: 'create',
-            superagent_id: current_superagent.id,
-            main_resource: {
-              type: 'Decision',
-              id: @decision.id,
-              truncated_id: @decision.truncated_id,
-            },
-            sub_resources: options.map do |option|
-              {
-                type: 'Option',
-                id: option.id,
-              }
-            end,
-          }
-        )
-      end
-    end
+    @new_decision = api_helper.duplicate_decision
     redirect_to @new_decision.path
   end
 
@@ -163,30 +103,15 @@ class DecisionsController < ApplicationController
     @decision = current_decision
     return render '404', status: 404 unless @decision
     return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
-    @decision.question = decision_params[:question] if decision_params[:question].present?
-    @decision.description = decision_params[:description] if decision_params[:description].present?
-    @decision.options_open = decision_params[:options_open] if decision_params[:options_open].present?
-    deadline = deadline_from_params
-    @decision.deadline = deadline unless deadline.nil?
-    ActiveRecord::Base.transaction do
-      @decision.save!
-      if current_representation_session
-        current_representation_session.record_activity!(
-          request: request,
-          semantic_event: {
-            timestamp: Time.current,
-            event_type: 'update',
-            superagent_id: current_superagent.id,
-            main_resource: {
-              type: 'Decision',
-              id: @decision.id,
-              truncated_id: @decision.truncated_id,
-            },
-            sub_resources: [],
-          }
-        )
-      end
-    end
+
+    # Build params for ApiHelper
+    helper_params = {
+      question: decision_params[:question],
+      description: decision_params[:description],
+      options_open: decision_params[:options_open],
+      deadline: deadline_from_params,
+    }
+    @decision = api_helper(params: helper_params).update_decision_settings
     redirect_to @decision.path
   end
 
@@ -214,7 +139,7 @@ class DecisionsController < ApplicationController
     @decision = current_decision
     return render '404', status: 404 unless @decision
     begin
-      @decision.pin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
+      api_helper.pin_resource(@decision)
       render_action_success({
         action_name: 'pin_decision',
         resource: @decision,
@@ -237,7 +162,7 @@ class DecisionsController < ApplicationController
     @decision = current_decision
     return render '404', status: 404 unless @decision
     begin
-      @decision.unpin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
+      api_helper.unpin_resource(@decision)
       render_action_success({
         action_name: 'unpin_decision',
         resource: @decision,
@@ -282,35 +207,7 @@ class DecisionsController < ApplicationController
   end
 
   def create_option_and_return_options_partial
-    ActiveRecord::Base.transaction do
-      option = Option.create!(
-        decision: current_decision,
-        decision_participant: current_decision_participant,
-        title: params[:title],
-        description: params[:description],
-      )
-      if current_representation_session
-        current_representation_session.record_activity!(
-          request: request,
-          semantic_event: {
-            timestamp: Time.current,
-            event_type: 'add_options',
-            superagent_id: current_superagent.id,
-            main_resource: {
-              type: 'Decision',
-              id: current_decision.id,
-              truncated_id: current_decision.truncated_id,
-            },
-            sub_resources: [
-              {
-                type: 'Option',
-                id: option.id,
-              },
-            ],
-          }
-        )
-      end
-    end
+    api_helper.create_decision_option
     options_partial
   end
 

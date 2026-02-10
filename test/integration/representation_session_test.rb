@@ -75,7 +75,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     follow_redirect!
-    assert_match /already started a representation session/, flash[:alert]
+    assert_match /Nested representation sessions are not allowed/, flash[:alert]
   end
 
   test "representation session is created when starting" do
@@ -88,7 +88,8 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
     session = RepresentationSession.last
     assert_equal @user, session.representative_user
-    assert_equal @superagent.trustee_user, session.trustee_user
+    # effective_user is the superagent's trustee for studio representation
+    assert_equal @superagent.proxy_user, session.effective_user
     assert_equal @superagent, session.superagent
     assert session.active?
   end
@@ -97,7 +98,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   # Actions While Representing
   # ====================
 
-  test "creating note while representing attributes it to trustee user" do
+  test "creating note while representing attributes it to proxy user" do
     @superagent.superagent_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
@@ -109,12 +110,12 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     post "/studios/#{@superagent.handle}/note", params: {
       note: {
         title: "Note from representation",
-        text: "This should be attributed to the trustee user",
+        text: "This should be attributed to the proxy user",
       },
     }
 
     note = Note.last
-    assert_equal @superagent.trustee_user.id, note.created_by_id
+    assert_equal @superagent.proxy_user.id, note.created_by_id
     assert_not_equal @user.id, note.created_by_id
   end
 
@@ -135,8 +136,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     }
 
     session = RepresentationSession.last
-    # The activity log should contain the note creation
-    assert session.activity_log['activity'].count > 0
+    # The session should have recorded events
     assert session.action_count > 0
   end
 
@@ -178,7 +178,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
       note: { title: "During representation", text: "Trustee note" },
     }
     note_during = Note.last
-    assert_equal @superagent.trustee_user.id, note_during.created_by_id
+    assert_equal @superagent.proxy_user.id, note_during.created_by_id
 
     # Stop representation
     delete "/studios/#{@superagent.handle}/represent"
@@ -224,6 +224,48 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     get "/studios/#{@superagent.handle}/representation"
 
     assert_response :success
+  end
+
+  test "representation index only shows studio representation sessions, not user representation sessions" do
+    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+
+    # Create a studio representation session (this SHOULD appear)
+    studio_session = create_representation_session(
+      tenant: @tenant,
+      superagent: @superagent,
+      representative: @user,
+    )
+    studio_session.end!
+
+    # Create a user representation session via trustee grant (this should NOT appear)
+    subagent = create_user(email: "subagent_#{SecureRandom.hex(4)}@example.com", name: "Subagent User")
+    @tenant.add_user!(subagent)
+    @superagent.add_user!(subagent)
+    grant = create_trustee_grant(
+      tenant: @tenant,
+      granting_user: subagent,
+      trustee_user: @user,
+      accepted: true,
+    )
+    user_session = create_trustee_grant_representation_session(
+      tenant: @tenant,
+      trustee_grant: grant,
+    )
+    user_session.end!
+
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/studios/#{@superagent.handle}/representation"
+
+    assert_response :success
+
+    # The studio session ID should appear on the page
+    assert_match studio_session.truncated_id, response.body,
+      "Studio representation session should appear in the list"
+
+    # The user session ID should NOT appear - this is the bug we're testing
+    assert_no_match(/#{user_session.truncated_id}/, response.body,
+      "User representation session should NOT appear on the studio representation page")
   end
 
   # ====================
@@ -305,6 +347,6 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     }
 
     note = Note.last
-    assert_equal @superagent.trustee_user.id, note.created_by_id
+    assert_equal @superagent.proxy_user.id, note.created_by_id
   end
 end

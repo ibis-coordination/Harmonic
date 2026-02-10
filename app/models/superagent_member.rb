@@ -10,12 +10,12 @@ class SuperagentMember < ApplicationRecord
   belongs_to :superagent
   belongs_to :user
 
-  validate :trustee_users_not_member_of_main_superagent
+  validate :proxy_users_not_member_of_main_superagent
 
   sig { void }
-  def trustee_users_not_member_of_main_superagent
-    if user.trustee? && superagent == T.must(tenant).main_superagent
-      errors.add(:user, "Trustee users cannot be members of the main superagent")
+  def proxy_users_not_member_of_main_superagent
+    if user.superagent_proxy? && superagent == T.must(tenant).main_superagent
+      errors.add(:user, "Superagent proxy users cannot be members of the main superagent")
     end
   end
 
@@ -115,8 +115,8 @@ class SuperagentMember < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def path
-    if user.trustee?
-      s = Superagent.where(trustee_user: user).first
+    if user.superagent_proxy?
+      s = Superagent.where(proxy_user: user).first
       s&.path
     else
       "#{T.must(superagent).path}/u/#{user.handle}"

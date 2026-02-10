@@ -160,7 +160,7 @@ class CycleDataRow < ApplicationRecord
 
   sig { returns(T.untyped) }
   def item
-    T.must(item_type).constantize.unscoped.find(item_id)
+    T.must(item_type).constantize.tenant_scoped_only(tenant_id).find(item_id)
   end
 
   sig { params(superagent: Superagent).returns(String) }

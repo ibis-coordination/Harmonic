@@ -12,7 +12,7 @@ class BackfillSearchIndexJob < ApplicationJob
     if tenant_id
       backfill_tenant(tenant_id)
     else
-      Tenant.unscoped.find_each { |tenant| backfill_tenant(tenant.id) }
+      Tenant.find_each { |tenant| backfill_tenant(tenant.id) }
     end
 
     Rails.logger.info "Search index backfill complete."
@@ -69,7 +69,7 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   def backfill_notes(tenant_id)
-    Note.unscoped.where(tenant_id: tenant_id).find_each(batch_size: 100) do |note|
+    Note.unscoped_for_system_job.where(tenant_id: tenant_id).find_each(batch_size: 100) do |note|
       SearchIndexer.reindex(note)
     rescue StandardError => e
       Rails.logger.error "Failed to index Note #{note.id}: #{e.message}"
@@ -77,7 +77,7 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   def backfill_decisions(tenant_id)
-    Decision.unscoped.where(tenant_id: tenant_id).find_each(batch_size: 100) do |decision|
+    Decision.unscoped_for_system_job.where(tenant_id: tenant_id).find_each(batch_size: 100) do |decision|
       SearchIndexer.reindex(decision)
     rescue StandardError => e
       Rails.logger.error "Failed to index Decision #{decision.id}: #{e.message}"
@@ -85,7 +85,7 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   def backfill_commitments(tenant_id)
-    Commitment.unscoped.where(tenant_id: tenant_id).find_each(batch_size: 100) do |commitment|
+    Commitment.unscoped_for_system_job.where(tenant_id: tenant_id).find_each(batch_size: 100) do |commitment|
       SearchIndexer.reindex(commitment)
     rescue StandardError => e
       Rails.logger.error "Failed to index Commitment #{commitment.id}: #{e.message}"
@@ -100,7 +100,7 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   def backfill_note_reads(tenant_id)
-    NoteHistoryEvent.unscoped
+    NoteHistoryEvent.unscoped_for_system_job
       .where(tenant_id: tenant_id, event_type: "read_confirmation")
       .find_each(batch_size: 100) do |event|
       UserItemStatus.upsert(
@@ -122,7 +122,7 @@ class BackfillSearchIndexJob < ApplicationJob
 
   def backfill_decision_votes(tenant_id)
     # Find all decision participants who have voted (have at least one vote)
-    DecisionParticipant.unscoped
+    DecisionParticipant.unscoped_for_system_job
       .joins(:votes)
       .where(tenant_id: tenant_id)
       .where.not(user_id: nil)
@@ -147,7 +147,7 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   def backfill_commitment_participations(tenant_id)
-    CommitmentParticipant.unscoped
+    CommitmentParticipant.unscoped_for_system_job
       .where(tenant_id: tenant_id)
       .where.not(user_id: nil)
       .where.not(committed_at: nil)
@@ -177,7 +177,7 @@ class BackfillSearchIndexJob < ApplicationJob
 
   def backfill_note_creators(tenant_id)
     # Include both regular notes and comments (which are also Notes)
-    Note.unscoped.where(tenant_id: tenant_id).find_each(batch_size: 100) do |note|
+    Note.unscoped_for_system_job.where(tenant_id: tenant_id).find_each(batch_size: 100) do |note|
       next unless note.created_by_id
 
       upsert_creator_status(note.tenant_id, note.created_by_id, "Note", note.id)
@@ -187,7 +187,7 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   def backfill_decision_creators(tenant_id)
-    Decision.unscoped.where(tenant_id: tenant_id).find_each(batch_size: 100) do |decision|
+    Decision.unscoped_for_system_job.where(tenant_id: tenant_id).find_each(batch_size: 100) do |decision|
       next unless decision.created_by_id
 
       upsert_creator_status(decision.tenant_id, decision.created_by_id, "Decision", decision.id)
@@ -197,7 +197,7 @@ class BackfillSearchIndexJob < ApplicationJob
   end
 
   def backfill_commitment_creators(tenant_id)
-    Commitment.unscoped.where(tenant_id: tenant_id).find_each(batch_size: 100) do |commitment|
+    Commitment.unscoped_for_system_job.where(tenant_id: tenant_id).find_each(batch_size: 100) do |commitment|
       next unless commitment.created_by_id
 
       upsert_creator_status(commitment.tenant_id, commitment.created_by_id, "Commitment", commitment.id)

@@ -1,5 +1,11 @@
 # typed: true
 
+# DataDeletionManager handles destructive data operations for admin use.
+#
+# IMPORTANT: This class uses safe unscoped wrapper methods to delete data across
+# all tenants/superagents. It is designed to be used only from Rails console
+# with explicit confirmation tokens.
+#
 class DataDeletionManager
   extend T::Sig
 
@@ -27,21 +33,21 @@ class DataDeletionManager
     superagent_name = superagent.name
     superagent_id_value = superagent.id
     ActiveRecord::Base.transaction do
-      # Delete all associated data
+      # Delete all associated data (all within same tenant, cross-superagent)
       [
-        RepresentationSessionAssociation, RepresentationSession,
+        RepresentationSessionEvent, RepresentationSession,
         Link, NoteHistoryEvent, Note,
         Vote, Option, DecisionParticipant, Decision,
         CommitmentParticipant, Commitment,
         Invite, SuperagentMember
       ].each do |model|
-        model.unscoped.where(superagent_id: superagent.id).delete_all
+        model.tenant_scoped_only(superagent.tenant_id).where(superagent_id: superagent.id).delete_all
       end
-      # Delete trustee user only if it does not have any conflicting associations
+      # Delete proxy user only if it does not have any conflicting associations
       # begin
-      #   delete_user!(user: superagent.trustee_user, confirmation_token: confirmation_token)
+      #   delete_user!(user: superagent.proxy_user, confirmation_token: confirmation_token)
       # rescue ActiveRecord::RecordNotDestroyed
-      #   Rails.logger.info "Trustee user for superagent '#{superagent_name}' (ID: #{superagent_id_value}) could not be deleted due to conflicting associations."
+      #   Rails.logger.info "Proxy user for superagent '#{superagent_name}' (ID: #{superagent_id_value}) could not be deleted due to conflicting associations."
       # end
       # Delete the superagent itself
       superagent.destroy!
@@ -59,19 +65,19 @@ class DataDeletionManager
       raise NotImplementedError, "full deletion of users is not implemented yet"
     end
     ActiveRecord::Base.transaction do
-      # OauthIdentities can be completely deleted
-      OauthIdentity.unscoped.where(user_id: user.id).delete_all
+      # OauthIdentities can be completely deleted (no tenant scope)
+      OauthIdentity.where(user_id: user.id).delete_all
       user.email = "#{SecureRandom.hex(10)}@deleted.user"
       user.name = "Deleted User"
       user.image.purge if user.image.attached?
       user.save!
       # API tokens are marked as deleted but not destroyed
-      ApiToken.unscoped.where(user_id: user.id).update_all(deleted_at: Time.current)
-      User.unscoped.where(parent_id: user.id).each do |subagent|
+      ApiToken.for_user_across_tenants(user).update_all(deleted_at: Time.current)
+      User.where(parent_id: user.id).each do |subagent| # User has no tenant scope
         # Subagent users are not modified, but their API tokens are marked as deleted
-        ApiToken.unscoped.where(user_id: subagent.id).update_all(deleted_at: Time.current)
+        ApiToken.for_user_across_tenants(subagent).update_all(deleted_at: Time.current)
       end
-      SuperagentMember.unscoped.where(user_id: user.id).each do |superagent_member|
+      SuperagentMember.for_user_across_tenants(user).each do |superagent_member|
         superagent_member_is_sole_admin = superagent_member.is_admin? && superagent_member.superagent.admins.count == 1
         if superagent_member_is_sole_admin
           # If the user is the only admin of the superagent, we need to assign a new admin
@@ -88,7 +94,7 @@ class DataDeletionManager
         superagent_member.archived_at = Time.current
         superagent_member.save!
       end
-      TenantUser.unscoped.where(user_id: user.id).each do |tenant_user|
+      TenantUser.for_user_across_tenants(user).each do |tenant_user|
         tenant_user.update!(
           display_name: "Deleted User",
           handle: "#{SecureRandom.hex(10)}-deleted",
@@ -108,12 +114,14 @@ class DataDeletionManager
     note_title = note.title
     note_id = note.id
     ActiveRecord::Base.transaction do
-      # Delete all associated data
-      NoteHistoryEvent.unscoped.where(note_id: note.id).each do |event|
+      # Delete all associated data (always in same superagent as parent)
+      NoteHistoryEvent.where(note_id: note.id).each do |event|
         event.destroy!
       end
-      # Link where the note is the from_linkable or the to_linkable
-      Link.unscoped.where(from_linkable: note).or(Link.unscoped.where(to_linkable: note)).each do |link|
+      # Links can be cross-superagent (for scenes), so query tenant-wide
+      Link.tenant_scoped_only(note.tenant_id).where(from_linkable: note).or(
+        Link.tenant_scoped_only(note.tenant_id).where(to_linkable: note)
+      ).each do |link|
         link.destroy!
       end
       # Delete the note itself
@@ -131,17 +139,20 @@ class DataDeletionManager
     decision_question = decision.question
     decision_id = decision.id
     ActiveRecord::Base.transaction do
-      # Delete all associated data
-      Vote.unscoped.where(decision_id: decision.id).each do |vote|
+      # Delete all associated data (always in same superagent as parent)
+      Vote.where(decision_id: decision.id).each do |vote|
         vote.destroy!
       end
-      Option.unscoped.where(decision_id: decision.id).each do |option|
+      Option.where(decision_id: decision.id).each do |option|
         option.destroy!
       end
-      DecisionParticipant.unscoped.where(decision_id: decision.id).each do |participant|
+      DecisionParticipant.where(decision_id: decision.id).each do |participant|
         participant.destroy!
       end
-      Link.unscoped.where(from_linkable: decision).or(Link.unscoped.where(to_linkable: decision)).each do |link|
+      # Links can be cross-superagent (for scenes), so query tenant-wide
+      Link.tenant_scoped_only(decision.tenant_id).where(from_linkable: decision).or(
+        Link.tenant_scoped_only(decision.tenant_id).where(to_linkable: decision)
+      ).each do |link|
         link.destroy!
       end
       # Delete the decision itself
@@ -159,11 +170,14 @@ class DataDeletionManager
     commitment_title = commitment.title
     commitment_id = commitment.id
     ActiveRecord::Base.transaction do
-      # Delete all associated data
-      CommitmentParticipant.unscoped.where(commitment_id: commitment.id).each do |participant|
+      # Delete all associated data (always in same superagent as parent)
+      CommitmentParticipant.where(commitment_id: commitment.id).each do |participant|
         participant.destroy!
       end
-      Link.unscoped.where(from_linkable: commitment).or(Link.unscoped.where(to_linkable: commitment)).each do |link|
+      # Links can be cross-superagent (for scenes), so query tenant-wide
+      Link.tenant_scoped_only(commitment.tenant_id).where(from_linkable: commitment).or(
+        Link.tenant_scoped_only(commitment.tenant_id).where(to_linkable: commitment)
+      ).each do |link|
         link.destroy!
       end
       # Delete the commitment itself

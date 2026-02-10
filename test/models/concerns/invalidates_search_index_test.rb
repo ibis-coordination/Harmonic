@@ -17,7 +17,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   test "creating a read_confirmation NoteHistoryEvent enqueues reindex for the note" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note.id, tenant_id: @tenant.id }]) do
       NoteHistoryEvent.create!(
         tenant: @tenant,
         superagent: @superagent,
@@ -33,7 +33,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
     # Clear any jobs enqueued during note creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
     assert_no_enqueued_jobs(only: ReindexSearchJob) do
       NoteHistoryEvent.create!(
@@ -51,7 +51,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
     # Clear any jobs enqueued during note creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
     assert_no_enqueued_jobs(only: ReindexSearchJob) do
       NoteHistoryEvent.create!(
@@ -74,11 +74,11 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     note_2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Note 2")
 
     # Clear any jobs enqueued during note creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
     # Should enqueue 2 reindex jobs: one for each linked item
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_1.id }]) do
-      assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_1.id, tenant_id: @tenant.id }]) do
+      assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id, tenant_id: @tenant.id }]) do
         Link.create!(
           tenant: @tenant,
           superagent: @superagent,
@@ -100,10 +100,10 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     )
 
     # Clear any jobs enqueued during creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_1.id }]) do
-      assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_1.id, tenant_id: @tenant.id }]) do
+      assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id, tenant_id: @tenant.id }]) do
         link.destroy!
       end
     end
@@ -117,9 +117,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
 
     # Clear any jobs enqueued during decision creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
     end
   end
@@ -129,9 +129,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
 
     # Clear any jobs enqueued during creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       option.destroy!
     end
   end
@@ -146,9 +146,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     decision_participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
 
     # Clear any jobs enqueued during setup
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       Vote.create!(
         tenant: @tenant,
         superagent: @superagent,
@@ -176,9 +176,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     )
 
     # Clear any jobs enqueued during creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       vote.destroy!
     end
   end
@@ -191,9 +191,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
 
     # Clear any jobs enqueued during commitment creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id, tenant_id: @tenant.id }]) do
       CommitmentParticipant.create!(
         tenant: @tenant,
         superagent: @superagent,
@@ -213,9 +213,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     )
 
     # Clear any jobs enqueued during creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id, tenant_id: @tenant.id }]) do
       participant.update!(committed: true)
     end
   end
@@ -230,9 +230,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     )
 
     # Clear any jobs enqueued during creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id, tenant_id: @tenant.id }]) do
       participant.destroy!
     end
   end
@@ -245,9 +245,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     parent_note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Parent Note")
 
     # Clear any jobs enqueued during parent creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: parent_note.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: parent_note.id, tenant_id: @tenant.id }]) do
       create_note(
         tenant: @tenant,
         superagent: @superagent,
@@ -262,9 +262,9 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
 
     # Clear any jobs enqueued during decision creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
-    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id }]) do
+    assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       create_note(
         tenant: @tenant,
         superagent: @superagent,
@@ -297,7 +297,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     )
 
     # Clear any jobs enqueued during session creation
-    perform_enqueued_jobs
+    clear_enqueued_jobs
 
     # Creating a comment on a non-searchable item should NOT enqueue a reindex for the parent
     # (The comment itself will still be indexed via Searchable concern)

@@ -1,0 +1,58 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
+-%>
+# Trustee Grants for <%= @target_user.display_name || @target_user.handle %>
+
+Trustee grants allow you to grant other users authority to act on your behalf.
+
+<% if @pending_requests.any? -%>
+## Pending Requests
+
+These users are requesting authority to act on your behalf.
+
+| From | Capabilities | Expires |
+|------|-------------|---------|
+<% @pending_requests.each do |grant| -%>
+| [<%= grant.granting_user.display_name || grant.granting_user.handle %>](<%= base_path %>/<%= grant.truncated_id %>) | <%= grant.permissions&.keys&.join(", ") || "None" %> | <%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %> |
+<% end -%>
+
+<% end -%>
+## Trustee Grants I've Created
+
+<% granted_active = @granted.select(&:active?) -%>
+<% granted_pending = @granted.select(&:pending?) -%>
+<% if granted_active.any? || granted_pending.any? -%>
+| Trustee | Capabilities | Status | Expires |
+|---------|-------------|--------|---------|
+<% (granted_active + granted_pending).each do |grant| -%>
+| [<%= grant.trustee_user.display_name || grant.trustee_user.handle %>](<%= base_path %>/<%= grant.truncated_id %>) | <%= grant.permissions&.keys&.join(", ") || "None" %> | <%= grant.active? ? "Active" : "Pending" %> | <%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %> |
+<% end -%>
+<% else -%>
+*You haven't created any trustee grants yet.*
+<% end -%>
+
+## Trustee Grants I've Received
+
+<% received_active = @received.select(&:active?) -%>
+<% if received_active.any? -%>
+| Granting User | Capabilities | Expires |
+|---------------|-------------|---------|
+<% received_active.each do |grant| -%>
+| [<%= grant.granting_user.display_name || grant.granting_user.handle %>](<%= base_path %>/<%= grant.truncated_id %>) | <%= grant.permissions&.keys&.join(", ") || "None" %> | <%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %> |
+<% end -%>
+<% else -%>
+*No one has granted you trustee authority yet.*
+<% end -%>
+
+## [Actions](<%= base_path %>/actions)
+
+* [`create_trustee_grant(trustee_user_id, permissions, ...)`](<%= base_path %>/new/actions/create_trustee_grant) - Grant another user authority to act on your behalf
+
+## Navigation
+
+* [Create New Trustee Grant](<%= base_path %>/new)
+<% if @target_user == @current_user -%>
+* [Settings](/settings)
+<% else -%>
+* [<%= @target_user.handle %>'s Profile](/u/<%= @target_user.handle %>)
+<% end -%>

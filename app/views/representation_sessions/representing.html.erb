@@ -1,8 +1,19 @@
-<%= render 'shared/pulse_breadcrumb', items: [
-  [@studio.name, @studio.path],
-  ['Representation', @studio.path + '/representation'],
-  'Active Session'
-] %>
+<% is_user_representation = @representation_session.user_representation? %>
+<% represented_user = @representation_session.represented_user %>
+
+<% if is_user_representation %>
+  <%= render 'shared/pulse_breadcrumb', items: [
+    ['Home', '/'],
+    ['Trustee Grants', "/u/#{@current_person_user.handle}/settings/trustee-grants"],
+    'Active Session'
+  ] %>
+<% else %>
+  <%= render 'shared/pulse_breadcrumb', items: [
+    [@studio.name, @studio.path],
+    ['Representation', @studio.path + '/representation'],
+    'Active Session'
+  ] %>
+<% end %>
 
 <article class="pulse-resource-detail">
   <header class="pulse-resource-header">
@@ -11,48 +22,109 @@
         <%= octicon 'play', height: 14, class: 'pulse-resource-icon' %>
         Active Session
       </span>
+      <% if is_user_representation %>
+        <span class="pulse-tag">User Representation</span>
+      <% else %>
+        <span class="pulse-tag">Studio Representation</span>
+      <% end %>
     </div>
-    <h1 class="pulse-resource-title">Representing <%= @studio.name %></h1>
+    <% if is_user_representation %>
+      <h1 class="pulse-resource-title">Acting on behalf of <%= represented_user&.display_name %></h1>
+    <% else %>
+      <h1 class="pulse-resource-title">Representing <%= @studio.name %></h1>
+    <% end %>
   </header>
 
   <div class="pulse-resource-body">
     <div class="pulse-notice pulse-notice-info">
-      <p>
-        You are now representing <%= @studio.name %>. Your actions during this session are being recorded and will be visible to all members of <%= @studio.name %>.
-      </p>
-      <p class="pulse-muted">
-        The message box above will remain visible until you end the session.
-      </p>
-    </div>
-
-    <section class="pulse-settings-section">
-      <h2 class="pulse-section-title">Other Studios</h2>
-
-      <% if @other_studios.empty? %>
+      <% if is_user_representation %>
         <p>
-          <%= @studio.name %> is not a member of any other studios yet.
-          Once <%= @studio.name %> is invited to join other studios, they will appear here.
+          You are acting on behalf of <strong><%= represented_user&.display_name %></strong>.
+          Actions you take will be attributed to a trustee user representing <%= represented_user&.display_name %>.
+          All actions are being recorded.
         </p>
         <p class="pulse-muted">
-          Since there are no other studios to participate in, there is nothing for you to do as a representative at this time.
-          You can end the session by clicking the "End Session" button above.
+          The message box above will remain visible until you end the session.
         </p>
       <% else %>
         <p>
-          <%= @studio.name %> is a member of the following studios:
+          You are now representing <%= @studio.name %>. Your actions during this session are being recorded and will be visible to all members of <%= @studio.name %>.
         </p>
-
-        <ul class="pulse-list">
-          <% @other_studios.each do |s| %>
-            <li class="pulse-list-item">
-              <a href="<%= s.path %>" class="pulse-list-link">
-                <%= octicon 'organization', height: 16 %>
-                <%= s.name %>
-              </a>
-            </li>
-          <% end %>
-        </ul>
+        <p class="pulse-muted">
+          The message box above will remain visible until you end the session.
+        </p>
       <% end %>
-    </section>
+    </div>
+
+    <% if is_user_representation %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Granted Capabilities</h2>
+        <% grant = @representation_session.trustee_grant %>
+        <% if grant&.permissions.present? %>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <% grant.permissions.each do |capability, enabled| %>
+              <% next unless enabled %>
+              <span class="pulse-tag"><%= capability %></span>
+            <% end %>
+          </div>
+        <% else %>
+          <p class="pulse-muted">No specific capabilities granted.</p>
+        <% end %>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Available Studios</h2>
+        <% scoped_studios = @other_studios.select { |s| grant.allows_studio?(s) } %>
+        <% if scoped_studios.empty? %>
+          <p class="pulse-muted">
+            No studios are currently available within the scope of this trustee grant.
+          </p>
+        <% else %>
+          <p>
+            You can act on behalf of <%= represented_user&.display_name %> in the following studios:
+          </p>
+          <ul class="pulse-list">
+            <% scoped_studios.each do |s| %>
+              <li class="pulse-list-item">
+                <a href="<%= s.path %>" class="pulse-list-link">
+                  <%= octicon 'organization', height: 16 %>
+                  <%= s.name %>
+                </a>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </section>
+    <% else %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Other Studios</h2>
+
+        <% if @other_studios.empty? %>
+          <p>
+            <%= @studio.name %> is not a member of any other studios yet.
+            Once <%= @studio.name %> is invited to join other studios, they will appear here.
+          </p>
+          <p class="pulse-muted">
+            Since there are no other studios to participate in, there is nothing for you to do as a representative at this time.
+            You can end the session by clicking the "End Session" button above.
+          </p>
+        <% else %>
+          <p>
+            <%= @studio.name %> is a member of the following studios:
+          </p>
+
+          <ul class="pulse-list">
+            <% @other_studios.each do |s| %>
+              <li class="pulse-list-item">
+                <a href="<%= s.path %>" class="pulse-list-link">
+                  <%= octicon 'organization', height: 16 %>
+                  <%= s.name %>
+                </a>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </section>
+    <% end %>
   </div>
 </article>

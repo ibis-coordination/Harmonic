@@ -48,7 +48,7 @@ class UserTest < ActiveSupport::TestCase
     user = User.new(user_type: "person")
     assert user.person?
     assert_not user.subagent?
-    assert_not user.trustee?
+    assert_not user.superagent_proxy?
   end
 
   test "subagent? returns true for subagent user type" do
@@ -56,12 +56,12 @@ class UserTest < ActiveSupport::TestCase
     user = User.new(user_type: "subagent", parent_id: parent.id)
     assert user.subagent?
     assert_not user.person?
-    assert_not user.trustee?
+    assert_not user.superagent_proxy?
   end
 
-  test "trustee? returns true for trustee user type" do
-    user = User.new(user_type: "trustee")
-    assert user.trustee?
+  test "superagent_proxy? returns true for superagent_proxy user type" do
+    user = User.new(user_type: "superagent_proxy")
+    assert user.superagent_proxy?
     assert_not user.person?
     assert_not user.subagent?
   end
@@ -258,95 +258,36 @@ class UserTest < ActiveSupport::TestCase
     assert_equal "github", external.first.provider
   end
 
-  # === Trustee User Tests ===
+  # === Superagent Proxy User Tests ===
 
-  test "superagent_trustee? returns true for superagent's trustee user" do
-    trustee = @superagent.trustee_user
-    assert trustee.trustee?
-    assert trustee.superagent_trustee?
+  test "superagent_proxy? returns true for superagent's proxy user" do
+    proxy = @superagent.proxy_user
+    assert proxy.superagent_proxy?
   end
 
-  test "superagent_trustee? returns false for non-superagent trustee" do
-    # A trustee created via TrusteePermission is not a superagent trustee
-    trustee = User.create!(
+  test "proxy_superagent returns associated superagent" do
+    proxy = @superagent.proxy_user
+    assert_equal @superagent, proxy.proxy_superagent
+  end
+
+  test "proxy_superagent returns nil for person user" do
+    assert_nil @user.proxy_superagent
+  end
+
+  test "proxy_superagent returns nil for superagent_proxy without associated superagent" do
+    proxy = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
-      name: "Non-superagent Trustee",
-      user_type: "trustee",
+      name: "Orphan Proxy",
+      user_type: "superagent_proxy",
     )
-    assert trustee.trustee?
-    assert_not trustee.superagent_trustee?
-  end
-
-  test "trustee_superagent returns associated superagent" do
-    trustee = @superagent.trustee_user
-    assert_equal @superagent, trustee.trustee_superagent
-  end
-
-  test "trustee_superagent returns nil for person user" do
-    assert_nil @user.trustee_superagent
-  end
-
-  test "trustee_superagent returns nil for non-superagent trustee" do
-    trustee = User.create!(
-      email: "#{SecureRandom.uuid}@not-a-real-email.com",
-      name: "Non-superagent Trustee",
-      user_type: "trustee",
-    )
-    assert_nil trustee.trustee_superagent
-  end
-
-  # === Impersonation Authorization Tests ===
-
-  test "can_impersonate? returns true for parent impersonating subagent" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
-    assert @user.can_impersonate?(subagent)
-  end
-
-  test "can_impersonate? returns false for archived subagent" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
-    subagent.tenant_user.archive!
-    assert_not @user.can_impersonate?(subagent)
-  end
-
-  test "can_impersonate? returns false for non-parent user" do
-    other_parent = create_user(email: "other_parent_#{SecureRandom.hex(4)}@example.com", name: "Other Parent")
-    subagent = create_subagent(parent: other_parent, name: "Other Subagent")
-    @tenant.add_user!(subagent)
-    assert_not @user.can_impersonate?(subagent)
-  end
-
-  test "can_impersonate? returns true for representative impersonating studio trustee" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
-    trustee = @superagent.trustee_user
-    assert @user.can_impersonate?(trustee)
-  end
-
-  test "can_impersonate? returns false for non-representative trying to impersonate studio trustee" do
-    trustee = @superagent.trustee_user
-    assert_not @user.can_impersonate?(trustee)
-  end
-
-  test "can_impersonate? returns true when any_member_can_represent is enabled" do
-    @superagent.settings['any_member_can_represent'] = true
-    @superagent.save!
-    trustee = @superagent.trustee_user
-    assert @user.can_impersonate?(trustee)
-  end
-
-  test "can_impersonate? returns false for non-member trying to impersonate studio trustee" do
-    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
-    @tenant.add_user!(other_user)
-    trustee = @superagent.trustee_user
-    assert_not other_user.can_impersonate?(trustee)
+    assert_nil proxy.proxy_superagent
   end
 
   # === Representation Authorization Tests ===
 
-  test "can_represent? returns true for trustee user representing their own studio" do
-    trustee = @superagent.trustee_user
-    assert trustee.can_represent?(@superagent)
+  test "can_represent? returns true for proxy user representing their own studio" do
+    proxy = @superagent.proxy_user
+    assert proxy.can_represent?(@superagent)
   end
 
   test "can_represent? returns true for user with representative role" do
@@ -370,11 +311,50 @@ class UserTest < ActiveSupport::TestCase
     assert_not other_user.can_represent?(@superagent)
   end
 
-  test "can_represent? with user argument delegates to can_impersonate?" do
+  test "can_represent? returns true for parent representing subagent" do
     subagent = create_subagent(parent: @user, name: "Test Subagent For Rep")
     @tenant.add_user!(subagent)
     assert @user.can_represent?(subagent)
-    assert_equal @user.can_impersonate?(subagent), @user.can_represent?(subagent)
+  end
+
+  test "can_represent? returns false for archived subagent" do
+    subagent = create_subagent(parent: @user, name: "Test Subagent Archived")
+    @tenant.add_user!(subagent)
+    subagent.tenant_user.archive!
+    assert_not @user.can_represent?(subagent)
+  end
+
+  test "can_represent? returns false for non-parent user" do
+    other_parent = create_user(email: "other_parent_#{SecureRandom.hex(4)}@example.com", name: "Other Parent")
+    @tenant.add_user!(other_parent)
+    subagent = create_subagent(parent: other_parent, name: "Other Subagent")
+    @tenant.add_user!(subagent)
+    assert_not @user.can_represent?(subagent)
+  end
+
+  test "can_represent? returns true for representative representing studio proxy" do
+    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    proxy = @superagent.proxy_user
+    assert @user.can_represent?(proxy)
+  end
+
+  test "can_represent? returns false for non-representative trying to represent studio proxy" do
+    proxy = @superagent.proxy_user
+    assert_not @user.can_represent?(proxy)
+  end
+
+  test "can_represent? returns true for studio proxy when any_member_can_represent is enabled" do
+    @superagent.settings['any_member_can_represent'] = true
+    @superagent.save!
+    proxy = @superagent.proxy_user
+    assert @user.can_represent?(proxy)
+  end
+
+  test "can_represent? returns false for non-member trying to represent studio proxy" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+    proxy = @superagent.proxy_user
+    assert_not other_user.can_represent?(proxy)
   end
 
   # === Subagent Validation Tests ===
@@ -715,6 +695,242 @@ class UserTest < ActiveSupport::TestCase
 
     assert token_in_current_tenant.deleted?, "Token in current tenant should be soft-deleted"
     assert token_in_other_tenant.deleted?, "Token in OTHER tenant should also be soft-deleted"
+  end
+
+  # =========================================================================
+  # DELEGATION TRUSTEE PERMISSION TESTS
+  # These tests document the intended behavior for user-to-user delegation
+  # via TrusteeGrant and representation sessions.
+  # =========================================================================
+
+  test "granted_trustee_grants returns permissions where user is granting_user" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @user,
+      trustee_user: other_user,
+      permissions: { "create_notes" => true },
+    )
+
+    assert_includes @user.granted_trustee_grants, permission
+    assert_not_includes other_user.granted_trustee_grants, permission
+  end
+
+  test "received_trustee_grants returns permissions where user is trustee_user" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trustee_user: @user,
+      permissions: { "create_notes" => true },
+    )
+
+    assert_includes @user.received_trustee_grants, permission
+    assert_not_includes other_user.received_trustee_grants, permission
+  end
+
+  test "pending_trustee_grant_requests returns only pending received permissions" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    pending_permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trustee_user: @user,
+      permissions: {},
+    )
+
+    third_user = create_user(email: "third_#{SecureRandom.hex(4)}@example.com", name: "Third User")
+    @tenant.add_user!(third_user)
+    accepted_permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: third_user,
+      trustee_user: @user,
+      permissions: {},
+    )
+    accepted_permission.accept!
+
+    pending_requests = @user.pending_trustee_grant_requests
+    assert_includes pending_requests, pending_permission
+    assert_not_includes pending_requests, accepted_permission
+  end
+
+  # === Delegation Representation Tests ===
+
+  test "can_represent? returns true for trustee_user with active permission" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trustee_user: @user,
+      permissions: { "create_notes" => true },
+    )
+    permission.accept!
+
+    # @user (trustee_user) should be able to represent other_user (granting_user)
+    assert @user.can_represent?(other_user)
+  end
+
+  test "can_represent? returns false for trustee_user with pending permission" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trustee_user: @user,
+      permissions: { "create_notes" => true },
+    )
+    # Permission is pending, not accepted
+
+    assert_not @user.can_represent?(other_user)
+  end
+
+  test "can_represent? returns false for trustee_user with revoked permission" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trustee_user: @user,
+      permissions: { "create_notes" => true },
+    )
+    permission.accept!
+    permission.revoke!
+
+    assert_not @user.can_represent?(other_user)
+  end
+
+  test "can_represent? returns false for trustee_user with expired permission" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    permission = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trustee_user: @user,
+      permissions: { "create_notes" => true },
+      expires_at: 1.hour.ago,
+    )
+    permission.update!(accepted_at: 2.hours.ago) # Simulate expired active permission
+
+    assert_not @user.can_represent?(other_user)
+  end
+
+  test "can_represent? returns false when no permission exists" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    assert_not @user.can_represent?(other_user)
+  end
+
+  # === is_trusted_as? Tests ===
+  # Note: is_trusted_as? now only applies to superagent proxies (studio representation),
+  # not user-to-user grants. User-to-user grants use can_represent? directly.
+
+  test "is_trusted_as? returns false for regular users" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+
+    # Regular users are not superagent_proxy users
+    assert_not @user.is_trusted_as?(other_user)
+  end
+
+  test "is_trusted_as? returns true for superagent proxy when user is representative" do
+    # Create a studio and make @user a representative
+    studio = create_superagent(tenant: @tenant, created_by: @user, handle: "test-studio-#{SecureRandom.hex(4)}")
+    studio.add_user!(@user, roles: ["representative"])
+
+    # Get the studio's proxy user
+    proxy = studio.proxy_user
+    assert proxy.superagent_proxy?
+    assert proxy.proxy_superagent.present?
+
+    # @user should be trusted as the superagent proxy
+    assert @user.is_trusted_as?(proxy)
+  end
+
+  test "is_trusted_as? returns false for superagent proxy when user is not representative" do
+    # Create a studio without @user as representative
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
+    @tenant.add_user!(other_user)
+    studio = create_superagent(tenant: @tenant, created_by: other_user, handle: "test-studio-#{SecureRandom.hex(4)}")
+
+    # @user is not a member of the studio
+    proxy = studio.proxy_user
+
+    # @user should not be trusted as this studio's proxy
+    assert_not @user.is_trusted_as?(proxy)
+  end
+
+  # === Auto-creation of TrusteeGrant for Subagents (Phase 7) ===
+
+  test "creating a subagent auto-creates TrusteeGrant for parent" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test Subagent",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+
+    # Should auto-create a TrusteeGrant
+    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
+    assert permission.present?, "TrusteeGrant should be auto-created when subagent is created"
+    assert permission.active?, "Auto-created permission should be pre-accepted (active)"
+    assert permission.accepted_at.present?
+    # trustee_user is the parent (a regular person, not a superagent_proxy type)
+    assert_equal @user, permission.trustee_user
+    assert_not permission.trustee_user.superagent_proxy?
+  end
+
+  test "parent can represent subagent via auto-created TrusteeGrant" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test Subagent",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(subagent)
+
+    # Parent should be able to represent the subagent
+    assert @user.can_represent?(subagent)
+  end
+
+  test "auto-created TrusteeGrant has all action permissions" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test Subagent",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+
+    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
+    assert permission.present?
+
+    # Should have all grantable actions
+    TrusteeGrant::GRANTABLE_ACTIONS.each do |action_name|
+      assert permission.has_action_permission?(action_name), "Auto-created permission should have #{action_name} action"
+    end
+  end
+
+  test "auto-created TrusteeGrant allows all studios" do
+    subagent = User.create!(
+      email: "subagent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test Subagent",
+      user_type: "subagent",
+      parent_id: @user.id,
+    )
+
+    permission = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
+    assert permission.present?
+    assert permission.allows_studio?(@superagent)
   end
 end
 

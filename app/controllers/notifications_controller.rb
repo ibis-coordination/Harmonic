@@ -25,13 +25,13 @@ class NotificationsController < ApplicationController
     # We avoid using nr.notification.event because the Event default_scope interferes.
     # Instead, we query event_id directly from the notifications table.
     notification_ids = @notification_recipients.map(&:notification_id)
-    notification_event_map = Notification.unscoped.where(id: notification_ids).pluck(:id, :event_id).to_h
+    notification_event_map = Notification.tenant_scoped_only.where(id: notification_ids).pluck(:id, :event_id).to_h
 
     event_ids = notification_event_map.values.compact
-    event_superagent_map = Event.unscoped.where(id: event_ids).pluck(:id, :superagent_id).to_h
+    event_superagent_map = Event.tenant_scoped_only.where(id: event_ids).pluck(:id, :superagent_id).to_h
 
     superagent_ids = event_superagent_map.values.compact.uniq
-    superagents = Superagent.unscoped.where(id: superagent_ids).index_by(&:id)
+    superagents = Superagent.tenant_scoped_only.where(id: superagent_ids).index_by(&:id)
 
     # Build a lookup for notification recipient -> superagent
     @superagent_for_nr = {}

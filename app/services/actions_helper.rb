@@ -474,6 +474,50 @@ class ActionsHelper
       params: [],
       authorization: WEBHOOK_AUTHORIZATION,
     },
+
+    # Trustee Grant actions
+    "create_trustee_grant" => {
+      description: "Grant another user authority to act on your behalf",
+      params_string: "(trustee_user_id, permissions, studio_scope_mode, studio_ids, expires_at)",
+      params: [
+        { name: "trustee_user_id", type: "string", required: true, description: "The ID of the user to grant trustee authority to" },
+        { name: "permissions", type: "array", required: true, description: "Array of capability names to grant (e.g., create_notes, vote, commit)" },
+        { name: "studio_scope_mode", type: "string", description: 'Studio scope mode: "all" (default), "include", or "exclude"' },
+        { name: "studio_ids", type: "array", description: "Array of studio IDs for include/exclude modes" },
+        { name: "expires_at", type: "datetime", description: "When the trustee grant expires (optional)" },
+      ],
+      authorization: :self,
+    },
+    "accept_trustee_grant" => {
+      description: "Accept a trustee grant request",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
+    "decline_trustee_grant" => {
+      description: "Decline a trustee grant request",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
+    "revoke_trustee_grant" => {
+      description: "Revoke a trustee grant you previously created",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
+    "start_representation" => {
+      description: "Start a representation session to act on behalf of the granting user",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
+    "end_representation" => {
+      description: "End an active representation session for this grant",
+      params_string: "()",
+      params: [],
+      authorization: :self,
+    },
   }.freeze
 
   # Route to actions mapping for actions index pages.
@@ -580,8 +624,8 @@ class ActionsHelper
     "/studios/:studio_handle/n/:note_id" => {
       controller_actions: ["notes#show"],
       actions: [
-        { name: "confirm_read", params_string: ACTION_DEFINITIONS["confirm_read"][:params_string], description: "Confirm that you have read the note" },
-        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: "Add a comment to this note" },
+        { name: "confirm_read", params_string: ACTION_DEFINITIONS["confirm_read"][:params_string], description: ACTION_DEFINITIONS["confirm_read"][:description] },
+        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
     },
     "/studios/:studio_handle/n/:note_id/attachments/:attachment_id" => {
@@ -593,8 +637,8 @@ class ActionsHelper
     "/studios/:studio_handle/n/:note_id/edit" => {
       controller_actions: ["notes#edit"],
       actions: [
-        { name: "update_note", params_string: ACTION_DEFINITIONS["update_note"][:params_string], description: "Update the note" },
-        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: "Add a file attachment to this note" },
+        { name: "update_note", params_string: ACTION_DEFINITIONS["update_note"][:params_string], description: ACTION_DEFINITIONS["update_note"][:description] },
+        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: ACTION_DEFINITIONS["add_attachment"][:description] },
       ],
     },
     "/studios/:studio_handle/n/:note_id/settings" => {
@@ -612,7 +656,7 @@ class ActionsHelper
       actions: [
         { name: "add_options", params_string: ACTION_DEFINITIONS["add_options"][:params_string], description: ACTION_DEFINITIONS["add_options"][:description] },
         { name: "vote", params_string: ACTION_DEFINITIONS["vote"][:params_string], description: ACTION_DEFINITIONS["vote"][:description] },
-        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: "Add a comment to this decision" },
+        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
     },
     "/studios/:studio_handle/d/:decision_id/attachments/:attachment_id" => {
@@ -625,7 +669,7 @@ class ActionsHelper
       controller_actions: ["decisions#settings"],
       actions: [
         { name: "update_decision_settings", params_string: ACTION_DEFINITIONS["update_decision_settings"][:params_string], description: ACTION_DEFINITIONS["update_decision_settings"][:description] },
-        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: "Add a file attachment to this decision" },
+        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: ACTION_DEFINITIONS["add_attachment"][:description] },
       ],
     },
     "/studios/:studio_handle/commit" => {
@@ -638,7 +682,7 @@ class ActionsHelper
       controller_actions: ["commitments#show"],
       actions: [
         { name: "join_commitment", params_string: ACTION_DEFINITIONS["join_commitment"][:params_string], description: ACTION_DEFINITIONS["join_commitment"][:description] },
-        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: "Add a comment to this commitment" },
+        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
     },
     "/studios/:studio_handle/c/:commitment_id/attachments/:attachment_id" => {
@@ -651,7 +695,7 @@ class ActionsHelper
       controller_actions: ["commitments#settings"],
       actions: [
         { name: "update_commitment_settings", params_string: ACTION_DEFINITIONS["update_commitment_settings"][:params_string], description: ACTION_DEFINITIONS["update_commitment_settings"][:description] },
-        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: "Add a file attachment to this commitment" },
+        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: ACTION_DEFINITIONS["add_attachment"][:description] },
       ],
     },
     "/u/:handle/settings" => {
@@ -750,6 +794,26 @@ class ActionsHelper
       actions: [
         { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
         { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
+      ],
+    },
+    "/u/:handle/settings/trustee-grants" => {
+      controller_actions: ["trustee_grants#index"],
+      actions: [],
+    },
+    "/u/:handle/settings/trustee-grants/new" => {
+      controller_actions: ["trustee_grants#new"],
+      actions: [
+        { name: "create_trustee_grant", params_string: ACTION_DEFINITIONS["create_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["create_trustee_grant"][:description] },
+      ],
+    },
+    "/u/:handle/settings/trustee-grants/:grant_id" => {
+      controller_actions: ["trustee_grants#show"],
+      actions: [
+        { name: "accept_trustee_grant", params_string: ACTION_DEFINITIONS["accept_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["accept_trustee_grant"][:description] },
+        { name: "decline_trustee_grant", params_string: ACTION_DEFINITIONS["decline_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["decline_trustee_grant"][:description] },
+        { name: "revoke_trustee_grant", params_string: ACTION_DEFINITIONS["revoke_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["revoke_trustee_grant"][:description] },
+        { name: "start_representation", params_string: ACTION_DEFINITIONS["start_representation"][:params_string], description: ACTION_DEFINITIONS["start_representation"][:description] },
+        { name: "end_representation", params_string: ACTION_DEFINITIONS["end_representation"][:params_string], description: ACTION_DEFINITIONS["end_representation"][:description] },
       ],
     },
   }

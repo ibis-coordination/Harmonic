@@ -401,8 +401,8 @@ class NotificationDispatcher
   # Find subagents who have previously commented on this content
   sig { params(commentable: T.untyped, exclude_user_id: T.nilable(String)).returns(T::Array[User]) }
   def self.find_subagent_commenters(commentable, exclude_user_id: nil)
-    # Comments are Notes with a commentable association
-    comments = Note.unscoped.where(commentable: commentable).includes(:created_by)
+    # Comments are Notes with a commentable association (bypass superagent scope)
+    comments = Note.tenant_scoped_only(commentable.tenant_id).where(commentable: commentable).includes(:created_by)
     commenters = comments.map(&:created_by).compact.uniq
 
     # Filter to subagents only, excluding the specified user

@@ -273,6 +273,9 @@ class Vote
     sig { params(args: T.untyped, blk: T.untyped).returns(::Option) }
     def build_option(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
+    def build_representation_session_association(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
     def build_superagent(*args, &blk); end
 
@@ -296,6 +299,12 @@ class Vote
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Option) }
     def create_option!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
+    def create_representation_session_association(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::RepresentationSessionAssociation) }
+    def create_representation_session_association!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
     def create_superagent(*args, &blk); end
@@ -336,11 +345,34 @@ class Vote
     sig { returns(T.nilable(::Option)) }
     def reload_option; end
 
+    sig { returns(T.nilable(::RepresentationSessionAssociation)) }
+    def reload_representation_session_association; end
+
     sig { returns(T.nilable(::Superagent)) }
     def reload_superagent; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
+
+    sig { returns(T.nilable(::RepresentationSessionAssociation)) }
+    def representation_session_association; end
+
+    sig { params(value: T.nilable(::RepresentationSessionAssociation)).void }
+    def representation_session_association=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def representation_session_event_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def representation_session_event_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Vote` class because it declared `has_many :representation_session_events`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::RepresentationSessionEvent::PrivateCollectionProxy) }
+    def representation_session_events; end
+
+    sig { params(value: T::Enumerable[::RepresentationSessionEvent]).void }
+    def representation_session_events=(value); end
 
     sig { void }
     def reset_decision; end
@@ -350,6 +382,9 @@ class Vote
 
     sig { void }
     def reset_option; end
+
+    sig { void }
+    def reset_representation_session_association; end
 
     sig { void }
     def reset_superagent; end

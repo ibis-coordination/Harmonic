@@ -1,0 +1,112 @@
+<%
+base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
+%>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  [@target_user.display_name, "/u/#{@target_user.handle}"],
+  ['Settings', "/u/#{@target_user.handle}/settings"],
+  ['Trustee Grants', base_path],
+  'New'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
+        New Trustee Grant
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Create New Trustee Grant</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>Grant another user authority to act on your behalf. They will need to accept the trustee grant before they can use it.</p>
+
+    <%= form_tag "#{base_path}/new/actions/create_trustee_grant", method: :post, class: "pulse-form" do %>
+      <section class="pulse-settings-section">
+        <label for="trustee_user_id" class="pulse-label">Who should receive this trustee grant? *</label>
+        <select name="trustee_user_id" id="trustee_user_id" class="pulse-form-input" required>
+          <option value="">Select a user...</option>
+          <% @available_users.each do |user| %>
+            <option value="<%= user.id %>">
+              <%= user.display_name || user.name %> (<%= user.handle %>)
+              <% if user.subagent? %> - Subagent<% end %>
+            </option>
+          <% end %>
+        </select>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label class="pulse-label">What actions should they be able to perform?</label>
+        <p class="pulse-text-muted">Select the actions they can perform on your behalf.</p>
+
+        <fieldset class="pulse-fieldset">
+          <% @grantable_actions.each do |action_name| %>
+            <% action_def = ActionsHelper::ACTION_DEFINITIONS[action_name] %>
+            <label class="pulse-checkbox-label">
+              <input type="checkbox" name="permissions[]" value="<%= action_name %>" class="pulse-checkbox">
+              <%= action_def&.dig(:description) || action_name.humanize %>
+            </label>
+          <% end %>
+        </fieldset>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label class="pulse-label">Which studios?</label>
+        <p class="pulse-text-muted">Choose which studios this trustee grant applies to.</p>
+
+        <div class="pulse-radio-group">
+          <label class="pulse-radio-label">
+            <input type="radio" name="studio_scope_mode" value="all" checked class="pulse-radio" data-toggle-target="studio-ids">
+            All studios where you are a member
+          </label>
+          <label class="pulse-radio-label">
+            <input type="radio" name="studio_scope_mode" value="include" class="pulse-radio" data-toggle-target="studio-ids">
+            Only specific studios
+          </label>
+          <label class="pulse-radio-label">
+            <input type="radio" name="studio_scope_mode" value="exclude" class="pulse-radio" data-toggle-target="studio-ids">
+            All studios except specific ones
+          </label>
+        </div>
+
+        <div id="studio-ids" class="pulse-conditional-section" style="display: none; margin-top: 1rem;">
+          <label class="pulse-label">Select studios:</label>
+          <% @available_studios.each do |studio| %>
+            <label class="pulse-checkbox-label">
+              <input type="checkbox" name="studio_ids[]" value="<%= studio.id %>" class="pulse-checkbox">
+              <%= studio.name %>
+            </label>
+          <% end %>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <label for="expires_at" class="pulse-label">Expiration (optional)</label>
+        <input type="datetime-local" name="expires_at" id="expires_at" class="pulse-form-input">
+        <p class="pulse-text-muted">Leave blank for no expiration.</p>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Create Trustee Grant</button>
+        <a href="<%= base_path %>" class="pulse-action-btn">Cancel</a>
+      </section>
+    <% end %>
+  </div>
+</article>
+
+<script>
+  // Toggle studio selection visibility based on scope mode
+  document.querySelectorAll('input[name="studio_scope_mode"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      var studioIds = document.getElementById('studio-ids');
+      if (this.value === 'all') {
+        studioIds.style.display = 'none';
+      } else {
+        studioIds.style.display = 'block';
+      }
+    });
+  });
+</script>

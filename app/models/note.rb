@@ -11,6 +11,7 @@ class Note < ApplicationRecord
   include Searchable
   include InvalidatesSearchIndex
   include TracksUserItemStatus
+  include HasRepresentationSessionEvents
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -163,6 +164,12 @@ class Note < ApplicationRecord
   sig { returns(T::Boolean) }
   def is_comment?
     commentable_type.present? && commentable_id.present?
+  end
+
+  # Override from HasRepresentationSessionEvents to differentiate comments from notes
+  sig { returns(String) }
+  def creation_action_name
+    is_comment? ? "add_comment" : "create_note"
   end
 
   sig { returns(T::Boolean) }

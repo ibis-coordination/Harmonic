@@ -37,63 +37,26 @@ class NotesController < ApplicationController
   end
 
   def create
-    @note = build_note_from_params
-    ActiveRecord::Base.transaction do
-      @note.save!
-      attach_files_if_allowed
-      @current_note = @note
-      pin_note_if_requested
-      record_note_creation_activity
+    # Build params for ApiHelper (HTML form uses model_params)
+    helper_params = { title: model_params[:title], text: model_params[:text] }
+    @note = api_helper(params: helper_params).create_note
+    # Handle file attachments separately (HTML form specific)
+    if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
+      @note.attach!(params[:files])
+    end
+    # Handle pinning (HTML form specific)
+    if params[:pinned] == "1" && current_superagent.id != current_tenant.main_studio_id
+      api_helper.pin_resource(@note)
     end
     redirect_to @note.path
   rescue ActiveRecord::RecordInvalid => e
-    handle_create_error(e)
-  end
-
-  private
-
-  def build_note_from_params
-    Note.new(
-      title: model_params[:title],
-      text: model_params[:text],
-      deadline: Time.zone.now,
-      created_by: current_user
-    )
-  end
-
-  def attach_files_if_allowed
-    return unless params[:files]
-    return unless @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
-
-    @note.attach!(params[:files])
-  end
-
-  def pin_note_if_requested
-    return unless params[:pinned] == "1"
-    return if current_superagent.id == current_tenant.main_studio_id
-
-    current_superagent.pin_item!(@note)
-  end
-
-  def record_note_creation_activity
-    current_representation_session&.record_activity!(
-      request: request,
-      semantic_event: {
-        timestamp: Time.current,
-        event_type: "create",
-        superagent_id: current_superagent.id,
-        main_resource: { type: "Note", id: @note.id, truncated_id: @note.truncated_id },
-        sub_resources: [],
-      }
-    )
-  end
-
-  def handle_create_error(error)
-    error.record.errors.full_messages.each { |msg| flash.now[:alert] = msg }
+    e.record.errors.full_messages.each { |msg| flash.now[:alert] = msg }
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
     @note = Note.new(title: model_params[:title], text: model_params[:text])
     render :new
   end
+
+  private
 
   def render_confirm_read_success
     render_action_success({
@@ -166,26 +129,7 @@ class NotesController < ApplicationController
 
     @note = current_note
     @note_reader = NoteReader.new(note: @note, user: current_user)
-    ActiveRecord::Base.transaction do
-      confirmation = @note.confirm_read!(current_user)
-      current_representation_session&.record_activity!(
-        request: request,
-        semantic_event: {
-          timestamp: Time.current,
-          event_type: "confirm",
-          superagent_id: current_superagent.id,
-          main_resource: {
-            type: "Note",
-            id: @note.id,
-            truncated_id: @note.truncated_id,
-          },
-          sub_resources: [{
-            type: "NoteHistoryEvent",
-            id: confirmation.id,
-          }],
-        }
-      )
-    end
+    api_helper.confirm_read
     render partial: "confirm"
   end
 
@@ -278,7 +222,7 @@ class NotesController < ApplicationController
     return render "404", status: :not_found unless @note
 
     begin
-      @note.pin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
+      api_helper.pin_resource(@note)
       render_action_success({
                               action_name: "pin_note",
                               resource: @note,
@@ -302,7 +246,7 @@ class NotesController < ApplicationController
     return render "404", status: :not_found unless @note
 
     begin
-      @note.unpin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
+      api_helper.unpin_resource(@note)
       render_action_success({
                               action_name: "unpin_note",
                               resource: @note,

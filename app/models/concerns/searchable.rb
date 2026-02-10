@@ -13,7 +13,8 @@ module Searchable
   def enqueue_search_reindex
     ReindexSearchJob.perform_later(
       item_type: self.class.name,
-      item_id: id
+      item_id: id,
+      tenant_id: tenant_id
     )
   end
 

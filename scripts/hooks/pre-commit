@@ -5,9 +5,10 @@
 # This hook:
 # 1. Scans for accidentally committed secrets/API keys
 # 2. Checks for debug code (binding.pry, console.log, etc.)
-# 3. Runs Sorbet type checking
-# 4. Runs TypeScript type checking
-# 5. Checks if TODO comments were changed and reminds to update TODO_INDEX.md
+# 3. Checks for banned .unscoped usage (tenant safety)
+# 4. Runs Sorbet type checking
+# 5. Runs TypeScript type checking
+# 6. Checks if TODO comments were changed and reminds to update TODO_INDEX.md
 #
 # To install: ./scripts/setup-hooks.sh
 # To bypass: git commit --no-verify
@@ -21,6 +22,11 @@ fi
 # Check for debug code (blocks commit if found)
 if [[ -x "./scripts/check-debug-code.sh" ]]; then
     ./scripts/check-debug-code.sh || exit 1
+fi
+
+# Check for banned .unscoped usage (blocks commit if found)
+if [[ -x "./scripts/check-tenant-safety.sh" ]]; then
+    ./scripts/check-tenant-safety.sh --staged || exit 1
 fi
 
 # Run Sorbet type check (blocks commit if types fail)

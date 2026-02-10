@@ -108,9 +108,11 @@
               "Pins" => %w[pin_note unpin_note pin_decision unpin_decision pin_commitment unpin_commitment],
               "Attachments" => %w[add_attachment remove_attachment],
               "Reminders" => %w[create_reminder delete_reminder],
+              "Trustee Grant Responses" => %w[accept_trustee_grant decline_trustee_grant],
+              "Trustee Grant Admin" => %w[create_trustee_grant revoke_trustee_grant],
             }
             # Groups that are disabled by default for new agents
-            disabled_by_default = %w[Attachments Reminders]
+            disabled_by_default = %w[Attachments Reminders Trustee\ Grant\ Admin]
           %>
 
           <% action_groups.each do |group_name, actions| %>
@@ -276,6 +278,27 @@
       </div>
     <% end %>
 
+    <%# Trustee Grants Section %>
+    <% pending_count = @settings_user.pending_trustee_grant_requests.count %>
+    <%= render 'shared/pulse_accordion', title: 'Trustee Grants', count: pending_count > 0 ? pending_count : nil do %>
+      <p class="pulse-form-hint" style="margin-bottom:16px;">
+        Manage who can act on your behalf and whose behalf you can act on.
+      </p>
+      <% if pending_count > 0 %>
+        <div style="margin-bottom:16px;">
+          <span class="pulse-badge pulse-badge-warning">
+            <%= pluralize(pending_count, 'pending request') %>
+          </span>
+        </div>
+      <% end %>
+      <div class="pulse-form-actions">
+        <a href="<%= @settings_user.path %>/settings/trustee-grants" class="pulse-action-btn">
+          <%= octicon 'people', height: 14 %>
+          Manage Trustee Grants
+        </a>
+      </div>
+    <% end %>
+
     <% if @settings_user.person? && is_own_settings %>
       <%# Subagents Section %>
       <%= render 'shared/pulse_accordion', title: 'Subagents', count: @subagents.count do %>
@@ -305,7 +328,7 @@
                   </div>
                   <div class="pulse-subagent-actions">
                     <% unless subagent.archived? %>
-                      <%= button_to 'Impersonate', "#{subagent.path}/impersonate", method: :post, class: 'pulse-action-btn-small' %>
+                      <%= button_to 'Represent', "#{subagent.path}/represent", method: :post, class: 'pulse-action-btn-small' %>
                     <% end %>
                     <a href="<%= subagent.path %>/settings" class="pulse-action-btn-small">Settings</a>
                   </div>

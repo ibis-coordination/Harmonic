@@ -18,8 +18,8 @@ class UserWebhooksController < ApplicationController
 
   def index
     @page_title = "Webhooks for #{@target_user.handle}"
-    # User webhooks have superagent_id = nil, so we must use unscoped to bypass the default_scope
-    @webhooks = Webhook.unscoped.for_user(@target_user).where(tenant: @current_tenant)
+    # User webhooks have superagent_id = nil, so we bypass superagent scope but keep tenant scope
+    @webhooks = Webhook.tenant_scoped_only.for_user(@target_user)
   end
 
   def new
@@ -31,9 +31,9 @@ class UserWebhooksController < ApplicationController
     # Use unscoped to avoid superagent_id filtering on events
     # (user webhook events may have been created in various superagent contexts)
     @recent_deliveries = @webhook.webhook_deliveries.order(created_at: :desc).limit(20)
-    # Preload events without scope to avoid "unknown" event type in view
+    # Preload events bypassing superagent scope to avoid "unknown" event type in view
     event_ids = @recent_deliveries.map(&:event_id).compact
-    @events_by_id = Event.unscoped.where(id: event_ids).index_by(&:id)
+    @events_by_id = Event.tenant_scoped_only.where(id: event_ids).index_by(&:id)
   end
 
   def actions_index_new
@@ -143,9 +143,8 @@ class UserWebhooksController < ApplicationController
   end
 
   def set_webhook
-    # User webhooks have superagent_id = nil, so we must use unscoped to bypass the default_scope
-    @webhook = Webhook.unscoped.for_user(@target_user)
-      .where(tenant: @current_tenant)
+    # User webhooks have superagent_id = nil, so we bypass superagent scope but keep tenant scope
+    @webhook = Webhook.tenant_scoped_only.for_user(@target_user)
       .find_by!(truncated_id: params[:webhook_id])
   end
 

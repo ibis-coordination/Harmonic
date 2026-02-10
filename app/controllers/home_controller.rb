@@ -19,15 +19,9 @@ class HomeController < ApplicationController
     @scenes = @studios_and_scenes.where(superagent_type: 'scene')
     @studios = @studios_and_scenes.where(superagent_type: 'studio')
     @public_tenants = Tenant.all_public_tenants
-    @other_tenants = TenantUser.unscoped
-      .where(user: @current_user)
-      .where.not(tenant_id: [@current_tenant.id] + @public_tenants.pluck(:id))
-      .includes(:tenant)
-      .where(tenant: { archived_at: nil })
-      .map(&:tenant)
     @other_tenants = (
-      (@other_tenants + @public_tenants) - [@current_tenant]
-    ).sort_by(&:subdomain)
+      (@current_user.own_tenants + @public_tenants) - [@current_tenant]
+    ).uniq.sort_by(&:subdomain)
   end
 
   def about

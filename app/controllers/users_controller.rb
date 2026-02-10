@@ -152,15 +152,14 @@ class UsersController < ApplicationController
     if params[:name].present?
       settings_user.name = params[:name]
       settings_user.save!
-      TenantUser.unscoped.where(user: settings_user).update_all(
+      TenantUser.for_user_across_tenants(settings_user).update_all(
         display_name: params[:name]
       )
     end
     if params[:new_handle].present?
       tu.handle = params[:new_handle]
       tu.save!
-      # Also update all other tenant_users for this user
-      TenantUser.unscoped.where(user: settings_user).where.not(id: tu.id).update_all(
+      TenantUser.for_user_across_tenants(settings_user).where.not(id: tu.id).update_all(
         handle: params[:new_handle]
       )
     end
@@ -204,18 +203,42 @@ class UsersController < ApplicationController
     redirect_to "#{settings_user.path}/settings"
   end
 
-  def impersonate
+  # Start representing a user (typically a subagent).
+  # POST /u/:handle/represent
+  def represent
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?
-    return render status: 403, plain: "403 Unauthorized" unless current_user.can_impersonate?(tu.user)
-    return render status: 403, plain: "403 Unauthorized" unless tu.user.subagent?
-    session[:subagent_user_id] = tu.user.id
-    redirect_to root_path
+
+    target_user = tu.user
+    return render status: 403, plain: "403 Unauthorized" unless target_user.subagent?
+    return render status: 403, plain: "403 Unauthorized" unless current_user.can_represent?(target_user)
+
+    # Find the TrusteeGrant for this parent-subagent relationship
+    grant = TrusteeGrant.active.find_by(
+      granting_user: target_user,
+      trustee_user: current_user
+    )
+    return render status: 403, plain: "403 Unauthorized - No active grant" unless grant
+
+    # Create a RepresentationSession for audit logging
+    rep_session = api_helper.start_user_representation_session(grant: grant)
+
+    # Set session cookies for representation (matches API headers)
+    session[:representation_session_id] = rep_session.id
+    session[:representing_user] = target_user.handle
+    redirect_to "/representing"
   end
 
-  def stop_impersonating
-    clear_impersonations_and_representations!
-    redirect_to request.referrer
+  # Stop representing a user.
+  # DELETE /u/:handle/represent
+  def stop_representing
+    # Explicitly look up and end the representation session if present
+    if session[:representation_session_id].present?
+      rep_session = RepresentationSession.find_by(id: session[:representation_session_id])
+      rep_session&.end!
+    end
+    clear_representation!
+    redirect_to request.referrer || root_path
   end
 
   def update_image
@@ -263,15 +286,14 @@ class UsersController < ApplicationController
     if params[:name].present?
       @settings_user.name = params[:name]
       @settings_user.save!
-      TenantUser.unscoped.where(user: @settings_user).update_all(display_name: params[:name])
+      TenantUser.for_user_across_tenants(@settings_user).update_all(display_name: params[:name])
     end
     # Use new_handle to avoid conflict with path parameter :handle
     # Note: handle is a virtual attribute that delegates to tenant_user
     if params[:new_handle].present?
       tu.handle = params[:new_handle]
       tu.save!
-      # Also update all other tenant_users for this user
-      TenantUser.unscoped.where(user: @settings_user).where.not(id: tu.id).update_all(handle: params[:new_handle])
+      TenantUser.for_user_across_tenants(@settings_user).where.not(id: tu.id).update_all(handle: params[:new_handle])
     end
 
     @settings_user.tenant_user = tu

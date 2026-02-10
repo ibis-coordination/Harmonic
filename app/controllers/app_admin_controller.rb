@@ -25,7 +25,7 @@ class AppAdminController < ApplicationController
   def dashboard
     @page_title = 'App Admin'
     @total_tenants = Tenant.count
-    @total_users = User.unscoped.where.not(user_type: 'trustee').count
+    @total_users = User.where.not(user_type: 'trustee').count
     respond_to do |format|
       format.html
       format.md
@@ -92,7 +92,7 @@ class AppAdminController < ApplicationController
   end
 
   # ============================================================================
-  # User Management (Unscoped - All Users Across All Tenants)
+  # User Management (All Users Across All Tenants)
   # ============================================================================
 
   # GET /app-admin/users
@@ -102,7 +102,7 @@ class AppAdminController < ApplicationController
     @page = [(params[:page].to_i), 1].max
     @per_page = USERS_PER_PAGE
 
-    base_scope = User.unscoped.where.not(user_type: 'trustee')
+    base_scope = User.where.not(user_type: 'trustee')
 
     if @search_query.present?
       base_scope = base_scope.where("email ILIKE ?", "%#{@search_query}%")
@@ -131,7 +131,7 @@ class AppAdminController < ApplicationController
 
   # GET /app-admin/users/:id
   def show_user
-    @showing_user = User.unscoped.find_by(id: params[:id])
+    @showing_user = User.find_by(id: params[:id])
     return render(plain: "404 Not Found", status: :not_found) unless @showing_user
     @page_title = @showing_user.display_name || @showing_user.name
     # Get all tenants this user belongs to
@@ -144,14 +144,14 @@ class AppAdminController < ApplicationController
 
   # GET /app-admin/users/:id/actions/suspend_user
   def describe_suspend_user
-    @showing_user = User.unscoped.find_by(id: params[:id])
+    @showing_user = User.find_by(id: params[:id])
     return render(plain: "404 Not Found", status: :not_found) unless @showing_user
     render_action_description(ActionsHelper.action_description("suspend_user"))
   end
 
   # POST /app-admin/users/:id/actions/suspend_user
   def execute_suspend_user
-    user = User.unscoped.find_by(id: params[:id])
+    user = User.find_by(id: params[:id])
     return render(plain: "404 Not Found", status: :not_found) unless user
 
     # Prevent self-suspension
@@ -191,14 +191,14 @@ class AppAdminController < ApplicationController
 
   # GET /app-admin/users/:id/actions/unsuspend_user
   def describe_unsuspend_user
-    @showing_user = User.unscoped.find_by(id: params[:id])
+    @showing_user = User.find_by(id: params[:id])
     return render(plain: "404 Not Found", status: :not_found) unless @showing_user
     render_action_description(ActionsHelper.action_description("unsuspend_user"))
   end
 
   # POST /app-admin/users/:id/actions/unsuspend_user
   def execute_unsuspend_user
-    user = User.unscoped.find_by(id: params[:id])
+    user = User.find_by(id: params[:id])
     return render(plain: "404 Not Found", status: :not_found) unless user
 
     user.unsuspend!
@@ -244,10 +244,10 @@ class AppAdminController < ApplicationController
     end
 
     # Get suspended users
-    @suspended_users = User.unscoped.where.not(suspended_at: nil).order(suspended_at: :desc).limit(50)
+    @suspended_users = User.where.not(suspended_at: nil).order(suspended_at: :desc).limit(50)
 
     # Get app admins
-    @app_admins = User.unscoped.where(app_admin: true).order(:name)
+    @app_admins = User.where(app_admin: true).order(:name)
 
     respond_to do |format|
       format.html
@@ -273,7 +273,7 @@ class AppAdminController < ApplicationController
   # ============================================================================
 
   def user_actions_index
-    @showing_user = User.unscoped.find_by(id: params[:id])
+    @showing_user = User.find_by(id: params[:id])
     return render(plain: "404 Not Found", status: :not_found) unless @showing_user
     @page_title = "Actions | #{@showing_user.display_name}"
     render_actions_index(ActionsHelper.actions_for_route('/app-admin/users/:id'))

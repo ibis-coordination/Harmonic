@@ -20,12 +20,7 @@ class SubagentTaskRunAccessTest < ActionDispatch::IntegrationTest
   private
 
   def create_subagent_for(parent, name)
-    subagent = User.create!(
-      email: "subagent-#{SecureRandom.hex(4)}@not-a-real-email.com",
-      name: name,
-      user_type: "subagent",
-      parent_id: parent.id
-    )
+    subagent = create_subagent(parent: parent, name: name)
     @tenant.add_user!(subagent)
     @superagent.add_user!(subagent)
     subagent
