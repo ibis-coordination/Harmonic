@@ -1,11 +1,11 @@
 # typed: true
 
-# CapabilityCheck provides capability-based authorization for subagent actions.
+# CapabilityCheck provides capability-based authorization for AI agent actions.
 #
-# This module determines which actions a subagent can perform based on:
+# This module determines which actions an AI agent can perform based on:
 # 1. Always-allowed infrastructure actions (essential for navigation)
 # 2. Grantable actions (configurable by the agent owner)
-# 3. Always-blocked actions (never allowed for subagents)
+# 3. Always-blocked actions (never allowed for AI agents)
 #
 # If capabilities key is absent (nil), all grantable actions are allowed (backwards compatible default).
 # If capabilities is an empty array, NO grantable actions are allowed.
@@ -15,9 +15,9 @@
 module CapabilityCheck
   extend T::Sig
 
-  # Actions that subagents can always perform (infrastructure)
+  # Actions that AI agents can always perform (infrastructure)
   # These are essential for navigation and basic app operation
-  SUBAGENT_ALWAYS_ALLOWED = [
+  AI_AGENT_ALWAYS_ALLOWED = [
     "send_heartbeat",
     "dismiss",
     "dismiss_all",
@@ -25,15 +25,15 @@ module CapabilityCheck
     "update_scratchpad",
   ].freeze
 
-  # Actions that subagents can never perform
+  # Actions that AI agents can never perform
   # These are sensitive operations that should only be done by humans
-  SUBAGENT_ALWAYS_BLOCKED = [
+  AI_AGENT_ALWAYS_BLOCKED = [
     "create_studio",
     "join_studio",
     "update_studio_settings",
-    "create_subagent",
-    "add_subagent_to_studio",
-    "remove_subagent_from_studio",
+    "create_ai_agent",
+    "add_ai_agent_to_studio",
+    "remove_ai_agent_from_studio",
     "create_api_token",
     "update_profile",
     "create_webhook",
@@ -48,8 +48,8 @@ module CapabilityCheck
   ].freeze
 
   # Actions that can be granted/denied via configuration
-  # The owner can allow or deny these actions for their subagent
-  SUBAGENT_GRANTABLE_ACTIONS = [
+  # The owner can allow or deny these actions for their AI agent
+  AI_AGENT_GRANTABLE_ACTIONS = [
     "create_note",
     "update_note",
     "pin_note",
@@ -85,14 +85,14 @@ module CapabilityCheck
   # @return [Boolean] true if allowed, false if denied
   sig { params(user: User, action_name: String).returns(T::Boolean) }
   def self.allowed?(user, action_name)
-    # Non-subagents have no capability restrictions
-    return true unless user.subagent?
+    # Non-AI-agents have no capability restrictions
+    return true unless user.ai_agent?
 
     # Infrastructure actions are always allowed
-    return true if SUBAGENT_ALWAYS_ALLOWED.include?(action_name)
+    return true if AI_AGENT_ALWAYS_ALLOWED.include?(action_name)
 
     # Blocked actions are never allowed
-    return false if SUBAGENT_ALWAYS_BLOCKED.include?(action_name)
+    return false if AI_AGENT_ALWAYS_BLOCKED.include?(action_name)
 
     # Check configured capabilities for grantable actions
     capabilities = user.agent_configuration&.dig("capabilities")
@@ -111,19 +111,19 @@ module CapabilityCheck
   # @return [Array<String>] List of allowed action names
   sig { params(user: User).returns(T::Array[String]) }
   def self.allowed_actions(user)
-    return ActionsHelper::ACTION_DEFINITIONS.keys unless user.subagent?
+    return ActionsHelper::ACTION_DEFINITIONS.keys unless user.ai_agent?
 
     capabilities = user.agent_configuration&.dig("capabilities")
 
     grantable = if capabilities.nil?
                   # No capabilities key = all grantable actions allowed
-                  SUBAGENT_GRANTABLE_ACTIONS
+                  AI_AGENT_GRANTABLE_ACTIONS
                 else
                   # Empty array = nothing; non-empty = intersection with grantable
-                  capabilities & SUBAGENT_GRANTABLE_ACTIONS
+                  capabilities & AI_AGENT_GRANTABLE_ACTIONS
                 end
 
-    SUBAGENT_ALWAYS_ALLOWED + grantable
+    AI_AGENT_ALWAYS_ALLOWED + grantable
   end
 
   # Get the list of restricted actions for a user (for display)
@@ -132,7 +132,7 @@ module CapabilityCheck
   # @return [Array<String>, nil] List of restricted actions, or nil if no restrictions
   sig { params(user: User).returns(T.nilable(T::Array[String])) }
   def self.restricted_actions(user)
-    return nil unless user.subagent?
+    return nil unless user.ai_agent?
 
     capabilities = user.agent_configuration&.dig("capabilities")
     # nil = no restrictions configured
@@ -140,6 +140,6 @@ module CapabilityCheck
 
     # Empty array = all grantable actions restricted
     # Non-empty array = those not in the list are restricted
-    SUBAGENT_GRANTABLE_ACTIONS - capabilities
+    AI_AGENT_GRANTABLE_ACTIONS - capabilities
   end
 end

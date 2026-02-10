@@ -125,18 +125,18 @@ class StudiosController < ApplicationController
   def settings
     if @current_user.superagent_member.is_admin?
       @page_title = 'Studio Settings'
-      # Subagents in this superagent (for display) - exclude archived memberships
-      @studio_subagents = @current_superagent.users
+      # AI agents in this superagent (for display) - exclude archived memberships
+      @studio_ai_agents = @current_superagent.users
         .includes(:tenant_users)
         .joins(:superagent_members)
-        .where(user_type: 'subagent')
+        .where(user_type: 'ai_agent')
         .where(superagent_members: { superagent_id: @current_superagent.id, archived_at: nil })
         .distinct
-      # Current user's subagents that are NOT active members of this superagent (for adding)
-      user_subagent_ids = @current_user.subagents.pluck(:id)
-      active_studio_subagent_ids = @studio_subagents.pluck(:id)
-      addable_ids = user_subagent_ids - active_studio_subagent_ids
-      @addable_subagents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+      # Current user's AI agents that are NOT active members of this superagent (for adding)
+      user_ai_agent_ids = @current_user.ai_agents.pluck(:id)
+      active_studio_ai_agent_ids = @studio_ai_agents.pluck(:id)
+      addable_ids = user_ai_agent_ids - active_studio_ai_agent_ids
+      @addable_ai_agents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
     else
 @sidebar_mode = 'minimal'
       return render layout: 'application', html: 'You must be an admin to access studio settings.'
@@ -177,60 +177,60 @@ class StudiosController < ApplicationController
     redirect_to request.referrer
   end
 
-  def add_subagent
+  def add_ai_agent
     unless @current_user.superagent_member&.is_admin?
       return render status: 403, json: { error: 'Unauthorized' }
     end
-    subagent = User.find_by(id: params[:subagent_id])
-    if subagent.nil? || !subagent.subagent? || subagent.parent_id != @current_user.id
-      return render status: 403, json: { error: 'You can only add your own subagents' }
+    ai_agent = User.find_by(id: params[:ai_agent_id])
+    if ai_agent.nil? || !ai_agent.ai_agent? || ai_agent.parent_id != @current_user.id
+      return render status: 403, json: { error: 'You can only add your own AI agents' }
     end
-    @current_superagent.add_user!(subagent)
+    @current_superagent.add_user!(ai_agent)
 
     respond_to do |format|
       format.json do
         render json: {
-          subagent_id: subagent.id,
-          subagent_name: subagent.display_name,
-          subagent_path: subagent.path,
+          ai_agent_id: ai_agent.id,
+          ai_agent_name: ai_agent.display_name,
+          ai_agent_path: ai_agent.path,
           parent_name: @current_user.display_name,
           parent_path: @current_user.path,
         }
       end
       format.html do
-        flash[:notice] = "#{subagent.display_name} has been added to #{@current_superagent.name}"
+        flash[:notice] = "#{ai_agent.display_name} has been added to #{@current_superagent.name}"
         redirect_to "#{@current_superagent.path}/settings"
       end
     end
   end
 
-  def remove_subagent
+  def remove_ai_agent
     unless @current_user.superagent_member&.is_admin?
       return render status: 403, json: { error: 'Unauthorized' }
     end
-    subagent = User.find_by(id: params[:subagent_id])
-    if subagent.nil? || !subagent.subagent?
-      return render status: 404, json: { error: 'Subagent not found' }
+    ai_agent = User.find_by(id: params[:ai_agent_id])
+    if ai_agent.nil? || !ai_agent.ai_agent?
+      return render status: 404, json: { error: 'AI Agent not found' }
     end
 
-    superagent_member = SuperagentMember.find_by(superagent: @current_superagent, user: subagent)
+    superagent_member = SuperagentMember.find_by(superagent: @current_superagent, user: ai_agent)
     if superagent_member.nil? || superagent_member.archived?
-      return render status: 404, json: { error: 'Subagent not in this studio' }
+      return render status: 404, json: { error: 'AI Agent not in this studio' }
     end
 
     superagent_member.archive!
-    can_readd = subagent.parent_id == @current_user.id
+    can_readd = ai_agent.parent_id == @current_user.id
 
     respond_to do |format|
       format.json do
         render json: {
-          subagent_id: subagent.id,
-          subagent_name: subagent.display_name,
+          ai_agent_id: ai_agent.id,
+          ai_agent_name: ai_agent.display_name,
           can_readd: can_readd,
         }
       end
       format.html do
-        flash[:notice] = "#{subagent.display_name} has been removed from #{@current_superagent.name}"
+        flash[:notice] = "#{ai_agent.display_name} has been removed from #{@current_superagent.name}"
         redirect_to "#{@current_superagent.path}/settings"
       end
     end
@@ -264,115 +264,115 @@ class StudiosController < ApplicationController
     end
   end
 
-  def describe_add_subagent_to_studio
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can manage subagents' unless current_user&.person?
-    # Get list of addable subagents for context
-    addable_subagents = current_user.subagents.includes(:tenant_users, :superagent_members)
+  def describe_add_ai_agent_to_studio
+    return render status: 403, plain: '403 Unauthorized - Only human accounts can manage AI agents' unless current_user&.human?
+    # Get list of addable AI agents for context
+    addable_ai_agents = current_user.ai_agents.includes(:tenant_users, :superagent_members)
       .where(tenant_users: { tenant_id: @current_tenant.id })
       .reject { |s| s.superagents.include?(@current_superagent) }
 
-    # Use dynamic params to include available subagent IDs
+    # Use dynamic params to include available AI agent IDs
     dynamic_params = [
-      { name: 'subagent_id', type: 'integer', description: "ID of the subagent to add. Your available subagents: #{addable_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
+      { name: 'ai_agent_id', type: 'integer', description: "ID of the AI agent to add. Your available AI agents: #{addable_ai_agents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
     ]
-    render_action_description(ActionsHelper.action_description("add_subagent_to_studio", resource: @current_superagent, params_override: dynamic_params))
+    render_action_description(ActionsHelper.action_description("add_ai_agent_to_studio", resource: @current_superagent, params_override: dynamic_params))
   end
 
-  def execute_add_subagent_to_studio
-    return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
-    return render_action_error({ action_name: 'add_subagent_to_studio', resource: @current_superagent, error: 'Only person accounts can manage subagents.' }) unless current_user.person?
+  def execute_add_ai_agent_to_studio
+    return render_action_error({ action_name: 'add_ai_agent_to_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'add_ai_agent_to_studio', resource: @current_superagent, error: 'Only human accounts can manage AI agents.' }) unless current_user.human?
 
     begin
-      subagent = User.find(params[:subagent_id])
-      unless subagent.subagent? && subagent.parent_id == current_user.id
+      ai_agent = User.find(params[:ai_agent_id])
+      unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
         return render_action_error({
-          action_name: 'add_subagent_to_studio',
+          action_name: 'add_ai_agent_to_studio',
           resource: @current_superagent,
-          error: 'You can only add your own subagents.',
+          error: 'You can only add your own AI agents.',
         })
       end
-      unless current_user.can_add_subagent_to_superagent?(subagent, @current_superagent)
+      unless current_user.can_add_ai_agent_to_superagent?(ai_agent, @current_superagent)
         return render_action_error({
-          action_name: 'add_subagent_to_studio',
+          action_name: 'add_ai_agent_to_studio',
           resource: @current_superagent,
-          error: 'You do not have permission to add subagents to this studio.',
+          error: 'You do not have permission to add AI agents to this studio.',
         })
       end
 
-      @current_superagent.add_user!(subagent)
+      @current_superagent.add_user!(ai_agent)
       render_action_success({
-        action_name: 'add_subagent_to_studio',
+        action_name: 'add_ai_agent_to_studio',
         resource: @current_superagent,
-        result: "#{subagent.display_name} has been added to #{@current_superagent.name}.",
+        result: "#{ai_agent.display_name} has been added to #{@current_superagent.name}.",
       })
     rescue ActiveRecord::RecordNotFound
       render_action_error({
-        action_name: 'add_subagent_to_studio',
+        action_name: 'add_ai_agent_to_studio',
         resource: @current_superagent,
-        error: 'Subagent not found.',
+        error: 'AI Agent not found.',
       })
     rescue StandardError => e
       render_action_error({
-        action_name: 'add_subagent_to_studio',
+        action_name: 'add_ai_agent_to_studio',
         resource: @current_superagent,
         error: e.message,
       })
     end
   end
 
-  def describe_remove_subagent_from_studio
-    return render status: 403, plain: '403 Unauthorized - Only person accounts can manage subagents' unless current_user&.person?
-    # Get list of removable subagents for context
-    studio_subagents = @current_superagent.superagent_members.includes(:user)
+  def describe_remove_ai_agent_from_studio
+    return render status: 403, plain: '403 Unauthorized - Only human accounts can manage AI agents' unless current_user&.human?
+    # Get list of removable AI agents for context
+    studio_ai_agents = @current_superagent.superagent_members.includes(:user)
       .reject(&:archived?)
       .map(&:user)
-      .select { |u| u.subagent? && u.parent_id == current_user.id }
+      .select { |u| u.ai_agent? && u.parent_id == current_user.id }
 
-    # Use dynamic params to include removable subagent IDs
+    # Use dynamic params to include removable AI agent IDs
     dynamic_params = [
-      { name: 'subagent_id', type: 'integer', description: "ID of the subagent to remove. Your subagents in this studio: #{studio_subagents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
+      { name: 'ai_agent_id', type: 'integer', description: "ID of the AI agent to remove. Your AI agents in this studio: #{studio_ai_agents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
     ]
-    render_action_description(ActionsHelper.action_description("remove_subagent_from_studio", resource: @current_superagent, params_override: dynamic_params))
+    render_action_description(ActionsHelper.action_description("remove_ai_agent_from_studio", resource: @current_superagent, params_override: dynamic_params))
   end
 
-  def execute_remove_subagent_from_studio
-    return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
-    return render_action_error({ action_name: 'remove_subagent_from_studio', resource: @current_superagent, error: 'Only person accounts can manage subagents.' }) unless current_user.person?
+  def execute_remove_ai_agent_from_studio
+    return render_action_error({ action_name: 'remove_ai_agent_from_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'remove_ai_agent_from_studio', resource: @current_superagent, error: 'Only human accounts can manage AI agents.' }) unless current_user.human?
 
     begin
-      subagent = User.find(params[:subagent_id])
-      unless subagent.subagent? && subagent.parent_id == current_user.id
+      ai_agent = User.find(params[:ai_agent_id])
+      unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
         return render_action_error({
-          action_name: 'remove_subagent_from_studio',
+          action_name: 'remove_ai_agent_from_studio',
           resource: @current_superagent,
-          error: 'You can only remove your own subagents.',
+          error: 'You can only remove your own AI agents.',
         })
       end
 
-      superagent_member = SuperagentMember.find_by(superagent: @current_superagent, user: subagent)
+      superagent_member = SuperagentMember.find_by(superagent: @current_superagent, user: ai_agent)
       if superagent_member.nil? || superagent_member.archived?
         return render_action_error({
-          action_name: 'remove_subagent_from_studio',
+          action_name: 'remove_ai_agent_from_studio',
           resource: @current_superagent,
-          error: 'Subagent is not a member of this studio.',
+          error: 'AI Agent is not a member of this studio.',
         })
       end
 
       superagent_member.archive!
       render_action_success({
-        action_name: 'remove_subagent_from_studio',
+        action_name: 'remove_ai_agent_from_studio',
         resource: @current_superagent,
-        result: "#{subagent.display_name} has been removed from #{@current_superagent.name}.",
+        result: "#{ai_agent.display_name} has been removed from #{@current_superagent.name}.",
       })
     rescue ActiveRecord::RecordNotFound
       render_action_error({
-        action_name: 'remove_subagent_from_studio',
+        action_name: 'remove_ai_agent_from_studio',
         resource: @current_superagent,
-        error: 'Subagent not found.',
+        error: 'AI Agent not found.',
       })
     rescue StandardError => e
       render_action_error({
-        action_name: 'remove_subagent_from_studio',
+        action_name: 'remove_ai_agent_from_studio',
         resource: @current_superagent,
         error: e.message,
       })

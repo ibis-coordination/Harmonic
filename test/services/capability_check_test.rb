@@ -10,102 +10,102 @@ class CapabilityCheckTest < ActiveSupport::TestCase
       handle: @superagent.handle
     )
 
-    # Create a subagent for testing
-    @subagent = User.create!(
-      email: "capability-test-subagent@example.com",
-      name: "Capability Test Subagent",
-      user_type: "subagent",
+    # Create a ai_agent for testing
+    @ai_agent = User.create!(
+      email: "capability-test-ai_agent@example.com",
+      name: "Capability Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(@subagent)
-    @superagent.add_user!(@subagent)
+    @tenant.add_user!(@ai_agent)
+    @superagent.add_user!(@ai_agent)
   end
 
-  # Test: Non-subagent users have no restrictions
-  test "non-subagent users have no restrictions" do
+  # Test: Non-ai_agent users have no restrictions
+  test "non-ai_agent users have no restrictions" do
     assert CapabilityCheck.allowed?(@user, "create_note")
     assert CapabilityCheck.allowed?(@user, "vote")
     assert CapabilityCheck.allowed?(@user, "create_studio")
     assert CapabilityCheck.allowed?(@user, "update_profile")
   end
 
-  # Test: Subagent with no capabilities configured can do all grantable actions
-  test "subagent with no capabilities configured can do all grantable actions" do
+  # Test: AiAgent with no capabilities configured can do all grantable actions
+  test "ai_agent with no capabilities configured can do all grantable actions" do
     # No agent_configuration = all grantable actions allowed
-    @subagent.update!(agent_configuration: nil)
+    @ai_agent.update!(agent_configuration: nil)
 
-    CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS.each do |action|
-      assert CapabilityCheck.allowed?(@subagent, action),
-        "Subagent with no config should be able to do #{action}"
+    CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
+      assert CapabilityCheck.allowed?(@ai_agent, action),
+        "AiAgent with no config should be able to do #{action}"
     end
   end
 
-  # Test: Subagent with empty capabilities array cannot do any grantable actions
-  test "subagent with empty capabilities array cannot do any grantable actions" do
-    @subagent.update!(agent_configuration: { "capabilities" => [] })
+  # Test: AiAgent with empty capabilities array cannot do any grantable actions
+  test "ai_agent with empty capabilities array cannot do any grantable actions" do
+    @ai_agent.update!(agent_configuration: { "capabilities" => [] })
 
-    CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS.each do |action|
-      refute CapabilityCheck.allowed?(@subagent, action),
-        "Subagent with empty capabilities should NOT be able to do #{action}"
+    CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
+      refute CapabilityCheck.allowed?(@ai_agent, action),
+        "AiAgent with empty capabilities should NOT be able to do #{action}"
     end
 
     # But infrastructure actions should still work
-    CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED.each do |action|
-      assert CapabilityCheck.allowed?(@subagent, action),
-        "Subagent should still be able to do infrastructure action #{action}"
+    CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
+      assert CapabilityCheck.allowed?(@ai_agent, action),
+        "AiAgent should still be able to do infrastructure action #{action}"
     end
   end
 
-  # Test: Subagent with capabilities configured can only do listed actions
-  test "subagent with capabilities configured can only do listed actions" do
-    @subagent.update!(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
+  # Test: AiAgent with capabilities configured can only do listed actions
+  test "ai_agent with capabilities configured can only do listed actions" do
+    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
 
     # Allowed actions
-    assert CapabilityCheck.allowed?(@subagent, "create_note")
-    assert CapabilityCheck.allowed?(@subagent, "add_comment")
+    assert CapabilityCheck.allowed?(@ai_agent, "create_note")
+    assert CapabilityCheck.allowed?(@ai_agent, "add_comment")
 
     # Disallowed grantable actions
-    refute CapabilityCheck.allowed?(@subagent, "vote")
-    refute CapabilityCheck.allowed?(@subagent, "create_decision")
-    refute CapabilityCheck.allowed?(@subagent, "create_commitment")
+    refute CapabilityCheck.allowed?(@ai_agent, "vote")
+    refute CapabilityCheck.allowed?(@ai_agent, "create_decision")
+    refute CapabilityCheck.allowed?(@ai_agent, "create_commitment")
   end
 
-  # Test: Subagent can always perform infrastructure actions
-  test "subagent can always perform infrastructure actions" do
+  # Test: AiAgent can always perform infrastructure actions
+  test "ai_agent can always perform infrastructure actions" do
     # Even with restricted capabilities
-    @subagent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
-    CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED.each do |action|
-      assert CapabilityCheck.allowed?(@subagent, action),
-        "Subagent should always be able to do #{action}"
+    CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
+      assert CapabilityCheck.allowed?(@ai_agent, action),
+        "AiAgent should always be able to do #{action}"
     end
   end
 
-  # Test: Subagent cannot perform blocked actions regardless of config
-  test "subagent cannot perform blocked actions regardless of config" do
+  # Test: AiAgent cannot perform blocked actions regardless of config
+  test "ai_agent cannot perform blocked actions regardless of config" do
     # Even with no restrictions
-    @subagent.update!(agent_configuration: nil)
+    @ai_agent.update!(agent_configuration: nil)
 
-    CapabilityCheck::SUBAGENT_ALWAYS_BLOCKED.each do |action|
-      refute CapabilityCheck.allowed?(@subagent, action),
-        "Subagent should never be able to do #{action}"
+    CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED.each do |action|
+      refute CapabilityCheck.allowed?(@ai_agent, action),
+        "AiAgent should never be able to do #{action}"
     end
 
     # Even if explicitly listed in capabilities (would be invalid config)
-    @subagent.update!(agent_configuration: { "capabilities" => ["create_studio", "update_profile"] })
+    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_studio", "update_profile"] })
 
-    refute CapabilityCheck.allowed?(@subagent, "create_studio")
-    refute CapabilityCheck.allowed?(@subagent, "update_profile")
+    refute CapabilityCheck.allowed?(@ai_agent, "create_studio")
+    refute CapabilityCheck.allowed?(@ai_agent, "update_profile")
   end
 
-  # Test: allowed_actions returns infrastructure + configured for subagent
-  test "allowed_actions returns infrastructure plus configured actions for subagent" do
-    @subagent.update!(agent_configuration: { "capabilities" => ["create_note", "vote"] })
+  # Test: allowed_actions returns infrastructure + configured for ai_agent
+  test "allowed_actions returns infrastructure plus configured actions for ai_agent" do
+    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note", "vote"] })
 
-    allowed = CapabilityCheck.allowed_actions(@subagent)
+    allowed = CapabilityCheck.allowed_actions(@ai_agent)
 
     # Should include always-allowed
-    CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED.each do |action|
+    CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
       assert_includes allowed, action
     end
 
@@ -118,45 +118,45 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     refute_includes allowed, "create_commitment"
   end
 
-  # Test: allowed_actions returns all ACTION_DEFINITIONS for non-subagent
-  test "allowed_actions returns all actions for non-subagent" do
+  # Test: allowed_actions returns all ACTION_DEFINITIONS for non-ai_agent
+  test "allowed_actions returns all actions for non-ai_agent" do
     allowed = CapabilityCheck.allowed_actions(@user)
     assert_equal ActionsHelper::ACTION_DEFINITIONS.keys, allowed
   end
 
   # Test: allowed_actions returns all grantable when no config
   test "allowed_actions returns all grantable actions when no config" do
-    @subagent.update!(agent_configuration: nil)
+    @ai_agent.update!(agent_configuration: nil)
 
-    allowed = CapabilityCheck.allowed_actions(@subagent)
+    allowed = CapabilityCheck.allowed_actions(@ai_agent)
 
     # Should include always-allowed
-    CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED.each do |action|
+    CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
       assert_includes allowed, action
     end
 
     # Should include all grantable actions
-    CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS.each do |action|
+    CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
       assert_includes allowed, action
     end
   end
 
   # Test: restricted_actions returns nil when no config
   test "restricted_actions returns nil when no config" do
-    @subagent.update!(agent_configuration: nil)
-    assert_nil CapabilityCheck.restricted_actions(@subagent)
+    @ai_agent.update!(agent_configuration: nil)
+    assert_nil CapabilityCheck.restricted_actions(@ai_agent)
   end
 
-  # Test: restricted_actions returns nil for non-subagent
-  test "restricted_actions returns nil for non-subagent" do
+  # Test: restricted_actions returns nil for non-ai_agent
+  test "restricted_actions returns nil for non-ai_agent" do
     assert_nil CapabilityCheck.restricted_actions(@user)
   end
 
   # Test: restricted_actions returns denied actions when configured
   test "restricted_actions returns denied actions when configured" do
-    @subagent.update!(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
+    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
 
-    restricted = CapabilityCheck.restricted_actions(@subagent)
+    restricted = CapabilityCheck.restricted_actions(@ai_agent)
 
     # Should not include configured actions
     refute_includes restricted, "create_note"
@@ -170,24 +170,24 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: Integration with ActionAuthorization
   test "ActionAuthorization respects capability restrictions" do
-    @subagent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Allowed capability
-    assert ActionAuthorization.authorized?("create_note", @subagent, { studio: @superagent })
+    assert ActionAuthorization.authorized?("create_note", @ai_agent, { studio: @superagent })
 
     # Disallowed capability (vote is grantable but not in config)
-    refute ActionAuthorization.authorized?("vote", @subagent, { studio: @superagent })
+    refute ActionAuthorization.authorized?("vote", @ai_agent, { studio: @superagent })
 
     # Infrastructure action (always allowed)
-    assert ActionAuthorization.authorized?("search", @subagent, {})
+    assert ActionAuthorization.authorized?("search", @ai_agent, {})
 
-    # Blocked action (never allowed for subagents)
-    refute ActionAuthorization.authorized?("create_studio", @subagent, {})
+    # Blocked action (never allowed for ai_agents)
+    refute ActionAuthorization.authorized?("create_studio", @ai_agent, {})
   end
 
   # Test: All grantable actions are valid action names
   test "all grantable actions are valid action names" do
-    CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS.each do |action|
+    CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
       assert ActionsHelper::ACTION_DEFINITIONS.key?(action),
         "Grantable action '#{action}' is not defined in ACTION_DEFINITIONS"
     end
@@ -195,7 +195,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: All always-allowed actions are valid action names
   test "all always-allowed actions are valid action names" do
-    CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED.each do |action|
+    CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
       assert ActionsHelper::ACTION_DEFINITIONS.key?(action),
         "Always-allowed action '#{action}' is not defined in ACTION_DEFINITIONS"
     end
@@ -203,7 +203,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: All always-blocked actions are valid action names
   test "all always-blocked actions are valid action names" do
-    CapabilityCheck::SUBAGENT_ALWAYS_BLOCKED.each do |action|
+    CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED.each do |action|
       assert ActionsHelper::ACTION_DEFINITIONS.key?(action),
         "Always-blocked action '#{action}' is not defined in ACTION_DEFINITIONS"
     end
@@ -211,9 +211,9 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: No overlap between categories
   test "no overlap between action categories" do
-    always_allowed = CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED
-    always_blocked = CapabilityCheck::SUBAGENT_ALWAYS_BLOCKED
-    grantable = CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS
+    always_allowed = CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED
+    always_blocked = CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED
+    grantable = CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
 
     assert_empty always_allowed & always_blocked,
       "Always-allowed and always-blocked should not overlap"

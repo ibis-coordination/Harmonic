@@ -6,7 +6,7 @@ class SuperagentTest < ActiveSupport::TestCase
     Tenant.create!(subdomain: subdomain, name: name)
   end
 
-  def create_user(email: "#{SecureRandom.hex(8)}@example.com", name: "Test Person", user_type: "person")
+  def create_user(email: "#{SecureRandom.hex(8)}@example.com", name: "Test Person", user_type: "human")
     User.create!(email: email, name: name, user_type: user_type)
   end
 

@@ -37,7 +37,7 @@
 <% if @showing_user.id != @current_user.id -%>
 * [`suspend_user(reason)`](/app-admin/users/<%= @showing_user.id %>/actions/suspend_user) - Suspend this user's account
 
-**Warning:** Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any subagents that they are the parent of.
+**Warning:** Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any ai_agents that they are the parent of.
 <% else -%>
 * You cannot suspend your own account
 <% end -%>

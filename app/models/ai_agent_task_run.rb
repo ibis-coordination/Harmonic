@@ -1,50 +1,50 @@
 # typed: false
 
-class SubagentTaskRun < ApplicationRecord
+class AiAgentTaskRun < ApplicationRecord
   DEFAULT_MAX_STEPS = 30
 
   belongs_to :tenant
-  belongs_to :subagent, class_name: "User"
+  belongs_to :ai_agent, class_name: "User"
   belongs_to :initiated_by, class_name: "User"
 
-  has_many :subagent_task_run_resources, dependent: :destroy
+  has_many :ai_agent_task_run_resources, dependent: :destroy
 
   validates :task, presence: true
   validates :max_steps, presence: true, numericality: { greater_than: 0, less_than_or_equal_to: 50 }
   validates :status, presence: true, inclusion: { in: ["queued", "pending", "running", "completed", "failed", "cancelled"] }
 
   scope :recent, -> { order(created_at: :desc) }
-  scope :for_subagent, ->(subagent) { where(subagent: subagent) }
+  scope :for_ai_agent, ->(ai_agent) { where(ai_agent: ai_agent) }
 
   # Thread-local context management for tracking which task run is currently executing
   class << self
     def current_id
-      Thread.current[:subagent_task_run_id]
+      Thread.current[:ai_agent_task_run_id]
     end
 
     def current_id=(id)
-      Thread.current[:subagent_task_run_id] = id
+      Thread.current[:ai_agent_task_run_id] = id
     end
 
     def clear_thread_scope
-      Thread.current[:subagent_task_run_id] = nil
+      Thread.current[:ai_agent_task_run_id] = nil
     end
 
     # Factory method for creating queued task runs with proper defaults.
-    # Centralizes the logic for extracting model from subagent config.
+    # Centralizes the logic for extracting model from AI agent config.
     #
-    # @param subagent [User] The subagent to run the task
+    # @param ai_agent [User] The AI agent to run the task
     # @param tenant [Tenant] The tenant context
     # @param initiated_by [User] The user who initiated the task
     # @param task [String] The task description/prompt
     # @param max_steps [Integer, nil] Optional max steps override
-    # @return [SubagentTaskRun] The created task run
-    def create_queued(subagent:, tenant:, initiated_by:, task:, max_steps: nil)
-      model = subagent.agent_configuration&.dig("model") || "default"
+    # @return [AiAgentTaskRun] The created task run
+    def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil)
+      model = ai_agent.agent_configuration&.dig("model") || "default"
 
       create!(
         tenant: tenant,
-        subagent: subagent,
+        ai_agent: ai_agent,
         initiated_by: initiated_by,
         task: task,
         max_steps: max_steps || DEFAULT_MAX_STEPS,
@@ -56,19 +56,19 @@ class SubagentTaskRun < ApplicationRecord
 
   # Convenience methods for querying created resources
   def created_notes
-    Note.where(id: subagent_task_run_resources.where(resource_type: "Note", action_type: "create").select(:resource_id))
+    Note.where(id: ai_agent_task_run_resources.where(resource_type: "Note", action_type: "create").select(:resource_id))
   end
 
   def created_decisions
-    Decision.where(id: subagent_task_run_resources.where(resource_type: "Decision", action_type: "create").select(:resource_id))
+    Decision.where(id: ai_agent_task_run_resources.where(resource_type: "Decision", action_type: "create").select(:resource_id))
   end
 
   def created_commitments
-    Commitment.where(id: subagent_task_run_resources.where(resource_type: "Commitment", action_type: "create").select(:resource_id))
+    Commitment.where(id: ai_agent_task_run_resources.where(resource_type: "Commitment", action_type: "create").select(:resource_id))
   end
 
   def all_resources
-    subagent_task_run_resources.includes(:resource).map(&:resource)
+    ai_agent_task_run_resources.includes(:resource).map(&:resource)
   end
 
   def queued?

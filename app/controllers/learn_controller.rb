@@ -30,14 +30,14 @@ class LearnController < ApplicationController
     show_page
   end
 
-  def subagency
-    @page_title = "Subagency"
+  def ai_agency
+    @page_title = "AI Agency"
     respond_to do |format|
       format.html do
-        @content = page_html_erb("subagency")
+        @content = page_html_erb("ai_agency")
         render 'learn/show'
       end
-      format.md { render "learn/subagency" }
+      format.md { render "learn/ai_agency" }
     end
   end
 

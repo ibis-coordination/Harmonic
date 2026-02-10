@@ -15,53 +15,53 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     User.create!(
       email: email || "user_#{suffix}@example.com",
       name: name || "User #{suffix}",
-      user_type: "person"
+      user_type: "human"
     )
   end
 
   # === User Type Tests ===
 
   test "person user type is valid" do
-    user = User.new(email: "person@example.com", name: "Person", user_type: "person")
+    user = User.new(email: "person@example.com", name: "Person", user_type: "human")
     assert user.valid?
-    assert user.person?
-    assert_not user.subagent?
+    assert user.human?
+    assert_not user.ai_agent?
     assert_not user.superagent_proxy?
   end
 
-  test "subagent user type requires parent_id" do
-    user = User.new(email: "subagent@example.com", name: "Subagent", user_type: "subagent")
+  test "ai_agent user type requires parent_id" do
+    user = User.new(email: "ai_agent@example.com", name: "AiAgent", user_type: "ai_agent")
     assert_not user.valid?
-    assert_includes user.errors[:parent_id], "must be set for subagent users"
+    assert_includes user.errors[:parent_id], "must be set for AI agent users"
   end
 
-  test "subagent user with parent is valid" do
+  test "ai_agent user with parent is valid" do
     parent = create_user
     user = User.new(
-      email: "subagent@example.com",
-      name: "Subagent",
-      user_type: "subagent",
+      email: "ai_agent@example.com",
+      name: "AiAgent",
+      user_type: "ai_agent",
       parent_id: parent.id
     )
     assert user.valid?
-    assert user.subagent?
+    assert user.ai_agent?
   end
 
-  test "non-subagent user cannot have parent_id" do
+  test "non-ai_agent user cannot have parent_id" do
     parent = create_user
     user = User.new(
       email: "person@example.com",
       name: "Person",
-      user_type: "person",
+      user_type: "human",
       parent_id: parent.id
     )
     assert_not user.valid?
-    assert_includes user.errors[:parent_id], "can only be set for subagent users"
+    assert_includes user.errors[:parent_id], "can only be set for AI agent users"
   end
 
   test "user cannot be its own parent" do
     user = create_user
-    user.user_type = "subagent"
+    user.user_type = "ai_agent"
     user.parent_id = user.id
     assert_not user.valid?
     assert_includes user.errors[:parent_id], "user cannot be its own parent"
@@ -81,48 +81,48 @@ class UserAuthorizationTest < ActiveSupport::TestCase
 
   # === Representation Tests ===
 
-  test "parent can represent their subagent user" do
+  test "parent can represent their ai_agent user" do
     parent = create_unique_user
     @tenant.add_user!(parent)
 
-    subagent = create_subagent(parent: parent, name: "Subagent #{SecureRandom.hex(4)}")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: parent, name: "AiAgent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(ai_agent)
 
     # Set tenant context for archived? check
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    assert parent.can_represent?(subagent)
+    assert parent.can_represent?(ai_agent)
   end
 
-  test "user cannot represent non-child subagent user" do
+  test "user cannot represent non-child ai_agent user" do
     parent1 = create_unique_user
     parent2 = create_unique_user
     @tenant.add_user!(parent1)
     @tenant.add_user!(parent2)
 
-    subagent = create_subagent(parent: parent1, name: "Subagent #{SecureRandom.hex(4)}")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: parent1, name: "AiAgent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(ai_agent)
 
     # Set tenant context
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    assert_not parent2.can_represent?(subagent)
+    assert_not parent2.can_represent?(ai_agent)
   end
 
-  test "user cannot represent archived subagent user" do
+  test "user cannot represent archived ai_agent user" do
     parent = create_unique_user
     @tenant.add_user!(parent)
-    subagent = create_subagent(parent: parent, name: "Subagent #{SecureRandom.hex(4)}")
+    ai_agent = create_ai_agent(parent: parent, name: "AiAgent #{SecureRandom.hex(4)}")
 
     # Add to tenant so we can archive
-    @tenant.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
 
     # Set tenant context for archived? check
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-    subagent.tenant_user.update!(archived_at: Time.current)
+    ai_agent.tenant_user.update!(archived_at: Time.current)
 
-    assert_not parent.can_represent?(subagent)
+    assert_not parent.can_represent?(ai_agent)
   end
 
   test "user cannot represent regular person user" do
@@ -148,10 +148,10 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert_not @user.can_edit?(other_user)
   end
 
-  test "parent can edit their subagent user" do
-    subagent = create_subagent(parent: @user, name: "Subagent User")
+  test "parent can edit their ai_agent user" do
+    ai_agent = create_ai_agent(parent: @user, name: "AiAgent User")
 
-    assert @user.can_edit?(subagent)
+    assert @user.can_edit?(ai_agent)
   end
 
   # === Tenant Access Tests ===
@@ -202,52 +202,52 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert_nil su
   end
 
-  # === Add Subagent to Studio Tests ===
+  # === Add AiAgent to Studio Tests ===
 
-  test "parent can add subagent to studio where they have invite permission" do
+  test "parent can add ai_agent to studio where they have invite permission" do
     parent = create_unique_user
     @tenant.add_user!(parent)
     @superagent.add_user!(parent, roles: ['admin'])
 
-    subagent = create_subagent(parent: parent, name: "Subagent #{SecureRandom.hex(4)}")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: parent, name: "AiAgent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(ai_agent)
 
-    assert parent.can_add_subagent_to_superagent?(subagent, @superagent)
+    assert parent.can_add_ai_agent_to_superagent?(ai_agent, @superagent)
   end
 
-  test "parent cannot add subagent to studio where they lack invite permission" do
+  test "parent cannot add ai_agent to studio where they lack invite permission" do
     parent = create_unique_user
     @tenant.add_user!(parent)
     # Parent is not a member of the studio
 
-    subagent = create_subagent(parent: parent, name: "Subagent #{SecureRandom.hex(4)}")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: parent, name: "AiAgent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(ai_agent)
 
-    assert_not parent.can_add_subagent_to_superagent?(subagent, @superagent)
+    assert_not parent.can_add_ai_agent_to_superagent?(ai_agent, @superagent)
   end
 
-  test "user cannot add another user's subagent to studio" do
+  test "user cannot add another user's ai_agent to studio" do
     parent1 = create_unique_user
     parent2 = create_unique_user
     @tenant.add_user!(parent1)
     @tenant.add_user!(parent2)
     @superagent.add_user!(parent2, roles: ['admin'])
 
-    subagent = create_subagent(parent: parent1, name: "Subagent #{SecureRandom.hex(4)}")
-    @tenant.add_user!(subagent)
+    ai_agent = create_ai_agent(parent: parent1, name: "AiAgent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(ai_agent)
 
-    # Parent2 has invite permission but subagent belongs to parent1
-    assert_not parent2.can_add_subagent_to_superagent?(subagent, @superagent)
+    # Parent2 has invite permission but ai_agent belongs to parent1
+    assert_not parent2.can_add_ai_agent_to_superagent?(ai_agent, @superagent)
   end
 
-  test "cannot add non-subagent user to studio via can_add_subagent_to_studio" do
+  test "cannot add non-ai_agent user to studio via can_add_ai_agent_to_studio" do
     parent = create_unique_user
     regular_user = create_unique_user
     @tenant.add_user!(parent)
     @tenant.add_user!(regular_user)
     @superagent.add_user!(parent, roles: ['admin'])
 
-    assert_not parent.can_add_subagent_to_superagent?(regular_user, @superagent)
+    assert_not parent.can_add_ai_agent_to_superagent?(regular_user, @superagent)
   end
 
   # === Archive Tests ===

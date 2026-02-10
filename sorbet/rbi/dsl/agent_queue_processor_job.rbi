@@ -9,14 +9,14 @@ class AgentQueueProcessorJob
   class << self
     sig do
       params(
-        subagent_id: ::String,
+        ai_agent_id: ::String,
         tenant_id: ::String,
         block: T.nilable(T.proc.params(job: AgentQueueProcessorJob).void)
       ).returns(T.any(AgentQueueProcessorJob, FalseClass))
     end
-    def perform_later(subagent_id:, tenant_id:, &block); end
+    def perform_later(ai_agent_id:, tenant_id:, &block); end
 
-    sig { params(subagent_id: ::String, tenant_id: ::String).void }
-    def perform_now(subagent_id:, tenant_id:); end
+    sig { params(ai_agent_id: ::String, tenant_id: ::String).void }
+    def perform_now(ai_agent_id:, tenant_id:); end
   end
 end

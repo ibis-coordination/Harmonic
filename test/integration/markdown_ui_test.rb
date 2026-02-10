@@ -1135,66 +1135,66 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     ApiToken.where(name: "Security Test Token", user: @user).destroy_all
   end
 
-  test "GET /u/:handle/settings/subagents/new returns 200 markdown with actions" do
-    get "/u/#{@user.handle}/settings/subagents/new", headers: @headers
+  test "GET /u/:handle/settings/ai-agents/new returns 200 markdown with actions" do
+    get "/u/#{@user.handle}/settings/ai-agents/new", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    assert has_actions_section?, "New subagent page should have actions section"
-    assert_match(/create_subagent/, response.body, "Should show create_subagent action")
+    assert has_actions_section?, "New ai_agent page should have actions section"
+    assert_match(/create_ai_agent/, response.body, "Should show create_ai_agent action")
   end
 
-  test "POST create_subagent action creates subagent and returns 200 markdown" do
-    subagent_name = "Test Subagent #{SecureRandom.hex(4)}"
-    initial_count = @user.subagents.count
-    post "/u/#{@user.handle}/settings/subagents/new/actions/create_subagent",
-      params: { name: subagent_name }.to_json,
+  test "POST create_ai_agent action creates ai_agent and returns 200 markdown" do
+    ai_agent_name = "Test AiAgent #{SecureRandom.hex(4)}"
+    initial_count = @user.ai_agents.count
+    post "/u/#{@user.handle}/settings/ai-agents/new/actions/create_ai_agent",
+      params: { name: ai_agent_name }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
     @user.reload
-    assert_equal initial_count + 1, @user.subagents.count, "New subagent should have been created"
-    new_subagent = @user.subagents.find_by(name: subagent_name)
-    assert new_subagent, "Subagent should exist"
-    assert new_subagent.subagent?, "New user should be a subagent"
+    assert_equal initial_count + 1, @user.ai_agents.count, "New ai_agent should have been created"
+    new_ai_agent = @user.ai_agents.find_by(name: ai_agent_name)
+    assert new_ai_agent, "AiAgent should exist"
+    assert new_ai_agent.ai_agent?, "New user should be a ai_agent"
   ensure
-    subagent = User.find_by(name: subagent_name)
-    if subagent
-      TenantUser.where(user: subagent).delete_all
-      subagent.destroy
+    ai_agent = User.find_by(name: ai_agent_name)
+    if ai_agent
+      TenantUser.where(user: ai_agent).delete_all
+      ai_agent.destroy
     end
   end
 
-  test "POST create_subagent action with generate_token creates subagent with token" do
-    subagent_name = "Subagent With Token #{SecureRandom.hex(4)}"
-    post "/u/#{@user.handle}/settings/subagents/new/actions/create_subagent",
-      params: { name: subagent_name, generate_token: true }.to_json,
+  test "POST create_ai_agent action with generate_token creates ai_agent with token" do
+    ai_agent_name = "AiAgent With Token #{SecureRandom.hex(4)}"
+    post "/u/#{@user.handle}/settings/ai-agents/new/actions/create_ai_agent",
+      params: { name: ai_agent_name, generate_token: true }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    new_subagent = User.find_by(name: subagent_name)
-    assert new_subagent, "Subagent should exist"
-    assert new_subagent.api_tokens.any?, "Subagent should have an API token"
+    new_ai_agent = User.find_by(name: ai_agent_name)
+    assert new_ai_agent, "AiAgent should exist"
+    assert new_ai_agent.api_tokens.any?, "AiAgent should have an API token"
   ensure
-    subagent = User.find_by(name: subagent_name)
-    if subagent
-      subagent.api_tokens.delete_all
-      TenantUser.where(user: subagent).delete_all
-      subagent.destroy
+    ai_agent = User.find_by(name: ai_agent_name)
+    if ai_agent
+      ai_agent.api_tokens.delete_all
+      TenantUser.where(user: ai_agent).delete_all
+      ai_agent.destroy
     end
   end
 
-  test "POST add_subagent_to_studio action adds subagent to studio" do
-    # Create a subagent first
-    subagent_name = "Studio Subagent #{SecureRandom.hex(4)}"
-    subagent = User.create!(
-      name: subagent_name,
+  test "POST add_ai_agent_to_studio action adds ai_agent to studio" do
+    # Create a ai_agent first
+    ai_agent_name = "Studio AiAgent #{SecureRandom.hex(4)}"
+    ai_agent = User.create!(
+      name: ai_agent_name,
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    @tenant.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
 
     # Create a second studio where user is admin
     second_superagent = Superagent.create!(
@@ -1206,35 +1206,35 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     second_superagent.add_user!(@user, roles: ['admin'])
     second_superagent.enable_api!
 
-    # Subagent should not be in the second studio initially
-    refute subagent.superagents.include?(second_superagent), "Subagent should not be in studio initially"
+    # AiAgent should not be in the second studio initially
+    refute ai_agent.superagents.include?(second_superagent), "AiAgent should not be in studio initially"
 
-    # Add subagent to studio via API
-    post "/studios/#{second_superagent.handle}/settings/actions/add_subagent_to_studio",
-      params: { subagent_id: subagent.id }.to_json,
+    # Add ai_agent to studio via API
+    post "/studios/#{second_superagent.handle}/settings/actions/add_ai_agent_to_studio",
+      params: { ai_agent_id: ai_agent.id }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    subagent.reload
-    assert subagent.superagents.include?(second_superagent), "Subagent should now be in the studio"
+    ai_agent.reload
+    assert ai_agent.superagents.include?(second_superagent), "AiAgent should now be in the studio"
   ensure
     SuperagentMember.where(superagent: second_superagent).delete_all if second_superagent
     second_superagent&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "POST remove_subagent_from_studio action removes subagent from studio" do
-    # Create a subagent and add to studio
-    subagent_name = "Remove Subagent #{SecureRandom.hex(4)}"
-    subagent = User.create!(
-      name: subagent_name,
+  test "POST remove_ai_agent_from_studio action removes ai_agent from studio" do
+    # Create a ai_agent and add to studio
+    ai_agent_name = "Remove AiAgent #{SecureRandom.hex(4)}"
+    ai_agent = User.create!(
+      name: ai_agent_name,
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    @tenant.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
 
     # Create a second studio where user is admin
     second_superagent = Superagent.create!(
@@ -1244,310 +1244,310 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       created_by: @user,
     )
     second_superagent.add_user!(@user, roles: ['admin'])
-    second_superagent.add_user!(subagent)
+    second_superagent.add_user!(ai_agent)
     second_superagent.enable_api!
 
-    # Subagent should be in the studio initially
-    assert subagent.superagents.include?(second_superagent), "Subagent should be in studio initially"
+    # AiAgent should be in the studio initially
+    assert ai_agent.superagents.include?(second_superagent), "AiAgent should be in studio initially"
 
-    # Remove subagent from studio via API
-    post "/studios/#{second_superagent.handle}/settings/actions/remove_subagent_from_studio",
-      params: { subagent_id: subagent.id }.to_json,
+    # Remove ai_agent from studio via API
+    post "/studios/#{second_superagent.handle}/settings/actions/remove_ai_agent_from_studio",
+      params: { ai_agent_id: ai_agent.id }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    subagent.reload
+    ai_agent.reload
     # The superagent_member should be archived, not deleted
-    superagent_member = SuperagentMember.unscoped.find_by(superagent: second_superagent, user: subagent)
-    assert superagent_member.archived?, "Subagent's studio membership should be archived"
+    superagent_member = SuperagentMember.unscoped.find_by(superagent: second_superagent, user: ai_agent)
+    assert superagent_member.archived?, "AiAgent's studio membership should be archived"
   ensure
     SuperagentMember.where(superagent: second_superagent).delete_all if second_superagent
     second_superagent&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Studio settings markdown shows add_subagent_to_studio action when subagents exist" do
+  test "Studio settings markdown shows add_ai_agent_to_studio action when ai_agents exist" do
     superagent_member = @user.superagent_members.find_by(superagent: @superagent)
     superagent_member.add_role!('admin')
 
-    # Create a subagent that's not in this studio
-    subagent = User.create!(
-      name: "Available Subagent",
+    # Create a ai_agent that's not in this studio
+    ai_agent = User.create!(
+      name: "Available AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    @tenant.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
 
     get "/studios/#{@superagent.handle}/settings", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    assert_match(/add_subagent_to_studio/, response.body, "Should show add_subagent_to_studio action")
+    assert_match(/add_ai_agent_to_studio/, response.body, "Should show add_ai_agent_to_studio action")
   ensure
     superagent_member&.remove_role!('admin')
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  # === Security Tests: Subagent Restrictions ===
-  # These tests use API token authentication to simulate subagents acting on their own behalf
+  # === Security Tests: AiAgent Restrictions ===
+  # These tests use API token authentication to simulate ai_agents acting on their own behalf
 
-  test "Subagents cannot create subagents via API token - returns 403" do
-    # Create a subagent with an API token
-    subagent = User.create!(
-      name: "Test Subagent",
+  test "AiAgents cannot create ai_agents via API token - returns 403" do
+    # Create a ai_agent with an API token
+    ai_agent = User.create!(
+      name: "Test AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    tu = @tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Subagent Token",
+      name: "AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
     # Use API token auth instead of session
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to create a subagent - should be blocked by capability check
-    post "/u/#{subagent.handle}/settings/subagents/new/actions/create_subagent",
-      params: { name: "Nested Subagent" }.to_json,
-      headers: subagent_headers
+    # Try to create a ai_agent - should be blocked by capability check
+    post "/u/#{ai_agent.handle}/settings/ai-agents/new/actions/create_ai_agent",
+      params: { name: "Nested AiAgent" }.to_json,
+      headers: ai_agent_headers
     assert_equal 403, response.status
-    assert_match(/capabilities do not include.*create_subagent/, response.body)
+    assert_match(/capabilities do not include.*create_ai_agent/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Subagents cannot access create subagent page via API token - returns 403" do
-    # Create a subagent with an API token
-    subagent = User.create!(
-      name: "Test Subagent",
+  test "AiAgents cannot access create ai_agent page via API token - returns 403" do
+    # Create a ai_agent with an API token
+    ai_agent = User.create!(
+      name: "Test AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    tu = @tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Subagent Token",
+      name: "AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to access create subagent page - should be blocked
-    get "/u/#{subagent.handle}/settings/subagents/new", headers: subagent_headers
+    # Try to access create ai_agent page - should be blocked
+    get "/u/#{ai_agent.handle}/settings/ai-agents/new", headers: ai_agent_headers
     assert_equal 403, response.status
-    assert_match(/Only person accounts can create subagents/, response.body)
+    assert_match(/Only human accounts can create AI agents/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Subagents cannot create their own API tokens via API token - returns 403" do
-    # Create a subagent with an API token
-    subagent = User.create!(
-      name: "Test Subagent",
+  test "AiAgents cannot create their own API tokens via API token - returns 403" do
+    # Create a ai_agent with an API token
+    ai_agent = User.create!(
+      name: "Test AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    tu = @tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Subagent Token",
+      name: "AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Try to create an API token for themselves - should be blocked by capability check
-    post "/u/#{subagent.handle}/settings/tokens/new/actions/create_api_token",
+    post "/u/#{ai_agent.handle}/settings/tokens/new/actions/create_api_token",
       params: { name: "Self Token" }.to_json,
-      headers: subagent_headers
+      headers: ai_agent_headers
     assert_equal 403, response.status
     assert_match(/capabilities do not include.*create_api_token/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Subagents cannot access create API token page via API token - returns 403" do
-    # Create a subagent with an API token
-    subagent = User.create!(
-      name: "Test Subagent",
+  test "AiAgents cannot access create API token page via API token - returns 403" do
+    # Create a ai_agent with an API token
+    ai_agent = User.create!(
+      name: "Test AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    tu = @tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Subagent Token",
+      name: "AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Try to access create API token page - should be blocked
-    get "/u/#{subagent.handle}/settings/tokens/new", headers: subagent_headers
+    get "/u/#{ai_agent.handle}/settings/tokens/new", headers: ai_agent_headers
     assert_equal 403, response.status
-    assert_match(/Only person accounts can create API tokens/, response.body)
+    assert_match(/Only human accounts can create API tokens/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Parents can still create API tokens for their subagents" do
-    # Create a subagent
-    subagent = User.create!(
-      name: "Test Subagent",
+  test "Parents can still create API tokens for their ai_agents" do
+    # Create a ai_agent
+    ai_agent = User.create!(
+      name: "Test AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    tu = @tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
 
-    # Parent (person) creates token for subagent - should work
-    post "/u/#{subagent.handle}/settings/tokens/new/actions/create_api_token",
+    # Parent (person) creates token for ai_agent - should work
+    post "/u/#{ai_agent.handle}/settings/tokens/new/actions/create_api_token",
       params: { name: "Parent Created Token" }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    token = ApiToken.find_by(name: "Parent Created Token", user: subagent)
-    assert token, "Token should have been created for subagent"
+    token = ApiToken.find_by(name: "Parent Created Token", user: ai_agent)
+    assert token, "Token should have been created for ai_agent"
   ensure
-    ApiToken.where(user: subagent).delete_all if subagent
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    ApiToken.where(user: ai_agent).delete_all if ai_agent
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Subagents cannot execute add_subagent_to_studio via API token - returns 403" do
-    # Create two subagents - one with API token, one to try to add
-    acting_subagent = User.create!(
-      name: "Acting Subagent",
+  test "AiAgents cannot execute add_ai_agent_to_studio via API token - returns 403" do
+    # Create two ai_agents - one with API token, one to try to add
+    acting_ai_agent = User.create!(
+      name: "Acting AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    other_subagent = User.create!(
-      name: "Other Subagent",
+    other_ai_agent = User.create!(
+      name: "Other AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    @tenant.add_user!(acting_subagent)
-    @tenant.add_user!(other_subagent)
-    @superagent.add_user!(acting_subagent)
+    @tenant.add_user!(acting_ai_agent)
+    @tenant.add_user!(other_ai_agent)
+    @superagent.add_user!(acting_ai_agent)
     token = ApiToken.create!(
-      user: acting_subagent,
+      user: acting_ai_agent,
       tenant: @tenant,
-      name: "Acting Subagent Token",
+      name: "Acting AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to add another subagent to studio - should be blocked by capability check
-    post "/studios/#{@superagent.handle}/settings/actions/add_subagent_to_studio",
-      params: { subagent_id: other_subagent.id }.to_json,
-      headers: subagent_headers
+    # Try to add another ai_agent to studio - should be blocked by capability check
+    post "/studios/#{@superagent.handle}/settings/actions/add_ai_agent_to_studio",
+      params: { ai_agent_id: other_ai_agent.id }.to_json,
+      headers: ai_agent_headers
     assert_equal 403, response.status
-    assert_match(/capabilities do not include.*add_subagent_to_studio/, response.body)
+    assert_match(/capabilities do not include.*add_ai_agent_to_studio/, response.body)
   ensure
     token&.destroy
-    SuperagentMember.where(user: [acting_subagent, other_subagent]).delete_all
-    TenantUser.where(user: [acting_subagent, other_subagent]).delete_all
-    acting_subagent&.destroy
-    other_subagent&.destroy
+    SuperagentMember.where(user: [acting_ai_agent, other_ai_agent]).delete_all
+    TenantUser.where(user: [acting_ai_agent, other_ai_agent]).delete_all
+    acting_ai_agent&.destroy
+    other_ai_agent&.destroy
   end
 
-  test "Subagents cannot execute remove_subagent_from_studio via API token - returns 403" do
-    # Create two subagents - one with API token, one already in studio
-    acting_subagent = User.create!(
-      name: "Acting Subagent",
+  test "AiAgents cannot execute remove_ai_agent_from_studio via API token - returns 403" do
+    # Create two ai_agents - one with API token, one already in studio
+    acting_ai_agent = User.create!(
+      name: "Acting AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    other_subagent = User.create!(
-      name: "Other Subagent",
+    other_ai_agent = User.create!(
+      name: "Other AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    @tenant.add_user!(acting_subagent)
-    @tenant.add_user!(other_subagent)
-    @superagent.add_user!(acting_subagent)
-    @superagent.add_user!(other_subagent)
+    @tenant.add_user!(acting_ai_agent)
+    @tenant.add_user!(other_ai_agent)
+    @superagent.add_user!(acting_ai_agent)
+    @superagent.add_user!(other_ai_agent)
     token = ApiToken.create!(
-      user: acting_subagent,
+      user: acting_ai_agent,
       tenant: @tenant,
-      name: "Acting Subagent Token",
+      name: "Acting AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to remove another subagent from studio - should be blocked by capability check
-    post "/studios/#{@superagent.handle}/settings/actions/remove_subagent_from_studio",
-      params: { subagent_id: other_subagent.id }.to_json,
-      headers: subagent_headers
+    # Try to remove another ai_agent from studio - should be blocked by capability check
+    post "/studios/#{@superagent.handle}/settings/actions/remove_ai_agent_from_studio",
+      params: { ai_agent_id: other_ai_agent.id }.to_json,
+      headers: ai_agent_headers
     assert_equal 403, response.status
-    assert_match(/capabilities do not include.*remove_subagent_from_studio/, response.body)
+    assert_match(/capabilities do not include.*remove_ai_agent_from_studio/, response.body)
   ensure
     token&.destroy
-    SuperagentMember.where(user: [acting_subagent, other_subagent]).delete_all
-    TenantUser.where(user: [acting_subagent, other_subagent]).delete_all
-    acting_subagent&.destroy
-    other_subagent&.destroy
+    SuperagentMember.where(user: [acting_ai_agent, other_ai_agent]).delete_all
+    TenantUser.where(user: [acting_ai_agent, other_ai_agent]).delete_all
+    acting_ai_agent&.destroy
+    other_ai_agent&.destroy
   end
 
   # === Phase 3: Admin Panel Markdown API ===
@@ -1602,226 +1602,226 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     @tenant.update!(name: original_name)
   end
 
-  # === Admin Panel Security: Subagent Access Requirements ===
+  # === Admin Panel Security: AiAgent Access Requirements ===
 
-  test "Subagent admin can access admin pages when both subagent AND parent are admins" do
+  test "AiAgent admin can access admin pages when both ai_agent AND parent are admins" do
     # Make parent user an admin
     parent_tu = @tenant.tenant_users.find_by(user: @user)
     parent_tu.add_role!('admin')
 
-    # Create a subagent with admin role
-    subagent = User.create!(
-      name: "Admin Subagent",
+    # Create a ai_agent with admin role
+    ai_agent = User.create!(
+      name: "Admin AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    subagent_tu = @tenant.add_user!(subagent)
-    subagent_tu.add_role!('admin')
+    ai_agent_tu = @tenant.add_user!(ai_agent)
+    ai_agent_tu.add_role!('admin')
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Admin Subagent Token",
+      name: "Admin AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Should be able to access admin page
-    get "/tenant-admin", headers: subagent_headers
+    get "/tenant-admin", headers: ai_agent_headers
     assert_equal 200, response.status
     assert is_markdown?
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Subagent admin cannot access admin pages when parent is NOT admin" do
+  test "AiAgent admin cannot access admin pages when parent is NOT admin" do
     # Parent is NOT an admin (no role added)
 
-    # Create a subagent with admin role
-    subagent = User.create!(
-      name: "Admin Subagent",
+    # Create a ai_agent with admin role
+    ai_agent = User.create!(
+      name: "Admin AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    subagent_tu = @tenant.add_user!(subagent)
-    subagent_tu.add_role!('admin')
+    ai_agent_tu = @tenant.add_user!(ai_agent)
+    ai_agent_tu.add_role!('admin')
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Admin Subagent Token",
+      name: "Admin AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
     # Should NOT be able to access admin page because parent is not admin
-    get "/tenant-admin", headers: subagent_headers
+    get "/tenant-admin", headers: ai_agent_headers
     assert_equal 403, response.status
-    assert_match(/Subagent admin access requires both subagent and parent to be admins/, response.body)
+    assert_match(/AI agent admin access requires both AI agent and parent to be admins/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Subagent cannot access admin pages when subagent is NOT admin even if parent is" do
+  test "AiAgent cannot access admin pages when ai_agent is NOT admin even if parent is" do
     # Make parent user an admin
     parent_tu = @tenant.tenant_users.find_by(user: @user)
     parent_tu.add_role!('admin')
 
-    # Create a subagent WITHOUT admin role
-    subagent = User.create!(
-      name: "Non-Admin Subagent",
+    # Create a ai_agent WITHOUT admin role
+    ai_agent = User.create!(
+      name: "Non-Admin AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    subagent_tu = @tenant.add_user!(subagent)
-    # NOT adding admin role to subagent
+    ai_agent_tu = @tenant.add_user!(ai_agent)
+    # NOT adding admin role to ai_agent
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Subagent Token",
+      name: "AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Should NOT be able to access admin page because subagent is not admin
-    get "/tenant-admin", headers: subagent_headers
+    # Should NOT be able to access admin page because ai_agent is not admin
+    get "/tenant-admin", headers: ai_agent_headers
     assert_equal 403, response.status
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  # === Admin Panel Security: Subagent Production Write Restrictions ===
+  # === Admin Panel Security: AiAgent Production Write Restrictions ===
 
-  test "Subagent admin cannot perform write operations even in development/test environment" do
+  test "AiAgent admin cannot perform write operations even in development/test environment" do
     # Make parent user an admin
     parent_tu = @tenant.tenant_users.find_by(user: @user)
     parent_tu.add_role!('admin')
 
-    # Create a subagent with admin role
-    subagent = User.create!(
-      name: "Admin Subagent",
+    # Create a ai_agent with admin role
+    ai_agent = User.create!(
+      name: "Admin AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    subagent_tu = @tenant.add_user!(subagent)
-    subagent_tu.add_role!('admin')
+    ai_agent_tu = @tenant.add_user!(ai_agent)
+    ai_agent_tu.add_role!('admin')
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Admin Subagent Token",
+      name: "Admin AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Subagent admins cannot perform admin write operations - blocked by capability check
+    # AiAgent admins cannot perform admin write operations - blocked by capability check
     post "/tenant-admin/settings/actions/update_tenant_settings",
-      params: { name: "Subagent Updated Name" }.to_json,
-      headers: subagent_headers
+      params: { name: "AiAgent Updated Name" }.to_json,
+      headers: ai_agent_headers
     assert_equal 403, response.status
     assert_match(/capabilities do not include.*update_tenant_settings/, response.body)
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Subagent admin cannot perform write operations in production environment" do
+  test "AiAgent admin cannot perform write operations in production environment" do
     # Make parent user an admin
     parent_tu = @tenant.tenant_users.find_by(user: @user)
     parent_tu.add_role!('admin')
 
-    # Create a subagent with admin role
-    subagent = User.create!(
-      name: "Admin Subagent",
+    # Create a ai_agent with admin role
+    ai_agent = User.create!(
+      name: "Admin AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    subagent_tu = @tenant.add_user!(subagent)
-    subagent_tu.add_role!('admin')
+    ai_agent_tu = @tenant.add_user!(ai_agent)
+    ai_agent_tu.add_role!('admin')
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Admin Subagent Token",
+      name: "Admin AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Content-Type' => 'application/json',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Subagents cannot perform admin write operations - blocked by capability check
+    # AiAgents cannot perform admin write operations - blocked by capability check
     # (The production restriction is now redundant since capability check blocks first)
     post "/tenant-admin/settings/actions/update_tenant_settings",
       params: { name: "Should Not Update" }.to_json,
-      headers: subagent_headers
+      headers: ai_agent_headers
     assert_equal 403, response.status
     assert_match(/capabilities do not include.*update_tenant_settings/, response.body)
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
-  test "Subagent admin can still read admin pages in production environment" do
+  test "AiAgent admin can still read admin pages in production environment" do
     # Make parent user an admin
     parent_tu = @tenant.tenant_users.find_by(user: @user)
     parent_tu.add_role!('admin')
 
-    # Create a subagent with admin role
-    subagent = User.create!(
-      name: "Admin Subagent",
+    # Create a ai_agent with admin role
+    ai_agent = User.create!(
+      name: "Admin AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    subagent_tu = @tenant.add_user!(subagent)
-    subagent_tu.add_role!('admin')
+    ai_agent_tu = @tenant.add_user!(ai_agent)
+    ai_agent_tu.add_role!('admin')
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Admin Subagent Token",
+      name: "Admin AiAgent Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
@@ -1830,7 +1830,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     Thread.current[:simulate_production] = true
     begin
       # Should be able to READ admin pages in production
-      get "/tenant-admin", headers: subagent_headers
+      get "/tenant-admin", headers: ai_agent_headers
       assert_equal 200, response.status
       assert is_markdown?
     ensure
@@ -1839,8 +1839,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
   test "Person admin can still perform write operations in production environment" do
@@ -1869,29 +1869,29 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     @tenant.update!(name: original_name)
   end
 
-  test "Admin settings page hides actions for subagents in production" do
+  test "Admin settings page hides actions for ai_agents in production" do
     # Make parent user an admin
     parent_tu = @tenant.tenant_users.find_by(user: @user)
     parent_tu.add_role!('admin')
 
-    # Create a subagent with admin role
-    subagent = User.create!(
-      name: "Admin Subagent",
+    # Create a ai_agent with admin role
+    ai_agent = User.create!(
+      name: "Admin AiAgent",
       email: "#{SecureRandom.uuid}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    subagent_tu = @tenant.add_user!(subagent)
-    subagent_tu.add_role!('admin')
+    ai_agent_tu = @tenant.add_user!(ai_agent)
+    ai_agent_tu.add_role!('admin')
     token = ApiToken.create!(
-      user: subagent,
+      user: ai_agent,
       tenant: @tenant,
-      name: "Admin Subagent Token",
+      name: "Admin AiAgent Token",
       scopes: ApiToken.read_scopes,
       expires_at: 1.year.from_now,
     )
 
-    subagent_headers = {
+    ai_agent_headers = {
       'Accept' => 'text/markdown',
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
@@ -1899,19 +1899,19 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
-      get "/tenant-admin/settings", headers: subagent_headers
+      get "/tenant-admin/settings", headers: ai_agent_headers
       assert_equal 200, response.status
       assert is_markdown?
       # Should show read-only message instead of actions
-      assert_match(/read-only access/, response.body, "Should show read-only message for subagent in production")
+      assert_match(/read-only access/, response.body, "Should show read-only message for ai_agent in production")
     ensure
       Thread.current[:simulate_production] = nil
     end
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 
   # === Phase 4: File Attachments Markdown API ===
@@ -2340,20 +2340,20 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     session&.destroy
   end
 
-  # Subagent task run markdown tests
-  test "GET subagent task run returns markdown and strips JSON from think steps" do
-    # Enable subagents feature for this tenant
-    @tenant.enable_feature_flag!("subagents")
+  # AiAgent task run markdown tests
+  test "GET ai_agent task run returns markdown and strips JSON from think steps" do
+    # Enable ai_agents feature for this tenant
+    @tenant.enable_feature_flag!("ai_agents")
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Task Run Test Agent",
       email: "task-run-test-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    tu = @tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
 
     # Create a task run with a think step containing JSON
     think_response_with_json = <<~RESPONSE
@@ -2366,12 +2366,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       ```
     RESPONSE
 
-    task_run = SubagentTaskRun.create!(
+    task_run = AiAgentTaskRun.create!(
       tenant: @tenant,
-      subagent: subagent,
+      ai_agent: ai_agent,
       initiated_by: @user,
       task: "Create a test note",
-      max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS,
+      max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
       status: "completed",
       success: true,
       final_message: "Task completed successfully",
@@ -2397,7 +2397,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       completed_at: Time.current,
     )
 
-    get "/subagents/#{subagent.handle}/runs/#{task_run.id}", headers: @headers
+    get "/ai-agents/#{ai_agent.handle}/runs/#{task_run.id}", headers: @headers
     assert_equal 200, response.status
     assert response.content_type.starts_with?("text/markdown"), "Response should be markdown"
 
@@ -2410,7 +2410,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_no_match(/"type":\s*"navigate"/, response.body, "Should not include JSON action")
   ensure
     task_run&.destroy
-    TenantUser.where(user: subagent).delete_all if subagent
-    subagent&.destroy
+    TenantUser.where(user: ai_agent).delete_all if ai_agent
+    ai_agent&.destroy
   end
 end

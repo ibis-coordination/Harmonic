@@ -17,8 +17,8 @@
         <% end %>
       </h1>
       <p class="pulse-user-handle">@<%= @showing_user.handle %></p>
-      <% if @showing_user.subagent? %>
-        <span class="pulse-badge" title="This is a subagent managed by <%= @showing_user.parent&.display_name %>">subagent</span>
+      <% if @showing_user.ai_agent? %>
+        <span class="pulse-badge" title="This is a ai_agent managed by <%= @showing_user.parent&.display_name %>">ai_agent</span>
       <% end %>
     </div>
     <% if @current_user.can_edit?(@showing_user) %>
@@ -31,7 +31,7 @@
     <% end %>
   </header>
 
-  <% if @showing_user.subagent? && @showing_user.parent %>
+  <% if @showing_user.ai_agent? && @showing_user.parent %>
     <div class="pulse-user-parent-info">
       <span style="color: var(--color-fg-muted);">Managed by</span>
       <a href="<%= @showing_user.parent.path %>" class="pulse-user-parent-link">
@@ -41,10 +41,10 @@
     </div>
   <% end %>
 
-  <% if @showing_user.person? && @subagent_count && @subagent_count > 0 %>
-    <div class="pulse-user-subagent-count">
+  <% if @showing_user.human? && @ai_agent_count && @ai_agent_count > 0 %>
+    <div class="pulse-user-ai_agent-count">
       <%= octicon 'people', height: 14 %>
-      Has <%= @subagent_count %> subagent<%= @subagent_count == 1 ? "" : "s" %>
+      Has <%= @ai_agent_count %> ai_agent<%= @ai_agent_count == 1 ? "" : "s" %>
     </div>
   <% end %>
 

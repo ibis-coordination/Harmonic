@@ -446,8 +446,8 @@ class ApiHelper
   end
 
   sig { returns(User) }
-  def create_subagent
-    # Only subagent users can be created via the API
+  def create_ai_agent
+    # Only AI agent users can be created via the API
     user = T.let(nil, T.nilable(User))
     ActiveRecord::Base.transaction do
       agent_config = {}
@@ -460,20 +460,20 @@ class ApiHelper
       # Handle capabilities - filter to only valid grantable actions
       capabilities = params[:capabilities]
       if capabilities.is_a?(Array) && capabilities.any?
-        valid_caps = capabilities & CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS
+        valid_caps = capabilities & CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
         agent_config["capabilities"] = valid_caps
       else
         # All boxes unchecked or no capabilities param = empty array (nothing allowed except defaults)
         agent_config["capabilities"] = []
       end
 
-      # Handle model selection for internal subagents
+      # Handle model selection for internal AI agents
       agent_config["model"] = params[:model] if params[:model].present?
 
       user = User.create!(
         name: params[:name],
         email: SecureRandom.uuid + "@not-a-real-email.com",
-        user_type: "subagent",
+        user_type: "ai_agent",
         parent_id: current_user.id,
         agent_configuration: agent_config,
       )
@@ -777,14 +777,14 @@ class ApiHelper
 
   private
 
-  # Track resources created during a SubagentTaskRun for traceability
+  # Track resources created during an AiAgentTaskRun for traceability
   sig { params(resource: T.untyped, action_type: String).void }
   def track_task_run_resource(resource, action_type:)
-    return unless SubagentTaskRun.current_id
+    return unless AiAgentTaskRun.current_id
     return unless resource.respond_to?(:superagent_id) && resource.superagent_id.present?
 
-    SubagentTaskRunResource.create!(
-      subagent_task_run_id: SubagentTaskRun.current_id,
+    AiAgentTaskRunResource.create!(
+      ai_agent_task_run_id: AiAgentTaskRun.current_id,
       resource: resource,
       resource_superagent_id: resource.superagent_id,
       action_type: action_type,

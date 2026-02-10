@@ -192,8 +192,8 @@ class Tenant < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def subagents_enabled?
-    FeatureFlagService.tenant_enabled?(self, "subagents")
+  def ai_agents_enabled?
+    FeatureFlagService.tenant_enabled?(self, "ai_agents")
   end
 
   # Check if a feature is enabled at the tenant level (with cascade from app)

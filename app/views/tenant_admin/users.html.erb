@@ -43,10 +43,10 @@
   </p>
 <% end %>
 
-<% user_type_labels = { 'person' => 'People', 'subagent' => 'Subagents' } %>
-<% user_type_icons = { 'person' => 'person', 'subagent' => 'command-palette' } %>
+<% user_type_labels = { 'human' => 'People', 'ai_agent' => 'AI Agents' } %>
+<% user_type_icons = { 'human' => 'person', 'ai_agent' => 'command-palette' } %>
 
-<% ['person', 'subagent'].each do |user_type| %>
+<% ['person', 'ai_agent'].each do |user_type| %>
   <% users = @users_by_type[user_type] || [] %>
   <% total_count = @counts_by_type[user_type] || 0 %>
   <%= render 'shared/pulse_accordion',
@@ -66,7 +66,7 @@
                 <%= octicon user_type_icons[user_type] || 'person', height: 14 %>
               </div>
               <span class="pulse-home-list-name"><%= user.display_name || user.name %></span>
-              <% unless user.subagent? %>
+              <% unless user.ai_agent? %>
                 <code class="pulse-code"><%= user.email %></code>
               <% end %>
               <% if is_admin %>

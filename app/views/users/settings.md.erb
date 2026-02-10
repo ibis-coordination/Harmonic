@@ -6,10 +6,10 @@
 
 Name: <%= raw @settings_user.name %>
 Handle: `<%= @settings_user.handle %>`
-<% if @settings_user.subagent? %>
-Type: Subagent (managed by <%= @settings_user.parent&.display_name || 'Unknown' %>)
-Mode: <%= @settings_user.internal_subagent? ? "Internal" : "External" %>
-<% if @settings_user.internal_subagent? %>
+<% if @settings_user.ai_agent? %>
+Type: AI Agent (managed by <%= @settings_user.parent&.display_name || 'Unknown' %>)
+Mode: <%= @settings_user.internal_ai_agent? ? "Internal" : "External" %>
+<% if @settings_user.internal_ai_agent? %>
 Model: `<%= @settings_user.agent_configuration&.dig("model") || "default" %>`
 <% end %>
 <% end %>
@@ -35,16 +35,16 @@ Model: `<%= @settings_user.agent_configuration&.dig("model") || "default" %>`
 No API tokens.
 <% end %>
 
-<% if @settings_user.person? && is_own_settings && @subagents.any? %>
-## Subagents
+<% if @settings_user.human? && is_own_settings && @ai_agents.any? %>
+## AI Agents
 
-<% @subagents.each do |subagent| %>
-### <%= raw subagent.name %><%= subagent.archived? ? ' (Archived)' : '' %>
+<% @ai_agents.each do |ai_agent| %>
+### <%= raw ai_agent.name %><%= ai_agent.archived? ? ' (Archived)' : '' %>
 
-* [View Profile](<%= subagent.path %>)
-* [Settings](<%= subagent.path %>/settings)
-* Created <%= time_ago_in_words(subagent.created_at) %> ago
-<% active_studios = subagent.superagent_members.reject(&:archived?).map(&:superagent).reject { |s| s == @current_tenant.main_superagent } %>
+* [View Profile](<%= ai_agent.path %>)
+* [Settings](<%= ai_agent.path %>/settings)
+* Created <%= time_ago_in_words(ai_agent.created_at) %> ago
+<% active_studios = ai_agent.superagent_members.reject(&:archived?).map(&:superagent).reject { |s| s == @current_tenant.main_superagent } %>
 <% if active_studios.any? %>
 
 Studio memberships:
@@ -69,11 +69,11 @@ Studio memberships:
 
 * [`update_profile(name, new_handle)`](<%= @settings_user.path %>/settings/actions/update_profile) - Update profile name and/or handle
 <% if @current_tenant.api_enabled? %>
-<% if @current_user.person? %>
+<% if @current_user.human? %>
 * [New API Token](<%= @settings_user.path %>/settings/tokens/new) - Create a new API token
 <% end %>
 * [Webhooks](<%= @settings_user.path %>/settings/webhooks) - Manage personal webhooks for reminders and notifications
-<% if @current_user.person? && is_own_settings %>
-* [New Subagent](<%= @settings_user.path %>/settings/subagents/new) - Create a new subagent
+<% if @current_user.human? && is_own_settings %>
+* [New AI Agent](<%= @settings_user.path %>/settings/ai-agents/new) - Create a new AI agent
 <% end %>
 <% end %>

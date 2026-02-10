@@ -141,14 +141,14 @@
     <% end %>
 
     <% if @current_superagent.feature_enabled?('api') %>
-      <section class="pulse-settings-section" data-controller="subagent-manager" data-subagent-manager-remove-url-value="<%= @current_superagent.path %>/settings/remove_subagent">
-        <h2 class="pulse-section-title">Subagents in this Studio</h2>
+      <section class="pulse-settings-section" data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="<%= @current_superagent.path %>/settings/remove_ai_agent">
+        <h2 class="pulse-section-title">AI Agents in this Studio</h2>
         <p class="pulse-section-description">
-          Subagents are virtual identities managed by their parent user.
-          Actions taken by subagents are the responsibility of their parent.
+          AI Agents are virtual identities managed by their parent user.
+          Actions taken by ai_agents are the responsibility of their parent.
         </p>
-        <div data-subagent-manager-target="list">
-          <table class="pulse-table"<%= @studio_subagents.empty? ? ' style="display:none;"'.html_safe : '' %>>
+        <div data-ai_agent-manager-target="list">
+          <table class="pulse-table"<%= @studio_ai_agents.empty? ? ' style="display:none;"'.html_safe : '' %>>
             <thead>
               <tr>
                 <th>Name</th>
@@ -157,22 +157,22 @@
               </tr>
             </thead>
             <tbody>
-              <% @studio_subagents.each do |subagent| %>
-                <tr data-subagent-id="<%= subagent.id %>">
-                  <td><%= link_to subagent.display_name, subagent.path %></td>
+              <% @studio_ai_agents.each do |ai_agent| %>
+                <tr data-ai_agent-id="<%= ai_agent.id %>">
+                  <td><%= link_to ai_agent.display_name, ai_agent.path %></td>
                   <td>
-                    <% if subagent.parent %>
-                      <%= link_to subagent.parent.display_name, subagent.parent.path %>
+                    <% if ai_agent.parent %>
+                      <%= link_to ai_agent.parent.display_name, ai_agent.parent.path %>
                     <% else %>
                       <em>Unknown</em>
                     <% end %>
                   </td>
                   <td>
                     <button type="button" class="pulse-action-btn-danger"
-                            data-action="subagent-manager#remove"
-                            data-subagent-id="<%= subagent.id %>"
-                            data-subagent-name="<%= subagent.display_name %>"
-                            data-remove-url="<%= @current_superagent.path %>/settings/remove_subagent">
+                            data-action="ai_agent-manager#remove"
+                            data-ai_agent-id="<%= ai_agent.id %>"
+                            data-ai_agent-name="<%= ai_agent.display_name %>"
+                            data-remove-url="<%= @current_superagent.path %>/settings/remove_ai_agent">
                       Remove
                     </button>
                   </td>
@@ -180,18 +180,18 @@
               <% end %>
             </tbody>
           </table>
-          <% if @studio_subagents.empty? %>
-            <p class="pulse-empty-message"><em>No subagents in this studio.</em></p>
+          <% if @studio_ai_agents.empty? %>
+            <p class="pulse-empty-message"><em>No ai_agents in this studio.</em></p>
           <% end %>
         </div>
 
-        <% if @addable_subagents.any? %>
-          <h3 class="pulse-subsection-title">Add your subagents to this studio</h3>
-          <form data-subagent-manager-target="addForm" data-action="submit->subagent-manager#add" action="<%= @current_superagent.path %>/settings/add_subagent" method="post" class="pulse-inline-form">
+        <% if @addable_ai_agents.any? %>
+          <h3 class="pulse-subsection-title">Add your ai_agents to this studio</h3>
+          <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="<%= @current_superagent.path %>/settings/add_ai_agent" method="post" class="pulse-inline-form">
             <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
-            <select name="subagent_id" data-subagent-manager-target="select" class="pulse-form-select">
-              <option value="">Select a subagent...</option>
-              <% @addable_subagents.each do |s| %>
+            <select name="ai_agent_id" data-ai_agent-manager-target="select" class="pulse-form-select">
+              <option value="">Select a ai_agent...</option>
+              <% @addable_ai_agents.each do |s| %>
                 <option value="<%= s.id %>"><%= s.display_name %></option>
               <% end %>
             </select>

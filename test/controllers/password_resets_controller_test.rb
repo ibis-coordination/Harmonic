@@ -143,7 +143,7 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
     # Create a user with the same email as the identity
     # The controller looks up the user by email to log the password change
     @tenant = Tenant.create!(subdomain: "pwreset", name: "Password Reset Tenant")
-    @user = User.create!(email: @identity.email, name: "Test User", user_type: "person")
+    @user = User.create!(email: @identity.email, name: "Test User", user_type: "human")
     @tenant.add_user!(@user)
 
     raw_token = @identity.generate_reset_password_token!

@@ -17,7 +17,7 @@
 | Email | `<%= @showing_user.email %>` |
 | Handle | [`@<%= @showing_user.handle %>`](/u/<%= @showing_user.handle %>) |
 | User Type | <%= @showing_user.user_type %> |
-<% if @showing_user.subagent? && @showing_user.parent -%>
+<% if @showing_user.ai_agent? && @showing_user.parent -%>
 <% parent_tenant_user = @showing_user.parent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } -%>
 | Parent | [<%= @showing_user.parent.display_name || @showing_user.parent.name %>](/admin/users/<%= parent_tenant_user&.handle %>) |
 <% end -%>
@@ -34,7 +34,7 @@
 <% if @showing_user.id != @current_user.id -%>
 * [`suspend_user(reason)`](/admin/users/<%= @showing_user.handle %>/actions/suspend_user) - Suspend this user's account
 
-**Warning:** Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any subagents that they are the parent of.
+**Warning:** Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any ai_agents that they are the parent of.
 <% else -%>
 * You cannot suspend your own account
 <% end -%>

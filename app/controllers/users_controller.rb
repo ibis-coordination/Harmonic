@@ -48,9 +48,9 @@ class UsersController < ApplicationController
       @common_studio_count = 0
       @common_scene_count = 0
     end
-    # Load subagent count for person users
-    if @showing_user.person?
-      @subagent_count = @showing_user.subagents
+    # Load AI agent count for human users
+    if @showing_user.human?
+      @ai_agent_count = @showing_user.ai_agents
         .joins(:tenant_users)
         .where(tenant_users: { tenant_id: current_tenant.id })
         .count
@@ -75,13 +75,13 @@ class UsersController < ApplicationController
     @settings_user.tenant_user = tu
     @page_title = @settings_user == current_user ? "Your Settings" : "#{@settings_user.display_name}'s Settings"
 
-    # For person users, show their subagents
-    if @settings_user.person?
-      @subagents = @settings_user.subagents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
-      # Superagents where settings user has invite permission (for adding subagents)
+    # For human users, show their AI agents
+    if @settings_user.human?
+      @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
+      # Superagents where settings user has invite permission (for adding AI agents)
       @invitable_studios = @settings_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
     else
-      @subagents = []
+      @ai_agents = []
       @invitable_studios = []
     end
 
@@ -91,16 +91,16 @@ class UsersController < ApplicationController
     end
   end
 
-  def add_subagent_to_studio
+  def add_ai_agent_to_studio
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?
-    subagent = tu.user
-    return render status: 403, plain: "403 Unauthorized" unless subagent.subagent? && subagent.parent_id == current_user.id
+    ai_agent = tu.user
+    return render status: 403, plain: "403 Unauthorized" unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
     superagent = Superagent.find(params[:superagent_id])
-    return render status: 403, plain: "403 Unauthorized" unless current_user.can_add_subagent_to_superagent?(subagent, superagent)
+    return render status: 403, plain: "403 Unauthorized" unless current_user.can_add_ai_agent_to_superagent?(ai_agent, superagent)
 
-    # Add subagent to the superagent
-    superagent.add_user!(subagent)
+    # Add AI agent to the superagent
+    superagent.add_user!(ai_agent)
 
     respond_to do |format|
       format.json do
@@ -111,20 +111,20 @@ class UsersController < ApplicationController
         }
       end
       format.html do
-        flash[:notice] = "#{subagent.display_name} has been added to #{superagent.name}"
+        flash[:notice] = "#{ai_agent.display_name} has been added to #{superagent.name}"
         redirect_to "#{current_user.path}/settings"
       end
     end
   end
 
-  def remove_subagent_from_studio
+  def remove_ai_agent_from_studio
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?
-    subagent = tu.user
-    return render status: 403, plain: "403 Unauthorized" unless subagent.subagent? && subagent.parent_id == current_user.id
+    ai_agent = tu.user
+    return render status: 403, plain: "403 Unauthorized" unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
 
     superagent = Superagent.find(params[:superagent_id])
-    superagent_member = SuperagentMember.find_by(superagent: superagent, user: subagent)
+    superagent_member = SuperagentMember.find_by(superagent: superagent, user: ai_agent)
     return render status: 404, plain: "404 Not Found" if superagent_member.nil? || superagent_member.archived?
 
     superagent_member.archive!
@@ -137,7 +137,7 @@ class UsersController < ApplicationController
         }
       end
       format.html do
-        flash[:notice] = "#{subagent.display_name} has been removed from #{superagent.name}"
+        flash[:notice] = "#{ai_agent.display_name} has been removed from #{superagent.name}"
         redirect_to "#{current_user.path}/settings"
       end
     end
@@ -163,35 +163,35 @@ class UsersController < ApplicationController
         handle: params[:new_handle]
       )
     end
-    # Handle identity_prompt for subagents
-    if settings_user.subagent? && params.key?(:identity_prompt)
+    # Handle identity_prompt for AI agents
+    if settings_user.ai_agent? && params.key?(:identity_prompt)
       settings_user.agent_configuration ||= {}
       settings_user.agent_configuration["identity_prompt"] = params[:identity_prompt].presence
       settings_user.save!
     end
-    # Handle mode for subagents (internal vs external)
-    if settings_user.subagent? && params.key?(:mode)
+    # Handle mode for AI agents (internal vs external)
+    if settings_user.ai_agent? && params.key?(:mode)
       settings_user.agent_configuration ||= {}
       mode = params[:mode]
       settings_user.agent_configuration["mode"] = %w[internal external].include?(mode) ? mode : "external"
       settings_user.save!
     end
-    # Handle model for internal subagents
-    if settings_user.subagent? && params.key?(:model)
+    # Handle model for internal AI agents
+    if settings_user.ai_agent? && params.key?(:model)
       settings_user.agent_configuration ||= {}
       settings_user.agent_configuration["model"] = params[:model].presence
       settings_user.save!
     end
-    # Handle capabilities for subagents
+    # Handle capabilities for AI agents
     # Checked = allowed, unchecked = blocked (standard checkbox model)
     # Empty array (all unchecked) = NO grantable actions allowed
     # nil (key absent) = all grantable actions allowed (backwards compatible default)
-    if settings_user.subagent?
+    if settings_user.ai_agent?
       settings_user.agent_configuration ||= {}
       capabilities = params[:capabilities]
       if capabilities.is_a?(Array) && capabilities.any?
         # Filter to only valid grantable actions
-        valid_caps = capabilities & CapabilityCheck::SUBAGENT_GRANTABLE_ACTIONS
+        valid_caps = capabilities & CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
         settings_user.agent_configuration["capabilities"] = valid_caps
       else
         # All boxes unchecked = save empty array (nothing allowed)
@@ -203,17 +203,17 @@ class UsersController < ApplicationController
     redirect_to "#{settings_user.path}/settings"
   end
 
-  # Start representing a user (typically a subagent).
+  # Start representing a user (typically an AI agent).
   # POST /u/:handle/represent
   def represent
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?
 
     target_user = tu.user
-    return render status: 403, plain: "403 Unauthorized" unless target_user.subagent?
+    return render status: 403, plain: "403 Unauthorized" unless target_user.ai_agent?
     return render status: 403, plain: "403 Unauthorized" unless current_user.can_represent?(target_user)
 
-    # Find the TrusteeGrant for this parent-subagent relationship
+    # Find the TrusteeGrant for this parent-ai_agent relationship
     grant = TrusteeGrant.active.find_by(
       granting_user: target_user,
       trustee_user: current_user
@@ -299,12 +299,12 @@ class UsersController < ApplicationController
     @settings_user.tenant_user = tu
     @page_title = @settings_user == current_user ? "Your Settings" : "#{@settings_user.display_name}'s Settings"
 
-    # For person users, show their subagents
-    if @settings_user.person?
-      @subagents = @settings_user.subagents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
+    # For human users, show their AI agents
+    if @settings_user.human?
+      @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
       @invitable_studios = @settings_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
     else
-      @subagents = []
+      @ai_agents = []
       @invitable_studios = []
     end
 

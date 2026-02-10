@@ -4,7 +4,7 @@
 <% if is_user_representation %>
   <%= render 'shared/pulse_breadcrumb', items: [
     ['Home', '/'],
-    ['Trustee Grants', "/u/#{@current_person_user.handle}/settings/trustee-grants"],
+    ['Trustee Grants', "/u/#{@current_human_user.handle}/settings/trustee-grants"],
     'Active Session'
   ] %>
 <% else %>

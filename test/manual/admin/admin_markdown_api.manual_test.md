@@ -6,12 +6,12 @@ verified_by: Claude Opus 4.5
 
 # Test: Admin Panel Markdown API
 
-Verifies that the admin panel is accessible via the markdown API and that all security restrictions for subagents are properly enforced.
+Verifies that the admin panel is accessible via the markdown API and that all security restrictions for ai_agents are properly enforced.
 
 ## Prerequisites
 
 - Access to a tenant where you have admin privileges
-- For subagent tests: A subagent user with an API token whose parent is also an admin
+- For ai_agent tests: A ai_agent user with an API token whose parent is also an admin
 - For primary subdomain tests: Access to the primary subdomain tenant (for tenant management and Sidekiq)
 
 ## Test 1: Basic Admin Access (Person Admin)
@@ -91,43 +91,43 @@ Verifies that the admin panel is accessible via the markdown API and that all se
 - [x] `retry_sidekiq_job()` action is available for retryable jobs
 - [x] Non-primary subdomains return 403 for these routes *(verified by code review: `is_main_tenant?` check)*
 
-## Test 5: Subagent Admin Access - Both Must Be Admins
+## Test 5: AI Agent Admin Access - Both Must Be Admins
 
 **Note:** These security scenarios are fully covered by automated tests in `test/integration/markdown_ui_test.rb`. The checklist below reflects automated test coverage.
 
 ### Prerequisites
 
-- A subagent user whose parent is an admin
-- The subagent must also have admin role
+- A ai_agent user whose parent is an admin
+- The ai_agent must also have admin role
 
 ### Steps
 
-1. Authenticate as a subagent whose parent is NOT an admin
+1. Authenticate as a ai_agent whose parent is NOT an admin
 2. Attempt to access `/admin`
 3. Verify 403 response with message about parent needing admin role
-4. Now authenticate as a subagent whose parent IS an admin (and subagent is also admin)
+4. Now authenticate as a ai_agent whose parent IS an admin (and ai_agent is also admin)
 5. Access `/admin`
 6. Verify successful access
 
 ### Checklist
 
-- [x] Subagent with admin role but non-admin parent gets 403 *(automated test)*
-- [x] Error message mentions "both subagent and parent to be admins" *(automated test)*
-- [x] Subagent with admin role AND admin parent can access `/admin` *(automated test)*
-- [x] Non-admin subagent (even with admin parent) gets 403 *(automated test)*
+- [x] AI Agent with admin role but non-admin parent gets 403 *(automated test)*
+- [x] Error message mentions "both ai_agent and parent to be admins" *(automated test)*
+- [x] AI Agent with admin role AND admin parent can access `/admin` *(automated test)*
+- [x] Non-admin ai_agent (even with admin parent) gets 403 *(automated test)*
 
-## Test 6: Subagent Production Write Restriction
+## Test 6: AI Agent Production Write Restriction
 
 **Note:** Production environment behavior is tested via `Thread.current[:simulate_production]` in automated tests.
 
 ### Prerequisites
 
-- A subagent user with admin role whose parent is also admin
+- A ai_agent user with admin role whose parent is also admin
 - This test simulates production behavior (in actual production deployment)
 
 ### Steps (Development/Test Environment)
 
-1. Authenticate as admin subagent
+1. Authenticate as admin ai_agent
 2. Navigate to `/admin/settings`
 3. Execute `update_tenant_settings` action
 4. Verify the action succeeds
@@ -135,15 +135,15 @@ Verifies that the admin panel is accessible via the markdown API and that all se
 ### Expected Production Behavior
 
 In production environment:
-- Subagent admin can READ all admin pages
-- Subagent admin CANNOT execute any write actions (POST/PUT/DELETE)
+- AI Agent admin can READ all admin pages
+- AI Agent admin CANNOT execute any write actions (POST/PUT/DELETE)
 - Actions section shows "No actions available (read-only access)"
 
 ### Checklist
 
-- [x] In dev/test: Subagent admin can execute write actions *(automated test)*
-- [x] In production: Subagent admin POST requests return 403 *(automated test)*
-- [x] In production: Error message mentions "Subagents cannot perform admin write operations in production" *(automated test)*
+- [x] In dev/test: AI Agent admin can execute write actions *(automated test)*
+- [x] In production: AI Agent admin POST requests return 403 *(automated test)*
+- [x] In production: Error message mentions "AI Agents cannot perform admin write operations in production" *(automated test)*
 - [x] In production: Admin settings page shows "read-only access" instead of actions *(verified by code review: views check `can_perform_admin_actions?`)*
 - [x] Person admins can always write (regardless of environment) *(automated test)*
 

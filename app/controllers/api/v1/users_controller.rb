@@ -13,9 +13,9 @@ module Api::V1
     end
 
     def create
-      # Only subagent users can be created via the API
+      # Only AI agent users can be created via the API
       begin
-        user = api_helper.create_subagent
+        user = api_helper.create_ai_agent
         token = api_helper.generate_token(user) if params[:generate_token]
         response = user.api_json
         response[:token] = token.plaintext_token if token
@@ -26,7 +26,7 @@ module Api::V1
     end
 
     def update
-      # Users can only update their own records or subagent users
+      # Users can only update their own records or AI agent users
       user = current_tenant.users.find_by(id: params[:id])
       return render json: { error: 'User not found' }, status: 404 unless user
       return render json: { error: 'Unauthorized' }, status: 401 unless current_user.can_edit?(user)
@@ -46,7 +46,7 @@ module Api::V1
     end
 
     def destroy
-      # Users can only delete subagent users with no associated data
+      # Users can only delete AI agent users with no associated data
       user = current_tenant.users.find_by(id: params[:id])
       return render json: { error: 'User not found' }, status: 404 unless user
       return render json: { error: 'Unauthorized' }, status: 401 unless current_user.can_edit?(user)

@@ -563,7 +563,7 @@ List users in the current tenant.
 [
   {
     "id": "user-uuid",
-    "user_type": "person",
+    "user_type": "human",
     "email": "user@example.com",
     "display_name": "User Name",
     "handle": "username",
@@ -581,7 +581,7 @@ Get a specific user.
 
 #### POST /api/v1/users
 
-Create a subagent (automated user managed by the authenticated user).
+Create a ai_agent (automated user managed by the authenticated user).
 
 **Request Body:**
 ```json
@@ -597,7 +597,7 @@ Create a subagent (automated user managed by the authenticated user).
 
 #### PUT /api/v1/users/{id}
 
-Update a user. Can only update own record or subagents you created.
+Update a user. Can only update own record or ai_agents you created.
 
 **Request Body:**
 ```json
@@ -609,7 +609,7 @@ Update a user. Can only update own record or subagents you created.
 
 #### DELETE /api/v1/users/{id}
 
-Delete a subagent. Only allowed if user has no associated data.
+Delete a ai_agent. Only allowed if user has no associated data.
 
 ---
 

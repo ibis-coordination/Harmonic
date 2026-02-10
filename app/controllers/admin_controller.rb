@@ -4,8 +4,8 @@ require 'sidekiq/api'
 class AdminController < ApplicationController
   before_action :set_admin_sidebar
   before_action :ensure_admin_user
-  before_action :ensure_subagent_admin_access
-  before_action :block_subagent_admin_writes_in_production
+  before_action :ensure_ai_agent_admin_access
+  before_action :block_ai_agent_admin_writes_in_production
 
   def admin
     @page_title = 'Admin'
@@ -476,30 +476,30 @@ class AdminController < ApplicationController
     end
   end
 
-  def ensure_subagent_admin_access
-    return true unless @current_user&.subagent?
-    # Subagent must be admin AND parent must also be admin
+  def ensure_ai_agent_admin_access
+    return true unless @current_user&.ai_agent?
+    # AI agent must be admin AND parent must also be admin
     unless @current_tenant.is_admin?(@current_user) && @current_user.parent && @current_tenant.is_admin?(@current_user.parent)
-      return render status: 403, plain: '403 Unauthorized - Subagent admin access requires both subagent and parent to be admins'
+      return render status: 403, plain: '403 Unauthorized - AI agent admin access requires both AI agent and parent to be admins'
     end
     true
   end
 
-  def block_subagent_admin_writes_in_production
-    return true unless @current_user&.subagent?
+  def block_ai_agent_admin_writes_in_production
+    return true unless @current_user&.ai_agent?
     return true unless production_environment?
-    # In production, subagents can only read admin pages, not write
+    # In production, AI agents can only read admin pages, not write
     if request.method != 'GET'
-      return render status: 403, plain: '403 Unauthorized - Subagents cannot perform admin write operations in production'
+      return render status: 403, plain: '403 Unauthorized - AI agents cannot perform admin write operations in production'
     end
     true
   end
 
   # Helper method for views to determine if actions should be shown
-  # Returns false for subagents in production (they can't perform writes)
+  # Returns false for AI agents in production (they can't perform writes)
   def can_perform_admin_actions?
     return false unless @current_tenant.is_admin?(@current_user)
-    return false if @current_user&.subagent? && production_environment?
+    return false if @current_user&.ai_agent? && production_environment?
     true
   end
 

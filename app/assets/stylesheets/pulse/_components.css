@@ -345,7 +345,7 @@
 }
 
 /* Subagent Label */
-.pulse-subagent-label {
+.pulse-ai-agent-label {
   font-size: 12px;
   color: var(--color-fg-muted);
 }
@@ -2467,25 +2467,25 @@ a.pulse-activity-title:hover {
 }
 
 /* Subagent Cards */
-.pulse-subagents-list {
+.pulse-ai-agents-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.pulse-subagent-card {
+.pulse-ai-agent-card {
   border: 1px solid var(--color-border-default);
   padding: 16px;
 }
 
-.pulse-subagent-header {
+.pulse-ai-agent-header {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 16px;
 }
 
-.pulse-subagent-avatar {
+.pulse-ai-agent-avatar {
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -2493,38 +2493,38 @@ a.pulse-activity-title:hover {
   flex-shrink: 0;
 }
 
-.pulse-subagent-info {
+.pulse-ai-agent-info {
   flex: 1;
   min-width: 0;
 }
 
-.pulse-subagent-name {
+.pulse-ai-agent-name {
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 4px;
 }
 
-.pulse-subagent-name a {
+.pulse-ai-agent-name a {
   color: var(--color-fg-default);
   text-decoration: none;
 }
 
-.pulse-subagent-name a:hover {
+.pulse-ai-agent-name a:hover {
   color: var(--color-accent-fg);
 }
 
-.pulse-subagent-meta {
+.pulse-ai-agent-meta {
   font-size: 12px;
   color: var(--color-fg-muted);
 }
 
-.pulse-subagent-actions {
+.pulse-ai-agent-actions {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
 }
 
-.pulse-subagent-studios {
+.pulse-ai-agent-studios {
   padding-top: 16px;
   border-top: 1px solid var(--color-border-default);
 }
@@ -2614,12 +2614,12 @@ a.pulse-activity-title:hover {
 }
 
 /* Subagent Tokens Section */
-.pulse-subagent-tokens-section {
+.pulse-ai-agent-tokens-section {
   padding: 16px 0;
   border-bottom: 1px solid var(--color-border-default);
 }
 
-.pulse-subagent-tokens-section:last-child {
+.pulse-ai-agent-tokens-section:last-child {
   border-bottom: none;
 }
 
@@ -2737,7 +2737,7 @@ a.pulse-activity-title:hover {
   color: var(--color-accent-fg);
 }
 
-.pulse-user-subagent-count {
+.pulse-user-ai-agent-count {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2746,7 +2746,7 @@ a.pulse-activity-title:hover {
   margin-bottom: 16px;
 }
 
-.pulse-user-subagent-count .octicon {
+.pulse-user-ai-agent-count .octicon {
   fill: currentColor;
 }
 

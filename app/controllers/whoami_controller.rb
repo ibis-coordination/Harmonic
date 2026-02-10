@@ -17,12 +17,12 @@ class WhoamiController < ApplicationController
   end
 
   def describe_update_scratchpad
-    return render plain: "403 Unauthorized", status: 403 unless current_user&.subagent?
+    return render plain: "403 Unauthorized", status: 403 unless current_user&.ai_agent?
     render_action_description(ActionsHelper.action_description("update_scratchpad"))
   end
 
   def execute_update_scratchpad
-    return render plain: "403 Unauthorized", status: 403 unless current_user&.subagent?
+    return render plain: "403 Unauthorized", status: 403 unless current_user&.ai_agent?
 
     content = params[:content].to_s
 

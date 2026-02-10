@@ -24,92 +24,92 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "# User: #{@user.display_name}"
   end
 
-  # === Subagent Count Tests (HTML) ===
+  # === AiAgent Count Tests (HTML) ===
 
-  test "person user profile shows subagent count when they have subagents" do
-    subagent1 = create_subagent(parent: @user, name: "Subagent One")
-    subagent2 = create_subagent(parent: @user, name: "Subagent Two")
-    @tenant.add_user!(subagent1)
-    @tenant.add_user!(subagent2)
-
-    sign_in_as(@user, tenant: @tenant)
-    get "/u/#{@user.handle}"
-    assert_response :success
-    assert_includes response.body, "Has 2 subagents"
-  end
-
-  test "person user profile shows singular subagent when they have one" do
-    subagent = create_subagent(parent: @user, name: "Only Subagent")
-    @tenant.add_user!(subagent)
+  test "person user profile shows ai_agent count when they have ai_agents" do
+    ai_agent1 = create_ai_agent(parent: @user, name: "AiAgent One")
+    ai_agent2 = create_ai_agent(parent: @user, name: "AiAgent Two")
+    @tenant.add_user!(ai_agent1)
+    @tenant.add_user!(ai_agent2)
 
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
     assert_response :success
-    assert_includes response.body, "Has 1 subagent"
-    assert_not_includes response.body, "Has 1 subagents"
+    assert_includes response.body, "Has 2 ai_agents"
   end
 
-  test "person user profile does not show subagent count when they have none" do
+  test "person user profile shows singular ai_agent when they have one" do
+    ai_agent = create_ai_agent(parent: @user, name: "Only AiAgent")
+    @tenant.add_user!(ai_agent)
+
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
     assert_response :success
-    assert_not_includes response.body, "Has 0 subagent"
-    # The profile section should not mention subagents when user has none
-    # (Note: "Subagents" appears in navigation menu but that's expected)
-    assert_no_match(/Has \d+ subagent/, response.body)
+    assert_includes response.body, "Has 1 ai_agent"
+    assert_not_includes response.body, "Has 1 ai_agents"
   end
 
-  test "subagent profile does not show subagent count" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
-    @superagent.add_user!(subagent)
+  test "person user profile does not show ai_agent count when they have none" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_not_includes response.body, "Has 0 ai_agent"
+    # The profile section should not mention ai_agents when user has none
+    # (Note: "AiAgents" appears in navigation menu but that's expected)
+    assert_no_match(/Has \d+ ai_agent/, response.body)
+  end
+
+  test "ai_agent profile does not show ai_agent count" do
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
+    @superagent.add_user!(ai_agent)
 
     sign_in_as(@user, tenant: @tenant)
-    get "/u/#{subagent.handle}"
+    get "/u/#{ai_agent.handle}"
     assert_response :success
-    # Subagent shows "subagent" badge and "Managed by" but not "Has N subagents"
-    assert_includes response.body, "subagent"
-    assert_not_includes response.body, "Has 0 subagent"
-    assert_not_includes response.body, "Has 1 subagent"
+    # AiAgent shows "ai_agent" badge and "Managed by" but not "Has N ai_agents"
+    assert_includes response.body, "ai_agent"
+    assert_not_includes response.body, "Has 0 ai_agent"
+    assert_not_includes response.body, "Has 1 ai_agent"
   end
 
-  # === Subagent Count Tests (Markdown) ===
+  # === AiAgent Count Tests (Markdown) ===
 
-  test "markdown person profile shows subagent count when they have subagents" do
-    subagent1 = create_subagent(parent: @user, name: "Subagent One")
-    subagent2 = create_subagent(parent: @user, name: "Subagent Two")
-    @tenant.add_user!(subagent1)
-    @tenant.add_user!(subagent2)
+  test "markdown person profile shows ai_agent count when they have ai_agents" do
+    ai_agent1 = create_ai_agent(parent: @user, name: "AiAgent One")
+    ai_agent2 = create_ai_agent(parent: @user, name: "AiAgent Two")
+    @tenant.add_user!(ai_agent1)
+    @tenant.add_user!(ai_agent2)
 
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_includes response.body, "Has 2 subagents"
+    assert_includes response.body, "Has 2 ai_agents"
   end
 
-  test "markdown person profile does not show subagent count when they have none" do
+  test "markdown person profile does not show ai_agent count when they have none" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_not_includes response.body, "Has 0 subagent"
+    assert_not_includes response.body, "Has 0 ai_agent"
   end
 
-  # === Subagent Count Scoping Tests ===
+  # === AiAgent Count Scoping Tests ===
 
-  test "subagent count only includes subagents in current tenant" do
-    # Create two subagents
-    subagent1 = create_subagent(parent: @user, name: "Subagent In Tenant")
-    subagent2 = create_subagent(parent: @user, name: "Subagent Not In Tenant")
+  test "ai_agent count only includes ai_agents in current tenant" do
+    # Create two ai_agents
+    ai_agent1 = create_ai_agent(parent: @user, name: "AiAgent In Tenant")
+    ai_agent2 = create_ai_agent(parent: @user, name: "AiAgent Not In Tenant")
 
-    # Only add subagent1 to the current tenant
-    @tenant.add_user!(subagent1)
-    # subagent2 is not added to the tenant
+    # Only add ai_agent1 to the current tenant
+    @tenant.add_user!(ai_agent1)
+    # ai_agent2 is not added to the tenant
 
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
     assert_response :success
-    # Should only show 1 subagent (the one in this tenant)
-    assert_includes response.body, "Has 1 subagent"
-    assert_not_includes response.body, "Has 2 subagents"
+    # Should only show 1 ai_agent (the one in this tenant)
+    assert_includes response.body, "Has 1 ai_agent"
+    assert_not_includes response.body, "Has 2 ai_agents"
   end
 end

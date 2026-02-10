@@ -58,27 +58,27 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  # Create (subagent users only)
-  test "create creates a subagent user" do
+  # Create (ai_agent users only)
+  test "create creates a ai_agent user" do
     user_params = {
-      name: "Subagent Test User",
-      email: "subagent-#{SecureRandom.hex(4)}@example.com",
-      handle: "subagent-#{SecureRandom.hex(4)}"
+      name: "AiAgent Test User",
+      email: "ai_agent-#{SecureRandom.hex(4)}@example.com",
+      handle: "ai_agent-#{SecureRandom.hex(4)}"
     }
-    assert_difference "User.where(user_type: 'subagent').count", 1 do
+    assert_difference "User.where(user_type: 'ai_agent').count", 1 do
       post api_path, params: user_params.to_json, headers: @headers
     end
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal "subagent", body["user_type"]
-    assert_equal "Subagent Test User", body["display_name"]
+    assert_equal "ai_agent", body["user_type"]
+    assert_equal "AiAgent Test User", body["display_name"]
   end
 
   test "create with generate_token returns token" do
     user_params = {
-      name: "Subagent User with Token",
-      email: "subagent-token-#{SecureRandom.hex(4)}@example.com",
-      handle: "subagent-token-#{SecureRandom.hex(4)}",
+      name: "AiAgent User with Token",
+      email: "ai_agent-token-#{SecureRandom.hex(4)}@example.com",
+      handle: "ai_agent-token-#{SecureRandom.hex(4)}",
       generate_token: true
     }
     post api_path, params: user_params.to_json, headers: @headers
@@ -90,9 +90,9 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
 
   test "create without generate_token does not return token" do
     user_params = {
-      name: "Subagent User No Token",
-      email: "subagent-notoken-#{SecureRandom.hex(4)}@example.com",
-      handle: "subagent-notoken-#{SecureRandom.hex(4)}"
+      name: "AiAgent User No Token",
+      email: "ai_agent-notoken-#{SecureRandom.hex(4)}@example.com",
+      handle: "ai_agent-notoken-#{SecureRandom.hex(4)}"
     }
     post api_path, params: user_params.to_json, headers: @headers
     assert_response :success
@@ -121,15 +121,15 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     assert_equal "Updated Display Name", @user.display_name
   end
 
-  test "update can update subagent user created by current user" do
-    # Create a subagent user
-    subagent = create_subagent(parent: @user, name: "Subagent for Update")
-    @tenant.add_user!(subagent)
-    update_params = { display_name: "Updated Subagent Name" }
-    put api_path("/#{subagent.id}"), params: update_params.to_json, headers: @headers
+  test "update can update ai_agent user created by current user" do
+    # Create a ai_agent user
+    ai_agent = create_ai_agent(parent: @user, name: "AiAgent for Update")
+    @tenant.add_user!(ai_agent)
+    update_params = { display_name: "Updated AiAgent Name" }
+    put api_path("/#{ai_agent.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
-    subagent.reload
-    assert_equal "Updated Subagent Name", subagent.display_name
+    ai_agent.reload
+    assert_equal "Updated AiAgent Name", ai_agent.display_name
   end
 
   test "update cannot update other person user" do
@@ -140,23 +140,23 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
-  test "update can archive subagent user" do
-    subagent = create_subagent(parent: @user, name: "Subagent for Archive")
-    @tenant.add_user!(subagent)
+  test "update can archive ai_agent user" do
+    ai_agent = create_ai_agent(parent: @user, name: "AiAgent for Archive")
+    @tenant.add_user!(ai_agent)
     update_params = { archived: true }
-    put api_path("/#{subagent.id}"), params: update_params.to_json, headers: @headers
+    put api_path("/#{ai_agent.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
     # User#tenant_user is memoized, so we need to query fresh
-    tenant_user = TenantUser.find_by(user_id: subagent.id, tenant_id: @tenant.id)
-    assert tenant_user.archived_at.present?, "Subagent should be archived"
+    tenant_user = TenantUser.find_by(user_id: ai_agent.id, tenant_id: @tenant.id)
+    assert tenant_user.archived_at.present?, "AiAgent should be archived"
   end
 
   # Delete
-  test "delete deletes subagent user with no data" do
-    subagent = create_subagent(parent: @user, name: "Subagent for Delete")
-    @tenant.add_user!(subagent)
+  test "delete deletes ai_agent user with no data" do
+    ai_agent = create_ai_agent(parent: @user, name: "AiAgent for Delete")
+    @tenant.add_user!(ai_agent)
     assert_difference "User.count", -1 do
-      delete api_path("/#{subagent.id}"), headers: @headers
+      delete api_path("/#{ai_agent.id}"), headers: @headers
     end
     assert_response :success
   end

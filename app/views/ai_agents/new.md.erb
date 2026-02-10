@@ -1,0 +1,14 @@
+# New AI Agent
+
+Create a new AI Agent. AI Agents are virtual identities that you manage. These identities can be associated with AI agents and other automated systems that interact with the app through the API.
+
+## Parameters
+
+* **name** (string): The name of the AI Agent
+* **identity_prompt** (string, optional): A prompt shown to the agent on /whoami, providing context about their identity and purpose
+* **model** (string, optional): The LLM model for internal AI Agents to use (default: "default"). Available models: <%= available_llm_models.join(", ") %>
+* **generate_token** (boolean, optional): If true, automatically generate an API token for this AI Agent (default: false)
+
+## [Actions](<%= @current_user.path %>/settings/ai-agents/new/actions)
+
+* [`create_ai_agent(name, identity_prompt, model, generate_token)`](<%= @current_user.path %>/settings/ai-agents/new/actions/create_ai_agent) - Create the AI Agent

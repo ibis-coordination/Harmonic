@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 
-export default class SubagentModeController extends Controller {
+export default class AiAgentModeController extends Controller {
   static targets = ["externalOnly", "internalOnly"]
 
   declare readonly externalOnlyTargets: HTMLElement[]

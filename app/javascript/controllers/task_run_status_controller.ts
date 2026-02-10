@@ -20,7 +20,7 @@ interface StatusResponse {
  *
  * Usage:
  * <div data-controller="task-run-status"
- *      data-task-run-status-url-value="/subagents/bot/runs/123"
+ *      data-task-run-status-url-value="/ai-agents/bot/runs/123"
  *      data-task-run-status-status-value="running"
  *      data-task-run-status-steps-count-value="0">
  * </div>

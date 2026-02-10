@@ -1,8 +1,8 @@
 # typed: false
 require "test_helper"
 
-class SubagentsHelperTest < ActionView::TestCase
-  include SubagentsHelper
+class AiAgentsHelperTest < ActionView::TestCase
+  include AiAgentsHelper
 
   test "strip_trailing_json_action removes fenced JSON block at end" do
     response = <<~RESPONSE

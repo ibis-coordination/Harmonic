@@ -1,6 +1,6 @@
 # typed: false
 
-module SubagentsHelper
+module AiAgentsHelper
   # Strip trailing JSON action block from LLM response for display.
   # The JSON action is shown in the subsequent step, so it's redundant here.
   #

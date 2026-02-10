@@ -271,6 +271,34 @@ class Scene
 
   module GeneratedAssociationMethods
     sig { returns(T::Array[T.untyped]) }
+    def ai_agent_task_run_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def ai_agent_task_run_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def ai_agent_task_run_resource_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def ai_agent_task_run_resource_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :ai_agent_task_run_resources`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AiAgentTaskRunResource::PrivateCollectionProxy) }
+    def ai_agent_task_run_resources; end
+
+    sig { params(value: T::Enumerable[::AiAgentTaskRunResource]).void }
+    def ai_agent_task_run_resources=(value); end
+
+    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :ai_agent_task_runs`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AiAgentTaskRun::PrivateCollectionProxy) }
+    def ai_agent_task_runs; end
+
+    sig { params(value: T::Enumerable[::AiAgentTaskRun]).void }
+    def ai_agent_task_runs=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def attachment_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -293,11 +321,11 @@ class Scene
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Blob) }
     def build_image_blob(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def build_proxy_user(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def build_trustee_user(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_updated_by(*args, &blk); end
@@ -348,17 +376,17 @@ class Scene
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Blob) }
     def create_image_blob!(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_proxy_user(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_proxy_user!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_trustee_user(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_trustee_user!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_updated_by(*args, &blk); end
@@ -553,6 +581,12 @@ class Scene
     def options=(value); end
 
     sig { returns(T.nilable(::User)) }
+    def proxy_user; end
+
+    sig { params(value: T.nilable(::User)).void }
+    def proxy_user=(value); end
+
+    sig { returns(T.nilable(::User)) }
     def reload_created_by; end
 
     sig { returns(T.nilable(::ActiveStorage::Attachment)) }
@@ -561,28 +595,14 @@ class Scene
     sig { returns(T.nilable(::ActiveStorage::Blob)) }
     def reload_image_blob; end
 
+    sig { returns(T.nilable(::User)) }
+    def reload_proxy_user; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
     sig { returns(T.nilable(::User)) }
-    def reload_trustee_user; end
-
-    sig { returns(T.nilable(::User)) }
     def reload_updated_by; end
-
-    sig { returns(T::Array[T.untyped]) }
-    def representation_session_association_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def representation_session_association_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :representation_session_associations`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::RepresentationSessionAssociation::PrivateCollectionProxy) }
-    def representation_session_associations; end
-
-    sig { params(value: T::Enumerable[::RepresentationSessionAssociation]).void }
-    def representation_session_associations=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def representation_session_event_ids; end
@@ -622,10 +642,10 @@ class Scene
     def reset_image_blob; end
 
     sig { void }
-    def reset_tenant; end
+    def reset_proxy_user; end
 
     sig { void }
-    def reset_trustee_user; end
+    def reset_tenant; end
 
     sig { void }
     def reset_updated_by; end
@@ -643,34 +663,6 @@ class Scene
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def search_index_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def subagent_task_run_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def subagent_task_run_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def subagent_task_run_resource_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def subagent_task_run_resource_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :subagent_task_run_resources`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::SubagentTaskRunResource::PrivateCollectionProxy) }
-    def subagent_task_run_resources; end
-
-    sig { params(value: T::Enumerable[::SubagentTaskRunResource]).void }
-    def subagent_task_run_resources=(value); end
-
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :subagent_task_runs`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::SubagentTaskRun::PrivateCollectionProxy) }
-    def subagent_task_runs; end
-
-    sig { params(value: T::Enumerable[::SubagentTaskRun]).void }
-    def subagent_task_runs=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def superagent_member_ids; end
@@ -705,12 +697,6 @@ class Scene
 
     sig { params(value: T::Enumerable[::TrusteeGrant]).void }
     def trustee_grants=(value); end
-
-    sig { returns(T.nilable(::User)) }
-    def trustee_user; end
-
-    sig { params(value: T.nilable(::User)).void }
-    def trustee_user=(value); end
 
     sig { returns(T.nilable(::User)) }
     def updated_by; end
@@ -1288,6 +1274,51 @@ class Scene
     sig { void }
     def name_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def proxy_user_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def proxy_user_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def proxy_user_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def proxy_user_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def proxy_user_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def proxy_user_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def proxy_user_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def proxy_user_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def proxy_user_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def proxy_user_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def proxy_user_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def proxy_user_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def proxy_user_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def proxy_user_id_was; end
+
+    sig { void }
+    def proxy_user_id_will_change!; end
+
     sig { void }
     def restore_created_at!; end
 
@@ -1310,6 +1341,9 @@ class Scene
     def restore_name!; end
 
     sig { void }
+    def restore_proxy_user_id!; end
+
+    sig { void }
     def restore_settings!; end
 
     sig { void }
@@ -1317,9 +1351,6 @@ class Scene
 
     sig { void }
     def restore_tenant_id!; end
-
-    sig { void }
-    def restore_trustee_user_id!; end
 
     sig { void }
     def restore_updated_at!; end
@@ -1369,6 +1400,12 @@ class Scene
     sig { returns(T::Boolean) }
     def saved_change_to_name?; end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_proxy_user_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_proxy_user_id?; end
+
     sig { returns(T.nilable([T.untyped, T.untyped])) }
     def saved_change_to_settings; end
 
@@ -1386,12 +1423,6 @@ class Scene
 
     sig { returns(T::Boolean) }
     def saved_change_to_tenant_id?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_trustee_user_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_trustee_user_id?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
@@ -1540,51 +1571,6 @@ class Scene
     sig { void }
     def tenant_id_will_change!; end
 
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def trustee_user_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def trustee_user_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def trustee_user_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def trustee_user_id_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def trustee_user_id_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def trustee_user_id_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def trustee_user_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def trustee_user_id_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def trustee_user_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def trustee_user_id_was; end
-
-    sig { void }
-    def trustee_user_id_will_change!; end
-
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
 
@@ -1697,6 +1683,9 @@ class Scene
     def will_save_change_to_name?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_proxy_user_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_settings?; end
 
     sig { returns(T::Boolean) }
@@ -1704,9 +1693,6 @@ class Scene
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_trustee_user_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_updated_at?; end

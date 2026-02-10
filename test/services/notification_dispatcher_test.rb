@@ -213,7 +213,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   # Preference-based channel selection tests
 
   test "channels_for_user returns default in_app when no tenant_user" do
-    user = User.new(email: "test@example.com", name: "Test", user_type: "person")
+    user = User.new(email: "test@example.com", name: "Test", user_type: "human")
 
     channels = NotificationDispatcher.channels_for_user(user, "mention")
     assert_equal ["in_app"], channels
@@ -449,26 +449,26 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_equal decision_owner.id, recipient.user_id
   end
 
-  # Subagent task triggering tests
+  # AiAgent task triggering tests
 
-  test "handle_note_event creates queued task and enqueues processor when subagent is mentioned" do
+  test "handle_note_event creates queued task and enqueues processor when ai_agent is mentioned" do
     tenant, superagent, user = create_tenant_superagent_user
-    tenant.enable_feature_flag!("subagents")
+    tenant.enable_feature_flag!("ai_agents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Mention Test Agent",
       email: "mention-test-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "testagent")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
-    # Create note mentioning the subagent
+    # Create note mentioning the ai_agent
     note = create_note(
       tenant: tenant,
       superagent: superagent,
@@ -479,36 +479,36 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     event = Event.where(event_type: "note.created", subject: note).last
 
     # Check that task run was created with queued status and processor job enqueued
-    assert_difference "SubagentTaskRun.count", 1 do
+    assert_difference "AiAgentTaskRun.count", 1 do
       assert_enqueued_with(job: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
 
-    task_run = SubagentTaskRun.last
+    task_run = AiAgentTaskRun.last
     assert_equal "queued", task_run.status
-    assert_equal subagent.id, task_run.subagent_id
+    assert_equal ai_agent.id, task_run.ai_agent_id
     assert_equal user.id, task_run.initiated_by_id
   end
 
-  test "handle_note_event does not create task when subagents feature disabled" do
+  test "handle_note_event does not create task when ai_agents feature disabled" do
     tenant, superagent, user = create_tenant_superagent_user
     # Note: feature flag NOT enabled
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Disabled Feature Agent",
       email: "disabled-feature-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "disabledagent")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
-    # Create note mentioning the subagent
+    # Create note mentioning the ai_agent
     note = create_note(
       tenant: tenant,
       superagent: superagent,
@@ -519,43 +519,43 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     event = Event.where(event_type: "note.created", subject: note).last
 
     # No task should be created and no job should be enqueued
-    assert_no_difference "SubagentTaskRun.count" do
+    assert_no_difference "AiAgentTaskRun.count" do
       assert_no_enqueued_jobs(only: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
   end
 
-  test "handle_note_event rate limits subagent task triggers" do
+  test "handle_note_event rate limits ai_agent task triggers" do
     tenant, superagent, user = create_tenant_superagent_user
-    tenant.enable_feature_flag!("subagents")
+    tenant.enable_feature_flag!("ai_agents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Rate Limit Agent",
       email: "rate-limit-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "ratelimited")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
     # Create 3 recent task runs to hit rate limit
     3.times do
-      SubagentTaskRun.create!(
+      AiAgentTaskRun.create!(
         tenant: tenant,
-        subagent: subagent,
+        ai_agent: ai_agent,
         initiated_by: user,
         task: "test task",
-        max_steps: SubagentTaskRun::DEFAULT_MAX_STEPS,
+        max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
         status: "completed"
       )
     end
 
-    # Create note mentioning the subagent
+    # Create note mentioning the ai_agent
     note = create_note(
       tenant: tenant,
       superagent: superagent,
@@ -566,31 +566,31 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     event = Event.where(event_type: "note.created", subject: note).last
 
     # No task should be created and no job should be enqueued due to rate limit
-    assert_no_difference "SubagentTaskRun.count" do
+    assert_no_difference "AiAgentTaskRun.count" do
       assert_no_enqueued_jobs(only: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
   end
 
-  test "handle_decision_created_event creates queued task when subagent is mentioned" do
+  test "handle_decision_created_event creates queued task when ai_agent is mentioned" do
     tenant, superagent, user = create_tenant_superagent_user
-    tenant.enable_feature_flag!("subagents")
+    tenant.enable_feature_flag!("ai_agents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Decision Agent",
       email: "decision-agent-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "decisionagent")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
-    # Create decision mentioning the subagent
+    # Create decision mentioning the ai_agent
     decision = create_decision(
       tenant: tenant,
       superagent: superagent,
@@ -601,34 +601,34 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     event = Event.where(event_type: "decision.created", subject: decision).last
 
     # Check that task run was created with queued status and processor job enqueued
-    assert_difference "SubagentTaskRun.count", 1 do
+    assert_difference "AiAgentTaskRun.count", 1 do
       assert_enqueued_with(job: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
 
-    task_run = SubagentTaskRun.last
+    task_run = AiAgentTaskRun.last
     assert_equal "queued", task_run.status
   end
 
-  test "trigger_subagent_tasks creates task run with correct context" do
+  test "trigger_ai_agent_tasks creates task run with correct context" do
     tenant, superagent, user = create_tenant_superagent_user
-    tenant.enable_feature_flag!("subagents")
+    tenant.enable_feature_flag!("ai_agents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Context Test Agent",
       email: "context-test-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "contextagent")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
-    # Create note mentioning the subagent
+    # Create note mentioning the ai_agent
     note = create_note(
       tenant: tenant,
       superagent: superagent,
@@ -639,14 +639,14 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     event = Event.where(event_type: "note.created", subject: note).last
 
     # Check that task run was created with correct context
-    assert_difference "SubagentTaskRun.count", 1 do
+    assert_difference "AiAgentTaskRun.count", 1 do
       assert_enqueued_with(job: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
 
-    task_run = SubagentTaskRun.last
-    assert_equal subagent.id, task_run.subagent_id
+    task_run = AiAgentTaskRun.last
+    assert_equal ai_agent.id, task_run.ai_agent_id
     assert_equal tenant.id, task_run.tenant_id
     assert_equal user.id, task_run.initiated_by_id
     assert_equal "queued", task_run.status
@@ -655,38 +655,38 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_includes task_run.task, "/notifications"
   end
 
-  test "handle_comment_event creates queued task when commenting on subagent content" do
+  test "handle_comment_event creates queued task when commenting on ai_agent content" do
     tenant, superagent, user = create_tenant_superagent_user
-    tenant.enable_feature_flag!("subagents")
+    tenant.enable_feature_flag!("ai_agents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Content Owner Agent",
       email: "content-owner-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "owneragent")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
-    # Create a note owned by the subagent
-    subagent_note = create_note(
+    # Create a note owned by the ai_agent
+    ai_agent_note = create_note(
       tenant: tenant,
       superagent: superagent,
-      created_by: subagent,
+      created_by: ai_agent,
       text: "This is a note from the agent"
     )
 
-    # User comments on the subagent's note
+    # User comments on the ai_agent's note
     comment = Note.create!(
       tenant: tenant,
       superagent: superagent,
       created_by: user,
       text: "Great note!",
-      commentable: subagent_note
+      commentable: ai_agent_note
     )
 
     event = Event.create!(
@@ -698,49 +698,49 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     )
 
     # Check that task run was created with queued status and processor job enqueued
-    assert_difference "SubagentTaskRun.count", 1 do
+    assert_difference "AiAgentTaskRun.count", 1 do
       assert_enqueued_with(job: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
 
-    task_run = SubagentTaskRun.last
+    task_run = AiAgentTaskRun.last
     assert_equal "queued", task_run.status
-    assert_equal subagent.id, task_run.subagent_id
+    assert_equal ai_agent.id, task_run.ai_agent_id
   end
 
-  test "handle_reply_notification creates queued task when replying to subagent content" do
+  test "handle_reply_notification creates queued task when replying to ai_agent content" do
     tenant, superagent, user = create_tenant_superagent_user
-    tenant.enable_feature_flag!("subagents")
+    tenant.enable_feature_flag!("ai_agents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Reply Target Agent",
       email: "reply-target-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "replyagent")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
-    # Create a note owned by the subagent
-    subagent_note = create_note(
+    # Create a note owned by the ai_agent
+    ai_agent_note = create_note(
       tenant: tenant,
       superagent: superagent,
-      created_by: subagent,
+      created_by: ai_agent,
       text: "Agent's original note"
     )
 
-    # User replies to the subagent's note (via note.created event with commentable)
+    # User replies to the ai_agent's note (via note.created event with commentable)
     reply = Note.create!(
       tenant: tenant,
       superagent: superagent,
       created_by: user,
       text: "I have a follow-up question",
-      commentable: subagent_note
+      commentable: ai_agent_note
     )
 
     event = Event.create!(
@@ -752,33 +752,33 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     )
 
     # Check that task run was created with queued status (via handle_reply_notification path)
-    assert_difference "SubagentTaskRun.count", 1 do
+    assert_difference "AiAgentTaskRun.count", 1 do
       assert_enqueued_with(job: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
 
-    task_run = SubagentTaskRun.last
+    task_run = AiAgentTaskRun.last
     assert_equal "queued", task_run.status
-    assert_equal subagent.id, task_run.subagent_id
+    assert_equal ai_agent.id, task_run.ai_agent_id
   end
 
-  test "handle_comment_event creates queued task when subagent has commented on same content" do
+  test "handle_comment_event creates queued task when ai_agent has commented on same content" do
     tenant, superagent, user = create_tenant_superagent_user
-    tenant.enable_feature_flag!("subagents")
+    tenant.enable_feature_flag!("ai_agents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Conversation Agent",
       email: "conversation-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "convoagent")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
     # User creates a note
     original_note = create_note(
@@ -788,16 +788,16 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       text: "Let's discuss this topic"
     )
 
-    # Subagent comments on user's note
-    subagent_comment = Note.create!(
+    # AiAgent comments on user's note
+    ai_agent_comment = Note.create!(
       tenant: tenant,
       superagent: superagent,
-      created_by: subagent,
+      created_by: ai_agent,
       text: "Here's my perspective...",
       commentable: original_note
     )
 
-    # User replies to the conversation (on their own note, after subagent commented)
+    # User replies to the conversation (on their own note, after ai_agent commented)
     user_reply = Note.create!(
       tenant: tenant,
       superagent: superagent,
@@ -814,34 +814,34 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       subject: user_reply
     )
 
-    # Check that task run was created for the subagent who previously commented
-    assert_difference "SubagentTaskRun.count", 1 do
+    # Check that task run was created for the ai_agent who previously commented
+    assert_difference "AiAgentTaskRun.count", 1 do
       assert_enqueued_with(job: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
 
-    task_run = SubagentTaskRun.last
+    task_run = AiAgentTaskRun.last
     assert_equal "queued", task_run.status
-    assert_equal subagent.id, task_run.subagent_id
+    assert_equal ai_agent.id, task_run.ai_agent_id
   end
 
-  test "handle_reply_notification creates queued task when subagent has commented on same content" do
+  test "handle_reply_notification creates queued task when ai_agent has commented on same content" do
     tenant, superagent, user = create_tenant_superagent_user
-    tenant.enable_feature_flag!("subagents")
+    tenant.enable_feature_flag!("ai_agents")
     Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
 
-    # Create a subagent
-    subagent = User.create!(
+    # Create a ai_agent
+    ai_agent = User.create!(
       name: "Thread Agent",
       email: "thread-#{SecureRandom.hex(4)}@not-real.com",
-      user_type: "subagent",
+      user_type: "ai_agent",
       parent_id: user.id
     )
-    tu = tenant.add_user!(subagent)
-    subagent.tenant_user = tu
+    tu = tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
     tu.update!(handle: "threadagent")
-    SuperagentMember.create!(superagent: superagent, user: subagent)
+    SuperagentMember.create!(superagent: superagent, user: ai_agent)
 
     # User creates a note
     original_note = create_note(
@@ -851,11 +851,11 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       text: "Starting a discussion"
     )
 
-    # Subagent comments on user's note
-    subagent_comment = Note.create!(
+    # AiAgent comments on user's note
+    ai_agent_comment = Note.create!(
       tenant: tenant,
       superagent: superagent,
-      created_by: subagent,
+      created_by: ai_agent,
       text: "I have thoughts on this...",
       commentable: original_note
     )
@@ -877,15 +877,15 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       subject: user_reply
     )
 
-    # Check that task run was created for the subagent who previously commented
-    assert_difference "SubagentTaskRun.count", 1 do
+    # Check that task run was created for the ai_agent who previously commented
+    assert_difference "AiAgentTaskRun.count", 1 do
       assert_enqueued_with(job: AgentQueueProcessorJob) do
         NotificationDispatcher.dispatch(event)
       end
     end
 
-    task_run = SubagentTaskRun.last
+    task_run = AiAgentTaskRun.last
     assert_equal "queued", task_run.status
-    assert_equal subagent.id, task_run.subagent_id
+    assert_equal ai_agent.id, task_run.ai_agent_id
   end
 end

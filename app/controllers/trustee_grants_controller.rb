@@ -471,7 +471,7 @@ class TrusteeGrantsController < ApplicationController
       .where(tenant_users: { tenant_id: @current_tenant.id })
       .where.not(id: @target_user.id)
       .where.not(id: existing_trustee_user_ids)
-      .where(user_type: ["person", "subagent"])
+      .where(user_type: ["human", "ai_agent"])
   end
 
   def find_trustee_user(user_id)

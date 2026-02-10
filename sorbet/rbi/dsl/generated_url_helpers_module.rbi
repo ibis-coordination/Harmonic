@@ -25,6 +25,21 @@ module GeneratedUrlHelpersModule
   def admin_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def ai_agent_execute_task_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_run_task_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_run_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_runs_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agents_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def api_app_admin_tenant_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -148,7 +163,7 @@ module GeneratedUrlHelpersModule
   def auth_failure_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def cancel_subagent_run_url(*args); end
+  def cancel_ai_agent_run_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def commit_actions_create_commitment_url(*args); end
@@ -316,6 +331,9 @@ module GeneratedUrlHelpersModule
   def learn_acceptance_voting_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def learn_ai_agency_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def learn_awareness_indicators_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -323,9 +341,6 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def learn_reciprocal_commitment_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def learn_subagency_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def learn_superagency_url(*args); end
@@ -445,10 +460,10 @@ module GeneratedUrlHelpersModule
   def new_rails_conductor_inbound_email_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_user_api_token_url(*args); end
+  def new_user_ai_agent_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def new_user_subagent_url(*args); end
+  def new_user_api_token_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def note_actions_add_comment_url(*args); end
@@ -652,13 +667,13 @@ module GeneratedUrlHelpersModule
   def settings_actions_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def settings_ai_agents_new_actions_create_ai_agent_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def settings_ai_agents_new_actions_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def settings_profile_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_subagents_new_actions_create_subagent_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_subagents_new_actions_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def settings_tokens_new_actions_create_api_token_user_url(*args); end
@@ -719,21 +734,6 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def studios_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagent_execute_task_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagent_run_task_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagent_run_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagent_runs_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def subagents_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def suspend_api_app_admin_tenant_url(*args); end
@@ -799,16 +799,16 @@ module GeneratedUrlHelpersModule
   def update_rails_disk_service_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def user_ai_agent_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def user_ai_agents_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def user_api_token_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def user_api_tokens_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def user_subagent_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def user_subagents_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def user_url(*args); end

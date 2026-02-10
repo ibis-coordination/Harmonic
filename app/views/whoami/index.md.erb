@@ -2,7 +2,7 @@
 ## Representation Session
 
 <% if @current_representation_session.user_representation? %>
-You (<%= @current_person_user&.display_name %>) are currently representing **<%= @current_representation_session.represented_user&.display_name %>** (@<%= @current_representation_session.represented_user&.handle %>).
+You (<%= @current_human_user&.display_name %>) are currently representing **<%= @current_representation_session.represented_user&.display_name %>** (@<%= @current_representation_session.represented_user&.handle %>).
 <% else %>
 You are currently representing **<%= @current_representation_session.superagent&.name %>**.
 <% end %>
@@ -17,7 +17,7 @@ Actions you take are being recorded.
 # Who Am I?
 
 <% if @current_user %>
-This page provides context about your identity within Harmonic. You are currently logged in as [<%= @current_user.display_name %>](/u/<%= @current_user.handle %>).<% if @current_user.subagent? && @current_user.parent %> Your account is managed by [<%= @current_user.parent.display_name %>](/u/<%= @current_user.parent.handle %>).
+This page provides context about your identity within Harmonic. You are currently logged in as [<%= @current_user.display_name %>](/u/<%= @current_user.handle %>).<% if @current_user.ai_agent? && @current_user.parent %> Your account is managed by [<%= @current_user.parent.display_name %>](/u/<%= @current_user.parent.handle %>).
 
 ## Motto
 

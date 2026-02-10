@@ -115,17 +115,17 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
 
   # Test: Representative authorization
   test "representative authorization checks can_represent?" do
-    # Create a subagent owned by @user
-    subagent = User.create!(
-      email: "subagent@example.com",
-      name: "Test Subagent",
-      user_type: "subagent",
+    # Create a ai_agent owned by @user
+    ai_agent = User.create!(
+      email: "ai_agent@example.com",
+      name: "Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent)
-    context = { target: subagent }
+    @tenant.add_user!(ai_agent)
+    context = { target: ai_agent }
 
-    # Parent can represent their subagent
+    # Parent can represent their ai_agent
     assert ActionAuthorization.check_authorization(:representative, @user, context)
 
     # Other users cannot
@@ -298,17 +298,17 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
   end
 
   test "webhook authorization allows representative for user webhooks" do
-    # Create a subagent owned by @user
-    subagent = User.create!(
-      email: "webhook-subagent@example.com",
-      name: "Webhook Test Subagent",
-      user_type: "subagent",
+    # Create a ai_agent owned by @user
+    ai_agent = User.create!(
+      email: "webhook-ai_agent@example.com",
+      name: "Webhook Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent)
-    context = { target_user: subagent }
+    @tenant.add_user!(ai_agent)
+    context = { target_user: ai_agent }
 
-    # Parent (representative) can manage subagent's webhooks
+    # Parent (representative) can manage ai_agent's webhooks
     assert ActionAuthorization.authorized?("create_webhook", @user, context)
 
     # Unrelated user cannot
@@ -317,25 +317,25 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("create_webhook", other_user, context)
   end
 
-  # Test: Person-only actions (create_subagent, create_api_token)
+  # Test: Person-only actions (create_ai_agent, create_api_token)
   test "person-only actions are restricted to person user type" do
     # Person user can see these actions (no context = listing)
-    assert ActionAuthorization.authorized?("create_subagent", @user, {})
+    assert ActionAuthorization.authorized?("create_ai_agent", @user, {})
     assert ActionAuthorization.authorized?("create_api_token", @user, {})
 
-    # Create a subagent - subagents cannot create other subagents or API tokens
-    subagent = User.create!(
-      email: "subagent-test@example.com",
-      name: "Test Subagent",
-      user_type: "subagent",
+    # Create a ai_agent - ai_agents cannot create other ai_agents or API tokens
+    ai_agent = User.create!(
+      email: "ai_agent-test@example.com",
+      name: "Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
 
-    refute ActionAuthorization.authorized?("create_subagent", subagent, {})
-    refute ActionAuthorization.authorized?("create_api_token", subagent, {})
+    refute ActionAuthorization.authorized?("create_ai_agent", ai_agent, {})
+    refute ActionAuthorization.authorized?("create_api_token", ai_agent, {})
 
-    # Create a superagent_proxy - proxy users also cannot create subagents or API tokens
+    # Create a superagent_proxy - proxy users also cannot create ai_agents or API tokens
     proxy = User.create!(
       email: "proxy-test@example.com",
       name: "Test Proxy",
@@ -343,7 +343,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     )
     @tenant.add_user!(proxy)
 
-    refute ActionAuthorization.authorized?("create_subagent", proxy, {})
+    refute ActionAuthorization.authorized?("create_ai_agent", proxy, {})
     refute ActionAuthorization.authorized?("create_api_token", proxy, {})
   end
 
@@ -351,27 +351,27 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     context = { target_user: @user, target: @user }
 
     # Person user acting on themselves
-    assert ActionAuthorization.authorized?("create_subagent", @user, context)
+    assert ActionAuthorization.authorized?("create_ai_agent", @user, context)
     assert ActionAuthorization.authorized?("create_api_token", @user, context)
 
-    # Create a subagent owned by @user
-    subagent = User.create!(
-      email: "subagent-context@example.com",
-      name: "Context Test Subagent",
-      user_type: "subagent",
+    # Create a ai_agent owned by @user
+    ai_agent = User.create!(
+      email: "ai_agent-context@example.com",
+      name: "Context Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id
     )
-    @tenant.add_user!(subagent)
-    subagent_context = { target_user: subagent, target: subagent }
+    @tenant.add_user!(ai_agent)
+    ai_agent_context = { target_user: ai_agent, target: ai_agent }
 
-    # Parent (person) can create tokens/subagents for their subagent
-    assert ActionAuthorization.authorized?("create_subagent", @user, subagent_context)
-    assert ActionAuthorization.authorized?("create_api_token", @user, subagent_context)
+    # Parent (person) can create tokens/ai_agents for their ai_agent
+    assert ActionAuthorization.authorized?("create_ai_agent", @user, ai_agent_context)
+    assert ActionAuthorization.authorized?("create_api_token", @user, ai_agent_context)
 
     # Other person cannot
     other_user = create_user
     @tenant.add_user!(other_user)
-    refute ActionAuthorization.authorized?("create_subagent", other_user, subagent_context)
-    refute ActionAuthorization.authorized?("create_api_token", other_user, subagent_context)
+    refute ActionAuthorization.authorized?("create_ai_agent", other_user, ai_agent_context)
+    refute ActionAuthorization.authorized?("create_api_token", other_user, ai_agent_context)
   end
 end

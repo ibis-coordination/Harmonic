@@ -8,7 +8,7 @@ Representation enables two distinct use cases:
 
 1. **Studio Representation (Collective Agency)**: A designated representative acts as the studio itself, with actions attributed to the studio's proxy user. Used when a studio needs to participate in other studios.
 
-2. **User Representation (Delegation)**: A trusted user acts on behalf of another user via a TrusteeGrant. Used when one person (e.g., a parent) needs to act for another (e.g., their subagent).
+2. **User Representation (Delegation)**: A trusted user acts on behalf of another user via a TrusteeGrant. Used when one person (e.g., a parent) needs to act for another (e.g., their ai_agent).
 
 Both types use the same `RepresentationSession` model but with different configurations.
 
@@ -67,12 +67,12 @@ end
 
 A user can represent another user if:
 
-1. **Parent of Subagent**: The trustee is the parent of a subagent (auto-granted on subagent creation)
+1. **Parent of AI Agent**: The trustee is the parent of a ai_agent (auto-granted on ai_agent creation)
 2. **Active TrusteeGrant**: An active TrusteeGrant exists where the current user is the `trustee_user`
 
 Checked via `User#can_represent?(user)`:
 ```ruby
-# Parent can represent their subagent
+# Parent can represent their ai_agent
 return true if is_parent_of?(user)
 
 # Check for active trustee grant
@@ -256,10 +256,10 @@ Grants can restrict which studios the trustee can act in:
 | `include` | Only listed studios |
 | `exclude` | All except listed studios |
 
-### Parent-Subagent Grants
+### Parent-AI Agent Grants
 
-When a subagent is created, an auto-accepted TrusteeGrant is created:
-- Granting user: the subagent
+When a ai_agent is created, an auto-accepted TrusteeGrant is created:
+- Granting user: the ai_agent
 - Trustee user: the parent
 - Permissions: all actions
 - Studio scope: all studios

@@ -73,9 +73,9 @@ class DataDeletionManager
       user.save!
       # API tokens are marked as deleted but not destroyed
       ApiToken.for_user_across_tenants(user).update_all(deleted_at: Time.current)
-      User.where(parent_id: user.id).each do |subagent| # User has no tenant scope
-        # Subagent users are not modified, but their API tokens are marked as deleted
-        ApiToken.for_user_across_tenants(subagent).update_all(deleted_at: Time.current)
+      User.where(parent_id: user.id).each do |ai_agent| # User has no tenant scope
+        # AI agent users are not modified, but their API tokens are marked as deleted
+        ApiToken.for_user_across_tenants(ai_agent).update_all(deleted_at: Time.current)
       end
       SuperagentMember.for_user_across_tenants(user).each do |superagent_member|
         superagent_member_is_sole_admin = superagent_member.is_admin? && superagent_member.superagent.admins.count == 1

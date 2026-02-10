@@ -22,7 +22,7 @@ class HonorSystemSessionsController < ApplicationController
       @current_user = User.find_by(email: params[:email]) || User.create!(
         email: params[:email],
         name: params[:name].presence || params[:email],
-        user_type: 'person'
+        user_type: 'human'
       )
       @current_user.update!(name: params[:name]) if params[:name].present?
       tenant_user = current_tenant.tenant_users.where(user: @current_user).first

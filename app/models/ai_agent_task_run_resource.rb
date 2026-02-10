@@ -1,19 +1,19 @@
 # typed: true
 
-class SubagentTaskRunResource < ApplicationRecord
+class AiAgentTaskRunResource < ApplicationRecord
   extend T::Sig
 
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :subagent_task_run
+  belongs_to :ai_agent_task_run
   belongs_to :resource, polymorphic: true
   belongs_to :resource_superagent, class_name: "Superagent"
 
   validates :resource_type, inclusion: {
-    in: %w[Note Decision Commitment Option Vote CommitmentParticipant NoteHistoryEvent],
+    in: ["Note", "Decision", "Commitment", "Option", "Vote", "CommitmentParticipant", "NoteHistoryEvent"],
   }
   validates :action_type, inclusion: {
-    in: %w[create update confirm add_options vote commit],
+    in: ["create", "update", "confirm", "add_options", "vote", "commit"],
   }
   validate :resource_superagent_matches_resource
 
@@ -24,8 +24,8 @@ class SubagentTaskRunResource < ApplicationRecord
   end
 
   # Find the task run that created a given resource (if any)
-  # Returns nil if the resource was not created by a subagent task run
-  sig { params(resource: T.untyped).returns(T.nilable(SubagentTaskRun)) }
+  # Returns nil if the resource was not created by an AI agent task run
+  sig { params(resource: T.untyped).returns(T.nilable(AiAgentTaskRun)) }
   def self.task_run_for(resource)
     return nil unless resource.respond_to?(:id) && resource.respond_to?(:class)
 
@@ -34,7 +34,7 @@ class SubagentTaskRunResource < ApplicationRecord
       resource_id: resource.id,
       action_type: "create"
     )
-    record&.subagent_task_run
+    record&.ai_agent_task_run
   end
 
   # Load the resource bypassing default scope (needed because resources may be in different superagents)
@@ -82,7 +82,7 @@ class SubagentTaskRunResource < ApplicationRecord
   def set_tenant_id
     return if tenant_id.present?
 
-    self.tenant_id = T.must(subagent_task_run&.tenant_id || Tenant.current_id)
+    self.tenant_id = T.must(ai_agent_task_run&.tenant_id || Tenant.current_id)
   end
 
   sig { void }

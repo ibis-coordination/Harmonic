@@ -26,17 +26,17 @@
       <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
         <%= comment.created_by.display_name %>
       </a>
-      <% if comment.created_by.subagent? && comment.created_by.parent %>
-        <span class="pulse-subagent-label">(managed by <%= link_to comment.created_by.parent.display_name, comment.created_by.parent.path %>)</span>
+      <% if comment.created_by.ai_agent? && comment.created_by.parent %>
+        <span class="pulse-ai-agent-label">(managed by <%= link_to comment.created_by.parent.display_name, comment.created_by.parent.path %>)</span>
       <% end %>
     <% end %>
     <a href="<%= comment.path %>" class="pulse-comment-timestamp"><%= timeago(comment.created_at) %></a>
-    <%# Show task run link if the current user owns the subagent that created this comment %>
-    <% if comment.created_by.subagent? && comment.created_by.parent == @current_user %>
-      <% task_run = SubagentTaskRunResource.task_run_for(comment) %>
+    <%# Show task run link if the current user owns the ai_agent that created this comment %>
+    <% if comment.created_by.ai_agent? && comment.created_by.parent == @current_user %>
+      <% task_run = AiAgentTaskRunResource.task_run_for(comment) %>
       <% if task_run %>
         <span class="pulse-task-run-link-inline">
-          <%= link_to subagent_run_path(comment.created_by.handle, task_run.id), title: "View task run" do %>
+          <%= link_to ai_agent_run_path(comment.created_by.handle, task_run.id), title: "View task run" do %>
             <%= octicon 'workflow', height: 12 %>
           <% end %>
         </span>

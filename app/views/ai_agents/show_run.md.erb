@@ -1,6 +1,6 @@
 # Task Run: <%= @task_run.success ? 'Success' : 'Failed' %>
 
-**Agent:** <%= @subagent.name %>
+**Agent:** <%= @ai_agent.name %>
 **Model:** `<%= @task_run.model || "default" %>`
 **Status:** <%= @task_run.success ? 'Completed' : 'Failed' %>
 **Steps:** <%= @task_run.steps_count %><% if @task_run.formatted_duration %>
@@ -141,5 +141,5 @@ Scratchpad update failed: <%= detail[:error] %>
 <% end -%>
 ---
 
-* [All Runs](<%= subagent_runs_path(@subagent.handle) %>)
-* [Run Another Task](<%= subagent_run_task_path(@subagent.handle) %>)
+* [All Runs](<%= ai_agent_runs_path(@ai_agent.handle) %>)
+* [Run Another Task](<%= ai_agent_run_task_path(@ai_agent.handle) %>)

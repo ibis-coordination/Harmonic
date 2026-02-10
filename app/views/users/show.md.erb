@@ -1,16 +1,16 @@
 # User: <%= raw @showing_user.display_name %><%= @showing_user.archived? ? ' (Archived)' : '' %>
 
 Handle: `<%= @showing_user.handle %>`
-<% if @showing_user.subagent? %>
-Type: Subagent
+<% if @showing_user.ai_agent? %>
+Type: AI Agent
 <% end %>
-<% if @showing_user.subagent? && @showing_user.parent %>
+<% if @showing_user.ai_agent? && @showing_user.parent %>
 
 Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.path %>)
 <% end %>
-<% if @showing_user.person? && @subagent_count && @subagent_count > 0 %>
+<% if @showing_user.human? && @ai_agent_count && @ai_agent_count > 0 %>
 
-Has <%= @subagent_count %> subagent<%= @subagent_count == 1 ? "" : "s" %>
+Has <%= @ai_agent_count %> ai_agent<%= @ai_agent_count == 1 ? "" : "s" %>
 <% end %>
 <% if @current_user != @showing_user && (@common_studio_count > 0 || @common_scene_count > 0) %>
 <% parts = [] %>

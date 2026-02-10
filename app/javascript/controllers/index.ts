@@ -41,9 +41,9 @@ import PulseActionController from "./pulse_action_controller"
 import PulseFilterController from "./pulse_filter_controller"
 import RecoveryCodesController from "./recovery_codes_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
-import SubagentManagerController from "./subagent_manager_controller"
-import SubagentModeController from "./subagent_mode_controller"
-import SubagentSuperagentAdderController from "./subagent_superagent_adder_controller"
+import AiAgentManagerController from "./ai_agent_manager_controller"
+import AiAgentModeController from "./ai_agent_mode_controller"
+import AiAgentSuperagentAdderController from "./ai_agent_superagent_adder_controller"
 import TaskRunStatusController from "./task_run_status_controller"
 import TimeagoController from "./timeago_controller"
 import TooltipController from "./tooltip_controller"
@@ -83,9 +83,9 @@ application.register("pulse-action", PulseActionController)
 application.register("pulse-filter", PulseFilterController)
 application.register("recovery-codes", RecoveryCodesController)
 application.register("scratchpad-links", ScratchpadLinksController)
-application.register("subagent-manager", SubagentManagerController)
-application.register("subagent-mode", SubagentModeController)
-application.register("subagent-superagent-adder", SubagentSuperagentAdderController)
+application.register("ai_agent-manager", AiAgentManagerController)
+application.register("ai_agent-mode", AiAgentModeController)
+application.register("ai_agent-superagent-adder", AiAgentSuperagentAdderController)
 application.register("task-run-status", TaskRunStatusController)
 application.register("timeago", TimeagoController)
 application.register("tooltip", TooltipController)

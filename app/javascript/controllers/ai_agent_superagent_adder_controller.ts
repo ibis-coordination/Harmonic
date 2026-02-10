@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 
-export default class SubagentSuperagentAdderController extends Controller {
+export default class AiAgentSuperagentAdderController extends Controller {
   static targets = ["form", "select", "superagentList"]
   static values = { removeUrl: String }
 
@@ -61,7 +61,7 @@ export default class SubagentSuperagentAdderController extends Controller {
 
     if (!superagentId || !url) return
 
-    if (!confirm(`Remove this subagent from ${superagentName}?`)) return
+    if (!confirm(`Remove this ai_agent from ${superagentName}?`)) return
 
     fetch(url, {
       method: "DELETE",
@@ -99,7 +99,7 @@ export default class SubagentSuperagentAdderController extends Controller {
     const item = document.createElement("li")
     item.className = "studio-item"
     item.dataset.superagentId = String(data.superagent_id)
-    item.innerHTML = `<a href="${data.superagent_path}">${data.superagent_name}</a> <button type="button" class="button-small button-danger" data-action="subagent-superagent-adder#remove" data-superagent-id="${data.superagent_id}" data-superagent-name="${data.superagent_name}">Remove from studio</button>`
+    item.innerHTML = `<a href="${data.superagent_path}">${data.superagent_name}</a> <button type="button" class="button-small button-danger" data-action="ai_agent-superagent-adder#remove" data-superagent-id="${data.superagent_id}" data-superagent-name="${data.superagent_name}">Remove from studio</button>`
 
     // Add to the list
     this.superagentListTarget.appendChild(item)

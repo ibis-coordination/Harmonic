@@ -28,8 +28,8 @@
               <span class="pulse-avatar-initials"><%= u.display_name.to_s.first&.upcase || '?' %></span>
             </div>
             <a href="<%= u.superagent_member.path %>" class="pulse-participant-name"><%= u.display_name %></a>
-            <% if u.subagent? %>
-              <span class="pulse-badge pulse-badge-muted">subagent</span>
+            <% if u.ai_agent? %>
+              <span class="pulse-badge pulse-badge-muted">ai_agent</span>
             <% end %>
             <% if u.superagent_member.is_admin? %>
               <span class="pulse-badge pulse-badge-muted">admin</span>

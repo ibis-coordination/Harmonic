@@ -173,51 +173,51 @@ class UserWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Test webhook sent"
   end
 
-  # === Subagent Webhooks Tests ===
+  # === AiAgent Webhooks Tests ===
 
-  test "parent can view subagent webhooks" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
+  test "parent can view ai_agent webhooks" do
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
 
-    get "/u/#{subagent.handle}/settings/webhooks", headers: @headers
+    get "/u/#{ai_agent.handle}/settings/webhooks", headers: @headers
     assert_response :success
     assert is_markdown?
-    assert_includes response.body, "Webhooks for #{subagent.handle}"
+    assert_includes response.body, "Webhooks for #{ai_agent.handle}"
     assert_includes response.body, "You are managing webhooks for"
   end
 
-  test "parent can create webhook for subagent" do
-    subagent = create_subagent(parent: @user, name: "Webhook Subagent")
-    @tenant.add_user!(subagent)
+  test "parent can create webhook for ai_agent" do
+    ai_agent = create_ai_agent(parent: @user, name: "Webhook AiAgent")
+    @tenant.add_user!(ai_agent)
 
     assert_difference "Webhook.unscoped.count" do
-      post "/u/#{subagent.handle}/settings/webhooks/new/actions/create_webhook",
-        params: { url: "https://example.com/subagent-webhook" }.to_json,
+      post "/u/#{ai_agent.handle}/settings/webhooks/new/actions/create_webhook",
+        params: { url: "https://example.com/ai_agent-webhook" }.to_json,
         headers: @headers
     end
 
     assert_response :success
 
     webhook = Webhook.unscoped.order(created_at: :desc).first
-    assert_equal subagent, webhook.user
+    assert_equal ai_agent, webhook.user
     assert_equal @user, webhook.created_by  # Parent created it
   end
 
-  test "parent can delete subagent webhook" do
-    subagent = create_subagent(parent: @user, name: "Delete Subagent")
-    @tenant.add_user!(subagent)
+  test "parent can delete ai_agent webhook" do
+    ai_agent = create_ai_agent(parent: @user, name: "Delete AiAgent")
+    @tenant.add_user!(ai_agent)
 
     webhook = Webhook.unscoped.create!(
       tenant: @tenant,
-      user: subagent,
-      name: "Subagent webhook",
-      url: "https://example.com/subagent-hook",
+      user: ai_agent,
+      name: "AiAgent webhook",
+      url: "https://example.com/ai_agent-hook",
       events: ["reminders.delivered"],
       created_by: @user,
     )
 
     assert_difference "Webhook.unscoped.count", -1 do
-      post "/u/#{subagent.handle}/settings/webhooks/#{webhook.truncated_id}/actions/delete_webhook",
+      post "/u/#{ai_agent.handle}/settings/webhooks/#{webhook.truncated_id}/actions/delete_webhook",
         headers: @headers
     end
 
@@ -225,21 +225,21 @@ class UserWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Webhook deleted"
   end
 
-  test "parent can test subagent webhook" do
-    subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(subagent)
+  test "parent can test ai_agent webhook" do
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(ai_agent)
 
     webhook = Webhook.unscoped.create!(
       tenant: @tenant,
-      user: subagent,
-      name: "Subagent test webhook",
-      url: "https://example.com/subagent-test",
+      user: ai_agent,
+      name: "AiAgent test webhook",
+      url: "https://example.com/ai_agent-test",
       events: ["reminders.delivered"],
       created_by: @user,
     )
 
     assert_enqueued_with(job: WebhookDeliveryJob) do
-      post "/u/#{subagent.handle}/settings/webhooks/#{webhook.truncated_id}/actions/test_webhook",
+      post "/u/#{ai_agent.handle}/settings/webhooks/#{webhook.truncated_id}/actions/test_webhook",
         headers: @headers
     end
 

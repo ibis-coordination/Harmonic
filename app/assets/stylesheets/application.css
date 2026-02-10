@@ -599,7 +599,7 @@ ul.attachments-list {
 }
 
 /* Subagent management cards */
-.subagent-card {
+.ai-agent-card {
   border: 1px solid var(--color-border-default);
   padding: 16px;
   margin-bottom: 16px;
@@ -608,41 +608,41 @@ ul.attachments-list {
   gap: 16px;
 }
 
-.subagent-card-image {
+.ai-agent-card-image {
   flex-shrink: 0;
 }
 
-.subagent-card-image img {
+.ai-agent-card-image img {
   width: 64px;
   height: 64px;
   border-radius: 50%;
   background-color: var(--color-border-default);
 }
 
-.subagent-card-content {
+.ai-agent-card-content {
   flex-grow: 1;
   min-width: 0;
 }
 
-.subagent-card h3 {
+.ai-agent-card h3 {
   margin-top: 0;
   margin-bottom: 4px;
 }
 
-.subagent-card h4 {
+.ai-agent-card h4 {
   margin-top: 12px;
   margin-bottom: 8px;
   font-size: 14px;
   color: var(--color-fg-muted);
 }
 
-.subagent-meta {
+.ai-agent-meta {
   margin: 0 0 8px 0;
   font-size: 14px;
   color: var(--color-fg-muted);
 }
 
-.subagent-meta form {
+.ai-agent-meta form {
   display: inline-block;
 }
 

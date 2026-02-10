@@ -589,21 +589,21 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_equal other_superagent.id, events[1].resource_superagent_id
   end
 
-  # === Representation Session with Parent-Subagent ===
+  # === Representation Session with Parent-AiAgent ===
 
-  test "parent can create representation session for subagent via auto-created grant" do
-    subagent = User.create!(
-      email: "subagent_#{SecureRandom.hex(4)}@example.com",
-      name: "Test Subagent",
-      user_type: "subagent",
+  test "parent can create representation session for ai_agent via auto-created grant" do
+    ai_agent = User.create!(
+      email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test AiAgent",
+      user_type: "ai_agent",
       parent_id: @user.id,
     )
-    @tenant.add_user!(subagent)
-    @superagent.add_user!(subagent)
+    @tenant.add_user!(ai_agent)
+    @superagent.add_user!(ai_agent)
 
     # Auto-created grant should exist
-    grant = TrusteeGrant.find_by(granting_user: subagent, trustee_user: @user)
-    assert grant.present?, "TrusteeGrant should be auto-created for subagent"
+    grant = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @user)
+    assert grant.present?, "TrusteeGrant should be auto-created for ai_agent"
     assert grant.active?
 
     # Parent can create representation session using the trustee grant
@@ -618,7 +618,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
     assert session.persisted?
     assert_equal @user, session.representative_user
-    assert_equal subagent, session.effective_user
+    assert_equal ai_agent, session.effective_user
     assert session.active?
   end
 

@@ -15,8 +15,8 @@
     <div class="pulse-user-info">
       <h1 class="pulse-user-name"><%= @settings_user.display_name %></h1>
       <p class="pulse-user-handle">@<%= @settings_user.handle %></p>
-      <% if @settings_user.subagent? %>
-        <span class="pulse-badge" title="This is a subagent managed by <%= @settings_user.parent&.display_name %>">subagent</span>
+      <% if @settings_user.ai_agent? %>
+        <span class="pulse-badge" title="This is a ai_agent managed by <%= @settings_user.parent&.display_name %>">ai_agent</span>
       <% end %>
     </div>
     <div class="pulse-user-actions">
@@ -51,22 +51,22 @@
         <p class="pulse-form-hint">This is your unique identifier used in URLs and mentions</p>
       </div>
 
-      <% if @settings_user.subagent? %>
+      <% if @settings_user.ai_agent? %>
         <% current_mode = @settings_user.agent_configuration&.dig("mode") || "external" %>
-        <div data-controller="subagent-mode">
+        <div data-controller="ai_agent-mode">
           <div class="pulse-form-section">
             <label class="pulse-form-label">Mode</label>
-            <p class="pulse-form-hint" style="margin-bottom: 12px;">Choose how this subagent is powered.</p>
+            <p class="pulse-form-hint" style="margin-bottom: 12px;">Choose how this ai_agent is powered.</p>
             <div style="display: flex; flex-direction: column; gap: 12px;">
               <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                <%= radio_button_tag :mode, "internal", current_mode == "internal", data: { action: "subagent-mode#updateVisibility" } %>
+                <%= radio_button_tag :mode, "internal", current_mode == "internal", data: { action: "ai_agent-mode#updateVisibility" } %>
                 <span>
                   <strong>Internal</strong>
                   <span class="pulse-form-hint" style="display: block; margin-top: 2px;">Powered by Harmonic's agent runners. No API access.</span>
                 </span>
               </label>
               <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                <%= radio_button_tag :mode, "external", current_mode == "external", data: { action: "subagent-mode#updateVisibility" } %>
+                <%= radio_button_tag :mode, "external", current_mode == "external", data: { action: "ai_agent-mode#updateVisibility" } %>
                 <span>
                   <strong>External</strong>
                   <span class="pulse-form-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Agent skill documents and MCP server are available.</span>
@@ -75,10 +75,10 @@
             </div>
           </div>
 
-          <div class="pulse-form-section" data-subagent-mode-target="internalOnly" style="<%= current_mode == 'internal' ? '' : 'display: none;' %>">
+          <div class="pulse-form-section" data-ai_agent-mode-target="internalOnly" style="<%= current_mode == 'internal' ? '' : 'display: none;' %>">
             <label class="pulse-form-label" for="model">Model</label>
             <%= form.select :model, available_llm_models, { selected: @settings_user.agent_configuration&.dig("model") || "default" }, class: 'pulse-select' %>
-            <p class="pulse-form-hint">The LLM model this subagent will use for reasoning.</p>
+            <p class="pulse-form-hint">The LLM model this ai_agent will use for reasoning.</p>
           </div>
         </div>
 
@@ -100,7 +100,7 @@
           <%
             # Group actions by resource type
             action_groups = {
-              "Always Allowed" => CapabilityCheck::SUBAGENT_ALWAYS_ALLOWED,
+              "Always Allowed" => CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED,
               "Notes" => %w[create_note update_note confirm_read],
               "Decisions" => %w[create_decision update_decision_settings vote add_options],
               "Commitments" => %w[create_commitment update_commitment_settings join_commitment],
@@ -255,7 +255,7 @@
           </table>
         </div>
       <% end %>
-      <% if @current_user.person? %>
+      <% if @current_user.human? %>
         <div class="pulse-form-actions" style="margin-top:16px;">
           <a href="<%= @settings_user.path %>/settings/tokens/new" class="pulse-action-btn">
             <%= octicon 'key', height: 14 %>
@@ -299,50 +299,50 @@
       </div>
     <% end %>
 
-    <% if @settings_user.person? && is_own_settings %>
-      <%# Subagents Section %>
-      <%= render 'shared/pulse_accordion', title: 'Subagents', count: @subagents.count do %>
+    <% if @settings_user.human? && is_own_settings %>
+      <%# AI Agents Section %>
+      <%= render 'shared/pulse_accordion', title: 'AI Agents', count: @ai_agents.count do %>
         <p class="pulse-form-hint" style="margin-bottom:16px;">
-          Subagents are virtual identities that you manage. These identities can be associated with AI agents and other automated systems that interact with the app through the API.
+          AI Agents are virtual identities that you manage. These identities can be associated with AI agents and other automated systems that interact with the app through the API.
         </p>
 
-        <% if @subagents.any? %>
-          <div class="pulse-subagents-list">
-            <% @subagents.each do |subagent| %>
-              <% active_superagent_members = subagent.superagent_members.reject(&:archived?) %>
-              <% all_subagent_studios = active_superagent_members.map(&:superagent) %>
-              <% subagent_studios = all_subagent_studios.reject { |s| s == @current_tenant.main_superagent } %>
-              <% available_studios = (@invitable_studios - all_subagent_studios).reject { |s| s == @current_tenant.main_superagent } %>
+        <% if @ai_agents.any? %>
+          <div class="pulse-ai-agents-list">
+            <% @ai_agents.each do |ai_agent| %>
+              <% active_superagent_members = ai_agent.superagent_members.reject(&:archived?) %>
+              <% all_ai_agent_studios = active_superagent_members.map(&:superagent) %>
+              <% ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_superagent } %>
+              <% available_studios = (@invitable_studios - all_ai_agent_studios).reject { |s| s == @current_tenant.main_superagent } %>
 
-              <div class="pulse-subagent-card" data-controller="subagent-superagent-adder" data-subagent-superagent-adder-remove-url-value="<%= subagent.path %>/remove_from_studio">
-                <div class="pulse-subagent-header">
-                  <img src="<%= subagent.image_url %>" alt="<%= subagent.name %>" class="pulse-subagent-avatar">
-                  <div class="pulse-subagent-info">
-                    <div class="pulse-subagent-name">
-                      <a href="<%= subagent.path %>"><%= subagent.name %></a>
-                      <% if subagent.archived? %>
+              <div class="pulse-ai-agent-card" data-controller="ai-agent-superagent-adder" data-ai-agent-superagent-adder-remove-url-value="<%= ai_agent.path %>/remove_from_studio">
+                <div class="pulse-ai-agent-header">
+                  <img src="<%= ai_agent.image_url %>" alt="<%= ai_agent.name %>" class="pulse-ai-agent-avatar">
+                  <div class="pulse-ai-agent-info">
+                    <div class="pulse-ai-agent-name">
+                      <a href="<%= ai_agent.path %>"><%= ai_agent.name %></a>
+                      <% if ai_agent.archived? %>
                         <span class="pulse-badge pulse-badge-muted">Archived</span>
                       <% end %>
                     </div>
-                    <span class="pulse-subagent-meta">Created <%= timeago(subagent.created_at) %></span>
+                    <span class="pulse-ai-agent-meta">Created <%= timeago(ai_agent.created_at) %></span>
                   </div>
-                  <div class="pulse-subagent-actions">
-                    <% unless subagent.archived? %>
-                      <%= button_to 'Represent', "#{subagent.path}/represent", method: :post, class: 'pulse-action-btn-small' %>
+                  <div class="pulse-ai-agent-actions">
+                    <% unless ai_agent.archived? %>
+                      <%= button_to 'Represent', "#{ai_agent.path}/represent", method: :post, class: 'pulse-action-btn-small' %>
                     <% end %>
-                    <a href="<%= subagent.path %>/settings" class="pulse-action-btn-small">Settings</a>
+                    <a href="<%= ai_agent.path %>/settings" class="pulse-action-btn-small">Settings</a>
                   </div>
                 </div>
 
-                <div class="pulse-subagent-studios">
+                <div class="pulse-ai-agent-studios">
                   <label class="pulse-form-label">Studio Memberships</label>
-                  <ul class="pulse-studio-membership-list" data-subagent-superagent-adder-target="superagentList">
-                    <% if subagent_studios.any? %>
-                      <% subagent_studios.each do |s| %>
+                  <ul class="pulse-studio-membership-list" data-ai-agent-superagent-adder-target="superagentList">
+                    <% if ai_agent_studios.any? %>
+                      <% ai_agent_studios.each do |s| %>
                         <li class="pulse-studio-membership-item" data-superagent-id="<%= s.id %>">
                           <a href="<%= s.path %>"><%= s.name %></a>
                           <button type="button" class="pulse-action-btn-small pulse-action-btn-danger"
-                                  data-action="subagent-superagent-adder#remove"
+                                  data-action="ai-agent-superagent-adder#remove"
                                   data-superagent-id="<%= s.id %>"
                                   data-superagent-name="<%= s.name %>">
                             Remove
@@ -354,10 +354,10 @@
                     <% end %>
                   </ul>
 
-                  <% if !subagent.archived? && available_studios.any? %>
-                    <form data-subagent-superagent-adder-target="form" data-action="submit->subagent-superagent-adder#add" action="<%= subagent.path %>/add_to_studio" method="post" class="pulse-add-studio-form">
+                  <% if !ai_agent.archived? && available_studios.any? %>
+                    <form data-ai-agent-superagent-adder-target="form" data-action="submit->ai-agent-superagent-adder#add" action="<%= ai_agent.path %>/add_to_studio" method="post" class="pulse-add-studio-form">
                       <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
-                      <select name="superagent_id" data-subagent-superagent-adder-target="select" class="pulse-select">
+                      <select name="superagent_id" data-ai-agent-superagent-adder-target="select" class="pulse-select">
                         <option value="">Add to studio...</option>
                         <% available_studios.each do |s| %>
                           <option value="<%= s.id %>"><%= s.name %></option>
@@ -373,24 +373,24 @@
         <% end %>
 
         <div class="pulse-form-actions" style="margin-top:16px;">
-          <a href="<%= @settings_user.path %>/settings/subagents/new" class="pulse-action-btn">
+          <a href="<%= @settings_user.path %>/settings/ai-agents/new" class="pulse-action-btn">
             <%= octicon 'person-add', height: 14 %>
-            Create Subagent
+            Create AI Agent
           </a>
         </div>
       <% end %>
 
-      <% if @subagents.any? %>
-        <%# Subagent API Tokens Section %>
-        <%= render 'shared/pulse_accordion', title: 'Subagent API Tokens' do %>
+      <% if @ai_agents.any? %>
+        <%# AI Agent API Tokens Section %>
+        <%= render 'shared/pulse_accordion', title: 'AI Agent API Tokens' do %>
           <p class="pulse-form-hint" style="margin-bottom:16px;">
-            Subagents have their own API tokens, which you as the owner are responsible for.
+            AI Agents have their own API tokens, which you as the owner are responsible for.
           </p>
 
-          <% @subagents.each do |subagent| %>
-            <div class="pulse-subagent-tokens-section">
-              <h4 class="pulse-subsection-title"><%= subagent.name %></h4>
-              <% if subagent.api_tokens.external.any? %>
+          <% @ai_agents.each do |ai_agent| %>
+            <div class="pulse-ai-agent-tokens-section">
+              <h4 class="pulse-subsection-title"><%= ai_agent.name %></h4>
+              <% if ai_agent.api_tokens.external.any? %>
                 <div class="pulse-table-wrapper">
                   <table class="pulse-table">
                     <thead>
@@ -405,7 +405,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <% subagent.api_tokens.external.each do |token| %>
+                      <% ai_agent.api_tokens.external.each do |token| %>
                         <tr>
                           <td><%= token.name || 'Unnamed' %></td>
                           <td>
@@ -431,17 +431,17 @@
                   </table>
                 </div>
               <% else %>
-                <p class="pulse-form-hint"><%= subagent.name %> has no API tokens.</p>
+                <p class="pulse-form-hint"><%= ai_agent.name %> has no API tokens.</p>
               <% end %>
-              <% if subagent.external_subagent? %>
+              <% if ai_agent.external_ai_agent? %>
                 <div class="pulse-form-actions" style="margin-top:12px;">
-                  <a href="<%= subagent.path %>/settings/tokens/new" class="pulse-action-btn-small">
+                  <a href="<%= ai_agent.path %>/settings/tokens/new" class="pulse-action-btn-small">
                     <%= octicon 'key', height: 12 %>
                     Create Token
                   </a>
                 </div>
               <% else %>
-                <p class="pulse-form-hint" style="margin-top:12px; font-style: italic;">Internal subagents cannot have API tokens.</p>
+                <p class="pulse-form-hint" style="margin-top:12px; font-style: italic;">Internal ai_agents cannot have API tokens.</p>
               <% end %>
             </div>
           <% end %>

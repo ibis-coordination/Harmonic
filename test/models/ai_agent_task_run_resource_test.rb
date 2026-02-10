@@ -1,6 +1,6 @@
 require "test_helper"
 
-class SubagentTaskRunResourceTest < ActiveSupport::TestCase
+class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
     @superagent = @global_superagent
@@ -10,13 +10,13 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
       handle: @superagent.handle,
     )
 
-    @subagent = create_subagent(parent: @user, name: "Test Subagent")
-    @tenant.add_user!(@subagent)
-    @superagent.add_user!(@subagent)
+    @ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    @tenant.add_user!(@ai_agent)
+    @superagent.add_user!(@ai_agent)
 
-    @task_run = SubagentTaskRun.create!(
+    @task_run = AiAgentTaskRun.create!(
       tenant: @tenant,
-      subagent: @subagent,
+      ai_agent: @ai_agent,
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
@@ -28,9 +28,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "resource with Note type is valid" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    resource = SubagentTaskRunResource.new(
+    resource = AiAgentTaskRunResource.new(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
@@ -40,9 +40,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "resource with Decision type is valid" do
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    resource = SubagentTaskRunResource.new(
+    resource = AiAgentTaskRunResource.new(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: decision,
       resource_superagent: @superagent,
       action_type: "create",
@@ -52,9 +52,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "invalid resource type is rejected" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    resource = SubagentTaskRunResource.new(
+    resource = AiAgentTaskRunResource.new(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource_type: "User",  # User is not an allowed resource type
       resource_id: note.id,
       resource_superagent: @superagent,
@@ -67,9 +67,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
   test "valid action types are accepted" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     %w[create update confirm add_options vote commit].each do |action_type|
-      resource = SubagentTaskRunResource.new(
+      resource = AiAgentTaskRunResource.new(
         tenant: @tenant,
-        subagent_task_run: @task_run,
+        ai_agent_task_run: @task_run,
         resource: note,
         resource_superagent: @superagent,
         action_type: action_type,
@@ -80,9 +80,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "invalid action type is rejected" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    resource = SubagentTaskRunResource.new(
+    resource = AiAgentTaskRunResource.new(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "invalid_action",
@@ -95,9 +95,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     other_superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "other-studio-#{SecureRandom.hex(4)}")
 
-    resource = SubagentTaskRunResource.new(
+    resource = AiAgentTaskRunResource.new(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: other_superagent,
       action_type: "create",
@@ -108,57 +108,57 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   # === Association Tests ===
 
-  test "belongs to subagent_task_run" do
+  test "belongs to ai_agent_task_run" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
     )
-    assert_equal @task_run, resource.subagent_task_run
+    assert_equal @task_run, resource.ai_agent_task_run
   end
 
   test "task run has many resources" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
 
-    SubagentTaskRunResource.create!(
+    AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
     )
-    SubagentTaskRunResource.create!(
+    AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: decision,
       resource_superagent: @superagent,
       action_type: "create",
     )
 
-    assert_equal 2, @task_run.subagent_task_run_resources.count
+    assert_equal 2, @task_run.ai_agent_task_run_resources.count
   end
 
   # === Scoping Tests ===
 
   test "default scope only filters by tenant not superagent" do
-    # SubagentTaskRunResource only scopes by tenant, not by superagent
+    # AiAgentTaskRunResource only scopes by tenant, not by superagent
     # This allows a single task run to track resources across multiple studios
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
     )
 
     # The resource should be findable regardless of superagent
-    found = SubagentTaskRunResource.find_by(id: resource.id)
+    found = AiAgentTaskRunResource.find_by(id: resource.id)
     assert_not_nil found, "Resource should be findable"
     assert_equal @superagent.id, found.resource_superagent_id
   end
@@ -168,9 +168,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
   test "resource_unscoped returns resource" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
@@ -183,9 +183,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "resource_unscoped returns nil for deleted resource" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
@@ -203,15 +203,15 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
   test "task_run_for returns task run that created the resource" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
-    SubagentTaskRunResource.create!(
+    AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
     )
 
-    found_task_run = SubagentTaskRunResource.task_run_for(note)
+    found_task_run = AiAgentTaskRunResource.task_run_for(note)
     assert_not_nil found_task_run
     assert_equal @task_run.id, found_task_run.id
   end
@@ -219,8 +219,8 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
   test "task_run_for returns nil for resource not created by task run" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
-    # No SubagentTaskRunResource record created
-    found_task_run = SubagentTaskRunResource.task_run_for(note)
+    # No AiAgentTaskRunResource record created
+    found_task_run = AiAgentTaskRunResource.task_run_for(note)
     assert_nil found_task_run
   end
 
@@ -228,16 +228,16 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
 
     # Create a record with update action type (not create)
-    SubagentTaskRunResource.create!(
+    AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "update",
     )
 
     # Should not find it since it's not a "create" action
-    found_task_run = SubagentTaskRunResource.task_run_for(note)
+    found_task_run = AiAgentTaskRunResource.task_run_for(note)
     assert_nil found_task_run
   end
 
@@ -245,9 +245,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "display_title for Note returns truncated title" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "My Important Note Title")
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
@@ -258,9 +258,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "display_title for Decision returns truncated question" do
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user, question: "What should we do about this?")
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: decision,
       resource_superagent: @superagent,
       action_type: "create",
@@ -272,9 +272,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
   test "display_title for Option includes prefix" do
     decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
     option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option A")
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: option,
       resource_superagent: @superagent,
       action_type: "add_options",
@@ -296,9 +296,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
       accepted: 1,
       preferred: 0,
     )
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: vote,
       resource_superagent: @superagent,
       action_type: "vote",
@@ -317,9 +317,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
       event_type: "read_confirmation",
       happened_at: Time.current,
     )
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: history_event,
       resource_superagent: @superagent,
       action_type: "confirm",
@@ -330,9 +330,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "display_title returns unknown for nil resource" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
@@ -378,9 +378,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
       preferred: 0,
     )
 
-    resource = SubagentTaskRunResource.create!(
+    resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: vote,
       resource_superagent: other_superagent,
       action_type: "vote",
@@ -394,8 +394,8 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "tenant_id is auto-set from task_run if not provided" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    resource = SubagentTaskRunResource.new(
-      subagent_task_run: @task_run,
+    resource = AiAgentTaskRunResource.new(
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
@@ -408,9 +408,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "cannot create duplicate resource associations for same task run" do
     note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    SubagentTaskRunResource.create!(
+    AiAgentTaskRunResource.create!(
       tenant: @tenant,
-      subagent_task_run: @task_run,
+      ai_agent_task_run: @task_run,
       resource: note,
       resource_superagent: @superagent,
       action_type: "create",
@@ -418,9 +418,9 @@ class SubagentTaskRunResourceTest < ActiveSupport::TestCase
 
     # Attempting to create another association for the same resource should fail
     assert_raises ActiveRecord::RecordNotUnique do
-      SubagentTaskRunResource.create!(
+      AiAgentTaskRunResource.create!(
         tenant: @tenant,
-        subagent_task_run: @task_run,
+        ai_agent_task_run: @task_run,
         resource: note,
         resource_superagent: @superagent,
         action_type: "update",

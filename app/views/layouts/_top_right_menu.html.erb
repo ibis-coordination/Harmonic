@@ -40,10 +40,10 @@
           <%= octicon 'person' %>
           <a href="<%= @current_user.path %>">Profile</a>
         </li>
-        <% if @current_tenant&.subagents_enabled? %>
+        <% if @current_tenant&.ai_agents_enabled? %>
           <li>
             <%= octicon 'command-palette' %>
-            <a href="/subagents">Subagents</a>
+            <a href="/ai-agents">AI Agents</a>
           </li>
         <% end %>
         <li>

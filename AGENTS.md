@@ -46,7 +46,7 @@ Configured via `AUTH_MODE` environment variable:
 
 | Model | Purpose |
 |-------|---------|
-| `User` | User accounts (types: person, subagent, superagent_proxy). See [docs/USER_TYPES.md](docs/USER_TYPES.md) |
+| `User` | User accounts (types: human, ai_agent, superagent_proxy). See [docs/USER_TYPES.md](docs/USER_TYPES.md) |
 | `Tenant` | A community/instance of the app |
 | `Studio` | Workspaces/groups within a tenant |
 | `Note` | Posts/content items |

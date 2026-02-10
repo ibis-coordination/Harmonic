@@ -18,21 +18,21 @@
     </a>
     <% if is_representation %>
       <span class="pulse-representation-label">on behalf of <%= link_to author.display_name, author.path %></span>
-    <% elsif author.subagent? && author.parent %>
-      <span class="pulse-subagent-label">(managed by <%= link_to author.parent.display_name, author.parent.path %>)</span>
+    <% elsif author.ai_agent? && author.parent %>
+      <span class="pulse-ai-agent-label">(managed by <%= link_to author.parent.display_name, author.parent.path %>)</span>
     <% end %>
     <% if verb.present? %>
       <span><%= verb %></span>
     <% end %>
     <span class="pulse-timestamp"><%= timeago(resource.created_at) %></span>
   </div>
-  <%# Show task run link if the current user owns the subagent that created this %>
-  <% if author.subagent? && author.parent == @current_user %>
-    <% task_run = SubagentTaskRunResource.task_run_for(resource) %>
+  <%# Show task run link if the current user owns the ai_agent that created this %>
+  <% if author.ai_agent? && author.parent == @current_user %>
+    <% task_run = AiAgentTaskRunResource.task_run_for(resource) %>
     <% if task_run %>
       <div class="pulse-task-run-link">
         <%= octicon 'workflow', height: 12 %>
-        <%= link_to "View task run", subagent_run_path(author.handle, task_run.id) %>
+        <%= link_to "View task run", ai_agent_run_path(author.handle, task_run.id) %>
       </div>
     <% end %>
   <% end %>

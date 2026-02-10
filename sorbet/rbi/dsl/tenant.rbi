@@ -265,6 +265,34 @@ class Tenant
 
   module GeneratedAssociationMethods
     sig { returns(T::Array[T.untyped]) }
+    def ai_agent_task_run_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def ai_agent_task_run_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def ai_agent_task_run_resource_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def ai_agent_task_run_resource_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :ai_agent_task_run_resources`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AiAgentTaskRunResource::PrivateCollectionProxy) }
+    def ai_agent_task_run_resources; end
+
+    sig { params(value: T::Enumerable[::AiAgentTaskRunResource]).void }
+    def ai_agent_task_run_resources=(value); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :ai_agent_task_runs`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AiAgentTaskRun::PrivateCollectionProxy) }
+    def ai_agent_task_runs; end
+
+    sig { params(value: T::Enumerable[::AiAgentTaskRun]).void }
+    def ai_agent_task_runs=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def api_token_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -507,20 +535,6 @@ class Tenant
     def reload_main_superagent; end
 
     sig { returns(T::Array[T.untyped]) }
-    def representation_session_association_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def representation_session_association_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :representation_session_associations`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::RepresentationSessionAssociation::PrivateCollectionProxy) }
-    def representation_session_associations; end
-
-    sig { params(value: T::Enumerable[::RepresentationSessionAssociation]).void }
-    def representation_session_associations=(value); end
-
-    sig { returns(T::Array[T.untyped]) }
     def representation_session_event_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -564,34 +578,6 @@ class Tenant
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def search_index_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def subagent_task_run_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def subagent_task_run_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def subagent_task_run_resource_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def subagent_task_run_resource_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :subagent_task_run_resources`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::SubagentTaskRunResource::PrivateCollectionProxy) }
-    def subagent_task_run_resources; end
-
-    sig { params(value: T::Enumerable[::SubagentTaskRunResource]).void }
-    def subagent_task_run_resources=(value); end
-
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :subagent_task_runs`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::SubagentTaskRun::PrivateCollectionProxy) }
-    def subagent_task_runs; end
-
-    sig { params(value: T::Enumerable[::SubagentTaskRun]).void }
-    def subagent_task_runs=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def superagent_ids; end

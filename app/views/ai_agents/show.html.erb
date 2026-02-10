@@ -2,7 +2,7 @@
   ['Home', '/'],
   [@current_user.display_name, @current_user.path],
   ['Settings', "#{@current_user.path}/settings"],
-  'Subagent Created'
+  'AI Agent Created'
 ] %>
 
 <article class="pulse-resource-detail">
@@ -10,10 +10,10 @@
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
         <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
-        Subagent
+        AI Agent
       </span>
     </div>
-    <h1 class="pulse-resource-title"><%= @subagent.display_name %></h1>
+    <h1 class="pulse-resource-title"><%= @ai_agent.display_name %></h1>
   </header>
 
   <div class="pulse-resource-body">
@@ -28,24 +28,24 @@
         <tbody>
           <tr>
             <th style="text-align: left; padding-right: 24px;">Name</th>
-            <td><%= @subagent.name %></td>
+            <td><%= @ai_agent.name %></td>
           </tr>
           <tr>
             <th style="text-align: left; padding-right: 24px;">Handle</th>
-            <td><code><%= @subagent.handle %></code></td>
+            <td><code><%= @ai_agent.handle %></code></td>
           </tr>
           <tr>
             <th style="text-align: left; padding-right: 24px;">Profile</th>
-            <td><a href="<%= @subagent.path %>" class="pulse-link"><%= @subagent.path %></a></td>
+            <td><a href="<%= @ai_agent.path %>" class="pulse-link"><%= @ai_agent.path %></a></td>
           </tr>
           <tr>
             <th style="text-align: left; padding-right: 24px;">Mode</th>
-            <td><%= @subagent.internal_subagent? ? "Internal" : "External" %></td>
+            <td><%= @ai_agent.internal_ai_agent? ? "Internal" : "External" %></td>
           </tr>
-          <% if @subagent.internal_subagent? %>
+          <% if @ai_agent.internal_ai_agent? %>
             <tr>
               <th style="text-align: left; padding-right: 24px;">Model</th>
-              <td><code><%= @subagent.agent_configuration["model"] || "default" %></code></td>
+              <td><code><%= @ai_agent.agent_configuration["model"] || "default" %></code></td>
             </tr>
           <% end %>
           <% if @token && @token.plaintext_token.present? %>
@@ -80,7 +80,7 @@
     <% end %>
 
     <section class="pulse-settings-section pulse-action-row">
-      <a href="<%= @subagent.path %>/settings" class="pulse-action-btn pulse-action-btn-primary">Configure Subagent</a>
+      <a href="<%= @ai_agent.path %>/settings" class="pulse-action-btn pulse-action-btn-primary">Configure AI Agent</a>
       <a href="<%= @current_user.path %>/settings" class="pulse-action-btn">Back to Settings</a>
     </section>
   </div>
