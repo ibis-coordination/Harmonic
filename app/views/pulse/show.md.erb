@@ -4,18 +4,10 @@
 ## Heartbeat Required
 
 You must send a heartbeat to access this <%= @current_superagent.superagent_type %> for the current cycle.
-
-## [Actions](<%= @current_superagent.path %>/actions)
-
-* [`send_heartbeat()`](<%= @current_superagent.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence
 <% elsif @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil? -%>
 ## Heartbeat Required
 
 You must send a heartbeat to view past cycles.
-
-## [Actions](<%= @current_superagent.path %>/actions)
-
-* [`send_heartbeat()`](<%= @current_superagent.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence
 <% else -%>
 ## Cycle: <%= @cycle.name.titleize %>
 
@@ -58,9 +50,4 @@ No pinned items yet.
 No team members yet.
 <% end -%>
 
-## [Actions](<%= @current_superagent.path %>/actions)
-
-* [New Note](<%= @current_superagent.path %>/note)
-* [New Decision](<%= @current_superagent.path %>/decide)
-* [New Commitment](<%= @current_superagent.path %>/commit)
 <% end -%>

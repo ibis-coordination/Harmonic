@@ -46,10 +46,3 @@ No sessions have happened yet.
 <% end %>
 <% end %>
 
-## [Actions](<%= @current_superagent.path %>/representation/actions)
-
-<% if @current_user.superagent_member.can_represent? %>
-* [New Session](<%= @current_superagent.path %>/represent)
-<% else %>
-* No actions available.
-<% end %>

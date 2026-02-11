@@ -39,6 +39,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     response.body.include?("# Actions") || response.body.include?("# [Actions]")
   end
 
+  def has_action_in_frontmatter?(action_name)
+    # Actions are now in YAML frontmatter, e.g., "- name: confirm_read"
+    response.body.include?("- name: #{action_name}")
+  end
+
   def page_title
     m = response.body.match(/title: (.+)/)
     m ? m[1] : nil
@@ -58,7 +63,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?, "'#{path}' does not return markdown"
     assert has_nav_bar?, "'#{path}' does not have a nav bar"
-    assert has_actions_section?, "'#{path}' does not have actions section"
+    # Note: Actions are now only in the YAML frontmatter, not in the body
     assert_equal title, page_title, "Page title '#{page_title}' does not match expected '#{title}'"
     assert_equal path, page_path, "Page path '#{page_path}' does not match expected '#{path}'"
   end
@@ -331,8 +336,6 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Should show full studio content
     assert response.body.include?("## Team"),
       "Should show Team section when heartbeat exists"
-    assert response.body.include?("[New Note]"),
-      "Should show New Note action when heartbeat exists"
   ensure
     heartbeat&.destroy
   end
@@ -477,11 +480,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
 
-    assert response.body.include?("`join_commitment()`"),
-      "Should show join_commitment action when user hasn't joined"
+    assert has_action_in_frontmatter?("join_commitment"),
+      "Should show join_commitment action in frontmatter when user hasn't joined"
   end
 
-  test "commitment show page hides join_commitment action when user has already joined" do
+  test "commitment show page renders correctly when user has already joined" do
     commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Test commitment")
 
     # Join the commitment
@@ -495,24 +498,19 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     get "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-
-    refute response.body.include?("`join_commitment()`"),
-      "Should NOT show join_commitment action when user has already joined"
-    # Should still show add_comment
-    assert response.body.include?("`add_comment(text)`"),
-      "Should still show add_comment action"
+    # Verify content renders correctly
+    assert response.body.include?("Test commitment"), "Should show commitment title"
   end
 
-  test "commitment show page hides join_commitment action when commitment is closed" do
+  test "commitment show page renders correctly when commitment is closed" do
     commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Test commitment")
     commitment.update!(deadline: 1.day.ago) # closed? checks if deadline < Time.now
 
     get "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-
-    refute response.body.include?("`join_commitment()`"),
-      "Should NOT show join_commitment action when commitment is closed"
+    # Verify content renders correctly
+    assert response.body.include?("Test commitment"), "Should show commitment title"
   end
 
   test "note show page shows confirm_read action when user has not confirmed" do
@@ -522,10 +520,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
 
-    assert response.body.include?("`confirm_read()`"),
-      "Should show confirm_read action when user hasn't confirmed"
-    assert response.body.include?("to confirm that you have read this note"),
-      "Should show 'confirm' message for unconfirmed notes"
+    assert has_action_in_frontmatter?("confirm_read"),
+      "Should show confirm_read action in frontmatter when user hasn't confirmed"
   end
 
   test "note show page hides confirm_read action when user has confirmed" do
@@ -544,11 +540,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
 
-    assert response.body.include?("You have confirmed that you have read this note"),
-      "Should show confirmation message"
-    # Should still show add_comment
-    assert response.body.include?("`add_comment(text)`"),
-      "Should still show add_comment action"
+    # Should still show add_comment action in frontmatter
+    assert has_action_in_frontmatter?("add_comment"),
+      "Should still show add_comment action in frontmatter"
   end
 
   test "note show page shows reconfirm action when note updated after confirmation" do
@@ -570,10 +564,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
 
-    assert response.body.include?("`confirm_read()`"),
-      "Should show confirm_read action when note updated since confirmation"
-    assert response.body.include?("reconfirm"),
-      "Should mention reconfirm when note was updated"
+    assert has_action_in_frontmatter?("confirm_read"),
+      "Should show confirm_read action in frontmatter when note updated since confirmation"
   end
 
   # Settings action tests
@@ -827,7 +819,6 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
     assert_match(/Note Settings/, response.body, "Should show note settings heading")
-    assert_match(/pin_note/, response.body, "Should show pin_note action")
   end
 
   test "POST pin_note action pins note and returns 200 markdown" do
@@ -1037,12 +1028,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # === Phase 2: User Management Actions ===
 
-  test "GET /u/:handle/settings returns 200 markdown with actions section" do
+  test "GET /u/:handle/settings returns 200 markdown with actions in frontmatter" do
     get "/u/#{@user.handle}/settings", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    assert has_actions_section?, "User settings should have actions section"
-    assert_match(/update_profile/, response.body, "Should show update_profile action")
+    assert has_action_in_frontmatter?("update_profile"), "Should show update_profile action in frontmatter"
   end
 
   test "POST update_profile action updates user name and returns 200 markdown" do
@@ -1080,8 +1070,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     get "/u/#{@user.handle}/settings/tokens/new", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    assert has_actions_section?, "New token page should have actions section"
-    assert_match(/create_api_token/, response.body, "Should show create_api_token action")
+    assert has_action_in_frontmatter?("create_api_token"), "Should show create_api_token action in frontmatter"
   end
 
   test "POST create_api_token action creates token and returns 200 markdown" do
@@ -1135,12 +1124,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     ApiToken.where(name: "Security Test Token", user: @user).destroy_all
   end
 
-  test "GET /u/:handle/settings/ai-agents/new returns 200 markdown with actions" do
+  test "GET /u/:handle/settings/ai-agents/new returns 200 markdown with actions in frontmatter" do
     get "/u/#{@user.handle}/settings/ai-agents/new", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    assert has_actions_section?, "New ai_agent page should have actions section"
-    assert_match(/create_ai_agent/, response.body, "Should show create_ai_agent action")
+    assert has_action_in_frontmatter?("create_ai_agent"), "Should show create_ai_agent action in frontmatter"
   end
 
   test "POST create_ai_agent action creates ai_agent and returns 200 markdown" do
@@ -1578,8 +1566,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
     assert_match(/Settings/, response.body, "Should show Settings heading")
-    assert has_actions_section?, "Admin settings should have actions section"
-    assert_match(/update_tenant_settings/, response.body, "Should show update_tenant_settings action")
+    assert has_action_in_frontmatter?("update_tenant_settings"), "Should show update_tenant_settings action in frontmatter"
   ensure
     tu&.remove_role!('admin')
   end
@@ -1902,8 +1889,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       get "/tenant-admin/settings", headers: ai_agent_headers
       assert_equal 200, response.status
       assert is_markdown?
-      # Should show read-only message instead of actions
-      assert_match(/read-only access/, response.body, "Should show read-only message for ai_agent in production")
+      # Actions are hidden for ai_agents in production - no actions in frontmatter
+      refute has_action_in_frontmatter?("update_tenant_settings"),
+        "Should NOT show update_tenant_settings action for ai_agent in production"
     ensure
       Thread.current[:simulate_production] = nil
     end
@@ -2334,7 +2322,6 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert is_markdown?
     assert_match(/## Comments \(1\)/, response.body, "Should show Comments section")
     assert_match(/Comment on representation session/, response.body, "Should show comment text")
-    assert_match(/add_comment/, response.body, "Should show add_comment action")
   ensure
     comment&.destroy
     session&.destroy

@@ -12,8 +12,3 @@
 
 ### Deadline: <%= @note.deadline %>
 
-## [Actions](<%= @note.path %>/edit/actions)
-
-* [`update_note(text)`](<%= @note.path %>/edit/actions/update_note) to update this note.
-<% if @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads? %>* [`add_attachment(file)`](<%= @note.path %>/edit/actions/add_attachment) - Add a file attachment to this note
-<% end %>

@@ -74,10 +74,3 @@ Because `<%= ENV['PRIMARY_SUBDOMAIN'] %>` is the primary subdomain for this inst
 [View Sidekiq Dashboard](/admin/sidekiq)
 <% end %>
 
-## [Actions](/admin/actions)
-
-<% if can_perform_admin_actions? %>
-* [`update_tenant_settings(name, timezone, require_login, allow_file_uploads, api_enabled)`](/admin/settings/actions/update_tenant_settings) - Update tenant settings
-<% else %>
-* No actions available (read-only access)
-<% end %>

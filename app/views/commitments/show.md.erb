@@ -43,9 +43,3 @@ No participants yet.
 <%= render 'shared/attachments_section', resource: @commitment %>
 <%= render 'shared/comments_section', resource: @commitment %>
 
-## [Actions](<%= @commitment.path %>/actions)
-
-<% unless @commitment_participant.committed? || @commitment.closed? -%>
-* [`join_commitment()`](<%= @commitment.path %>/actions/join_commitment) - Join the commitment
-<% end -%>
-* [`add_comment(text)`](<%= @commitment.path %>/actions/add_comment) - Add a comment to this commitment

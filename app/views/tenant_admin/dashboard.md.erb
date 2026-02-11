@@ -46,10 +46,3 @@ The main studio is the default studio at the base path (i.e. `<%= @current_tenan
 * [<%= raw studio.name %>](<%= studio.path %>) - created <%= time_ago_in_words(studio.created_at) %> ago
 <% end %>
 
-## [Actions](/tenant-admin/actions)
-
-<% if can_perform_admin_actions? %>
-* [`update_tenant_settings(name, timezone, require_login)`](/tenant-admin/settings/actions/update_tenant_settings) - Update tenant settings
-<% else %>
-* No actions available (read-only access)
-<% end %>

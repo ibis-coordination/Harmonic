@@ -4,10 +4,6 @@
 ## Heartbeat Required
 
 You must send a heartbeat to access this studio for the current cycle.
-
-## [Actions](<%= @current_superagent.path %>/actions)
-
-* [`send_heartbeat()`](<%= @current_superagent.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence in the studio
 <% else -%>
 ## Explore
 
@@ -34,9 +30,4 @@ No pinned items yet.
 No team members yet.
 <% end -%>
 
-## [Actions](<%= @current_superagent.path %>/actions)
-
-* [New Note](<%= @current_superagent.path %>/note)
-* [New Decision](<%= @current_superagent.path %>/decide)
-* [New Commitment](<%= @current_superagent.path %>/commit)
 <% end -%>

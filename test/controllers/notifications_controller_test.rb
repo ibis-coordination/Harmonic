@@ -207,13 +207,15 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "scheduled_for"
   end
 
-  test "new page markdown shows action description" do
+  test "new page markdown shows reminder form" do
     sign_in_as(@user, tenant: @tenant)
 
     get "/notifications/new", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "# New Reminder"
-    assert_includes response.body, "create_reminder"
+    # Verify page shows parameter documentation
+    assert_includes response.body, "title"
+    assert_includes response.body, "scheduled_for"
   end
 
   test "scheduled reminders do not appear in immediate notifications list" do

@@ -25,20 +25,3 @@
 | Status | <%= @showing_user.suspended? ? 'Suspended' : 'Active' %> |
 | Created | <%= time_ago_in_words(@showing_user.created_at) %> ago |
 
-## [Actions](/admin/users/<%= @showing_user.handle %>/actions)
-
-<% if can_perform_admin_actions? -%>
-<% if @showing_user.suspended? -%>
-* [`unsuspend_user()`](/admin/users/<%= @showing_user.handle %>/actions/unsuspend_user) - Restore user's access
-<% else -%>
-<% if @showing_user.id != @current_user.id -%>
-* [`suspend_user(reason)`](/admin/users/<%= @showing_user.handle %>/actions/suspend_user) - Suspend this user's account
-
-**Warning:** Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any ai_agents that they are the parent of.
-<% else -%>
-* You cannot suspend your own account
-<% end -%>
-<% end -%>
-<% else -%>
-* No actions available (read-only access)
-<% end -%>

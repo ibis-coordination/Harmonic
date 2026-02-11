@@ -24,16 +24,3 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 <%= render 'shared/attachments_section', resource: @note %>
 <%= render 'shared/comments_section', resource: @note %>
 
-## [Actions](<%= @note.path %>/actions)
-
-<% if @note_reader.confirmed_read_but_note_updated? -%>
-_Note updated since you last confirmed reading. Reconfirm to acknowledge the changes._
-
-* [`confirm_read()`](<%= @note.path %>/actions/confirm_read) to reconfirm that you have read this note.
-<% elsif @note_reader.confirmed_read? -%>
-You have confirmed that you have read this note.
-
-<% else -%>
-* [`confirm_read()`](<%= @note.path %>/actions/confirm_read) to confirm that you have read this note.
-<% end -%>
-* [`add_comment(text)`](<%= @note.path %>/actions/add_comment) - Add a comment to this note
