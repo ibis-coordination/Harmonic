@@ -132,6 +132,42 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     assert_match(/# System Admin/, response.body)
   end
 
+  test "dashboard loads system monitoring data" do
+    @primary_tenant.add_user!(@sys_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+
+    get "/system-admin"
+    assert_response :success
+
+    # Verify monitoring sections are present
+    assert_match(/System Monitoring/, response.body)
+    assert_match(/Security/, response.body)
+    assert_match(/AI Agents/, response.body)
+    assert_match(/Webhooks/, response.body)
+    assert_match(/Events/, response.body)
+    assert_match(/Resources/, response.body)
+  end
+
+  test "dashboard markdown includes monitoring data" do
+    @primary_tenant.add_user!(@sys_admin_user)
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+
+    get "/system-admin", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+
+    # Verify monitoring sections are present in markdown
+    assert_match(/System Monitoring/, response.body)
+    assert_match(/Security \(Last 24 hours\)/, response.body)
+    assert_match(/AI Agent Task Runs/, response.body)
+    assert_match(/Webhook Deliveries/, response.body)
+    assert_match(/Event Activity/, response.body)
+    assert_match(/System Resources/, response.body)
+  end
+
   test "sys-admin user can access sidekiq as markdown" do
     @primary_tenant.add_user!(@sys_admin_user)
 

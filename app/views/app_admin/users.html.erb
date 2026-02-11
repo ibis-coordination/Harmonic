@@ -43,10 +43,10 @@
   </p>
 <% end %>
 
-<% user_type_labels = { 'human' => 'People', 'ai_agent' => 'AI Agents' } %>
+<% user_type_labels = { 'human' => 'Human Users', 'ai_agent' => 'AI Agents' } %>
 <% user_type_icons = { 'human' => 'person', 'ai_agent' => 'command-palette' } %>
 
-<% ['person', 'ai_agent'].each do |user_type| %>
+<% ['human', 'ai_agent'].each do |user_type| %>
   <% users = @users_by_type[user_type] || [] %>
   <% total_count = @counts_by_type[user_type] || 0 %>
   <%= render 'shared/pulse_accordion',

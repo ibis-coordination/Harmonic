@@ -137,31 +137,6 @@ class CommitmentParticipantManagerTest < ActiveSupport::TestCase
     end
   end
 
-  # === Name Parameter Tests ===
-
-  test "find_or_create_participant sets name on new participant" do
-    manager = CommitmentParticipantManager.new(
-      commitment: @commitment,
-      participant_uid: SecureRandom.uuid,
-      name: "Anonymous Committer"
-    )
-
-    participant = manager.find_or_create_participant
-    assert_equal "Anonymous Committer", participant.name
-  end
-
-  test "find_or_create_participant sets name for user participant" do
-    new_user = create_user(email: "named_committer_#{SecureRandom.hex(4)}@example.com")
-    manager = CommitmentParticipantManager.new(
-      commitment: @commitment,
-      user: new_user,
-      name: "Custom Name"
-    )
-
-    participant = manager.find_or_create_participant
-    assert_equal "Custom Name", participant.name
-  end
-
   # === Error Handling Tests ===
 
   test "find_or_create_participant raises error without commitment" do

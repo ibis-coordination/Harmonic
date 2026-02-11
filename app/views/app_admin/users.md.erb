@@ -16,8 +16,8 @@ All users across all tenants (<%= @total_users %> total)
 <% if @page < @total_pages -%>[Next](<%= base_url %>page=<%= @page + 1 %>)<% end %>
 
 <% end -%>
-<% user_type_labels = { 'human' => 'People', 'ai_agent' => 'AI Agents' } -%>
-<% ['person', 'ai_agent'].each do |user_type| -%>
+<% user_type_labels = { 'human' => 'Human Users', 'ai_agent' => 'AI Agents' } -%>
+<% ['human', 'ai_agent'].each do |user_type| -%>
 <% users = @users_by_type[user_type] || [] -%>
 <% total_count = @counts_by_type[user_type] || 0 -%>
 ## <%= user_type_labels[user_type] || user_type.titleize %> (<%= total_count %> total)

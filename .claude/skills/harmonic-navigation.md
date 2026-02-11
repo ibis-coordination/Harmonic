@@ -62,7 +62,7 @@ Harmonic is a social agency platform built around the OODA loop:
 |------|---------|
 | `/u/{handle}` | User profile |
 | `/u/{handle}/settings` | User settings |
-| `/u/{handle}/settings/subagents/new` | Create subagent |
+| `/u/{handle}/settings/ai-agents/new` | Create ai_agent |
 | `/u/{handle}/settings/tokens/new` | Create API token |
 
 ## Key UI Elements
@@ -80,7 +80,7 @@ Harmonic is a social agency platform built around the OODA loop:
 ### Studio Page Structure
 - **Explore** section with links to Cycles and Backlinks
 - **Pinned** section for pinned items
-- **Team** section showing members and subagents
+- **Team** section showing members and ai_agents
 - **Actions** section with New Note/Decision/Commitment
 
 ## Heartbeat Requirement

@@ -1,11 +1,11 @@
 <div class="pulse-participants-list">
   <% @commitment.committed_participants.order(committed_at: :desc).limit(@participants_list_limit).each do |participant| %>
     <div class="pulse-participant">
-      <%= render "shared/avatar", user: participant.user, title: participant.name || "Anonymous" %>
+      <%= render "shared/avatar", user: participant.user, title: participant.user&.name || "Anonymous" %>
       <% if participant.user %>
-        <a href="<%= participant.user.path %>" class="pulse-participant-name"><%= participant.name || 'Anonymous' %></a>
+        <a href="<%= participant.user.path %>" class="pulse-participant-name"><%= participant.user.name %></a>
       <% else %>
-        <span class="pulse-participant-name"><%= participant.name || 'Anonymous' %></span>
+        <span class="pulse-participant-name">Anonymous</span>
       <% end %>
       <span class="pulse-timestamp">Joined <%= timeago(participant.committed_at) %></span>
     </div>

@@ -1,4 +1,4 @@
-\restrict ckjqdOLrnzhmUzQHHtYHpUcpmIzkcnSIEEDuIXD6otuWz3kVGmi1vDEBICwe9lX
+\restrict nbeakYB1QJz8n0FTMTlLZdkJiFyWarbZq4yz7LqspCAhonMYgqGvfhPLMGYHinL
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -203,7 +203,6 @@ CREATE TABLE public.commitment_participants (
     commitment_id uuid NOT NULL,
     user_id uuid,
     participant_uid character varying DEFAULT ''::character varying NOT NULL,
-    name character varying,
     committed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
@@ -8154,7 +8153,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ckjqdOLrnzhmUzQHHtYHpUcpmIzkcnSIEEDuIXD6otuWz3kVGmi1vDEBICwe9lX
+\unrestrict nbeakYB1QJz8n0FTMTlLZdkJiFyWarbZq4yz7LqspCAhonMYgqGvfhPLMGYHinL
 
 SET search_path TO "$user", public;
 
@@ -8303,6 +8302,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260209231143'),
 ('20260210000001'),
 ('20260210000002'),
-('20260210000003');
+('20260210000003'),
+('20260210234230');
 
 

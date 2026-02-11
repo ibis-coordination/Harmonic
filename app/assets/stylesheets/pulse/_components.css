@@ -3274,3 +3274,38 @@ a.pulse-activity-title:hover {
   font-size: 12px;
   color: var(--color-fg-muted);
 }
+
+/* Monitoring Grid (System Admin) */
+.pulse-monitoring-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pulse-monitoring-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pulse-monitoring-label {
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.pulse-monitoring-values {
+  color: var(--color-fg-muted);
+}
+
+/* Text Color Utilities */
+.pulse-text-muted {
+  color: var(--color-fg-muted);
+}
+
+.pulse-text-warning {
+  color: var(--color-attention-fg);
+}
+
+.pulse-text-danger {
+  color: var(--color-danger-fg);
+}

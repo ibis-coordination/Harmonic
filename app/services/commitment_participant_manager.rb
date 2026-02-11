@@ -5,12 +5,11 @@
 class CommitmentParticipantManager
   extend T::Sig
 
-  sig { params(commitment: Commitment, user: T.nilable(User), participant_uid: T.nilable(String), name: T.nilable(String)).void }
-  def initialize(commitment:, user: nil, participant_uid: nil, name: nil)
+  sig { params(commitment: Commitment, user: T.nilable(User), participant_uid: T.nilable(String)).void }
+  def initialize(commitment:, user: nil, participant_uid: nil)
     @commitment = commitment
     @user = user
     @participant_uid = participant_uid
-    @name = name
     # TODO - add validations
   end
 
@@ -59,7 +58,6 @@ class CommitmentParticipantManager
         commitment: @commitment,
         user: @user,
         participant_uid: @participant_uid,
-        name: @name,
       )
     end
     participant
@@ -82,7 +80,6 @@ class CommitmentParticipantManager
         commitment: @commitment,
         user: @user,
         participant_uid: @participant_uid,
-        name: @name,
       )
     end
     participant
