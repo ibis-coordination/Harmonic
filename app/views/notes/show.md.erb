@@ -1,4 +1,4 @@
-# Note: <%= raw @note.title %>
+# Note: <%= @note.title %>
 
 | created_at | <%= @note.created_at %> |
 | updated_at | <%= @note.updated_at %> |
@@ -11,7 +11,7 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 ## Text
 
 ```markdown
-<%= @note.text.gsub(/```/, '\\\`\\\`\\\`').html_safe %>
+<%= @note.text.gsub(/```/, '\\`\\`\\`') %>
 ```
 
 ## History

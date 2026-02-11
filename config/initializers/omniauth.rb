@@ -18,6 +18,7 @@ end
 
 OmniAuth.config.allowed_request_methods = [:post]
 OmniAuth.config.silence_get_warning = true
+OmniAuth.config.failure_raise_out_environments = []
 
 if Rails.env.development?
   # OmniAuth.config.test_mode = true

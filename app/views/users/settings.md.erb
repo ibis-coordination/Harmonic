@@ -4,7 +4,7 @@
 
 ## Profile
 
-Name: <%= raw @settings_user.name %>
+Name: <%= @settings_user.name %>
 Handle: `<%= @settings_user.handle %>`
 <% if @settings_user.ai_agent? %>
 Type: AI Agent (managed by <%= @settings_user.parent&.display_name || 'Unknown' %>)
@@ -29,7 +29,7 @@ Model: `<%= @settings_user.agent_configuration&.dig("model") || "default" %>`
 | Name | Created | Last Used | Expires | Active |
 |------|---------|-----------|---------|--------|
 <% @settings_user.api_tokens.external.each do |token| %>
-| <%= raw token.name || 'Unnamed' %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Yes' : 'No' %> |
+| <%= token.name || 'Unnamed' %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Yes' : 'No' %> |
 <% end %>
 <% else %>
 No API tokens.
@@ -39,7 +39,7 @@ No API tokens.
 ## AI Agents
 
 <% @ai_agents.each do |ai_agent| %>
-### <%= raw ai_agent.name %><%= ai_agent.archived? ? ' (Archived)' : '' %>
+### <%= ai_agent.name %><%= ai_agent.archived? ? ' (Archived)' : '' %>
 
 * [View Profile](<%= ai_agent.path %>)
 * [Settings](<%= ai_agent.path %>/settings)
@@ -49,7 +49,7 @@ No API tokens.
 
 Studio memberships:
 <% active_studios.each do |s| %>
-* [<%= raw s.name %>](<%= s.path %>)
+* [<%= s.name %>](<%= s.path %>)
 <% end %>
 <% end %>
 <% end %>

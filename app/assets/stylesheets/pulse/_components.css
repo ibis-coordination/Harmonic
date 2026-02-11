@@ -3001,12 +3001,16 @@ a.pulse-activity-title:hover {
 }
 
 /* Auth Pages (login, logout, etc.) */
-.pulse-auth-page {
+.pulse-auth-page, .pulse-auth-page-wide {
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
   padding: 48px 24px;
   text-align: center;
+}
+
+.pulse-auth-page-wide {
+  max-width: 800px;
 }
 
 .pulse-auth-logo {

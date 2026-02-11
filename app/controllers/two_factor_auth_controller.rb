@@ -5,7 +5,6 @@ class TwoFactorAuthController < ApplicationController
   before_action :require_pending_2fa, only: [:verify, :verify_submit]
   before_action :require_login, only: [:setup, :confirm_setup, :settings, :disable, :regenerate_codes]
   before_action :require_identity_provider, only: [:setup, :confirm_setup, :settings, :disable, :regenerate_codes]
-  skip_forgery_protection only: [:verify_submit]
 
   # === Login Verification ===
 

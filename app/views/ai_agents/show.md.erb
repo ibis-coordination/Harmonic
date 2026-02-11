@@ -1,10 +1,10 @@
 # AI Agent Created
 
-Successfully created ai_agent **<%= raw @ai_agent.display_name %>**.
+Successfully created ai_agent **<%= @ai_agent.display_name %>**.
 
 | Property | Value |
 |----------|-------|
-| Name | <%= raw @ai_agent.name %> |
+| Name | <%= @ai_agent.name %> |
 | Handle | `<%= @ai_agent.handle %>` |
 | Profile | [<%= @ai_agent.path %>](<%= @ai_agent.path %>) |
 | Mode | <%= @ai_agent.internal_ai_agent? ? "Internal" : "External" %> |

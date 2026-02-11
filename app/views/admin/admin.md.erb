@@ -5,7 +5,7 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 ## Admin Users
 
 <% @current_tenant.admin_users.each do |tu| %>
-* [<%= raw tu.display_name %>](/admin/users/<%= tu.handle %>) (`@<%= tu.handle %>`)
+* [<%= tu.display_name %>](/admin/users/<%= tu.handle %>) (`@<%= tu.handle %>`)
 <% end %>
 
 [Manage All Users](/admin/users)
@@ -49,7 +49,7 @@ The main studio is the default studio at the base path (i.e. `<%= @current_tenan
 
 <% @current_tenant.superagents.order(created_at: :desc).each do |studio| %>
 <% next if studio == @current_tenant.main_superagent %>
-* [<%= raw studio.name %>](<%= studio.path %>) - created <%= time_ago_in_words(studio.created_at) %> ago
+* [<%= studio.name %>](<%= studio.path %>) - created <%= time_ago_in_words(studio.created_at) %> ago
 <% end %>
 <% if @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
 
@@ -64,7 +64,7 @@ Because `<%= ENV['PRIMARY_SUBDOMAIN'] %>` is the primary subdomain for this inst
 <% Tenant.all.each do |tenant| %>
 <% next if tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
 <% next if tenant.subdomain == ENV['AUTH_SUBDOMAIN'] %>
-* [<%= raw tenant.name %>](/admin/tenants/<%= tenant.subdomain %>) (`<%= tenant.subdomain %>`)
+* [<%= tenant.name %>](/admin/tenants/<%= tenant.subdomain %>) (`<%= tenant.subdomain %>`)
 <% end %>
 
 [View All Tenants](/admin/tenants) | [Create New Tenant](/admin/tenants/new)

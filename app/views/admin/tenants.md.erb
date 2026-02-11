@@ -5,6 +5,6 @@
 | Subdomain | Name |
 |-----------|------|
 <% @tenants.each do |tenant| -%>
-| [`<%= tenant.subdomain %>`](/admin/tenants/<%= tenant.subdomain %>) | <%= raw tenant.name %> |
+| [`<%= tenant.subdomain %>`](/admin/tenants/<%= tenant.subdomain %>) | <%= tenant.name %> |
 <% end -%>
 

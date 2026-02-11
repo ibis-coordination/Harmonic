@@ -21,7 +21,7 @@ No results found.
 No items in this group.
 <% else -%>
 <% items.each do |item| -%>
-* [<%= raw item.title %>](<%= item.path %>)
+* [<%= item.title %>](<%= item.path %>)
   * Type: <%= item.item_type %>
   * Location: <%= item.superagent&.name || 'Unknown' %>
   * Created: <%= time_ago_or_from_now(item.created_at) %>

@@ -32,7 +32,7 @@ All users in `<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>` (<%= @tot
 <% status_badges = [] -%>
 <% status_badges << 'admin' if @current_tenant.is_admin?(user) -%>
 <% status_badges << 'SUSPENDED' if user.suspended? -%>
-| [`<%= handle %>`](/admin/users/<%= handle %>) | <%= raw user.display_name || user.name %> | <%= status_badges.join(', ') %> |
+| [`<%= handle %>`](/admin/users/<%= handle %>) | <%= user.display_name || user.name %> | <%= status_badges.join(', ') %> |
 <% end -%>
 <% else -%>
 | Handle | Name | Email | Status |
@@ -43,7 +43,7 @@ All users in `<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>` (<%= @tot
 <% status_badges = [] -%>
 <% status_badges << 'admin' if @current_tenant.is_admin?(user) -%>
 <% status_badges << 'SUSPENDED' if user.suspended? -%>
-| [`<%= handle %>`](/admin/users/<%= handle %>) | <%= raw user.display_name || user.name %> | <%= user.email %> | <%= status_badges.join(', ') %> |
+| [`<%= handle %>`](/admin/users/<%= handle %>) | <%= user.display_name || user.name %> | <%= user.email %> | <%= status_badges.join(', ') %> |
 <% end -%>
 <% end -%>
 <% else -%>

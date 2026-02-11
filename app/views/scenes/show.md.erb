@@ -1,12 +1,12 @@
-# Scene: <%= raw @current_superagent.name %>
+# Scene: <%= @current_superagent.name %>
 
-<%= raw @current_superagent.description %>
+<%= @current_superagent.description %>
 
 ## Recent Notes
 
 <% if @notes.length > 0 %>
 <% @notes.each do |note| %>
-* [<%= raw note.title.present? ? note.title : "Note #{note.truncated_id}" %>](<%= note.path %>)
+* [<%= note.title.present? ? note.title : "Note #{note.truncated_id}" %>](<%= note.path %>)
   * Created: <%= time_ago_in_words(note.created_at) %> ago
 <% end %>
 <% else %>

@@ -21,7 +21,7 @@ Viewing: <%= @cycle.name.titleize %> | [Back to current cycle](<%= @current_supe
 No activity in this cycle yet.
 <% else -%>
 <% @feed_items.first(20).each do |feed_item| -%>
-* **<%= feed_item[:type] %>**: [<%= raw feed_item[:item].title %>](<%= feed_item[:item].path %>) by <%= user_link_md(feed_item[:created_by]) %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago)
+* **<%= feed_item[:type] %>**: [<%= feed_item[:item].title %>](<%= feed_item[:item].path %>) by <%= user_link_md(feed_item[:created_by]) %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago)
 <% end -%>
 <% end -%>
 
@@ -34,7 +34,7 @@ No activity in this cycle yet.
 
 <% if @pinned_items.any? -%>
 <% @pinned_items.each do |item| -%>
-* <%= item[:item].class.to_s %>: [<%= raw item[:item].title %>](<%= item[:item].path %>) pinned <%= time_ago_in_words(item[:pinned_at]) %> ago
+* <%= item[:item].class.to_s %>: [<%= item[:item].title %>](<%= item[:item].path %>) pinned <%= time_ago_in_words(item[:pinned_at]) %> ago
 <% end -%>
 <% else -%>
 No pinned items yet.

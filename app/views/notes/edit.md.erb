@@ -2,12 +2,12 @@
 
 ## Current Note
 
-### Title: <%= raw @note.title %>
+### Title: <%= @note.title %>
 
 ### Text
 
 ```markdown
-<%= @note.text.gsub(/```/, '\\\`\\\`\\\`').html_safe %>
+<%= @note.text.gsub(/```/, '\\`\\`\\`') %>
 ```
 
 ### Deadline: <%= @note.deadline %>

@@ -30,7 +30,7 @@ Current settings for **<%= @current_superagent.name %>**:
 ## AI Agents in this Studio
 
 <% @studio_ai_agents.each do |ai_agent| %>
-* [<%= raw ai_agent.display_name %>](<%= ai_agent.path %>) - managed by <%= ai_agent.parent ? "[#{ai_agent.parent.display_name}](#{ai_agent.parent.path})" : "Unknown" %>
+* [<%= ai_agent.display_name %>](<%= ai_agent.path %>) - managed by <%= ai_agent.parent ? "[#{ai_agent.parent.display_name}](#{ai_agent.parent.path})" : "Unknown" %>
 <% end %>
 <% end %>
 

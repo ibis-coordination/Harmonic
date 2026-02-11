@@ -179,6 +179,30 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/login/, response.location)
   end
 
+  test "oauth failure shows friendly message for invalid credentials" do
+    host! auth_host
+
+    get "/auth/failure", params: { message: "invalid_credentials" }
+    assert_response :redirect
+    assert_equal "Invalid email or password. Please try again.", flash[:alert]
+  end
+
+  test "oauth failure shows friendly message for csrf detected" do
+    host! auth_host
+
+    get "/auth/failure", params: { message: "csrf_detected" }
+    assert_response :redirect
+    assert_equal "Your login session expired. Please try again.", flash[:alert]
+  end
+
+  test "oauth failure shows generic message for unknown failures" do
+    host! auth_host
+
+    get "/auth/failure", params: { message: "some_unknown_error" }
+    assert_response :redirect
+    assert_equal "We couldn't complete your login. Please try again.", flash[:alert]
+  end
+
   test "oauth failure logs security audit event" do
     host! auth_host
     test_reason = "access_denied_#{SecureRandom.hex(4)}"
