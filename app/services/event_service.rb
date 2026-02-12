@@ -36,5 +36,6 @@ class EventService
   def self.dispatch_to_handlers(event)
     NotificationDispatcher.dispatch(event)
     WebhookDispatcher.dispatch(event)
+    AutomationDispatcher.dispatch(event)
   end
 end
