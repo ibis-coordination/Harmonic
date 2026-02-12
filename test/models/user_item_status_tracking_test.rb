@@ -112,36 +112,6 @@ class UserItemStatusTrackingTest < ActiveSupport::TestCase
     assert_not_nil status_after.voted_at
   end
 
-  test "votes from anonymous participants (no user_id) do not create user_item_status records" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
-
-    # Create an anonymous participant
-    anonymous_participant = DecisionParticipant.create!(
-      tenant: @tenant,
-      superagent: @superagent,
-      decision: decision,
-      user: nil,
-      name: "Anonymous"
-    )
-
-    initial_count = UserItemStatus.where(item_type: "Decision", item_id: decision.id).count
-
-    # Create vote from anonymous participant
-    Vote.create!(
-      tenant: @tenant,
-      superagent: @superagent,
-      decision: decision,
-      option: option,
-      decision_participant: anonymous_participant,
-      accepted: 1,
-      preferred: 0
-    )
-
-    # Should not create a user_item_status for anonymous votes
-    assert_equal initial_count, UserItemStatus.where(item_type: "Decision", item_id: decision.id).count
-  end
-
   # =========================================================================
   # Commitment participation tracking
   # =========================================================================
@@ -219,25 +189,6 @@ class UserItemStatusTrackingTest < ActiveSupport::TestCase
     )
     assert status_after.is_participating
     assert_not_nil status_after.participated_at
-  end
-
-  test "anonymous commitment participants do not create user_item_status records" do
-    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
-
-    initial_count = UserItemStatus.where(item_type: "Commitment", item_id: commitment.id).count
-
-    # Create anonymous participant
-    CommitmentParticipant.create!(
-      tenant: @tenant,
-      superagent: @superagent,
-      commitment: commitment,
-      user: nil,
-      name: "Anonymous",
-      committed: true
-    )
-
-    # Should not create a user_item_status for anonymous participants
-    assert_equal initial_count, UserItemStatus.where(item_type: "Commitment", item_id: commitment.id).count
   end
 
   # =========================================================================

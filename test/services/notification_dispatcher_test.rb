@@ -650,9 +650,8 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_equal tenant.id, task_run.tenant_id
     assert_equal user.id, task_run.initiated_by_id
     assert_equal "queued", task_run.status
-    # Task prompt uses generic notification message (actor name and path are no longer included)
-    assert_includes task_run.task, "You have notifications"
-    assert_includes task_run.task, "/notifications"
+    # Task prompt uses generic navigation message directing agent to check notifications
+    assert_includes task_run.task, "Navigate to /notifications"
   end
 
   test "handle_comment_event creates queued task when commenting on ai_agent content" do

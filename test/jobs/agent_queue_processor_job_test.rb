@@ -18,7 +18,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
         success: true,
         steps: [],
         final_message: "Mock completed",
-        error: nil
+        error: nil,
+        input_tokens: 0,
+        output_tokens: 0
       )
     end
 
@@ -65,7 +67,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
       success: true,
       steps: [],
       final_message: "Task completed",
-      error: nil
+      error: nil,
+      input_tokens: 100,
+      output_tokens: 50
     )
     AgentQueueProcessorJob.navigator_class = MockNavigator
 
@@ -153,7 +157,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
       success: true,
       steps: [],
       final_message: "Done",
-      error: nil
+      error: nil,
+      input_tokens: 100,
+      output_tokens: 50
     )
     AgentQueueProcessorJob.navigator_class = MockNavigator
 
@@ -191,7 +197,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
       success: false,
       steps: [],
       final_message: nil,
-      error: "Something went wrong"
+      error: "Something went wrong",
+      input_tokens: 50,
+      output_tokens: 25
     )
     AgentQueueProcessorJob.navigator_class = MockNavigator
 
@@ -226,7 +234,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
       success: true,
       steps: [],
       final_message: "Done",
-      error: nil
+      error: nil,
+      input_tokens: 100,
+      output_tokens: 50
     )
     AgentQueueProcessorJob.navigator_class = MockNavigator
 
