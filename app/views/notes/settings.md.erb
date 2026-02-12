@@ -8,8 +8,3 @@ Current settings for note **<%= @note.title.present? ? @note.title : "Note #{@no
 | Created By | <%= @note.created_by&.name || "(unknown)" %> |
 | Created At | <%= @note.created_at %> |
 
-## [Actions](<%= @note.path %>/settings/actions)
-
-<% if @is_pinned %>* [`unpin_note()`](<%= @note.path %>/settings/actions/unpin_note) - Unpin this note from the studio homepage.
-<% else %>* [`pin_note()`](<%= @note.path %>/settings/actions/pin_note) - Pin this note to the studio homepage.
-<% end %>

@@ -1,4 +1,4 @@
-# Decision: <%= raw @decision.question %>
+# Decision: <%= @decision.question %>
 
 | created_at | <%= @decision.created_at %> |
 | updated_at | <%= @decision.updated_at %> |
@@ -8,7 +8,7 @@
 <% if @decision.description.present? -%>
 ## Description
 
-<%= raw @decision.description %>
+<%= @decision.description %>
 <% end -%>
 <% unless @decision.closed? -%>
 ## Options
@@ -20,7 +20,7 @@ Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 
 <% @decision.options.order(:created_at).each do |option| -%>
 <% vote = @votes.where(option: option).first || Vote.new(accepted: 0) -%>
-* [<%= vote.accepted == 1 ? '✅' : ' ' %>] [<%= vote.preferred == 1 ? '⭐️' : ' ' %>] <%= raw option.title %>
+* [<%= vote.accepted == 1 ? '✅' : ' ' %>] [<%= vote.preferred == 1 ? '⭐️' : ' ' %>] <%= option.title %>
 <% end -%>
 <% end -%>
 <% end -%>
@@ -34,7 +34,7 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 | 0 | Add options to see results. | 0 | 0 | 0 |
 <% end -%>
 <% @decision.results.each.with_index do |result, index| -%>
-| <%= index + 1 %> | <%= raw result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
+| <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
 <% end -%>
 
 ## Voters (<%= @decision.voters.count %>)
@@ -50,12 +50,3 @@ No voters yet.
 <%= render 'shared/attachments_section', resource: @decision %>
 <%= render 'shared/comments_section', resource: @decision %>
 
-## [Actions](<%= @decision.path %>/actions)
-
-<% if @decision.closed? -%>
-This decision is closed.
-<% else -%>
-* [`add_option(text)`](<%= @decision.path %>/actions/add_option) - Add an option to the decision
-* [`vote(option_title, accept, prefer)`](<%= @decision.path %>/actions/vote) - Vote on an option
-<% end -%>
-* [`add_comment(text)`](<%= @decision.path %>/actions/add_comment) - Add a comment to this decision

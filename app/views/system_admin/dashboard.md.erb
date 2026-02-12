@@ -11,5 +11,31 @@ System-level administration for `<%= ENV['HOSTNAME'] %>`.
 ### Sidekiq
 Manage background job queues, view failed jobs, and retry jobs.
 
-### System Monitoring (Coming Soon)
-System metrics and health checks.
+### System Monitoring
+
+#### Security (Last 24 hours)
+- Login failures: <%= @security_summary["login_failure"] %>
+- Login successes: <%= @security_summary["login_success"] %>
+- Rate limited: <%= @security_summary["rate_limited"] %>
+- IP blocks: <%= @security_summary["ip_blocked"] %>
+- Permission denied: <%= @security_summary["permission_denied"] %>
+
+#### AI Agent Task Runs
+- Queued: <%= @agent_runs[:queued] %>
+- Running: <%= @agent_runs[:running] %>
+- Failed (24h): <%= @agent_runs[:recent_failed] %>
+- Completed (24h): <%= @agent_runs[:recent_completed] %>
+
+#### Webhook Deliveries
+- Pending: <%= @webhook_health[:pending] %>
+- Failed: <%= @webhook_health[:failed] %>
+- Needs retry: <%= @webhook_health[:needs_retry] %>
+
+#### Event Activity
+- Last hour: <%= @event_activity[:last_hour] %>
+- Last 24 hours: <%= @event_activity[:last_day] %>
+
+#### System Resources
+- Queued jobs: <%= @system_resources[:queue_depth] %>
+- Redis memory: <%= @system_resources[:redis_memory] %>
+- Workers: <%= @system_resources[:workers_busy] %>/<%= @system_resources[:workers_total] %> busy

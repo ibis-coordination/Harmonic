@@ -9,7 +9,7 @@ class DecisionParticipant < ApplicationRecord
   belongs_to :superagent
   before_validation :set_superagent_id
   belongs_to :decision
-  belongs_to :user, optional: true
+  belongs_to :user
 
   has_many :votes, dependent: :destroy
   has_many :options, dependent: :destroy
@@ -40,8 +40,8 @@ class DecisionParticipant < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def authenticated?
-    # If there is a user association, then we know the participant is authenticated
-    user.present?
+    # User is required, so participant is always authenticated
+    true
   end
 
   sig { returns(T::Boolean) }

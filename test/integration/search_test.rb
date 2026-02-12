@@ -166,11 +166,11 @@ class SearchTest < ActionDispatch::IntegrationTest
     assert_match "type%3Anote", response.location
   end
 
-  test "GET search markdown includes actions section" do
+  test "GET search markdown returns valid response" do
     get search_path, headers: @headers.merge("Accept" => "text/markdown")
     assert_response :success
-    assert_match "[Actions]", response.body
-    assert_match "search(q)", response.body
+    # Verify page renders with search syntax help
+    assert_match "Search Syntax", response.body, "Should show search syntax help"
   end
 
   test "GET search markdown includes path with query in frontmatter" do

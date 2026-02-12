@@ -1,4 +1,4 @@
-# User: <%= raw @showing_user.display_name %><%= @showing_user.archived? ? ' (Archived)' : '' %>
+# User: <%= @showing_user.display_name %><%= @showing_user.archived? ? ' (Archived)' : '' %>
 
 Handle: `<%= @showing_user.handle %>`
 <% if @showing_user.ai_agent? %>
@@ -24,7 +24,7 @@ Has <%= @ai_agent_count %> ai_agent<%= @ai_agent_count == 1 ? "" : "s" %>
 ## Common Studios
 
 <% @common_studios.each do |studio| %>
-* [<%= raw studio.name %>](<%= studio.path %>)
+* [<%= studio.name %>](<%= studio.path %>)
 <% end %>
 <% if @additional_common_studio_count > 0 %>
 And <%= @additional_common_studio_count %> more...
@@ -35,10 +35,7 @@ And <%= @additional_common_studio_count %> more...
 ## Social Proximity (<%= @proximity_users.size %>)
 
 <% @proximity_users.each do |user| %>
-* [<%= raw user.display_name %>](<%= user.path %>) (@<%= user.handle %>)
+* [<%= user.display_name %>](<%= user.path %>) (@<%= user.handle %>)
 <% end %>
 <% end %>
 
-## [Actions](<%= @showing_user.path %>/actions)
-
-* No actions available.

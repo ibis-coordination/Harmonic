@@ -15,13 +15,31 @@ class AiAgentsController < ApplicationController
       .where(tenant_users: { tenant_id: current_tenant.id })
       .includes(:tenant_users, :superagent_members)
 
-    # Load latest run for each AI agent
+    # Load the most relevant run for each AI agent
+    # Priority: running > queued > most recent completed/failed
+    # Limit to 10 runs per agent to avoid loading too much data
     ai_agent_ids = ai_agents.map(&:id)
-    latest_runs = AiAgentTaskRun
+    all_runs = AiAgentTaskRun
       .where(ai_agent_id: ai_agent_ids)
-      .select("DISTINCT ON (ai_agent_id) *")
-      .order("ai_agent_id, created_at DESC")
-    @latest_runs_by_ai_agent = latest_runs.index_by(&:ai_agent_id)
+      .where("created_at > ?", 30.days.ago)
+      .order(created_at: :desc)
+      .limit(ai_agent_ids.size * 10)
+
+    @latest_runs_by_ai_agent = {}
+    all_runs.group_by(&:ai_agent_id).each do |agent_id, runs|
+      # Prefer running, then queued, then most recent by creation time
+      @latest_runs_by_ai_agent[agent_id] =
+        runs.find { |r| r.status == "running" } ||
+        runs.find { |r| r.status == "queued" } ||
+        runs.first
+    end
+
+    # Calculate total estimated costs per agent (all time)
+    @total_costs_by_ai_agent = AiAgentTaskRun
+      .where(ai_agent_id: ai_agent_ids)
+      .completed
+      .group(:ai_agent_id)
+      .sum(:estimated_cost_usd)
 
     # Sort AI agents by most recent run first, then by created_at for those without runs
     @ai_agents = ai_agents.sort_by do |s|

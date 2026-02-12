@@ -165,6 +165,22 @@ class LLMClient
 
   sig { params(response: Faraday::Response).returns(Result) }
   def parse_response(response)
+    # Check for error status codes
+    unless response.success?
+      error_msg = case response.status
+                  when 429
+                    "Rate limited by LLM provider. Please try again later."
+                  when 401, 403
+                    "Authentication error with LLM provider."
+                  when 500..599
+                    "LLM provider server error (#{response.status})."
+                  else
+                    "LLM request failed with status #{response.status}."
+                  end
+      Rails.logger.error("[LLMClient] HTTP #{response.status}: #{response.body.truncate(500)}")
+      return error_result(error_msg)
+    end
+
     parsed = T.cast(JSON.parse(response.body), T::Hash[String, T.untyped])
 
     content = T.cast(

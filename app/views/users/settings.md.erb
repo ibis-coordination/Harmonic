@@ -4,7 +4,7 @@
 
 ## Profile
 
-Name: <%= raw @settings_user.name %>
+Name: <%= @settings_user.name %>
 Handle: `<%= @settings_user.handle %>`
 <% if @settings_user.ai_agent? %>
 Type: AI Agent (managed by <%= @settings_user.parent&.display_name || 'Unknown' %>)
@@ -29,7 +29,7 @@ Model: `<%= @settings_user.agent_configuration&.dig("model") || "default" %>`
 | Name | Created | Last Used | Expires | Active |
 |------|---------|-----------|---------|--------|
 <% @settings_user.api_tokens.external.each do |token| %>
-| <%= raw token.name || 'Unnamed' %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Yes' : 'No' %> |
+| <%= token.name || 'Unnamed' %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Yes' : 'No' %> |
 <% end %>
 <% else %>
 No API tokens.
@@ -39,7 +39,7 @@ No API tokens.
 ## AI Agents
 
 <% @ai_agents.each do |ai_agent| %>
-### <%= raw ai_agent.name %><%= ai_agent.archived? ? ' (Archived)' : '' %>
+### <%= ai_agent.name %><%= ai_agent.archived? ? ' (Archived)' : '' %>
 
 * [View Profile](<%= ai_agent.path %>)
 * [Settings](<%= ai_agent.path %>/settings)
@@ -49,7 +49,7 @@ No API tokens.
 
 Studio memberships:
 <% active_studios.each do |s| %>
-* [<%= raw s.name %>](<%= s.path %>)
+* [<%= s.name %>](<%= s.path %>)
 <% end %>
 <% end %>
 <% end %>
@@ -65,15 +65,3 @@ Studio memberships:
 * [Manage Trustee Grants](<%= @settings_user.path %>/settings/trustee-grants) - Manage who can act on your behalf
 <% end %>
 
-## [Actions](<%= @settings_user.path %>/settings/actions)
-
-* [`update_profile(name, new_handle)`](<%= @settings_user.path %>/settings/actions/update_profile) - Update profile name and/or handle
-<% if @current_tenant.api_enabled? %>
-<% if @current_user.human? %>
-* [New API Token](<%= @settings_user.path %>/settings/tokens/new) - Create a new API token
-<% end %>
-* [Webhooks](<%= @settings_user.path %>/settings/webhooks) - Manage personal webhooks for reminders and notifications
-<% if @current_user.human? && is_own_settings %>
-* [New AI Agent](<%= @settings_user.path %>/settings/ai-agents/new) - Create a new AI agent
-<% end %>
-<% end %>

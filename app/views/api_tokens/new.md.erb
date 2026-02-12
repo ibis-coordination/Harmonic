@@ -1,6 +1,6 @@
 # New API Token
 
-Create a new API token for **<%= raw @showing_user.display_name %>**.
+Create a new API token for **<%= @showing_user.display_name %>**.
 
 ## Parameters
 
@@ -11,6 +11,3 @@ Create a new API token for **<%= raw @showing_user.display_name %>**.
 
 Maximum token lifetime is 12 months.
 
-## [Actions](<%= @showing_user.path %>/settings/tokens/new/actions)
-
-* [`create_api_token(name, read_write, duration, duration_unit)`](<%= @showing_user.path %>/settings/tokens/new/actions/create_api_token) - Create the API token

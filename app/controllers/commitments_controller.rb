@@ -48,11 +48,7 @@ class CommitmentsController < ApplicationController
     @commitment = current_commitment
     return render '404', status: 404 unless @commitment
     @commitment_participant = current_commitment_participant
-    if current_user
-      @commitment_participant_name = @commitment_participant.name || current_user.name
-    else
-      @commitment_participant_name = @commitment_participant.name
-    end
+    @commitment_participant_name = current_user&.name
     @participants_list_limit = 10
     @page_title = @commitment.title
     @page_description = "Coordinate with your team"
@@ -77,7 +73,7 @@ class CommitmentsController < ApplicationController
       return render message: 'This commitment is closed.', status: 400
     end
     @commitment_participant = api_helper.join_commitment
-    @commitment_participant_name = @commitment_participant.name || current_user.name
+    @commitment_participant_name = current_user.name
     render partial: 'join'
   end
 

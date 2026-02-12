@@ -3,6 +3,6 @@
 <% if @backlinks.empty? %>No backlinks yet.<% else %>
 |          |          | backlinks |
 | -------- | -------- | --------- |
-<% @backlinks.each.with_index do |bl, i| %><% resource, count = bl %>| <%= i + 1 %> | [<%= raw resource.title %>](<%= resource.path %>) | <%= count %> |
+<% @backlinks.each.with_index do |bl, i| %><% resource, count = bl %>| <%= i + 1 %> | [<%= resource.title %>](<%= resource.path %>) | <%= count %> |
 <% end %>
 <% end %>

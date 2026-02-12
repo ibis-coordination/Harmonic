@@ -28,22 +28,6 @@ scope = @grant.studio_scope || { "mode" => "all" }
 <% end -%>
 | Expires | <%= @grant.expires_at ? @grant.expires_at.strftime("%Y-%m-%d %H:%M") + (@grant.expired? ? " (Expired)" : "") : "Never" %> |
 
-## [Actions](<%= base_path %>/actions)
-
-<% if @grant.pending? && is_trustee -%>
-* [`accept_trustee_grant()`](<%= base_path %>/actions/accept_trustee_grant) - Accept this trustee grant request
-* [`decline_trustee_grant()`](<%= base_path %>/actions/decline_trustee_grant) - Decline this trustee grant request
-<% end -%>
-<% if is_granting && !@grant.revoked? && !@grant.declined? -%>
-* [`revoke_trustee_grant()`](<%= base_path %>/actions/revoke_trustee_grant) - Revoke this trustee grant
-<% end -%>
-<% if @grant.active? && is_trustee && @grant.trustee_user == @current_user -%>
-* [`start_representation()`](<%= base_path %>/actions/start_representation) - Start a representation session to act on behalf of <%= @grant.granting_user.display_name || @grant.granting_user.handle %>
-<% end -%>
-<% if (@grant.pending? && !is_trustee) || (@grant.revoked? || @grant.declined?) -%>
-*No actions available.*
-<% end -%>
-
 ## Session History
 
 <% if @sessions.empty? -%>

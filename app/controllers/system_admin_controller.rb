@@ -20,7 +20,8 @@ class SystemAdminController < ApplicationController
 
   # GET /system-admin
   def dashboard
-    @page_title = 'System Admin'
+    @page_title = "System Admin"
+    load_monitoring_data
     respond_to do |format|
       format.html
       format.md
@@ -169,5 +170,49 @@ class SystemAdminController < ApplicationController
 
   def current_resource
     nil
+  end
+
+  def load_monitoring_data
+    @security_summary = SecurityAuditLogReader.summary(since: 24.hours.ago)
+    @agent_runs = load_agent_run_stats
+    @webhook_health = load_webhook_health_stats
+    @event_activity = load_event_activity_stats
+    @system_resources = load_system_resource_stats
+  end
+
+  def load_agent_run_stats
+    scope = AiAgentTaskRun.unscoped_for_admin(@current_user)
+    {
+      queued: scope.where(status: "queued").count,
+      running: scope.where(status: "running").count,
+      recent_failed: scope.where(status: "failed").where("created_at > ?", 24.hours.ago).count,
+      recent_completed: scope.where(status: "completed").where("created_at > ?", 24.hours.ago).count,
+    }
+  end
+
+  def load_webhook_health_stats
+    scope = WebhookDelivery.unscoped_for_admin(@current_user)
+    {
+      pending: scope.pending.count,
+      failed: scope.failed.count,
+      needs_retry: scope.needs_retry.count,
+    }
+  end
+
+  def load_event_activity_stats
+    scope = Event.unscoped_for_admin(@current_user)
+    {
+      last_hour: scope.where("created_at > ?", 1.hour.ago).count,
+      last_day: scope.where("created_at > ?", 24.hours.ago).count,
+    }
+  end
+
+  def load_system_resource_stats
+    {
+      queue_depth: Sidekiq::Queue.all.sum(&:size),
+      redis_memory: Sidekiq.redis { |c| c.info["used_memory_human"] },
+      workers_busy: Sidekiq::ProcessSet.new.sum { |p| p["busy"] },
+      workers_total: Sidekiq::ProcessSet.new.sum { |p| p["concurrency"] },
+    }
   end
 end

@@ -1,9 +1,15 @@
-# Commitment: [<%= raw @commitment.title %>](<%= @commitment.path %>)
+# Commitment: [<%= @commitment.title %>](<%= @commitment.path %>)
 
 | created_at | <%= @commitment.created_at %> |
 | updated_at | <%= @commitment.updated_at %> |
 | deadline | <%= @commitment.deadline %> |
 | time remaining | <%= @commitment.deadline > Time.now ? distance_of_time_in_words(Time.now, @commitment.deadline) : 'Deadline passed' %> |
+<% if @commitment.description.present? %>
+
+## Description
+
+<%= @commitment.description %>
+<% end %>
 
 ## Status
 
@@ -25,7 +31,7 @@ Critical mass achieved! 🎉
 ## Participants
 
 <% @commitment.committed_participants.order(committed_at: :desc).limit(@participants_list_limit).each do |participant| -%>
-* __<%= participant.name || 'Anonymous' %>__ committed <%= time_ago_in_words(participant.committed_at) %> ago.
+* __<%= participant.user&.name || 'Anonymous' %>__ committed <%= time_ago_in_words(participant.committed_at) %> ago.
 <% end -%>
 <% if @commitment.participant_count > @participants_list_limit -%>
 * + <%= @commitment.participant_count - @participants_list_limit %> more</span>
@@ -37,9 +43,3 @@ No participants yet.
 <%= render 'shared/attachments_section', resource: @commitment %>
 <%= render 'shared/comments_section', resource: @commitment %>
 
-## [Actions](<%= @commitment.path %>/actions)
-
-<% unless @commitment_participant.committed? || @commitment.closed? -%>
-* [`join_commitment()`](<%= @commitment.path %>/actions/join_commitment) - Join the commitment
-<% end -%>
-* [`add_comment(text)`](<%= @commitment.path %>/actions/add_comment) - Add a comment to this commitment

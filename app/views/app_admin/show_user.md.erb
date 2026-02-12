@@ -29,16 +29,3 @@
 *User is not a member of any tenants.*
 <% end -%>
 
-## [Actions](/app-admin/users/<%= @showing_user.id %>/actions)
-
-<% if @showing_user.suspended? -%>
-* [`unsuspend_user()`](/app-admin/users/<%= @showing_user.id %>/actions/unsuspend_user) - Restore user's access
-<% else -%>
-<% if @showing_user.id != @current_user.id -%>
-* [`suspend_user(reason)`](/app-admin/users/<%= @showing_user.id %>/actions/suspend_user) - Suspend this user's account
-
-**Warning:** Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any ai_agents that they are the parent of.
-<% else -%>
-* You cannot suspend your own account
-<% end -%>
-<% end -%>

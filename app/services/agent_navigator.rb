@@ -27,6 +27,8 @@ class AgentNavigator
     const :steps, T::Array[Step]
     const :final_message, String
     const :error, T.nilable(String)
+    const :input_tokens, Integer, default: 0
+    const :output_tokens, Integer, default: 0
   end
 
   sig { returns(User) }
@@ -66,6 +68,8 @@ class AgentNavigator
     @last_action_result = T.let(nil, T.nilable(String))
     @messages = T.let([], T::Array[T::Hash[Symbol, String]])
     @leakage_detector = T.let(IdentityPromptLeakageDetector.new, IdentityPromptLeakageDetector)
+    @total_input_tokens = T.let(0, Integer)
+    @total_output_tokens = T.let(0, Integer)
   end
 
   # Run the agent to complete a task.
@@ -116,7 +120,9 @@ class AgentNavigator
           success: true,
           steps: @steps,
           final_message: final_msg,
-          error: nil
+          error: nil,
+          input_tokens: @total_input_tokens,
+          output_tokens: @total_output_tokens
         )
       when "error"
         add_step("error", { message: action[:message] })
@@ -126,7 +132,9 @@ class AgentNavigator
           success: false,
           steps: @steps,
           final_message: final_msg,
-          error: action[:message]
+          error: action[:message],
+          input_tokens: @total_input_tokens,
+          output_tokens: @total_output_tokens
         )
       end
     end
@@ -138,7 +146,9 @@ class AgentNavigator
       success: false,
       steps: @steps,
       final_message: final_msg,
-      error: "max_steps_exceeded"
+      error: "max_steps_exceeded",
+      input_tokens: @total_input_tokens,
+      output_tokens: @total_output_tokens
     )
   rescue StandardError => e
     add_step("error", { message: e.message, backtrace: e.backtrace&.first(5) })
@@ -148,7 +158,9 @@ class AgentNavigator
       success: false,
       steps: @steps,
       final_message: final_msg,
-      error: e.message
+      error: e.message,
+      input_tokens: @total_input_tokens,
+      output_tokens: @total_output_tokens
     )
   end
 
@@ -225,6 +237,13 @@ class AgentNavigator
     # Send full conversation history to the LLM
     result = @llm.chat(messages: @messages, system_prompt: system_prompt)
 
+    # Accumulate token usage
+    usage = result.usage
+    if usage.present?
+      @total_input_tokens += usage["prompt_tokens"].to_i
+      @total_output_tokens += usage["completion_tokens"].to_i
+    end
+
     # Check for identity prompt leakage in the response
     check_for_leakage(result.content, step_number)
 
@@ -294,6 +313,13 @@ class AgentNavigator
 
     @messages << { role: "user", content: scratchpad_prompt }
     result = @llm.chat(messages: @messages, system_prompt: system_prompt)
+
+    # Accumulate token usage
+    usage = result.usage
+    if usage.present?
+      @total_input_tokens += usage["prompt_tokens"].to_i
+      @total_output_tokens += usage["completion_tokens"].to_i
+    end
 
     # Parse and save scratchpad update
     begin

@@ -10,29 +10,29 @@
 <% end %>
 <% end %>
 
-Representation allows this studio (<%= raw @current_superagent.name %>) to act as an individual member of other studios.
+Representation allows this studio (<%= @current_superagent.name %>) to act as an individual member of other studios.
 
 <% if @current_superagent.proxy_user.superagents.empty? %>
-<%= raw @current_superagent.name %> is not currently a member of any other studios.
+<%= @current_superagent.name %> is not currently a member of any other studios.
 <% else %>
-<%= raw @current_superagent.name %> is currently a member of the following studios:
+<%= @current_superagent.name %> is currently a member of the following studios:
 
 <% @current_superagent.proxy_user.superagents.each do |studio| %>
-* [<%= raw studio.name %>](<%= studio.path %>)
+* [<%= studio.name %>](<%= studio.path %>)
 <% end %>
 <% end %>
 
 ## Representatives
 
-Representatives act on behalf of <%= raw @current_superagent.name %> through sessions during which their actions are recorded and made visible here.
+Representatives act on behalf of <%= @current_superagent.name %> through sessions during which their actions are recorded and made visible here.
 
 <% if @current_superagent.any_member_can_represent? %>
-<%= raw @current_superagent.name %> is configured to allow any member to represent the studio.
+<%= @current_superagent.name %> is configured to allow any member to represent the studio.
 <% else %>
-<%= raw @current_superagent.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.
+<%= @current_superagent.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.
 
 <% @representatives.each do |representative| %>
-* [<%= raw representative.display_name %>](<%= representative.path %>) (representative)
+* [<%= representative.display_name %>](<%= representative.path %>) (representative)
 <% end %>
 <% end %>
 
@@ -46,10 +46,3 @@ No sessions have happened yet.
 <% end %>
 <% end %>
 
-## [Actions](<%= @current_superagent.path %>/representation/actions)
-
-<% if @current_user.superagent_member.can_represent? %>
-* [New Session](<%= @current_superagent.path %>/represent)
-<% else %>
-* No actions available.
-<% end %>

@@ -22,6 +22,85 @@
   </div>
 <% end %>
 
-<%= render 'shared/pulse_accordion', title: 'System Monitoring', icon: 'pulse', open: false do %>
-  <p class="pulse-empty-message">System monitoring features coming soon.</p>
+<%= render 'shared/pulse_accordion', title: 'System Monitoring', icon: 'pulse', open: true do %>
+  <div class="pulse-monitoring-grid">
+
+    <%# Security Section %>
+    <div class="pulse-monitoring-row">
+      <%= octicon 'shield', height: 14 %>
+      <span class="pulse-monitoring-label">Security (24h)</span>
+      <span class="pulse-monitoring-values">
+        <% if @security_summary["login_failure"] > 0 %>
+          <span class="pulse-text-warning"><%= @security_summary["login_failure"] %> failed logins</span>
+        <% else %>
+          <span class="pulse-text-muted">0 failed logins</span>
+        <% end %>
+        &middot;
+        <span><%= @security_summary["rate_limited"] %> rate limited</span>
+      </span>
+    </div>
+
+    <%# AI Agents Section %>
+    <div class="pulse-monitoring-row">
+      <%= octicon 'dependabot', height: 14 %>
+      <span class="pulse-monitoring-label">AI Agents</span>
+      <span class="pulse-monitoring-values">
+        <% if @agent_runs[:queued] > 0 %>
+          <span class="pulse-text-warning"><%= @agent_runs[:queued] %> queued</span>
+        <% else %>
+          <span class="pulse-text-muted">0 queued</span>
+        <% end %>
+        &middot;
+        <span><%= @agent_runs[:running] %> running</span>
+        &middot;
+        <% if @agent_runs[:recent_failed] > 0 %>
+          <span class="pulse-text-danger"><%= @agent_runs[:recent_failed] %> failed</span>
+        <% else %>
+          <span class="pulse-text-muted">0 failed</span>
+        <% end %>
+        &middot;
+        <span><%= @agent_runs[:recent_completed] %> completed</span>
+      </span>
+    </div>
+
+    <%# Webhooks Section %>
+    <div class="pulse-monitoring-row">
+      <%= octicon 'webhook', height: 14 %>
+      <span class="pulse-monitoring-label">Webhooks</span>
+      <span class="pulse-monitoring-values">
+        <span><%= @webhook_health[:pending] %> pending</span>
+        &middot;
+        <% if @webhook_health[:failed] > 0 %>
+          <span class="pulse-text-danger"><%= @webhook_health[:failed] %> failed</span>
+        <% else %>
+          <span class="pulse-text-muted">0 failed</span>
+        <% end %>
+      </span>
+    </div>
+
+    <%# Events Section %>
+    <div class="pulse-monitoring-row">
+      <%= octicon 'broadcast', height: 14 %>
+      <span class="pulse-monitoring-label">Events</span>
+      <span class="pulse-monitoring-values">
+        <span><%= @event_activity[:last_hour] %> last hour</span>
+        &middot;
+        <span><%= @event_activity[:last_day] %> last 24h</span>
+      </span>
+    </div>
+
+    <%# System Resources Section %>
+    <div class="pulse-monitoring-row">
+      <%= octicon 'server', height: 14 %>
+      <span class="pulse-monitoring-label">Resources</span>
+      <span class="pulse-monitoring-values">
+        <span><%= @system_resources[:queue_depth] %> queued jobs</span>
+        &middot;
+        <span>Redis: <%= @system_resources[:redis_memory] %></span>
+        &middot;
+        <span>Workers: <%= @system_resources[:workers_busy] %>/<%= @system_resources[:workers_total] %></span>
+      </span>
+    </div>
+
+  </div>
 <% end %>

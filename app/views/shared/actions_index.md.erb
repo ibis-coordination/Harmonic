@@ -1,3 +1,4 @@
 # Actions for path `<%= base_path %>`
 
-<%= render 'shared/actions_list', actions: actions, base_path: base_path %>
+<% actions.each do |action| %>* [`<%= action[:name] %><%= action[:params_string] %>`](<%= "#{base_path}/actions/#{action[:name]}" %>)
+<% end %><% if actions.empty? %>No actions available.<% end %>

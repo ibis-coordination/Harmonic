@@ -3001,12 +3001,16 @@ a.pulse-activity-title:hover {
 }
 
 /* Auth Pages (login, logout, etc.) */
-.pulse-auth-page {
+.pulse-auth-page, .pulse-auth-page-wide {
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
   padding: 48px 24px;
   text-align: center;
+}
+
+.pulse-auth-page-wide {
+  max-width: 800px;
 }
 
 .pulse-auth-logo {
@@ -3273,4 +3277,39 @@ a.pulse-activity-title:hover {
 .pulse-user-item-handle {
   font-size: 12px;
   color: var(--color-fg-muted);
+}
+
+/* Monitoring Grid (System Admin) */
+.pulse-monitoring-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pulse-monitoring-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pulse-monitoring-label {
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.pulse-monitoring-values {
+  color: var(--color-fg-muted);
+}
+
+/* Text Color Utilities */
+.pulse-text-muted {
+  color: var(--color-fg-muted);
+}
+
+.pulse-text-warning {
+  color: var(--color-attention-fg);
+}
+
+.pulse-text-danger {
+  color: var(--color-danger-fg);
 }

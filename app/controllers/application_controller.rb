@@ -622,24 +622,11 @@ class ApplicationController < ActionController::Base
 
     if current_resource_model == DecisionParticipant
       @current_decision_participant = current_resource
-    # elsif params[:decision_participant_id].present?
-    #   @current_decision_participant = current_decision.participants.find_by(id: params[:decision_participant_id])
-    # elsif params[:participant_id].present?
-    #   @current_decision_participant = current_decision.participants.find_by(id: params[:participant_id])
-    elsif current_decision
+    elsif current_decision && current_user
       @current_decision_participant = DecisionParticipantManager.new(
         decision: current_decision,
         user: current_user,
-        participant_uid: cookies[:decision_participant_uid]
       ).find_or_create_participant
-      unless current_user
-        # Cookie is only needed if user is not logged in.
-        cookies[:decision_participant_uid] = {
-          value: @current_decision_participant.participant_uid,
-          expires: 30.days.from_now,
-          httponly: true,
-        }
-      end
     else
       @current_decision_participant = nil
     end
@@ -670,20 +657,11 @@ class ApplicationController < ActionController::Base
 
     if current_resource_model == CommitmentParticipant
       @current_commitment_participant = current_resource
-    elsif current_commitment
+    elsif current_commitment && current_user
       @current_commitment_participant = CommitmentParticipantManager.new(
         commitment: current_commitment,
         user: current_user,
-        participant_uid: cookies[:commitment_participant_uid]
       ).find_or_create_participant
-      unless current_user
-        # Cookie is only needed if user is not logged in.
-        cookies[:commitment_participant_uid] = {
-          value: @current_commitment_participant.participant_uid,
-          expires: 30.days.from_now,
-          httponly: true,
-        }
-      end
     else
       @current_commitment_participant = nil
     end

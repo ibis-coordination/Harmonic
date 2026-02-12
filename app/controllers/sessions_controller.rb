@@ -85,13 +85,24 @@ class SessionsController < ApplicationController
 
   # If the callback is to /auth/failure
   def oauth_failure
+    failure_type = params[:message].to_s
+    friendly_message = case failure_type
+                       when "invalid_credentials"
+                         "Invalid email or password. Please try again."
+                       when "csrf_detected"
+                         "Your login session expired. Please try again."
+                       when "access_denied"
+                         "Access was denied by the provider. Please try again."
+                       else
+                         "We couldn't complete your login. Please try again."
+                       end
     SecurityAuditLog.log_login_failure(
       email: params[:email] || 'unknown',
       ip: request.remote_ip,
-      reason: params[:message] || 'oauth_failure',
+      reason: failure_type.presence || 'oauth_failure',
       user_agent: request.user_agent,
     )
-    redirect_to '/login', alert: params[:message]
+    redirect_to '/login', alert: friendly_message
   end
 
   # Step 3: redirect back to original tenant subdomain with a token cookie

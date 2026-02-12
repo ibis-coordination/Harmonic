@@ -2,12 +2,9 @@
 
 <% if @scenes.length > 0 -%>
 <% @scenes.each do |scene| -%>
-* [<%= raw scene.name %>](<%= scene.path %>)
+* [<%= scene.name %>](<%= scene.path %>)
 <% end -%>
 <% else -%>
 No scenes available.
 <% end -%>
 
-## [Actions](/scenes/actions)
-
-* [New Scene](/scenes/new)

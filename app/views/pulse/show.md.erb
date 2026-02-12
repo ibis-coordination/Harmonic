@@ -4,18 +4,10 @@
 ## Heartbeat Required
 
 You must send a heartbeat to access this <%= @current_superagent.superagent_type %> for the current cycle.
-
-## [Actions](<%= @current_superagent.path %>/actions)
-
-* [`send_heartbeat()`](<%= @current_superagent.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence
 <% elsif @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil? -%>
 ## Heartbeat Required
 
 You must send a heartbeat to view past cycles.
-
-## [Actions](<%= @current_superagent.path %>/actions)
-
-* [`send_heartbeat()`](<%= @current_superagent.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence
 <% else -%>
 ## Cycle: <%= @cycle.name.titleize %>
 
@@ -29,7 +21,7 @@ Viewing: <%= @cycle.name.titleize %> | [Back to current cycle](<%= @current_supe
 No activity in this cycle yet.
 <% else -%>
 <% @feed_items.first(20).each do |feed_item| -%>
-* **<%= feed_item[:type] %>**: [<%= raw feed_item[:item].title %>](<%= feed_item[:item].path %>) by <%= user_link_md(feed_item[:created_by]) %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago)
+* **<%= feed_item[:type] %>**: [<%= feed_item[:item].title %>](<%= feed_item[:item].path %>) by <%= user_link_md(feed_item[:created_by]) %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago)
 <% end -%>
 <% end -%>
 
@@ -42,7 +34,7 @@ No activity in this cycle yet.
 
 <% if @pinned_items.any? -%>
 <% @pinned_items.each do |item| -%>
-* <%= item[:item].class.to_s %>: [<%= raw item[:item].title %>](<%= item[:item].path %>) pinned <%= time_ago_in_words(item[:pinned_at]) %> ago
+* <%= item[:item].class.to_s %>: [<%= item[:item].title %>](<%= item[:item].path %>) pinned <%= time_ago_in_words(item[:pinned_at]) %> ago
 <% end -%>
 <% else -%>
 No pinned items yet.
@@ -58,9 +50,4 @@ No pinned items yet.
 No team members yet.
 <% end -%>
 
-## [Actions](<%= @current_superagent.path %>/actions)
-
-* [New Note](<%= @current_superagent.path %>/note)
-* [New Decision](<%= @current_superagent.path %>/decide)
-* [New Commitment](<%= @current_superagent.path %>/commit)
 <% end -%>

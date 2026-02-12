@@ -457,7 +457,7 @@ class NotificationDispatcher
   def self.build_task_prompt(event, item_path)
     # actor_name = event.actor&.display_name || "Someone"
     # "You were mentioned by #{actor_name}. Navigate to #{item_path} to see the context and respond appropriately by adding a comment."
-    "You have notifications. Navigate to /notifications and respond appropriately, take necessary action, and clear your notifications when complete."
+    "Navigate to /notifications to see if you have any notifications. If you do, respond appropriately, take necessary action, and clear your notifications when complete. If not, explore the recent activity of your studios and contribute where it would be helpful."
   end
 
   private_class_method :get_created_by, :get_path, :decision_participants, :commitment_participants,

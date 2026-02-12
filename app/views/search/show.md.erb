@@ -21,7 +21,7 @@ No results found.
 No items in this group.
 <% else -%>
 <% items.each do |item| -%>
-* [<%= raw item.title %>](<%= item.path %>)
+* [<%= item.title %>](<%= item.path %>)
   * Type: <%= item.item_type %>
   * Location: <%= item.superagent&.name || 'Unknown' %>
   * Created: <%= time_ago_or_from_now(item.created_at) %>
@@ -68,6 +68,3 @@ Use operators to filter, sort, and group results. Plain text searches content. U
 | `before:` | YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny |
 | `limit:` | 1-100 |
 
-## [Actions](/search/actions)
-
-* [`search(q)`](/search/actions/search) - Search for items matching a query

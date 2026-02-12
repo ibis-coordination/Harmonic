@@ -13,7 +13,7 @@ class CommitmentParticipant < ApplicationRecord
   belongs_to :superagent
   before_validation :set_superagent_id
   belongs_to :commitment
-  belongs_to :user, optional: true
+  belongs_to :user
 
   sig { void }
   def set_tenant_id
@@ -37,8 +37,8 @@ class CommitmentParticipant < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def authenticated?
-    # If there is a user association, then we know the participant is authenticated
-    user.present?
+    # User is required, so participant is always authenticated
+    true
   end
 
   sig { returns(T::Boolean) }
@@ -77,7 +77,6 @@ class CommitmentParticipant < ApplicationRecord
   # Track when a user commits to a commitment
   def user_item_status_updates
     return [] unless committed?
-    return [] if user_id.blank?
 
     [
       {

@@ -30,17 +30,7 @@ Current settings for **<%= @current_superagent.name %>**:
 ## AI Agents in this Studio
 
 <% @studio_ai_agents.each do |ai_agent| %>
-* [<%= raw ai_agent.display_name %>](<%= ai_agent.path %>) - managed by <%= ai_agent.parent ? "[#{ai_agent.parent.display_name}](#{ai_agent.parent.path})" : "Unknown" %>
+* [<%= ai_agent.display_name %>](<%= ai_agent.path %>) - managed by <%= ai_agent.parent ? "[#{ai_agent.parent.display_name}](#{ai_agent.parent.path})" : "Unknown" %>
 <% end %>
 <% end %>
 
-## [Actions](<%= @current_superagent.path %>/settings/actions)
-
-<% flag_params = available_flags.map { |f| "feature_#{f}" }.join(", ") %>
-* [`update_studio_settings(name, description, timezone, tempo, synchronization_mode, invitations, representation<%= ", #{flag_params}" if available_flags.any? %>)`](<%= @current_superagent.path %>/settings/actions/update_studio_settings) - Update studio settings
-<% if @current_superagent.feature_enabled?('api') && @current_user.human? && @addable_ai_agents.present? %>
-* [`add_ai_agent_to_studio(ai_agent_id)`](<%= @current_superagent.path %>/settings/actions/add_ai_agent_to_studio) - Add one of your ai_agents to this studio
-<% end %>
-<% if @current_superagent.feature_enabled?('api') && @current_user.human? && @studio_ai_agents.present? && @studio_ai_agents.any? { |s| s.parent_id == @current_user.id } %>
-* [`remove_ai_agent_from_studio(ai_agent_id)`](<%= @current_superagent.path %>/settings/actions/remove_ai_agent_from_studio) - Remove a ai_agent from this studio
-<% end %>

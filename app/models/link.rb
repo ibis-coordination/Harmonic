@@ -78,7 +78,8 @@ class Link < ApplicationRecord
     end
     start_date = Time.current - 100.years if start_date.nil?
     end_date = Time.current if end_date.nil?
-    counts = Link.connection.execute(<<-SQL)
+    safe_limit = limit.to_i
+    sql = <<-SQL
       SELECT
         l.to_linkable_id AS id,
         l.to_linkable_type AS type,
@@ -96,15 +97,18 @@ class Link < ApplicationRecord
         commitments c ON l.to_linkable_type = 'Commitment' AND l.tenant_id = c.tenant_id AND
                          l.superagent_id = c.superagent_id AND l.to_linkable_id = c.id
       WHERE
-        l.tenant_id = '#{tenant_id}' AND l.superagent_id = '#{superagent_id}' AND
-        l.created_at >= '#{start_date}' AND l.created_at <= '#{end_date}'
+        l.tenant_id = ? AND l.superagent_id = ? AND
+        l.created_at >= ? AND l.created_at <= ?
       GROUP BY
         l.to_linkable_id, l.to_linkable_type, n.title, d.question, c.title
       ORDER BY
         count DESC
       LIMIT
-        #{limit}
+        #{safe_limit}
     SQL
+    counts = Link.connection.exec_query(
+      ActiveRecord::Base.send(:sanitize_sql_array, [sql, tenant_id, superagent_id, start_date, end_date])
+    )
     counts.to_a
   end
 

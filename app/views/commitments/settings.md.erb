@@ -9,10 +9,3 @@ Current settings for commitment **<%= @commitment.title %>**:
 | Critical Mass | <%= @commitment.critical_mass %> |
 | Deadline | <%= @commitment.deadline %> |
 
-## [Actions](<%= @commitment.path %>/settings/actions)
-
-* [`update_commitment_settings(title, description, critical_mass, deadline)`](<%= @commitment.path %>/settings/actions/update_commitment_settings) - Update commitment settings.
-<% if @is_pinned %>* [`unpin_commitment()`](<%= @commitment.path %>/settings/actions/unpin_commitment) - Unpin this commitment from the studio homepage.
-<% else %>* [`pin_commitment()`](<%= @commitment.path %>/settings/actions/pin_commitment) - Pin this commitment to the studio homepage.
-<% end %><% if @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads? %>* [`add_attachment(file)`](<%= @commitment.path %>/settings/actions/add_attachment) - Add a file attachment to this commitment
-<% end %>

@@ -125,8 +125,9 @@ class UserWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "Webhook: My Webhook"
-    assert_includes response.body, "delete_webhook()"
-    assert_includes response.body, "test_webhook()"
+    # Actions are now in the YAML frontmatter
+    assert_includes response.body, "- name: delete_webhook"
+    assert_includes response.body, "- name: test_webhook"
   end
 
   # === Delete Tests ===
