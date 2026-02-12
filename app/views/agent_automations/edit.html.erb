@@ -1,0 +1,74 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@agent_handle}"],
+  ['Automations', "/ai-agents/#{@agent_handle}/automations"],
+  [@automation_rule.name, "/ai-agents/#{@agent_handle}/automations/#{@automation_rule.truncated_id}"],
+  'Edit'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'pencil', height: 14, class: 'pulse-resource-icon' %>
+        Edit Automation
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Edit: <%= @automation_rule.name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <form action="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/actions/update_automation_rule" method="post" class="pulse-form">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+
+      <section class="pulse-settings-section">
+        <label for="yaml_source" class="pulse-label">YAML Configuration</label>
+        <textarea id="yaml_source" name="yaml_source" class="pulse-form-input pulse-monospace" rows="20" style="font-family: monospace; white-space: pre;"><%= @automation_rule.yaml_source %></textarea>
+        <small class="pulse-hint">Edit the YAML configuration for this automation.</small>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Save Changes</button>
+        <a href="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>" class="pulse-action-btn">Cancel</a>
+      </section>
+    </form>
+
+    <%= render 'shared/pulse_accordion', title: 'YAML Reference', open: false do %>
+      <h4>Basic Structure</h4>
+      <pre class="pulse-monospace" style="background: var(--pulse-bg-subtle); padding: 1rem; border-radius: 4px; overflow-x: auto;">
+name: "Automation Name"
+description: "What this automation does"
+
+trigger:
+  type: event              # event, schedule, or webhook
+  event_type: note.created # For event triggers
+  mention_filter: self     # Optional: self or any_agent
+
+# Optional conditions to filter events
+conditions:
+  - field: "event.metadata.some_field"
+    operator: "=="
+    value: "expected_value"
+
+# Task prompt sent to the AI agent
+task: |
+  You were triggered by {{event.actor.name}}.
+  Navigate to {{subject.path}} and respond.
+
+max_steps: 20  # Optional, defaults to agent's configured max
+      </pre>
+
+      <h4>Template Variables</h4>
+      <ul class="pulse-list">
+        <li class="pulse-list-item"><code>{{event.type}}</code> - The event type</li>
+        <li class="pulse-list-item"><code>{{event.actor.name}}</code> - Name of the user who triggered the event</li>
+        <li class="pulse-list-item"><code>{{event.actor.handle}}</code> - Handle of the user who triggered the event</li>
+        <li class="pulse-list-item"><code>{{subject.path}}</code> - URL path to the subject</li>
+        <li class="pulse-list-item"><code>{{subject.title}}</code> - Title of the subject</li>
+        <li class="pulse-list-item"><code>{{subject.text}}</code> - Text content of the subject</li>
+        <li class="pulse-list-item"><code>{{studio.name}}</code> - Name of the studio</li>
+        <li class="pulse-list-item"><code>{{studio.handle}}</code> - Handle of the studio</li>
+      </ul>
+    <% end %>
+  </div>
+</article>

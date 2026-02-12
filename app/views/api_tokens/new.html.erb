@@ -19,6 +19,17 @@
   <div class="pulse-resource-body">
     <%= form_with(model: [@showing_user, @token], class: "pulse-form") do |form| %>
       <section class="pulse-settings-section">
+        <label class="pulse-label">Identity</label>
+        <div style="padding: 8px 12px; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-secondary); font-style: italic;">
+          you
+        </div>
+        <p class="pulse-hint" style="margin-top: 8px;">
+          This token will be associated with your account. To create a token for an AI agent, go to
+          <a href="/ai-agents" class="pulse-link">AI Agents</a> and select the agent's settings page.
+        </p>
+      </section>
+
+      <section class="pulse-settings-section">
         <label for="api_token_name" class="pulse-label">Name</label>
         <input type="text" name="api_token[name]" id="api_token_name" class="pulse-form-input" placeholder="My API Token" value="<%= @token.name %>">
       </section>

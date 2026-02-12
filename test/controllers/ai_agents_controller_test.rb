@@ -389,17 +389,15 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   # === New AI Agent Tests ===
 
   test "authenticated human user can access new AI agent form" do
-    user_handle = @user.tenant_users.find_by(tenant: @tenant).handle
     sign_in_as(@user, tenant: @tenant)
-    get "/u/#{user_handle}/settings/ai-agents/new"
+    get "/ai-agents/new"
     assert_response :success
   end
 
   test "AI agent user cannot access new AI agent form" do
-    user_handle = @user.tenant_users.find_by(tenant: @tenant).handle
     # AI agents use API tokens, not session auth, so they get redirected to login
     sign_in_as(@ai_agent, tenant: @tenant)
-    get "/u/#{user_handle}/settings/ai-agents/new"
+    get "/ai-agents/new"
     assert_response :redirect
   end
 end

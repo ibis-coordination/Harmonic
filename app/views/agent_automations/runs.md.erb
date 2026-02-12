@@ -1,0 +1,18 @@
+# Run History: <%= @automation_rule.name %>
+
+<% if @runs.empty? -%>
+*No runs recorded yet.*
+
+Runs will appear here once this automation is triggered.
+<% else -%>
+| Time | Status | Trigger | Details |
+|------|--------|---------|---------|
+<% @runs.each do |run| -%>
+| <%= time_ago_in_words(run.created_at) %> ago | <%= run.status %> | <%= run.trigger_source %> | <% if run.error_message.present? %><%= truncate(run.error_message, length: 30) %><% elsif run.ai_agent_task_run.present? %>[View Task](/ai-agents/<%= @agent_handle %>/runs/<%= run.ai_agent_task_run_id %>)<% else %>-<% end %> |
+<% end -%>
+<% end -%>
+
+## Navigation
+
+* [Back to Automation](/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>)
+* [Back to Automations](/ai-agents/<%= @agent_handle %>/automations)

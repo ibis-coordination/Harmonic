@@ -85,39 +85,42 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
   end
 
   # ====================
-  # Settings Page Display
+  # AI Agents Page Display
   # ====================
 
-  test "settings page shows ai_agent studio memberships" do
-    # Add ai_agent to studio first
+  test "ai_agents index page shows ai_agent studio memberships" do
+    # Enable AI agents feature flag and add ai_agent to studio first
+    @tenant.set_feature_flag!("ai_agents", true)
     @superagent.add_user!(@ai_agent)
 
     sign_in_as(@parent, tenant: @tenant)
-    get "/u/#{@parent.handle}/settings"
+    get "/ai-agents"
 
     assert_response :success
     assert_match @superagent.name, response.body
   end
 
-  test "settings page shows add to studio dropdown for available studios" do
-    # Create another studio where parent has invite permission
+  test "ai_agents settings page shows available studios to add agent to" do
+    # Enable AI agents feature flag and create another studio where parent has invite permission
+    @tenant.set_feature_flag!("ai_agents", true)
     another_superagent = create_superagent(tenant: @tenant, created_by: @parent, handle: "another-studio-#{SecureRandom.hex(4)}")
 
     sign_in_as(@parent, tenant: @tenant)
-    get "/u/#{@parent.handle}/settings"
+    get "/ai-agents/#{@ai_agent.handle}/settings"
 
     assert_response :success
-    # Should show dropdown with available studios
-    assert_match "Add to studio", response.body
+    # Should show available studios section
+    assert_match "Add to Studio", response.body
   end
 
-  test "settings page does not show add to studio for archived ai_agent" do
-    # Archive the ai_agent
+  test "ai_agents index page shows archived badge for archived ai_agent" do
+    # Enable AI agents feature flag and archive the ai_agent
+    @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent.tenant_user = @tenant.tenant_users.find_by(user: @ai_agent)
     @ai_agent.archive!
 
     sign_in_as(@parent, tenant: @tenant)
-    get "/u/#{@parent.handle}/settings"
+    get "/ai-agents"
 
     assert_response :success
     # Should show "Archived" status

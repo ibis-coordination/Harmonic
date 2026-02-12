@@ -204,7 +204,7 @@ class ApiToken < ApplicationRecord
     end
     return true if T.must(scopes).include?('all') || T.must(scopes).include?("#{action}:all")
     return false if resource_model.nil?
-    resource_name = resource_model.to_s.pluralize.downcase
+    resource_name = resource_model.to_s.underscore.pluralize
     unless valid_resources.include?(resource_name)
       raise "Invalid resource: #{resource_name}"
     end

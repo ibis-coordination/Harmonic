@@ -1,4 +1,4 @@
-\restrict z5zxywPfXr86YsIbFnD0V2i33JqID25MMh1gVdRbo53Z3hDW9qmlpbCdQCoaInh
+\restrict hWP1IQQJchlZIlwgsKASO1HRDTD441e3zqKr913CnDkTtxZHkjuJJDWVuWpz6x0
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -234,7 +234,6 @@ CREATE TABLE public.automation_rules (
     created_by_id uuid NOT NULL,
     name character varying NOT NULL,
     description text,
-    truncated_id character varying(8),
     trigger_type character varying NOT NULL,
     trigger_config jsonb DEFAULT '{}'::jsonb NOT NULL,
     conditions jsonb DEFAULT '[]'::jsonb NOT NULL,
@@ -246,7 +245,8 @@ CREATE TABLE public.automation_rules (
     webhook_secret character varying,
     webhook_path character varying,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL
 );
 
 
@@ -8438,7 +8438,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict z5zxywPfXr86YsIbFnD0V2i33JqID25MMh1gVdRbo53Z3hDW9qmlpbCdQCoaInh
+\unrestrict hWP1IQQJchlZIlwgsKASO1HRDTD441e3zqKr913CnDkTtxZHkjuJJDWVuWpz6x0
 
 SET search_path TO "$user", public;
 
@@ -8592,6 +8592,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260211114428'),
 ('20260211200000'),
 ('20260211200001'),
-('20260211200002');
+('20260211200002'),
+('20260212062528');
 
 

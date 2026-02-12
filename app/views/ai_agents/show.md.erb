@@ -1,26 +1,60 @@
-# AI Agent Created
+# <%= @ai_agent.display_name %>
 
-Successfully created ai_agent **<%= @ai_agent.display_name %>**.
+Handle: `<%= @ai_agent.handle %>`
+Mode: <%= @ai_agent.internal_ai_agent? ? "Internal" : "External" %>
+<% if @ai_agent.internal_ai_agent? %>
+Model: `<%= @ai_agent.agent_configuration&.dig("model") || "default" %>`
+<% end %>
+
+<% if @token && @token.plaintext_token.present? %>
+## API Token
+
+**Important:** Save this API token now. You won't be able to see the full token again.
 
 | Property | Value |
 |----------|-------|
-| Name | <%= @ai_agent.name %> |
-| Handle | `<%= @ai_agent.handle %>` |
-| Profile | [<%= @ai_agent.path %>](<%= @ai_agent.path %>) |
-| Mode | <%= @ai_agent.internal_ai_agent? ? "Internal" : "External" %> |
-<% if @ai_agent.internal_ai_agent? %>
-| Model | `<%= @ai_agent.agent_configuration["model"] || "default" %>` |
-<% end %>
-<% if @token && @token.plaintext_token.present? %>
 | API Token | `<%= @token.plaintext_token %>` |
 | Token Expires | in <%= time_ago_in_words(@token.expires_at) %> |
-<% elsif @token %>
-| API Token | `<%= @token.obfuscated_token %>` |
-| Token Expires | in <%= time_ago_in_words(@token.expires_at) %> |
+
+<% end %>
+<% if @automation_rules.any? %>
+## Automations
+
+| Name | Trigger | Status | Runs |
+|------|---------|--------|------|
+<% @automation_rules.each do |rule| %>
+| [<%= rule.name %>](/ai-agents/<%= @ai_agent.handle %>/automations/<%= rule.truncated_id %>) | <%= rule.trigger_type %><% if rule.trigger_type == 'event' %> (<%= rule.event_type %>)<% end %> | <%= rule.enabled? ? "Enabled" : "Disabled" %> | <%= rule.execution_count %> |
 <% end %>
 
-<% if @token %>
-**Important:** Save this API token now. You won't be able to see the full token again.
+[View all automations](/ai-agents/<%= @ai_agent.handle %>/automations)
+<% else %>
+## Automations
+
+No automations configured yet.
+
+* [Create Automation](/ai-agents/<%= @ai_agent.handle %>/automations/new)
 <% end %>
 
-[Back to Settings](<%= @current_user.path %>/settings)
+<% if @recent_runs.any? %>
+## Recent Task Runs
+
+| Time | Status | Task |
+|------|--------|------|
+<% @recent_runs.each do |run| %>
+| [<%= time_ago_in_words(run.created_at) %> ago](/ai-agents/<%= @ai_agent.handle %>/runs/<%= run.id %>) | <%= run.status == "completed" ? (run.success ? "Success" : "Failed") : run.status.titleize %> | <%= truncate(run.task, length: 50) %> |
+<% end %>
+
+[View all runs](/ai-agents/<%= @ai_agent.handle %>/runs)
+<% else %>
+## Recent Task Runs
+
+No task runs yet.
+<% end %>
+
+## Navigation
+
+* [Run Task](/ai-agents/<%= @ai_agent.handle %>/run)
+* [Automations](/ai-agents/<%= @ai_agent.handle %>/automations)
+* [Settings](/ai-agents/<%= @ai_agent.handle %>/settings)
+* [View Profile](<%= @ai_agent.path %>)
+* [Back to AI Agents](/ai-agents)

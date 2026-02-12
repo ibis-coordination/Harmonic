@@ -475,6 +475,36 @@ class ActionsHelper
       authorization: WEBHOOK_AUTHORIZATION,
     },
 
+    # Automation Rule actions
+    "create_automation_rule" => {
+      description: "Create a new automation rule from YAML configuration",
+      params_string: "(yaml_source)",
+      params: [
+        { name: "yaml_source", type: "string", required: true, description: "The YAML configuration for the automation rule" },
+      ],
+      authorization: HUMAN_ONLY_AUTHORIZATION,
+    },
+    "update_automation_rule" => {
+      description: "Update an automation rule's YAML configuration",
+      params_string: "(yaml_source)",
+      params: [
+        { name: "yaml_source", type: "string", required: true, description: "The updated YAML configuration for the automation rule" },
+      ],
+      authorization: HUMAN_ONLY_AUTHORIZATION,
+    },
+    "delete_automation_rule" => {
+      description: "Delete an automation rule",
+      params_string: "()",
+      params: [],
+      authorization: HUMAN_ONLY_AUTHORIZATION,
+    },
+    "toggle_automation_rule" => {
+      description: "Enable or disable an automation rule",
+      params_string: "()",
+      params: [],
+      authorization: HUMAN_ONLY_AUTHORIZATION,
+    },
+
     # Trustee Grant actions
     "create_trustee_grant" => {
       description: "Grant another user authority to act on your behalf",
@@ -710,10 +740,24 @@ class ActionsHelper
         { name: "create_api_token", params_string: ACTION_DEFINITIONS["create_api_token"][:params_string], description: ACTION_DEFINITIONS["create_api_token"][:description] },
       ],
     },
-    "/u/:handle/settings/ai-agents/new" => {
+    "/ai-agents" => {
+      controller_actions: ["ai_agents#index"],
+      actions: [],
+    },
+    "/ai-agents/new" => {
       controller_actions: ["ai_agents#new"],
       actions: [
         { name: "create_ai_agent", params_string: ACTION_DEFINITIONS["create_ai_agent"][:params_string], description: ACTION_DEFINITIONS["create_ai_agent"][:description] },
+      ],
+    },
+    "/ai-agents/:handle" => {
+      controller_actions: ["ai_agents#show"],
+      actions: [],
+    },
+    "/ai-agents/:handle/settings" => {
+      controller_actions: ["ai_agents#settings"],
+      actions: [
+        { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string], description: ACTION_DEFINITIONS["update_profile"][:description] },
       ],
     },
     "/admin" => {
@@ -815,6 +859,38 @@ class ActionsHelper
         { name: "start_representation", params_string: ACTION_DEFINITIONS["start_representation"][:params_string], description: ACTION_DEFINITIONS["start_representation"][:description] },
         { name: "end_representation", params_string: ACTION_DEFINITIONS["end_representation"][:params_string], description: ACTION_DEFINITIONS["end_representation"][:description] },
       ],
+    },
+    "/ai-agents/:handle/automations" => {
+      controller_actions: ["agent_automations#index"],
+      actions: [],
+    },
+    "/ai-agents/:handle/automations/new" => {
+      controller_actions: ["agent_automations#new"],
+      actions: [
+        { name: "create_automation_rule", params_string: ACTION_DEFINITIONS["create_automation_rule"][:params_string], description: ACTION_DEFINITIONS["create_automation_rule"][:description] },
+      ],
+    },
+    "/ai-agents/:handle/automations/templates" => {
+      controller_actions: ["agent_automations#templates"],
+      actions: [],
+    },
+    "/ai-agents/:handle/automations/:automation_id" => {
+      controller_actions: ["agent_automations#show"],
+      actions: [
+        { name: "update_automation_rule", params_string: ACTION_DEFINITIONS["update_automation_rule"][:params_string], description: ACTION_DEFINITIONS["update_automation_rule"][:description] },
+        { name: "delete_automation_rule", params_string: ACTION_DEFINITIONS["delete_automation_rule"][:params_string], description: ACTION_DEFINITIONS["delete_automation_rule"][:description] },
+        { name: "toggle_automation_rule", params_string: ACTION_DEFINITIONS["toggle_automation_rule"][:params_string], description: ACTION_DEFINITIONS["toggle_automation_rule"][:description] },
+      ],
+    },
+    "/ai-agents/:handle/automations/:automation_id/edit" => {
+      controller_actions: ["agent_automations#edit"],
+      actions: [
+        { name: "update_automation_rule", params_string: ACTION_DEFINITIONS["update_automation_rule"][:params_string], description: ACTION_DEFINITIONS["update_automation_rule"][:description] },
+      ],
+    },
+    "/ai-agents/:handle/automations/:automation_id/runs" => {
+      controller_actions: ["agent_automations#runs"],
+      actions: [],
     },
   }
 

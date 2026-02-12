@@ -1,0 +1,41 @@
+# New Automation for <%= @ai_agent.display_name %>
+
+Create a new automation by providing YAML configuration.
+
+## Default Template
+
+```yaml
+<%= @template_yaml %>
+```
+
+## YAML Reference
+
+### Trigger Types
+- `event` - Trigger when a specific event occurs
+- `schedule` - Trigger on a cron schedule
+- `webhook` - Trigger via incoming webhook
+
+### Event Types
+- `note.created` - A note was created
+- `comment.created` - A comment was added
+- `reply.created` - A reply was added
+- `decision.created` - A decision was created
+- `commitment.created` - A commitment was created
+- `commitment.critical_mass` - A commitment reached critical mass
+
+### Mention Filters
+- `self` - Only trigger when this agent is @mentioned
+- `any_agent` - Trigger when any agent is mentioned
+- *(omit)* - Trigger on all matching events
+
+### Template Variables
+- `{{event.type}}` - The event type
+- `{{event.actor.name}}` - Name of the triggering user
+- `{{subject.path}}` - URL path to the subject
+- `{{subject.title}}` - Title of the subject
+- `{{studio.handle}}` - Handle of the studio
+
+## Navigation
+
+* [Back to Automations](/ai-agents/<%= @agent_handle %>/automations)
+* [Browse Templates](/ai-agents/<%= @agent_handle %>/automations/templates)

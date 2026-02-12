@@ -1,9 +1,10 @@
 # typed: false
 
 class AiAgentsController < ApplicationController
-  before_action :verify_current_user_path, except: [:index, :run_task, :execute_task, :runs, :show_run, :cancel_run]
-  before_action :set_sidebar_mode, only: [:new, :index, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent]
-  before_action :require_ai_agents_enabled, only: [:index, :run_task, :execute_task, :runs, :show_run, :cancel_run]
+  before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent]
+  before_action :require_ai_agents_enabled, only: [:index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run]
+  before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent]
+  before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent]
 
   # GET /ai-agents - List all AI agents owned by current user
   def index
@@ -48,7 +49,73 @@ class AiAgentsController < ApplicationController
     end
   end
 
-  # GET /ai-agents/:id/run - Show task form for specific AI agent
+  # GET /ai-agents/:handle - Show a specific AI agent
+  def show
+    @page_title = @ai_agent.display_name
+
+    # Get automation rules for this agent
+    @automation_rules = AutomationRule.tenant_scoped_only
+      .where(ai_agent_id: @ai_agent.id)
+      .order(created_at: :desc)
+      .limit(5)
+
+    # Get recent runs
+    @recent_runs = AiAgentTaskRun
+      .where(ai_agent: @ai_agent)
+      .order(created_at: :desc)
+      .limit(5)
+  end
+
+  # GET /ai-agents/:handle/settings - Show settings for a specific AI agent
+  def settings
+    @page_title = "Settings - #{@ai_agent.display_name}"
+
+    # Get studios the agent is a member of
+    active_superagent_members = @ai_agent.superagent_members.reject(&:archived?)
+    all_ai_agent_studios = active_superagent_members.map(&:superagent)
+    @ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_superagent }
+
+    # Get studios the agent can be added to (studios where current user can invite)
+    invitable_studios = @current_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
+    @available_studios = (invitable_studios - all_ai_agent_studios).reject { |s| s == @current_tenant.main_superagent }
+  end
+
+  # POST /ai-agents/:handle/settings - Update settings for a specific AI agent
+  def update_settings
+    name = params[:name]
+    new_handle = params[:new_handle]
+    identity_prompt = params[:identity_prompt]
+    mode = params[:mode]
+    model = params[:model]
+    capabilities = params[:capabilities]
+
+    # Update name if provided
+    @ai_agent.name = name if name.present?
+
+    # Update handle if provided (via tenant_user)
+    if new_handle.present?
+      tu = @ai_agent.tenant_user
+      tu.update!(handle: new_handle) if tu
+    end
+
+    # Update agent configuration
+    config = @ai_agent.agent_configuration || {}
+    config["identity_prompt"] = identity_prompt if identity_prompt.present?
+    config["mode"] = mode if mode.present?
+    config["model"] = model if mode == "internal" && model.present?
+    config["capabilities"] = capabilities if capabilities.present?
+    @ai_agent.agent_configuration = config
+
+    if @ai_agent.save
+      flash[:notice] = "Settings updated successfully"
+      redirect_to ai_agent_settings_path(@ai_agent.handle)
+    else
+      flash[:error] = @ai_agent.errors.full_messages.join(", ")
+      redirect_to ai_agent_settings_path(@ai_agent.handle)
+    end
+  end
+
+  # GET /ai-agents/:handle/run - Show task form for specific AI agent
   def run_task
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can run AI agent tasks" unless current_user&.human?
 
@@ -59,7 +126,7 @@ class AiAgentsController < ApplicationController
     @max_steps_default = AiAgentTaskRun::DEFAULT_MAX_STEPS
   end
 
-  # POST /ai-agents/:id/run - Execute the task
+  # POST /ai-agents/:handle/run - Execute the task
   def execute_task
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can run AI agent tasks" unless current_user&.human?
 
@@ -187,7 +254,9 @@ class AiAgentsController < ApplicationController
     # Only generate token for external AI agents
     @token = api_helper.generate_token(@ai_agent) if @ai_agent.external_ai_agent? && ["true", "1"].include?(params[:generate_token])
     flash.now[:notice] = "AI Agent #{@ai_agent.display_name} created successfully."
-    render :show
+
+    # Redirect to new agent show page
+    redirect_to ai_agent_path(@ai_agent.handle)
   end
 
   def update; end
@@ -200,7 +269,7 @@ class AiAgentsController < ApplicationController
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
 
     @page_title = "Actions | New AI Agent"
-    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/ai-agents/new"))
+    render_actions_index(ActionsHelper.actions_for_route("/ai-agents/new"))
   end
 
   def describe_create_ai_agent
@@ -223,8 +292,62 @@ class AiAgentsController < ApplicationController
 
     flash.now[:notice] = "AI Agent #{@ai_agent.display_name} created successfully."
     respond_to do |format|
-      format.md { render "show" }
-      format.html { render "show" }
+      format.md do
+        render_action_success({
+          action_name: "create_ai_agent",
+          resource: @ai_agent,
+          result: "AI Agent '#{@ai_agent.display_name}' created successfully",
+          redirect_to: "/ai-agents/#{@ai_agent.handle}",
+        })
+      end
+      format.html { redirect_to ai_agent_path(@ai_agent.handle) }
+    end
+  end
+
+  # Settings actions (markdown API)
+  def settings_actions_index
+    @page_title = "Actions | Settings - #{@ai_agent.display_name}"
+    render_actions_index(ActionsHelper.actions_for_route("/ai-agents/:handle/settings"))
+  end
+
+  def describe_update_ai_agent
+    render_action_description(ActionsHelper.action_description("update_profile", resource: @ai_agent))
+  end
+
+  def execute_update_ai_agent
+    name = params[:name]
+    new_handle = params[:new_handle]
+    identity_prompt = params[:identity_prompt]
+
+    # Update name if provided
+    @ai_agent.name = name if name.present?
+
+    # Update handle if provided (via tenant_user)
+    if new_handle.present?
+      tu = @ai_agent.tenant_user
+      tu.update!(handle: new_handle) if tu
+    end
+
+    # Update agent configuration
+    if identity_prompt.present?
+      config = @ai_agent.agent_configuration || {}
+      config["identity_prompt"] = identity_prompt
+      @ai_agent.agent_configuration = config
+    end
+
+    if @ai_agent.save
+      render_action_success({
+        action_name: "update_profile",
+        resource: @ai_agent,
+        result: "AI Agent settings updated successfully",
+        redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
+      })
+    else
+      render_action_error({
+        action_name: "update_profile",
+        resource: @ai_agent,
+        error: @ai_agent.errors.full_messages.join(", "),
+      })
     end
   end
 
@@ -248,14 +371,16 @@ class AiAgentsController < ApplicationController
     @sidebar_mode = "minimal"
   end
 
-  def verify_current_user_path
-    handle = params[:handle]
-    return if handle.nil?
-
-    tu = current_tenant.tenant_users.find_by(handle: handle)
+  def set_ai_agent
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: :not_found, plain: "404 Not Found" if tu.nil?
 
-    render status: :forbidden, plain: "403 Unauthorized" unless tu.user == current_user
+    @ai_agent = tu.user
+    return render status: :not_found, plain: "404 Not Found" unless @ai_agent&.ai_agent?
+  end
+
+  def authorize_parent
+    return render status: :forbidden, plain: "403 Unauthorized" unless @ai_agent.parent_id == current_user&.id
   end
 
   def find_ai_agent_by_handle

@@ -1,0 +1,176 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@agent_handle}"],
+  ['Automations', "/ai-agents/#{@agent_handle}/automations"],
+  @automation_rule.name
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'zap', height: 14, class: 'pulse-resource-icon' %>
+        Automation
+      </span>
+      <% if @automation_rule.enabled? %>
+        <span class="pulse-tag pulse-tag-success">Enabled</span>
+      <% else %>
+        <span class="pulse-tag">Disabled</span>
+      <% end %>
+    </div>
+    <h1 class="pulse-resource-title"><%= @automation_rule.name %></h1>
+    <% if @automation_rule.description.present? %>
+      <p class="pulse-resource-subtitle"><%= @automation_rule.description %></p>
+    <% end %>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p class="pulse-action-row">
+      <a href="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/edit" class="pulse-action-btn pulse-action-btn-primary">
+        <%= octicon "pencil" %> Edit
+      </a>
+      <form action="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/actions/toggle_automation_rule" method="post" style="display: inline;">
+        <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+        <button type="submit" class="pulse-action-btn">
+          <% if @automation_rule.enabled? %>
+            <%= octicon "x" %> Disable
+          <% else %>
+            <%= octicon "check" %> Enable
+          <% end %>
+        </button>
+      </form>
+      <a href="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/runs" class="pulse-action-btn">
+        <%= octicon "history" %> Run History
+      </a>
+    </p>
+
+    <section class="pulse-settings-section">
+      <h3>Trigger</h3>
+      <dl class="pulse-dl">
+        <dt>Type</dt>
+        <dd><span class="pulse-tag"><%= @automation_rule.trigger_type %></span></dd>
+
+        <% if @automation_rule.trigger_type == 'event' %>
+          <dt>Event Type</dt>
+          <dd><code><%= @automation_rule.event_type %></code></dd>
+
+          <% if @automation_rule.mention_filter.present? %>
+            <dt>Mention Filter</dt>
+            <dd><code><%= @automation_rule.mention_filter %></code></dd>
+          <% end %>
+        <% elsif @automation_rule.trigger_type == 'schedule' %>
+          <dt>Cron Expression</dt>
+          <dd><code><%= @automation_rule.cron_expression %></code></dd>
+
+          <dt>Timezone</dt>
+          <dd><%= @automation_rule.timezone %></dd>
+        <% end %>
+      </dl>
+    </section>
+
+    <% if @automation_rule.conditions.present? && @automation_rule.conditions.any? %>
+      <section class="pulse-settings-section">
+        <h3>Conditions</h3>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Operator</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @automation_rule.conditions.each do |condition| %>
+              <tr>
+                <td><code><%= condition['field'] %></code></td>
+                <td><code><%= condition['operator'] %></code></td>
+                <td><code><%= condition['value'] %></code></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </section>
+    <% end %>
+
+    <section class="pulse-settings-section">
+      <h3>Task Prompt</h3>
+      <pre class="pulse-monospace" style="background: var(--pulse-bg-subtle); padding: 1rem; border-radius: 4px; white-space: pre-wrap;"><%= @automation_rule.task_template %></pre>
+      <% if @automation_rule.max_steps.present? %>
+        <p><small class="pulse-hint">Max steps: <%= @automation_rule.max_steps %></small></p>
+      <% end %>
+    </section>
+
+    <section class="pulse-settings-section">
+      <h3>Statistics</h3>
+      <dl class="pulse-dl">
+        <dt>Total Executions</dt>
+        <dd><%= @automation_rule.execution_count %></dd>
+
+        <dt>Last Executed</dt>
+        <dd>
+          <% if @automation_rule.last_executed_at %>
+            <%= @automation_rule.last_executed_at.strftime('%Y-%m-%d %H:%M:%S %Z') %>
+            (<%= time_ago_in_words(@automation_rule.last_executed_at) %> ago)
+          <% else %>
+            <em>Never</em>
+          <% end %>
+        </dd>
+
+        <dt>Created</dt>
+        <dd><%= @automation_rule.created_at.strftime('%Y-%m-%d %H:%M:%S %Z') %></dd>
+      </dl>
+    </section>
+
+    <% if @recent_runs.any? %>
+      <section class="pulse-settings-section">
+        <h3>Recent Runs</h3>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Status</th>
+              <th>Trigger</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @recent_runs.each do |run| %>
+              <tr>
+                <td><%= time_ago_in_words(run.created_at) %> ago</td>
+                <td>
+                  <% case run.status %>
+                  <% when 'completed' %>
+                    <span class="pulse-tag pulse-tag-success">Completed</span>
+                  <% when 'failed' %>
+                    <span class="pulse-tag pulse-tag-danger">Failed</span>
+                  <% when 'running' %>
+                    <span class="pulse-tag pulse-tag-info">Running</span>
+                  <% when 'pending' %>
+                    <span class="pulse-tag">Pending</span>
+                  <% else %>
+                    <span class="pulse-tag"><%= run.status %></span>
+                  <% end %>
+                </td>
+                <td><%= run.trigger_source %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+        <p><a href="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/runs" class="pulse-link">View all runs</a></p>
+      </section>
+    <% end %>
+
+    <%= render 'shared/pulse_accordion', title: 'YAML Source', open: false do %>
+      <pre class="pulse-monospace" style="background: var(--pulse-bg-subtle); padding: 1rem; border-radius: 4px; white-space: pre-wrap;"><%= @automation_rule.yaml_source %></pre>
+    <% end %>
+
+    <section class="pulse-settings-section">
+      <h3>Danger Zone</h3>
+      <form action="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/actions/delete_automation_rule" method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this automation? This cannot be undone.');">
+        <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+        <button type="submit" class="pulse-action-btn pulse-action-btn-danger">
+          <%= octicon "trash" %> Delete Automation
+        </button>
+      </form>
+    </section>
+  </div>
+</article>

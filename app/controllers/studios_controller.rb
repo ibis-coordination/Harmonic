@@ -199,7 +199,10 @@ class StudiosController < ApplicationController
       end
       format.html do
         flash[:notice] = "#{ai_agent.display_name} has been added to #{@current_superagent.name}"
-        redirect_to "#{@current_superagent.path}/settings"
+        # Only allow local redirects (paths starting with /)
+        return_path = params[:return_to]
+        redirect_path = return_path&.start_with?("/") ? return_path : "#{@current_superagent.path}/settings"
+        redirect_to redirect_path
       end
     end
   end

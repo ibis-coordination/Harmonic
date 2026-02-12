@@ -7,13 +7,41 @@ Rails.application.routes.draw do
     get 'dev/pulse' => 'dev#pulse_components'
   end
 
-  # AI Agents management and task runner
+  # AI Agents management - consolidated under /ai-agents
   get 'ai-agents' => 'ai_agents#index', as: 'ai_agents'
+  get 'ai-agents/new' => 'ai_agents#new', as: 'new_ai_agent'
+  get 'ai-agents/new/actions' => 'ai_agents#actions_index', as: 'ai_agent_new_actions'
+  get 'ai-agents/new/actions/create_ai_agent' => 'ai_agents#describe_create_ai_agent'
+  post 'ai-agents/new/actions/create_ai_agent' => 'ai_agents#execute_create_ai_agent'
+  get 'ai-agents/:handle' => 'ai_agents#show', as: 'ai_agent'
+  get 'ai-agents/:handle/settings' => 'ai_agents#settings', as: 'ai_agent_settings'
+  post 'ai-agents/:handle/settings' => 'ai_agents#update_settings'
+  get 'ai-agents/:handle/settings/actions' => 'ai_agents#settings_actions_index'
+  get 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#describe_update_ai_agent'
+  post 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#execute_update_ai_agent'
   get 'ai-agents/:handle/run' => 'ai_agents#run_task', as: 'ai_agent_run_task'
   post 'ai-agents/:handle/run' => 'ai_agents#execute_task', as: 'ai_agent_execute_task'
   get 'ai-agents/:handle/runs' => 'ai_agents#runs', as: 'ai_agent_runs'
   get 'ai-agents/:handle/runs/:run_id' => 'ai_agents#show_run', as: 'ai_agent_run'
   post 'ai-agents/:handle/runs/:run_id/cancel' => 'ai_agents#cancel_run', as: 'cancel_ai_agent_run'
+  # AI Agent automations
+  get 'ai-agents/:handle/automations' => 'agent_automations#index', as: 'ai_agent_automations'
+  get 'ai-agents/:handle/automations/new' => 'agent_automations#new', as: 'new_ai_agent_automation'
+  get 'ai-agents/:handle/automations/new/actions' => 'agent_automations#actions_index_new'
+  get 'ai-agents/:handle/automations/new/actions/create_automation_rule' => 'agent_automations#describe_create'
+  post 'ai-agents/:handle/automations/new/actions/create_automation_rule' => 'agent_automations#execute_create'
+  get 'ai-agents/:handle/automations/templates' => 'agent_automations#templates', as: 'ai_agent_automation_templates'
+  get 'ai-agents/:handle/automations/:automation_id' => 'agent_automations#show', as: 'ai_agent_automation'
+  get 'ai-agents/:handle/automations/:automation_id/edit' => 'agent_automations#edit', as: 'edit_ai_agent_automation'
+  get 'ai-agents/:handle/automations/:automation_id/runs' => 'agent_automations#runs', as: 'ai_agent_automation_runs'
+  get 'ai-agents/:handle/automations/:automation_id/actions' => 'agent_automations#actions_index_show'
+  get 'ai-agents/:handle/automations/:automation_id/actions/update_automation_rule' => 'agent_automations#describe_update'
+  post 'ai-agents/:handle/automations/:automation_id/actions/update_automation_rule' => 'agent_automations#execute_update'
+  get 'ai-agents/:handle/automations/:automation_id/actions/delete_automation_rule' => 'agent_automations#describe_delete'
+  post 'ai-agents/:handle/automations/:automation_id/actions/delete_automation_rule' => 'agent_automations#execute_delete'
+  get 'ai-agents/:handle/automations/:automation_id/actions/toggle_automation_rule' => 'agent_automations#describe_toggle'
+  post 'ai-agents/:handle/automations/:automation_id/actions/toggle_automation_rule' => 'agent_automations#execute_toggle'
+  get 'ai-agents/:handle/automations/:automation_id/edit/actions' => 'agent_automations#actions_index_edit'
 
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'
@@ -236,9 +264,6 @@ Rails.application.routes.draw do
     resources :api_tokens,
               path: 'settings/tokens',
               only: [:new, :create, :show, :destroy]
-    resources :ai_agents,
-              path: "settings/ai-agents",
-              only: [:new, :create, :show, :destroy]
     # Representation routes
     post 'represent' => 'users#represent', on: :member
     delete 'represent' => 'users#stop_representing', on: :member
@@ -252,10 +277,6 @@ Rails.application.routes.draw do
     get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
     get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member
     post 'settings/tokens/new/actions/create_api_token' => 'api_tokens#execute_create_api_token', on: :member
-    # AI Agent actions
-    get 'settings/ai-agents/new/actions' => 'ai_agents#actions_index', on: :member
-    get 'settings/ai-agents/new/actions/create_ai_agent' => 'ai_agents#describe_create_ai_agent', on: :member
-    post 'settings/ai-agents/new/actions/create_ai_agent' => 'ai_agents#execute_create_ai_agent', on: :member
     # User/AI agent webhook routes (parent can manage AI agent webhooks)
     get 'settings/webhooks' => 'user_webhooks#index', on: :member
     get 'settings/webhooks/new' => 'user_webhooks#new', on: :member

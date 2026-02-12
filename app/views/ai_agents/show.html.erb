@@ -1,8 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  ['Home', '/'],
-  [@current_user.display_name, @current_user.path],
-  ['Settings', "#{@current_user.path}/settings"],
-  'AI Agent Created'
+  ['AI Agents', '/ai-agents'],
+  @ai_agent.display_name
 ] %>
 
 <article class="pulse-resource-detail">
@@ -14,6 +12,13 @@
       </span>
     </div>
     <h1 class="pulse-resource-title"><%= @ai_agent.display_name %></h1>
+    <p class="pulse-resource-subtitle">
+      Handle: <code><%= @ai_agent.handle %></code>
+      · Mode: <%= @ai_agent.internal_ai_agent? ? "Internal" : "External" %>
+      <% if @ai_agent.internal_ai_agent? %>
+        · Model: <code><%= @ai_agent.agent_configuration&.dig("model") || "default" %></code>
+      <% end %>
+    </p>
   </header>
 
   <div class="pulse-resource-body">
@@ -23,32 +28,14 @@
       </div>
     <% end %>
 
-    <section class="pulse-settings-section">
-      <table class="pulse-table" style="width: auto;">
-        <tbody>
-          <tr>
-            <th style="text-align: left; padding-right: 24px;">Name</th>
-            <td><%= @ai_agent.name %></td>
-          </tr>
-          <tr>
-            <th style="text-align: left; padding-right: 24px;">Handle</th>
-            <td><code><%= @ai_agent.handle %></code></td>
-          </tr>
-          <tr>
-            <th style="text-align: left; padding-right: 24px;">Profile</th>
-            <td><a href="<%= @ai_agent.path %>" class="pulse-link"><%= @ai_agent.path %></a></td>
-          </tr>
-          <tr>
-            <th style="text-align: left; padding-right: 24px;">Mode</th>
-            <td><%= @ai_agent.internal_ai_agent? ? "Internal" : "External" %></td>
-          </tr>
-          <% if @ai_agent.internal_ai_agent? %>
-            <tr>
-              <th style="text-align: left; padding-right: 24px;">Model</th>
-              <td><code><%= @ai_agent.agent_configuration["model"] || "default" %></code></td>
-            </tr>
-          <% end %>
-          <% if @token && @token.plaintext_token.present? %>
+    <% if @token && @token.plaintext_token.present? %>
+      <section class="pulse-settings-section">
+        <h3>API Token</h3>
+        <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 12px;">
+          <strong>Important:</strong> Save this API token now. You won't be able to see the full token again.
+        </div>
+        <table class="pulse-table" style="width: auto;">
+          <tbody>
             <tr>
               <th style="text-align: left; padding-right: 24px;">API Token</th>
               <td>
@@ -66,22 +53,123 @@
               <th style="text-align: left; padding-right: 24px;">Token Expires</th>
               <td>in <%= time_ago_in_words(@token.expires_at) %></td>
             </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </section>
-
-    <% if @token && @token.plaintext_token.present? %>
-      <section class="pulse-settings-section">
-        <div class="pulse-notice pulse-notice-warning">
-          <strong>Important:</strong> Save this API token now. You won't be able to see the full token again.
-        </div>
+          </tbody>
+        </table>
       </section>
     <% end %>
 
-    <section class="pulse-settings-section pulse-action-row">
-      <a href="<%= @ai_agent.path %>/settings" class="pulse-action-btn pulse-action-btn-primary">Configure AI Agent</a>
-      <a href="<%= @current_user.path %>/settings" class="pulse-action-btn">Back to Settings</a>
-    </section>
+    <p class="pulse-action-row">
+      <a href="<%= ai_agent_run_task_path(@ai_agent.handle) %>" class="pulse-action-btn pulse-action-btn-primary">
+        <%= octicon 'play' %> Run Task
+      </a>
+      <a href="/ai-agents/<%= @ai_agent.handle %>/automations" class="pulse-action-btn">
+        <%= octicon 'zap' %> Automations
+      </a>
+      <a href="/ai-agents/<%= @ai_agent.handle %>/settings" class="pulse-action-btn">
+        <%= octicon 'gear' %> Settings
+      </a>
+      <a href="<%= @ai_agent.path %>" class="pulse-action-btn">
+        <%= octicon 'person' %> View Profile
+      </a>
+    </p>
+
+    <% if @automation_rules.any? %>
+      <section class="pulse-settings-section">
+        <h3>Automations</h3>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Trigger</th>
+              <th>Status</th>
+              <th>Runs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @automation_rules.each do |rule| %>
+              <tr>
+                <td>
+                  <a href="/ai-agents/<%= @ai_agent.handle %>/automations/<%= rule.truncated_id %>" class="pulse-link">
+                    <%= rule.name %>
+                  </a>
+                </td>
+                <td>
+                  <span class="pulse-tag"><%= rule.trigger_type %></span>
+                  <% if rule.trigger_type == 'event' %>
+                    <small class="pulse-hint"><%= rule.event_type %></small>
+                  <% end %>
+                </td>
+                <td>
+                  <% if rule.enabled? %>
+                    <span class="pulse-tag pulse-tag-success">Enabled</span>
+                  <% else %>
+                    <span class="pulse-tag">Disabled</span>
+                  <% end %>
+                </td>
+                <td><%= rule.execution_count %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+        <p><a href="/ai-agents/<%= @ai_agent.handle %>/automations" class="pulse-link">View all automations →</a></p>
+      </section>
+    <% else %>
+      <section class="pulse-settings-section">
+        <h3>Automations</h3>
+        <p class="pulse-muted">No automations configured yet.</p>
+        <p>
+          <a href="/ai-agents/<%= @ai_agent.handle %>/automations/new" class="pulse-action-btn">
+            <%= octicon 'plus' %> Create Automation
+          </a>
+        </p>
+      </section>
+    <% end %>
+
+    <% if @recent_runs.any? %>
+      <section class="pulse-settings-section">
+        <h3>Recent Task Runs</h3>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Status</th>
+              <th>Task</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @recent_runs.each do |run| %>
+              <tr>
+                <td>
+                  <a href="<%= ai_agent_run_path(@ai_agent.handle, run.id) %>" class="pulse-link">
+                    <%= time_ago_in_words(run.created_at) %> ago
+                  </a>
+                </td>
+                <td>
+                  <span class="pulse-badge <%= run.status_badge_class %>">
+                    <% case run.status %>
+                    <% when "completed" %>
+                      <%= run.success ? 'Success' : 'Failed' %>
+                    <% when "running" %>
+                      Running
+                    <% when "queued" %>
+                      Queued
+                    <% else %>
+                      <%= run.status.titleize %>
+                    <% end %>
+                  </span>
+                </td>
+                <td><%= truncate(run.task, length: 60) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+        <p><a href="<%= ai_agent_runs_path(@ai_agent.handle) %>" class="pulse-link">View all runs →</a></p>
+      </section>
+    <% else %>
+      <section class="pulse-settings-section">
+        <h3>Recent Task Runs</h3>
+        <p class="pulse-muted">No task runs yet.</p>
+      </section>
+    <% end %>
   </div>
 </article>
