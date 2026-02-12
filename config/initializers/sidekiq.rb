@@ -1,25 +1,17 @@
 # typed: false
 # frozen_string_literal: true
 
-# Configure Sidekiq server and handle development mode eager loading.
+# Sidekiq 7+ includes Rails executor/reloader integration by default.
 #
-# In development mode, Rails uses lazy class loading (eager_load: false).
-# When multiple Sidekiq threads try to autoload classes simultaneously,
-# Zeitwerk's ReentrantReadWriteLock can get corrupted, causing:
+# In development, you may occasionally see:
 #   "Concurrent::IllegalOperationError: Cannot release a read lock which is not held"
 #
-# The fix is to force eager loading when Sidekiq starts in development mode.
-# This ensures all classes are loaded before any jobs run, preventing
-# the concurrent autoloading race condition.
-
-Sidekiq.configure_server do |config|
-  # Use the startup event to eager load after Rails is fully initialized
-  config.on(:startup) do
-    # In development mode, force eager loading to prevent Zeitwerk lock corruption
-    # when multiple threads try to autoload classes simultaneously.
-    if Rails.env.development? && !Rails.application.config.eager_load
-      Rails.logger.info("[Sidekiq] Force eager loading application code in development mode")
-      Rails.application.eager_load!
-    end
-  end
-end
+# This is a Zeitwerk race condition when multiple threads autoload classes
+# simultaneously after a code change triggers a reload. It's rare and jobs
+# retry automatically via Sidekiq's retry mechanism.
+#
+# If you're actively editing Sidekiq job code and seeing frequent crashes:
+#   docker compose restart sidekiq
+#
+# This is a known Rails/Zeitwerk limitation in development mode.
+# Production is unaffected (eager_load: true eliminates the race).

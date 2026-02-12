@@ -232,7 +232,19 @@ class LLMClientTest < ActiveSupport::TestCase
 
     assert_equal "", result.content
     assert_equal "error", result.finish_reason
-    assert_includes result.error, "JSON parse error" # 500 response body isn't valid JSON
+    assert_includes result.error, "server error"
+  end
+
+  test "returns rate limit error message on 429" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(status: 429, body: '{"error": "rate limited"}')
+
+    client = LLMClient.new
+    result = client.chat(messages: [{ role: "user", content: "Test" }])
+
+    assert_equal "", result.content
+    assert_equal "error", result.finish_reason
+    assert_includes result.error, "Rate limited"
   end
 
   test "returns error message on connection failure" do

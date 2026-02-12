@@ -106,6 +106,12 @@
         <% if @task_run.formatted_duration %>
           | Duration: <%= @task_run.formatted_duration %>
         <% end %>
+        <% if @task_run.total_tokens&.positive? %>
+          | Tokens: <%= @task_run.formatted_tokens %>
+          <% if @task_run.formatted_cost %>
+            | Est. Cost: <%= @task_run.formatted_cost %>
+          <% end %>
+        <% end %>
         | <%= timeago(@task_run.created_at) %>
       </p>
     </div>

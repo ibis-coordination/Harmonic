@@ -34,6 +34,13 @@ class AiAgentsController < ApplicationController
         runs.first
     end
 
+    # Calculate total estimated costs per agent (all time)
+    @total_costs_by_ai_agent = AiAgentTaskRun
+      .where(ai_agent_id: ai_agent_ids)
+      .completed
+      .group(:ai_agent_id)
+      .sum(:estimated_cost_usd)
+
     # Sort AI agents by most recent run first, then by created_at for those without runs
     @ai_agents = ai_agents.sort_by do |s|
       run = @latest_runs_by_ai_agent[s.id]

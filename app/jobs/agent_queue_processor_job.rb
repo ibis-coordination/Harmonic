@@ -96,6 +96,12 @@ class AgentQueueProcessorJob < ApplicationJob
 
     result = navigator.run(task: task_run.task, max_steps: task_run.max_steps)
 
+    estimated_cost = LLMPricing.calculate_cost(
+      model: task_run.model || "default",
+      input_tokens: result.input_tokens,
+      output_tokens: result.output_tokens
+    )
+
     task_run.update!(
       status: result.success ? "completed" : "failed",
       success: result.success,
@@ -103,7 +109,11 @@ class AgentQueueProcessorJob < ApplicationJob
       error: result.error,
       steps_count: result.steps.count,
       steps_data: result.steps.map { |s| { type: s.type, detail: s.detail, timestamp: s.timestamp.iso8601 } },
-      completed_at: Time.current
+      completed_at: Time.current,
+      input_tokens: result.input_tokens,
+      output_tokens: result.output_tokens,
+      total_tokens: result.input_tokens + result.output_tokens,
+      estimated_cost_usd: estimated_cost
     )
   end
 

@@ -1,4 +1,4 @@
-\restrict nbeakYB1QJz8n0FTMTlLZdkJiFyWarbZq4yz7LqspCAhonMYgqGvfhPLMGYHinL
+\restrict tW3ZhhmfpDpacWGjIo2lsis8qr9giJ0UaKfebuS3Ro9FcuvaLo2Pob4dJl9WMG5
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -134,7 +134,11 @@ CREATE TABLE public.ai_agent_task_runs (
     completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    model character varying
+    model character varying,
+    input_tokens integer DEFAULT 0,
+    output_tokens integer DEFAULT 0,
+    total_tokens integer DEFAULT 0,
+    estimated_cost_usd numeric(10,6)
 );
 
 
@@ -2815,6 +2819,13 @@ CREATE INDEX index_ai_agent_task_runs_on_ai_agent_id ON public.ai_agent_task_run
 
 
 --
+-- Name: index_ai_agent_task_runs_on_ai_agent_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_ai_agent_task_runs_on_ai_agent_id_and_created_at ON public.ai_agent_task_runs USING btree (ai_agent_id, created_at);
+
+
+--
 -- Name: index_ai_agent_task_runs_on_initiated_by_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2840,6 +2851,13 @@ CREATE INDEX index_ai_agent_task_runs_on_tenant_id ON public.ai_agent_task_runs 
 --
 
 CREATE INDEX index_ai_agent_task_runs_on_tenant_id_and_ai_agent_id ON public.ai_agent_task_runs USING btree (tenant_id, ai_agent_id);
+
+
+--
+-- Name: index_ai_agent_task_runs_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_ai_agent_task_runs_on_tenant_id_and_created_at ON public.ai_agent_task_runs USING btree (tenant_id, created_at);
 
 
 --
@@ -8153,7 +8171,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict nbeakYB1QJz8n0FTMTlLZdkJiFyWarbZq4yz7LqspCAhonMYgqGvfhPLMGYHinL
+\unrestrict tW3ZhhmfpDpacWGjIo2lsis8qr9giJ0UaKfebuS3Ro9FcuvaLo2Pob4dJl9WMG5
 
 SET search_path TO "$user", public;
 
@@ -8303,6 +8321,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260210000001'),
 ('20260210000002'),
 ('20260210000003'),
-('20260210234230');
+('20260210234230'),
+('20260211114428');
 
 

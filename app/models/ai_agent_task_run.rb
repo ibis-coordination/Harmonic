@@ -15,6 +15,18 @@ class AiAgentTaskRun < ApplicationRecord
 
   scope :recent, -> { order(created_at: :desc) }
   scope :for_ai_agent, ->(ai_agent) { where(ai_agent: ai_agent) }
+  scope :completed, -> { where(status: "completed") }
+  scope :with_usage, -> { where.not(total_tokens: 0) }
+  scope :in_period, ->(start_date, end_date) { where(completed_at: start_date..end_date) }
+
+  # Calculate total cost for completed tasks in a date range
+  #
+  # @param start_date [Date, Time] Start of the period
+  # @param end_date [Date, Time] End of the period
+  # @return [BigDecimal] Total cost in USD
+  def self.total_cost_for_period(start_date, end_date)
+    completed.in_period(start_date, end_date).sum(:estimated_cost_usd)
+  end
 
   # Thread-local context management for tracking which task run is currently executing
   class << self
@@ -103,6 +115,28 @@ class AiAgentTaskRun < ApplicationRecord
       seconds = (duration % 60).round
       "#{minutes}m #{seconds}s"
     end
+  end
+
+  # Format the estimated cost for display
+  #
+  # @return [String, nil] Formatted cost (e.g., "$0.0035") or nil if no cost
+  def formatted_cost
+    return nil unless estimated_cost_usd&.positive?
+
+    if estimated_cost_usd < 0.01
+      "< $0.01"
+    else
+      "$#{format("%.4f", estimated_cost_usd)}"
+    end
+  end
+
+  # Format the total tokens with commas for display
+  #
+  # @return [String, nil] Formatted tokens (e.g., "12,345") or nil if no tokens
+  def formatted_tokens
+    return nil unless total_tokens&.positive?
+
+    total_tokens.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
   end
 
   def task_summary(max_length = 80)

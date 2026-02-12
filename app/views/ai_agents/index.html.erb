@@ -43,6 +43,12 @@
                   <% end %>
                 </div>
                 <span class="pulse-ai-agent-meta">Created <%= timeago(ai_agent.created_at) %></span>
+                <% total_cost = @total_costs_by_ai_agent[ai_agent.id] %>
+                <% if total_cost&.positive? %>
+                  <span class="pulse-ai-agent-meta" style="margin-left: 8px;">
+                    Est. Cost: $<%= format("%.2f", total_cost) %>
+                  </span>
+                <% end %>
                 <% latest_run = @latest_runs_by_ai_agent[ai_agent.id] %>
                 <% if latest_run %>
                   <div class="pulse-ai-agent-latest-run" style="margin-top: 4px;">
