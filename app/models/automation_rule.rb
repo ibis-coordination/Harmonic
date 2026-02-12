@@ -79,9 +79,8 @@ class AutomationRule < ApplicationRecord
   sig { returns(String) }
   def path
     if ai_agent_id.present?
-      tu = TenantUser.find_by(tenant_id: tenant_id, user_id: ai_agent&.parent_id)
       agent_tu = TenantUser.find_by(tenant_id: tenant_id, user_id: ai_agent_id)
-      "/u/#{tu&.handle}/settings/ai-agents/#{agent_tu&.handle}/automations/#{truncated_id}"
+      "/ai-agents/#{agent_tu&.handle}/automations/#{truncated_id}"
     elsif superagent_id.present?
       s = Superagent.tenant_scoped_only(tenant_id).find_by(id: superagent_id)
       "/studios/#{s&.handle}/settings/automations/#{truncated_id}"
