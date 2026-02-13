@@ -83,6 +83,9 @@ class AutomationDispatcher
     )
 
     # Queue the execution job
-    AutomationRuleExecutionJob.perform_later(automation_rule_run_id: run.id)
+    AutomationRuleExecutionJob.perform_later(
+      automation_rule_run_id: run.id,
+      tenant_id: run.tenant_id
+    )
   end
 end

@@ -92,8 +92,8 @@ class AutomationExecutor
         result = execute_internal_action(action)
         executed_actions << { index: index, type: action_type, result: result }
       when "webhook"
-        # Webhook sending will be implemented in Phase 4
-        executed_actions << { index: index, type: action_type, result: "skipped - not implemented" }
+        result = execute_webhook_action(action)
+        executed_actions << { index: index, type: action_type, result: result }
       when "trigger_agent"
         result = execute_trigger_agent_action(action)
         executed_actions << { index: index, type: action_type, result: result }
@@ -134,6 +134,11 @@ class AutomationExecutor
       params: rendered_params,
       status: "skipped - not implemented",
     }
+  end
+
+  sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[Symbol, T.untyped]) }
+  def execute_webhook_action(action)
+    AutomationWebhookSender.call(action, @event)
   end
 
   sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }

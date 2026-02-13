@@ -41,7 +41,7 @@
 
     <section class="pulse-settings-section">
       <h3>Scheduled Automations</h3>
-      <p class="pulse-hint">Automations that trigger on a schedule (coming soon)</p>
+      <p class="pulse-hint">Automations that run on a recurring schedule using cron expressions</p>
 
       <div class="pulse-card-grid">
         <% @templates.select { |t| t.trigger_type == 'schedule' }.each do |template| %>

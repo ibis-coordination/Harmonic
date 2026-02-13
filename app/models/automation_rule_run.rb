@@ -15,8 +15,10 @@ class AutomationRuleRun < ApplicationRecord
 
   validates :status, inclusion: { in: STATUSES }
   validates :trigger_source, inclusion: { in: TRIGGER_SOURCES }, allow_nil: true
+  validate :tenant_matches_rule
+  validate :superagent_matches_rule
 
-  before_validation :set_superagent_from_rule, on: :create
+  before_validation :set_tenant_and_superagent_from_rule, on: :create
 
   scope :pending, -> { where(status: "pending") }
   scope :running, -> { where(status: "running") }
@@ -89,9 +91,35 @@ class AutomationRuleRun < ApplicationRecord
   private
 
   sig { void }
-  def set_superagent_from_rule
-    return if superagent_id.present?
+  def set_tenant_and_superagent_from_rule
+    rule = automation_rule
+    return unless rule
 
-    self.superagent_id = automation_rule&.superagent_id
+    self.tenant_id = rule.tenant_id if tenant_id.nil?
+    self.superagent_id = rule.superagent_id if superagent_id.nil?
+  end
+
+  sig { void }
+  def tenant_matches_rule
+    rule = automation_rule
+    return unless rule && tenant_id
+
+    return if tenant_id == rule.tenant_id
+
+    errors.add(:tenant, "must match the automation rule's tenant")
+  end
+
+  sig { void }
+  def superagent_matches_rule
+    rule = automation_rule
+    return unless rule
+
+    # Both nil is valid (for agent rules without superagent scope)
+    return if superagent_id.nil? && rule.superagent_id.nil?
+
+    # Both must match if either is set
+    return if superagent_id == rule.superagent_id
+
+    errors.add(:superagent, "must match the automation rule's superagent")
   end
 end

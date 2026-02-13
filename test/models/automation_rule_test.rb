@@ -206,4 +206,65 @@ class AutomationRuleTest < ActiveSupport::TestCase
     assert_includes AutomationRule.for_event_type("note.created"), note_rule
     assert_not_includes AutomationRule.for_event_type("note.created"), decision_rule
   end
+
+  test "next_scheduled_run returns nil for event trigger type" do
+    rule = AutomationRule.new(
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      enabled: true
+    )
+
+    assert_nil rule.next_scheduled_run
+  end
+
+  test "next_scheduled_run returns nil for disabled schedule rules" do
+    rule = AutomationRule.new(
+      trigger_type: "schedule",
+      trigger_config: { "cron" => "0 9 * * *" },
+      enabled: false
+    )
+
+    assert_nil rule.next_scheduled_run
+  end
+
+  test "next_scheduled_run returns future time for enabled schedule rules" do
+    travel_to Time.zone.parse("2024-06-15 08:30:00 UTC") do
+      rule = AutomationRule.new(
+        trigger_type: "schedule",
+        trigger_config: { "cron" => "0 9 * * *", "timezone" => "UTC" },
+        enabled: true
+      )
+
+      next_run = rule.next_scheduled_run
+      assert_not_nil next_run
+      assert_equal Time.zone.parse("2024-06-15 09:00:00 UTC").to_i, next_run.to_i
+    end
+  end
+
+  test "next_scheduled_run respects configured timezone" do
+    # June 15, 2024 at 12:30 UTC = 8:30am Eastern (EDT, UTC-4)
+    # Next 9am Eastern = 1pm UTC
+    travel_to Time.zone.parse("2024-06-15 12:30:00 UTC") do
+      rule = AutomationRule.new(
+        trigger_type: "schedule",
+        trigger_config: { "cron" => "0 9 * * *", "timezone" => "America/New_York" },
+        enabled: true
+      )
+
+      next_run = rule.next_scheduled_run
+      assert_not_nil next_run
+      # 9am Eastern (EDT) on June 15 = 1pm UTC
+      assert_equal Time.zone.parse("2024-06-15 13:00:00 UTC").to_i, next_run.to_i
+    end
+  end
+
+  test "next_scheduled_run returns nil for invalid cron expression" do
+    rule = AutomationRule.new(
+      trigger_type: "schedule",
+      trigger_config: { "cron" => "invalid cron" },
+      enabled: true
+    )
+
+    assert_nil rule.next_scheduled_run
+  end
 end

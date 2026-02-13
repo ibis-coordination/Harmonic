@@ -17,7 +17,7 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
     assert run.pending?
 
     assert_difference "AiAgentTaskRun.count", 1 do
-      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id)
+      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id, tenant_id: @tenant.id)
     end
 
     run.reload
@@ -31,7 +31,7 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
     run.update!(status: "completed", completed_at: Time.current)
 
     assert_no_difference "AiAgentTaskRun.count" do
-      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id)
+      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id, tenant_id: @tenant.id)
     end
 
     # Status should remain completed
@@ -45,7 +45,7 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
     run.update!(status: "running", started_at: Time.current)
 
     assert_no_difference "AiAgentTaskRun.count" do
-      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id)
+      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id, tenant_id: @tenant.id)
     end
 
     # Status should remain running
@@ -55,7 +55,7 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
 
   test "skips non-existent run" do
     assert_nothing_raised do
-      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: SecureRandom.uuid)
+      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: SecureRandom.uuid, tenant_id: @tenant.id)
     end
   end
 
@@ -72,7 +72,7 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
     )
     run = create_pending_run(rule)
 
-    AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id)
+    AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id, tenant_id: @tenant.id)
 
     run.reload
     assert run.failed?
@@ -84,7 +84,7 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
     run = create_pending_run(rule)
 
     assert_enqueued_with(job: AgentQueueProcessorJob) do
-      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id)
+      AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id, tenant_id: @tenant.id)
     end
   end
 

@@ -102,6 +102,7 @@ group :development, :test do
 end
 
 gem 'sidekiq'
+gem 'sidekiq-cron' # Scheduled/recurring jobs
 
 gem 'omniauth-github'
 gem 'omniauth-rails_csrf_protection', '~> 1.0' # prevents forged authentication requests

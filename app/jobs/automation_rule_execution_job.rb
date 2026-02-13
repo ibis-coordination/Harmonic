@@ -6,18 +6,20 @@ class AutomationRuleExecutionJob < TenantScopedJob
 
   queue_as :default
 
-  sig { params(automation_rule_run_id: String).void }
-  def perform(automation_rule_run_id:)
-    # Load run without tenant context (middleware cleared it)
-    run = AutomationRuleRun.unscoped_for_system_job.find_by(id: automation_rule_run_id)
+  sig { params(automation_rule_run_id: String, tenant_id: String).void }
+  def perform(automation_rule_run_id:, tenant_id:)
+    # Set tenant context first (explicit is better than implicit)
+    tenant = Tenant.find_by(id: tenant_id)
+    return unless tenant
+
+    set_tenant_context!(tenant)
+
+    # Now load the run within tenant context
+    run = AutomationRuleRun.tenant_scoped_only.find_by(id: automation_rule_run_id)
     return unless run
 
     # Skip if already processed
     return unless run.pending?
-
-    # Set tenant context for the execution
-    # This is required for things like User#display_name which depend on Tenant.current_id
-    set_tenant_context!(run.tenant)
 
     # Set superagent context if the rule/run has one
     superagent = run.superagent || run.automation_rule&.superagent

@@ -76,6 +76,24 @@ class AutomationRule < ApplicationRecord
     trigger_config&.dig("timezone") || "UTC"
   end
 
+  sig { returns(T.nilable(Time)) }
+  def next_scheduled_run
+    return nil unless trigger_type == "schedule" && enabled?
+
+    cron = cron_expression
+    return nil if cron.blank?
+
+    tz = timezone || "UTC"
+    begin
+      fugit_cron = Fugit::Cron.parse("#{cron} #{tz}")
+      return nil unless fugit_cron
+
+      fugit_cron.next_time.to_t
+    rescue StandardError
+      nil
+    end
+  end
+
   sig { returns(String) }
   def path
     if ai_agent_id.present?

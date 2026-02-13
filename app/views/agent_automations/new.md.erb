@@ -13,7 +13,30 @@ Create a new automation by providing YAML configuration.
 ### Trigger Types
 - `event` - Trigger when a specific event occurs
 - `schedule` - Trigger on a cron schedule
-- `webhook` - Trigger via incoming webhook
+- `webhook` - Trigger via incoming webhook (coming soon)
+
+### Schedule Trigger Configuration
+
+For scheduled automations, use a cron expression:
+
+```yaml
+trigger:
+  type: schedule
+  cron: "0 9 * * *"            # Run at 9:00 AM daily
+  timezone: "America/New_York"  # Optional, defaults to UTC
+```
+
+**Cron format:** `minute hour day-of-month month day-of-week`
+
+| Expression | Description |
+|------------|-------------|
+| `0 9 * * *` | Daily at 9:00 AM |
+| `0 9 * * 1` | Every Monday at 9:00 AM |
+| `0 9 1 * *` | First day of month at 9:00 AM |
+| `0 9 * * 1-5` | Weekdays at 9:00 AM |
+| `0 */2 * * *` | Every 2 hours |
+
+**Common timezones:** `UTC`, `America/New_York`, `America/Los_Angeles`, `Europe/London`, `Asia/Tokyo`
 
 ### Event Types
 - `note.created` - A note was created

@@ -63,6 +63,7 @@
             <th>Status</th>
             <th>Runs</th>
             <th>Last Run</th>
+            <th>Next Scheduled Run</th>
           </tr>
         </thead>
         <tbody>
@@ -97,6 +98,11 @@
                   <%= time_ago_in_words(rule.last_executed_at) %> ago
                 <% else %>
                   <em>Never</em>
+                <% end %>
+              </td>
+              <td>
+                <% if rule.next_scheduled_run %>
+                  in <%= countdown(rule.next_scheduled_run, base_unit: 'minutes') %>
                 <% end %>
               </td>
             </tr>

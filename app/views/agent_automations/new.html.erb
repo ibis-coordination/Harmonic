@@ -63,9 +63,28 @@ max_steps: 20  # Optional, defaults to agent's configured max
       <h4>Trigger Types</h4>
       <ul class="pulse-list">
         <li class="pulse-list-item"><code>event</code> - Trigger when a specific event occurs</li>
-        <li class="pulse-list-item"><code>schedule</code> - Trigger on a cron schedule (coming soon)</li>
+        <li class="pulse-list-item"><code>schedule</code> - Trigger on a cron schedule</li>
         <li class="pulse-list-item"><code>webhook</code> - Trigger via incoming webhook (coming soon)</li>
       </ul>
+
+      <h4>Schedule Trigger Configuration</h4>
+      <p>For scheduled automations, use a cron expression to define when the automation runs:</p>
+      <pre class="pulse-monospace" style="background: var(--pulse-bg-subtle); padding: 1rem; border-radius: 4px; overflow-x: auto;">
+trigger:
+  type: schedule
+  cron: "0 9 * * *"           # Run at 9:00 AM daily
+  timezone: "America/New_York" # Optional, defaults to UTC
+      </pre>
+      <p><strong>Cron format:</strong> <code>minute hour day-of-month month day-of-week</code></p>
+      <ul class="pulse-list">
+        <li class="pulse-list-item"><code>* * * * *</code> - Every minute</li>
+        <li class="pulse-list-item"><code>0 9 * * *</code> - Daily at 9:00 AM</li>
+        <li class="pulse-list-item"><code>0 9 * * 1</code> - Every Monday at 9:00 AM</li>
+        <li class="pulse-list-item"><code>0 9 1 * *</code> - First day of each month at 9:00 AM</li>
+        <li class="pulse-list-item"><code>0 9 * * 1-5</code> - Weekdays at 9:00 AM</li>
+        <li class="pulse-list-item"><code>0 */2 * * *</code> - Every 2 hours</li>
+      </ul>
+      <p><strong>Common timezones:</strong> <code>UTC</code>, <code>America/New_York</code>, <code>America/Los_Angeles</code>, <code>Europe/London</code>, <code>Asia/Tokyo</code></p>
 
       <h4>Event Types</h4>
       <ul class="pulse-list">

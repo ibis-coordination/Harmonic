@@ -290,6 +290,83 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert task_run.triggered_by_automation?
   end
 
+  test "executes general rule with webhook action" do
+    stub_request(:post, "https://example.com/webhook")
+      .to_return(status: 200, body: '{"ok": true}')
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      name: "Send webhook",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [
+        {
+          "type" => "webhook",
+          "url" => "https://example.com/webhook",
+          "body" => { "event" => "{{event.type}}", "text" => "{{subject.text}}" },
+        },
+      ],
+      enabled: true
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      text: "Test webhook note"
+    )
+    event = Event.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      event_type: "note.created",
+      actor: @user,
+      subject: note
+    )
+    run = create_automation_run(rule, event)
+
+    AutomationExecutor.execute(run)
+
+    run.reload
+    assert run.completed?
+    assert_equal "webhook", run.actions_executed.first["type"]
+    assert run.actions_executed.first["result"]["success"]
+
+    assert_requested(:post, "https://example.com/webhook") do |req|
+      body = JSON.parse(req.body)
+      body["event"] == "note.created" && body["text"] == "Test webhook note"
+    end
+  end
+
+  test "records webhook failure in actions_executed" do
+    stub_request(:post, "https://example.com/webhook")
+      .to_return(status: 500, body: "Server Error")
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      name: "Failing webhook",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [
+        { "type" => "webhook", "url" => "https://example.com/webhook", "body" => {} },
+      ],
+      enabled: true
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    AutomationExecutor.execute(run)
+
+    run.reload
+    assert run.completed? # Rule completes even if webhook fails
+    assert_not run.actions_executed.first["result"]["success"]
+    assert_includes run.actions_executed.first["result"]["error"], "HTTP 500"
+  end
+
   test "fails trigger_agent action when agent not found" do
     rule = AutomationRule.create!(
       tenant: @tenant,
