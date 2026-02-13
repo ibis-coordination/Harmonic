@@ -34,6 +34,8 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_equal @ai_agent, task_run.ai_agent
     assert_equal "You were mentioned. Respond appropriately.", task_run.task
     assert_equal @user, task_run.initiated_by
+    assert_equal rule, task_run.automation_rule
+    assert task_run.triggered_by_automation?
   end
 
   test "renders template variables in task prompt" do
@@ -284,6 +286,8 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_equal other_agent, task_run.ai_agent
     assert_includes task_run.task, "Help me with this"
     assert_equal 10, task_run.max_steps
+    assert_equal rule, task_run.automation_rule
+    assert task_run.triggered_by_automation?
   end
 
   test "fails trigger_agent action when agent not found" do

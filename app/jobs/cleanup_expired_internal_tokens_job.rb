@@ -1,4 +1,5 @@
 # typed: true
+# frozen_string_literal: true
 
 # Safety net job to clean up expired internal tokens.
 #
@@ -8,7 +9,7 @@
 # immediately after expiry since they're only meant to exist during active runs.
 #
 # Schedule via cron/whenever to run hourly.
-class CleanupExpiredInternalTokensJob < ApplicationJob
+class CleanupExpiredInternalTokensJob < SystemJob
   extend T::Sig
 
   queue_as :low_priority
@@ -16,9 +17,9 @@ class CleanupExpiredInternalTokensJob < ApplicationJob
   sig { void }
   def perform
     # Delete internal tokens that have expired (safety net for crashed runs)
-    # Using unscope to bypass both the external-only default scope and the tenant scope
-    deleted_count = ApiToken.unscope(where: :internal)
-      .unscope(where: :tenant_id)
+    # Using unscoped_for_system_job to bypass tenant scope, then filtering to internal tokens
+    deleted_count = ApiToken.unscoped_for_system_job
+      .unscope(where: :internal) # Bypass the external-only default scope on ApiToken
       .where(internal: true)
       .where(expires_at: ...Time.current)
       .delete_all

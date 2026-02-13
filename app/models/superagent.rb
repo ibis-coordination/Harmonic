@@ -69,6 +69,14 @@ class Superagent < ApplicationRecord
     Thread.current[:superagent_handle] = nil
   end
 
+  # Set thread-local superagent context from a Superagent instance.
+  # Use this in jobs and other contexts where you have a Superagent record.
+  sig { params(superagent: Superagent).void }
+  def self.set_thread_context(superagent)
+    Thread.current[:superagent_id] = superagent.id
+    Thread.current[:superagent_handle] = superagent.handle
+  end
+
   sig { returns(T.nilable(String)) }
   def self.current_handle
     Thread.current[:superagent_handle]

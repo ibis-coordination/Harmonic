@@ -15,3 +15,7 @@
 #
 # This is a known Rails/Zeitwerk limitation in development mode.
 # Production is unaffected (eager_load: true eliminates the race).
+
+# NOTE: Tenant context management is handled by ApplicationJob's around_perform
+# callback, which works for both async Sidekiq execution and inline perform_now.
+# See app/jobs/application_job.rb for details.

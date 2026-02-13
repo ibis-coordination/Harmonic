@@ -1,4 +1,4 @@
-\restrict hWP1IQQJchlZIlwgsKASO1HRDTD441e3zqKr913CnDkTtxZHkjuJJDWVuWpz6x0
+\restrict dg6Ufm6Kgf8puN86z1pzSG5icYqheMIZAJEws3i6Dx8SZLJwLlgydwEKKApo4Ed
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -138,7 +138,8 @@ CREATE TABLE public.ai_agent_task_runs (
     input_tokens integer DEFAULT 0,
     output_tokens integer DEFAULT 0,
     total_tokens integer DEFAULT 0,
-    estimated_cost_usd numeric(10,6)
+    estimated_cost_usd numeric(10,6),
+    automation_rule_id uuid
 );
 
 
@@ -2891,6 +2892,13 @@ CREATE INDEX index_ai_agent_task_runs_on_ai_agent_id ON public.ai_agent_task_run
 --
 
 CREATE INDEX index_ai_agent_task_runs_on_ai_agent_id_and_created_at ON public.ai_agent_task_runs USING btree (ai_agent_id, created_at);
+
+
+--
+-- Name: index_ai_agent_task_runs_on_automation_rule_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_ai_agent_task_runs_on_automation_rule_id ON public.ai_agent_task_runs USING btree (automation_rule_id);
 
 
 --
@@ -8171,6 +8179,14 @@ ALTER TABLE ONLY public.webhook_deliveries
 
 
 --
+-- Name: ai_agent_task_runs fk_rails_c09b289302; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_agent_task_runs
+    ADD CONSTRAINT fk_rails_c09b289302 FOREIGN KEY (automation_rule_id) REFERENCES public.automation_rules(id);
+
+
+--
 -- Name: active_storage_attachments fk_rails_c3b3935057; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8438,7 +8454,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict hWP1IQQJchlZIlwgsKASO1HRDTD441e3zqKr913CnDkTtxZHkjuJJDWVuWpz6x0
+\unrestrict dg6Ufm6Kgf8puN86z1pzSG5icYqheMIZAJEws3i6Dx8SZLJwLlgydwEKKApo4Ed
 
 SET search_path TO "$user", public;
 
@@ -8593,6 +8609,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260211200000'),
 ('20260211200001'),
 ('20260211200002'),
-('20260212062528');
+('20260212062528'),
+('20260212212340');
 
 

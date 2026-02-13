@@ -116,6 +116,80 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     end
   end
 
+  test "agent rule without superagent triggers for events in any superagent" do
+    # Create a second superagent
+    other_superagent = Superagent.create!(
+      tenant: @tenant,
+      handle: "other-studio-#{SecureRandom.hex(4)}",
+      name: "Other Studio",
+      created_by: @user
+    )
+
+    # Create rule with no superagent (agent rules don't have superagent_id)
+    rule = create_rule_without_mention_filter
+    assert_nil rule.superagent_id, "Agent rule should have nil superagent_id"
+
+    # Create event in a different superagent
+    note = Note.create!(
+      tenant: @tenant,
+      superagent: other_superagent,
+      created_by: @user,
+      text: "Note in other studio"
+    )
+    event = Event.create!(
+      tenant: @tenant,
+      superagent: other_superagent,
+      event_type: "note.created",
+      actor: @user,
+      subject: note
+    )
+
+    # Rule should match even though event is in a different superagent
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_includes matching_rules, rule
+  end
+
+  test "agent rule triggers regardless of current superagent context" do
+    # Create a second superagent
+    other_superagent = Superagent.create!(
+      tenant: @tenant,
+      handle: "context-studio-#{SecureRandom.hex(4)}",
+      name: "Context Studio",
+      created_by: @user
+    )
+
+    # Create rule with no superagent
+    rule = create_rule_without_mention_filter
+    assert_nil rule.superagent_id
+
+    # Create event in original superagent (with correct context)
+    note = Note.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      text: "Note in original studio"
+    )
+    event = Event.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      event_type: "note.created",
+      actor: @user,
+      subject: note
+    )
+
+    # Now set thread-local context to the other superagent (simulating
+    # the scenario where the dispatcher is called in a different context)
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: other_superagent.handle)
+
+    # Rule should still be found even with different superagent context
+    # because find_matching_rules uses tenant_scoped_only, not the default scope
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_includes matching_rules, rule
+  ensure
+    # Reset thread-local context
+    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+  end
+
   private
 
   def create_rule_with_mention_filter

@@ -1,6 +1,7 @@
 # typed: true
+# frozen_string_literal: true
 
-class AgentQueueProcessorJob < ApplicationJob
+class AgentQueueProcessorJob < TenantScopedJob
   extend T::Sig
 
   queue_as :default
@@ -20,16 +21,22 @@ class AgentQueueProcessorJob < ApplicationJob
     return unless ai_agent.ai_agent?
     return unless tenant.ai_agents_enabled?
 
+    # Set tenant context for querying AiAgentTaskRun
+    set_tenant_context!(tenant)
+
     task_run = claim_next_task(ai_agent, tenant)
     return unless task_run
 
-    set_context(tenant, task_run)
+    # Set additional context for this specific task run
+    set_task_run_context!(task_run)
+
+    superagent = resolve_superagent(task_run)
+    set_superagent_context!(superagent) if superagent
 
     begin
       run_task(task_run)
     ensure
-      restore_context
-      # Check for more queued tasks
+      # Schedule next task (context will be cleared/restored by middleware)
       schedule_next_task(ai_agent_id, tenant_id)
     end
   end
@@ -121,46 +128,6 @@ class AgentQueueProcessorJob < ApplicationJob
   def resolve_superagent(task_run)
     # Extract superagent from task path if possible, or use first available
     T.must(task_run.ai_agent).superagent_members.first&.superagent
-  end
-
-  sig { params(tenant: Tenant, task_run: AiAgentTaskRun).void }
-  def set_context(tenant, task_run)
-    # Save existing context so we can restore it after the job completes
-    # This is important for test isolation when jobs run inline
-    @saved_tenant_subdomain = Tenant.current_subdomain
-    @saved_tenant_id = Tenant.current_id
-    @saved_main_superagent_id = Tenant.current_main_superagent_id
-    @saved_superagent_id = Superagent.current_id
-    @saved_superagent_handle = Superagent.current_handle
-    @saved_task_run_id = AiAgentTaskRun.current_id
-
-    Tenant.current_subdomain = tenant.subdomain
-    Tenant.current_id = tenant.id
-    Tenant.current_main_superagent_id = tenant.main_superagent_id
-
-    # Set task run context for resource tracking
-    AiAgentTaskRun.current_id = task_run.id
-
-    # Clear any stale superagent context before conditionally setting new one
-    Superagent.clear_thread_scope
-
-    superagent = resolve_superagent(task_run)
-    return unless superagent
-
-    Thread.current[:superagent_id] = superagent.id
-    Thread.current[:superagent_handle] = superagent.handle
-  end
-
-  sig { void }
-  def restore_context
-    # Restore previous context instead of just clearing
-    # This ensures test isolation when jobs run inline via perform_now
-    Thread.current[:tenant_subdomain] = @saved_tenant_subdomain
-    Thread.current[:tenant_id] = @saved_tenant_id
-    Thread.current[:main_superagent_id] = @saved_main_superagent_id
-    Thread.current[:superagent_id] = @saved_superagent_id
-    Thread.current[:superagent_handle] = @saved_superagent_handle
-    Thread.current[:ai_agent_task_run_id] = @saved_task_run_id
   end
 
   sig { params(ai_agent_id: String, tenant_id: String).void }

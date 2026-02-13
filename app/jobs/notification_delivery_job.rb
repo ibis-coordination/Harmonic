@@ -1,15 +1,23 @@
 # typed: true
+# frozen_string_literal: true
 
-class NotificationDeliveryJob < ApplicationJob
+class NotificationDeliveryJob < TenantScopedJob
   extend T::Sig
 
   queue_as :default
 
   sig { params(notification_recipient_id: String).void }
   def perform(notification_recipient_id)
-    recipient = NotificationRecipient.find_by(id: notification_recipient_id)
+    # Load recipient without tenant context (middleware cleared it)
+    recipient = NotificationRecipient.unscoped_for_system_job.find_by(id: notification_recipient_id)
     return unless recipient
     return if recipient.status == "delivered"
+
+    # Set tenant context from the notification
+    notification = recipient.notification
+    return unless notification&.tenant
+
+    set_tenant_context!(notification.tenant)
 
     case recipient.channel
     when "email"
@@ -61,12 +69,9 @@ class NotificationDeliveryJob < ApplicationJob
     # Need tenant and superagent context to fire events
     return unless event&.tenant_id && event.superagent_id
 
-    tenant = event.tenant
-    return unless tenant
-
-    # Set context for EventService
-    set_tenant_context(tenant)
-    set_superagent_context(event.superagent)
+    # Set superagent context for EventService
+    superagent = event.superagent
+    set_superagent_context!(superagent) if superagent
 
     EventService.record!(
       event_type: "notifications.delivered",
@@ -78,33 +83,10 @@ class NotificationDeliveryJob < ApplicationJob
         "body" => notification.body,
         "url" => notification.url,
         "channel" => recipient.channel,
-      },
+      }
     )
   rescue StandardError => e
     # Don't fail the job if event recording fails
     Rails.logger.error("Failed to fire notifications.delivered event: #{e.message}")
-  ensure
-    clear_context
-  end
-
-  sig { params(tenant: Tenant).void }
-  def set_tenant_context(tenant)
-    Tenant.current_subdomain = tenant.subdomain
-    Tenant.current_id = tenant.id
-    Tenant.current_main_superagent_id = tenant.main_superagent_id
-  end
-
-  sig { params(superagent: T.nilable(Superagent)).void }
-  def set_superagent_context(superagent)
-    return unless superagent
-
-    Thread.current[:superagent_id] = superagent.id
-    Thread.current[:superagent_handle] = superagent.handle
-  end
-
-  sig { void }
-  def clear_context
-    Tenant.clear_thread_scope
-    Superagent.clear_thread_scope
   end
 end

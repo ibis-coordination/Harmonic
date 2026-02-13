@@ -29,6 +29,11 @@ if [[ -x "./scripts/check-tenant-safety.sh" ]]; then
     ./scripts/check-tenant-safety.sh --staged || exit 1
 fi
 
+# Check for jobs inheriting from ApplicationJob directly (blocks commit if found)
+if [[ -x "./scripts/check-job-inheritance.sh" ]]; then
+    ./scripts/check-job-inheritance.sh --staged || exit 1
+fi
+
 # Run Sorbet type check (blocks commit if types fail)
 echo "Running Sorbet type check..."
 if docker compose exec -T web bundle exec srb tc > /dev/null 2>&1; then

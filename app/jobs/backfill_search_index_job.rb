@@ -1,6 +1,7 @@
 # typed: false
+# frozen_string_literal: true
 
-class BackfillSearchIndexJob < ApplicationJob
+class BackfillSearchIndexJob < SystemJob
   queue_as :low_priority
 
   def perform(tenant_id: nil)

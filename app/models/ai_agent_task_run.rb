@@ -6,6 +6,7 @@ class AiAgentTaskRun < ApplicationRecord
   belongs_to :tenant
   belongs_to :ai_agent, class_name: "User"
   belongs_to :initiated_by, class_name: "User"
+  belongs_to :automation_rule, optional: true
 
   has_many :ai_agent_task_run_resources, dependent: :destroy
 
@@ -50,8 +51,9 @@ class AiAgentTaskRun < ApplicationRecord
     # @param initiated_by [User] The user who initiated the task
     # @param task [String] The task description/prompt
     # @param max_steps [Integer, nil] Optional max steps override
+    # @param automation_rule [AutomationRule, nil] Optional automation rule that triggered this task
     # @return [AiAgentTaskRun] The created task run
-    def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil)
+    def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil, automation_rule: nil)
       model = ai_agent.agent_configuration&.dig("model") || "default"
 
       create!(
@@ -61,7 +63,8 @@ class AiAgentTaskRun < ApplicationRecord
         task: task,
         max_steps: max_steps || DEFAULT_MAX_STEPS,
         model: model,
-        status: "queued"
+        status: "queued",
+        automation_rule: automation_rule
       )
     end
   end
@@ -97,6 +100,10 @@ class AiAgentTaskRun < ApplicationRecord
 
   def failed?
     status == "failed"
+  end
+
+  def triggered_by_automation?
+    automation_rule_id.present?
   end
 
   def duration

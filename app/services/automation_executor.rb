@@ -61,7 +61,8 @@ class AutomationExecutor
       tenant: @rule.tenant,
       initiated_by: initiated_by,
       task: task_prompt,
-      max_steps: @rule.max_steps
+      max_steps: @rule.max_steps,
+      automation_rule: @rule
     )
 
     # Link the automation run to the task run
@@ -157,7 +158,8 @@ class AutomationExecutor
       tenant: @rule.tenant,
       initiated_by: initiated_by,
       task: task_prompt,
-      max_steps: action["max_steps"]&.to_i
+      max_steps: action["max_steps"]&.to_i,
+      automation_rule: @rule
     )
 
     AgentQueueProcessorJob.perform_later(ai_agent_id: agent.id, tenant_id: @rule.tenant_id)

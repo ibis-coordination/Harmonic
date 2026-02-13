@@ -55,6 +55,17 @@ class Tenant < ApplicationRecord
   def self.clear_thread_scope
     Thread.current[:tenant_id] = nil
     Thread.current[:tenant_handle] = nil
+    Thread.current[:tenant_subdomain] = nil
+    Thread.current[:main_superagent_id] = nil
+  end
+
+  # Set thread-local tenant context from a Tenant instance.
+  # Use this in jobs and other contexts where you have a Tenant record.
+  sig { params(tenant: Tenant).void }
+  def self.set_thread_context(tenant)
+    self.current_subdomain = tenant.subdomain
+    self.current_id = tenant.id
+    self.current_main_superagent_id = tenant.main_superagent_id
   end
 
   sig { returns(T.nilable(String)) }

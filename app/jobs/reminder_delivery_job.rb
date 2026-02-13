@@ -1,6 +1,10 @@
 # typed: true
+# frozen_string_literal: true
 
-class ReminderDeliveryJob < ApplicationJob
+# ReminderDeliveryJob processes due reminders across all tenants.
+# It's a SystemJob because it queries reminders globally, then processes
+# each batch within its tenant's context.
+class ReminderDeliveryJob < SystemJob
   extend T::Sig
 
   queue_as :default
@@ -10,8 +14,8 @@ class ReminderDeliveryJob < ApplicationJob
 
   sig { void }
   def perform
-    # Find due reminders that are pending
-    due_reminders = NotificationRecipient
+    # Find due reminders that are pending (across all tenants)
+    due_reminders = NotificationRecipient.unscoped_for_system_job
       .joins(:notification)
       .where(notifications: { notification_type: "reminder" })
       .due
@@ -52,7 +56,7 @@ class ReminderDeliveryJob < ApplicationJob
     # 2. Concurrent execution for the same user is unlikely
     # 3. The consequence (a few extra deliveries) is minor
     # If this becomes an issue, consider Redis-based distributed rate limiting.
-    recent_deliveries = NotificationRecipient
+    recent_deliveries = NotificationRecipient.unscoped_for_system_job
       .joins(:notification)
       .where(user: user)
       .where(notifications: { notification_type: "reminder" })
@@ -66,9 +70,6 @@ class ReminderDeliveryJob < ApplicationJob
       return
     end
 
-    # Set context for event creation
-    set_tenant_context(tenant)
-
     # Find a superagent context for the user
     superagent = find_superagent_for_user(user, tenant)
     unless superagent
@@ -76,9 +77,8 @@ class ReminderDeliveryJob < ApplicationJob
       return
     end
 
-    set_superagent_context(superagent)
-
-    begin
+    # Process batch with tenant and superagent context
+    with_tenant_and_superagent_context(tenant, superagent) do
       # Create single batched event to trigger webhooks
       EventService.record!(
         event_type: "reminders.delivered",
@@ -97,41 +97,20 @@ class ReminderDeliveryJob < ApplicationJob
             }
           end,
           "count" => reminders.size,
-        },
+        }
       )
 
       # Deliver each notification (in-app)
       reminders.each do |nr|
         NotificationDeliveryJob.perform_now(nr.id)
       end
-    ensure
-      clear_context
     end
-  end
-
-  sig { params(tenant: Tenant).void }
-  def set_tenant_context(tenant)
-    Tenant.current_subdomain = tenant.subdomain
-    Tenant.current_id = tenant.id
-    Tenant.current_main_superagent_id = tenant.main_superagent_id
-  end
-
-  sig { params(superagent: Superagent).void }
-  def set_superagent_context(superagent)
-    Thread.current[:superagent_id] = superagent.id
-    Thread.current[:superagent_handle] = superagent.handle
-  end
-
-  sig { void }
-  def clear_context
-    Tenant.clear_thread_scope
-    Superagent.clear_thread_scope
   end
 
   sig { params(user: User, tenant: Tenant).returns(T.nilable(Superagent)) }
   def find_superagent_for_user(user, tenant)
     # Find a superagent the user is a member of in this tenant
-    membership = SuperagentMember
+    membership = SuperagentMember.unscoped_for_system_job
       .joins(:superagent)
       .where(user: user)
       .where(superagents: { tenant_id: tenant.id })
