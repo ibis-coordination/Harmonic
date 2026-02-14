@@ -30,6 +30,7 @@ class IncomingWebhooksController < ActionController::Base
     return render_timestamp_expired if timestamp_expired?
     return render_invalid_signature unless verify_signature
 
+    return render_ip_not_allowed unless ip_allowed?
     return render_rule_disabled unless @automation_rule.enabled?
 
     run = create_rule_run
@@ -74,6 +75,10 @@ class IncomingWebhooksController < ActionController::Base
     return false if timestamp.blank? # Let signature_present? handle blank case
 
     Time.zone.at(timestamp.to_i) < Time.current - TIMESTAMP_TOLERANCE
+  end
+
+  def ip_allowed?
+    @automation_rule.ip_allowed?(request.remote_ip)
   end
 
   def create_rule_run
@@ -122,5 +127,9 @@ class IncomingWebhooksController < ActionController::Base
 
   def render_rule_disabled
     render json: { error: "rule_disabled", message: "Automation rule is disabled" }, status: :unprocessable_entity
+  end
+
+  def render_ip_not_allowed
+    render json: { error: "ip_not_allowed", message: "IP address not in allowlist" }, status: :forbidden
   end
 end

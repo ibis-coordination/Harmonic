@@ -10,12 +10,31 @@ Edit the YAML configuration for this automation.
 
 ## YAML Reference
 
-### Template Variables
+### Webhook IP Restrictions
+
+For webhook triggers, you can optionally restrict by IP:
+
+```yaml
+trigger:
+  type: webhook
+  allowed_ips:         # Optional
+    - "10.0.0.1"       # Exact IP address
+    - "192.168.1.0/24" # CIDR range
+    - "2001:db8::/32"  # IPv6 supported
+```
+
+### Template Variables (Event Triggers)
 - `{{event.type}}` - The event type
 - `{{event.actor.name}}` - Name of the triggering user
 - `{{subject.path}}` - URL path to the subject
 - `{{subject.title}}` - Title of the subject
 - `{{studio.handle}}` - Handle of the studio
+
+### Template Variables (Webhook Triggers)
+- `{{payload.*}}` - Access webhook JSON payload (e.g., `{{payload.event}}`, `{{payload.data.value}}`)
+- `{{webhook.path}}` - The webhook path that was called
+- `{{webhook.source_ip}}` - IP address of the webhook sender
+- `{{webhook.received_at}}` - Timestamp when webhook was received
 
 ### Condition Operators
 - `==`, `!=` - Equal, not equal

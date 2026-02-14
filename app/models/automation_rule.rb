@@ -72,6 +72,33 @@ class AutomationRule < ApplicationRecord
     trigger_config&.dig("cron")
   end
 
+  sig { returns(T::Array[String]) }
+  def allowed_ips
+    trigger_config&.dig("allowed_ips") || []
+  end
+
+  sig { returns(T::Boolean) }
+  def ip_restricted?
+    allowed_ips.any?
+  end
+
+  sig { params(ip_address: String).returns(T::Boolean) }
+  def ip_allowed?(ip_address)
+    return true unless ip_restricted?
+
+    begin
+      client_ip = IPAddr.new(ip_address)
+      allowed_ips.any? do |allowed|
+        allowed_range = IPAddr.new(allowed)
+        allowed_range.include?(client_ip)
+      rescue IPAddr::InvalidAddressError
+        false
+      end
+    rescue IPAddr::InvalidAddressError
+      false
+    end
+  end
+
   sig { returns(T.nilable(String)) }
   def timezone
     trigger_config&.dig("timezone") || "UTC"

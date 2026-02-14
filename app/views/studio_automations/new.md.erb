@@ -45,9 +45,16 @@ For webhook-triggered automations:
 ```yaml
 trigger:
   type: webhook
+  allowed_ips:              # Optional: restrict to specific IPs
+    - "10.0.0.1"            # Exact IP address
+    - "192.168.1.0/24"      # CIDR range
+    - "2001:db8::/32"       # IPv6 supported
 ```
 
-After creation, you'll receive a unique webhook URL and secret for external systems to trigger this automation.
+After creation, you'll receive a unique webhook URL and secret. External systems must:
+1. Sign requests with HMAC-SHA256 using the secret
+2. Include `X-Harmonic-Timestamp` and `X-Harmonic-Signature` headers
+3. Send requests from an allowed IP (if `allowed_ips` is configured)
 
 ### Event Types
 - `note.created` - A note was created
@@ -80,11 +87,19 @@ actions:
 ```
 
 ### Template Variables
+
+**For event triggers:**
 - `{{event.type}}` - The event type
 - `{{event.actor.name}}` - Name of the triggering user
 - `{{subject.path}}` - URL path to the subject
 - `{{subject.title}}` - Title of the subject
 - `{{studio.handle}}` - Handle of the studio
+
+**For webhook triggers:**
+- `{{payload.*}}` - Access webhook JSON payload (e.g., `{{payload.event}}`, `{{payload.data.value}}`)
+- `{{webhook.path}}` - The webhook path that was called
+- `{{webhook.source_ip}}` - IP address of the webhook sender
+- `{{webhook.received_at}}` - Timestamp when webhook was received
 
 ## Navigation
 

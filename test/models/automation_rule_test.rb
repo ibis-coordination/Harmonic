@@ -295,4 +295,78 @@ class AutomationRuleTest < ActiveSupport::TestCase
 
     assert_nil rule.next_scheduled_run
   end
+
+  # === IP Restriction Tests ===
+
+  test "allowed_ips returns empty array when not configured" do
+    rule = AutomationRule.new(trigger_config: {})
+    assert_equal [], rule.allowed_ips
+  end
+
+  test "allowed_ips returns configured IPs" do
+    rule = AutomationRule.new(
+      trigger_config: { "allowed_ips" => ["10.0.0.1", "192.168.1.0/24"] }
+    )
+    assert_equal ["10.0.0.1", "192.168.1.0/24"], rule.allowed_ips
+  end
+
+  test "ip_restricted? returns false when no IPs configured" do
+    rule = AutomationRule.new(trigger_config: {})
+    assert_not rule.ip_restricted?
+  end
+
+  test "ip_restricted? returns true when IPs are configured" do
+    rule = AutomationRule.new(
+      trigger_config: { "allowed_ips" => ["10.0.0.1"] }
+    )
+    assert rule.ip_restricted?
+  end
+
+  test "ip_allowed? returns true when no restrictions" do
+    rule = AutomationRule.new(trigger_config: {})
+    assert rule.ip_allowed?("1.2.3.4")
+  end
+
+  test "ip_allowed? returns true for exact IP match" do
+    rule = AutomationRule.new(
+      trigger_config: { "allowed_ips" => ["10.0.0.1", "10.0.0.2"] }
+    )
+    assert rule.ip_allowed?("10.0.0.1")
+    assert rule.ip_allowed?("10.0.0.2")
+    assert_not rule.ip_allowed?("10.0.0.3")
+  end
+
+  test "ip_allowed? returns true for IP within CIDR range" do
+    rule = AutomationRule.new(
+      trigger_config: { "allowed_ips" => ["192.168.1.0/24"] }
+    )
+    assert rule.ip_allowed?("192.168.1.1")
+    assert rule.ip_allowed?("192.168.1.254")
+    assert_not rule.ip_allowed?("192.168.2.1")
+  end
+
+  test "ip_allowed? handles IPv6 addresses" do
+    rule = AutomationRule.new(
+      trigger_config: { "allowed_ips" => ["::1", "2001:db8::/32"] }
+    )
+    assert rule.ip_allowed?("::1")
+    assert rule.ip_allowed?("2001:db8::1")
+    assert_not rule.ip_allowed?("2001:db9::1")
+  end
+
+  test "ip_allowed? returns false for invalid client IP" do
+    rule = AutomationRule.new(
+      trigger_config: { "allowed_ips" => ["10.0.0.1"] }
+    )
+    assert_not rule.ip_allowed?("not-an-ip")
+  end
+
+  test "ip_allowed? handles invalid allowed IP gracefully" do
+    rule = AutomationRule.new(
+      trigger_config: { "allowed_ips" => ["not-an-ip", "10.0.0.1"] }
+    )
+    # Should still match the valid IP
+    assert rule.ip_allowed?("10.0.0.1")
+    assert_not rule.ip_allowed?("10.0.0.2")
+  end
 end

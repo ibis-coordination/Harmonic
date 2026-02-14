@@ -13,7 +13,7 @@ Create a new automation by providing YAML configuration.
 ### Trigger Types
 - `event` - Trigger when a specific event occurs
 - `schedule` - Trigger on a cron schedule
-- `webhook` - Trigger via incoming webhook (coming soon)
+- `webhook` - Trigger via incoming webhook
 
 ### Schedule Trigger Configuration
 
@@ -38,6 +38,20 @@ trigger:
 
 **Common timezones:** `UTC`, `America/New_York`, `America/Los_Angeles`, `Europe/London`, `Asia/Tokyo`
 
+### Webhook Trigger Configuration
+
+For webhook-triggered automations:
+
+```yaml
+trigger:
+  type: webhook
+  allowed_ips:              # Optional: restrict to specific IPs
+    - "10.0.0.1"            # Exact IP address
+    - "192.168.1.0/24"      # CIDR range
+```
+
+After creation, you'll receive a unique webhook URL and secret. External systems must sign requests with HMAC-SHA256.
+
 ### Event Types
 - `note.created` - A note was created
 - `comment.created` - A comment was added
@@ -51,12 +65,18 @@ trigger:
 - `any_agent` - Trigger when any agent is mentioned
 - *(omit)* - Trigger on all matching events
 
-### Template Variables
+### Template Variables (Event Triggers)
 - `{{event.type}}` - The event type
 - `{{event.actor.name}}` - Name of the triggering user
 - `{{subject.path}}` - URL path to the subject
 - `{{subject.title}}` - Title of the subject
 - `{{studio.handle}}` - Handle of the studio
+
+### Template Variables (Webhook Triggers)
+- `{{payload.*}}` - Access webhook JSON payload (e.g., `{{payload.event}}`, `{{payload.data.value}}`)
+- `{{webhook.path}}` - The webhook path that was called
+- `{{webhook.source_ip}}` - IP address of the webhook sender
+- `{{webhook.received_at}}` - Timestamp when webhook was received
 
 ## Navigation
 

@@ -21,6 +21,11 @@
 -%>
 - **Webhook URL:** `<%= webhook_url %>`
 - **Secret:** `<%= @automation_rule.webhook_secret %>`
+<% if @automation_rule.ip_restricted? -%>
+- **Allowed IPs:** <%= @automation_rule.allowed_ips.map { |ip| "`#{ip}`" }.join(", ") %>
+<% else -%>
+- **Allowed IPs:** All IPs allowed
+<% end -%>
 
 ### How to Call This Webhook
 

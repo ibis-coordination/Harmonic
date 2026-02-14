@@ -269,4 +269,249 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
 
     assert_equal "Payment of 2000 usd succeeded", result
   end
+
+  # === Edge Cases for User-Defined Payloads ===
+
+  test "handles deeply nested payload (4+ levels)" do
+    trigger_data = {
+      "webhook_path" => "deep-webhook",
+      "payload" => {
+        "level1" => {
+          "level2" => {
+            "level3" => {
+              "level4" => {
+                "value" => "deep value",
+              },
+            },
+          },
+        },
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "Value: {{payload.level1.level2.level3.level4.value}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Value: deep value", result
+  end
+
+  test "handles missing intermediate key in nested path" do
+    trigger_data = {
+      "webhook_path" => "test",
+      "payload" => { "exists" => "value" },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "Missing: {{payload.does_not.exist.at_all}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Missing: ", result
+  end
+
+  test "handles payload with special characters in keys" do
+    trigger_data = {
+      "webhook_path" => "special-keys",
+      "payload" => {
+        "key-with-dash" => "dashed",
+        "key_with_underscore" => "underscored",
+        "key.with.dots" => "dotted",
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+
+    # Keys with dashes and underscores work
+    result = AutomationTemplateRenderer.render("{{payload.key-with-dash}}", context)
+    assert_equal "dashed", result
+
+    result = AutomationTemplateRenderer.render("{{payload.key_with_underscore}}", context)
+    assert_equal "underscored", result
+
+    # Keys with dots are ambiguous (interpreted as nested access)
+    # This behavior is expected - users should avoid dots in key names
+    result = AutomationTemplateRenderer.render("{{payload.key.with.dots}}", context)
+    assert_equal "", result # Missing because it tries to access payload["key"]["with"]["dots"]
+  end
+
+  test "handles payload with numeric values" do
+    trigger_data = {
+      "webhook_path" => "numeric",
+      "payload" => {
+        "integer" => 42,
+        "float" => 3.14,
+        "zero" => 0,
+        "negative" => -100,
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "Int: {{payload.integer}}, Float: {{payload.float}}, Zero: {{payload.zero}}, Neg: {{payload.negative}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Int: 42, Float: 3.14, Zero: 0, Neg: -100", result
+  end
+
+  test "handles payload with boolean values" do
+    trigger_data = {
+      "webhook_path" => "boolean",
+      "payload" => {
+        "enabled" => true,
+        "disabled" => false,
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "Enabled: {{payload.enabled}}, Disabled: {{payload.disabled}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Enabled: true, Disabled: false", result
+  end
+
+  test "handles payload with array values (renders array as string)" do
+    trigger_data = {
+      "webhook_path" => "array",
+      "payload" => {
+        "tags" => ["ruby", "rails", "automation"],
+        "nested" => { "items" => [1, 2, 3] },
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "Tags: {{payload.tags}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    # Arrays are converted to string representation
+    assert_includes result, "ruby"
+    assert_includes result, "rails"
+  end
+
+  test "escapes HTML in user-provided payload" do
+    trigger_data = {
+      "webhook_path" => "xss-attempt",
+      "payload" => {
+        "malicious" => "<script>alert('xss')</script>",
+        "nested" => { "also_bad" => "<img onerror='hack()' src='x'>" },
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+
+    result = AutomationTemplateRenderer.render("{{payload.malicious}}", context)
+    assert_not_includes result, "<script>"
+    assert_includes result, "&lt;script&gt;"
+
+    result = AutomationTemplateRenderer.render("{{payload.nested.also_bad}}", context)
+    assert_not_includes result, "<img"
+    assert_includes result, "&lt;img"
+  end
+
+  test "handles payload with empty string values" do
+    trigger_data = {
+      "webhook_path" => "empty",
+      "payload" => {
+        "empty" => "",
+        "whitespace" => "   ",
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "Empty: '{{payload.empty}}', Whitespace: '{{payload.whitespace}}'"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Empty: '', Whitespace: '   '", result
+  end
+
+  test "handles payload with null values" do
+    trigger_data = {
+      "webhook_path" => "nulls",
+      "payload" => {
+        "null_value" => nil,
+        "nested" => { "also_null" => nil },
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "Null: '{{payload.null_value}}', Nested: '{{payload.nested.also_null}}'"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Null: '', Nested: ''", result
+  end
+
+  test "handles template injection attempt in payload" do
+    trigger_data = {
+      "webhook_path" => "injection",
+      "payload" => {
+        "user_input" => "{{webhook.source_ip}}",  # Trying to inject template syntax
+        "nested_attempt" => "{{payload.secret}}",
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "attacker-ip",
+    }
+
+    template = "User said: {{payload.user_input}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    # The template syntax in the payload should be rendered as literal text, not executed
+    # HTML escaping converts {{ to escaped form
+    assert_not_includes result, "attacker-ip"
+    assert_includes result, "webhook.source_ip"
+  end
+
+  test "handles very long payload values" do
+    long_value = "x" * 10_000
+    trigger_data = {
+      "webhook_path" => "long",
+      "payload" => { "long_text" => long_value },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "Text: {{payload.long_text}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Text: #{long_value}", result
+    assert_equal 10_006, result.length # "Text: " + 10000 x's
+  end
+
+  test "handles unicode in payload" do
+    trigger_data = {
+      "webhook_path" => "unicode",
+      "payload" => {
+        "emoji" => "🎉 Celebration! 🚀",
+        "chinese" => "你好世界",
+        "arabic" => "مرحبا",
+        "mixed" => "Hello 世界 🌍",
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    template = "{{payload.emoji}} - {{payload.chinese}} - {{payload.mixed}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_includes result, "🎉"
+    assert_includes result, "你好世界"
+    assert_includes result, "🌍"
+  end
 end

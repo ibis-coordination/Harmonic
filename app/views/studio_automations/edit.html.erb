@@ -33,13 +33,30 @@
       </section>
     </form>
 
-    <%= render 'shared/pulse_accordion', title: 'Template Variables', open: false do %>
+    <%= render 'shared/pulse_accordion', title: 'YAML Reference', open: false do %>
+      <h4>Webhook IP Restrictions</h4>
+      <p>For webhook triggers, you can optionally restrict by IP:</p>
+      <pre class="pulse-code-block"><code>trigger:
+  type: webhook
+  allowed_ips:         # Optional
+    - "10.0.0.1"       # Exact IP
+    - "192.168.1.0/24" # CIDR range</code></pre>
+
+      <h4>Template Variables (Event Triggers)</h4>
       <ul class="pulse-list">
         <li class="pulse-list-item"><code>{{event.type}}</code> - The event type</li>
         <li class="pulse-list-item"><code>{{event.actor.name}}</code> - Name of the triggering user</li>
         <li class="pulse-list-item"><code>{{subject.path}}</code> - URL path to the subject</li>
         <li class="pulse-list-item"><code>{{subject.text}}</code> - Text/content of the subject</li>
         <li class="pulse-list-item"><code>{{studio.handle}}</code> - Handle of the studio</li>
+      </ul>
+
+      <h4>Template Variables (Webhook Triggers)</h4>
+      <ul class="pulse-list">
+        <li class="pulse-list-item"><code>{{payload.*}}</code> - Access webhook JSON (e.g., <code>{{payload.data.value}}</code>)</li>
+        <li class="pulse-list-item"><code>{{webhook.path}}</code> - The webhook path called</li>
+        <li class="pulse-list-item"><code>{{webhook.source_ip}}</code> - IP address of the sender</li>
+        <li class="pulse-list-item"><code>{{webhook.received_at}}</code> - Timestamp received</li>
       </ul>
     <% end %>
   </div>

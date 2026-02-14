@@ -283,6 +283,77 @@ class IncomingWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
+  # === IP Restriction Tests ===
+
+  test "IP restriction allows matching IP" do
+    @automation_rule.update!(trigger_config: { "allowed_ips" => ["127.0.0.1"] })
+    payload = { "event" => "test" }.to_json
+
+    post "/hooks/#{@webhook_path}",
+      params: payload,
+      headers: valid_webhook_headers(payload)
+
+    assert_response :ok
+  end
+
+  test "IP restriction blocks non-matching IP" do
+    @automation_rule.update!(trigger_config: { "allowed_ips" => ["10.0.0.1"] })
+    payload = { "event" => "test" }.to_json
+
+    post "/hooks/#{@webhook_path}",
+      params: payload,
+      headers: valid_webhook_headers(payload)
+
+    assert_response :forbidden
+    json = JSON.parse(response.body)
+    assert_equal "ip_not_allowed", json["error"]
+  end
+
+  test "IP restriction allows CIDR range containing client IP" do
+    # 127.0.0.1 is within 127.0.0.0/8
+    @automation_rule.update!(trigger_config: { "allowed_ips" => ["127.0.0.0/8"] })
+    payload = { "event" => "test" }.to_json
+
+    post "/hooks/#{@webhook_path}",
+      params: payload,
+      headers: valid_webhook_headers(payload)
+
+    assert_response :ok
+  end
+
+  test "IP restriction blocks CIDR range not containing client IP" do
+    @automation_rule.update!(trigger_config: { "allowed_ips" => ["10.0.0.0/8"] })
+    payload = { "event" => "test" }.to_json
+
+    post "/hooks/#{@webhook_path}",
+      params: payload,
+      headers: valid_webhook_headers(payload)
+
+    assert_response :forbidden
+  end
+
+  test "IP restriction allows multiple IPs with one match" do
+    @automation_rule.update!(trigger_config: { "allowed_ips" => ["10.0.0.1", "127.0.0.1", "192.168.1.1"] })
+    payload = { "event" => "test" }.to_json
+
+    post "/hooks/#{@webhook_path}",
+      params: payload,
+      headers: valid_webhook_headers(payload)
+
+    assert_response :ok
+  end
+
+  test "no IP restriction allows all IPs" do
+    @automation_rule.update!(trigger_config: {})
+    payload = { "event" => "test" }.to_json
+
+    post "/hooks/#{@webhook_path}",
+      params: payload,
+      headers: valid_webhook_headers(payload)
+
+    assert_response :ok
+  end
+
   # === Cross-Tenant Security ===
 
   test "webhook path from another tenant returns 404" do

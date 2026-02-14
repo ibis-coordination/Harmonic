@@ -287,4 +287,117 @@ class AutomationYamlParserTest < ActiveSupport::TestCase
     assert_not result.success?
     assert result.errors.any? { |e| e.include?("actions[0].url is required for webhook type") }
   end
+
+  # === Webhook IP Restrictions ===
+
+  test "parses webhook trigger with allowed_ips" do
+    yaml = <<~YAML
+      name: "IP Restricted Webhook"
+      trigger:
+        type: webhook
+        allowed_ips:
+          - "10.0.0.1"
+          - "192.168.1.0/24"
+      actions:
+        - type: internal_action
+          action: create_note
+    YAML
+
+    result = AutomationYamlParser.parse(yaml)
+
+    assert result.success?
+    assert_equal ["10.0.0.1", "192.168.1.0/24"], result.attributes[:trigger_config]["allowed_ips"]
+  end
+
+  test "validates allowed_ips must be an array" do
+    yaml = <<~YAML
+      name: "Invalid IP config"
+      trigger:
+        type: webhook
+        allowed_ips: "10.0.0.1"
+      actions:
+        - type: internal_action
+          action: create_note
+    YAML
+
+    result = AutomationYamlParser.parse(yaml)
+
+    assert_not result.success?
+    assert result.errors.any? { |e| e.include?("allowed_ips must be an array") }
+  end
+
+  test "validates allowed_ips entries must be valid IP addresses" do
+    yaml = <<~YAML
+      name: "Invalid IP"
+      trigger:
+        type: webhook
+        allowed_ips:
+          - "not-an-ip"
+      actions:
+        - type: internal_action
+          action: create_note
+    YAML
+
+    result = AutomationYamlParser.parse(yaml)
+
+    assert_not result.success?
+    assert result.errors.any? { |e| e.include?("not a valid IP address") }
+  end
+
+  test "validates allowed_ips entries must be strings" do
+    yaml = <<~YAML
+      name: "Non-string IP"
+      trigger:
+        type: webhook
+        allowed_ips:
+          - 12345
+      actions:
+        - type: internal_action
+          action: create_note
+    YAML
+
+    result = AutomationYamlParser.parse(yaml)
+
+    assert_not result.success?
+    assert result.errors.any? { |e| e.include?("must be a string") }
+  end
+
+  test "accepts valid CIDR notation" do
+    yaml = <<~YAML
+      name: "CIDR Webhook"
+      trigger:
+        type: webhook
+        allowed_ips:
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+      actions:
+        - type: internal_action
+          action: create_note
+    YAML
+
+    result = AutomationYamlParser.parse(yaml)
+
+    assert result.success?
+    assert_equal 3, result.attributes[:trigger_config]["allowed_ips"].size
+  end
+
+  test "accepts IPv6 addresses" do
+    yaml = <<~YAML
+      name: "IPv6 Webhook"
+      trigger:
+        type: webhook
+        allowed_ips:
+          - "::1"
+          - "2001:db8::/32"
+      actions:
+        - type: internal_action
+          action: create_note
+    YAML
+
+    result = AutomationYamlParser.parse(yaml)
+
+    assert result.success?
+    assert_equal 2, result.attributes[:trigger_config]["allowed_ips"].size
+  end
 end

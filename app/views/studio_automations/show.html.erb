@@ -94,6 +94,18 @@
               </button>
             </td>
           </tr>
+          <tr>
+            <th>Allowed IPs</th>
+            <td>
+              <% if @automation_rule.ip_restricted? %>
+                <% @automation_rule.allowed_ips.each do |ip| %>
+                  <code class="pulse-monospace"><%= ip %></code><br/>
+                <% end %>
+              <% else %>
+                <em>All IPs allowed</em>
+              <% end %>
+            </td>
+          </tr>
         <% end %>
         <tr>
           <th>Total Executions</th>
