@@ -1,0 +1,99 @@
+# <%= @automation_rule.name %>
+
+**Status:** <%= @automation_rule.enabled? ? "Enabled" : "Disabled" %>
+<% if @automation_rule.description.present? -%>
+
+<%= @automation_rule.description %>
+<% end -%>
+
+## Trigger
+
+- **Type:** <%= @automation_rule.trigger_type %>
+<% if @automation_rule.trigger_type == 'event' -%>
+- **Event Type:** `<%= @automation_rule.event_type %>`
+<% elsif @automation_rule.trigger_type == 'schedule' -%>
+- **Cron:** `<%= @automation_rule.cron_expression %>`
+- **Timezone:** <%= @automation_rule.timezone %>
+<% elsif @automation_rule.trigger_type == 'webhook' -%>
+<%
+  protocol = ENV['HOSTNAME'].to_s.include?('localhost') ? 'http' : 'https'
+  webhook_url = "#{protocol}://#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}/hooks/#{@automation_rule.webhook_path}"
+-%>
+- **Webhook URL:** `<%= webhook_url %>`
+- **Secret:** `<%= @automation_rule.webhook_secret %>`
+
+### How to Call This Webhook
+
+Send a POST request with HMAC signature authentication.
+
+**Required Headers:**
+- `X-Harmonic-Timestamp`: Unix timestamp (seconds). Must be within 5 minutes of current time.
+- `X-Harmonic-Signature`: `sha256={signature}` where signature is HMAC-SHA256 of `{timestamp}.{body}` using the secret.
+
+**Example (bash):**
+```bash
+WEBHOOK_URL="<%= webhook_url %>"
+SECRET="<%= @automation_rule.webhook_secret %>"
+BODY='{"event":"test"}'
+TIMESTAMP=$(date +%s)
+SIGNATURE=$(echo -n "${TIMESTAMP}.${BODY}" | openssl dgst -sha256 -hmac "${SECRET}" | cut -d' ' -f2)
+
+curl -X POST "${WEBHOOK_URL}" \
+  -H "Content-Type: application/json" \
+  -H "X-Harmonic-Timestamp: ${TIMESTAMP}" \
+  -H "X-Harmonic-Signature: sha256=${SIGNATURE}" \
+  -d "${BODY}"
+```
+<% end -%>
+
+<% if @automation_rule.conditions.present? && @automation_rule.conditions.any? -%>
+## Conditions
+
+| Field | Operator | Value |
+|-------|----------|-------|
+<% @automation_rule.conditions.each do |condition| -%>
+| `<%= condition['field'] %>` | `<%= condition['operator'] %>` | `<%= condition['value'] %>` |
+<% end -%>
+<% end -%>
+
+<% if @automation_rule.actions.is_a?(Array) && @automation_rule.actions.any? -%>
+## Actions
+
+<% @automation_rule.actions.each_with_index do |action, index| -%>
+### Action <%= index + 1 %>: <%= action['type'] %>
+<% if action['type'] == 'webhook' -%>
+- **URL:** `<%= action['url'] %>`
+- **Method:** <%= action['method'] || 'POST' %>
+<% elsif action['type'] == 'internal_action' -%>
+- **Action:** `<%= action['action'] %>`
+<% elsif action['type'] == 'trigger_agent' -%>
+- **Agent ID:** `<%= action['agent_id'] %>`
+<% end -%>
+
+<% end -%>
+<% end -%>
+
+## Statistics
+
+- **Total Executions:** <%= @automation_rule.execution_count %>
+- **Last Executed:** <%= @automation_rule.last_executed_at ? @automation_rule.last_executed_at.strftime('%Y-%m-%d %H:%M:%S %Z') : "Never" %>
+- **Created:** <%= @automation_rule.created_at.strftime('%Y-%m-%d %H:%M:%S %Z') %> by <%= @automation_rule.created_by.display_name %>
+<% if @automation_rule.updated_by.present? -%>
+- **Last Updated:** <%= @automation_rule.updated_at.strftime('%Y-%m-%d %H:%M:%S %Z') %> by <%= @automation_rule.updated_by.display_name %>
+<% end -%>
+
+<% if @recent_runs.any? -%>
+## Recent Runs
+
+| Time | Status | Trigger |
+|------|--------|---------|
+<% @recent_runs.first(5).each do |run| -%>
+| <%= time_ago_in_words(run.created_at) %> ago | <%= run.status %> | <%= run.trigger_source %> |
+<% end -%>
+<% end -%>
+
+## Navigation
+
+* [Edit](<%= automation_path(@automation_rule) %>/edit)
+* [Run History](<%= automation_path(@automation_rule) %>/runs)
+* [Back to Automations](<%= automations_index_path %>)

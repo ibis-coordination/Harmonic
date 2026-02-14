@@ -1,17 +1,15 @@
 # typed: true
 # frozen_string_literal: true
 
-require "net/http"
-require "uri"
-require "json"
-
 # AutomationWebhookSender sends HTTP webhooks for automation rules.
+# Uses WebhookDeliveryService for HTTP delivery with HMAC signatures.
 #
 # It supports:
 # - POST/PUT/PATCH requests to arbitrary URLs
 # - Template variable rendering in body content
 # - Custom headers (including authentication)
 # - Timeout configuration
+# - HMAC signature headers for security
 # - Error handling with detailed results
 #
 # Example action:
@@ -27,22 +25,29 @@ class AutomationWebhookSender
   extend T::Sig
 
   DEFAULT_TIMEOUT = 30 # seconds
-  ALLOWED_METHODS = ["POST", "PUT", "PATCH"].freeze
 
   # Send a webhook based on the action configuration.
   #
   # @param action [Hash] The webhook action configuration
   # @param event [Event, nil] The triggering event (for template rendering)
+  # @param secret [String] The secret for HMAC signing
   # @return [Hash] Result hash with :success, :status_code, :body, :error keys
-  sig { params(action: T::Hash[String, T.untyped], event: T.nilable(Event)).returns(T::Hash[Symbol, T.untyped]) }
-  def self.call(action, event)
-    new(action, event).send_webhook
+  sig do
+    params(
+      action: T::Hash[String, T.untyped],
+      event: T.nilable(Event),
+      secret: String
+    ).returns(T::Hash[Symbol, T.untyped])
+  end
+  def self.call(action, event, secret:)
+    new(action, event, secret).send_webhook
   end
 
-  sig { params(action: T::Hash[String, T.untyped], event: T.nilable(Event)).void }
-  def initialize(action, event)
+  sig { params(action: T::Hash[String, T.untyped], event: T.nilable(Event), secret: String).void }
+  def initialize(action, event, secret)
     @action = action
     @event = event
+    @secret = secret
   end
 
   sig { returns(T::Hash[Symbol, T.untyped]) }
@@ -51,59 +56,42 @@ class AutomationWebhookSender
     url_string = @action["url"]
     return error_result("URL is required for webhook action") if url_string.blank?
 
-    uri = parse_url(url_string)
-    return error_result("Invalid URL: #{url_string}") unless uri
+    # Build rendered body
+    body = render_body(@action["body"] || {})
+    body_json = body.to_json
 
-    # Build request
-    request = build_request(uri)
+    # Get custom headers
+    headers = build_headers
 
-    # Send request
-    execute_request(uri, request)
+    # Get HTTP method and timeout
+    method = (@action["method"] || "POST").upcase
+    timeout = (@action["timeout"] || DEFAULT_TIMEOUT).to_i
+
+    # Delegate to WebhookDeliveryService for HTTP delivery with HMAC signing
+    WebhookDeliveryService.deliver_request(
+      url: url_string,
+      body: body_json,
+      secret: @secret,
+      method: method,
+      headers: headers,
+      timeout: timeout
+    )
   rescue StandardError => e
     error_result(e.message)
   end
 
   private
 
-  sig { params(url_string: String).returns(T.nilable(URI::HTTP)) }
-  def parse_url(url_string)
-    uri = URI.parse(url_string)
-    return nil unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
-
-    uri
-  rescue URI::InvalidURIError
-    nil
-  end
-
-  sig { params(uri: URI::HTTP).returns(Net::HTTPRequest) }
-  def build_request(uri)
-    method = (@action["method"] || "POST").upcase
-    method = "POST" unless ALLOWED_METHODS.include?(method)
-
-    request_class = case method
-                    when "PUT" then Net::HTTP::Put
-                    when "PATCH" then Net::HTTP::Patch
-                    else Net::HTTP::Post
-                    end
-
-    request = request_class.new(uri)
-
-    # Set content type
-    request["Content-Type"] = "application/json"
-
-    # Set custom headers
-    headers = @action["headers"]
-    if headers.is_a?(Hash)
-      headers.each do |key, value|
-        request[key.to_s] = value.to_s
+  sig { returns(T::Hash[String, String]) }
+  def build_headers
+    headers = {}
+    custom_headers = @action["headers"]
+    if custom_headers.is_a?(Hash)
+      custom_headers.each do |key, value|
+        headers[key.to_s] = value.to_s
       end
     end
-
-    # Build and set body
-    body = render_body(@action["body"] || {})
-    request.body = body.to_json
-
-    request
+    headers
   end
 
   sig { params(body: T.untyped).returns(T.untyped) }
@@ -126,49 +114,6 @@ class AutomationWebhookSender
 
     context = AutomationTemplateRenderer.context_from_event(@event)
     AutomationTemplateRenderer.render(template, context)
-  end
-
-  sig { params(uri: URI::HTTP, request: Net::HTTPRequest).returns(T::Hash[Symbol, T.untyped]) }
-  def execute_request(uri, request)
-    timeout = (@action["timeout"] || DEFAULT_TIMEOUT).to_i
-
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = (uri.scheme == "https")
-    http.open_timeout = timeout
-    http.read_timeout = timeout
-
-    response = http.request(request)
-
-    if response.is_a?(Net::HTTPSuccess)
-      success_result(response)
-    else
-      failure_result(response)
-    end
-  rescue Net::OpenTimeout, Net::ReadTimeout => e
-    error_result("Timeout: #{e.message}")
-  rescue Errno::ECONNREFUSED => e
-    error_result("Connection refused: #{e.message}")
-  rescue SocketError => e
-    error_result("Network error: #{e.message}")
-  end
-
-  sig { params(response: Net::HTTPResponse).returns(T::Hash[Symbol, T.untyped]) }
-  def success_result(response)
-    {
-      success: true,
-      status_code: response.code.to_i,
-      body: response.body,
-    }
-  end
-
-  sig { params(response: Net::HTTPResponse).returns(T::Hash[Symbol, T.untyped]) }
-  def failure_result(response)
-    {
-      success: false,
-      status_code: response.code.to_i,
-      body: response.body,
-      error: "HTTP #{response.code}: #{response.message}",
-    }
   end
 
   sig { params(message: String).returns(T::Hash[Symbol, T.untyped]) }

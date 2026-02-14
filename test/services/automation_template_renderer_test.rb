@@ -156,4 +156,117 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     assert_includes result, @superagent.name
     assert_includes result, @superagent.handle
   end
+
+  # === Context Building from Trigger Data (webhooks) ===
+
+  test "context_from_trigger_data exposes payload hash" do
+    trigger_data = {
+      "webhook_path" => "abc123",
+      "payload" => { "event" => "user.created", "data" => { "user_id" => 42 } },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "192.168.1.100",
+    }
+
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+
+    assert_equal "user.created", context["payload"]["event"]
+    assert_equal 42, context["payload"]["data"]["user_id"]
+  end
+
+  test "context_from_trigger_data exposes webhook metadata" do
+    trigger_data = {
+      "webhook_path" => "abc123",
+      "payload" => {},
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "192.168.1.100",
+    }
+
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+
+    assert_equal "abc123", context["webhook"]["path"]
+    assert_equal "2024-01-15T10:30:00Z", context["webhook"]["received_at"]
+    assert_equal "192.168.1.100", context["webhook"]["source_ip"]
+  end
+
+  test "context_from_trigger_data wraps string payload in raw key" do
+    trigger_data = {
+      "webhook_path" => "abc123",
+      "payload" => "plain text payload",
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+
+    assert_equal "plain text payload", context["payload"]["raw"]
+  end
+
+  test "context_from_trigger_data handles nil payload" do
+    trigger_data = {
+      "webhook_path" => "abc123",
+      "payload" => nil,
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "127.0.0.1",
+    }
+
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+
+    assert_nil context["payload"]
+    assert_equal "abc123", context["webhook"]["path"]
+  end
+
+  # === Full Template Rendering with Webhook Context ===
+
+  test "renders template with webhook payload data" do
+    trigger_data = {
+      "webhook_path" => "deploy-hook",
+      "payload" => { "environment" => "production", "version" => "1.2.3" },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "10.0.0.1",
+    }
+
+    template = "Deploy {{payload.version}} to {{payload.environment}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Deploy 1.2.3 to production", result
+  end
+
+  test "renders template with webhook metadata" do
+    trigger_data = {
+      "webhook_path" => "github-webhook",
+      "payload" => { "action" => "opened" },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "140.82.112.1",
+    }
+
+    template = "Webhook {{webhook.path}} received from {{webhook.source_ip}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Webhook github-webhook received from 140.82.112.1", result
+  end
+
+  test "renders template with nested webhook payload" do
+    trigger_data = {
+      "webhook_path" => "stripe-webhook",
+      "payload" => {
+        "type" => "payment.succeeded",
+        "data" => {
+          "object" => {
+            "amount" => 2000,
+            "currency" => "usd",
+          },
+        },
+      },
+      "received_at" => "2024-01-15T10:30:00Z",
+      "source_ip" => "54.187.174.169",
+    }
+
+    template = "Payment of {{payload.data.object.amount}} {{payload.data.object.currency}} succeeded"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Payment of 2000 usd succeeded", result
+  end
 end

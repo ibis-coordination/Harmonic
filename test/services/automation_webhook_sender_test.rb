@@ -5,6 +5,7 @@ require "test_helper"
 class AutomationWebhookSenderTest < ActiveSupport::TestCase
   setup do
     @tenant, @superagent, @user = create_tenant_studio_user
+    @secret = "test_webhook_secret_for_hmac"
 
     # Create a test event for context
     @note = Note.create!(
@@ -34,7 +35,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "message" => "Hello" },
     }
 
-    result = AutomationWebhookSender.call(action, @event)
+    result = AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert result[:success]
     assert_equal 200, result[:status_code]
@@ -54,7 +55,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "key" => "value" },
     }
 
-    AutomationWebhookSender.call(action, @event)
+    AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_requested(:post, "https://example.com/webhook") do |req|
       req.headers["Content-Type"] == "application/json"
@@ -77,7 +78,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       },
     }
 
-    AutomationWebhookSender.call(action, @event)
+    AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_requested(:post, "https://example.com/webhook") do |req|
       body = JSON.parse(req.body)
@@ -103,7 +104,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       },
     }
 
-    AutomationWebhookSender.call(action, @event)
+    AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_requested(:post, "https://example.com/webhook") do |req|
       body = JSON.parse(req.body)
@@ -127,7 +128,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       },
     }
 
-    AutomationWebhookSender.call(action, @event)
+    AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_requested(:post, "https://example.com/webhook") do |req|
       req.headers["X-Custom-Header"] == "custom-value" &&
@@ -147,7 +148,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => {},
     }
 
-    AutomationWebhookSender.call(action, @event)
+    AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_requested(:post, "https://example.com/webhook")
   end
@@ -163,7 +164,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "update" => true },
     }
 
-    AutomationWebhookSender.call(action, @event)
+    AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_requested(:put, "https://example.com/webhook")
   end
@@ -180,7 +181,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "message" => "test" },
     }
 
-    result = AutomationWebhookSender.call(action, @event)
+    result = AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_not result[:success]
     assert_equal 500, result[:status_code]
@@ -197,7 +198,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "message" => "test" },
     }
 
-    result = AutomationWebhookSender.call(action, @event)
+    result = AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_not result[:success]
     assert_includes result[:error].downcase, "timeout"
@@ -210,7 +211,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "message" => "test" },
     }
 
-    result = AutomationWebhookSender.call(action, @event)
+    result = AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_not result[:success]
     assert_includes result[:error].downcase, "invalid"
@@ -222,7 +223,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "message" => "test" },
     }
 
-    result = AutomationWebhookSender.call(action, @event)
+    result = AutomationWebhookSender.call(action, @event, secret: @secret)
 
     assert_not result[:success]
     assert_includes result[:error].downcase, "url"
@@ -244,7 +245,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
     # This test primarily verifies the timeout is passed through
     # without error; actually testing timeout behavior would require
     # more complex setup
-    result = AutomationWebhookSender.call(action, @event)
+    result = AutomationWebhookSender.call(action, @event, secret: @secret)
     assert result[:success]
   end
 
@@ -260,7 +261,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "message" => "Scheduled notification" },
     }
 
-    result = AutomationWebhookSender.call(action, nil)
+    result = AutomationWebhookSender.call(action, nil, secret: @secret)
 
     assert result[:success]
     assert_requested(:post, "https://example.com/webhook") do |req|
@@ -279,7 +280,7 @@ class AutomationWebhookSenderTest < ActiveSupport::TestCase
       "body" => { "actor" => "{{event.actor.name}}" },
     }
 
-    result = AutomationWebhookSender.call(action, nil)
+    result = AutomationWebhookSender.call(action, nil, secret: @secret)
 
     assert result[:success]
     assert_requested(:post, "https://example.com/webhook") do |req|

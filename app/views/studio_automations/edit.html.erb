@@ -1,0 +1,46 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  ['Settings', @current_superagent.path + '/settings'],
+  ['Automations', automations_index_path],
+  [@automation_rule.name, automation_path(@automation_rule)],
+  'Edit'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'zap', height: 14, class: 'pulse-resource-icon' %>
+        Edit Automation
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Edit: <%= @automation_rule.name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <form action="<%= automation_path(@automation_rule) %>/actions/update_automation_rule" method="post" class="pulse-form">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+
+      <section class="pulse-settings-section">
+        <label for="yaml_source" class="pulse-label">YAML Configuration</label>
+        <textarea id="yaml_source" name="yaml_source" class="pulse-form-input pulse-code-input" rows="20" style="font-family: monospace;"><%= @automation_rule.yaml_source %></textarea>
+        <small class="pulse-hint">Edit the automation trigger, conditions, and actions in YAML format.</small>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Save Changes</button>
+        <a href="<%= automation_path(@automation_rule) %>" class="pulse-action-btn">Cancel</a>
+      </section>
+    </form>
+
+    <%= render 'shared/pulse_accordion', title: 'Template Variables', open: false do %>
+      <ul class="pulse-list">
+        <li class="pulse-list-item"><code>{{event.type}}</code> - The event type</li>
+        <li class="pulse-list-item"><code>{{event.actor.name}}</code> - Name of the triggering user</li>
+        <li class="pulse-list-item"><code>{{subject.path}}</code> - URL path to the subject</li>
+        <li class="pulse-list-item"><code>{{subject.text}}</code> - Text/content of the subject</li>
+        <li class="pulse-list-item"><code>{{studio.handle}}</code> - Handle of the studio</li>
+      </ul>
+    <% end %>
+  </div>
+</article>

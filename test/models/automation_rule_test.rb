@@ -110,6 +110,34 @@ class AutomationRuleTest < ActiveSupport::TestCase
     assert_equal 16, rule.webhook_path.length
   end
 
+  test "generates webhook_secret for all trigger types (for signing outgoing webhooks)" do
+    # Event trigger should also get a secret for signing outgoing webhook actions
+    event_rule = AutomationRule.create!(
+      tenant: @tenant,
+      created_by: @user,
+      superagent: @superagent,
+      name: "Event trigger with webhook action",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/hook", "body" => {} }]
+    )
+
+    assert event_rule.webhook_secret.present?, "Event trigger should have webhook_secret for signing"
+
+    # Schedule trigger should also get a secret
+    schedule_rule = AutomationRule.create!(
+      tenant: @tenant,
+      created_by: @user,
+      superagent: @superagent,
+      name: "Scheduled webhook",
+      trigger_type: "schedule",
+      trigger_config: { "cron" => "0 9 * * *" },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/hook", "body" => {} }]
+    )
+
+    assert schedule_rule.webhook_secret.present?, "Schedule trigger should have webhook_secret for signing"
+  end
+
   test "event_type returns trigger config event_type" do
     rule = AutomationRule.new(
       trigger_config: { "event_type" => "note.created" }

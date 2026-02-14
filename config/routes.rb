@@ -2,6 +2,9 @@ Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
   get 'metrics' => 'metrics#show'
 
+  # Incoming webhooks - public endpoint for external automation triggers
+  post 'hooks/:webhook_path' => 'incoming_webhooks#receive', as: 'incoming_webhook'
+
   # Development tools - Pulse styleguide (only available in development)
   if Rails.env.development?
     get 'dev/pulse' => 'dev#pulse_components'
@@ -363,6 +366,23 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/delete_webhook" => 'webhooks#execute_delete_webhook'
     get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/test_webhook" => 'webhooks#describe_test_webhook'
     post "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/test_webhook" => 'webhooks#execute_test_webhook'
+    # Studio Automations
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations" => 'studio_automations#index'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/new" => 'studio_automations#new'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/new/actions" => 'studio_automations#actions_index_new'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/new/actions/create_automation_rule" => 'studio_automations#describe_create'
+    post "#{studios_or_scenes}/:superagent_handle/settings/automations/new/actions/create_automation_rule" => 'studio_automations#execute_create'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id" => 'studio_automations#show'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/edit" => 'studio_automations#edit'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/runs" => 'studio_automations#runs'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions" => 'studio_automations#actions_index_show'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/update_automation_rule" => 'studio_automations#describe_update'
+    post "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/update_automation_rule" => 'studio_automations#execute_update'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/delete_automation_rule" => 'studio_automations#describe_delete'
+    post "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/delete_automation_rule" => 'studio_automations#execute_delete'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/toggle_automation_rule" => 'studio_automations#describe_toggle'
+    post "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/toggle_automation_rule" => 'studio_automations#execute_toggle'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/edit/actions" => 'studio_automations#actions_index_edit'
     patch "#{studios_or_scenes}/:superagent_handle/image" => 'studios#update_image'
     get "#{studios_or_scenes}/:superagent_handle/invite" => 'studios#invite'
     get "#{studios_or_scenes}/:superagent_handle/join" => 'studios#join'

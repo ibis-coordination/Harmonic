@@ -41,6 +41,30 @@ class AutomationTemplateRenderer
     context
   end
 
+  # Build context hash from trigger_data (for webhook/schedule triggers without events)
+  sig { params(trigger_data: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }
+  def self.context_from_trigger_data(trigger_data)
+    context = {}
+
+    # Expose the webhook payload directly for template access
+    # e.g., {{payload.event}}, {{payload.data.value}}
+    if trigger_data["payload"].is_a?(Hash)
+      context["payload"] = trigger_data["payload"]
+    elsif trigger_data["payload"].is_a?(String)
+      context["payload"] = { "raw" => trigger_data["payload"] }
+    end
+
+    # Expose webhook metadata
+    # e.g., {{webhook.path}}, {{webhook.source_ip}}
+    context["webhook"] = {
+      "path" => trigger_data["webhook_path"],
+      "received_at" => trigger_data["received_at"],
+      "source_ip" => trigger_data["source_ip"],
+    }
+
+    context
+  end
+
   sig { params(event: Event).returns(T::Hash[String, T.untyped]) }
   def self.build_event_context(event)
     actor = event.actor

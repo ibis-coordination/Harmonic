@@ -1,0 +1,29 @@
+# Edit: <%= @automation_rule.name %>
+
+Edit the YAML configuration for this automation.
+
+## Current Configuration
+
+```yaml
+<%= raw @automation_rule.yaml_source %>
+```
+
+## YAML Reference
+
+### Template Variables
+- `{{event.type}}` - The event type
+- `{{event.actor.name}}` - Name of the triggering user
+- `{{subject.path}}` - URL path to the subject
+- `{{subject.title}}` - Title of the subject
+- `{{studio.handle}}` - Handle of the studio
+
+### Condition Operators
+- `==`, `!=` - Equal, not equal
+- `>`, `>=`, `<`, `<=` - Numeric comparisons
+- `contains`, `not_contains` - String contains
+- `matches`, `not_matches` - Regex matching
+
+## Navigation
+
+* [Back to Automation](<%= automation_path(@automation_rule) %>)
+* [Back to Automations](<%= automations_index_path %>)

@@ -12,6 +12,7 @@ class AutomationRule < ApplicationRecord
   belongs_to :user, optional: true
   belongs_to :ai_agent, class_name: "User", optional: true
   belongs_to :created_by, class_name: "User"
+  belongs_to :updated_by, class_name: "User", optional: true
   has_many :automation_rule_runs, dependent: :destroy
 
   validates :name, presence: true
@@ -151,7 +152,9 @@ class AutomationRule < ApplicationRecord
 
   sig { void }
   def generate_webhook_secret
-    self.webhook_secret = SecureRandom.hex(32) if webhook_secret.blank? && trigger_type == "webhook"
+    # Always generate a secret - used for both incoming webhook verification
+    # and signing outgoing webhook actions
+    self.webhook_secret = SecureRandom.hex(32) if webhook_secret.blank?
   end
 
   sig { void }

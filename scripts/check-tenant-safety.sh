@@ -77,6 +77,47 @@ check_files() {
 
     done <<< "$files"
 
+    # Check for unscoped_for_system_job used outside of jobs/migrations
+    echo -e "${CYAN}Checking unscoped_for_system_job is only used in jobs/migrations...${NC}"
+    echo ""
+
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        [[ ! -f "$file" ]] && continue
+
+        # Skip files in allowed directories
+        if echo "$file" | grep -qE '^app/jobs/|^db/migrate/'; then
+            continue
+        fi
+
+        # Skip model files (where the method is defined)
+        if echo "$file" | grep -qE '^app/models/application_record\.rb$'; then
+            continue
+        fi
+
+        while IFS=: read -r line_num line_content; do
+            [[ -z "$line_num" ]] && continue
+
+            # Skip comment-only lines
+            if echo "$line_content" | grep -qE '^\s*#'; then
+                continue
+            fi
+
+            # Skip if defining the method
+            if echo "$line_content" | grep -qE "def self\.unscoped_for_system_job"; then
+                continue
+            fi
+
+            echo -e "${RED}Banned:${NC} $file:$line_num"
+            echo "  $line_content"
+            echo "  (unscoped_for_system_job is only allowed in app/jobs/ and db/migrate/)"
+            echo ""
+            found=1
+
+        done < <(grep -n "\.unscoped_for_system_job" "$file" 2>/dev/null || true)
+
+    done <<< "$files"
+
     # Check for find_by_sql
     echo -e "${CYAN}Checking find_by_sql usage...${NC}"
     echo ""

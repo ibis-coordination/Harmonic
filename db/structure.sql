@@ -1,4 +1,4 @@
-\restrict dg6Ufm6Kgf8puN86z1pzSG5icYqheMIZAJEws3i6Dx8SZLJwLlgydwEKKApo4Ed
+\restrict LccPUDBWwHWqrslQ5GfWHD17HB1JKWcNaYyKh1Yena56Je5FfMV8sQ5Jffc9ezp
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -247,7 +247,8 @@ CREATE TABLE public.automation_rules (
     webhook_path character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
+    updated_by_id uuid
 );
 
 
@@ -3116,6 +3117,13 @@ CREATE INDEX index_automation_rules_on_tenant_superagent_enabled ON public.autom
 --
 
 CREATE UNIQUE INDEX index_automation_rules_on_truncated_id ON public.automation_rules USING btree (truncated_id);
+
+
+--
+-- Name: index_automation_rules_on_updated_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_updated_by_id ON public.automation_rules USING btree (updated_by_id);
 
 
 --
@@ -8075,6 +8083,14 @@ ALTER TABLE ONLY public.representation_session_events
 
 
 --
+-- Name: automation_rules fk_rails_923f8bbd47; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rules
+    ADD CONSTRAINT fk_rails_923f8bbd47 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: note_history_events fk_rails_927b722124; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8454,7 +8470,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dg6Ufm6Kgf8puN86z1pzSG5icYqheMIZAJEws3i6Dx8SZLJwLlgydwEKKApo4Ed
+\unrestrict LccPUDBWwHWqrslQ5GfWHD17HB1JKWcNaYyKh1Yena56Je5FfMV8sQ5Jffc9ezp
 
 SET search_path TO "$user", public;
 
@@ -8610,6 +8626,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260211200001'),
 ('20260211200002'),
 ('20260212062528'),
-('20260212212340');
+('20260212212340'),
+('20260214192742');
 
 

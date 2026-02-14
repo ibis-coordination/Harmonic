@@ -1,0 +1,93 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  ['Settings', @current_superagent.path + '/settings'],
+  ['Automations', automations_index_path],
+  [@automation_rule.name, automation_path(@automation_rule)],
+  'Run History'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'history', height: 14, class: 'pulse-resource-icon' %>
+        Run History
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Run History: <%= @automation_rule.name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @runs.empty? %>
+      <p class="pulse-empty-content"><em>No runs recorded yet.</em></p>
+      <p>Runs will appear here once this automation is triggered.</p>
+    <% else %>
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Status</th>
+            <th>Trigger</th>
+            <th>Source IP</th>
+            <th>Duration</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @runs.each do |run| %>
+            <tr>
+              <td>
+                <%= run.created_at.strftime('%Y-%m-%d %H:%M') %>
+                <br><small class="pulse-muted"><%= time_ago_in_words(run.created_at) %> ago</small>
+              </td>
+              <td>
+                <% case run.status %>
+                <% when "completed" %>
+                  <span class="pulse-tag pulse-tag-success">Completed</span>
+                <% when "failed" %>
+                  <span class="pulse-tag pulse-tag-danger">Failed</span>
+                <% when "running" %>
+                  <span class="pulse-tag pulse-tag-warning">Running</span>
+                <% else %>
+                  <span class="pulse-tag">Pending</span>
+                <% end %>
+              </td>
+              <td><%= run.trigger_source %></td>
+              <td>
+                <% if run.trigger_data&.dig("source_ip").present? %>
+                  <code><%= run.trigger_data["source_ip"] %></code>
+                <% else %>
+                  <span class="pulse-muted">-</span>
+                <% end %>
+              </td>
+              <td>
+                <% if run.started_at && run.completed_at %>
+                  <%= distance_of_time_in_words(run.started_at, run.completed_at) %>
+                <% elsif run.started_at %>
+                  In progress...
+                <% else %>
+                  -
+                <% end %>
+              </td>
+              <td>
+                <% if run.error_message.present? %>
+                  <span class="pulse-error-text"><%= truncate(run.error_message, length: 50) %></span>
+                <% elsif run.actions_executed.present? %>
+                  <%= run.actions_executed.size %> action(s)
+                <% else %>
+                  -
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+
+    <section class="pulse-settings-section pulse-action-row">
+      <a href="<%= automation_path(@automation_rule) %>" class="pulse-action-btn">
+        Back to Automation
+      </a>
+    </section>
+  </div>
+</article>

@@ -213,6 +213,80 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_equal @user, task_run.initiated_by
   end
 
+  # === Webhook Triggers (with payload templating) ===
+
+  test "renders webhook payload in task template" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Webhook triggered task",
+      trigger_type: "webhook",
+      trigger_config: {},
+      actions: { "task" => "Process {{payload.event}} from {{webhook.source_ip}}: {{payload.data.message}}" },
+      enabled: true
+    )
+
+    run = AutomationRuleRun.create!(
+      tenant: @tenant,
+      automation_rule: rule,
+      trigger_source: "webhook",
+      trigger_data: {
+        "webhook_path" => rule.webhook_path,
+        "payload" => { "event" => "deploy", "data" => { "message" => "Production deploy started" } },
+        "received_at" => Time.current.iso8601,
+        "source_ip" => "192.168.1.100",
+      },
+      status: "pending"
+    )
+
+    assert_difference "AiAgentTaskRun.count", 1 do
+      AutomationExecutor.execute(run)
+    end
+
+    task_run = run.reload.ai_agent_task_run
+    assert_equal "Process deploy from 192.168.1.100: Production deploy started", task_run.task
+  end
+
+  test "renders webhook payload in general rule params" do
+    other_agent = create_ai_agent(parent: @user, name: "Webhook Handler")
+    @tenant.add_user!(other_agent)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      name: "Webhook orchestrator",
+      trigger_type: "webhook",
+      trigger_config: {},
+      actions: [
+        { "type" => "trigger_agent", "agent_id" => other_agent.id, "task" => "Handle {{payload.type}} event: {{payload.details}}" },
+      ],
+      enabled: true
+    )
+
+    run = AutomationRuleRun.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      automation_rule: rule,
+      trigger_source: "webhook",
+      trigger_data: {
+        "webhook_path" => rule.webhook_path,
+        "payload" => { "type" => "user.signup", "details" => "New user registered" },
+        "received_at" => Time.current.iso8601,
+        "source_ip" => "10.0.0.1",
+      },
+      status: "pending"
+    )
+
+    assert_difference "AiAgentTaskRun.count", 1 do
+      AutomationExecutor.execute(run)
+    end
+
+    task_run = AiAgentTaskRun.last
+    assert_equal "Handle user.signup event: New user registered", task_run.task
+  end
+
   # === General Rules (non-agent) ===
 
   test "executes general rule with internal_action (records but skips)" do
@@ -365,6 +439,49 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert run.completed? # Rule completes even if webhook fails
     assert_not run.actions_executed.first["result"]["success"]
     assert_includes run.actions_executed.first["result"]["error"], "HTTP 500"
+  end
+
+  test "webhook action includes HMAC signature headers" do
+    captured_headers = {}
+    captured_body = nil
+
+    stub_request(:post, "https://example.com/webhook")
+      .to_return(status: 200, body: '{"ok": true}')
+      .with { |req|
+        captured_headers = req.headers
+        captured_body = req.body
+        true
+      }
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      name: "Signed webhook",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [
+        { "type" => "webhook", "url" => "https://example.com/webhook", "body" => { "test" => "data" } },
+      ],
+      enabled: true
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    AutomationExecutor.execute(run)
+
+    # Verify HMAC signature headers are present
+    assert captured_headers["X-Harmonic-Signature"].present?, "Should include signature header"
+    assert captured_headers["X-Harmonic-Timestamp"].present?, "Should include timestamp header"
+
+    # Verify the signature can be validated with the rule's secret
+    assert WebhookDeliveryService.verify_signature(
+      captured_body,
+      captured_headers["X-Harmonic-Timestamp"],
+      captured_headers["X-Harmonic-Signature"],
+      rule.webhook_secret
+    ), "Signature should be verifiable with rule's secret"
   end
 
   test "fails trigger_agent action when agent not found" do

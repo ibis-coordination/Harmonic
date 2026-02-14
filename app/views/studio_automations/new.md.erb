@@ -1,0 +1,91 @@
+# New Automation - <%= @current_superagent.name %>
+
+Create a new automation by providing YAML configuration.
+
+## Default Template
+
+```yaml
+<%= @yaml_source %>
+```
+
+## YAML Reference
+
+### Trigger Types
+- `event` - Trigger when a specific event occurs
+- `schedule` - Trigger on a cron schedule
+- `webhook` - Trigger via incoming webhook
+
+### Schedule Trigger Configuration
+
+For scheduled automations, use a cron expression:
+
+```yaml
+trigger:
+  type: schedule
+  cron: "0 9 * * *"            # Run at 9:00 AM daily
+  timezone: "America/New_York"  # Optional, defaults to UTC
+```
+
+**Cron format:** `minute hour day-of-month month day-of-week`
+
+| Expression | Description |
+|------------|-------------|
+| `0 9 * * *` | Daily at 9:00 AM |
+| `0 9 * * 1` | Every Monday at 9:00 AM |
+| `0 9 1 * *` | First day of month at 9:00 AM |
+| `0 9 * * 1-5` | Weekdays at 9:00 AM |
+| `0 */2 * * *` | Every 2 hours |
+
+**Common timezones:** `UTC`, `America/New_York`, `America/Los_Angeles`, `Europe/London`, `Asia/Tokyo`
+
+### Webhook Trigger Configuration
+
+For webhook-triggered automations:
+
+```yaml
+trigger:
+  type: webhook
+```
+
+After creation, you'll receive a unique webhook URL and secret for external systems to trigger this automation.
+
+### Event Types
+- `note.created` - A note was created
+- `comment.created` - A comment was added
+- `reply.created` - A reply was added
+- `decision.created` - A decision was created
+- `commitment.created` - A commitment was created
+- `commitment.critical_mass` - A commitment reached critical mass
+
+### Action Types
+
+Studio automations use `actions` (not `task`):
+
+```yaml
+actions:
+  - type: webhook
+    url: "https://example.com/webhook"
+    method: POST
+    payload:
+      text: "{{subject.title}}"
+
+  - type: internal_action
+    action: create_note
+    params:
+      text: "Automated note"
+
+  - type: trigger_agent
+    agent_id: "abc123"
+    task: "Review this content"
+```
+
+### Template Variables
+- `{{event.type}}` - The event type
+- `{{event.actor.name}}` - Name of the triggering user
+- `{{subject.path}}` - URL path to the subject
+- `{{subject.title}}` - Title of the subject
+- `{{studio.handle}}` - Handle of the studio
+
+## Navigation
+
+* [Back to Automations](<%= automations_index_path %>)

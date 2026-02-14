@@ -163,7 +163,7 @@ class AgentAutomationsController < ApplicationController
       error: "Failed to parse YAML",
     }) if attributes.nil?
 
-    if @automation_rule.update(yaml_source: yaml_source, **attributes)
+    if @automation_rule.update(yaml_source: yaml_source, updated_by: @current_user, **attributes)
       render_action_success({
         action_name: "update_automation_rule",
         resource: @automation_rule,
@@ -203,7 +203,7 @@ class AgentAutomationsController < ApplicationController
 
   def execute_toggle
     new_state = !@automation_rule.enabled?
-    @automation_rule.update!(enabled: new_state)
+    @automation_rule.update!(enabled: new_state, updated_by: @current_user)
 
     render_action_success({
       action_name: "toggle_automation_rule",

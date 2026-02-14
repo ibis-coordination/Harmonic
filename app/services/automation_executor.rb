@@ -110,12 +110,22 @@ class AutomationExecutor
     task_template = @rule.task_template
     return "" if task_template.blank?
 
-    if @event
-      context = AutomationTemplateRenderer.context_from_event(@event)
+    context = build_template_context
+    if context.present?
       AutomationTemplateRenderer.render(task_template, context)
     else
-      # For scheduled triggers without an event
       task_template
+    end
+  end
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  def build_template_context
+    if @event
+      AutomationTemplateRenderer.context_from_event(@event)
+    elsif @run.trigger_data.present?
+      AutomationTemplateRenderer.context_from_trigger_data(@run.trigger_data)
+    else
+      {}
     end
   end
 
@@ -138,7 +148,7 @@ class AutomationExecutor
 
   sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[Symbol, T.untyped]) }
   def execute_webhook_action(action)
-    AutomationWebhookSender.call(action, @event)
+    AutomationWebhookSender.call(action, @event, secret: @rule.webhook_secret)
   end
 
   sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }
@@ -149,8 +159,8 @@ class AutomationExecutor
     agent = User.find_by(id: agent_id)
     return { status: "failed", error: "Agent not found or not an AI agent" } unless agent&.ai_agent?
 
-    task_prompt = if @event
-                    context = AutomationTemplateRenderer.context_from_event(@event)
+    context = build_template_context
+    task_prompt = if context.present?
                     AutomationTemplateRenderer.render(task_template, context)
                   else
                     task_template
@@ -174,9 +184,8 @@ class AutomationExecutor
 
   sig { params(params: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }
   def render_params(params)
-    return {} unless @event
-
-    context = AutomationTemplateRenderer.context_from_event(@event)
+    context = build_template_context
+    return params if context.empty?
 
     params.transform_values do |value|
       if value.is_a?(String)

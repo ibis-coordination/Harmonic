@@ -209,6 +209,16 @@
           <%= octicon 'gear', height: 14 %> Manage Webhooks
         </a>
       </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title"><%= octicon 'zap', height: 16 %> Automations</h2>
+        <p class="pulse-section-description">
+          Automations run actions (webhooks, internal actions) in response to events or on a schedule.
+        </p>
+        <a href="<%= @current_superagent.path %>/settings/automations" class="pulse-action-btn">
+          <%= octicon 'gear', height: 14 %> Manage Automations
+        </a>
+      </section>
     <% end %>
   </div>
 </article>
