@@ -123,35 +123,6 @@ class AiAgentTaskRun < ApplicationRecord
     end
   end
 
-  private
-
-  def find_parent_automation_runs
-    runs = []
-
-    # For agent rules: AutomationRuleRun.ai_agent_task_run_id = self.id
-    direct_run = AutomationRuleRun.find_by(ai_agent_task_run_id: id)
-    runs << direct_run if direct_run
-
-    # For general rules with trigger_agent actions: actions_executed contains task_run_id
-    # This is more complex - we need to search JSON
-    AutomationRuleRun.where(status: "running").find_each do |run|
-      actions = run.actions_executed || []
-      has_this_task = actions.any? do |action|
-        (action.dig("result", "task_run_id") == id) ||
-          (action.dig("result", :task_run_id) == id)
-      end
-      runs << run if has_this_task
-    end
-
-    runs.uniq
-  end
-
-  def duration
-    return nil unless started_at && completed_at
-
-    completed_at - started_at
-  end
-
   def formatted_duration
     return nil unless duration
 
@@ -207,5 +178,34 @@ class AiAgentTaskRun < ApplicationRecord
     else # cancelled, pending, or unknown
       "pulse-badge-muted"
     end
+  end
+
+  private
+
+  def find_parent_automation_runs
+    runs = []
+
+    # For agent rules: AutomationRuleRun.ai_agent_task_run_id = self.id
+    direct_run = AutomationRuleRun.find_by(ai_agent_task_run_id: id)
+    runs << direct_run if direct_run
+
+    # For general rules with trigger_agent actions: actions_executed contains task_run_id
+    # This is more complex - we need to search JSON
+    AutomationRuleRun.where(status: "running").find_each do |run|
+      actions = run.actions_executed || []
+      has_this_task = actions.any? do |action|
+        (action.dig("result", "task_run_id") == id) ||
+          (action.dig("result", :task_run_id) == id)
+      end
+      runs << run if has_this_task
+    end
+
+    runs.uniq
+  end
+
+  def duration
+    return nil unless started_at && completed_at
+
+    completed_at - started_at
   end
 end
