@@ -404,6 +404,72 @@ Using **jsbundling-rails** with esbuild and **TypeScript**:
 - CSS in `app/assets/stylesheets/`
 - Build commands: `npm run build`, `npm run typecheck`
 
+## Automation System
+
+Harmonic includes an IFTTT/Zapier-style automation system for triggering actions based on events, schedules, or webhooks.
+
+See [AUTOMATIONS.md](AUTOMATIONS.md) for full user documentation.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Triggers                                                            │
+│  ├── Events (note.created, decision.created, etc.)                  │
+│  ├── Schedules (cron expressions)                                   │
+│  ├── Webhooks (external HTTP requests)                              │
+│  └── Manual (user-initiated via UI)                                 │
+└────────┬────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  AutomationDispatcher                                                │
+│  ├── Finds matching rules (event type, mention filter, conditions)  │
+│  ├── Rate limits agent rules (3/min)                                │
+│  └── Queues AutomationRuleExecutionJob                              │
+└────────┬────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  AutomationExecutor                                                  │
+│  ├── Agent rules → Create AiAgentTaskRun                            │
+│  └── Studio rules → Execute actions array                           │
+│      ├── webhook → Create WebhookDelivery + queue job               │
+│      ├── trigger_agent → Create AiAgentTaskRun + queue job          │
+│      └── internal_action → (not yet implemented)                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `AutomationRule` | `app/models/` | Rule definition with trigger, conditions, actions |
+| `AutomationRuleRun` | `app/models/` | Execution instance with status, results |
+| `AutomationDispatcher` | `app/services/` | Routes events to matching rules |
+| `AutomationExecutor` | `app/services/` | Executes rules and actions |
+| `AutomationConditionEvaluator` | `app/services/` | Evaluates conditional logic |
+| `AutomationTemplateRenderer` | `app/services/` | Renders `{{variable}}` templates |
+| `AutomationMentionFilter` | `app/services/` | Checks @mentions in content |
+| `AutomationYamlParser` | `app/services/` | Parses and validates YAML rules |
+| `AutomationSchedulerJob` | `app/jobs/` | Runs every minute for cron triggers |
+
+### Automation Rule Scoping
+
+Rules can be scoped to different levels:
+
+| Scope | Field Set | Use Case |
+|-------|-----------|----------|
+| Agent | `ai_agent_id` | AI agent behaviors (respond to @mentions) |
+| Studio | `superagent_id` | Studio-wide workflows |
+| User | `user_id` | Personal automations (future) |
+
+### Integration Points
+
+- **EventService** dispatches events to `AutomationDispatcher` alongside `NotificationDispatcher`
+- **Agent rules** create `AiAgentTaskRun` records processed by `AgentQueueProcessorJob`
+- **Webhook actions** create `WebhookDelivery` records processed by `WebhookDeliveryJob`
+
 ## Background Jobs
 
 **Sidekiq** for background processing:

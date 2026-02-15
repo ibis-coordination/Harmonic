@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **For design philosophy and decisions**: Read [PHILOSOPHY.md](PHILOSOPHY.md)
 **For architecture details**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 **For detailed AI agent context**: Read [AGENTS.md](AGENTS.md)
+**For automation system setup**: Read [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md)
 **For codebase patterns comparison**: Read [docs/CODEBASE_PATTERNS.md](docs/CODEBASE_PATTERNS.md)
 **For UI styling patterns**: Read [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md)
 
