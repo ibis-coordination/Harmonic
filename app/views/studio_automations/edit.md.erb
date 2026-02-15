@@ -23,6 +23,20 @@ trigger:
     - "2001:db8::/32"  # IPv6 supported
 ```
 
+### Manual Trigger Configuration
+
+For manual triggers, you can define typed inputs:
+
+```yaml
+trigger:
+  type: manual
+  inputs:
+    report_date:
+      label: "Report Date"
+      type: string        # string, number, or boolean
+      default: "today"
+```
+
 ### Template Variables (Event Triggers)
 - `{{event.type}}` - The event type
 - `{{event.actor.name}}` - Name of the triggering user
@@ -35,6 +49,11 @@ trigger:
 - `{{webhook.path}}` - The webhook path that was called
 - `{{webhook.source_ip}}` - IP address of the webhook sender
 - `{{webhook.received_at}}` - Timestamp when webhook was received
+
+### Template Variables (Manual Triggers)
+- `{{inputs.*}}` - Access input values (e.g., `{{inputs.report_date}}`)
+- `{{triggered_at}}` - Timestamp when run was triggered
+- `{{triggered_by}}` - ID of the user who triggered the run
 
 ### Condition Operators
 - `==`, `!=` - Equal, not equal

@@ -17,9 +17,6 @@ class WebhookDeliveryJob < TenantScopedJob
     # Set tenant context from the delivery
     set_tenant_context!(delivery.tenant)
 
-    webhook = delivery.webhook
-    return unless webhook&.enabled?
-
     WebhookDeliveryService.deliver!(delivery)
   end
 end

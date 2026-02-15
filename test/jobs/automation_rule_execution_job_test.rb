@@ -21,8 +21,17 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
     end
 
     run.reload
-    assert run.completed?
+    # Run stays "running" until the agent task completes
+    assert run.running?
     assert_not_nil run.ai_agent_task_run
+
+    # Simulate task completion
+    task_run = run.ai_agent_task_run
+    task_run.update!(status: "completed", completed_at: Time.current)
+    task_run.notify_parent_automation_runs!
+
+    run.reload
+    assert run.completed?
   end
 
   test "skips run that is already completed" do

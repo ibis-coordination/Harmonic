@@ -25,10 +25,13 @@
       <table class="pulse-table">
         <thead>
           <tr>
+            <th>Run ID</th>
             <th>Time</th>
             <th>Status</th>
             <th>Trigger</th>
-            <th>Source IP</th>
+            <% if @automation_rule.trigger_type == "webhook" %>
+              <th>Source IP</th>
+            <% end %>
             <th>Duration</th>
             <th>Details</th>
           </tr>
@@ -37,7 +40,14 @@
           <% @runs.each do |run| %>
             <tr>
               <td>
-                <%= run.created_at.strftime('%Y-%m-%d %H:%M') %>
+                <a href="<%= automation_path(@automation_rule) %>/runs/<%= run.id %>" title="<%= run.id %>">
+                  <code><%= run.id[0, 8] %></code>
+                </a>
+              </td>
+              <td>
+                <a href="<%= automation_path(@automation_rule) %>/runs/<%= run.id %>">
+                  <%= run.created_at.strftime('%Y-%m-%d %H:%M') %>
+                </a>
                 <br><small class="pulse-muted"><%= time_ago_in_words(run.created_at) %> ago</small>
               </td>
               <td>
@@ -53,13 +63,15 @@
                 <% end %>
               </td>
               <td><%= run.trigger_source %></td>
-              <td>
-                <% if run.trigger_data&.dig("source_ip").present? %>
-                  <code><%= run.trigger_data["source_ip"] %></code>
-                <% else %>
-                  <span class="pulse-muted">-</span>
-                <% end %>
-              </td>
+              <% if @automation_rule.trigger_type == "webhook" %>
+                <td>
+                  <% if run.trigger_data&.dig("source_ip").present? %>
+                    <code><%= run.trigger_data["source_ip"] %></code>
+                  <% else %>
+                    <span class="pulse-muted">-</span>
+                  <% end %>
+                </td>
+              <% end %>
               <td>
                 <% if run.started_at && run.completed_at %>
                   <%= distance_of_time_in_words(run.started_at, run.completed_at) %>
@@ -71,9 +83,13 @@
               </td>
               <td>
                 <% if run.error_message.present? %>
-                  <span class="pulse-error-text"><%= truncate(run.error_message, length: 50) %></span>
+                  <a href="<%= automation_path(@automation_rule) %>/runs/<%= run.id %>" class="pulse-error-text">
+                    <%= truncate(run.error_message, length: 50) %>
+                  </a>
                 <% elsif run.actions_executed.present? %>
-                  <%= run.actions_executed.size %> action(s)
+                  <a href="<%= automation_path(@automation_rule) %>/runs/<%= run.id %>">
+                    <%= run.actions_executed.size %> action(s)
+                  </a>
                 <% else %>
                   -
                 <% end %>

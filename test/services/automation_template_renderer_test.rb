@@ -514,4 +514,50 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     assert_includes result, "你好世界"
     assert_includes result, "🌍"
   end
+
+  # === Context Building from Manual Trigger Inputs ===
+
+  test "context_from_trigger_data exposes manual inputs" do
+    trigger_data = {
+      "test" => true,
+      "inputs" => {
+        "message" => "hello world",
+        "count" => 42,
+      },
+    }
+
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+
+    assert_equal "hello world", context["inputs"]["message"]
+    assert_equal 42, context["inputs"]["count"]
+  end
+
+  test "renders template with manual trigger inputs" do
+    trigger_data = {
+      "test" => true,
+      "inputs" => {
+        "message" => "hello world",
+        "priority" => "high",
+      },
+    }
+
+    template = "Message: {{inputs.message}}, Priority: {{inputs.priority}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Message: hello world, Priority: high", result
+  end
+
+  test "handles missing inputs in manual trigger" do
+    trigger_data = {
+      "test" => true,
+      "inputs" => {},
+    }
+
+    template = "Message: {{inputs.message}}"
+    context = AutomationTemplateRenderer.context_from_trigger_data(trigger_data)
+    result = AutomationTemplateRenderer.render(template, context)
+
+    assert_equal "Message: ", result
+  end
 end

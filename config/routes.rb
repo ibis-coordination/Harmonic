@@ -121,7 +121,6 @@ Rails.application.routes.draw do
   get 'actions' => 'home#actions_index'
   # Redirect /settings to user-specific settings path
   get 'settings' => 'users#redirect_to_settings'
-  get 'settings/webhooks' => 'users#redirect_to_settings_webhooks'
 
   get 'about' => 'home#about'
   get 'help' => 'home#help'
@@ -280,18 +279,6 @@ Rails.application.routes.draw do
     get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
     get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member
     post 'settings/tokens/new/actions/create_api_token' => 'api_tokens#execute_create_api_token', on: :member
-    # User/AI agent webhook routes (parent can manage AI agent webhooks)
-    get 'settings/webhooks' => 'user_webhooks#index', on: :member
-    get 'settings/webhooks/new' => 'user_webhooks#new', on: :member
-    get 'settings/webhooks/new/actions' => 'user_webhooks#actions_index_new', on: :member
-    get 'settings/webhooks/new/actions/create_webhook' => 'user_webhooks#describe_create', on: :member
-    post 'settings/webhooks/new/actions/create_webhook' => 'user_webhooks#execute_create', on: :member
-    get 'settings/webhooks/:webhook_id' => 'user_webhooks#show', on: :member
-    get 'settings/webhooks/:webhook_id/actions' => 'user_webhooks#actions_index_show', on: :member
-    get 'settings/webhooks/:webhook_id/actions/delete_webhook' => 'user_webhooks#describe_delete', on: :member
-    post 'settings/webhooks/:webhook_id/actions/delete_webhook' => 'user_webhooks#execute_delete', on: :member
-    get 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#describe_test', on: :member
-    post 'settings/webhooks/:webhook_id/actions/test_webhook' => 'user_webhooks#execute_test', on: :member
     # Trustee grant management (TrusteeGrants)
     get 'settings/trustee-grants' => 'trustee_grants#index', on: :member
     get 'settings/trustee-grants/actions' => 'trustee_grants#actions_index', on: :member
@@ -352,20 +339,6 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}/:superagent_handle/settings/actions/add_ai_agent_to_studio" => 'studios#execute_add_ai_agent_to_studio'
     get "#{studios_or_scenes}/:superagent_handle/settings/actions/remove_ai_agent_from_studio" => 'studios#describe_remove_ai_agent_from_studio'
     post "#{studios_or_scenes}/:superagent_handle/settings/actions/remove_ai_agent_from_studio" => 'studios#execute_remove_ai_agent_from_studio'
-    # Webhooks
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks" => 'webhooks#index'
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/new" => 'webhooks#new'
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/new/actions" => 'webhooks#actions_index_new'
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/new/actions/create_webhook" => 'webhooks#describe_create_webhook'
-    post "#{studios_or_scenes}/:superagent_handle/settings/webhooks/new/actions/create_webhook" => 'webhooks#execute_create_webhook'
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id" => 'webhooks#show'
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions" => 'webhooks#actions_index'
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/update_webhook" => 'webhooks#describe_update_webhook'
-    post "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/update_webhook" => 'webhooks#execute_update_webhook'
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/delete_webhook" => 'webhooks#describe_delete_webhook'
-    post "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/delete_webhook" => 'webhooks#execute_delete_webhook'
-    get "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/test_webhook" => 'webhooks#describe_test_webhook'
-    post "#{studios_or_scenes}/:superagent_handle/settings/webhooks/:id/actions/test_webhook" => 'webhooks#execute_test_webhook'
     # Studio Automations
     get "#{studios_or_scenes}/:superagent_handle/settings/automations" => 'studio_automations#index'
     get "#{studios_or_scenes}/:superagent_handle/settings/automations/new" => 'studio_automations#new'
@@ -375,6 +348,7 @@ Rails.application.routes.draw do
     get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id" => 'studio_automations#show'
     get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/edit" => 'studio_automations#edit'
     get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/runs" => 'studio_automations#runs'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/runs/:run_id" => 'studio_automations#run_show'
     get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions" => 'studio_automations#actions_index_show'
     get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/update_automation_rule" => 'studio_automations#describe_update'
     post "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/update_automation_rule" => 'studio_automations#execute_update'
@@ -382,6 +356,10 @@ Rails.application.routes.draw do
     post "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/delete_automation_rule" => 'studio_automations#execute_delete'
     get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/toggle_automation_rule" => 'studio_automations#describe_toggle'
     post "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/toggle_automation_rule" => 'studio_automations#execute_toggle'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/test_automation_rule" => 'studio_automations#describe_test'
+    post "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/test_automation_rule" => 'studio_automations#execute_test'
+    get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/run_automation_rule" => 'studio_automations#describe_run'
+    post "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/actions/run_automation_rule" => 'studio_automations#execute_run'
     get "#{studios_or_scenes}/:superagent_handle/settings/automations/:automation_id/edit/actions" => 'studio_automations#actions_index_edit'
     patch "#{studios_or_scenes}/:superagent_handle/image" => 'studios#update_image'
     get "#{studios_or_scenes}/:superagent_handle/invite" => 'studios#invite'

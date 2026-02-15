@@ -40,6 +40,7 @@
         <li class="pulse-list-item"><code>event</code> - Trigger when a specific event occurs</li>
         <li class="pulse-list-item"><code>schedule</code> - Trigger on a cron schedule</li>
         <li class="pulse-list-item"><code>webhook</code> - Trigger via incoming webhook (supports IP restrictions)</li>
+        <li class="pulse-list-item"><code>manual</code> - Trigger manually via button click (supports typed inputs)</li>
       </ul>
 
       <h4>Event Types</h4>
@@ -76,6 +77,21 @@
     - "192.168.1.0/24" # CIDR range</code></pre>
       <p><small>If <code>allowed_ips</code> is omitted, all IPs are allowed. Requests must include HMAC signature.</small></p>
 
+      <h4>Manual Trigger Configuration</h4>
+      <p>Manual triggers support optional typed inputs:</p>
+      <pre class="pulse-code-block"><code>trigger:
+  type: manual
+  inputs:
+    report_date:
+      label: "Report Date"
+      type: string        # string, number, or boolean
+      default: "today"
+    include_draft:
+      label: "Include Drafts"
+      type: boolean
+      default: false</code></pre>
+      <p><small>When a user clicks Run, they can provide values for these inputs. Access them via <code>{{inputs.report_date}}</code>.</small></p>
+
       <h4>Action Types</h4>
       <ul class="pulse-list">
         <li class="pulse-list-item"><code>webhook</code> - Send an HTTP request to an external URL</li>
@@ -98,6 +114,13 @@
         <li class="pulse-list-item"><code>{{webhook.path}}</code> - The webhook path called</li>
         <li class="pulse-list-item"><code>{{webhook.source_ip}}</code> - IP address of the sender</li>
         <li class="pulse-list-item"><code>{{webhook.received_at}}</code> - Timestamp received</li>
+      </ul>
+
+      <h4>Template Variables (Manual Triggers)</h4>
+      <ul class="pulse-list">
+        <li class="pulse-list-item"><code>{{inputs.*}}</code> - Access input values (e.g., <code>{{inputs.report_date}}</code>)</li>
+        <li class="pulse-list-item"><code>{{triggered_at}}</code> - Timestamp when run was triggered</li>
+        <li class="pulse-list-item"><code>{{triggered_by}}</code> - ID of the user who triggered the run</li>
       </ul>
     <% end %>
   </div>

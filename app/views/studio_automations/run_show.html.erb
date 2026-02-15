@@ -1,0 +1,446 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  ['Settings', @current_superagent.path + '/settings'],
+  ['Automations', automations_index_path],
+  [@automation_rule.name, automation_path(@automation_rule)],
+  ['Run History', automation_path(@automation_rule) + '/runs'],
+  'Run Details'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'play', height: 14, class: 'pulse-resource-icon' %>
+        Automation Run
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Run Details</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <section class="pulse-settings-section">
+      <h3>Run Information</h3>
+      <table class="pulse-table">
+        <tr>
+          <th style="width:140px;">Run ID</th>
+          <td><code style="user-select: all;"><%= @run.id %></code></td>
+        </tr>
+        <tr>
+          <th>Status</th>
+          <td>
+            <% case @run.status %>
+            <% when "completed" %>
+              <span class="pulse-tag pulse-tag-success">Completed</span>
+            <% when "failed" %>
+              <span class="pulse-tag pulse-tag-danger">Failed</span>
+            <% when "running" %>
+              <span class="pulse-tag pulse-tag-warning">Running</span>
+            <% when "skipped" %>
+              <span class="pulse-tag">Skipped</span>
+            <% else %>
+              <span class="pulse-tag">Pending</span>
+            <% end %>
+          </td>
+        </tr>
+        <tr>
+          <th>Trigger Source</th>
+          <td><span class="pulse-tag"><%= @run.trigger_source %></span></td>
+        </tr>
+        <tr>
+          <th>Created</th>
+          <td><%= @run.created_at.strftime('%Y-%m-%d %H:%M:%S %Z') %></td>
+        </tr>
+        <% if @run.started_at %>
+          <tr>
+            <th>Started</th>
+            <td><%= @run.started_at.strftime('%Y-%m-%d %H:%M:%S %Z') %></td>
+          </tr>
+        <% end %>
+        <% if @run.completed_at %>
+          <tr>
+            <th>Completed</th>
+            <td><%= @run.completed_at.strftime('%Y-%m-%d %H:%M:%S %Z') %></td>
+          </tr>
+        <% end %>
+        <% if @run.started_at && @run.completed_at %>
+          <tr>
+            <th>Duration</th>
+            <td><%= distance_of_time_in_words(@run.started_at, @run.completed_at) %></td>
+          </tr>
+        <% end %>
+        <% if @run.error_message.present? %>
+          <tr>
+            <th>Error</th>
+            <td class="pulse-error-text"><%= @run.error_message %></td>
+          </tr>
+        <% end %>
+        <% if @run.trigger_data&.dig("source_ip").present? %>
+          <tr>
+            <th>Source IP</th>
+            <td><code><%= @run.trigger_data["source_ip"] %></code></td>
+          </tr>
+        <% end %>
+        <% if @run.trigger_data&.dig("triggered_by").present? %>
+          <% triggered_by_user = User.find_by(id: @run.trigger_data["triggered_by"]) %>
+          <% if triggered_by_user %>
+            <tr>
+              <th>Triggered By</th>
+              <td>
+                <a href="<%= triggered_by_user.path %>"><%= triggered_by_user.display_name %></a>
+              </td>
+            </tr>
+          <% end %>
+        <% end %>
+      </table>
+    </section>
+
+    <% if @run.triggered_by_event %>
+      <section class="pulse-settings-section">
+        <% is_test_event = @run.triggered_by_event.event_type == "automation_rule.tested" %>
+        <h3><%= is_test_event ? "Test Event" : "Triggering Event" %></h3>
+        <table class="pulse-table">
+          <% if is_test_event %>
+            <tr>
+              <th style="width:140px;">Type</th>
+              <td>
+                <span class="pulse-tag">Test Event</span>
+              </td>
+            </tr>
+            <% simulated_type = @run.triggered_by_event.metadata&.dig("simulated_event_type") %>
+            <% if simulated_type %>
+              <tr>
+                <th>Simulating</th>
+                <td><code><%= simulated_type %></code></td>
+              </tr>
+            <% end %>
+          <% else %>
+            <tr>
+              <th style="width:140px;">Event Type</th>
+              <td><code><%= @run.triggered_by_event.event_type %></code></td>
+            </tr>
+          <% end %>
+          <% if @run.triggered_by_event.actor %>
+            <tr>
+              <th>Actor</th>
+              <td>
+                <a href="<%= @run.triggered_by_event.actor.path %>">
+                  <%= @run.triggered_by_event.actor.display_name %>
+                </a>
+              </td>
+            </tr>
+          <% end %>
+          <% if @run.triggered_by_event.subject %>
+            <tr>
+              <th>Subject</th>
+              <td>
+                <% subject = @run.triggered_by_event.subject %>
+                <% if subject.respond_to?(:path) %>
+                  <a href="<%= subject.path %>"><%= subject.try(:title) || subject.try(:name) || subject.class.name %></a>
+                <% else %>
+                  <%= subject.try(:title) || subject.try(:name) || subject.class.name %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+          <tr>
+            <th>Created At</th>
+            <td><%= @run.triggered_by_event.created_at.strftime('%Y-%m-%d %H:%M:%S %Z') %></td>
+          </tr>
+        </table>
+      </section>
+    <% end %>
+
+    <% if @run.trigger_data.present? && @run.trigger_data.keys.any? { |k| k != "source_ip" } %>
+      <%= render 'shared/pulse_accordion', title: 'Trigger Data', open: false do %>
+        <pre class="pulse-code-block"><code><%= JSON.pretty_generate(@run.trigger_data) %></code></pre>
+      <% end %>
+    <% end %>
+
+    <% if @run.ai_agent_task_run %>
+      <section class="pulse-settings-section">
+        <h3>AI Agent Task</h3>
+        <table class="pulse-table">
+          <tr>
+            <th style="width:140px;">Agent</th>
+            <td>
+              <a href="<%= @run.ai_agent_task_run.ai_agent.path %>">
+                <%= @run.ai_agent_task_run.ai_agent.display_name %>
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <th>Task Status</th>
+            <td>
+              <% case @run.ai_agent_task_run.status %>
+              <% when "completed" %>
+                <span class="pulse-tag pulse-tag-success">Completed</span>
+              <% when "failed" %>
+                <span class="pulse-tag pulse-tag-danger">Failed</span>
+              <% when "running" %>
+                <span class="pulse-tag pulse-tag-warning">Running</span>
+              <% else %>
+                <span class="pulse-tag"><%= @run.ai_agent_task_run.status %></span>
+              <% end %>
+            </td>
+          </tr>
+          <tr>
+            <th>Steps</th>
+            <td><%= @run.ai_agent_task_run.steps_completed %> / <%= @run.ai_agent_task_run.max_steps %></td>
+          </tr>
+          <tr>
+            <th>View Task</th>
+            <td>
+              <a href="<%= @run.ai_agent_task_run.path %>" class="pulse-action-btn pulse-action-btn-small">
+                <%= octicon 'link-external', height: 12 %> View Task Run
+              </a>
+            </td>
+          </tr>
+        </table>
+      </section>
+    <% end %>
+
+    <% if @run.actions_executed.present? && @run.actions_executed.any? %>
+      <section class="pulse-settings-section">
+        <h3>Actions Executed</h3>
+        <% @run.actions_executed.each_with_index do |action, index| %>
+          <div class="pulse-card" style="margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--pulse-border-color); border-radius: 4px;">
+            <%
+              action_type = action["type"] || action[:type]
+              action_result = action["result"] || action[:result]
+
+              # For webhooks and trigger_agent, look up the actual resource status
+              action_status_tag = nil
+              if action_type == "webhook"
+                delivery_id = action_result&.dig("delivery_id") || action_result&.dig(:delivery_id)
+                delivery = delivery_id && @webhook_deliveries.find { |d| d.id == delivery_id }
+                if delivery
+                  case delivery.status
+                  when "success"
+                    action_status_tag = '<span class="pulse-tag pulse-tag-success" style="margin-left: 0.5rem;">Success</span>'
+                  when "failed"
+                    action_status_tag = '<span class="pulse-tag pulse-tag-danger" style="margin-left: 0.5rem;">Failed</span>'
+                  when "retrying"
+                    action_status_tag = '<span class="pulse-tag pulse-tag-warning" style="margin-left: 0.5rem;">Retrying</span>'
+                  else
+                    action_status_tag = '<span class="pulse-tag" style="margin-left: 0.5rem;">Pending</span>'
+                  end
+                end
+              elsif action_type == "trigger_agent"
+                task_run_id = action_result&.dig("task_run_id") || action_result&.dig(:task_run_id)
+                task_run = task_run_id && AiAgentTaskRun.find_by(id: task_run_id)
+                if task_run
+                  case task_run.status
+                  when "completed"
+                    action_status_tag = '<span class="pulse-tag pulse-tag-success" style="margin-left: 0.5rem;">Completed</span>'
+                  when "failed"
+                    action_status_tag = '<span class="pulse-tag pulse-tag-danger" style="margin-left: 0.5rem;">Failed</span>'
+                  when "running"
+                    action_status_tag = '<span class="pulse-tag pulse-tag-warning" style="margin-left: 0.5rem;">Running</span>'
+                  else
+                    action_status_tag = '<span class="pulse-tag" style="margin-left: 0.5rem;">' + task_run.status.humanize + '</span>'
+                  end
+                end
+              end
+
+              # Fall back to action_result success for other action types or if resource not found
+              if action_status_tag.nil? && action_result.is_a?(Hash)
+                if action_result["success"] || action_result[:success]
+                  action_status_tag = '<span class="pulse-tag pulse-tag-success" style="margin-left: 0.5rem;">Success</span>'
+                else
+                  action_status_tag = '<span class="pulse-tag pulse-tag-danger" style="margin-left: 0.5rem;">Failed</span>'
+                end
+              end
+            %>
+            <h4 style="margin-top: 0;">
+              Action <%= index + 1 %>: <%= action_type %>
+              <%= action_status_tag&.html_safe %>
+            </h4>
+
+            <% case action_type %>
+            <% when "webhook" %>
+              <% # delivery_id and delivery are already set in the header block above %>
+              <% if delivery %>
+                  <table class="pulse-table">
+                    <tr>
+                      <th style="width:120px;">URL</th>
+                      <td><code style="word-break:break-all;"><%= delivery.url %></code></td>
+                    </tr>
+                    <tr>
+                      <th>Status</th>
+                      <td>
+                        <% case delivery.status %>
+                        <% when "success" %>
+                          <span class="pulse-tag pulse-tag-success">Success</span>
+                        <% when "failed" %>
+                          <span class="pulse-tag pulse-tag-danger">Failed</span>
+                        <% when "retrying" %>
+                          <span class="pulse-tag pulse-tag-warning">Retrying</span>
+                        <% else %>
+                          <span class="pulse-tag">Pending</span>
+                        <% end %>
+                      </td>
+                    </tr>
+                    <% if delivery.response_code %>
+                      <tr>
+                        <th>Response Code</th>
+                        <td>
+                          <code><%= delivery.response_code %></code>
+                        </td>
+                      </tr>
+                    <% end %>
+                    <tr>
+                      <th>Attempts</th>
+                      <td><%= delivery.attempt_count %></td>
+                    </tr>
+                    <% if delivery.delivered_at %>
+                      <tr>
+                        <th>Delivered At</th>
+                        <td><%= delivery.delivered_at.strftime('%Y-%m-%d %H:%M:%S %Z') %></td>
+                      </tr>
+                    <% end %>
+                    <% if delivery.error_message.present? %>
+                      <tr>
+                        <th>Error</th>
+                        <td class="pulse-error-text"><%= delivery.error_message %></td>
+                      </tr>
+                    <% end %>
+                    <% if delivery.next_retry_at && delivery.status == "retrying" %>
+                      <tr>
+                        <th>Next Retry</th>
+                        <td><%= delivery.next_retry_at.strftime('%Y-%m-%d %H:%M:%S %Z') %></td>
+                      </tr>
+                    <% end %>
+                  </table>
+
+                  <% if delivery.request_body.present? %>
+                    <%= render 'shared/pulse_accordion', title: 'Request Body', open: false do %>
+                      <pre class="pulse-code-block"><code><%= begin; JSON.pretty_generate(JSON.parse(delivery.request_body)); rescue; delivery.request_body; end %></code></pre>
+                    <% end %>
+                  <% end %>
+
+                  <% if delivery.response_body.present? %>
+                    <%= render 'shared/pulse_accordion', title: 'Response Body', open: false do %>
+                      <pre class="pulse-code-block"><code><%= begin; JSON.pretty_generate(JSON.parse(delivery.response_body)); rescue; delivery.response_body; end %></code></pre>
+                    <% end %>
+                  <% end %>
+              <% else %>
+                <p>No webhook delivery recorded</p>
+              <% end %>
+
+            <% when "trigger_agent" %>
+              <% # task_run_id and task_run are already set in the header block above %>
+              <% if task_run %>
+                  <table class="pulse-table">
+                    <tr>
+                      <th style="width:120px;">Agent</th>
+                      <td>
+                        <a href="<%= task_run.ai_agent.path %>"><%= task_run.ai_agent.display_name %></a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>Status</th>
+                      <td>
+                        <% case task_run.status %>
+                        <% when "completed" %>
+                          <span class="pulse-tag pulse-tag-success">Completed</span>
+                        <% when "failed" %>
+                          <span class="pulse-tag pulse-tag-danger">Failed</span>
+                        <% when "running" %>
+                          <span class="pulse-tag pulse-tag-warning">Running</span>
+                        <% else %>
+                          <span class="pulse-tag"><%= task_run.status %></span>
+                        <% end %>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>Steps</th>
+                      <td><%= task_run.steps_completed %> / <%= task_run.max_steps %></td>
+                    </tr>
+                    <tr>
+                      <th>View</th>
+                      <td>
+                        <a href="<%= task_run.path %>" class="pulse-action-btn pulse-action-btn-small">
+                          <%= octicon 'link-external', height: 12 %> View Task Run
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+              <% else %>
+                <p>No task run recorded</p>
+              <% end %>
+
+            <% when "internal_action" %>
+              <table class="pulse-table">
+                <tr>
+                  <th style="width:120px;">Action</th>
+                  <td><code><%= action_result&.dig("action") || action_result&.dig(:action) %></code></td>
+                </tr>
+                <% if action_result&.dig("status") || action_result&.dig(:status) %>
+                  <tr>
+                    <th>Status</th>
+                    <td><%= action_result&.dig("status") || action_result&.dig(:status) %></td>
+                  </tr>
+                <% end %>
+              </table>
+              <% if action_result&.dig("params") || action_result&.dig(:params) %>
+                <%= render 'shared/pulse_accordion', title: 'Parameters', open: false do %>
+                  <pre class="pulse-code-block"><code><%= JSON.pretty_generate(action_result&.dig("params") || action_result&.dig(:params)) %></code></pre>
+                <% end %>
+              <% end %>
+
+            <% else %>
+              <pre class="pulse-code-block"><code><%= JSON.pretty_generate(action) %></code></pre>
+            <% end %>
+          </div>
+        <% end %>
+      </section>
+    <% end %>
+
+    <% if @webhook_deliveries.any? && @run.actions_executed.blank? %>
+      <section class="pulse-settings-section">
+        <h3>Webhook Deliveries</h3>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>URL</th>
+              <th>Status</th>
+              <th>Response</th>
+              <th>Attempts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @webhook_deliveries.each do |delivery| %>
+              <tr>
+                <td><code style="word-break:break-all;"><%= truncate(delivery.url, length: 50) %></code></td>
+                <td>
+                  <% case delivery.status %>
+                  <% when "success" %>
+                    <span class="pulse-tag pulse-tag-success">Success</span>
+                  <% when "failed" %>
+                    <span class="pulse-tag pulse-tag-danger">Failed</span>
+                  <% when "retrying" %>
+                    <span class="pulse-tag pulse-tag-warning">Retrying</span>
+                  <% else %>
+                    <span class="pulse-tag">Pending</span>
+                  <% end %>
+                </td>
+                <td><%= delivery.response_code || '-' %></td>
+                <td><%= delivery.attempt_count %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </section>
+    <% end %>
+
+    <section class="pulse-settings-section pulse-action-row">
+      <a href="<%= automation_path(@automation_rule) %>/runs" class="pulse-action-btn">
+        Back to Run History
+      </a>
+      <a href="<%= automation_path(@automation_rule) %>" class="pulse-action-btn">
+        Back to Automation
+      </a>
+    </section>
+  </div>
+</article>

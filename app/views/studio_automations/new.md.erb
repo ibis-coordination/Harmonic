@@ -14,6 +14,7 @@ Create a new automation by providing YAML configuration.
 - `event` - Trigger when a specific event occurs
 - `schedule` - Trigger on a cron schedule
 - `webhook` - Trigger via incoming webhook
+- `manual` - Trigger manually via button click
 
 ### Schedule Trigger Configuration
 
@@ -55,6 +56,26 @@ After creation, you'll receive a unique webhook URL and secret. External systems
 1. Sign requests with HMAC-SHA256 using the secret
 2. Include `X-Harmonic-Timestamp` and `X-Harmonic-Signature` headers
 3. Send requests from an allowed IP (if `allowed_ips` is configured)
+
+### Manual Trigger Configuration
+
+For manual automations that run on button click:
+
+```yaml
+trigger:
+  type: manual
+  inputs:                      # Optional: define typed inputs
+    report_date:
+      label: "Report Date"
+      type: string             # string, number, or boolean
+      default: "today"
+    include_draft:
+      label: "Include Drafts"
+      type: boolean
+      default: false
+```
+
+When a user clicks "Run", they can provide values for these inputs. Access them in actions via `{{inputs.report_date}}`.
 
 ### Event Types
 - `note.created` - A note was created
@@ -100,6 +121,11 @@ actions:
 - `{{webhook.path}}` - The webhook path that was called
 - `{{webhook.source_ip}}` - IP address of the webhook sender
 - `{{webhook.received_at}}` - Timestamp when webhook was received
+
+**For manual triggers:**
+- `{{inputs.*}}` - Access input values (e.g., `{{inputs.report_date}}`)
+- `{{triggered_at}}` - Timestamp when run was triggered
+- `{{triggered_by}}` - ID of the user who triggered the run
 
 ## Navigation
 

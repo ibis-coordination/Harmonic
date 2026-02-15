@@ -5,7 +5,7 @@ class AutomationRule < ApplicationRecord
   include HasTruncatedId
   include MightNotBelongToSuperagent
 
-  TRIGGER_TYPES = ["event", "schedule", "webhook"].freeze
+  TRIGGER_TYPES = ["event", "schedule", "webhook", "manual"].freeze
 
   belongs_to :tenant
   belongs_to :superagent, optional: true
@@ -42,6 +42,16 @@ class AutomationRule < ApplicationRecord
   sig { returns(T::Boolean) }
   def user_rule?
     user_id.present? && ai_agent_id.nil? && superagent_id.nil?
+  end
+
+  sig { returns(T::Boolean) }
+  def manual_trigger?
+    trigger_type == "manual"
+  end
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  def manual_inputs
+    trigger_config&.dig("inputs") || {}
   end
 
   sig { returns(T.nilable(String)) }

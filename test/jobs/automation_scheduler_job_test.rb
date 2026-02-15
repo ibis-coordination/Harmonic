@@ -197,9 +197,19 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
       # Execute the queued job
       perform_enqueued_jobs
 
-      # Verify the run completed successfully
+      # Verify the run was created and is running (agent tasks are async)
       run = AutomationRuleRun.unscoped_for_system_job.order(:created_at).last
       assert_equal rule.id, run.automation_rule_id
+      assert_equal "running", run.status, "Agent rules stay 'running' until task completes"
+
+      # Simulate the agent task completing
+      task_run = run.ai_agent_task_run
+      assert_not_nil task_run, "Should have created an agent task run"
+      task_run.update!(status: "completed", completed_at: Time.current)
+      task_run.notify_parent_automation_runs!
+
+      # Now the run should be completed
+      run.reload
       assert_equal "completed", run.status
       assert_not_nil run.completed_at
     end
@@ -222,6 +232,9 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
 
     travel_to Time.zone.parse("2024-06-15 14:00:00 UTC") do
       AutomationSchedulerJob.perform_now
+      # First call executes AutomationRuleExecutionJob which queues WebhookDeliveryJob
+      perform_enqueued_jobs
+      # Second call executes WebhookDeliveryJob
       perform_enqueued_jobs
 
       # Verify webhook was called

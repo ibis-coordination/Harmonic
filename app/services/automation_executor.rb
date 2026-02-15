@@ -71,7 +71,8 @@ class AutomationExecutor
     # Kick off the queue processor
     AgentQueueProcessorJob.perform_later(ai_agent_id: ai_agent.id, tenant_id: @rule.tenant_id)
 
-    @run.mark_completed!(executed_actions: [{ type: "trigger_agent", task_run_id: task_run.id }])
+    # Record the action but don't mark as completed - task run will report back when done
+    @run.record_actions!(executed_actions: [{ type: "trigger_agent", task_run_id: task_run.id }])
   end
 
   sig { void }
@@ -83,6 +84,7 @@ class AutomationExecutor
     end
 
     executed_actions = []
+    has_async_actions = false
 
     actions.each_with_index do |action, index|
       action_type = action["type"]
@@ -94,15 +96,25 @@ class AutomationExecutor
       when "webhook"
         result = execute_webhook_action(action)
         executed_actions << { index: index, type: action_type, result: result }
+        # Only count as async if webhook delivery was actually created
+        has_async_actions = true if result[:success] && result[:delivery_id].present?
       when "trigger_agent"
         result = execute_trigger_agent_action(action)
         executed_actions << { index: index, type: action_type, result: result }
+        # Only count as async if task run was actually created
+        has_async_actions = true if result[:status] == "success" && result[:task_run_id].present?
       else
         executed_actions << { index: index, type: action_type, result: "unknown action type" }
       end
     end
 
-    @run.mark_completed!(executed_actions: executed_actions)
+    if has_async_actions
+      # Async actions (webhooks, trigger_agent) will report back when done
+      @run.record_actions!(executed_actions: executed_actions)
+    else
+      # Only sync actions (internal_action), safe to mark completed
+      @run.mark_completed!(executed_actions: executed_actions)
+    end
   end
 
   sig { returns(String) }
@@ -148,7 +160,52 @@ class AutomationExecutor
 
   sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[Symbol, T.untyped]) }
   def execute_webhook_action(action)
-    AutomationWebhookSender.call(action, @event, secret: @rule.webhook_secret)
+    url = action["url"]
+    return { success: false, error: "URL is required for webhook action" } if url.blank?
+
+    # Build the request body with template rendering
+    # Accept both "body" and "payload" keys for user convenience
+    body = build_webhook_body(action["payload"] || action["body"] || {})
+
+    # Create a WebhookDelivery record for tracking and retries
+    delivery = WebhookDelivery.create!(
+      tenant: @rule.tenant,
+      automation_rule_run: @run,
+      event: @event,
+      url: url,
+      secret: @rule.webhook_secret,
+      request_body: body.to_json,
+      status: "pending",
+    )
+
+    # Queue async delivery with retry support
+    WebhookDeliveryJob.perform_later(delivery.id)
+
+    { success: true, delivery_id: delivery.id, status: "queued" }
+  rescue StandardError => e
+    { success: false, error: e.message }
+  end
+
+  sig { params(body: T.untyped).returns(T.untyped) }
+  def build_webhook_body(body)
+    context = build_template_context
+    return body if context.empty?
+
+    render_body_recursive(body, context)
+  end
+
+  sig { params(value: T.untyped, context: T::Hash[String, T.untyped]).returns(T.untyped) }
+  def render_body_recursive(value, context)
+    case value
+    when Hash
+      value.transform_values { |v| render_body_recursive(v, context) }
+    when Array
+      value.map { |v| render_body_recursive(v, context) }
+    when String
+      AutomationTemplateRenderer.render(value, context)
+    else
+      value
+    end
   end
 
   sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }

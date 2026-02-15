@@ -137,6 +137,9 @@ class StudiosController < ApplicationController
       active_studio_ai_agent_ids = @studio_ai_agents.pluck(:id)
       addable_ids = user_ai_agent_ids - active_studio_ai_agent_ids
       @addable_ai_agents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+      # Automation counts for display
+      @enabled_automations_count = @current_superagent.automation_rules.where(enabled: true).count
+      @total_automations_count = @current_superagent.automation_rules.count
     else
 @sidebar_mode = 'minimal'
       return render layout: 'application', html: 'You must be an admin to access studio settings.'

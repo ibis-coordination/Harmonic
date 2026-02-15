@@ -41,7 +41,7 @@ class AutomationTemplateRenderer
     context
   end
 
-  # Build context hash from trigger_data (for webhook/schedule triggers without events)
+  # Build context hash from trigger_data (for webhook/schedule/manual triggers without events)
   sig { params(trigger_data: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }
   def self.context_from_trigger_data(trigger_data)
     context = {}
@@ -52,6 +52,12 @@ class AutomationTemplateRenderer
       context["payload"] = trigger_data["payload"]
     elsif trigger_data["payload"].is_a?(String)
       context["payload"] = { "raw" => trigger_data["payload"] }
+    end
+
+    # Expose manual trigger inputs for template access
+    # e.g., {{inputs.message}}, {{inputs.count}}
+    if trigger_data["inputs"].is_a?(Hash)
+      context["inputs"] = trigger_data["inputs"]
     end
 
     # Expose webhook metadata

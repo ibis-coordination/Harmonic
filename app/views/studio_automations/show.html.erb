@@ -106,6 +106,31 @@
               <% end %>
             </td>
           </tr>
+        <% elsif @automation_rule.trigger_type == 'manual' %>
+          <% if @automation_rule.manual_inputs.any? %>
+            <tr>
+              <th>Inputs</th>
+              <td>
+                <% @automation_rule.manual_inputs.each do |name, definition| %>
+                  <div style="margin-bottom: 0.5rem;">
+                    <strong><%= definition['label'] || name.humanize %></strong>
+                    (<code><%= name %></code>)
+                    <% if definition['type'] %>
+                      - <%= definition['type'] %>
+                    <% end %>
+                    <% if definition['default'] %>
+                      <br/><em>Default: <%= definition['default'] %></em>
+                    <% end %>
+                  </div>
+                <% end %>
+              </td>
+            </tr>
+          <% else %>
+            <tr>
+              <th>Inputs</th>
+              <td><em>No inputs defined</em></td>
+            </tr>
+          <% end %>
         <% end %>
         <tr>
           <th>Total Executions</th>
@@ -218,6 +243,22 @@ puts response.body</code></pre>
         </form>
       <% end %>
 
+      <form action="<%= automation_path(@automation_rule) %>/actions/test_automation_rule" method="post" style="display:inline;">
+        <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+        <button type="submit" class="pulse-action-btn">
+          <%= octicon "beaker" %> Test
+        </button>
+      </form>
+
+      <% if @automation_rule.manual_trigger? && @automation_rule.manual_inputs.empty? %>
+        <form action="<%= automation_path(@automation_rule) %>/actions/run_automation_rule" method="post" style="display:inline;">
+          <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+          <button type="submit" class="pulse-action-btn pulse-action-btn-success">
+            <%= octicon "play" %> Run
+          </button>
+        </form>
+      <% end %>
+
       <form action="<%= automation_path(@automation_rule) %>/actions/delete_automation_rule" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this automation?');">
         <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
         <button type="submit" class="pulse-action-btn pulse-action-btn-danger">Delete</button>
@@ -227,6 +268,44 @@ puts response.body</code></pre>
         View Run History
       </a>
     </section>
+
+    <% if @automation_rule.manual_trigger? && @automation_rule.manual_inputs.any? %>
+      <section class="pulse-settings-section">
+        <h3>Run Automation</h3>
+        <p>Provide values for the inputs below, then click Run.</p>
+        <form action="<%= automation_path(@automation_rule) %>/actions/run_automation_rule" method="post" class="pulse-form">
+          <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+
+          <% @automation_rule.manual_inputs.each do |name, definition| %>
+            <div style="margin-bottom: 1rem;">
+              <label for="inputs_<%= name %>" class="pulse-label">
+                <%= definition['label'] || name.humanize %>
+                <% if definition['type'] %>
+                  <small class="pulse-muted">(<%= definition['type'] %>)</small>
+                <% end %>
+              </label>
+              <% case definition['type'] %>
+              <% when 'boolean' %>
+                <select name="inputs[<%= name %>]" id="inputs_<%= name %>" class="pulse-form-input">
+                  <option value="false" <%= 'selected' if definition['default'] == false %>>false</option>
+                  <option value="true" <%= 'selected' if definition['default'] == true %>>true</option>
+                </select>
+              <% when 'number' %>
+                <input type="number" step="any" name="inputs[<%= name %>]" id="inputs_<%= name %>"
+                       value="<%= definition['default'] %>" class="pulse-form-input" />
+              <% else %>
+                <input type="text" name="inputs[<%= name %>]" id="inputs_<%= name %>"
+                       value="<%= definition['default'] %>" class="pulse-form-input" />
+              <% end %>
+            </div>
+          <% end %>
+
+          <button type="submit" class="pulse-action-btn pulse-action-btn-success">
+            <%= octicon "play" %> Run
+          </button>
+        </form>
+      </section>
+    <% end %>
 
     <% if @automation_rule.actions.is_a?(Array) && @automation_rule.actions.any? %>
       <%= render 'shared/pulse_accordion', title: 'Actions', open: true, count: @automation_rule.actions.size do %>
@@ -275,12 +354,17 @@ puts response.body</code></pre>
               <th>Time</th>
               <th>Status</th>
               <th>Trigger</th>
+              <th>Details</th>
             </tr>
           </thead>
           <tbody>
             <% @recent_runs.each do |run| %>
               <tr>
-                <td><%= time_ago_in_words(run.created_at) %> ago</td>
+                <td>
+                  <a href="<%= automation_path(@automation_rule) %>/runs/<%= run.id %>">
+                    <%= time_ago_in_words(run.created_at) %> ago
+                  </a>
+                </td>
                 <td>
                   <% case run.status %>
                   <% when "completed" %>
@@ -294,6 +378,19 @@ puts response.body</code></pre>
                   <% end %>
                 </td>
                 <td><%= run.trigger_source %></td>
+                <td>
+                  <% if run.actions_executed.present? %>
+                    <a href="<%= automation_path(@automation_rule) %>/runs/<%= run.id %>">
+                      <%= run.actions_executed.size %> action(s)
+                    </a>
+                  <% elsif run.error_message.present? %>
+                    <a href="<%= automation_path(@automation_rule) %>/runs/<%= run.id %>" class="pulse-error-text">
+                      Error
+                    </a>
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
               </tr>
             <% end %>
           </tbody>

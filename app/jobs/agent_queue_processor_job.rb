@@ -89,6 +89,8 @@ class AgentQueueProcessorJob < TenantScopedJob
         error: "Task timed out after #{STUCK_TASK_TIMEOUT.inspect} - job may have crashed or been killed",
         completed_at: Time.current
       )
+      # Notify any parent automation runs
+      task.notify_parent_automation_runs!
     end
   end
 
@@ -122,6 +124,9 @@ class AgentQueueProcessorJob < TenantScopedJob
       total_tokens: result.input_tokens + result.output_tokens,
       estimated_cost_usd: estimated_cost
     )
+
+    # Notify any parent automation runs that this task has finished
+    task_run.notify_parent_automation_runs!
   end
 
   sig { params(task_run: AiAgentTaskRun).returns(T.nilable(Superagent)) }

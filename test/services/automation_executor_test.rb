@@ -26,8 +26,10 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     end
 
     run.reload
-    assert_equal "completed", run.status
-    assert_not_nil run.completed_at
+    # Run stays "running" until the agent task completes
+    assert_equal "running", run.status
+    assert_not_nil run.started_at
+    assert_nil run.completed_at, "Should not be completed until task finishes"
     assert_not_nil run.ai_agent_task_run
 
     task_run = run.ai_agent_task_run
@@ -36,6 +38,14 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_equal @user, task_run.initiated_by
     assert_equal rule, task_run.automation_rule
     assert task_run.triggered_by_automation?
+
+    # Simulate task completion and verify run is now completed
+    task_run.update!(status: "completed", completed_at: Time.current)
+    task_run.notify_parent_automation_runs!
+
+    run.reload
+    assert_equal "completed", run.status
+    assert_not_nil run.completed_at
   end
 
   test "renders template variables in task prompt" do
@@ -101,8 +111,18 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     AutomationExecutor.execute(run)
 
     run.reload
-    assert run.completed?
+    # Agent rules stay "running" until task completes
+    assert run.running?
     assert_not_nil run.started_at
+    assert_nil run.completed_at
+
+    # Simulate task completion
+    task_run = run.ai_agent_task_run
+    task_run.update!(status: "completed", completed_at: Time.current)
+    task_run.notify_parent_automation_runs!
+
+    run.reload
+    assert run.completed?
     assert_not_nil run.completed_at
   end
 
@@ -352,7 +372,8 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     end
 
     run.reload
-    assert run.completed?
+    # Run stays "running" until agent task completes
+    assert run.running?
     assert_equal "trigger_agent", run.actions_executed.first["type"]
     assert_equal "success", run.actions_executed.first["result"]["status"]
 
@@ -362,6 +383,13 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_equal 10, task_run.max_steps
     assert_equal rule, task_run.automation_rule
     assert task_run.triggered_by_automation?
+
+    # Simulate agent task completion
+    task_run.update!(status: "completed", completed_at: Time.current)
+    task_run.notify_parent_automation_runs!
+
+    run.reload
+    assert run.completed?
   end
 
   test "executes general rule with webhook action" do
@@ -403,25 +431,39 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     AutomationExecutor.execute(run)
 
     run.reload
-    assert run.completed?
+    # Run stays "running" until webhook is delivered
+    assert run.running?
     assert_equal "webhook", run.actions_executed.first["type"]
     assert run.actions_executed.first["result"]["success"]
+    assert run.actions_executed.first["result"]["delivery_id"].present?
+
+    # Verify WebhookDelivery was created with correct data
+    delivery = WebhookDelivery.find(run.actions_executed.first["result"]["delivery_id"])
+    assert_equal "https://example.com/webhook", delivery.url
+    assert_equal run, delivery.automation_rule_run
+    body = JSON.parse(delivery.request_body)
+    assert_equal "note.created", body["event"]
+    assert_equal "Test webhook note", body["text"]
+
+    # Execute the job to deliver the webhook
+    perform_enqueued_jobs
 
     assert_requested(:post, "https://example.com/webhook") do |req|
       body = JSON.parse(req.body)
       body["event"] == "note.created" && body["text"] == "Test webhook note"
     end
+
+    # Run should now be completed after webhook succeeded
+    run.reload
+    assert run.completed?
   end
 
-  test "records webhook failure in actions_executed" do
-    stub_request(:post, "https://example.com/webhook")
-      .to_return(status: 500, body: "Server Error")
-
+  test "creates webhook delivery for later execution" do
     rule = AutomationRule.create!(
       tenant: @tenant,
       superagent: @superagent,
       created_by: @user,
-      name: "Failing webhook",
+      name: "Queued webhook",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
       actions: [
@@ -433,15 +475,18 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     event = create_test_event
     run = create_automation_run(rule, event)
 
-    AutomationExecutor.execute(run)
+    assert_difference "WebhookDelivery.count", 1 do
+      AutomationExecutor.execute(run)
+    end
 
     run.reload
-    assert run.completed? # Rule completes even if webhook fails
-    assert_not run.actions_executed.first["result"]["success"]
-    assert_includes run.actions_executed.first["result"]["error"], "HTTP 500"
+    delivery = run.webhook_deliveries.first
+    assert_equal "pending", delivery.status
+    assert_equal "https://example.com/webhook", delivery.url
+    assert_equal rule.webhook_secret, delivery.secret
   end
 
-  test "webhook action includes HMAC signature headers" do
+  test "webhook action includes HMAC signature headers when delivered" do
     captured_headers = {}
     captured_body = nil
 
@@ -471,6 +516,9 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     AutomationExecutor.execute(run)
 
+    # Execute the job to actually send the webhook
+    perform_enqueued_jobs
+
     # Verify HMAC signature headers are present
     assert captured_headers["X-Harmonic-Signature"].present?, "Should include signature header"
     assert captured_headers["X-Harmonic-Timestamp"].present?, "Should include timestamp header"
@@ -482,6 +530,38 @@ class AutomationExecutorTest < ActiveSupport::TestCase
       captured_headers["X-Harmonic-Signature"],
       rule.webhook_secret
     ), "Signature should be verifiable with rule's secret"
+  end
+
+  test "webhook action accepts payload key as alias for body" do
+    stub_request(:post, "https://example.com/webhook")
+      .to_return(status: 200, body: '{"ok": true}')
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      created_by: @user,
+      name: "Webhook with payload key",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [
+        { "type" => "webhook", "url" => "https://example.com/webhook", "payload" => { "message" => "hello" } },
+      ],
+      enabled: true
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    AutomationExecutor.execute(run)
+    perform_enqueued_jobs
+
+    run.reload
+    assert run.completed?
+
+    # Verify the payload was sent correctly
+    delivery = run.webhook_deliveries.first
+    body = JSON.parse(delivery.request_body)
+    assert_equal "hello", body["message"], "Payload should be sent when using 'payload' key"
   end
 
   test "fails trigger_agent action when agent not found" do

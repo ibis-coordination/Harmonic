@@ -1,4 +1,4 @@
-\restrict LccPUDBWwHWqrslQ5GfWHD17HB1JKWcNaYyKh1Yena56Je5FfMV8sQ5Jffc9ezp
+\restrict DbvPZcMitFcVufrtRqHM17vBPeS31zHCOoWZUlaowqgw0bHQ9dxgJLC8SOJ6R6K
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
@@ -1820,8 +1820,7 @@ CREATE TABLE public.votes (
 
 CREATE TABLE public.webhook_deliveries (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    webhook_id uuid NOT NULL,
-    event_id uuid NOT NULL,
+    event_id uuid,
     status character varying DEFAULT 'pending'::character varying NOT NULL,
     attempt_count integer DEFAULT 0 NOT NULL,
     request_body text,
@@ -1832,29 +1831,10 @@ CREATE TABLE public.webhook_deliveries (
     next_retry_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    tenant_id uuid NOT NULL
-);
-
-
---
--- Name: webhooks; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.webhooks (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    superagent_id uuid,
-    name character varying NOT NULL,
-    url character varying NOT NULL,
-    secret character varying NOT NULL,
-    events jsonb DEFAULT '[]'::jsonb NOT NULL,
-    enabled boolean DEFAULT true NOT NULL,
-    created_by_id uuid NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
-    user_id uuid
+    automation_rule_run_id uuid,
+    url character varying,
+    secret character varying
 );
 
 
@@ -2647,14 +2627,6 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.webhook_deliveries
     ADD CONSTRAINT webhook_deliveries_pkey PRIMARY KEY (id);
-
-
---
--- Name: webhooks webhooks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT webhooks_pkey PRIMARY KEY (id);
 
 
 --
@@ -3862,6 +3834,13 @@ CREATE INDEX index_votes_on_tenant_id ON public.votes USING btree (tenant_id);
 
 
 --
+-- Name: index_webhook_deliveries_on_automation_rule_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_automation_rule_run_id ON public.webhook_deliveries USING btree (automation_rule_run_id);
+
+
+--
 -- Name: index_webhook_deliveries_on_event_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3887,62 +3866,6 @@ CREATE INDEX index_webhook_deliveries_on_status_and_next_retry_at ON public.webh
 --
 
 CREATE INDEX index_webhook_deliveries_on_tenant_id ON public.webhook_deliveries USING btree (tenant_id);
-
-
---
--- Name: index_webhook_deliveries_on_webhook_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhook_deliveries_on_webhook_id ON public.webhook_deliveries USING btree (webhook_id);
-
-
---
--- Name: index_webhooks_on_created_by_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_created_by_id ON public.webhooks USING btree (created_by_id);
-
-
---
--- Name: index_webhooks_on_superagent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_superagent_id ON public.webhooks USING btree (superagent_id);
-
-
---
--- Name: index_webhooks_on_superagent_id_and_enabled; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_superagent_id_and_enabled ON public.webhooks USING btree (superagent_id, enabled);
-
-
---
--- Name: index_webhooks_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_tenant_id ON public.webhooks USING btree (tenant_id);
-
-
---
--- Name: index_webhooks_on_tenant_id_and_enabled; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_tenant_id_and_enabled ON public.webhooks USING btree (tenant_id, enabled);
-
-
---
--- Name: index_webhooks_on_truncated_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_webhooks_on_truncated_id ON public.webhooks USING btree (truncated_id);
-
-
---
--- Name: index_webhooks_on_user_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_user_id ON public.webhooks USING btree (user_id);
 
 
 --
@@ -7699,11 +7622,11 @@ ALTER TABLE ONLY public.automation_rules
 
 
 --
--- Name: webhooks fk_rails_188617e004; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: webhook_deliveries fk_rails_17a316be6e; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_188617e004 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT fk_rails_17a316be6e FOREIGN KEY (automation_rule_run_id) REFERENCES public.automation_rule_runs(id);
 
 
 --
@@ -7880,14 +7803,6 @@ ALTER TABLE ONLY public.automation_rule_runs
 
 ALTER TABLE ONLY public.notification_recipients
     ADD CONSTRAINT fk_rails_51975e21a8 FOREIGN KEY (user_id) REFERENCES public.users(id);
-
-
---
--- Name: webhooks fk_rails_51bf96d3bc; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_51bf96d3bc FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -8187,14 +8102,6 @@ ALTER TABLE ONLY public.ai_agent_task_runs
 
 
 --
--- Name: webhook_deliveries fk_rails_bed195a05d; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhook_deliveries
-    ADD CONSTRAINT fk_rails_bed195a05d FOREIGN KEY (webhook_id) REFERENCES public.webhooks(id);
-
-
---
 -- Name: ai_agent_task_runs fk_rails_c09b289302; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8216,14 +8123,6 @@ ALTER TABLE ONLY public.active_storage_attachments
 
 ALTER TABLE ONLY public.heartbeats
     ADD CONSTRAINT fk_rails_c4c1ea3d5d FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
--- Name: webhooks fk_rails_c7a17f683f; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_c7a17f683f FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8355,14 +8254,6 @@ ALTER TABLE ONLY public.commitments
 
 
 --
--- Name: webhooks fk_rails_e567730fa3; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_e567730fa3 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
-
-
---
 -- Name: heartbeats fk_rails_ef017bd5f0; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8470,7 +8361,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict LccPUDBWwHWqrslQ5GfWHD17HB1JKWcNaYyKh1Yena56Je5FfMV8sQ5Jffc9ezp
+\unrestrict DbvPZcMitFcVufrtRqHM17vBPeS31zHCOoWZUlaowqgw0bHQ9dxgJLC8SOJ6R6K
 
 SET search_path TO "$user", public;
 
@@ -8627,6 +8518,9 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260211200002'),
 ('20260212062528'),
 ('20260212212340'),
-('20260214192742');
+('20260214192742'),
+('20260214205415'),
+('20260214205558'),
+('20260214210049');
 
 

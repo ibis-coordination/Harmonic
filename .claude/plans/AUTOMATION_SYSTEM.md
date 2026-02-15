@@ -33,7 +33,7 @@ create_table :automation_rules, id: :uuid do |t|
   t.text :description
   t.string :truncated_id, limit: 8
 
-  t.string :trigger_type, null: false  # 'event', 'schedule', 'webhook'
+  t.string :trigger_type, null: false  # 'event', 'schedule', 'webhook', 'manual'
   t.jsonb :trigger_config, null: false, default: {}
   t.jsonb :conditions, null: false, default: []
   t.jsonb :actions, null: false, default: []  # For agent rules, this is the task prompt template
@@ -272,8 +272,127 @@ Add `AutomationSchedulerJob` to run every minute for scheduled triggers
 2. Execute `internal_action` type (create_note, etc.)
 3. Views following agent automation patterns
 
+### Phase 3.5: Webhook System Consolidation
+**Goal**: Unify webhook configuration under automations while preserving delivery infrastructure
+
+The legacy `Webhook` model is redundant with `AutomationRule`. We consolidate to:
+- **One way to configure** webhooks → `AutomationRule`
+- **One way to deliver/track** webhooks → `WebhookDelivery` + retry infrastructure
+
+#### Architecture
+
+```
+AutomationRule (configuration)
+    ↓ triggers
+AutomationRuleRun (rule execution)
+    ↓ executes webhook action
+WebhookDelivery (delivery tracking, retries)
+    ↓ sends HTTP
+WebhookDeliveryService (HTTP + HMAC signing)
+```
+
+Traceability chain: `AutomationRule` → `AutomationRuleRun` → `WebhookDelivery` → response
+
+#### Remove (configuration layer)
+
+| File | Reason |
+|------|--------|
+| `app/models/webhook.rb` | Replaced by AutomationRule |
+| `app/controllers/webhooks_controller.rb` | Replaced by StudioAutomationsController |
+| `app/controllers/user_webhooks_controller.rb` | Replaced by future UserAutomationsController |
+| `app/views/webhooks/` | Replaced by automation views |
+| `app/views/user_webhooks/` | Replaced by automation views |
+| `app/services/webhook_dispatcher.rb` | Replaced by AutomationDispatcher |
+| `app/services/webhook_test_service.rb` | Rebuild as AutomationTestService |
+| `test/models/webhook_test.rb` | No longer needed |
+| `test/controllers/webhooks_controller_test.rb` | No longer needed |
+| `test/controllers/user_webhooks_controller_test.rb` | No longer needed |
+| `test/services/webhook_dispatcher_test.rb` | No longer needed |
+
+#### Keep (delivery infrastructure)
+
+| File | Purpose |
+|------|---------|
+| `app/models/webhook_delivery.rb` | Track individual delivery attempts |
+| `app/services/webhook_delivery_service.rb` | HTTP sending with HMAC signatures |
+| `app/jobs/webhook_delivery_job.rb` | Async delivery |
+| `app/jobs/webhook_retry_job.rb` | Retry failed deliveries |
+
+#### Modify
+
+**1. Database migration:**
+```ruby
+# Add automation_rule_run reference to webhook_deliveries
+add_reference :webhook_deliveries, :automation_rule_run, type: :uuid, foreign_key: true
+
+# Make webhook_id optional (was required)
+change_column_null :webhook_deliveries, :webhook_id, true
+
+# Later: drop webhooks table after migration complete
+drop_table :webhooks
+```
+
+**2. WebhookDelivery model:**
+- Add `belongs_to :automation_rule_run, optional: true`
+- Make `belongs_to :webhook` optional
+- Add validation: must have either `webhook_id` OR `automation_rule_run_id`
+
+**3. AutomationExecutor webhook action:**
+- Create `WebhookDelivery` record with `automation_rule_run_id`
+- Queue `WebhookDeliveryJob` for async delivery with retries
+- Store delivery result in `actions_executed` array
+
+**4. AutomationWebhookSender:**
+- Remove direct HTTP calls
+- Return `WebhookDelivery` record instead of result hash
+- Let `WebhookDeliveryService` handle actual delivery
+
+**5. Routes:**
+- Remove `/studios/:handle/settings/webhooks` routes
+- Remove `/u/:handle/settings/webhooks` routes
+- Keep automation routes (already exist)
+
+**6. Settings navigation:**
+- Remove "Webhooks" link from studio settings
+- Remove "Webhooks" link from user settings
+- "Automations" becomes the single entry point
+
+**7. EventService:**
+- Remove `WebhookDispatcher.dispatch(event)` call
+- `AutomationDispatcher.dispatch(event)` handles everything
+
+#### Add
+
+**1. "Simple Webhook" automation template:**
+```yaml
+name: "Webhook: {{event_types}}"
+description: "Send HTTP POST when events occur"
+
+trigger:
+  type: event
+  event_type: note.created  # User selects from dropdown
+
+actions:
+  - type: webhook
+    url: "{{url}}"  # User provides
+    body:
+      event: "{{event.type}}"
+      actor: "{{event.actor.name}}"
+      subject: "{{subject.title}}"
+      url: "{{subject.path}}"
+```
+
+**2. Test automation feature:**
+- "Send Test" button on automation show page
+- Creates synthetic event and runs automation
+- Shows delivery result inline
+
+**3. Delivery history in automation UI:**
+- Show recent `WebhookDelivery` records linked to automation's runs
+- Display status, response code, attempt count, timestamps
+
 ### Phase 4: Webhooks & Conditions
-1. AutomationWebhookSender for outgoing webhooks
+1. ~~AutomationWebhookSender for outgoing webhooks~~ (now uses WebhookDelivery)
 2. AutomationConditionEvaluator with all operators
 3. Error handling and notifications
 
@@ -285,6 +404,113 @@ Add `AutomationSchedulerJob` to run every minute for scheduled triggers
 ### Phase 6: User-Level Automations
 1. UserAutomationsController
 2. User settings UI for personal automation rules
+
+### Phase 7: Manual Triggers & Automation Testing
+**Goal**: Allow users to manually run automations and test any automation type
+
+#### Manual Trigger Type
+
+A new trigger type that only executes when a user explicitly clicks "Run":
+
+```yaml
+name: "Weekly Report Generator"
+description: "Generate a weekly report on demand"
+
+trigger:
+  type: manual
+  # Optional: default input values shown in the run dialog
+  inputs:
+    date_range:
+      type: string
+      default: "last_week"
+      label: "Date Range"
+      options: ["last_week", "last_month", "custom"]
+
+actions:
+  - type: internal_action
+    action: create_note
+    params:
+      text: "Report for {{inputs.date_range}}: ..."
+
+  - type: webhook
+    url: "https://api.example.com/report"
+    body:
+      range: "{{inputs.date_range}}"
+```
+
+**Use cases**:
+- On-demand scripts users can trigger via button click
+- Reports, cleanup tasks, batch operations
+- Automations that don't fit event/schedule patterns
+- Testing new automations before enabling automatic triggers
+
+**Model changes**:
+- Add `'manual'` to `AutomationRule::TRIGGER_TYPES`
+- `trigger_source` in runs already supports `'manual'`
+
+**Controller additions**:
+- `POST /studios/:handle/settings/automations/:id/run` - execute automation
+- `POST /u/:handle/settings/ai-agents/:agent_handle/automations/:id/run` - agent version
+
+#### AutomationTestService
+
+A general service for testing any automation type, replacing the removed `WebhookTestService`:
+
+```ruby
+# app/services/automation_test_service.rb
+class AutomationTestService
+  # Run an automation with test data
+  # Returns: AutomationRuleRun with detailed execution results
+  def self.test!(automation_rule, options = {})
+    # Build appropriate test context based on trigger type
+    # Execute synchronously for immediate feedback
+    # Return run with actions_executed details
+  end
+
+  # Generate sample event for event-triggered automations
+  def self.build_test_event(rule)
+    # Create synthetic event matching rule's event_type
+  end
+
+  # Generate sample webhook payload for webhook-triggered automations
+  def self.build_test_webhook_payload(rule)
+    # Create synthetic incoming webhook payload
+  end
+end
+```
+
+**Behavior per trigger type**:
+
+| Trigger Type | Test Behavior |
+|--------------|---------------|
+| `event` | Build synthetic event matching `event_type`, execute rule |
+| `schedule` | Execute immediately with current timestamp |
+| `webhook` | Build synthetic webhook payload, execute rule |
+| `manual` | Execute with default or provided inputs |
+
+**UI additions**:
+- "Test" button on automation show/edit page
+- Shows test result inline (success/failure, actions executed)
+- For webhook actions: shows delivery status, response preview
+- Dry-run mode option: validate without side effects
+
+**Controller actions**:
+- `POST /studios/:handle/settings/automations/:id/test`
+- `POST /u/:handle/settings/ai-agents/:agent_handle/automations/:id/test`
+
+#### Files to Create
+
+- `app/services/automation_test_service.rb`
+- `test/services/automation_test_service_test.rb`
+
+#### Files to Modify
+
+- `app/models/automation_rule.rb` - add `'manual'` trigger type
+- `app/services/automation_yaml_parser.rb` - validate manual trigger config
+- `app/controllers/studio_automations_controller.rb` - add `run` and `test` actions
+- `app/controllers/agent_automations_controller.rb` - add `run` and `test` actions
+- `app/views/studio_automations/show.html.erb` - add Run/Test buttons
+- `config/routes.rb` - add run/test routes
 
 ## Template Gallery
 

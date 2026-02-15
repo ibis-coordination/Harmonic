@@ -279,19 +279,6 @@
       <% end %>
     <% end %>
 
-    <%# Webhooks Section %>
-    <%= render 'shared/pulse_accordion', title: 'Webhooks' do %>
-      <p class="pulse-form-hint" style="margin-bottom:16px;">
-        Webhooks allow you to receive notifications at an external URL when events occur.
-      </p>
-      <div class="pulse-form-actions">
-        <a href="<%= @settings_user.path %>/settings/webhooks" class="pulse-action-btn">
-          <%= octicon 'webhook', height: 14 %>
-          Manage Webhooks
-        </a>
-      </div>
-    <% end %>
-
     <%# Trustee Grants Section %>
     <% pending_count = @settings_user.pending_trustee_grant_requests.count %>
     <%= render 'shared/pulse_accordion', title: 'Trustee Grants', count: pending_count > 0 ? pending_count : nil do %>
