@@ -3,6 +3,12 @@
 class AutomationConditionEvaluator
   extend T::Sig
 
+  # Maximum allowed length for regex patterns to prevent complexity attacks
+  MAX_REGEX_LENGTH = 500
+
+  # Timeout for regex matching (in seconds)
+  REGEX_TIMEOUT = 1
+
   OPERATORS = {
     "==" => :equal,
     "!=" => :not_equal,
@@ -85,15 +91,65 @@ class AutomationConditionEvaluator
     when :not_contains
       actual.to_s.exclude?(expected.to_s)
     when :matches
-      Regexp.new(expected.to_s).match?(actual.to_s)
+      safe_regex_match(expected.to_s, actual.to_s) == true
     when :not_matches
-      !Regexp.new(expected.to_s).match?(actual.to_s)
+      result = safe_regex_match(expected.to_s, actual.to_s)
+      # If regex is invalid (nil), return false rather than claiming "doesn't match"
+      return false if result.nil?
+
+      !result
     else
       false
     end
   rescue RegexpError
     # Invalid regex pattern
     false
+  end
+
+  # Safely execute a regex match with length limits and timeout protection.
+  # Returns true (matches), false (doesn't match), or nil (error/invalid).
+  sig { params(pattern: String, text: String).returns(T.nilable(T::Boolean)) }
+  def self.safe_regex_match(pattern, text)
+    # Reject overly long patterns that could be complex
+    return nil if pattern.length > MAX_REGEX_LENGTH
+
+    # Reject patterns with known problematic constructs
+    return nil if dangerous_regex_pattern?(pattern)
+
+    # Execute with timeout protection (best-effort, not guaranteed for all ReDoS)
+    Timeout.timeout(REGEX_TIMEOUT) do
+      Regexp.new(pattern).match?(text)
+    end
+  rescue Timeout::Error
+    Rails.logger.warn("AutomationConditionEvaluator: Regex timeout for pattern: #{pattern.truncate(50)}")
+    nil
+  rescue RegexpError
+    nil
+  end
+
+  # Backward-compatible wrapper that returns boolean only
+  sig { params(pattern: String, text: String).returns(T::Boolean) }
+  def self.safe_regex_match?(pattern, text)
+    safe_regex_match(pattern, text) == true
+  end
+
+  # Check for regex patterns known to cause catastrophic backtracking
+  sig { params(pattern: String).returns(T::Boolean) }
+  def self.dangerous_regex_pattern?(pattern)
+    # Detect nested quantifiers like (a+)+, (a*)*,  (a+)*
+    # These are common sources of ReDoS vulnerabilities
+    nested_quantifier = /\([^)]*[+*]\)[+*]/
+
+    # Detect overlapping alternations with quantifiers like (a|a)+
+    # More conservative: flag any alternation followed by a quantifier
+    alternation_quantifier = /\([^)]*\|[^)]*\)[+*]{1,}/
+
+    # Detect excessive repetition bounds like {1,10000}
+    large_repetition = /\{\d*,\s*(\d{4,})\}/
+
+    pattern.match?(nested_quantifier) ||
+      pattern.match?(alternation_quantifier) ||
+      pattern.match?(large_repetition)
   end
 
   sig { params(actual: T.untyped, expected: T.untyped).returns(T::Boolean) }

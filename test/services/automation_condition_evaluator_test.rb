@@ -381,4 +381,52 @@ class AutomationConditionEvaluatorTest < ActiveSupport::TestCase
 
     assert AutomationConditionEvaluator.evaluate_condition(condition, context)
   end
+
+  # === ReDoS Protection Tests ===
+
+  test "rejects overly long regex patterns" do
+    context = { "text" => "test" }
+    long_pattern = "a" * 600
+    condition = { "field" => "text", "operator" => "matches", "value" => long_pattern }
+
+    assert_not AutomationConditionEvaluator.evaluate_condition(condition, context)
+  end
+
+  test "detects dangerous nested quantifier pattern" do
+    assert AutomationConditionEvaluator.dangerous_regex_pattern?("(a+)+")
+    assert AutomationConditionEvaluator.dangerous_regex_pattern?("(a*)*")
+    assert AutomationConditionEvaluator.dangerous_regex_pattern?("(a+)*")
+    assert AutomationConditionEvaluator.dangerous_regex_pattern?("(.*)+")
+  end
+
+  test "detects dangerous alternation with quantifier" do
+    assert AutomationConditionEvaluator.dangerous_regex_pattern?("(a|b)+")
+    assert AutomationConditionEvaluator.dangerous_regex_pattern?("(foo|bar)*")
+  end
+
+  test "detects excessive repetition bounds" do
+    assert AutomationConditionEvaluator.dangerous_regex_pattern?("a{1,10000}")
+    assert AutomationConditionEvaluator.dangerous_regex_pattern?("x{0,99999}")
+  end
+
+  test "allows safe regex patterns" do
+    assert_not AutomationConditionEvaluator.dangerous_regex_pattern?("^hello$")
+    assert_not AutomationConditionEvaluator.dangerous_regex_pattern?("\\d+")
+    assert_not AutomationConditionEvaluator.dangerous_regex_pattern?("[a-z]+")
+    assert_not AutomationConditionEvaluator.dangerous_regex_pattern?("foo.*bar")
+    assert_not AutomationConditionEvaluator.dangerous_regex_pattern?("a{1,10}")
+  end
+
+  test "rejects dangerous regex patterns in condition" do
+    context = { "text" => "aaaaaaaaaaaa" }
+    condition = { "field" => "text", "operator" => "matches", "value" => "(a+)+" }
+
+    assert_not AutomationConditionEvaluator.evaluate_condition(condition, context)
+  end
+
+  test "safe regex match works with valid patterns" do
+    assert AutomationConditionEvaluator.safe_regex_match?("^hello", "hello world")
+    assert AutomationConditionEvaluator.safe_regex_match?("\\d{3}", "abc123def")
+    assert_not AutomationConditionEvaluator.safe_regex_match?("^foo$", "bar")
+  end
 end

@@ -163,6 +163,17 @@ class AutomationExecutor
     url = action["url"]
     return { success: false, error: "URL is required for webhook action" } if url.blank?
 
+    # Basic URL format validation (SSRF protection is handled by ssrf_filter at delivery time)
+    begin
+      uri = URI.parse(url)
+      unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
+        return { success: false, error: "URL must be HTTP or HTTPS" }
+      end
+      return { success: false, error: "URL must have a hostname" } if uri.host.blank?
+    rescue URI::InvalidURIError
+      return { success: false, error: "Invalid URL format" }
+    end
+
     # Build the request body with template rendering
     # Accept both "body" and "payload" keys for user convenience
     body = build_webhook_body(action["payload"] || action["body"] || {})
@@ -216,6 +227,10 @@ class AutomationExecutor
     agent = User.find_by(id: agent_id)
     return { status: "failed", error: "Agent not found or not an AI agent" } unless agent&.ai_agent?
 
+    # Authorization check: can the rule creator trigger this agent?
+    auth_result = authorize_agent_trigger(agent)
+    return auth_result unless auth_result["authorized"]
+
     context = build_template_context
     task_prompt = if context.present?
                     AutomationTemplateRenderer.render(task_template, context)
@@ -251,5 +266,34 @@ class AutomationExecutor
         value
       end
     end
+  end
+
+  # Check if the rule creator is authorized to trigger a specific agent
+  # Returns { "authorized" => true } or { "status" => "failed", "error" => "..." }
+  sig { params(agent: User).returns(T::Hash[String, T.untyped]) }
+  def authorize_agent_trigger(agent)
+    rule_creator = @rule.created_by
+
+    # Rule creator owns the agent (is the parent)
+    if agent.parent_id == rule_creator.id
+      return { "authorized" => true }
+    end
+
+    # For studio rules: check if the agent is a member of the same studio
+    if @rule.studio_rule? && @rule.superagent_id.present?
+      agent_is_studio_member = SuperagentMember
+        .where(superagent_id: @rule.superagent_id, user_id: agent.id)
+        .exists?
+
+      if agent_is_studio_member
+        return { "authorized" => true }
+      end
+    end
+
+    # Not authorized
+    {
+      "status" => "failed",
+      "error" => "Not authorized to trigger agent '#{agent.display_name}'. You can only trigger agents you own or agents that are members of this studio.",
+    }
   end
 end

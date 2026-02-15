@@ -120,6 +120,7 @@ gem 'aws-sdk-s3', '~> 1.208'
 # Security gems
 gem 'rack-attack' # Rate limiting and request filtering
 gem 'clamby' # ClamAV virus scanning
+gem 'ssrf_filter' # SSRF protection for outbound HTTP requests
 
 # Monitoring and error tracking
 gem 'sentry-ruby'

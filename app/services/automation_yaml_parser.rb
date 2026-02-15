@@ -94,6 +94,7 @@ class AutomationYamlParser
     when "schedule"
       @errors << "trigger.cron is required for schedule triggers" if trigger["cron"].blank?
       validate_cron_expression(trigger["cron"]) if trigger["cron"].present?
+      validate_timezone(trigger["timezone"]) if trigger["timezone"].present?
     when "webhook"
       # Optional: validate allowed_ips format if provided
       validate_allowed_ips(trigger["allowed_ips"]) if trigger["allowed_ips"].present?
@@ -103,13 +104,32 @@ class AutomationYamlParser
     end
   end
 
+  sig { params(timezone: String).void }
+  def validate_timezone(timezone)
+    # Try to find the timezone using TZInfo (via ActiveSupport)
+    ActiveSupport::TimeZone.find_tzinfo(timezone)
+  rescue TZInfo::InvalidTimezoneIdentifier
+    @errors << "trigger.timezone '#{timezone}' is not a valid timezone identifier"
+  end
+
   sig { params(cron: String).void }
   def validate_cron_expression(cron)
-    # Basic validation - 5 fields for standard cron
+    # Basic field count check
     fields = cron.to_s.split(/\s+/)
-    return if fields.length == 5
+    unless fields.length == 5
+      @errors << "trigger.cron must have 5 fields (minute hour day month weekday)"
+      return
+    end
 
-    @errors << "trigger.cron must have 5 fields (minute hour day month weekday)"
+    # Use Fugit for comprehensive cron validation
+    begin
+      parsed = Fugit::Cron.parse(cron)
+      if parsed.nil?
+        @errors << "trigger.cron is not a valid cron expression"
+      end
+    rescue StandardError => e
+      @errors << "trigger.cron is invalid: #{e.message}"
+    end
   end
 
   sig { params(allowed_ips: T.untyped).void }
@@ -135,6 +155,25 @@ class AutomationYamlParser
   end
 
   VALID_INPUT_TYPES = ["string", "number", "boolean"].freeze
+
+  sig { params(url: String, index: Integer).void }
+  def validate_webhook_url(url, index)
+    # Skip validation if URL contains template variables (will be validated at runtime)
+    return if url.include?("{{")
+
+    # Basic URL format validation (SSRF protection is handled by ssrf_filter at request time)
+    uri = URI.parse(url)
+    unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
+      @errors << "actions[#{index}].url must be a valid HTTP or HTTPS URL"
+      return
+    end
+
+    if uri.host.blank?
+      @errors << "actions[#{index}].url must have a hostname"
+    end
+  rescue URI::InvalidURIError
+    @errors << "actions[#{index}].url is not a valid URL"
+  end
 
   sig { params(inputs: T.untyped).void }
   def validate_manual_inputs(inputs)
@@ -171,7 +210,33 @@ class AutomationYamlParser
       if condition["operator"].present? && VALID_CONDITION_OPERATORS.exclude?(condition["operator"])
         @errors << "conditions[#{index}].operator must be one of: #{VALID_CONDITION_OPERATORS.join(", ")}"
       end
+
+      # Validate regex patterns for matches/not_matches operators
+      if %w[matches not_matches].include?(condition["operator"]) && condition["value"].present?
+        validate_regex_pattern(condition["value"].to_s, index)
+      end
     end
+  end
+
+  MAX_REGEX_LENGTH = 500
+
+  sig { params(pattern: String, index: Integer).void }
+  def validate_regex_pattern(pattern, index)
+    if pattern.length > MAX_REGEX_LENGTH
+      @errors << "conditions[#{index}].value regex pattern is too long (max #{MAX_REGEX_LENGTH} characters)"
+      return
+    end
+
+    # Check for dangerous patterns
+    if AutomationConditionEvaluator.dangerous_regex_pattern?(pattern)
+      @errors << "conditions[#{index}].value contains a potentially dangerous regex pattern (nested quantifiers or excessive repetition)"
+      return
+    end
+
+    # Try to compile the regex
+    Regexp.new(pattern)
+  rescue RegexpError => e
+    @errors << "conditions[#{index}].value is not a valid regex: #{e.message}"
   end
 
   sig { params(data: T::Hash[String, T.untyped]).void }
@@ -212,6 +277,10 @@ class AutomationYamlParser
         @errors << "actions[#{index}].action is required for internal_action type" if action["action"].blank?
       when "webhook"
         @errors << "actions[#{index}].url is required for webhook type" if action["url"].blank?
+        validate_webhook_url(action["url"], index) if action["url"].present?
+      when "trigger_agent"
+        @errors << "actions[#{index}].agent_id is required for trigger_agent type" if action["agent_id"].blank?
+        @errors << "actions[#{index}].task is required for trigger_agent type" if action["task"].blank?
       end
     end
   end

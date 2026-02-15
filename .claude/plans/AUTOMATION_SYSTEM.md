@@ -154,7 +154,7 @@ actions:
 | `AutomationDispatcher` | Find matching rules for events, queue execution |
 | `AutomationConditionEvaluator` | Evaluate conditions (==, !=, >, contains, matches, etc.) |
 | `AutomationTemplateRenderer` | Render `{{variable}}` templates |
-| `AutomationWebhookSender` | Send outgoing HTTP webhooks |
+| `WebhookDeliveryService` | Send outgoing HTTP webhooks with retries |
 
 ## Integration Points
 
@@ -342,12 +342,7 @@ drop_table :webhooks
 - Queue `WebhookDeliveryJob` for async delivery with retries
 - Store delivery result in `actions_executed` array
 
-**4. AutomationWebhookSender:**
-- Remove direct HTTP calls
-- Return `WebhookDelivery` record instead of result hash
-- Let `WebhookDeliveryService` handle actual delivery
-
-**5. Routes:**
+**4. Routes:**
 - Remove `/studios/:handle/settings/webhooks` routes
 - Remove `/u/:handle/settings/webhooks` routes
 - Keep automation routes (already exist)

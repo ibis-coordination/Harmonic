@@ -1,7 +1,7 @@
 # typed: true
 
-require "net/http"
 require "openssl"
+require "ssrf_filter"
 
 class WebhookDeliveryService
   extend T::Sig
@@ -21,22 +21,24 @@ class WebhookDeliveryService
     body = T.must(delivery.request_body)
     signature = sign(body, timestamp, secret)
 
-    uri = URI.parse(url)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = (uri.scheme == "https")
-    http.open_timeout = TIMEOUT_SECONDS
-    http.read_timeout = TIMEOUT_SECONDS
+    # Build headers for the request
+    headers = {
+      "Content-Type" => "application/json",
+      "X-Harmonic-Signature" => "sha256=#{signature}",
+      "X-Harmonic-Timestamp" => timestamp.to_s,
+      "X-Harmonic-Event" => determine_event_type(delivery),
+      "X-Harmonic-Delivery" => delivery.id,
+      "X-Harmonic-Automation-Run" => delivery.automation_rule_run_id.to_s,
+    }
 
-    request = Net::HTTP::Post.new(uri.path.presence || "/")
-    request["Content-Type"] = "application/json"
-    request["X-Harmonic-Signature"] = "sha256=#{signature}"
-    request["X-Harmonic-Timestamp"] = timestamp.to_s
-    request["X-Harmonic-Event"] = determine_event_type(delivery)
-    request["X-Harmonic-Delivery"] = delivery.id
-    request["X-Harmonic-Automation-Run"] = delivery.automation_rule_run_id
-    request.body = body
-
-    response = http.request(request)
+    # Use ssrf_filter for SSRF-safe HTTP requests
+    # This validates the URL after DNS resolution to prevent DNS rebinding attacks
+    response = SsrfFilter.post(
+      url,
+      body: body,
+      headers: headers,
+      timeout: TIMEOUT_SECONDS
+    )
 
     if response.code.to_i >= 200 && response.code.to_i < 300
       delivery.update!(
@@ -51,6 +53,14 @@ class WebhookDeliveryService
     else
       handle_failure(delivery, "HTTP #{response.code}: #{response.message}")
     end
+  rescue SsrfFilter::Error => e
+    # SSRF attempt detected - fail permanently, don't retry
+    delivery.update!(
+      status: "failed",
+      error_message: "Blocked: #{e.message}",
+      attempt_count: delivery.attempt_count + 1,
+    )
+    notify_parent_run(delivery)
   rescue StandardError => e
     handle_failure(delivery, e.message)
   end
@@ -102,114 +112,6 @@ class WebhookDeliveryService
     # Remove "sha256=" prefix if present
     actual = signature.sub(/^sha256=/, "")
     ActiveSupport::SecurityUtils.secure_compare(expected, actual)
-  end
-
-  # Shared HTTP delivery method for sending webhooks with HMAC signatures.
-  # Used by both WebhookDelivery-based webhooks and automation webhook actions.
-  #
-  # @param url [String] The webhook URL
-  # @param body [String] The request body (JSON string)
-  # @param secret [String] The secret for HMAC signing
-  # @param method [String] HTTP method (POST, PUT, PATCH)
-  # @param headers [Hash] Additional headers to include
-  # @param timeout [Integer] Request timeout in seconds
-  # @return [Hash] Result with :success, :status_code, :body, :error keys
-  sig do
-    params(
-      url: String,
-      body: String,
-      secret: String,
-      method: String,
-      headers: T::Hash[String, String],
-      timeout: Integer
-    ).returns(T::Hash[Symbol, T.untyped])
-  end
-  def self.deliver_request(url:, body:, secret:, method: "POST", headers: {}, timeout: TIMEOUT_SECONDS)
-    uri = parse_url(url)
-    return error_result("Invalid URL: #{url}") unless uri
-
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = (uri.scheme == "https")
-    http.open_timeout = timeout
-    http.read_timeout = timeout
-
-    request = build_request(uri, method)
-    request.body = body
-
-    # Set content type
-    request["Content-Type"] = "application/json"
-
-    # Add HMAC signature headers
-    timestamp = Time.current.to_i
-    signature = sign(body, timestamp, secret)
-    request["X-Harmonic-Signature"] = "sha256=#{signature}"
-    request["X-Harmonic-Timestamp"] = timestamp.to_s
-
-    # Add custom headers (after defaults so they can override)
-    headers.each do |key, value|
-      request[key] = value
-    end
-
-    response = http.request(request)
-
-    if response.code.to_i >= 200 && response.code.to_i < 300
-      {
-        success: true,
-        status_code: response.code.to_i,
-        body: response.body,
-      }
-    else
-      {
-        success: false,
-        status_code: response.code.to_i,
-        body: response.body,
-        error: "HTTP #{response.code}: #{response.message}",
-      }
-    end
-  rescue Net::OpenTimeout, Net::ReadTimeout => e
-    error_result("Timeout: #{e.message}")
-  rescue Errno::ECONNREFUSED => e
-    error_result("Connection refused: #{e.message}")
-  rescue SocketError => e
-    error_result("Network error: #{e.message}")
-  rescue StandardError => e
-    error_result(e.message)
-  end
-
-  sig { params(url: String).returns(T.nilable(URI::Generic)) }
-  def self.parse_url(url)
-    uri = URI.parse(url)
-    return nil unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
-
-    uri
-  rescue URI::InvalidURIError
-    nil
-  end
-
-  ALLOWED_METHODS = %w[POST PUT PATCH].freeze
-
-  sig { params(uri: URI::Generic, method: String).returns(Net::HTTPRequest) }
-  def self.build_request(uri, method)
-    method = method.upcase
-    method = "POST" unless ALLOWED_METHODS.include?(method)
-
-    request_class = case method
-                    when "PUT" then Net::HTTP::Put
-                    when "PATCH" then Net::HTTP::Patch
-                    else Net::HTTP::Post
-                    end
-
-    request_class.new(uri.path.presence || "/")
-  end
-
-  sig { params(message: String).returns(T::Hash[Symbol, T.untyped]) }
-  def self.error_result(message)
-    {
-      success: false,
-      status_code: nil,
-      body: nil,
-      error: message,
-    }
   end
 
   # Determine the event type for the X-Harmonic-Event header.
