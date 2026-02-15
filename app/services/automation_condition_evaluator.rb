@@ -108,6 +108,7 @@ class AutomationConditionEvaluator
 
   # Safely execute a regex match with length limits and timeout protection.
   # Returns true (matches), false (doesn't match), or nil (error/invalid).
+  # Uses Ruby 3.2+ native Regexp.timeout for reliable ReDoS protection.
   sig { params(pattern: String, text: String).returns(T.nilable(T::Boolean)) }
   def self.safe_regex_match(pattern, text)
     # Reject overly long patterns that could be complex
@@ -116,11 +117,9 @@ class AutomationConditionEvaluator
     # Reject patterns with known problematic constructs
     return nil if dangerous_regex_pattern?(pattern)
 
-    # Execute with timeout protection (best-effort, not guaranteed for all ReDoS)
-    Timeout.timeout(REGEX_TIMEOUT) do
-      Regexp.new(pattern).match?(text)
-    end
-  rescue Timeout::Error
+    # Use Ruby 3.2+ native Regexp timeout (more reliable than Timeout.timeout)
+    Regexp.new(pattern, timeout: REGEX_TIMEOUT).match?(text)
+  rescue Regexp::TimeoutError
     Rails.logger.warn("AutomationConditionEvaluator: Regex timeout for pattern: #{pattern.truncate(50)}")
     nil
   rescue RegexpError
