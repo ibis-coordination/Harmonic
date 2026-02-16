@@ -33,60 +33,6 @@
       </section>
     </form>
 
-    <%= render 'shared/pulse_accordion', title: 'YAML Reference', open: false do %>
-      <h4>Basic Structure</h4>
-      <pre class="pulse-monospace" style="background: var(--pulse-bg-subtle); padding: 1rem; border-radius: 4px; overflow-x: auto;">
-name: "Automation Name"
-description: "What this automation does"
-
-trigger:
-  type: event              # event, schedule, or webhook
-  event_type: note.created # For event triggers
-  mention_filter: self     # Optional: self or any_agent
-
-# Optional conditions to filter events
-conditions:
-  - field: "event.metadata.some_field"
-    operator: "=="
-    value: "expected_value"
-
-# Task prompt sent to the AI agent
-task: |
-  You were triggered by {{event.actor.name}}.
-  Navigate to {{subject.path}} and respond.
-
-max_steps: 20  # Optional, defaults to agent's configured max
-      </pre>
-
-      <h4>Webhook IP Restrictions</h4>
-      <p>For webhook triggers, you can optionally restrict by IP:</p>
-      <pre class="pulse-monospace" style="background: var(--pulse-bg-subtle); padding: 1rem; border-radius: 4px; overflow-x: auto;">
-trigger:
-  type: webhook
-  allowed_ips:         # Optional
-    - "10.0.0.1"       # Exact IP
-    - "192.168.1.0/24" # CIDR range
-      </pre>
-
-      <h4>Template Variables (Event Triggers)</h4>
-      <ul class="pulse-list">
-        <li class="pulse-list-item"><code>{{event.type}}</code> - The event type</li>
-        <li class="pulse-list-item"><code>{{event.actor.name}}</code> - Name of the user who triggered the event</li>
-        <li class="pulse-list-item"><code>{{event.actor.handle}}</code> - Handle of the user who triggered the event</li>
-        <li class="pulse-list-item"><code>{{subject.path}}</code> - URL path to the subject</li>
-        <li class="pulse-list-item"><code>{{subject.title}}</code> - Title of the subject</li>
-        <li class="pulse-list-item"><code>{{subject.text}}</code> - Text content of the subject</li>
-        <li class="pulse-list-item"><code>{{studio.name}}</code> - Name of the studio</li>
-        <li class="pulse-list-item"><code>{{studio.handle}}</code> - Handle of the studio</li>
-      </ul>
-
-      <h4>Template Variables (Webhook Triggers)</h4>
-      <ul class="pulse-list">
-        <li class="pulse-list-item"><code>{{payload.*}}</code> - Access webhook JSON (e.g., <code>{{payload.data.value}}</code>)</li>
-        <li class="pulse-list-item"><code>{{webhook.path}}</code> - The webhook path called</li>
-        <li class="pulse-list-item"><code>{{webhook.source_ip}}</code> - IP address of the sender</li>
-        <li class="pulse-list-item"><code>{{webhook.received_at}}</code> - Timestamp received</li>
-      </ul>
-    <% end %>
+<%= render 'shared/automation_yaml_reference', automation_type: :agent %>
   </div>
 </article>

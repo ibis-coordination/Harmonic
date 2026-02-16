@@ -37,6 +37,8 @@
     </div>
   </div>
 
+  <%= render 'shared/automation_attribution', resource: @commitment %>
+
   <%# Participation Progress %>
   <div class="pulse-participation-section" data-commitment-target="statusSection" data-url="<%= @commitment.path + '/status.html' %>">
     <%= render 'status' %>

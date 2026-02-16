@@ -1,0 +1,14 @@
+<%# Shows attribution for resources created by automations (markdown format) %>
+<%# Usage: render 'shared/automation_attribution', resource: @note %>
+<% run = AutomationRuleRunResource.run_for(resource) -%>
+<% if run -%>
+<% rule = run.automation_rule -%>
+
+---
+**Created by automation:** [<%= rule&.name || "Unknown" %>](<%= rule&.path %>)
+| Run ID | `<%= run.id %>` |
+| Status | <%= run.status %> |
+| Triggered | <%= run.created_at %> |
+---
+
+<% end -%>

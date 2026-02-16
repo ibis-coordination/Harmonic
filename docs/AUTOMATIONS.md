@@ -309,20 +309,48 @@ actions:
     max_steps: 15                 # Optional: limit steps
 ```
 
-#### Internal Actions (Coming Soon)
+#### Internal Actions
 
-Create content directly:
+Create content directly within the studio. Internal actions execute as the **studio proxy user** and are automatically tracked for attribution.
+
+**Supported Actions:**
+
+| Action | Description | Required Params |
+|--------|-------------|-----------------|
+| `create_note` | Create a new note | `text` |
+| `create_decision` | Create a new decision | `question` |
+| `create_commitment` | Create a new commitment | `title` |
 
 ```yaml
 actions:
+  # Create a note
   - type: internal_action
     action: create_note
     params:
-      text: "Automated response: {{subject.title}}"
-      tags: ["automated"]
+      text: "Automated response to: {{subject.title}}"
+      title: "Automation Summary"  # Optional
+
+  # Create a decision
+  - type: internal_action
+    action: create_decision
+    params:
+      question: "Should we proceed with {{subject.title}}?"
+      description: "Auto-generated decision for review"  # Optional
+      deadline: "2024-12-31"  # Optional
+      options: ["Yes", "No", "Discuss further"]  # Optional initial options
+
+  # Create a commitment
+  - type: internal_action
+    action: create_commitment
+    params:
+      title: "Follow up on {{subject.title}}"
+      description: "Automated commitment"  # Optional
+      critical_mass: 3  # Optional
+      deadline: "2024-12-31"  # Optional
+      limit: 10  # Optional max participants
 ```
 
-*Note: Internal actions are planned for Phase 3 and not yet functional.*
+**Resource Tracking:** All resources created by internal actions are tracked and display an "Created by automation" attribution badge linking back to the automation rule and run.
 
 ### Multiple Actions
 
@@ -745,9 +773,9 @@ actions:                            # Array of actions
     task: string                    # Required: task prompt
     max_steps: integer              # Optional: max steps
 
-    # For type: internal_action
-    action: string                  # Action name (e.g., "create_note")
-    params: object                  # Action parameters
+    # For type: internal_action (see detailed schemas below)
+    action: enum                    # "create_note" | "create_decision" | "create_commitment"
+    params: object                  # Action-specific parameters (see below)
 
 # Optional: Conditions (all must pass)
 conditions:
@@ -767,6 +795,127 @@ conditions:
 7. **Mention filters** must be `"self"` or `"any_agent"`
 8. **Conditions** must use valid operators
 9. **Webhook IPs** must be valid IPv4/IPv6 or CIDR notation
+
+### Internal Action Schemas
+
+Internal actions create content in the studio. Each action has specific required and optional parameters.
+
+#### create_note
+
+Creates a new note in the studio.
+
+```yaml
+actions:
+  - type: internal_action
+    action: create_note
+    params:
+      text: string        # REQUIRED - The note content (supports {{variables}})
+      title: string       # Optional - Note title (auto-generated from text if omitted)
+```
+
+**Minimal example:**
+```yaml
+actions:
+  - type: internal_action
+    action: create_note
+    params:
+      text: "Daily standup summary for {{schedule.triggered_at}}"
+```
+
+**Full example:**
+```yaml
+actions:
+  - type: internal_action
+    action: create_note
+    params:
+      text: |
+        ## Summary
+        New content was created by {{event.actor.name}}.
+
+        Original: {{subject.text}}
+      title: "Auto-summary: {{subject.title}}"
+```
+
+#### create_decision
+
+Creates a new decision for the studio to vote on.
+
+```yaml
+actions:
+  - type: internal_action
+    action: create_decision
+    params:
+      question: string      # REQUIRED - The decision question
+      description: string   # Optional - Additional context
+      deadline: string      # Optional - ISO8601 date (e.g., "2024-12-31")
+      options: [string]     # Optional - Initial option titles to add
+```
+
+**Minimal example:**
+```yaml
+actions:
+  - type: internal_action
+    action: create_decision
+    params:
+      question: "Should we proceed with this proposal?"
+```
+
+**Full example:**
+```yaml
+actions:
+  - type: internal_action
+    action: create_decision
+    params:
+      question: "How should we handle {{subject.title}}?"
+      description: |
+        This decision was auto-generated based on {{event.type}}.
+        Please review and vote.
+      deadline: "2024-12-31"
+      options:
+        - "Approve as-is"
+        - "Request changes"
+        - "Defer to next cycle"
+```
+
+#### create_commitment
+
+Creates a new commitment for studio members to join.
+
+```yaml
+actions:
+  - type: internal_action
+    action: create_commitment
+    params:
+      title: string           # REQUIRED - The commitment title
+      description: string     # Optional - Additional context
+      critical_mass: integer  # Optional - Minimum participants needed (default: 1)
+      deadline: string        # Optional - ISO8601 date (e.g., "2024-12-31")
+      limit: integer          # Optional - Maximum participants allowed
+```
+
+**Minimal example:**
+```yaml
+actions:
+  - type: internal_action
+    action: create_commitment
+    params:
+      title: "Review the weekly summary"
+```
+
+**Full example:**
+```yaml
+actions:
+  - type: internal_action
+    action: create_commitment
+    params:
+      title: "Participate in {{subject.title}}"
+      description: |
+        Auto-generated commitment for the upcoming event.
+        Join to confirm your participation.
+      critical_mass: 5
+      deadline: "2024-12-31"
+      limit: 20
+```
 
 ---
 
@@ -805,6 +954,29 @@ Both agent and studio automations have a **Runs** tab showing:
 
 Click a run to see detailed information including webhook delivery status.
 
+### Resource Tracking
+
+When automations create content (via internal actions or AI agents), those resources are tracked for traceability:
+
+1. **Attribution Badge**: Created notes, decisions, and commitments display a "Created by automation" badge
+2. **Link to Rule**: Badge links to the automation rule that created it
+3. **Link to Run**: Badge also links to the specific run for debugging
+4. **Run Details**: The run detail page shows all resources created during that execution
+
+This tracking helps you:
+- Understand which content was auto-generated
+- Debug automation behavior
+- Audit automation activity
+- Navigate from created content back to its source
+
+**Tracked Resource Types:**
+- Notes (created, updated)
+- Decisions (created)
+- Commitments (created)
+- Options (added to decisions)
+- Votes (cast on options)
+- Commitment participants (joined)
+
 ---
 
 ## Troubleshooting
@@ -831,6 +1003,13 @@ Click a run to see detailed information including webhook delivery status.
 3. **Review agent state**: Check if the agent is enabled and configured
 4. **Check linked run**: View the AI agent task run for details
 
+### Internal Actions Failing
+
+1. **Check studio context**: Internal actions require a studio automation (not user-level)
+2. **Verify proxy user**: Studio must have a proxy user configured
+3. **Check required params**: Each action has required parameters (see table above)
+4. **Review run details**: Check the run's executed actions for specific errors
+
 ### Template Variables Not Rendering
 
 1. **Check syntax**: Use `{{variable}}` not `{variable}` or `{{ variable }}`
@@ -847,6 +1026,9 @@ Click a run to see detailed information including webhook delivery status.
 | "Invalid cron expression" | Malformed cron schedule | Use 5-field cron format |
 | "Agent not found" | Invalid agent_id in trigger_agent | Verify agent UUID exists |
 | "Rate limit exceeded" | Too many executions | Wait or reduce trigger frequency |
+| "Internal actions require a studio context" | User-level automation with internal_action | Use studio automation instead |
+| "Unsupported action" | Invalid action name | Use `create_note`, `create_decision`, or `create_commitment` |
+| "Studio does not have a proxy user" | Missing proxy user | Contact admin to configure studio |
 
 ---
 

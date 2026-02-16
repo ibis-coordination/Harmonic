@@ -146,16 +146,32 @@ class AutomationExecutor
     action_name = action["action"]
     params = action["params"] || {}
 
+    return { action: action_name, status: "failed", error: "Action name is required" } if action_name.blank?
+
     # Render any template variables in params
     rendered_params = render_params(params)
 
-    # Internal actions will be implemented in Phase 3
-    # For now, just record what would be executed
-    {
-      action: action_name,
-      params: rendered_params,
-      status: "skipped - not implemented",
-    }
+    # Execute using the internal action service
+    service = AutomationInternalActionService.new(@run)
+    result = service.execute(action_name, rendered_params.stringify_keys)
+
+    if result.success
+      {
+        action: action_name,
+        params: rendered_params,
+        status: "success",
+        resource_id: result.resource_id,
+        resource_path: result.resource_path,
+        message: result.message,
+      }
+    else
+      {
+        action: action_name,
+        params: rendered_params,
+        status: "failed",
+        error: result.error,
+      }
+    end
   end
 
   sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[Symbol, T.untyped]) }

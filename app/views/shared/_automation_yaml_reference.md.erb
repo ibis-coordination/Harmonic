@@ -1,0 +1,237 @@
+<%# Shared YAML reference for automation forms (Markdown version) %>
+<%# Local variables: %>
+<%#   automation_type: :agent or :studio (default: :studio) %>
+<% automation_type ||= :studio %>
+
+## YAML Reference
+
+### Basic Structure
+
+<% if automation_type == :agent %>
+```yaml
+name: "Automation Name"
+description: "What this automation does"
+
+trigger:
+  type: event              # event, schedule, webhook, or manual
+  event_type: note.created # Required for event triggers
+  mention_filter: self     # Optional: self or any_agent
+
+# Optional conditions to filter events
+conditions:
+  - field: "subject.text"
+    operator: "contains"
+    value: "urgent"
+
+# Task prompt sent to the AI agent
+task: |
+  You were triggered by {{event.actor.name}}.
+  Navigate to {{subject.path}} and respond.
+
+max_steps: 20  # Optional, defaults to agent's configured max
+```
+<% else %>
+```yaml
+name: "Automation Name"
+description: "What this automation does"
+
+trigger:
+  type: event              # event, schedule, webhook, or manual
+  event_type: note.created # Required for event triggers
+
+# Optional conditions to filter events
+conditions:
+  - field: "subject.text"
+    operator: "contains"
+    value: "urgent"
+
+# Actions to execute
+actions:
+  - type: webhook          # or internal_action, trigger_agent
+    url: "https://example.com/hook"
+    payload:
+      text: "{{subject.title}}"
+```
+<% end %>
+
+### Trigger Types
+- `event` - Trigger when a specific event occurs
+- `schedule` - Trigger on a cron schedule
+- `webhook` - Trigger via incoming webhook
+- `manual` - Trigger manually via button click
+
+### Event Types
+- `note.created` - A note was created
+- `comment.created` - A comment was added
+- `reply.created` - A reply was added to a comment
+- `decision.created` - A decision was created
+- `commitment.created` - A commitment was created
+- `commitment.critical_mass` - A commitment reached critical mass
+
+<% if automation_type == :agent %>
+### Mention Filters
+- `self` - Only trigger when this agent is @mentioned
+- `any_agent` - Trigger when any agent is mentioned
+- *(omit)* - Trigger on all matching events
+
+<% end %>
+### Schedule Configuration
+
+```yaml
+trigger:
+  type: schedule
+  cron: "0 9 * * *"           # Run at 9:00 AM daily
+  timezone: "America/New_York" # Optional, defaults to UTC
+```
+
+**Cron format:** `minute hour day-of-month month day-of-week`
+
+| Expression | Description |
+|------------|-------------|
+| `0 9 * * *` | Daily at 9:00 AM |
+| `0 9 * * 1` | Every Monday at 9:00 AM |
+| `0 9 1 * *` | First day of month at 9:00 AM |
+| `0 9 * * 1-5` | Weekdays at 9:00 AM |
+| `0 */2 * * *` | Every 2 hours |
+
+**Common timezones:** `UTC`, `America/New_York`, `America/Los_Angeles`, `Europe/London`, `Asia/Tokyo`
+
+### Webhook Configuration
+
+```yaml
+trigger:
+  type: webhook
+  allowed_ips:              # Optional: restrict to specific IPs
+    - "10.0.0.1"            # Exact IP address
+    - "192.168.1.0/24"      # CIDR range
+```
+
+After creation, you'll receive a unique webhook URL and secret. External systems must sign requests with HMAC-SHA256.
+
+### Manual Trigger Configuration
+
+```yaml
+trigger:
+  type: manual
+  inputs:
+    report_date:
+      label: "Report Date"
+      type: string        # string, number, or boolean
+      default: "today"
+    include_draft:
+      label: "Include Drafts"
+      type: boolean
+      default: false
+```
+
+Access input values via `{{inputs.report_date}}`.
+
+<% if automation_type == :studio %>
+### Action Types
+- `webhook` - Send an HTTP request to an external URL
+- `internal_action` - Create content in the studio
+- `trigger_agent` - Trigger an AI agent with a task
+
+### Webhook Action
+
+```yaml
+actions:
+  - type: webhook
+    url: "https://hooks.slack.com/services/..."
+    method: POST           # Optional: GET, POST, PUT, PATCH, DELETE
+    headers:               # Optional
+      Authorization: "Bearer {{secrets.token}}"
+    payload:               # Request body
+      text: "New: {{subject.title}}"
+    timeout: 30            # Optional: seconds
+```
+
+### Internal Actions
+
+Create content directly in the studio. Resources created are tracked with automation attribution.
+
+| Action | Required Param | Optional Params |
+|--------|----------------|-----------------|
+| `create_note` | `text` | `title` |
+| `create_decision` | `question` | `description`, `deadline`, `options` |
+| `create_commitment` | `title` | `description`, `critical_mass`, `deadline`, `limit` |
+
+```yaml
+# Create a note
+actions:
+  - type: internal_action
+    action: create_note
+    params:
+      text: "Summary of {{subject.title}}"
+      title: "Auto-generated note"  # Optional
+
+# Create a decision
+  - type: internal_action
+    action: create_decision
+    params:
+      question: "Should we proceed with {{subject.title}}?"
+      description: "Auto-generated"  # Optional
+      deadline: "2024-12-31"         # Optional
+      options:                       # Optional
+        - "Yes"
+        - "No"
+        - "Discuss further"
+
+# Create a commitment
+  - type: internal_action
+    action: create_commitment
+    params:
+      title: "Follow up on {{subject.title}}"
+      description: "Auto-generated"  # Optional
+      critical_mass: 3               # Optional (default: 1)
+      deadline: "2024-12-31"         # Optional
+      limit: 10                      # Optional max participants
+```
+
+### Trigger Agent Action
+
+```yaml
+actions:
+  - type: trigger_agent
+    agent_id: "agent-uuid-here"   # Required
+    task: |                       # Required
+      Review the content at {{subject.path}}.
+      Post a summary of the key points.
+    max_steps: 15                 # Optional
+```
+
+<% end %>
+### Template Variables
+
+**Event triggers:**
+- `{{event.type}}` - The event type
+- `{{event.actor.name}}` - Name of the triggering user
+- `{{event.actor.handle}}` - Handle of the triggering user
+- `{{subject.path}}` - URL path to the subject
+- `{{subject.title}}` - Title of the subject
+- `{{subject.text}}` - Text content of the subject
+- `{{studio.name}}` - Name of the studio
+- `{{studio.handle}}` - Handle of the studio
+
+**Webhook triggers:**
+- `{{payload.*}}` - Access webhook JSON (e.g., `{{payload.data.value}}`)
+- `{{webhook.path}}` - The webhook path called
+- `{{webhook.source_ip}}` - IP address of the sender
+- `{{webhook.received_at}}` - Timestamp received
+
+**Manual triggers:**
+- `{{inputs.*}}` - Access input values (e.g., `{{inputs.report_date}}`)
+- `{{triggered_at}}` - Timestamp when run was triggered
+- `{{triggered_by}}` - ID of the user who triggered the run
+
+**Schedule triggers:**
+- `{{schedule.triggered_at}}` - When the schedule fired
+
+### Condition Operators
+
+| Operator | Description |
+|----------|-------------|
+| `==`, `!=` | Equal, not equal |
+| `>`, `>=`, `<`, `<=` | Numeric comparisons |
+| `contains`, `not_contains` | String contains substring |
+| `matches`, `not_matches` | Regex pattern matching |

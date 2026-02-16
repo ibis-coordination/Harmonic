@@ -37,6 +37,8 @@
     </div>
   </div>
 
+  <%= render 'shared/automation_attribution', resource: @decision %>
+
   <%= render 'shared/pulse_attachments', resource: @decision %>
 
   <% if @decision.description.present? %>

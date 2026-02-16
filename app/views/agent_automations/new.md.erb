@@ -8,75 +8,7 @@ Create a new automation by providing YAML configuration.
 <%= @template_yaml %>
 ```
 
-## YAML Reference
-
-### Trigger Types
-- `event` - Trigger when a specific event occurs
-- `schedule` - Trigger on a cron schedule
-- `webhook` - Trigger via incoming webhook
-
-### Schedule Trigger Configuration
-
-For scheduled automations, use a cron expression:
-
-```yaml
-trigger:
-  type: schedule
-  cron: "0 9 * * *"            # Run at 9:00 AM daily
-  timezone: "America/New_York"  # Optional, defaults to UTC
-```
-
-**Cron format:** `minute hour day-of-month month day-of-week`
-
-| Expression | Description |
-|------------|-------------|
-| `0 9 * * *` | Daily at 9:00 AM |
-| `0 9 * * 1` | Every Monday at 9:00 AM |
-| `0 9 1 * *` | First day of month at 9:00 AM |
-| `0 9 * * 1-5` | Weekdays at 9:00 AM |
-| `0 */2 * * *` | Every 2 hours |
-
-**Common timezones:** `UTC`, `America/New_York`, `America/Los_Angeles`, `Europe/London`, `Asia/Tokyo`
-
-### Webhook Trigger Configuration
-
-For webhook-triggered automations:
-
-```yaml
-trigger:
-  type: webhook
-  allowed_ips:              # Optional: restrict to specific IPs
-    - "10.0.0.1"            # Exact IP address
-    - "192.168.1.0/24"      # CIDR range
-```
-
-After creation, you'll receive a unique webhook URL and secret. External systems must sign requests with HMAC-SHA256.
-
-### Event Types
-- `note.created` - A note was created
-- `comment.created` - A comment was added
-- `reply.created` - A reply was added
-- `decision.created` - A decision was created
-- `commitment.created` - A commitment was created
-- `commitment.critical_mass` - A commitment reached critical mass
-
-### Mention Filters
-- `self` - Only trigger when this agent is @mentioned
-- `any_agent` - Trigger when any agent is mentioned
-- *(omit)* - Trigger on all matching events
-
-### Template Variables (Event Triggers)
-- `{{event.type}}` - The event type
-- `{{event.actor.name}}` - Name of the triggering user
-- `{{subject.path}}` - URL path to the subject
-- `{{subject.title}}` - Title of the subject
-- `{{studio.handle}}` - Handle of the studio
-
-### Template Variables (Webhook Triggers)
-- `{{payload.*}}` - Access webhook JSON payload (e.g., `{{payload.event}}`, `{{payload.data.value}}`)
-- `{{webhook.path}}` - The webhook path that was called
-- `{{webhook.source_ip}}` - IP address of the webhook sender
-- `{{webhook.received_at}}` - Timestamp when webhook was received
+<%= render 'shared/automation_yaml_reference.md', automation_type: :agent %>
 
 ## Navigation
 

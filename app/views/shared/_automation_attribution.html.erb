@@ -1,0 +1,18 @@
+<%# Shows attribution for resources created by automations %>
+<%# Usage: render 'shared/automation_attribution', resource: @note %>
+<% run = AutomationRuleRunResource.run_for(resource) %>
+<% if run %>
+  <% rule = run.automation_rule %>
+  <div class="pulse-automation-attribution">
+    <%= octicon 'workflow', height: 14, class: 'pulse-automation-icon' %>
+    <span class="pulse-automation-label">Created by automation</span>
+    <% if rule %>
+      <a href="<%= rule.path %>" class="pulse-automation-link">
+        <%= rule.name %>
+      </a>
+      <span class="pulse-automation-run-link">
+        (<a href="<%= rule.path %>/runs/<%= run.id %>">run details</a>)
+      </span>
+    <% end %>
+  </div>
+<% end %>

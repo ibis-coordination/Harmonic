@@ -371,21 +371,60 @@
               <% end %>
 
             <% when "internal_action" %>
+              <%
+                action_action = action_result&.dig("action") || action_result&.dig(:action) || action&.dig("action") || action&.dig(:action)
+                action_status = action_result&.dig("status") || action_result&.dig(:status)
+                resource_path = action_result&.dig("resource_path") || action_result&.dig(:resource_path)
+                resource_id = action_result&.dig("resource_id") || action_result&.dig(:resource_id)
+                action_message = action_result&.dig("message") || action_result&.dig(:message)
+                action_error = action_result&.dig("error") || action_result&.dig(:error)
+              %>
               <table class="pulse-table">
                 <tr>
                   <th style="width:120px;">Action</th>
-                  <td><code><%= action_result&.dig("action") || action_result&.dig(:action) %></code></td>
+                  <td><code><%= action_action %></code></td>
                 </tr>
-                <% if action_result&.dig("status") || action_result&.dig(:status) %>
+                <% if action_status %>
                   <tr>
                     <th>Status</th>
-                    <td><%= action_result&.dig("status") || action_result&.dig(:status) %></td>
+                    <td>
+                      <% if action_status == "success" %>
+                        <span class="pulse-tag pulse-tag-success">Success</span>
+                      <% elsif action_status == "failed" %>
+                        <span class="pulse-tag pulse-tag-danger">Failed</span>
+                      <% else %>
+                        <span class="pulse-tag"><%= action_status %></span>
+                      <% end %>
+                    </td>
+                  </tr>
+                <% end %>
+                <% if resource_path %>
+                  <tr>
+                    <th>Created Resource</th>
+                    <td>
+                      <a href="<%= resource_path %>" class="pulse-action-btn pulse-action-btn-small">
+                        <%= octicon 'link-external', height: 12 %> View <%= action_action&.gsub('create_', '')&.humanize %>
+                      </a>
+                    </td>
+                  </tr>
+                <% end %>
+                <% if action_message && action_status == "success" %>
+                  <tr>
+                    <th>Message</th>
+                    <td><%= action_message %></td>
+                  </tr>
+                <% end %>
+                <% if action_error %>
+                  <tr>
+                    <th>Error</th>
+                    <td class="pulse-error-text"><%= action_error %></td>
                   </tr>
                 <% end %>
               </table>
-              <% if action_result&.dig("params") || action_result&.dig(:params) %>
+              <% action_params = action_result&.dig("params") || action_result&.dig(:params) %>
+              <% if action_params.present? %>
                 <%= render 'shared/pulse_accordion', title: 'Parameters', open: false do %>
-                  <pre class="pulse-code-block"><code><%= JSON.pretty_generate(action_result&.dig("params") || action_result&.dig(:params)) %></code></pre>
+                  <pre class="pulse-code-block"><code><%= JSON.pretty_generate(action_params) %></code></pre>
                 <% end %>
               <% end %>
 
@@ -393,6 +432,76 @@
               <pre class="pulse-code-block"><code><%= JSON.pretty_generate(action) %></code></pre>
             <% end %>
           </div>
+        <% end %>
+      </section>
+    <% end %>
+
+    <%# Resources Created Section - shows notes, decisions, commitments created by this run %>
+    <% created_notes = @run.created_notes.sort_by(&:created_at).reverse %>
+    <% created_decisions = @run.created_decisions.sort_by(&:created_at).reverse %>
+    <% created_commitments = @run.created_commitments.sort_by(&:created_at).reverse %>
+    <% if created_notes.any? || created_decisions.any? || created_commitments.any? %>
+      <section class="pulse-settings-section">
+        <h3>Resources Created</h3>
+        <p class="pulse-helper-text" style="margin-bottom: 1rem;">
+          These resources were created by this automation run.
+        </p>
+        <% if created_notes.any? %>
+          <h4 style="margin-top: 1rem;"><%= octicon 'note', height: 14 %> Notes (<%= created_notes.size %>)</h4>
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% created_notes.each do |note| %>
+                <tr>
+                  <td><a href="<%= note.path %>"><%= note.title.truncate(60) %></a></td>
+                  <td><%= note.created_at.strftime('%Y-%m-%d %H:%M') %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+        <% if created_decisions.any? %>
+          <h4 style="margin-top: 1rem;"><%= octicon 'checklist', height: 14 %> Decisions (<%= created_decisions.size %>)</h4>
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <th>Question</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% created_decisions.each do |decision| %>
+                <tr>
+                  <td><a href="<%= decision.path %>"><%= decision.question.truncate(60) %></a></td>
+                  <td><%= decision.created_at.strftime('%Y-%m-%d %H:%M') %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+        <% if created_commitments.any? %>
+          <h4 style="margin-top: 1rem;"><%= octicon 'people', height: 14 %> Commitments (<%= created_commitments.size %>)</h4>
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% created_commitments.each do |commitment| %>
+                <tr>
+                  <td><a href="<%= commitment.path %>"><%= commitment.title.truncate(60) %></a></td>
+                  <td><%= commitment.created_at.strftime('%Y-%m-%d %H:%M') %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
         <% end %>
       </section>
     <% end %>

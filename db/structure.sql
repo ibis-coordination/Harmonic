@@ -1,7 +1,7 @@
-\restrict DbvPZcMitFcVufrtRqHM17vBPeS31zHCOoWZUlaowqgw0bHQ9dxgJLC8SOJ6R6K
+\restrict 0yykmFoUwpkkD0Gn75g8KJxxoJGa1IDhB23sEq93H1bcQhHWHkfCJEVkyQFu2xW
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
--- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
+-- Dumped by pg_dump version 15.16 (Debian 15.16-0+deb12u1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -194,6 +194,24 @@ CREATE TABLE public.attachments (
     byte_size bigint NOT NULL,
     created_by_id uuid NOT NULL,
     updated_by_id uuid NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: automation_rule_run_resources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.automation_rule_run_resources (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    automation_rule_run_id uuid NOT NULL,
+    resource_type character varying NOT NULL,
+    resource_id uuid NOT NULL,
+    resource_superagent_id uuid NOT NULL,
+    action_type character varying,
+    display_path character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -2126,6 +2144,14 @@ ALTER TABLE ONLY public.attachments
 
 
 --
+-- Name: automation_rule_run_resources automation_rule_run_resources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_run_resources
+    ADD CONSTRAINT automation_rule_run_resources_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: automation_rule_runs automation_rule_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2987,6 +3013,27 @@ CREATE INDEX index_attachments_on_updated_by_id ON public.attachments USING btre
 
 
 --
+-- Name: index_automation_rule_run_resources_on_automation_rule_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_run_resources_on_automation_rule_run_id ON public.automation_rule_run_resources USING btree (automation_rule_run_id);
+
+
+--
+-- Name: index_automation_rule_run_resources_on_resource_superagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_run_resources_on_resource_superagent_id ON public.automation_rule_run_resources USING btree (resource_superagent_id);
+
+
+--
+-- Name: index_automation_rule_run_resources_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_run_resources_on_tenant_id ON public.automation_rule_run_resources USING btree (tenant_id);
+
+
+--
 -- Name: index_automation_rule_runs_on_ai_agent_task_run_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3110,6 +3157,20 @@ CREATE INDEX index_automation_rules_on_user_id ON public.automation_rules USING 
 --
 
 CREATE UNIQUE INDEX index_automation_rules_on_webhook_path ON public.automation_rules USING btree (webhook_path) WHERE (webhook_path IS NOT NULL);
+
+
+--
+-- Name: index_automation_run_resources_on_resource; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_run_resources_on_resource ON public.automation_rule_run_resources USING btree (resource_type, resource_id);
+
+
+--
+-- Name: index_automation_run_resources_on_tenant_and_resource; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_run_resources_on_tenant_and_resource ON public.automation_rule_run_resources USING btree (tenant_id, resource_type, resource_id);
 
 
 --
@@ -7638,6 +7699,14 @@ ALTER TABLE ONLY public.invites
 
 
 --
+-- Name: automation_rule_run_resources fk_rails_23642e8a45; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_run_resources
+    ADD CONSTRAINT fk_rails_23642e8a45 FOREIGN KEY (automation_rule_run_id) REFERENCES public.automation_rule_runs(id);
+
+
+--
 -- Name: votes fk_rails_23f31e4409; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7998,6 +8067,14 @@ ALTER TABLE ONLY public.representation_session_events
 
 
 --
+-- Name: automation_rule_run_resources fk_rails_9206dc9615; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_run_resources
+    ADD CONSTRAINT fk_rails_9206dc9615 FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
+
+
+--
 -- Name: automation_rules fk_rails_923f8bbd47; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8059,6 +8136,14 @@ ALTER TABLE ONLY public.attachments
 
 ALTER TABLE ONLY public.notification_recipients
     ADD CONSTRAINT fk_rails_a8704dfb21 FOREIGN KEY (notification_id) REFERENCES public.notifications(id);
+
+
+--
+-- Name: automation_rule_run_resources fk_rails_a9f3201d54; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_run_resources
+    ADD CONSTRAINT fk_rails_a9f3201d54 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8361,7 +8446,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict DbvPZcMitFcVufrtRqHM17vBPeS31zHCOoWZUlaowqgw0bHQ9dxgJLC8SOJ6R6K
+\unrestrict 0yykmFoUwpkkD0Gn75g8KJxxoJGa1IDhB23sEq93H1bcQhHWHkfCJEVkyQFu2xW
 
 SET search_path TO "$user", public;
 
@@ -8521,6 +8606,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260214192742'),
 ('20260214205415'),
 ('20260214205558'),
-('20260214210049');
+('20260214210049'),
+('20260215202823');
 
 

@@ -13,6 +13,7 @@ class AutomationRuleRun < ApplicationRecord
   belongs_to :triggered_by_event, class_name: "Event", optional: true
   belongs_to :ai_agent_task_run, optional: true
   has_many :webhook_deliveries, dependent: :nullify
+  has_many :automation_rule_run_resources, dependent: :destroy
 
   validates :status, inclusion: { in: STATUSES }
   validates :trigger_source, inclusion: { in: TRIGGER_SOURCES }, allow_nil: true
@@ -87,6 +88,33 @@ class AutomationRuleRun < ApplicationRecord
   sig { params(task_run: AiAgentTaskRun).void }
   def link_to_task_run!(task_run)
     update!(ai_agent_task_run: task_run)
+  end
+
+  # Get all notes created by this automation run
+  sig { returns(T::Array[Note]) }
+  def created_notes
+    resource_ids = automation_rule_run_resources
+      .where(resource_type: "Note", action_type: "create")
+      .pluck(:resource_id)
+    Note.tenant_scoped_only(tenant_id).where(id: resource_ids).to_a
+  end
+
+  # Get all decisions created by this automation run
+  sig { returns(T::Array[Decision]) }
+  def created_decisions
+    resource_ids = automation_rule_run_resources
+      .where(resource_type: "Decision", action_type: "create")
+      .pluck(:resource_id)
+    Decision.tenant_scoped_only(tenant_id).where(id: resource_ids).to_a
+  end
+
+  # Get all commitments created by this automation run
+  sig { returns(T::Array[Commitment]) }
+  def created_commitments
+    resource_ids = automation_rule_run_resources
+      .where(resource_type: "Commitment", action_type: "create")
+      .pluck(:resource_id)
+    Commitment.tenant_scoped_only(tenant_id).where(id: resource_ids).to_a
   end
 
   # Record executed actions without marking as completed.
