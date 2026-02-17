@@ -3,7 +3,7 @@ require "test_helper"
 class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
@@ -13,10 +13,10 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "user with representative role can start representation" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
 
     assert_response :redirect
     follow_redirect!
@@ -27,17 +27,17 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   test "user without representative role cannot start representation" do
     sign_in_as(@user, tenant: @tenant)
 
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
 
     assert_response :forbidden
   end
 
   test "user with any_member_can_represent setting can start representation" do
-    @superagent.settings['any_member_can_represent'] = true
-    @superagent.save!
+    @collective.settings['any_member_can_represent'] = true
+    @collective.save!
     sign_in_as(@user, tenant: @tenant)
 
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
 
     assert_response :redirect
     follow_redirect!
@@ -45,16 +45,16 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "must confirm understanding to start representation" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     # First load the represent page
-    get "/studios/#{@superagent.handle}/represent"
+    get "/studios/#{@collective.handle}/represent"
     assert_response :success
 
     # Try without confirming understanding
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'false' },
-         headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}/represent" }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'false' },
+         headers: { "HTTP_REFERER" => "/studios/#{@collective.handle}/represent" }
 
     assert_response :redirect
     follow_redirect!
@@ -62,16 +62,16 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "cannot start representation if already in active session" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     # Start first session
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
     follow_redirect!
 
     # Try to start second session
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' },
-         headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}/represent" }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' },
+         headers: { "HTTP_REFERER" => "/studios/#{@collective.handle}/represent" }
 
     assert_response :redirect
     follow_redirect!
@@ -79,18 +79,18 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "representation session is created when starting" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference 'RepresentationSession.count', 1 do
-      post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+      post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
     end
 
     session = RepresentationSession.last
     assert_equal @user, session.representative_user
-    # effective_user is the superagent's trustee for studio representation
-    assert_equal @superagent.proxy_user, session.effective_user
-    assert_equal @superagent, session.superagent
+    # effective_user is the collective's trustee for studio representation
+    assert_equal @collective.proxy_user, session.effective_user
+    assert_equal @collective, session.collective
     assert session.active?
   end
 
@@ -99,15 +99,15 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "creating note while representing attributes it to proxy user" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     # Start representation
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
     follow_redirect!
 
     # Create a note while representing
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: {
         title: "Note from representation",
         text: "This should be attributed to the proxy user",
@@ -115,20 +115,20 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     }
 
     note = Note.last
-    assert_equal @superagent.proxy_user.id, note.created_by_id
+    assert_equal @collective.proxy_user.id, note.created_by_id
     assert_not_equal @user.id, note.created_by_id
   end
 
   test "activity is recorded in representation session" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     # Start representation
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
     follow_redirect!
 
     # Create a note while representing
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: {
         title: "Note for activity log",
         text: "This should be recorded in the session",
@@ -145,19 +145,19 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "representative can stop their session" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     # Start representation
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
     follow_redirect!
 
-    session = RepresentationSession.unscoped.where(superagent_id: @superagent.id).last
+    session = RepresentationSession.unscoped.where(collective_id: @collective.id).last
     assert_not_nil session, "RepresentationSession should have been created"
     assert_nil session.ended_at
 
     # Stop representation
-    delete "/studios/#{@superagent.handle}/represent"
+    delete "/studios/#{@collective.handle}/represent"
 
     assert_response :redirect
     session.reload
@@ -166,26 +166,26 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "after stopping representation current_user returns original user" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     # Start representation
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
     follow_redirect!
 
     # Create note while representing - should be trustee
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: { title: "During representation", text: "Trustee note" },
     }
     note_during = Note.last
-    assert_equal @superagent.proxy_user.id, note_during.created_by_id
+    assert_equal @collective.proxy_user.id, note_during.created_by_id
 
     # Stop representation
-    delete "/studios/#{@superagent.handle}/represent"
+    delete "/studios/#{@collective.handle}/represent"
     follow_redirect!
 
     # Create note after stopping - should be user
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: { title: "After representation", text: "User note" },
     }
     note_after = Note.last
@@ -197,42 +197,42 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "representation session show page is accessible" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     session.end!
     sign_in_as(@user, tenant: @tenant)
 
-    get "/studios/#{@superagent.handle}/r/#{session.truncated_id}"
+    get "/studios/#{@collective.handle}/r/#{session.truncated_id}"
 
     assert_response :success
   end
 
   test "representation index shows sessions and representatives" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     session.end!
     sign_in_as(@user, tenant: @tenant)
 
-    get "/studios/#{@superagent.handle}/representation"
+    get "/studios/#{@collective.handle}/representation"
 
     assert_response :success
   end
 
   test "representation index only shows studio representation sessions, not user representation sessions" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
 
     # Create a studio representation session (this SHOULD appear)
     studio_session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     studio_session.end!
@@ -240,7 +240,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     # Create a user representation session via trustee grant (this should NOT appear)
     ai_agent = create_user(email: "ai_agent_#{SecureRandom.hex(4)}@example.com", name: "AiAgent User")
     @tenant.add_user!(ai_agent)
-    @superagent.add_user!(ai_agent)
+    @collective.add_user!(ai_agent)
     grant = create_trustee_grant(
       tenant: @tenant,
       granting_user: ai_agent,
@@ -255,7 +255,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
 
-    get "/studios/#{@superagent.handle}/representation"
+    get "/studios/#{@collective.handle}/representation"
 
     assert_response :success
 
@@ -273,29 +273,29 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "if representative role is removed during session it ends gracefully" do
-    superagent_member = @superagent.superagent_members.find_by(user: @user)
-    superagent_member.add_role!('representative')
+    collective_member = @collective.collective_members.find_by(user: @user)
+    collective_member.add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     # Start representation
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
     follow_redirect!
 
     # Remove representative role
-    superagent_member.remove_role!('representative')
+    collective_member.remove_role!('representative')
 
     # Access a page - should end representation gracefully
-    get "/studios/#{@superagent.handle}"
+    get "/studios/#{@collective.handle}"
 
     assert_response :success
     # Session should have been cleared since user can no longer represent
   end
 
   test "representation session expires after 24 hours" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
       began_at: 25.hours.ago,
     )
@@ -310,7 +310,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(other_user)
     sign_in_as(other_user, tenant: @tenant)
 
-    get "/studios/#{@superagent.handle}/represent"
+    get "/studios/#{@collective.handle}/represent"
 
     # Non-members are redirected to join the studio
     assert_response :redirect
@@ -318,19 +318,19 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "unauthenticated user cannot start representation" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
 
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
 
     assert_response :redirect
   end
 
   test "representation persists across multiple requests" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_as(@user, tenant: @tenant)
 
     # Start representation
-    post "/studios/#{@superagent.handle}/represent", params: { understand: 'true' }
+    post "/studios/#{@collective.handle}/represent", params: { understand: 'true' }
     follow_redirect!
 
     # The /representing page should work
@@ -338,15 +338,15 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # Access today's cycle
-    get "/studios/#{@superagent.handle}/cycles/today"
+    get "/studios/#{@collective.handle}/cycles/today"
     assert_response :success
 
     # Create content - should still be attributed to trustee
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: { title: "Third request note", text: "Still representing" },
     }
 
     note = Note.last
-    assert_equal @superagent.proxy_user.id, note.created_by_id
+    assert_equal @collective.proxy_user.id, note.created_by_id
   end
 end

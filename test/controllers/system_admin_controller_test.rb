@@ -5,11 +5,11 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     # Create the primary tenant
     @primary_tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN']) ||
                       Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
-    @primary_tenant.create_main_superagent!(created_by: create_user(name: "System")) unless @primary_tenant.main_superagent
+    @primary_tenant.create_main_collective!(created_by: create_user(name: "System")) unless @primary_tenant.main_collective
 
     # Create a non-primary tenant
     @other_tenant = Tenant.create!(subdomain: "other-#{SecureRandom.hex(4)}", name: "Other Tenant")
-    @other_tenant.create_main_superagent!(created_by: create_user(name: "System")) unless @other_tenant.main_superagent
+    @other_tenant.create_main_collective!(created_by: create_user(name: "System")) unless @other_tenant.main_collective
 
     # Create users
     @sys_admin_user = create_user(name: "Sys Admin User")

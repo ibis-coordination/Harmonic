@@ -3,21 +3,21 @@ require "test_helper"
 class SocialProximityCalculatorTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
   end
 
   # =========================================================================
-  # Superagent membership tests
+  # Collective membership tests
   # =========================================================================
 
-  test "users in same small superagent have high proximity" do
+  test "users in same small collective have high proximity" do
     # Create a small 3-person studio
     user1 = create_user(email: "prox_user1@example.com")
     user2 = create_user(email: "prox_user2@example.com")
     user3 = create_user(email: "prox_user3@example.com")
 
-    small_studio = create_superagent(
+    small_studio = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Small Studio",
@@ -25,7 +25,7 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     )
 
     [user1, user2, user3].each do |u|
-      SuperagentMember.create!(tenant: @tenant, superagent: small_studio, user: u)
+      CollectiveMember.create!(tenant: @tenant, collective: small_studio, user: u)
     end
 
     calculator = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
@@ -37,22 +37,22 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     assert scores[user2.id] > 0.01, "small group members should have meaningful proximity"
   end
 
-  test "users in same large superagent have lower proximity than small one" do
+  test "users in same large collective have lower proximity than small one" do
     user1 = create_user(email: "large_prox1@example.com")
     user2 = create_user(email: "large_prox2@example.com")
 
     # Create small studio (3 members)
-    small_studio = create_superagent(
+    small_studio = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Small Studio",
       handle: "small-studio-large-#{SecureRandom.hex(4)}"
     )
     [user1, user2].each do |u|
-      SuperagentMember.create!(tenant: @tenant, superagent: small_studio, user: u)
+      CollectiveMember.create!(tenant: @tenant, collective: small_studio, user: u)
     end
     user3 = create_user(email: "small_member@example.com")
-    SuperagentMember.create!(tenant: @tenant, superagent: small_studio, user: user3)
+    CollectiveMember.create!(tenant: @tenant, collective: small_studio, user: user3)
 
     # Calculate proximity through small studio
     calc_small = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
@@ -62,19 +62,19 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user4 = create_user(email: "large_user4@example.com")
     user5 = create_user(email: "large_user5@example.com")
 
-    large_scene = create_superagent(
+    large_scene = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Large Scene",
       handle: "large-scene-#{SecureRandom.hex(4)}"
     )
     [user4, user5].each do |u|
-      SuperagentMember.create!(tenant: @tenant, superagent: large_scene, user: u)
+      CollectiveMember.create!(tenant: @tenant, collective: large_scene, user: u)
     end
     # Add 18 more users to make it large
     18.times do |i|
       u = create_user(email: "large_member_#{i}@example.com")
-      SuperagentMember.create!(tenant: @tenant, superagent: large_scene, user: u)
+      CollectiveMember.create!(tenant: @tenant, collective: large_scene, user: u)
     end
 
     # Calculate proximity through large scene
@@ -104,15 +104,15 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "note_reader1@example.com")
     user2 = create_user(email: "note_reader2@example.com")
 
-    SuperagentMember.create!(tenant: @tenant, superagent: @superagent, user: user1)
-    SuperagentMember.create!(tenant: @tenant, superagent: @superagent, user: user2)
+    CollectiveMember.create!(tenant: @tenant, collective: @collective, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: @collective, user: user2)
 
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Both users read the note
     NoteHistoryEvent.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       note: note,
       user: user1,
       event_type: "read_confirmation",
@@ -120,7 +120,7 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     )
     NoteHistoryEvent.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       note: note,
       user: user2,
       event_type: "read_confirmation",
@@ -142,10 +142,10 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "voter1@example.com")
     user2 = create_user(email: "voter2@example.com")
 
-    SuperagentMember.create!(tenant: @tenant, superagent: @superagent, user: user1)
-    SuperagentMember.create!(tenant: @tenant, superagent: @superagent, user: user2)
+    CollectiveMember.create!(tenant: @tenant, collective: @collective, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: @collective, user: user2)
 
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Create participants with unique participant_uid values
     participant1 = DecisionParticipant.create!(decision: decision, user: user1, participant_uid: SecureRandom.uuid)
@@ -189,19 +189,19 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "joiner1@example.com")
     user2 = create_user(email: "joiner2@example.com")
 
-    SuperagentMember.create!(tenant: @tenant, superagent: @superagent, user: user1)
-    SuperagentMember.create!(tenant: @tenant, superagent: @superagent, user: user2)
+    CollectiveMember.create!(tenant: @tenant, collective: @collective, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: @collective, user: user2)
 
     commitment = create_commitment(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user
     )
 
     # Both users join the commitment (with unique participant_uid values)
     CommitmentParticipant.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       commitment: commitment,
       user: user1,
       participant_uid: SecureRandom.uuid,
@@ -209,7 +209,7 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     )
     CommitmentParticipant.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       commitment: commitment,
       user: user2,
       participant_uid: SecureRandom.uuid,
@@ -227,12 +227,12 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
   # Heartbeat group tests
   # =========================================================================
 
-  test "users with heartbeats in same superagent cycle have proximity" do
+  test "users with heartbeats in same collective cycle have proximity" do
     user1 = create_user(email: "heartbeat1@example.com")
     user2 = create_user(email: "heartbeat2@example.com")
 
-    # Create a dedicated superagent for heartbeat testing
-    heartbeat_studio = create_superagent(
+    # Create a dedicated collective for heartbeat testing
+    heartbeat_studio = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Heartbeat Studio",
@@ -242,13 +242,13 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     # Create heartbeats within the current cycle
     heartbeat1 = Heartbeat.create!(
       tenant: @tenant,
-      superagent: heartbeat_studio,
+      collective: heartbeat_studio,
       user: user1,
       expires_at: 1.day.from_now
     )
     heartbeat2 = Heartbeat.create!(
       tenant: @tenant,
-      superagent: heartbeat_studio,
+      collective: heartbeat_studio,
       user: user2,
       expires_at: 1.day.from_now
     )
@@ -259,7 +259,7 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     assert scores[user2.id].present?, "user with heartbeat in same cycle should have proximity"
     assert scores[user2.id] > 0, "heartbeat users should have positive proximity"
 
-    # Cleanup heartbeats before superagent is deleted
+    # Cleanup heartbeats before collective is deleted
     heartbeat1.destroy!
     heartbeat2.destroy!
   end
@@ -272,27 +272,27 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "multi1@example.com")
     user2 = create_user(email: "multi2@example.com")
 
-    studio = create_superagent(
+    studio = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Multi Studio",
       handle: "multi-studio-#{SecureRandom.hex(4)}"
     )
 
-    # Both in same superagent
-    SuperagentMember.create!(tenant: @tenant, superagent: studio, user: user1)
-    SuperagentMember.create!(tenant: @tenant, superagent: studio, user: user2)
+    # Both in same collective
+    CollectiveMember.create!(tenant: @tenant, collective: studio, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: studio, user: user2)
 
-    # Calculate baseline proximity with just superagent
+    # Calculate baseline proximity with just collective
     calc_baseline = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
     baseline_scores = calc_baseline.compute
     baseline_proximity = baseline_scores[user2.id] || 0.0
 
     # Now add shared note reading
-    note = create_note(tenant: @tenant, superagent: studio, created_by: @user)
+    note = create_note(tenant: @tenant, collective: studio, created_by: @user)
     NoteHistoryEvent.create!(
       tenant: @tenant,
-      superagent: studio,
+      collective: studio,
       note: note,
       user: user1,
       event_type: "read_confirmation",
@@ -300,14 +300,14 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     )
     NoteHistoryEvent.create!(
       tenant: @tenant,
-      superagent: studio,
+      collective: studio,
       note: note,
       user: user2,
       event_type: "read_confirmation",
       happened_at: Time.current
     )
 
-    # Calculate new proximity with both superagent and note reading
+    # Calculate new proximity with both collective and note reading
     calc_enhanced = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
     enhanced_scores = calc_enhanced.compute
     enhanced_proximity = enhanced_scores[user2.id] || 0.0
@@ -330,13 +330,13 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user_b = create_user(email: "transitive_b@example.com")
     user_c = create_user(email: "transitive_c@example.com")
 
-    studio1 = create_superagent(
+    studio1 = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Studio 1",
       handle: "transitive-studio1-#{SecureRandom.hex(4)}"
     )
-    studio2 = create_superagent(
+    studio2 = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Studio 2",
@@ -344,14 +344,14 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     )
 
     # User A in Studio 1 only
-    SuperagentMember.create!(tenant: @tenant, superagent: studio1, user: user_a)
+    CollectiveMember.create!(tenant: @tenant, collective: studio1, user: user_a)
 
     # User B in both studios (the bridge)
-    SuperagentMember.create!(tenant: @tenant, superagent: studio1, user: user_b)
-    SuperagentMember.create!(tenant: @tenant, superagent: studio2, user: user_b)
+    CollectiveMember.create!(tenant: @tenant, collective: studio1, user: user_b)
+    CollectiveMember.create!(tenant: @tenant, collective: studio2, user: user_b)
 
     # User C in Studio 2 only
-    SuperagentMember.create!(tenant: @tenant, superagent: studio2, user: user_c)
+    CollectiveMember.create!(tenant: @tenant, collective: studio2, user: user_c)
 
     calculator = SocialProximityCalculator.new(user_a, tenant_id: @tenant.id)
     scores = calculator.compute
@@ -373,21 +373,21 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user2 = create_user(email: "isolated2@example.com")
 
     # Put them in different studios with no overlap
-    studio1 = create_superagent(
+    studio1 = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Isolated Studio 1",
       handle: "isolated-studio1-#{SecureRandom.hex(4)}"
     )
-    studio2 = create_superagent(
+    studio2 = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Isolated Studio 2",
       handle: "isolated-studio2-#{SecureRandom.hex(4)}"
     )
 
-    SuperagentMember.create!(tenant: @tenant, superagent: studio1, user: user1)
-    SuperagentMember.create!(tenant: @tenant, superagent: studio2, user: user2)
+    CollectiveMember.create!(tenant: @tenant, collective: studio1, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: studio2, user: user2)
 
     calculator = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
     scores = calculator.compute
@@ -403,17 +403,17 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "tenant1_user@example.com")
     user2 = create_user(email: "tenant2_user@example.com")
 
-    # User1 in tenant1's superagent
-    SuperagentMember.create!(tenant: @tenant, superagent: @superagent, user: user1)
+    # User1 in tenant1's collective
+    CollectiveMember.create!(tenant: @tenant, collective: @collective, user: user1)
 
-    # Create superagent in tenant2
-    studio2 = create_superagent(
+    # Create collective in tenant2
+    studio2 = create_collective(
       tenant: tenant2,
       created_by: @user,
       name: "Tenant 2 Studio",
       handle: "tenant2-studio-#{SecureRandom.hex(4)}"
     )
-    SuperagentMember.create!(tenant: tenant2, superagent: studio2, user: user2)
+    CollectiveMember.create!(tenant: tenant2, collective: studio2, user: user2)
 
     # Calculate proximity scoped to tenant1
     calculator = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
@@ -440,15 +440,15 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "determinism1@example.com")
     user2 = create_user(email: "determinism2@example.com")
 
-    studio = create_superagent(
+    studio = create_collective(
       tenant: @tenant,
       created_by: @user,
       name: "Determinism Studio",
       handle: "determinism-studio-#{SecureRandom.hex(4)}"
     )
 
-    SuperagentMember.create!(tenant: @tenant, superagent: studio, user: user1)
-    SuperagentMember.create!(tenant: @tenant, superagent: studio, user: user2)
+    CollectiveMember.create!(tenant: @tenant, collective: studio, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: studio, user: user2)
 
     # Run multiple times
     scores1 = SocialProximityCalculator.new(user1, tenant_id: @tenant.id).compute

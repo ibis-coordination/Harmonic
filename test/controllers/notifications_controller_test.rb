@@ -3,7 +3,7 @@ require "test_helper"
 class NotificationsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
@@ -32,8 +32,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     # Create a notification for the user
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
-    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -46,7 +46,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "delivered",
     )
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/notifications"
     assert_response :success
@@ -59,8 +59,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     # Create unread notification
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
-    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -73,7 +73,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "pending",
     )
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/notifications/unread_count", headers: { "Accept" => "application/json" }
     assert_response :success
@@ -86,8 +86,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "dismiss dismisses notification" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
-    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -100,7 +100,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "delivered",
     )
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     post "/notifications/actions/dismiss", params: { id: recipient.id }
     assert_response :success
@@ -115,8 +115,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "dismiss_all dismisses all notifications" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
-    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     notification = Notification.create!(
       tenant: @tenant,
       event: event,
@@ -135,7 +135,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
       channel: "in_app",
       status: "delivered",
     )
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     post "/notifications/actions/dismiss_all"
     assert_response :success
@@ -169,10 +169,10 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "index shows scheduled reminders section" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     ReminderService.create!(user: @user, title: "Future reminder", scheduled_for: 1.day.from_now)
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/notifications"
     assert_response :success
@@ -221,10 +221,10 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "scheduled reminders do not appear in immediate notifications list" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     ReminderService.create!(user: @user, title: "Scheduled Only", scheduled_for: 1.day.from_now)
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/notifications"
     assert_response :success
@@ -243,10 +243,10 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, json["count"], "Should start with 0 unread"
 
     # Create a scheduled reminder for the future
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     ReminderService.create!(user: @user, title: "Future reminder", scheduled_for: 1.day.from_now)
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     # The scheduled reminder should NOT count in unread count
     get "/notifications/unread_count", headers: { "Accept" => "application/json" }
@@ -258,11 +258,11 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     # Create a scheduled reminder for the future
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     notification = ReminderService.create!(user: @user, title: "Future reminder", scheduled_for: 1.day.from_now)
     nr = notification.notification_recipients.first
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     # Dismiss all
     post "/notifications/actions/dismiss_all"
@@ -278,10 +278,10 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     # Create a scheduled reminder for the future
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     ReminderService.create!(user: @user, title: "Future reminder", scheduled_for: 1.day.from_now)
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/notifications"
     assert_response :success
@@ -469,11 +469,11 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "delete_reminder removes the reminder" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     notification = ReminderService.create!(user: @user, title: "To delete", scheduled_for: 1.day.from_now)
     nr = notification.notification_recipients.first
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     assert_difference "NotificationRecipient.count", -1 do
       post "/notifications/actions/delete_reminder",
@@ -497,13 +497,13 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "delete_reminder cannot delete other user's reminder" do
     other_user = create_user(name: "Other Notification User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     notification = ReminderService.create!(user: other_user, title: "Other's reminder", scheduled_for: 1.day.from_now)
     nr = notification.notification_recipients.first
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     sign_in_as(@user, tenant: @tenant)
 
@@ -521,10 +521,10 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "markdown index shows scheduled reminders table" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     ReminderService.create!(user: @user, title: "MD Reminder", scheduled_for: 1.day.from_now)
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/notifications", headers: { "Accept" => "text/markdown" }
     assert_response :success
@@ -546,25 +546,25 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "dismiss_for_studio dismisses notifications for specific studio" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     # Create a second studio
-    superagent2 = Superagent.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+    collective2 = Collective.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
 
     # Create notifications in first studio
-    event1 = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    event1 = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
     recipient1 = NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
 
     # Create notifications in second studio
-    event2 = Event.create!(tenant: @tenant, superagent: superagent2, event_type: "test.created")
+    event2 = Event.create!(tenant: @tenant, collective: collective2, event_type: "test.created")
     notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
     recipient2 = NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     # Dismiss only first studio's notifications
-    post "/notifications/actions/dismiss_for_studio", params: { studio_id: @superagent.id }
+    post "/notifications/actions/dismiss_for_studio", params: { studio_id: @collective.id }
     assert_response :success
 
     recipient1.reload
@@ -582,7 +582,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "dismiss_for_studio with reminders dismisses due reminders only" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
 
     # Create a due reminder (notification without event)
@@ -590,11 +590,11 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     reminder_recipient = NotificationRecipient.create!(notification: reminder_notification, user: @user, channel: "in_app", status: "pending")
 
     # Create a normal notification with an event
-    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     normal_notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "Normal notification")
     normal_recipient = NotificationRecipient.create!(notification: normal_notification, user: @user, channel: "in_app", status: "pending")
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     # Dismiss reminders using "reminders" as studio_id
     post "/notifications/actions/dismiss_for_studio", params: { studio_id: "reminders" }
@@ -624,9 +624,9 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "dismiss_for_studio returns count in JSON response" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
-    event = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "Test")
 
     # Create 3 recipients
@@ -634,9 +634,9 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "delivered")
     NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "pending")
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
-    post "/notifications/actions/dismiss_for_studio", params: { studio_id: @superagent.id }
+    post "/notifications/actions/dismiss_for_studio", params: { studio_id: @collective.id }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -649,58 +649,58 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   test "index groups notifications by studio in HTML" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     # Create a second studio
-    superagent2 = Superagent.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+    collective2 = Collective.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
 
     # Create notifications in first studio
-    event1 = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    event1 = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
     NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
 
     # Create notifications in second studio
-    event2 = Event.create!(tenant: @tenant, superagent: superagent2, event_type: "test.created")
+    event2 = Event.create!(tenant: @tenant, collective: collective2, event_type: "test.created")
     notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
     NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/notifications"
     assert_response :success
 
     # Should show both studio names in accordion headers
-    assert_includes response.body, @superagent.name
+    assert_includes response.body, @collective.name
     assert_includes response.body, "Second Studio"
     assert_includes response.body, "pulse-accordion"
-    assert_includes response.body, "data-superagent-group"
+    assert_includes response.body, "data-collective-group"
   end
 
   test "index groups notifications by studio in markdown" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     # Create a second studio
-    superagent2 = Superagent.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+    collective2 = Collective.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
 
     # Create notifications in first studio
-    event1 = Event.create!(tenant: @tenant, superagent: @superagent, event_type: "test.created")
+    event1 = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
     notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
     NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
 
     # Create notifications in second studio
-    event2 = Event.create!(tenant: @tenant, superagent: superagent2, event_type: "test.created")
+    event2 = Event.create!(tenant: @tenant, collective: collective2, event_type: "test.created")
     notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
     NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/notifications", headers: { "Accept" => "text/markdown" }
     assert_response :success
 
     # Should show studio names as markdown headers
-    assert_includes response.body, "### #{@superagent.name}"
+    assert_includes response.body, "### #{@collective.name}"
     assert_includes response.body, "### Second Studio"
     assert_includes response.body, "dismiss_for_studio"
   end

@@ -3,11 +3,11 @@ require "test_helper"
 class RepresentationTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @parent = @global_user
     @ai_agent = create_ai_agent(parent: @parent, name: "AiAgent User")
     @tenant.add_user!(@ai_agent)
-    @superagent.add_user!(@ai_agent)
+    @collective.add_user!(@ai_agent)
     # The TrusteeGrant is auto-created when the ai_agent is created
     @grant = TrusteeGrant.find_by!(granting_user: @ai_agent, trustee_user: @parent)
     # After the migration:
@@ -44,10 +44,10 @@ class RepresentationTest < ActionDispatch::IntegrationTest
   test "parent cannot represent another user's ai_agent user" do
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
-    @superagent.add_user!(other_parent)
+    @collective.add_user!(other_parent)
     other_ai_agent = create_ai_agent(parent: other_parent, name: "Other AiAgent")
     @tenant.add_user!(other_ai_agent)
-    @superagent.add_user!(other_ai_agent)
+    @collective.add_user!(other_ai_agent)
 
     sign_in_as(@parent, tenant: @tenant)
 
@@ -70,7 +70,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
   test "parent cannot represent a regular person user" do
     other_person = create_user(name: "Other Person")
     @tenant.add_user!(other_person)
-    @superagent.add_user!(other_person)
+    @collective.add_user!(other_person)
 
     sign_in_as(@parent, tenant: @tenant)
 
@@ -95,7 +95,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     # Access a page that shows current user info (non-home pages work normally)
-    get "/studios/#{@superagent.handle}"
+    get "/studios/#{@collective.handle}"
 
     assert_response :success
   end
@@ -105,7 +105,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     # Create a note while representing
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: {
         title: "Note from representation",
         text: "This should be attributed to the ai_agent (the person being represented)",
@@ -128,7 +128,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     assert_difference "Note.count", 1 do
-      post "/studios/#{@superagent.handle}/note", params: {
+      post "/studios/#{@collective.handle}/note", params: {
         note: {
           title: "Note created while representing",
           text: "Created by parent representing ai_agent",
@@ -147,7 +147,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     # Create a decision first
     decision = Decision.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @parent,
       question: "Test Decision?",
       description: "Testing voting while representing",
@@ -156,7 +156,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     )
     option = Option.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       decision: decision,
       decision_participant: DecisionParticipantManager.new(decision: decision, user: @parent).find_or_create_participant,
       title: "Option A",
@@ -165,7 +165,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     # Now represent and vote
     start_representing
 
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/vote", params: {
+    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/actions/vote", params: {
       votes: [{ option_title: option.title, accept: true, prefer: false }],
     }
 
@@ -192,7 +192,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     # Create a note while representing
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: { title: "Before stop", text: "Representing" },
     }
     note_while_representing = Note.last
@@ -200,7 +200,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     assert_equal @effective_user.id, note_while_representing.created_by_id
 
     # Stop representing
-    delete "/u/#{@ai_agent.handle}/represent", headers: { "HTTP_REFERER" => "/studios/#{@superagent.handle}" }
+    delete "/u/#{@ai_agent.handle}/represent", headers: { "HTTP_REFERER" => "/studios/#{@collective.handle}" }
 
     # The stop_representing action should end the representation session
     rep_session = RepresentationSession.unscoped.find_by(trustee_grant: @grant, representative_user: @parent)
@@ -210,7 +210,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     # Create another note after stopping
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: { title: "After stop", text: "No longer representing" },
     }
     note_after_stopping = Note.last
@@ -230,7 +230,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     @ai_agent.archive!
 
     # Access a page - should no longer be representing
-    get "/studios/#{@superagent.handle}"
+    get "/studios/#{@collective.handle}"
 
     assert_response :success
     # The session should have cleared the representation since can_represent? returns false for archived users
@@ -244,7 +244,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     @grant.revoke!
 
     # Access a page - representation should be cleared
-    get "/studios/#{@superagent.handle}"
+    get "/studios/#{@collective.handle}"
 
     assert_response :success
     # Session should clear representation since the grant is revoked
@@ -263,14 +263,14 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     # Make multiple requests
-    get "/studios/#{@superagent.handle}"
+    get "/studios/#{@collective.handle}"
     assert_response :success
 
-    get "/studios/#{@superagent.handle}/cycles/today"
+    get "/studios/#{@collective.handle}/cycles/today"
     assert_response :success
 
     # Create content on third request
-    post "/studios/#{@superagent.handle}/note", params: {
+    post "/studios/#{@collective.handle}/note", params: {
       note: { title: "Third request note", text: "Still representing" },
     }
 

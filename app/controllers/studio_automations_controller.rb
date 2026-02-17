@@ -1,6 +1,6 @@
 # typed: false
 
-# Manages studio-level automation rules (rules scoped to superagent, not AI agent).
+# Manages studio-level automation rules (rules scoped to collective, not AI agent).
 # Studio automations use 'actions' array format, not 'task' template.
 class StudioAutomationsController < ApplicationController
   # Make path helpers available to views
@@ -23,39 +23,39 @@ class StudioAutomationsController < ApplicationController
     AutomationRule
   end
 
-  # GET /studios/:superagent_handle/settings/automations
+  # GET /studios/:collective_handle/settings/automations
   def index
-    @page_title = "Automations - #{@current_superagent.name}"
+    @page_title = "Automations - #{@current_collective.name}"
     @automation_rules = AutomationRule.tenant_scoped_only
-      .where(superagent_id: @current_superagent.id)
+      .where(collective_id: @current_collective.id)
       .where(ai_agent_id: nil)
       .order(created_at: :desc)
   end
 
-  # GET /studios/:superagent_handle/settings/automations/:automation_id
+  # GET /studios/:collective_handle/settings/automations/:automation_id
   def show
-    @page_title = "#{@automation_rule.name} - #{@current_superagent.name}"
+    @page_title = "#{@automation_rule.name} - #{@current_collective.name}"
     @recent_runs = @automation_rule.automation_rule_runs.recent.limit(10)
   end
 
-  # GET /studios/:superagent_handle/settings/automations/new
+  # GET /studios/:collective_handle/settings/automations/new
   def new
-    @page_title = "New Automation - #{@current_superagent.name}"
+    @page_title = "New Automation - #{@current_collective.name}"
     @yaml_source = params[:yaml_source] || default_template
   end
 
-  # GET /studios/:superagent_handle/settings/automations/:automation_id/edit
+  # GET /studios/:collective_handle/settings/automations/:automation_id/edit
   def edit
-    @page_title = "Edit #{@automation_rule.name} - #{@current_superagent.name}"
+    @page_title = "Edit #{@automation_rule.name} - #{@current_collective.name}"
   end
 
-  # GET /studios/:superagent_handle/settings/automations/:automation_id/runs
+  # GET /studios/:collective_handle/settings/automations/:automation_id/runs
   def runs
     @page_title = "Run History - #{@automation_rule.name}"
     @runs = @automation_rule.automation_rule_runs.recent.limit(50)
   end
 
-  # GET /studios/:superagent_handle/settings/automations/:automation_id/runs/:run_id
+  # GET /studios/:collective_handle/settings/automations/:automation_id/runs/:run_id
   def run_show
     @run = @automation_rule.automation_rule_runs.find(params[:run_id])
     @page_title = "Run Details - #{@automation_rule.name}"
@@ -129,7 +129,7 @@ class StudioAutomationsController < ApplicationController
     rule = AutomationRule.new(
       result.attributes.merge(
         tenant: @current_tenant,
-        superagent: @current_superagent,
+        collective: @current_collective,
         ai_agent_id: nil,
         created_by: @current_user,
         yaml_source: yaml_source
@@ -338,7 +338,7 @@ class StudioAutomationsController < ApplicationController
     # Create the run
     run = AutomationRuleRun.create!(
       tenant: @current_tenant,
-      superagent: @current_superagent,
+      collective: @current_collective,
       automation_rule: @automation_rule,
       trigger_source: "manual",
       trigger_data: trigger_data,
@@ -429,10 +429,10 @@ class StudioAutomationsController < ApplicationController
   end
 
   def require_studio_admin
-    return if @current_user.superagent_member&.is_admin?
+    return if @current_user.collective_member&.is_admin?
 
     respond_to do |format|
-      format.html { redirect_to @current_superagent.path, alert: "You must be a studio admin to manage automations." }
+      format.html { redirect_to @current_collective.path, alert: "You must be a studio admin to manage automations." }
       format.json { render json: { error: "Forbidden" }, status: :forbidden }
       format.md { render plain: "# Error\n\nYou must be a studio admin to manage automations.", status: :forbidden }
     end
@@ -440,12 +440,12 @@ class StudioAutomationsController < ApplicationController
 
   def set_sidebar_mode
     @sidebar_mode = "settings"
-    @team = @current_superagent.team
+    @team = @current_collective.team
   end
 
   def set_automation_rule
     @automation_rule = AutomationRule.tenant_scoped_only
-      .where(superagent_id: @current_superagent.id)
+      .where(collective_id: @current_collective.id)
       .where(ai_agent_id: nil)
       .find_by!(truncated_id: params[:automation_id])
   rescue ActiveRecord::RecordNotFound
@@ -457,11 +457,11 @@ class StudioAutomationsController < ApplicationController
   end
 
   def automations_index_path
-    "/studios/#{@current_superagent.handle}/settings/automations"
+    "/studios/#{@current_collective.handle}/settings/automations"
   end
 
   def automation_path(rule)
-    "/studios/#{@current_superagent.handle}/settings/automations/#{rule.truncated_id}"
+    "/studios/#{@current_collective.handle}/settings/automations/#{rule.truncated_id}"
   end
 
   def default_template

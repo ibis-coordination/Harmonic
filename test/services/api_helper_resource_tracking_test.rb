@@ -3,16 +3,16 @@ require "test_helper"
 class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle,
+      handle: @collective.handle,
     )
 
     @ai_agent = create_ai_agent(parent: @user, name: "Tracking AiAgent")
     @tenant.add_user!(@ai_agent)
-    @superagent.add_user!(@ai_agent)
+    @collective.add_user!(@ai_agent)
 
     @task_run = AiAgentTaskRun.create!(
       tenant: @tenant,
@@ -37,7 +37,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: { text: "No tracking note" },
       request: {},
     )
@@ -52,7 +52,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: { text: "Tracked note" },
       request: {},
     )
@@ -74,7 +74,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: { text: "Test note body" },
       request: {},
     )
@@ -83,7 +83,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     resource = AiAgentTaskRunResource.find_by(resource_id: note.id)
     assert_not_nil resource
     assert_equal "create", resource.action_type
-    assert_equal @superagent.id, resource.resource_superagent_id
+    assert_equal @collective.id, resource.resource_collective_id
     assert_equal note.path, resource.display_path
   end
 
@@ -95,7 +95,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: {
         question: "Should we proceed?",
         description: "A test decision",
@@ -117,12 +117,12 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
   test "create_decision_options tracks multiple resources" do
     AiAgentTaskRun.current_id = @task_run.id
 
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_decision: decision,
       params: { titles: ["Option A", "Option B", "Option C"] },
       request: {},
@@ -147,14 +147,14 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
   test "create_votes tracks multiple vote resources" do
     AiAgentTaskRun.current_id = @task_run.id
 
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option1 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option A")
-    option2 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option B")
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option1 = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option A")
+    option2 = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option B")
 
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_decision: decision,
       params: {
         votes: [
@@ -181,12 +181,12 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
   test "confirm_read tracks NoteHistoryEvent resource" do
     AiAgentTaskRun.current_id = @task_run.id
 
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_resource_model: Note,
       current_resource: note,
       params: {},
@@ -209,7 +209,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper1 = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: { text: "First note" },
       request: {},
     )
@@ -218,7 +218,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper2 = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: { text: "Second note" },
       request: {},
     )
@@ -236,7 +236,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: {
         question: "Test decision?",
         description: "Test description",
@@ -257,7 +257,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper1 = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: { text: "A note" },
       request: {},
     )
@@ -266,7 +266,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper2 = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: {
         question: "A decision?",
         description: "Test description",
@@ -294,7 +294,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     api_helper = ApiHelper.new(
       current_user: @ai_agent,
       current_tenant: @tenant,
-      current_superagent: @superagent,
+      current_collective: @collective,
       params: { text: "Note despite tracking failure" },
       request: {},
     )

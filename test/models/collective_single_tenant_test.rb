@@ -1,30 +1,30 @@
 require "test_helper"
 
-class SuperagentSingleTenantTest < ActiveSupport::TestCase
+class CollectiveSingleTenantTest < ActiveSupport::TestCase
   def setup
     @tenant = Tenant.find_by(subdomain: ENV['PRIMARY_SUBDOMAIN']) ||
               Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
     @user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test Person", user_type: "human")
     @tenant.add_user!(@user)
-    @tenant.create_main_superagent!(created_by: @user) unless @tenant.main_superagent
+    @tenant.create_main_collective!(created_by: @user) unless @tenant.main_collective
   end
 
-  test "Superagent.scope_thread_to_superagent handles empty subdomain in single-tenant mode" do
+  test "Collective.scope_thread_to_collective handles empty subdomain in single-tenant mode" do
     ENV['SINGLE_TENANT_MODE'] = 'true'
 
-    result = Superagent.scope_thread_to_superagent(subdomain: "", handle: nil)
+    result = Collective.scope_thread_to_collective(subdomain: "", handle: nil)
 
-    assert_equal @tenant.main_superagent.id, result.id
+    assert_equal @tenant.main_collective.id, result.id
     assert_equal @tenant.id, Tenant.current_id
   ensure
     ENV.delete('SINGLE_TENANT_MODE')
   end
 
-  test "Superagent.scope_thread_to_superagent raises for empty subdomain in multi-tenant mode" do
+  test "Collective.scope_thread_to_collective raises for empty subdomain in multi-tenant mode" do
     ENV.delete('SINGLE_TENANT_MODE')
 
     assert_raises RuntimeError do
-      Superagent.scope_thread_to_superagent(subdomain: "", handle: nil)
+      Collective.scope_thread_to_collective(subdomain: "", handle: nil)
     end
   end
 end

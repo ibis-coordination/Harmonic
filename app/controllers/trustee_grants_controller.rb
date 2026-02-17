@@ -58,7 +58,7 @@ class TrusteeGrantsController < ApplicationController
     @page_title = "Create Trustee Grant"
     @grant = TrusteeGrant.new
     @available_users = available_users_for_grant
-    @available_studios = @target_user.superagents
+    @available_studios = @target_user.collectives
     @grantable_actions = TrusteeGrant::GRANTABLE_ACTIONS
   end
 

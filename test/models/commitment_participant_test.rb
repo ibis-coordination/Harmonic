@@ -5,20 +5,20 @@ require "test_helper"
 class CommitmentParticipantTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
   end
 
   test "requires user" do
-    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
 
     participant = CommitmentParticipant.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       commitment: commitment,
       user: nil,
       committed_at: Time.current
@@ -29,11 +29,11 @@ class CommitmentParticipantTest < ActiveSupport::TestCase
   end
 
   test "valid with user" do
-    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
 
     participant = CommitmentParticipant.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       commitment: commitment,
       user: @user,
       committed_at: Time.current
@@ -43,11 +43,11 @@ class CommitmentParticipantTest < ActiveSupport::TestCase
   end
 
   test "authenticated? returns true" do
-    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
 
     participant = CommitmentParticipant.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       commitment: commitment,
       user: @user,
       committed_at: Time.current

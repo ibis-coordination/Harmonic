@@ -1,6 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, @current_tenant.path],
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   'Settings'
 ] %>
 
@@ -18,21 +18,21 @@
   <div class="pulse-settings-form">
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Studio Image</h2>
-      <%= render 'shared/profile_image_upload', resource: @current_superagent, size: 83 %>
+      <%= render 'shared/profile_image_upload', resource: @current_collective, size: 83 %>
     </section>
 
-    <%= form_with(url: "#{@current_superagent.path}/settings", id: "studio-settings-form", class: "pulse-form", data: { controller: "form-tracker", action: "change->form-tracker#trackChange input->form-tracker#trackChange" }) do |form| %>
+    <%= form_with(url: "#{@current_collective.path}/settings", id: "studio-settings-form", class: "pulse-form", data: { controller: "form-tracker", action: "change->form-tracker#trackChange input->form-tracker#trackChange" }) do |form| %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Studio Name</h2>
         <div class="pulse-form-group">
-          <%= form.text_field :name, placeholder: 'Studio Name', value: @current_superagent.name, class: 'pulse-form-input' %>
+          <%= form.text_field :name, placeholder: 'Studio Name', value: @current_collective.name, class: 'pulse-form-input' %>
         </div>
       </section>
 
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Studio Description</h2>
         <div class="pulse-form-group">
-          <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_superagent.description, class: 'pulse-form-textarea', rows: 4 %>
+          <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_collective.description, class: 'pulse-form-textarea', rows: 4 %>
         </div>
       </section>
 
@@ -42,7 +42,7 @@
           The studio time zone determines when cycles begin and end.
         </p>
         <div class="pulse-form-group">
-          <%= form.time_zone_select :timezone, ActiveSupport::TimeZone.all, { default: @current_superagent.timezone.name }, class: 'pulse-form-select' %>
+          <%= form.time_zone_select :timezone, ActiveSupport::TimeZone.all, { default: @current_collective.timezone.name }, class: 'pulse-form-select' %>
         </div>
       </section>
 
@@ -53,7 +53,7 @@
           This determines the primary cycle duration.
         </p>
         <div class="pulse-form-group">
-          <%= form.select :tempo, [['Daily', 'daily'], ['Weekly', 'weekly'], ['Monthly', 'monthly']], { selected: @current_superagent.tempo }, class: 'pulse-form-select' %>
+          <%= form.select :tempo, [['Daily', 'daily'], ['Weekly', 'weekly'], ['Monthly', 'monthly']], { selected: @current_collective.tempo }, class: 'pulse-form-select' %>
         </div>
       </section>
 
@@ -64,11 +64,11 @@
         </p>
         <fieldset class="pulse-radio-group">
           <label class="pulse-radio-label">
-            <%= form.radio_button :synchronization_mode, 'improv', checked: @current_superagent.improv?, class: 'pulse-radio-input' %>
+            <%= form.radio_button :synchronization_mode, 'improv', checked: @current_collective.improv?, class: 'pulse-radio-input' %>
             <span><strong>Improv</strong> (no formal leadership roles)</span>
           </label>
           <label class="pulse-radio-label">
-            <%= form.radio_button :synchronization_mode, 'orchestra', checked: @current_superagent.orchestra?, class: 'pulse-radio-input' %>
+            <%= form.radio_button :synchronization_mode, 'orchestra', checked: @current_collective.orchestra?, class: 'pulse-radio-input' %>
             <span><strong>Orchestra</strong> (has formal leadership roles)</span>
           </label>
         </fieldset>
@@ -79,11 +79,11 @@
         <fieldset class="pulse-radio-group">
           <legend class="pulse-fieldset-legend">Who can invite new members?</legend>
           <label class="pulse-radio-label">
-            <%= form.radio_button :invitations, 'all_members', checked: @current_superagent.all_members_can_invite?, class: 'pulse-radio-input' %>
+            <%= form.radio_button :invitations, 'all_members', checked: @current_collective.all_members_can_invite?, class: 'pulse-radio-input' %>
             <span>All members can invite</span>
           </label>
           <label class="pulse-radio-label">
-            <%= form.radio_button :invitations, 'only_admins', checked: !@current_superagent.all_members_can_invite?, class: 'pulse-radio-input' %>
+            <%= form.radio_button :invitations, 'only_admins', checked: !@current_collective.all_members_can_invite?, class: 'pulse-radio-input' %>
             <span>Only admins can invite</span>
           </label>
         </fieldset>
@@ -92,13 +92,13 @@
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Representation</h2>
         <fieldset class="pulse-radio-group">
-          <legend class="pulse-fieldset-legend">Who can act as a representative of <%= @current_superagent.name %> within other studios?</legend>
+          <legend class="pulse-fieldset-legend">Who can act as a representative of <%= @current_collective.name %> within other studios?</legend>
           <label class="pulse-radio-label">
-            <%= form.radio_button :representation, 'any_member', checked: @current_superagent.any_member_can_represent?, class: 'pulse-radio-input' %>
+            <%= form.radio_button :representation, 'any_member', checked: @current_collective.any_member_can_represent?, class: 'pulse-radio-input' %>
             <span>Any member can represent the studio</span>
           </label>
           <label class="pulse-radio-label">
-            <%= form.radio_button :representation, 'only_representatives', checked: !@current_superagent.any_member_can_represent?, class: 'pulse-radio-input' %>
+            <%= form.radio_button :representation, 'only_representatives', checked: !@current_collective.any_member_can_represent?, class: 'pulse-radio-input' %>
             <span>Only designated representatives can represent the studio</span>
           </label>
         </fieldset>
@@ -110,7 +110,7 @@
           <h2 class="pulse-section-title">Features Enabled</h2>
           <% available_flags.each do |flag_name| %>
             <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
-            <% studio_enabled_locally = @current_superagent.feature_flag_enabled_locally?(flag_name) %>
+            <% studio_enabled_locally = @current_collective.feature_flag_enabled_locally?(flag_name) %>
 
             <div class="pulse-feature-flag-item">
               <strong><%= metadata['name'] %></strong>
@@ -121,12 +121,12 @@
               <% if flag_name == 'file_attachments' && studio_enabled_locally %>
                 <p class="pulse-feature-usage">
                   Current usage:
-                  <%= @current_superagent.file_storage_usage_in_human_size %> of <%= @current_superagent.file_storage_limit_in_human_size %>
+                  <%= @current_collective.file_storage_usage_in_human_size %> of <%= @current_collective.file_storage_limit_in_human_size %>
                   <% if ENV['SAAS_MODE'] == 'true' %>
                     <%= link_to 'Purchase more space', '/billing', class: 'pulse-action-btn-small' %>
                   <% else %>
                     <br/>
-                    Increase limit: <%= form.number_field :file_storage_limit, value: @current_superagent.file_storage_limit / 1.megabyte, class: 'pulse-form-input pulse-form-input-small' %> MB
+                    Increase limit: <%= form.number_field :file_storage_limit, value: @current_collective.file_storage_limit / 1.megabyte, class: 'pulse-form-input pulse-form-input-small' %> MB
                   <% end %>
                 </p>
               <% end %>
@@ -140,8 +140,8 @@
       </div>
     <% end %>
 
-    <% if @current_superagent.feature_enabled?('api') %>
-      <section class="pulse-settings-section" data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="<%= @current_superagent.path %>/settings/remove_ai_agent">
+    <% if @current_collective.feature_enabled?('api') %>
+      <section class="pulse-settings-section" data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="<%= @current_collective.path %>/settings/remove_ai_agent">
         <h2 class="pulse-section-title">AI Agents in this Studio</h2>
         <p class="pulse-section-description">
           AI Agents are virtual identities managed by their parent user.
@@ -172,7 +172,7 @@
                             data-action="ai_agent-manager#remove"
                             data-ai_agent-id="<%= ai_agent.id %>"
                             data-ai_agent-name="<%= ai_agent.display_name %>"
-                            data-remove-url="<%= @current_superagent.path %>/settings/remove_ai_agent">
+                            data-remove-url="<%= @current_collective.path %>/settings/remove_ai_agent">
                       Remove
                     </button>
                   </td>
@@ -187,7 +187,7 @@
 
         <% if @addable_ai_agents.any? %>
           <h3 class="pulse-subsection-title">Add your ai_agents to this studio</h3>
-          <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="<%= @current_superagent.path %>/settings/add_ai_agent" method="post" class="pulse-inline-form">
+          <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="<%= @current_collective.path %>/settings/add_ai_agent" method="post" class="pulse-inline-form">
             <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
             <select name="ai_agent_id" data-ai_agent-manager-target="select" class="pulse-form-select">
               <option value="">Select a ai_agent...</option>
@@ -208,7 +208,7 @@
             <br><%= @enabled_automations_count %> automation<%= @enabled_automations_count == 1 ? '' : 's' %> currently enabled.
           <% end %>
         </p>
-        <a href="<%= @current_superagent.path %>/settings/automations" class="pulse-action-btn">
+        <a href="<%= @current_collective.path %>/settings/automations" class="pulse-action-btn">
           <%= octicon 'gear', height: 14 %> Manage Automations
         </a>
       </section>

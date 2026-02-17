@@ -1,5 +1,5 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   ['Note', @note.path],
   'Edit'
 ] %>
@@ -19,7 +19,7 @@
   <%= form_with(url: @note.path, method: :patch, class: "pulse-form") do |form| %>
     <div class="pulse-form-group">
       <label class="pulse-form-label">Content</label>
-      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_collective.path %>">
         <%= form.text_area :text,
             placeholder: "Write your note here... (use @ to mention users)",
             value: @note.text,

@@ -7,21 +7,21 @@ class PulseController < ApplicationController
   end
 
   def actions_index
-    @page_title = "Actions | #{@current_superagent.name}"
+    @page_title = "Actions | #{@current_collective.name}"
     @cycle = current_cycle
-    @pinned_items = @current_superagent.pinned_items
-    @team = @current_superagent.team
+    @pinned_items = @current_collective.pinned_items
+    @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle)
     render "shared/actions_index_studio", locals: {
-      base_path: @current_superagent.path,
+      base_path: @current_collective.path,
     }
   end
 
   def show
     # Allow both studios and scenes
-    return render "shared/404", status: :not_found unless ["studio", "scene"].include?(@current_superagent.superagent_type)
+    return render "shared/404", status: :not_found unless ["studio", "scene"].include?(@current_collective.collective_type)
 
-    @page_title = @current_superagent.name
+    @page_title = @current_collective.name
 
     # Cycle data - use param if provided, otherwise default to tempo-based cycle
     @cycle = cycle_from_param || current_cycle
@@ -30,7 +30,7 @@ class PulseController < ApplicationController
 
     # Require heartbeat to view past cycles
     if @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil?
-      redirect_to @current_superagent.path, notice: "Send a heartbeat to view past cycles."
+      redirect_to @current_collective.path, notice: "Send a heartbeat to view past cycles."
       return
     end
 
@@ -43,9 +43,9 @@ class PulseController < ApplicationController
     @closed_commitments = @cycle.closed_commitments
 
     # Studio data
-    @team = @current_superagent.team
+    @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle)
-    @pinned_items = @current_superagent.pinned_items
+    @pinned_items = @current_collective.pinned_items
 
     # Build unified feed (sorted by created_at desc)
     build_unified_feed
@@ -63,7 +63,7 @@ class PulseController < ApplicationController
 
     return nil unless valid_cycle_name?(params[:cycle])
 
-    Cycle.new(name: params[:cycle], tenant: current_tenant, superagent: current_superagent)
+    Cycle.new(name: params[:cycle], tenant: current_tenant, collective: current_collective)
   end
 
   def valid_cycle_name?(name)

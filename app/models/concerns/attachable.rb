@@ -10,7 +10,7 @@ module Attachable
         next unless file.respond_to?(:content_type)
         Attachment.create!(
           tenant_id: self.tenant_id,
-          superagent_id: self.superagent_id,
+          collective_id: self.collective_id,
           attachable: self,
           file: file,
           created_by: self.created_by,
@@ -20,7 +20,7 @@ module Attachable
     else
       Attachment.create!(
         tenant_id: self.tenant_id,
-        superagent_id: self.superagent_id,
+        collective_id: self.collective_id,
         attachable: self,
         file: files,
         created_by: self.created_by,

@@ -15,8 +15,8 @@ class Note < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :superagent
-  before_validation :set_superagent_id
+  belongs_to :collective
+  before_validation :set_collective_id
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
 
@@ -179,7 +179,7 @@ class Note < ApplicationRecord
 
   # Returns all descendants (replies, replies to replies, etc.) chronologically
   # Uses PostgreSQL recursive CTE for efficient single-query fetching
-  # IMPORTANT: find_by_sql bypasses default_scope, so we must filter by tenant/superagent
+  # IMPORTANT: find_by_sql bypasses default_scope, so we must filter by tenant/collective
   sig { returns(T::Array[Note]) }
   def all_descendants
     return [] unless persisted?
@@ -191,7 +191,7 @@ class Note < ApplicationRecord
         WHERE notes.commentable_id = :note_id
           AND notes.commentable_type = 'Note'
           AND notes.tenant_id = :tenant_id
-          AND notes.superagent_id = :superagent_id
+          AND notes.collective_id = :collective_id
 
         UNION ALL
 
@@ -200,7 +200,7 @@ class Note < ApplicationRecord
         INNER JOIN descendants d ON n.commentable_id = d.id
           AND n.commentable_type = 'Note'
         WHERE n.tenant_id = :tenant_id
-          AND n.superagent_id = :superagent_id
+          AND n.collective_id = :collective_id
       )
       SELECT * FROM descendants
       ORDER BY created_at ASC
@@ -208,7 +208,7 @@ class Note < ApplicationRecord
 
     sanitized_sql = Note.sanitize_sql_array([
                                               sql,
-                                              { note_id: id, tenant_id: tenant_id, superagent_id: superagent_id },
+                                              { note_id: id, tenant_id: tenant_id, collective_id: collective_id },
                                             ])
     Note.find_by_sql(sanitized_sql)
   end

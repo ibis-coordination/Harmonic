@@ -4,14 +4,14 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
 
     # Create another user to delegate to/from
     @other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(@other_user)
-    @superagent.add_user!(@other_user)
+    @collective.add_user!(@other_user)
 
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -146,14 +146,14 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
         trustee_user_id: @other_user.id,
         permissions: ["create_note"],
         studio_scope_mode: "include",
-        studio_ids: [@superagent.id],
+        studio_ids: [@collective.id],
       }.to_json,
       headers: @headers
 
     assert_response :success
     permission = TrusteeGrant.unscoped.order(created_at: :desc).first
     assert_equal "include", permission.studio_scope["mode"]
-    assert_includes permission.studio_scope["studio_ids"], @superagent.id
+    assert_includes permission.studio_scope["studio_ids"], @collective.id
   end
 
   # === Show Tests ===
@@ -194,10 +194,10 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     )
     grant.accept!
 
-    # Create a user representation session linked to this grant (no superagent_id)
+    # Create a user representation session linked to this grant (no collective_id)
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation has no superagent
+      collective: nil,  # User representation has no collective
       representative_user: @user,
       trustee_grant: grant,
       confirmed_understanding: true,

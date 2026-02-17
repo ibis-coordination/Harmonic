@@ -25,7 +25,22 @@ module GeneratedUrlHelpersModule
   def admin_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def ai_agent_automation_runs_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_automation_templates_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_automation_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_automations_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def ai_agent_execute_task_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_new_actions_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def ai_agent_run_task_url(*args); end
@@ -35,6 +50,15 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def ai_agent_runs_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_settings_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agent_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def ai_agents_new_actions_create_ai_agent_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def ai_agents_url(*args); end
@@ -274,6 +298,9 @@ module GeneratedUrlHelpersModule
   def dev_pulse_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def edit_ai_agent_automation_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_commitment_participant_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -326,6 +353,9 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def image_user_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def incoming_webhook_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def learn_acceptance_voting_url(*args); end
@@ -412,6 +442,12 @@ module GeneratedUrlHelpersModule
   def motto_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def new_ai_agent_automation_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def new_ai_agent_url(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def new_api_v1_commitment_participant_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -458,9 +494,6 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def new_rails_conductor_inbound_email_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def new_user_ai_agent_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def new_user_api_token_url(*args); end
@@ -667,12 +700,6 @@ module GeneratedUrlHelpersModule
   def settings_actions_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def settings_ai_agents_new_actions_create_ai_agent_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_ai_agents_new_actions_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def settings_profile_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -701,21 +728,6 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def settings_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_webhooks_new_actions_create_webhook_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_webhooks_new_actions_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_webhooks_new_user_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_webhooks_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def settings_webhooks_user_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def studios_actions_url(*args); end
@@ -797,12 +809,6 @@ module GeneratedUrlHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def update_rails_disk_service_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def user_ai_agent_url(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def user_ai_agents_url(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def user_api_token_url(*args); end

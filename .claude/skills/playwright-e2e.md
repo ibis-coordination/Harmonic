@@ -41,7 +41,7 @@ The app uses these URL patterns for content creation and viewing:
 | Studios List | `/studios` | Lists all studios user belongs to |
 | Studio Page | `/studios/{handle}` | Show specific studio |
 
-**Important:** Routes like `/studios/{handle}/note` also work, but avoid navigating to `/studios/new/note` - "new" gets interpreted as a superagent handle.
+**Important:** Routes like `/studios/{handle}/note` also work, but avoid navigating to `/studios/new/note` - "new" gets interpreted as a collective handle.
 
 ## Form Selection Gotchas
 

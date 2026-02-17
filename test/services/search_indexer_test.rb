@@ -4,11 +4,11 @@ require "test_helper"
 
 class SearchIndexerTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
   end
 
   test "reindex creates search index for a note" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Clear any records created by callbacks
     SearchIndex.where(item_type: "Note", item_id: note.id).delete_all
@@ -24,7 +24,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
   end
 
   test "reindex creates search index for a decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Clear any records created by callbacks
     SearchIndex.where(item_type: "Decision", item_id: decision.id).delete_all
@@ -40,7 +40,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
   end
 
   test "reindex creates search index for a commitment" do
-    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Clear any records created by callbacks
     SearchIndex.where(item_type: "Commitment", item_id: commitment.id).delete_all
@@ -56,7 +56,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
   end
 
   test "reindex creates search index for comments with subtype and replying_to_id" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     comment = note.add_comment(text: "This is a comment", created_by: @user)
 
     # Clear any records created by callbacks
@@ -73,7 +73,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
   end
 
   test "reindex updates existing search index on subsequent calls" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Original Title")
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Original Title")
 
     # Clear any records created by callbacks
     SearchIndex.where(item_type: "Note", item_id: note.id).delete_all
@@ -91,7 +91,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
   end
 
   test "delete removes search index for an item" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Ensure the search index exists
     SearchIndexer.reindex(note)
@@ -103,7 +103,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
   end
 
   test "searchable_text includes option titles for decisions" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
     decision.options.create!(title: "Option A", decision_participant: participant)
     decision.options.create!(title: "Option B", decision_participant: participant)
@@ -118,7 +118,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
   end
 
   test "comments are indexed separately (not included in parent searchable_text)" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     comment1 = note.add_comment(text: "First comment", created_by: @user)
     comment2 = note.add_comment(text: "Second comment", created_by: @user)
 
@@ -145,8 +145,8 @@ class SearchIndexerTest < ActiveSupport::TestCase
   end
 
   test "reindex counts backlinks correctly" do
-    note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Note 1", text: "Some text")
-    note2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Note 2", text: "References note1")
+    note1 = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Note 1", text: "Some text")
+    note2 = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Note 2", text: "References note1")
 
     # Create a link from note2 to note1 (simulating what LinkParser does with URLs)
     Link.create!(from_linkable: note2, to_linkable: note1)

@@ -37,7 +37,7 @@ actions:
 <% end -%>
 <% end -%>
 ---
-nav: | [Home](/) <% if @current_superagent && @current_superagent != @current_tenant.main_superagent -%>| <%= @current_superagent.superagent_type.titleize %>: [<%= @current_superagent.name %>](<%= @current_superagent.path %>)<% end -%><% if @current_user -%>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>)<% end -%><% if @current_representation_session -%> | acting on behalf of <%= @current_representation_session.representation_label %><% end -%> | [🔍](/search) | [<%= @unread_notification_count %>](/notifications) |
+nav: | [Home](/) <% if @current_collective && @current_collective != @current_tenant.main_collective -%>| <%= @current_collective.collective_type.titleize %>: [<%= @current_collective.name %>](<%= @current_collective.path %>)<% end -%><% if @current_user -%>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>)<% end -%><% if @current_representation_session -%> | acting on behalf of <%= @current_representation_session.representation_label %><% end -%> | [🔍](/search) | [<%= @unread_notification_count %>](/notifications) |
 
 <%= yield %>
 

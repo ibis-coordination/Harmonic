@@ -29,7 +29,7 @@ class ActionsHelper
   )
 
   # Context-aware webhook authorization.
-  # - Studio webhooks require superagent_admin
+  # - Studio webhooks require collective_admin
   # - User webhooks require self or representative access
   # - For listing (no context), allows authenticated users to see the action
   WEBHOOK_AUTHORIZATION = T.let(
@@ -39,9 +39,9 @@ class ActionsHelper
       studio = context[:studio]
       target_user = context[:target_user]
 
-      # If studio context exists and it's not the main superagent, check superagent_admin
-      if studio && !studio.is_main_superagent?
-        member = user.superagent_members.find_by(superagent_id: studio.id)
+      # If studio context exists and it's not the main collective, check collective_admin
+      if studio && !studio.is_main_collective?
+        member = user.collective_members.find_by(collective_id: studio.id)
         return member&.is_admin? || false
       end
 
@@ -111,7 +111,7 @@ class ActionsHelper
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (not changeable via API - use HTML UI to modify)" },
       ],
-      authorization: :superagent_admin,
+      authorization: :collective_admin,
     },
     "add_ai_agent_to_studio" => {
       description: "Add one of your AI agents to this studio",
@@ -119,7 +119,7 @@ class ActionsHelper
       params: [
         { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to add" },
       ],
-      authorization: :superagent_admin,
+      authorization: :collective_admin,
     },
     "remove_ai_agent_from_studio" => {
       description: "Remove an AI agent from this studio",
@@ -127,13 +127,13 @@ class ActionsHelper
       params: [
         { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to remove" },
       ],
-      authorization: :superagent_admin,
+      authorization: :collective_admin,
     },
     "send_heartbeat" => {
       description: "Send a heartbeat to confirm your presence in the studio for this cycle",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
 
     # Note actions
@@ -143,7 +143,7 @@ class ActionsHelper
       params: [
         { name: "text", type: "string", description: "The text of the note" },
       ],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "update_note" => {
       description: "Update this note",
@@ -159,19 +159,19 @@ class ActionsHelper
       description: "Confirm that you have read this note",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "pin_note" => {
       description: "Pin this note to the studio homepage",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "unpin_note" => {
       description: "Unpin this note from the studio homepage",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
 
     # Decision actions
@@ -184,7 +184,7 @@ class ActionsHelper
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime", description: "When the decision closes" },
       ],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "update_decision_settings" => {
       description: "Update the decision settings",
@@ -203,7 +203,7 @@ class ActionsHelper
       params: [
         { name: "titles", type: "array[string]", description: "Array of option title strings" },
       ],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "vote" => {
       description: "Vote on one or more options",
@@ -211,19 +211,19 @@ class ActionsHelper
       params: [
         { name: "votes", type: "array[object]", description: "Array of vote objects, each with: option_title (string), accept (boolean), prefer (boolean)" },
       ],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "pin_decision" => {
       description: "Pin this decision to the studio homepage",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "unpin_decision" => {
       description: "Unpin this decision from the studio homepage",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
 
     # Commitment actions
@@ -236,7 +236,7 @@ class ActionsHelper
         { name: "critical_mass", type: "integer", description: "Number of participants needed" },
         { name: "deadline", type: "datetime", description: "When the commitment closes" },
       ],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "update_commitment_settings" => {
       description: "Update the commitment settings",
@@ -253,19 +253,19 @@ class ActionsHelper
       description: "Join the commitment",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "pin_commitment" => {
       description: "Pin this commitment to the studio homepage",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
     "unpin_commitment" => {
       description: "Unpin this commitment from the studio homepage",
       params_string: "()",
       params: [],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
 
     # Comment action (shared across notes, decisions, commitments)
@@ -275,7 +275,7 @@ class ActionsHelper
       params: [
         { name: "text", type: "string", description: "The text of the comment" },
       ],
-      authorization: :superagent_member,
+      authorization: :collective_member,
     },
 
     # Attachment actions
@@ -438,7 +438,7 @@ class ActionsHelper
     },
 
     # Webhook actions
-    # Webhooks can be created for studios (requires superagent_admin) or users (requires self/representative).
+    # Webhooks can be created for studios (requires collective_admin) or users (requires self/representative).
     # Authorization is context-aware: checks studio context first, then falls back to user context.
     "create_webhook" => {
       description: "Create a new webhook",
@@ -588,9 +588,9 @@ class ActionsHelper
         {
           name: "send_heartbeat",
           condition: ->(context) {
-            superagent = context[:superagent]
+            collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            superagent && !superagent.is_main_superagent? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && current_heartbeat.nil?
           },
         },
       ],
@@ -602,9 +602,9 @@ class ActionsHelper
         {
           name: "send_heartbeat",
           condition: ->(context) {
-            superagent = context[:superagent]
+            collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            superagent && !superagent.is_main_superagent? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && current_heartbeat.nil?
           },
         },
       ],
@@ -630,9 +630,9 @@ class ActionsHelper
         {
           name: "send_heartbeat",
           condition: ->(context) {
-            superagent = context[:superagent]
+            collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            superagent && !superagent.is_main_superagent? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && current_heartbeat.nil?
           },
         },
       ],

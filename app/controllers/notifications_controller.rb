@@ -5,7 +5,7 @@ class NotificationsController < ApplicationController
 
   def index
     @sidebar_mode = 'minimal'
-    # Set only tenant scope (not superagent scope) to allow loading events from all studios
+    # Set only tenant scope (not collective scope) to allow loading events from all studios
     # This is needed because notifications span all studios, not just the current one
     Tenant.scope_thread_to_tenant(subdomain: request.subdomain)
 
@@ -19,32 +19,32 @@ class NotificationsController < ApplicationController
       .order(created_at: :desc)
       .limit(50)
 
-    # Manually load superagents to bypass association scoping
-    # Events and Superagents are scoped to tenant and superagent, but we need to load
-    # superagents from all studios for the current tenant.
+    # Manually load collectives to bypass association scoping
+    # Events and Collectives are scoped to tenant and collective, but we need to load
+    # collectives from all studios for the current tenant.
     # We avoid using nr.notification.event because the Event default_scope interferes.
     # Instead, we query event_id directly from the notifications table.
     notification_ids = @notification_recipients.map(&:notification_id)
     notification_event_map = Notification.tenant_scoped_only.where(id: notification_ids).pluck(:id, :event_id).to_h
 
     event_ids = notification_event_map.values.compact
-    event_superagent_map = Event.tenant_scoped_only.where(id: event_ids).pluck(:id, :superagent_id).to_h
+    event_collective_map = Event.tenant_scoped_only.where(id: event_ids).pluck(:id, :collective_id).to_h
 
-    superagent_ids = event_superagent_map.values.compact.uniq
-    superagents = Superagent.tenant_scoped_only.where(id: superagent_ids).index_by(&:id)
+    collective_ids = event_collective_map.values.compact.uniq
+    collectives = Collective.tenant_scoped_only.where(id: collective_ids).index_by(&:id)
 
-    # Build a lookup for notification recipient -> superagent
-    @superagent_for_nr = {}
+    # Build a lookup for notification recipient -> collective
+    @collective_for_nr = {}
     @notification_recipients.each do |nr|
       event_id = notification_event_map[nr.notification_id]
-      superagent_id = event_id ? event_superagent_map[event_id] : nil
-      @superagent_for_nr[nr.id] = superagent_id ? superagents[superagent_id] : nil
+      collective_id = event_id ? event_collective_map[event_id] : nil
+      @collective_for_nr[nr.id] = collective_id ? collectives[collective_id] : nil
     end
 
-    # Group notifications by superagent (studio)
+    # Group notifications by collective (studio)
     # Notifications without an event (reminders) go into a nil key
-    @notifications_by_superagent = @notification_recipients.group_by do |nr|
-      @superagent_for_nr[nr.id]
+    @notifications_by_collective = @notification_recipients.group_by do |nr|
+      @collective_for_nr[nr.id]
     end
 
     # Now set the full scope for other controller methods
@@ -136,7 +136,7 @@ class NotificationsController < ApplicationController
       count = NotificationService.dismiss_all_reminders(current_user, tenant: current_tenant)
       studio_name = "Reminders"
     else
-      studio = Superagent.find_by(id: studio_id)
+      studio = Collective.find_by(id: studio_id)
       if studio.nil?
         return respond_to do |format|
           format.json { render json: { success: false, error: "Studio not found." }, status: :not_found }
@@ -151,7 +151,7 @@ class NotificationsController < ApplicationController
         end
       end
 
-      count = NotificationService.dismiss_all_for_superagent(current_user, tenant: current_tenant, superagent_id: studio.id)
+      count = NotificationService.dismiss_all_for_collective(current_user, tenant: current_tenant, collective_id: studio.id)
       studio_name = studio.name
     end
 

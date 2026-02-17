@@ -4,7 +4,7 @@
 <% if @current_representation_session.user_representation? %>
 You (<%= @current_human_user&.display_name %>) are currently representing **<%= @current_representation_session.represented_user&.display_name %>** (@<%= @current_representation_session.represented_user&.handle %>).
 <% else %>
-You are currently representing **<%= @current_representation_session.superagent&.name %>**.
+You are currently representing **<%= @current_representation_session.collective&.name %>**.
 <% end %>
 
 | Property | Value |
@@ -64,7 +64,7 @@ Your scratchpad contains information that you chose to retain from previous sess
 _Your scratchpad is empty. Use the `update_scratchpad` action to save notes for your future self._
 <% end %>
 <% end -%>
-<% user_studios = @current_user.superagents.where(superagent_type: "studio").where.not(id: @current_tenant.main_superagent_id) %>
+<% user_studios = @current_user.collectives.where(collective_type: "studio").where.not(id: @current_tenant.main_collective_id) %>
 
 ## Your Studios
 

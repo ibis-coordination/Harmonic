@@ -1,16 +1,16 @@
 require "test_helper"
 
 class CommitmentTest < ActiveSupport::TestCase
-  # Note: create_tenant, create_user, create_superagent helpers are inherited from test_helper.rb
+  # Note: create_tenant, create_user, create_collective helpers are inherited from test_helper.rb
 
   test "Commitment.create works" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Commitment",
@@ -25,7 +25,7 @@ class CommitmentTest < ActiveSupport::TestCase
     assert_equal 5, commitment.critical_mass
     assert commitment.deadline > Time.current
     assert_equal tenant, commitment.tenant
-    assert_equal superagent, commitment.superagent
+    assert_equal collective, commitment.collective
     assert_equal user, commitment.created_by
     assert_equal user, commitment.updated_by
   end
@@ -33,11 +33,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment requires a title" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     commitment = Commitment.new(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       description: "This is a test commitment without a title.",
@@ -52,11 +52,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment requires a critical mass greater than 0" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     commitment = Commitment.new(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Commitment",
@@ -72,11 +72,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment requires a deadline" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     commitment = Commitment.new(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Commitment",
@@ -91,11 +91,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment.critical_mass_achieved? returns true when critical mass is met" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Commitment",
@@ -114,11 +114,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment.critical_mass_achieved? returns false when critical mass is not met" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Commitment",
@@ -135,11 +135,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment.progress_percentage calculates correctly" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Commitment",
@@ -159,11 +159,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment.api_json includes expected fields" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Commitment",
@@ -187,11 +187,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "User can leave commitment by updating participant" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "leave-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "leave-studio-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Leavable Commitment",
@@ -215,11 +215,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment with future deadline is not closed" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "open-commitment-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "open-commitment-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Open Commitment",
@@ -234,11 +234,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment with past deadline is closed" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "closed-commitment-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "closed-commitment-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Closed Commitment",
@@ -255,11 +255,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment.participant_count returns correct count" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "count-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "count-studio-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Count Commitment",
@@ -282,11 +282,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment can be pinned" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "pin-commitment-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "pin-commitment-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Pinnable Commitment",
@@ -295,18 +295,18 @@ class CommitmentTest < ActiveSupport::TestCase
       deadline: 1.week.from_now
     )
 
-    commitment.pin!(tenant: tenant, superagent: superagent, user: user)
-    assert commitment.is_pinned?(tenant: tenant, superagent: superagent, user: user)
+    commitment.pin!(tenant: tenant, collective: collective, user: user)
+    assert commitment.is_pinned?(tenant: tenant, collective: collective, user: user)
   end
 
   test "Commitment can be unpinned" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "unpin-commitment-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "unpin-commitment-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Unpinnable Commitment",
@@ -315,9 +315,9 @@ class CommitmentTest < ActiveSupport::TestCase
       deadline: 1.week.from_now
     )
 
-    commitment.pin!(tenant: tenant, superagent: superagent, user: user)
-    commitment.unpin!(tenant: tenant, superagent: superagent, user: user)
-    assert_not commitment.is_pinned?(tenant: tenant, superagent: superagent, user: user)
+    commitment.pin!(tenant: tenant, collective: collective, user: user)
+    commitment.unpin!(tenant: tenant, collective: collective, user: user)
+    assert_not commitment.is_pinned?(tenant: tenant, collective: collective, user: user)
   end
 
   # === Status When Critical Mass Achieved ===
@@ -325,11 +325,11 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment shows achieved status after critical mass" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "achieved-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "achieved-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Achievable Commitment",

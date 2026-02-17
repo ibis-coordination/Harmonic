@@ -2,13 +2,13 @@ require "test_helper"
 
 class ReminderDeliveryJobTest < ActiveJob::TestCase
   def setup
-    @tenant, @superagent, @user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    @tenant, @collective, @user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
   end
 
   def teardown
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
   end
 
   test "delivers due reminders" do
@@ -20,9 +20,9 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     nr = notification.notification_recipients.first
     nr.update!(scheduled_for: 1.minute.ago) # Make it due
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     ReminderDeliveryJob.perform_now
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     nr.reload
     assert_equal "delivered", nr.status
@@ -36,9 +36,9 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     )
     nr = notification.notification_recipients.first
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     ReminderDeliveryJob.perform_now
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     nr.reload
     assert_equal "pending", nr.status
@@ -53,9 +53,9 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     nr = notification.notification_recipients.first
     nr.update!(scheduled_for: 1.minute.ago, status: "delivered", delivered_at: Time.current)
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     ReminderDeliveryJob.perform_now
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     # Should still be delivered, not re-processed
     nr.reload
@@ -71,7 +71,7 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     nr = notification.notification_recipients.first
     nr.update!(scheduled_for: 1.minute.ago)
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     assert_difference "Event.count" do
       ReminderDeliveryJob.perform_now
@@ -99,7 +99,7 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
       notification.notification_recipients.first.update!(scheduled_for: due_time)
     end
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     # Should create only 1 event for the batch
     assert_difference "Event.count", 1 do
@@ -120,7 +120,7 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     n2 = ReminderService.create!(user: @user, title: "R2", scheduled_for: 2.days.from_now)
     n2.notification_recipients.first.update!(scheduled_for: 2.minutes.ago)
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     # Should create 2 events (one per timestamp)
     assert_difference "Event.count", 2 do
@@ -140,9 +140,9 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
       notification.notification_recipients.first.update!(scheduled_for: 1.minute.ago)
     end
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     ReminderDeliveryJob.perform_now
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     delivered = NotificationRecipient
       .joins(:notification)
@@ -164,11 +164,11 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     assert rate_limited >= 0 || delivered > 0
   end
 
-  test "skips users without superagent membership" do
-    # Create a user not in any superagent
+  test "skips users without collective membership" do
+    # Create a user not in any collective
     orphan_user = create_user(name: "Orphan User")
     @tenant.add_user!(orphan_user)
-    @superagent.add_user!(orphan_user)
+    @collective.add_user!(orphan_user)
 
     notification = ReminderService.create!(
       user: orphan_user,
@@ -178,17 +178,17 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     nr = notification.notification_recipients.first
     nr.update!(scheduled_for: 1.minute.ago)
 
-    # Remove their superagent membership AFTER creating the reminder
-    SuperagentMember.unscoped.where(user: orphan_user).destroy_all
+    # Remove their collective membership AFTER creating the reminder
+    CollectiveMember.unscoped.where(user: orphan_user).destroy_all
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     # Should not raise an error
     assert_nothing_raised do
       ReminderDeliveryJob.perform_now
     end
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     # Reminder should still be pending (not delivered)
     nr.reload
@@ -213,12 +213,12 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
       )
     end
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     # Run the job once
     ReminderDeliveryJob.perform_now
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     # Should have processed at most MAX_REMINDERS_PER_RUN
     processed_count = NotificationRecipient

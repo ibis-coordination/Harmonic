@@ -8,7 +8,7 @@ class AutomationRunLifecycleTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
@@ -272,7 +272,7 @@ class AutomationRunLifecycleTest < ActiveSupport::TestCase
   def create_webhook_rule
     AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Webhook Rule",
       trigger_type: "event",
@@ -287,7 +287,7 @@ class AutomationRunLifecycleTest < ActiveSupport::TestCase
   def create_multi_webhook_rule
     AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Multi Webhook Rule",
       trigger_type: "event",
@@ -303,7 +303,7 @@ class AutomationRunLifecycleTest < ActiveSupport::TestCase
   def create_trigger_agent_rule(agent)
     AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Trigger Agent Rule",
       trigger_type: "event",
@@ -318,14 +318,14 @@ class AutomationRunLifecycleTest < ActiveSupport::TestCase
   def create_run_for_rule(rule)
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Test note"
     )
 
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -333,7 +333,7 @@ class AutomationRunLifecycleTest < ActiveSupport::TestCase
 
     AutomationRuleRun.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: rule,
       triggered_by_event: event,
       trigger_source: "event",

@@ -6,7 +6,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
@@ -52,13 +52,13 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     rule = create_agent_rule(task: "{{event.actor.name}} mentioned you in {{subject.path}}. The note says: {{subject.text}}")
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Hey check this out"
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -147,13 +147,13 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     # Create event without an actor
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Test note"
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: nil,
       subject: note
@@ -183,7 +183,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     # Create a rule that will cause an execution error
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Invalid actions rule",
       trigger_type: "event",
@@ -274,7 +274,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Webhook orchestrator",
       trigger_type: "webhook",
@@ -287,7 +287,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     run = AutomationRuleRun.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: rule,
       trigger_source: "webhook",
       trigger_data: {
@@ -312,7 +312,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
   test "executes general rule with internal_action" do
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Create celebration note",
       trigger_type: "event",
@@ -343,7 +343,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Orchestrate agents",
       trigger_type: "event",
@@ -356,13 +356,13 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Help me with this"
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -400,7 +400,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Send webhook",
       trigger_type: "event",
@@ -417,13 +417,13 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Test webhook note"
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -463,7 +463,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
   test "creates webhook delivery for later execution" do
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Queued webhook",
       trigger_type: "event",
@@ -502,7 +502,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Signed webhook",
       trigger_type: "event",
@@ -540,7 +540,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Webhook with payload key",
       trigger_type: "event",
@@ -569,7 +569,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
   test "fails trigger_agent action when agent not found" do
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Trigger missing agent",
       trigger_type: "event",
@@ -612,14 +612,14 @@ class AutomationExecutorTest < ActiveSupport::TestCase
   def create_test_event
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Test note"
     )
 
     Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note

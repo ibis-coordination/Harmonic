@@ -7,7 +7,7 @@ class AiAgentTaskRunResource < ApplicationRecord
   before_validation :set_tenant_id
   belongs_to :ai_agent_task_run
   belongs_to :resource, polymorphic: true
-  belongs_to :resource_superagent, class_name: "Superagent"
+  belongs_to :resource_collective, class_name: "Collective"
 
   validates :resource_type, inclusion: {
     in: ["Note", "Decision", "Commitment", "Option", "Vote", "CommitmentParticipant", "NoteHistoryEvent"],
@@ -15,10 +15,10 @@ class AiAgentTaskRunResource < ApplicationRecord
   validates :action_type, inclusion: {
     in: ["create", "update", "confirm", "add_options", "vote", "commit"],
   }
-  validate :resource_superagent_matches_resource
+  validate :resource_collective_matches_resource
 
-  # Override default scope - this model is NOT scoped by superagent_id since it tracks
-  # resources that may belong to different superagents than where the task run started
+  # Override default scope - this model is NOT scoped by collective_id since it tracks
+  # resources that may belong to different collectives than where the task run started
   def self.default_scope
     where(tenant_id: Tenant.current_id)
   end
@@ -37,7 +37,7 @@ class AiAgentTaskRunResource < ApplicationRecord
     record&.ai_agent_task_run
   end
 
-  # Load the resource bypassing default scope (needed because resources may be in different superagents)
+  # Load the resource bypassing default scope (needed because resources may be in different collectives)
   sig { returns(T.untyped) }
   def resource_unscoped
     return nil if resource_type.blank? || resource_id.blank?
@@ -47,7 +47,7 @@ class AiAgentTaskRunResource < ApplicationRecord
 
   # Generate a human-readable title for display in the UI
   # Takes the resource as a parameter to avoid re-fetching it
-  # Uses unscoped queries for related resources to handle cross-superagent associations
+  # Uses unscoped queries for related resources to handle cross-collective associations
   sig { params(resource: T.untyped).returns(String) }
   def display_title(resource)
     return "Unknown resource" if resource.nil?
@@ -86,11 +86,11 @@ class AiAgentTaskRunResource < ApplicationRecord
   end
 
   sig { void }
-  def resource_superagent_matches_resource
+  def resource_collective_matches_resource
     return if resource.blank?
-    return unless resource.respond_to?(:superagent_id)
-    return if resource_superagent_id == T.unsafe(resource).superagent_id
+    return unless resource.respond_to?(:collective_id)
+    return if resource_collective_id == T.unsafe(resource).collective_id
 
-    errors.add(:resource_superagent, "must match resource's superagent")
+    errors.add(:resource_collective, "must match resource's collective")
   end
 end

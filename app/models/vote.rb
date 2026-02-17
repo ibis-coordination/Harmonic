@@ -11,8 +11,8 @@ class Vote < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :superagent
-  before_validation :set_superagent_id
+  belongs_to :collective
+  before_validation :set_collective_id
   belongs_to :option
   belongs_to :decision
   belongs_to :decision_participant
@@ -26,8 +26,8 @@ class Vote < ApplicationRecord
   end
 
   sig { void }
-  def set_superagent_id
-    self.superagent_id = T.must(option).superagent_id if superagent_id.nil?
+  def set_collective_id
+    self.collective_id = T.must(option).collective_id if collective_id.nil?
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }

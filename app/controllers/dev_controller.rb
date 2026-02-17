@@ -63,7 +63,7 @@ class DevController < ApplicationController
       comment_count: 3,
       attachments: [],
       is_comment?: false,
-      superagent: @dummy_studio
+      collective: @dummy_studio
     )
 
     @dummy_decision = OpenStruct.new(
@@ -80,7 +80,7 @@ class DevController < ApplicationController
         OpenStruct.new(title: "No, keep current design", vote_count: 2),
         OpenStruct.new(title: "Migrate gradually", vote_count: 8),
       ],
-      superagent: @dummy_studio
+      collective: @dummy_studio
     )
 
     @dummy_commitment = OpenStruct.new(
@@ -94,7 +94,7 @@ class DevController < ApplicationController
       open?: true,
       critical_mass: 3,
       participant_count: 2,
-      superagent: @dummy_studio
+      collective: @dummy_studio
     )
 
     @dummy_comments = [

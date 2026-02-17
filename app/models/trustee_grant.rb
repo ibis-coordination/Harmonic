@@ -111,16 +111,16 @@ class TrusteeGrant < ApplicationRecord
   # STUDIO SCOPING METHODS
   # =========================================================================
 
-  sig { params(superagent: Superagent).returns(T::Boolean) }
-  def allows_studio?(superagent)
+  sig { params(collective: Collective).returns(T::Boolean) }
+  def allows_studio?(collective)
     scope = studio_scope || { "mode" => "all" }
     case scope["mode"]
     when "all"
       true
     when "include"
-      scope["studio_ids"]&.include?(superagent.id) || false
+      scope["studio_ids"]&.include?(collective.id) || false
     when "exclude"
-      !scope["studio_ids"]&.include?(superagent.id)
+      !scope["studio_ids"]&.include?(collective.id)
     else
       false
     end
@@ -144,7 +144,7 @@ class TrusteeGrant < ApplicationRecord
     "#{trustee_name} on behalf of #{granting_name}"
   end
 
-  # Override ApplicationRecord#path - TrusteeGrant paths are user-relative, not superagent-relative
+  # Override ApplicationRecord#path - TrusteeGrant paths are user-relative, not collective-relative
   sig { override.returns(T.nilable(String)) }
   def path
     # Use granting_user's handle since that's the primary owner of the trustee grant
@@ -161,19 +161,19 @@ class TrusteeGrant < ApplicationRecord
       errors.add(:trustee_user, "cannot be the same as the granting user")
     end
 
-    # Trustee user cannot be a superagent_proxy (only real persons can be trustees)
-    if trustee_user&.superagent_proxy?
-      errors.add(:trustee_user, "cannot be a superagent proxy user")
+    # Trustee user cannot be a collective_proxy (only real persons can be trustees)
+    if trustee_user&.collective_proxy?
+      errors.add(:trustee_user, "cannot be a collective proxy user")
     end
 
-    # If granting_user is a superagent proxy, trustee_user must be a member of that superagent
-    if granting_user&.superagent_proxy? && granting_user&.proxy_superagent.present?
-      unless granting_user&.proxy_superagent&.users&.include?(trustee_user)
-        errors.add(:trustee_user, "must be a member of the superagent that the granting user represents")
+    # If granting_user is a collective proxy, trustee_user must be a member of that collective
+    if granting_user&.collective_proxy? && granting_user&.proxy_collective.present?
+      unless granting_user&.proxy_collective&.users&.include?(trustee_user)
+        errors.add(:trustee_user, "must be a member of the collective that the granting user represents")
       end
-    elsif granting_user&.superagent_proxy?
-      # Superagent proxies must have an associated superagent to be granting users
-      errors.add(:granting_user, "must have an associated superagent if the granting user is a superagent proxy")
+    elsif granting_user&.collective_proxy?
+      # Collective proxies must have an associated collective to be granting users
+      errors.add(:granting_user, "must have an associated collective if the granting user is a collective proxy")
     end
   end
 

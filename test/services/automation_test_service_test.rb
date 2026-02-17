@@ -5,8 +5,8 @@ class AutomationTestServiceTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   setup do
-    @tenant, @superagent, @user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    @tenant, @collective, @user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
   end
 
   test "tests event-triggered automation with synthetic event" do
@@ -15,7 +15,7 @@ class AutomationTestServiceTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Event Automation",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
@@ -51,7 +51,7 @@ class AutomationTestServiceTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Schedule Automation",
       trigger_type: "schedule",
       trigger_config: { "cron" => "0 9 * * *", "timezone" => "UTC" },
@@ -74,7 +74,7 @@ class AutomationTestServiceTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Webhook Automation",
       trigger_type: "webhook",
       trigger_config: {},
@@ -96,7 +96,7 @@ class AutomationTestServiceTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Manual Automation",
       trigger_type: "manual",
       trigger_config: {
@@ -122,7 +122,7 @@ class AutomationTestServiceTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Manual Automation",
       trigger_type: "manual",
       trigger_config: {
@@ -143,7 +143,7 @@ class AutomationTestServiceTest < ActiveSupport::TestCase
   test "returns error result when execution fails" do
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Failing Automation",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
@@ -163,7 +163,7 @@ class AutomationTestServiceTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Automation",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },

@@ -48,13 +48,13 @@ class TenantScopedJob < ApplicationJob
     Tenant.set_thread_context(tenant)
   end
 
-  # Set the superagent context from a Superagent record.
-  # Call this after set_tenant_context! if your job needs superagent scoping.
+  # Set the collective context from a Collective record.
+  # Call this after set_tenant_context! if your job needs collective scoping.
   #
-  # @param superagent [Superagent] The superagent to scope to
-  sig { params(superagent: Superagent).void }
-  def set_superagent_context!(superagent)
-    Superagent.set_thread_context(superagent)
+  # @param collective [Collective] The collective to scope to
+  sig { params(collective: Collective).void }
+  def set_collective_context!(collective)
+    Collective.set_thread_context(collective)
   end
 
   # Set the AI agent task run context.
@@ -66,11 +66,11 @@ class TenantScopedJob < ApplicationJob
     AiAgentTaskRun.current_id = task_run.id
   end
 
-  # Clear superagent context without affecting tenant context.
-  # Useful when processing items across multiple superagents within a tenant.
+  # Clear collective context without affecting tenant context.
+  # Useful when processing items across multiple collectives within a tenant.
   sig { void }
-  def clear_superagent_context!
-    Superagent.clear_thread_scope
+  def clear_collective_context!
+    Collective.clear_thread_scope
   end
 
   # Verify that tenant context has been set.

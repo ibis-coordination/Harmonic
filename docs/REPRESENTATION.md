@@ -17,9 +17,9 @@ Both types use the same `RepresentationSession` model but with different configu
 ### Studio Representation
 
 When a user represents a studio:
-- They act through the studio's proxy user (`superagent.proxy_user`)
+- They act through the studio's proxy user (`collective.proxy_user`)
 - Actions are attributed to the studio
-- The session has a `superagent_id` but no `trustee_grant_id`
+- The session has a `collective_id` but no `trustee_grant_id`
 - Used for collective agency (studio acting in other studios)
 
 ### User Representation
@@ -27,7 +27,7 @@ When a user represents a studio:
 When a user represents another user:
 - They act as the granting user (the person who granted permission)
 - Actions are attributed to the granting user
-- The session has a `trustee_grant_id` but no `superagent_id`
+- The session has a `trustee_grant_id` but no `collective_id`
 - Requires an active TrusteeGrant
 
 ```
@@ -37,11 +37,11 @@ When a user represents another user:
 │                                                                  │
 │  Studio Representation          User Representation              │
 │  ─────────────────────          ───────────────────              │
-│  superagent_id: present         superagent_id: nil               │
+│  collective_id: present         collective_id: nil               │
 │  trustee_grant_id: nil          trustee_grant_id: present        │
 │                                                                  │
 │  effective_user:                effective_user:                  │
-│    superagent.proxy_user          trustee_grant.granting_user    │
+│    collective.proxy_user          trustee_grant.granting_user    │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -56,10 +56,10 @@ A user can represent a studio if any of these conditions are met:
 2. **Any Member Setting**: Studio has `any_member_can_represent?` enabled
 3. **Is Proxy**: User is the studio's proxy user itself
 
-Checked via `SuperagentMember#can_represent?`:
+Checked via `CollectiveMember#can_represent?`:
 ```ruby
 def can_represent?
-  archived_at.nil? && (has_role?('representative') || superagent.any_member_can_represent?)
+  archived_at.nil? && (has_role?('representative') || collective.any_member_can_represent?)
 end
 ```
 
@@ -122,7 +122,7 @@ return grant.present?
 - User must confirm understanding (checkbox)
 
 **What happens:**
-1. Creates `RepresentationSession` record with `superagent_id`
+1. Creates `RepresentationSession` record with `collective_id`
 2. Calls `begin!` to set `began_at`
 3. Sets session cookies: `representation_session_id`, `representing_studio`
 4. Redirects to `/representing` dashboard
@@ -137,7 +137,7 @@ return grant.present?
 - User must not have an active session already
 
 **What happens:**
-1. Creates `RepresentationSession` record with `trustee_grant_id` (no `superagent_id`)
+1. Creates `RepresentationSession` record with `trustee_grant_id` (no `collective_id`)
 2. Sets session cookies: `representation_session_id`, `representing_user`
 3. Redirects to `/representing` dashboard
 
@@ -351,14 +351,14 @@ For user representation, access to a studio requires both:
 | `id` | uuid | Primary key |
 | `truncated_id` | string | 8-char ID for URLs |
 | `tenant_id` | uuid | FK to tenant |
-| `superagent_id` | uuid | FK to studio (null for user representation) |
+| `collective_id` | uuid | FK to studio (null for user representation) |
 | `trustee_grant_id` | uuid | FK to grant (null for studio representation) |
 | `representative_user_id` | uuid | The person doing the representing |
 | `began_at` | timestamp | When session started |
 | `ended_at` | timestamp | When session ended (null if active) |
 | `confirmed_understanding` | boolean | User confirmed checkbox |
 
-**Validation:** Exactly one of `superagent_id` or `trustee_grant_id` must be present (XOR).
+**Validation:** Exactly one of `collective_id` or `trustee_grant_id` must be present (XOR).
 
 ### RepresentationSessionEvent
 
@@ -368,14 +368,14 @@ Tracks individual actions during a session:
 |--------|------|-------------|
 | `id` | uuid | Primary key |
 | `tenant_id` | uuid | FK to tenant |
-| `superagent_id` | uuid | Session's superagent (may be null) |
+| `collective_id` | uuid | Session's collective (may be null) |
 | `representation_session_id` | uuid | FK to session |
 | `action_name` | string | Action performed (e.g., "create_note") |
 | `resource_type` | string | Polymorphic resource type |
 | `resource_id` | uuid | Polymorphic resource ID |
 | `context_resource_type` | string | Optional parent resource type |
 | `context_resource_id` | uuid | Optional parent resource ID |
-| `resource_superagent_id` | uuid | Studio where resource exists |
+| `resource_collective_id` | uuid | Studio where resource exists |
 | `request_id` | string | Groups events from same request |
 | `created_at` | timestamp | When event occurred |
 
@@ -397,5 +397,5 @@ Tracks individual actions during a session:
 
 ## Related Documentation
 
-- [USER_TYPES.md](USER_TYPES.md) - User types including superagent proxy users
+- [USER_TYPES.md](USER_TYPES.md) - User types including collective proxy users
 - [PHILOSOPHY.md](../PHILOSOPHY.md) - Collective agency concepts

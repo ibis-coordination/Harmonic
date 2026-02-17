@@ -6,8 +6,8 @@ class SearchTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -22,7 +22,7 @@ class SearchTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV["HOSTNAME"]}"
 
     # Create some test data
-    @note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Test note for search")
+    @note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Test note for search")
     SearchIndexer.reindex(@note)
   end
 
@@ -90,7 +90,7 @@ class SearchTest < ActionDispatch::IntegrationTest
   test "GET search.json returns cursor for pagination" do
     # Create multiple items
     5.times do |i|
-      note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Paginated note #{i}")
+      note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Paginated note #{i}")
       SearchIndexer.reindex(note)
     end
 
@@ -105,7 +105,7 @@ class SearchTest < ActionDispatch::IntegrationTest
   # Filter tests
 
   test "GET search with type filter returns only specified types" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user, question: "Test decision?")
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user, question: "Test decision?")
     SearchIndexer.reindex(decision)
 
     get "#{search_path}.json", params: { q: "type:note cycle:all" }, headers: @headers

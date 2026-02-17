@@ -6,7 +6,7 @@ class StudiosController < ApplicationController
   def index
     @page_title = "Studios"
     if current_user
-      @studios = current_user.superagents.where(superagent_type: 'studio').order(created_at: :desc)
+      @studios = current_user.collectives.where(collective_type: 'studio').order(created_at: :desc)
     else
       @studios = []
     end
@@ -26,9 +26,9 @@ class StudiosController < ApplicationController
   end
 
   def show
-    return render 'shared/404' unless @current_superagent.superagent_type == 'studio'
-    @page_title = @current_superagent.name
-    @pinned_items = @current_superagent.pinned_items
+    return render 'shared/404' unless @current_collective.collective_type == 'studio'
+    @page_title = @current_collective.name
+    @pinned_items = @current_collective.pinned_items
     @cycle = current_cycle
     @previous_cycle = previous_cycle
     @read_notes = @cycle.read_notes(@current_user)
@@ -41,14 +41,14 @@ class StudiosController < ApplicationController
     @open_commitments = @cycle.open_commitments
     @closed_commitments = @cycle.closed_commitments
     @prev_commitments = @previous_cycle.commitments_closed_within_cycle
-    @team = @current_superagent.team
+    @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle) - [current_heartbeat]
-    unless @current_user.superagent_member.dismissed_notices.include?('studio-welcome')
-      @current_user.superagent_member.dismiss_notice!('studio-welcome')
-      if @current_superagent.created_by == @current_user
-        flash[:notice] = "Welcome to your new studio! [Click here to invite your team](#{@current_superagent.url}/invite)"
+    unless @current_user.collective_member.dismissed_notices.include?('studio-welcome')
+      @current_user.collective_member.dismiss_notice!('studio-welcome')
+      if @current_collective.created_by == @current_user
+        flash[:notice] = "Welcome to your new studio! [Click here to invite your team](#{@current_collective.url}/invite)"
       else
-        flash[:notice] = "Welcome to #{@current_superagent.name}! You can start creating notes, decisions, and commitments by clicking the plus icon to the right of the page header."
+        flash[:notice] = "Welcome to #{@current_collective.name}! You can start creating notes, decisions, and commitments by clicking the plus icon to the right of the page header."
       end
     end
   end
@@ -87,34 +87,34 @@ class StudiosController < ApplicationController
   end
 
   def describe_send_heartbeat
-    render_action_description(ActionsHelper.action_description("send_heartbeat", resource: @current_superagent))
+    render_action_description(ActionsHelper.action_description("send_heartbeat", resource: @current_collective))
   end
 
   def send_heartbeat
-    return render_action_error({ action_name: 'send_heartbeat', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'send_heartbeat', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
 
     if current_heartbeat
-      return render_action_error({ action_name: 'send_heartbeat', resource: @current_superagent, error: 'Heartbeat already exists for this cycle.' })
+      return render_action_error({ action_name: 'send_heartbeat', resource: @current_collective, error: 'Heartbeat already exists for this cycle.' })
     end
 
     begin
       heartbeat = api_helper.create_heartbeat
       render_action_success({
         action_name: 'send_heartbeat',
-        resource: @current_superagent,
-        result: "Heartbeat sent. You now have access to #{@current_superagent.name} for this cycle.",
+        resource: @current_collective,
+        result: "Heartbeat sent. You now have access to #{@current_collective.name} for this cycle.",
       })
     rescue ActiveRecord::RecordInvalid => e
       render_action_error({
         action_name: 'send_heartbeat',
-        resource: @current_superagent,
+        resource: @current_collective,
         error: e.message,
       })
     end
   end
 
   def handle_available
-    render json: { available: Superagent.handle_available?(params[:handle]) }
+    render json: { available: Collective.handle_available?(params[:handle]) }
   end
 
   def create
@@ -123,23 +123,23 @@ class StudiosController < ApplicationController
   end
 
   def settings
-    if @current_user.superagent_member.is_admin?
+    if @current_user.collective_member.is_admin?
       @page_title = 'Studio Settings'
-      # AI agents in this superagent (for display) - exclude archived memberships
-      @studio_ai_agents = @current_superagent.users
+      # AI agents in this collective (for display) - exclude archived memberships
+      @studio_ai_agents = @current_collective.users
         .includes(:tenant_users)
-        .joins(:superagent_members)
+        .joins(:collective_members)
         .where(user_type: 'ai_agent')
-        .where(superagent_members: { superagent_id: @current_superagent.id, archived_at: nil })
+        .where(collective_members: { collective_id: @current_collective.id, archived_at: nil })
         .distinct
-      # Current user's AI agents that are NOT active members of this superagent (for adding)
+      # Current user's AI agents that are NOT active members of this collective (for adding)
       user_ai_agent_ids = @current_user.ai_agents.pluck(:id)
       active_studio_ai_agent_ids = @studio_ai_agents.pluck(:id)
       addable_ids = user_ai_agent_ids - active_studio_ai_agent_ids
       @addable_ai_agents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
       # Automation counts for display
-      @enabled_automations_count = @current_superagent.automation_rules.where(enabled: true).count
-      @total_automations_count = @current_superagent.automation_rules.count
+      @enabled_automations_count = @current_collective.automation_rules.where(enabled: true).count
+      @total_automations_count = @current_collective.automation_rules.count
     else
 @sidebar_mode = 'minimal'
       return render layout: 'application', html: 'You must be an admin to access studio settings.'
@@ -147,19 +147,19 @@ class StudiosController < ApplicationController
   end
 
   def update_settings
-    if !@current_user.superagent_member.is_admin?
+    if !@current_user.collective_member.is_admin?
       return render status: 403, plain: '403 Unauthorized'
     end
-    @current_superagent.name = params[:name]
-    # @current_superagent.handle = params[:handle] if params[:handle]
-    @current_superagent.description = params[:description]
-    @current_superagent.timezone = params[:timezone]
-    @current_superagent.tempo = params[:tempo]
-    @current_superagent.synchronization_mode = params[:synchronization_mode]
-    @current_superagent.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
-    @current_superagent.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+    @current_collective.name = params[:name]
+    # @current_collective.handle = params[:handle] if params[:handle]
+    @current_collective.description = params[:description]
+    @current_collective.timezone = params[:timezone]
+    @current_collective.tempo = params[:tempo]
+    @current_collective.synchronization_mode = params[:synchronization_mode]
+    @current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+    @current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
     unless ENV['SAAS_MODE'] == 'true'
-      @current_superagent.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
+      @current_collective.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
     end
 
     # Handle feature flags via unified system
@@ -169,26 +169,26 @@ class StudiosController < ApplicationController
         # Accept both feature_api and api (legacy) param names
         value = params[param_key] || params[flag_name]
         enabled = value == "true" || value == "1" || value == true
-        @current_superagent.settings["feature_flags"] ||= {}
-        @current_superagent.settings["feature_flags"][flag_name] = enabled
+        @current_collective.settings["feature_flags"] ||= {}
+        @current_collective.settings["feature_flags"][flag_name] = enabled
       end
     end
 
-    @current_superagent.updated_by = @current_user if @current_superagent.changed?
-    @current_superagent.save!
-    flash[:notice] = "Settings successfully updated. [Return to studio homepage.](#{@current_superagent.url})"
+    @current_collective.updated_by = @current_user if @current_collective.changed?
+    @current_collective.save!
+    flash[:notice] = "Settings successfully updated. [Return to studio homepage.](#{@current_collective.url})"
     redirect_to request.referrer
   end
 
   def add_ai_agent
-    unless @current_user.superagent_member&.is_admin?
+    unless @current_user.collective_member&.is_admin?
       return render status: 403, json: { error: 'Unauthorized' }
     end
     ai_agent = User.find_by(id: params[:ai_agent_id])
     if ai_agent.nil? || !ai_agent.ai_agent? || ai_agent.parent_id != @current_user.id
       return render status: 403, json: { error: 'You can only add your own AI agents' }
     end
-    @current_superagent.add_user!(ai_agent)
+    @current_collective.add_user!(ai_agent)
 
     respond_to do |format|
       format.json do
@@ -201,17 +201,17 @@ class StudiosController < ApplicationController
         }
       end
       format.html do
-        flash[:notice] = "#{ai_agent.display_name} has been added to #{@current_superagent.name}"
+        flash[:notice] = "#{ai_agent.display_name} has been added to #{@current_collective.name}"
         # Only allow local redirects (paths starting with /)
         return_path = params[:return_to]
-        redirect_path = return_path&.start_with?("/") ? return_path : "#{@current_superagent.path}/settings"
+        redirect_path = return_path&.start_with?("/") ? return_path : "#{@current_collective.path}/settings"
         redirect_to redirect_path
       end
     end
   end
 
   def remove_ai_agent
-    unless @current_user.superagent_member&.is_admin?
+    unless @current_user.collective_member&.is_admin?
       return render status: 403, json: { error: 'Unauthorized' }
     end
     ai_agent = User.find_by(id: params[:ai_agent_id])
@@ -219,12 +219,12 @@ class StudiosController < ApplicationController
       return render status: 404, json: { error: 'AI Agent not found' }
     end
 
-    superagent_member = SuperagentMember.find_by(superagent: @current_superagent, user: ai_agent)
-    if superagent_member.nil? || superagent_member.archived?
+    collective_member = CollectiveMember.find_by(collective: @current_collective, user: ai_agent)
+    if collective_member.nil? || collective_member.archived?
       return render status: 404, json: { error: 'AI Agent not in this studio' }
     end
 
-    superagent_member.archive!
+    collective_member.archive!
     can_readd = ai_agent.parent_id == @current_user.id
 
     respond_to do |format|
@@ -236,8 +236,8 @@ class StudiosController < ApplicationController
         }
       end
       format.html do
-        flash[:notice] = "#{ai_agent.display_name} has been removed from #{@current_superagent.name}"
-        redirect_to "#{@current_superagent.path}/settings"
+        flash[:notice] = "#{ai_agent.display_name} has been removed from #{@current_collective.name}"
+        redirect_to "#{@current_collective.path}/settings"
       end
     end
   end
@@ -248,11 +248,11 @@ class StudiosController < ApplicationController
   end
 
   def describe_update_studio_settings
-    render_action_description(ActionsHelper.action_description("update_studio_settings", resource: @current_superagent))
+    render_action_description(ActionsHelper.action_description("update_studio_settings", resource: @current_collective))
   end
 
   def update_studio_settings_action
-    return render_action_error({ action_name: 'update_studio_settings', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'update_studio_settings', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
 
     begin
       studio = api_helper.update_studio_settings
@@ -264,7 +264,7 @@ class StudiosController < ApplicationController
     rescue StandardError => e
       render_action_error({
         action_name: 'update_studio_settings',
-        resource: @current_superagent,
+        resource: @current_collective,
         error: e.message,
       })
     end
@@ -273,54 +273,54 @@ class StudiosController < ApplicationController
   def describe_add_ai_agent_to_studio
     return render status: 403, plain: '403 Unauthorized - Only human accounts can manage AI agents' unless current_user&.human?
     # Get list of addable AI agents for context
-    addable_ai_agents = current_user.ai_agents.includes(:tenant_users, :superagent_members)
+    addable_ai_agents = current_user.ai_agents.includes(:tenant_users, :collective_members)
       .where(tenant_users: { tenant_id: @current_tenant.id })
-      .reject { |s| s.superagents.include?(@current_superagent) }
+      .reject { |s| s.collectives.include?(@current_collective) }
 
     # Use dynamic params to include available AI agent IDs
     dynamic_params = [
       { name: 'ai_agent_id', type: 'integer', description: "ID of the AI agent to add. Your available AI agents: #{addable_ai_agents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
     ]
-    render_action_description(ActionsHelper.action_description("add_ai_agent_to_studio", resource: @current_superagent, params_override: dynamic_params))
+    render_action_description(ActionsHelper.action_description("add_ai_agent_to_studio", resource: @current_collective, params_override: dynamic_params))
   end
 
   def execute_add_ai_agent_to_studio
-    return render_action_error({ action_name: 'add_ai_agent_to_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
-    return render_action_error({ action_name: 'add_ai_agent_to_studio', resource: @current_superagent, error: 'Only human accounts can manage AI agents.' }) unless current_user.human?
+    return render_action_error({ action_name: 'add_ai_agent_to_studio', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'add_ai_agent_to_studio', resource: @current_collective, error: 'Only human accounts can manage AI agents.' }) unless current_user.human?
 
     begin
       ai_agent = User.find(params[:ai_agent_id])
       unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
         return render_action_error({
           action_name: 'add_ai_agent_to_studio',
-          resource: @current_superagent,
+          resource: @current_collective,
           error: 'You can only add your own AI agents.',
         })
       end
-      unless current_user.can_add_ai_agent_to_superagent?(ai_agent, @current_superagent)
+      unless current_user.can_add_ai_agent_to_collective?(ai_agent, @current_collective)
         return render_action_error({
           action_name: 'add_ai_agent_to_studio',
-          resource: @current_superagent,
+          resource: @current_collective,
           error: 'You do not have permission to add AI agents to this studio.',
         })
       end
 
-      @current_superagent.add_user!(ai_agent)
+      @current_collective.add_user!(ai_agent)
       render_action_success({
         action_name: 'add_ai_agent_to_studio',
-        resource: @current_superagent,
-        result: "#{ai_agent.display_name} has been added to #{@current_superagent.name}.",
+        resource: @current_collective,
+        result: "#{ai_agent.display_name} has been added to #{@current_collective.name}.",
       })
     rescue ActiveRecord::RecordNotFound
       render_action_error({
         action_name: 'add_ai_agent_to_studio',
-        resource: @current_superagent,
+        resource: @current_collective,
         error: 'AI Agent not found.',
       })
     rescue StandardError => e
       render_action_error({
         action_name: 'add_ai_agent_to_studio',
-        resource: @current_superagent,
+        resource: @current_collective,
         error: e.message,
       })
     end
@@ -329,7 +329,7 @@ class StudiosController < ApplicationController
   def describe_remove_ai_agent_from_studio
     return render status: 403, plain: '403 Unauthorized - Only human accounts can manage AI agents' unless current_user&.human?
     # Get list of removable AI agents for context
-    studio_ai_agents = @current_superagent.superagent_members.includes(:user)
+    studio_ai_agents = @current_collective.collective_members.includes(:user)
       .reject(&:archived?)
       .map(&:user)
       .select { |u| u.ai_agent? && u.parent_id == current_user.id }
@@ -338,48 +338,48 @@ class StudiosController < ApplicationController
     dynamic_params = [
       { name: 'ai_agent_id', type: 'integer', description: "ID of the AI agent to remove. Your AI agents in this studio: #{studio_ai_agents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
     ]
-    render_action_description(ActionsHelper.action_description("remove_ai_agent_from_studio", resource: @current_superagent, params_override: dynamic_params))
+    render_action_description(ActionsHelper.action_description("remove_ai_agent_from_studio", resource: @current_collective, params_override: dynamic_params))
   end
 
   def execute_remove_ai_agent_from_studio
-    return render_action_error({ action_name: 'remove_ai_agent_from_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
-    return render_action_error({ action_name: 'remove_ai_agent_from_studio', resource: @current_superagent, error: 'Only human accounts can manage AI agents.' }) unless current_user.human?
+    return render_action_error({ action_name: 'remove_ai_agent_from_studio', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'remove_ai_agent_from_studio', resource: @current_collective, error: 'Only human accounts can manage AI agents.' }) unless current_user.human?
 
     begin
       ai_agent = User.find(params[:ai_agent_id])
       unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
         return render_action_error({
           action_name: 'remove_ai_agent_from_studio',
-          resource: @current_superagent,
+          resource: @current_collective,
           error: 'You can only remove your own AI agents.',
         })
       end
 
-      superagent_member = SuperagentMember.find_by(superagent: @current_superagent, user: ai_agent)
-      if superagent_member.nil? || superagent_member.archived?
+      collective_member = CollectiveMember.find_by(collective: @current_collective, user: ai_agent)
+      if collective_member.nil? || collective_member.archived?
         return render_action_error({
           action_name: 'remove_ai_agent_from_studio',
-          resource: @current_superagent,
+          resource: @current_collective,
           error: 'AI Agent is not a member of this studio.',
         })
       end
 
-      superagent_member.archive!
+      collective_member.archive!
       render_action_success({
         action_name: 'remove_ai_agent_from_studio',
-        resource: @current_superagent,
-        result: "#{ai_agent.display_name} has been removed from #{@current_superagent.name}.",
+        resource: @current_collective,
+        result: "#{ai_agent.display_name} has been removed from #{@current_collective.name}.",
       })
     rescue ActiveRecord::RecordNotFound
       render_action_error({
         action_name: 'remove_ai_agent_from_studio',
-        resource: @current_superagent,
+        resource: @current_collective,
         error: 'AI Agent not found.',
       })
     rescue StandardError => e
       render_action_error({
         action_name: 'remove_ai_agent_from_studio',
-        resource: @current_superagent,
+        resource: @current_collective,
         error: e.message,
       })
     end
@@ -391,25 +391,25 @@ class StudiosController < ApplicationController
   end
 
   def describe_join_studio
-    render_action_description(ActionsHelper.action_description("join_studio", resource: @current_superagent))
+    render_action_description(ActionsHelper.action_description("join_studio", resource: @current_collective))
   end
 
   def join_studio_action
-    return render_action_error({ action_name: 'join_studio', resource: @current_superagent, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'join_studio', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
 
     begin
       invite = Invite.find_by(code: params[:code]) if params[:code]
-      invite ||= Invite.find_by(invited_user: current_user, superagent: @current_superagent)
+      invite ||= Invite.find_by(invited_user: current_user, collective: @current_collective)
       api_helper.join_studio(invite: invite)
       render_action_success({
         action_name: 'join_studio',
-        resource: @current_superagent,
-        result: "You have joined #{@current_superagent.name}.",
+        resource: @current_collective,
+        result: "You have joined #{@current_collective.name}.",
       })
     rescue StandardError => e
       render_action_error({
         action_name: 'join_studio',
-        resource: @current_superagent,
+        resource: @current_collective,
         error: e.message,
       })
     end
@@ -420,23 +420,23 @@ class StudiosController < ApplicationController
   end
 
   def invite
-    unless @current_user.superagent_member.can_invite?
+    unless @current_user.collective_member.can_invite?
 @sidebar_mode = 'minimal'
       return render layout: 'application', html: 'You do not have permission to invite members to this studio.'
     end
     @page_title = 'Invite to Studio'
-    @invite = @current_superagent.find_or_create_shareable_invite(@current_user)
+    @invite = @current_collective.find_or_create_shareable_invite(@current_user)
   end
 
   def join
-    if current_user && current_user.superagents.include?(@current_superagent)
+    if current_user && current_user.collectives.include?(@current_collective)
       @current_user_is_member = true
       return
     end
     invite = Invite.find_by(code: params[:code]) if params[:code]
-    invite ||= Invite.find_by(invited_user: current_user, superagent: @current_superagent)
+    invite ||= Invite.find_by(invited_user: current_user, collective: @current_collective)
     if invite && current_user
-      if invite.superagent == @current_superagent
+      if invite.collective == @current_collective
         @invite = invite
       else
         return render plain: '404 invite code not found', status: 404
@@ -447,25 +447,25 @@ class StudiosController < ApplicationController
   end
 
   def accept_invite
-    if current_user && current_user.superagents.include?(@current_superagent)
+    if current_user && current_user.collectives.include?(@current_collective)
       return render status: 400, text: 'You are already a member of this studio'
-    elsif current_user && @current_superagent.is_scene? && !params[:code]
-      @current_superagent.add_user!(current_user)
-      return redirect_to @current_superagent.path
+    elsif current_user && @current_collective.is_scene? && !params[:code]
+      @current_collective.add_user!(current_user)
+      return redirect_to @current_collective.path
     end
     invite = Invite.find_by(code: params[:code]) if params[:code]
-    invite ||= Invite.find_by(invited_user: current_user, superagent: @current_superagent)
+    invite ||= Invite.find_by(invited_user: current_user, collective: @current_collective)
     if invite && current_user
-      if invite.superagent == @current_superagent
+      if invite.collective == @current_collective
         @current_user.accept_invite!(invite)
-        redirect_to @current_superagent.path
+        redirect_to @current_collective.path
       else
         return render plain: '404 invite code not found', status: 404
       end
     elsif invite && !current_user
       redirect_to "/login?code=#{invite.code}"
     else
-      # TODO - check superagent settings to see if public join is allowed
+      # TODO - check collective settings to see if public join is allowed
       return render plain: '404 invite code not found', status: 404
     end
   end
@@ -474,12 +474,12 @@ class StudiosController < ApplicationController
   end
 
   def pinned_items_partial
-    @pinned_items = @current_superagent.pinned_items
+    @pinned_items = @current_collective.pinned_items
     render partial: 'shared/pinned', locals: { pinned_items: @pinned_items }
   end
 
   def members_partial
-    @team = @current_superagent.team
+    @team = @current_collective.team
     render partial: 'shared/team', locals: { team: @team }
   end
 
@@ -488,22 +488,22 @@ class StudiosController < ApplicationController
     # TODO - make this more efficient
     @backlinks = Link.where(
       tenant_id: @current_tenant.id,
-      superagent_id: @current_superagent.id,
+      collective_id: @current_collective.id,
     ).includes(:to_linkable).group_by(&:to_linkable)
     .sort_by { |k, v| -v.count }
     .map { |k, v| [k, v.count] }
   end
 
   def update_image
-    if @current_user.superagent_member.is_admin?
+    if @current_user.collective_member.is_admin?
       if params[:image].present?
-        @current_superagent.image = params[:image]
+        @current_collective.image = params[:image]
       elsif params[:cropped_image_data].present?
-        @current_superagent.cropped_image_data = params[:cropped_image_data]
+        @current_collective.cropped_image_data = params[:cropped_image_data]
       else
         return render status: 400, plain: '400 Bad Request'
       end
-      @current_superagent.save!
+      @current_collective.save!
     end
     redirect_to request.referrer
   end
@@ -516,7 +516,7 @@ class StudiosController < ApplicationController
     @cycle = Cycle.new(
       name: params[:cycle] || 'today',
       tenant: @current_tenant,
-      superagent: @current_superagent,
+      collective: @current_collective,
       current_user: @current_user,
       params: {
         filters: params[:filters] || params[:filter],
@@ -541,7 +541,7 @@ class StudiosController < ApplicationController
       @sidebar_mode = 'minimal'
     else
       @sidebar_mode = 'settings'
-      @team = @current_superagent.team
+      @team = @current_collective.team
     end
   end
 

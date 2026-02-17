@@ -2,7 +2,7 @@ require "test_helper"
 
 class TwoFactorAuthControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @tenant, @superagent, @existing_user = create_tenant_studio_user
+    @tenant, @collective, @existing_user = create_tenant_studio_user
 
     # Create a user with email that will have an OmniAuthIdentity
     test_email = "2fa-controller-test-#{SecureRandom.hex(4)}@example.com"

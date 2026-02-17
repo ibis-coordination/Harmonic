@@ -339,8 +339,8 @@ class AiAgentTaskRunResource
     sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
     def build_ai_agent_task_run(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def build_resource_superagent(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_resource_collective(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
@@ -351,11 +351,11 @@ class AiAgentTaskRunResource
     sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
     def create_ai_agent_task_run!(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_resource_superagent(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_resource_collective(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_resource_superagent!(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_resource_collective!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -369,8 +369,8 @@ class AiAgentTaskRunResource
     sig { returns(T.untyped) }
     def reload_resource; end
 
-    sig { returns(T.nilable(::Superagent)) }
-    def reload_resource_superagent; end
+    sig { returns(T.nilable(::Collective)) }
+    def reload_resource_collective; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -382,7 +382,7 @@ class AiAgentTaskRunResource
     def reset_resource; end
 
     sig { void }
-    def reset_resource_superagent; end
+    def reset_resource_collective; end
 
     sig { void }
     def reset_tenant; end
@@ -393,11 +393,11 @@ class AiAgentTaskRunResource
     sig { params(value: T.untyped).void }
     def resource=(value); end
 
-    sig { returns(T.nilable(::Superagent)) }
-    def resource_superagent; end
+    sig { returns(T.nilable(::Collective)) }
+    def resource_collective; end
 
-    sig { params(value: T.nilable(::Superagent)).void }
-    def resource_superagent=(value); end
+    sig { params(value: T.nilable(::Collective)).void }
+    def resource_collective=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -813,6 +813,51 @@ class AiAgentTaskRunResource
     def id_will_change!; end
 
     sig { returns(::String) }
+    def resource_collective_id; end
+
+    sig { params(value: ::String).returns(::String) }
+    def resource_collective_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def resource_collective_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def resource_collective_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def resource_collective_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def resource_collective_id_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def resource_collective_id_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def resource_collective_id_change_to_be_saved; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def resource_collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def resource_collective_id_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def resource_collective_id_previous_change; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def resource_collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def resource_collective_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def resource_collective_id_was; end
+
+    sig { void }
+    def resource_collective_id_will_change!; end
+
+    sig { returns(::String) }
     def resource_id; end
 
     sig { params(value: ::String).returns(::String) }
@@ -856,51 +901,6 @@ class AiAgentTaskRunResource
 
     sig { void }
     def resource_id_will_change!; end
-
-    sig { returns(::String) }
-    def resource_superagent_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def resource_superagent_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def resource_superagent_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def resource_superagent_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def resource_superagent_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def resource_superagent_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def resource_superagent_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def resource_superagent_id_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def resource_superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def resource_superagent_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def resource_superagent_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def resource_superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def resource_superagent_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def resource_superagent_id_was; end
-
-    sig { void }
-    def resource_superagent_id_will_change!; end
 
     sig { returns(::String) }
     def resource_type; end
@@ -963,10 +963,10 @@ class AiAgentTaskRunResource
     def restore_id!; end
 
     sig { void }
-    def restore_resource_id!; end
+    def restore_resource_collective_id!; end
 
     sig { void }
-    def restore_resource_superagent_id!; end
+    def restore_resource_id!; end
 
     sig { void }
     def restore_resource_type!; end
@@ -1008,16 +1008,16 @@ class AiAgentTaskRunResource
     def saved_change_to_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_resource_collective_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_resource_collective_id?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_resource_id; end
 
     sig { returns(T::Boolean) }
     def saved_change_to_resource_id?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_resource_superagent_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_resource_superagent_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_resource_type; end
@@ -1143,10 +1143,10 @@ class AiAgentTaskRunResource
     def will_save_change_to_id?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_resource_id?; end
+    def will_save_change_to_resource_collective_id?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_resource_superagent_id?; end
+    def will_save_change_to_resource_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_resource_type?; end

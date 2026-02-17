@@ -10,8 +10,8 @@ class CommitmentParticipant < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :superagent
-  before_validation :set_superagent_id
+  belongs_to :collective
+  before_validation :set_collective_id
   belongs_to :commitment
   belongs_to :user
 
@@ -21,8 +21,8 @@ class CommitmentParticipant < ApplicationRecord
   end
 
   sig { void }
-  def set_superagent_id
-    self.superagent_id = T.must(commitment).superagent_id if superagent_id.nil?
+  def set_collective_id
+    self.collective_id = T.must(commitment).collective_id if collective_id.nil?
   end
 
   sig { returns(T::Hash[Symbol, T.untyped]) }

@@ -3,12 +3,12 @@
 class AutomationRule < ApplicationRecord
   extend T::Sig
   include HasTruncatedId
-  include MightNotBelongToSuperagent
+  include MightNotBelongToCollective
 
   TRIGGER_TYPES = ["event", "schedule", "webhook", "manual"].freeze
 
   belongs_to :tenant
-  belongs_to :superagent, optional: true
+  belongs_to :collective, optional: true
   belongs_to :user, optional: true
   belongs_to :ai_agent, class_name: "User", optional: true
   belongs_to :created_by, class_name: "User"
@@ -36,12 +36,12 @@ class AutomationRule < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def studio_rule?
-    superagent_id.present? && ai_agent_id.nil?
+    collective_id.present? && ai_agent_id.nil?
   end
 
   sig { returns(T::Boolean) }
   def user_rule?
-    user_id.present? && ai_agent_id.nil? && superagent_id.nil?
+    user_id.present? && ai_agent_id.nil? && collective_id.nil?
   end
 
   sig { returns(T::Boolean) }
@@ -137,9 +137,9 @@ class AutomationRule < ApplicationRecord
     if ai_agent_id.present?
       agent_tu = TenantUser.find_by(tenant_id: tenant_id, user_id: ai_agent_id)
       "/ai-agents/#{agent_tu&.handle}/automations/#{truncated_id}"
-    elsif superagent_id.present?
-      s = Superagent.tenant_scoped_only(tenant_id).find_by(id: superagent_id)
-      "/studios/#{s&.handle}/settings/automations/#{truncated_id}"
+    elsif collective_id.present?
+      c = Collective.tenant_scoped_only(tenant_id).find_by(id: collective_id)
+      "/studios/#{c&.handle}/settings/automations/#{truncated_id}"
     else
       tu = TenantUser.find_by(tenant_id: tenant_id, user_id: user_id)
       "/u/#{tu&.handle}/settings/automations/#{truncated_id}"
@@ -155,15 +155,15 @@ class AutomationRule < ApplicationRecord
 
   sig { void }
   def only_one_scope_type
-    scopes_set = [ai_agent_id, superagent_id, user_id].compact.count
+    scopes_set = [ai_agent_id, collective_id, user_id].compact.count
     return unless scopes_set > 1
 
     # Agent rules can have ai_agent_id set alongside others being nil
-    # Studio rules have superagent_id set
+    # Studio rules have collective_id set
     # User rules have user_id set
-    if ai_agent_id.present? && (superagent_id.present? || user_id.present?)
-      errors.add(:base, "Agent rules cannot have superagent or user scope set")
-    elsif superagent_id.present? && user_id.present?
+    if ai_agent_id.present? && (collective_id.present? || user_id.present?)
+      errors.add(:base, "Agent rules cannot have collective or user scope set")
+    elsif collective_id.present? && user_id.present?
       errors.add(:base, "Rule cannot be both studio-level and user-level")
     end
   end

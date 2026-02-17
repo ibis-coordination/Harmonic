@@ -7,13 +7,13 @@ This guide provides practical examples for using `MarkdownUiService` to navigate
 ```ruby
 # Get your context objects
 tenant = Tenant.find_by(subdomain: "mycompany")
-superagent = tenant.superagents.find_by(handle: "engineering")
+collective = tenant.collectives.find_by(handle: "engineering")
 user = User.find_by(email: "alice@example.com")
 
 # Create the service
 service = MarkdownUiService.new(
   tenant: tenant,
-  superagent: superagent,
+  collective: collective,
   user: user
 )
 
@@ -190,14 +190,14 @@ end
 The service enforces the same authorization rules as the web interface:
 
 1. **Tenant membership**: User must be a member of the tenant
-2. **Superagent membership**: User must be a member of the studio (main superagent is exempt)
+2. **Collective membership**: User must be a member of the studio (main collective is exempt)
 3. **Login requirement**: If tenant requires login, user must be provided
 
 ```ruby
 # This will fail if user isn't a studio member
 service = MarkdownUiService.new(
   tenant: tenant,
-  superagent: private_studio,
+  collective: private_studio,
   user: non_member_user
 )
 result = service.navigate("/")
@@ -234,10 +234,10 @@ rails console
 
 # Quick test
 t = Tenant.first
-s = t.superagents.find_by(superagent_type: "studio")
+s = t.collectives.find_by(collective_type: "studio")
 u = User.first
 
-service = MarkdownUiService.new(tenant: t, superagent: s, user: u)
+service = MarkdownUiService.new(tenant: t, collective: s, user: u)
 puts service.navigate("/")[:content]
 ```
 

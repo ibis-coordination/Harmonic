@@ -38,7 +38,7 @@ class SocialProximityCalculator
 
   sig { void }
   def preload_graph_data
-    load_superagent_memberships
+    load_collective_memberships
     load_note_reader_groups
     load_decision_voter_groups
     load_commitment_joiner_groups
@@ -46,35 +46,35 @@ class SocialProximityCalculator
   end
 
   sig { void }
-  def load_superagent_memberships
-    # Get source user's superagents (1-hop)
-    source_superagent_ids = SuperagentMember
+  def load_collective_memberships
+    # Get source user's collectives (1-hop)
+    source_collective_ids = CollectiveMember
       .where(tenant_id: @tenant_id, user_id: @source.id, archived_at: nil)
-      .pluck(:superagent_id)
+      .pluck(:collective_id)
 
-    return if source_superagent_ids.empty?
+    return if source_collective_ids.empty?
 
-    # Get all users in those superagents (1-hop users)
-    one_hop_user_ids = SuperagentMember
-      .where(tenant_id: @tenant_id, superagent_id: source_superagent_ids, archived_at: nil)
+    # Get all users in those collectives (1-hop users)
+    one_hop_user_ids = CollectiveMember
+      .where(tenant_id: @tenant_id, collective_id: source_collective_ids, archived_at: nil)
       .distinct.pluck(:user_id)
 
-    # Get all superagents those users belong to (2-hop superagents)
-    two_hop_superagent_ids = SuperagentMember
+    # Get all collectives those users belong to (2-hop collectives)
+    two_hop_collective_ids = CollectiveMember
       .where(tenant_id: @tenant_id, user_id: one_hop_user_ids, archived_at: nil)
-      .distinct.pluck(:superagent_id)
+      .distinct.pluck(:collective_id)
 
-    # Now get ALL members of all reachable superagents (for complete random walks)
-    SuperagentMember
-      .where(tenant_id: @tenant_id, superagent_id: two_hop_superagent_ids, archived_at: nil)
-      .pluck(:user_id, :superagent_id)
-      .each do |user_id, superagent_id|
-        add_user_to_group(user_id, "superagent:#{superagent_id}")
+    # Now get ALL members of all reachable collectives (for complete random walks)
+    CollectiveMember
+      .where(tenant_id: @tenant_id, collective_id: two_hop_collective_ids, archived_at: nil)
+      .pluck(:user_id, :collective_id)
+      .each do |user_id, collective_id|
+        add_user_to_group(user_id, "collective:#{collective_id}")
       end
 
-    # Calculate sizes for superagent groups
+    # Calculate sizes for collective groups
     @group_members.each do |key, members|
-      @group_sizes[key] = members.uniq.size if key.start_with?("superagent:")
+      @group_sizes[key] = members.uniq.size if key.start_with?("collective:")
     end
   end
 
@@ -158,33 +158,33 @@ class SocialProximityCalculator
 
   sig { void }
   def load_heartbeat_groups
-    # Get superagents where source user has heartbeats
-    source_superagent_ids = Heartbeat
+    # Get collectives where source user has heartbeats
+    source_collective_ids = Heartbeat
       .where(tenant_id: @tenant_id, user_id: @source.id)
       .distinct
-      .pluck(:superagent_id)
+      .pluck(:collective_id)
 
-    return if source_superagent_ids.empty?
+    return if source_collective_ids.empty?
 
-    # For each superagent, group heartbeats by the current cycle
-    source_superagent_ids.each do |superagent_id|
-      superagent = Superagent.find_by(id: superagent_id)
-      next unless superagent
+    # For each collective, group heartbeats by the current cycle
+    source_collective_ids.each do |collective_id|
+      collective = Collective.find_by(id: collective_id)
+      next unless collective
 
-      # Get the current cycle for this superagent
-      cycle = Cycle.new_from_superagent(superagent)
+      # Get the current cycle for this collective
+      cycle = Cycle.new_from_collective(collective)
       cycle_key = cycle.name # e.g., "today", "this-week"
 
-      # Get all users with heartbeats in this superagent during this cycle
+      # Get all users with heartbeats in this collective during this cycle
       user_ids = T.unsafe(Heartbeat)
-        .where(tenant_id: @tenant_id, superagent_id: superagent_id)
+        .where(tenant_id: @tenant_id, collective_id: collective_id)
         .where_in_cycle(cycle)
         .distinct
         .pluck(:user_id)
 
       next if user_ids.size < 2 # Skip if only the source user
 
-      group_key = "heartbeat:#{superagent_id}:#{cycle_key}"
+      group_key = "heartbeat:#{collective_id}:#{cycle_key}"
       user_ids.each do |user_id|
         add_user_to_group(user_id, group_key)
       end

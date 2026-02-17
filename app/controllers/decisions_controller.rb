@@ -6,9 +6,9 @@ class DecisionsController < ApplicationController
   def new
     @page_title = "Decide"
     @page_description = "Make a group decision with Harmonic Team"
-    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
     @sidebar_mode = 'resource'
-    @team = @current_superagent.team
+    @team = @current_collective.team
     @decision = Decision.new(
       question: params[:question],
     )
@@ -25,11 +25,11 @@ class DecisionsController < ApplicationController
       }
       @decision = @current_decision = api_helper(params: helper_params).create_decision
       # Handle file attachments separately (HTML form specific)
-      if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
+      if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
         @decision.attach!(params[:files])
       end
       # Handle pinning (HTML form specific)
-      if params[:pinned] == '1' && current_superagent.id != current_tenant.main_studio_id
+      if params[:pinned] == '1' && current_collective.id != current_tenant.main_studio_id
         api_helper.pin_resource(@decision)
       end
       redirect_to @decision.path
@@ -37,7 +37,7 @@ class DecisionsController < ApplicationController
       e.record.errors.full_messages.each do |msg|
         flash.now[:alert] = msg
       end
-      @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+      @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
       @decision = Decision.new(
         question: decision_params[:question],
         description: decision_params[:description],
@@ -77,7 +77,7 @@ class DecisionsController < ApplicationController
     @page_title = @decision.question
     @page_description = "Decide as a group with Harmonic Team"
     @sidebar_mode = 'resource'
-    @team = @current_superagent.team
+    @team = @current_collective.team
     @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
 
     @votes = current_votes
@@ -95,7 +95,7 @@ class DecisionsController < ApplicationController
     @page_title = "Decision Settings"
     @page_description = "Change settings for this decision"
     @sidebar_mode = 'resource'
-    @team = @current_superagent.team
+    @team = @current_collective.team
     set_pin_vars
   end
 

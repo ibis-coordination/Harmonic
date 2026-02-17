@@ -3,9 +3,9 @@ require "test_helper"
 class DecisionParticipantManagerTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    @decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    @decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
   end
 
   # === Initialization Tests ===

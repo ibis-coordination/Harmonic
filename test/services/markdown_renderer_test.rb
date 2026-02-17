@@ -3,10 +3,10 @@ require "test_helper"
 class MarkdownRendererTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     # Set thread context for display_references
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
   end
 
   # === Basic Rendering Tests ===
@@ -322,8 +322,8 @@ class MarkdownRendererTest < ActiveSupport::TestCase
   test "render with display_references true processes internal links" do
     # Create a note to link to
     user = @global_user
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: user, title: "Target", text: "Content")
-    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@superagent.handle}/n/#{note.truncated_id}"
+    note = create_note(tenant: @tenant, collective: @collective, created_by: user, title: "Target", text: "Content")
+    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
 
     markdown = "[#{link_url}](#{link_url})"
     html = MarkdownRenderer.render(markdown, display_references: true)
@@ -334,8 +334,8 @@ class MarkdownRendererTest < ActiveSupport::TestCase
 
   test "render with display_references false does not process internal links" do
     user = @global_user
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: user, title: "Target", text: "Content")
-    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@superagent.handle}/n/#{note.truncated_id}"
+    note = create_note(tenant: @tenant, collective: @collective, created_by: user, title: "Target", text: "Content")
+    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
 
     markdown = "[Click here](#{link_url})"
     html = MarkdownRenderer.render(markdown, display_references: false)

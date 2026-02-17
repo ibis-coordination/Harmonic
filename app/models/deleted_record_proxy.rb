@@ -19,7 +19,7 @@ class DeletedRecordProxy
   end
 
   sig { returns(DeletedRecordProxy) }
-  def superagent
+  def collective
     DeletedRecordProxy.new
   end
 

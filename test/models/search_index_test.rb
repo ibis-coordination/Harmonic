@@ -4,13 +4,13 @@ require "test_helper"
 
 class SearchIndexTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
   end
 
   test "creates search index record with valid attributes" do
     search_index = SearchIndex.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       item_type: "Note",
       item_id: SecureRandom.uuid,
       truncated_id: "abc12345",
@@ -30,7 +30,7 @@ class SearchIndexTest < ActiveSupport::TestCase
   test "validates item_type inclusion" do
     search_index = SearchIndex.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       item_type: "InvalidType",
       item_id: SecureRandom.uuid,
       truncated_id: "abc12345",
@@ -65,32 +65,32 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "path returns correct path for Note" do
     search_index = SearchIndex.new(
-      superagent: @superagent,
+      collective: @collective,
       item_type: "Note",
       truncated_id: "abc12345",
     )
 
-    assert_equal "#{@superagent.path}/n/abc12345", search_index.path
+    assert_equal "#{@collective.path}/n/abc12345", search_index.path
   end
 
   test "path returns correct path for Decision" do
     search_index = SearchIndex.new(
-      superagent: @superagent,
+      collective: @collective,
       item_type: "Decision",
       truncated_id: "abc12345",
     )
 
-    assert_equal "#{@superagent.path}/d/abc12345", search_index.path
+    assert_equal "#{@collective.path}/d/abc12345", search_index.path
   end
 
   test "path returns correct path for Commitment" do
     search_index = SearchIndex.new(
-      superagent: @superagent,
+      collective: @collective,
       item_type: "Commitment",
       truncated_id: "abc12345",
     )
 
-    assert_equal "#{@superagent.path}/c/abc12345", search_index.path
+    assert_equal "#{@collective.path}/c/abc12345", search_index.path
   end
 
   test "date grouping helpers return correct formats" do
@@ -110,7 +110,7 @@ class SearchIndexTest < ActiveSupport::TestCase
   test "api_json returns expected hash" do
     search_index = SearchIndex.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       item_type: "Note",
       item_id: SecureRandom.uuid,
       truncated_id: "abc12345",

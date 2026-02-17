@@ -1,5 +1,5 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   'Views'
 ] %>
 
@@ -21,7 +21,7 @@
 
     <ul class="pulse-list">
       <li class="pulse-list-item">
-        <a href="<%= @current_superagent.path %>/view?filters=mine" class="pulse-list-link">
+        <a href="<%= @current_collective.path %>/view?filters=mine" class="pulse-list-link">
           <%= octicon 'person', height: 16 %>
           Your items
         </a>

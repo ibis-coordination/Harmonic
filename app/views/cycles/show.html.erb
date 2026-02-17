@@ -1,6 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
-  ['Cycles', @current_superagent.path + '/cycles'],
+  [@current_collective.name, @current_collective.path],
+  ['Cycles', @current_collective.path + '/cycles'],
   @cycle.display_name
 ] %>
 
@@ -16,7 +16,7 @@
   </header>
 
   <div class="pulse-resource-meta">
-    <span title="<%= @current_superagent.timezone.name %>">
+    <span title="<%= @current_collective.timezone.name %>">
       <%= @cycle.display_duration %>,
       <% if @cycle.start_date > @cycle.now %>
         starting <%= timeago(@cycle.start_date) %>

@@ -34,8 +34,8 @@
         <% if @search.query.present? %>
           <span>for "<%= @search.query %>"</span>
         <% end %>
-        <% if @search.superagent.present? %>
-          <span>in <strong><%= @search.superagent.name %></strong></span>
+        <% if @search.collective.present? %>
+          <span>in <strong><%= @search.collective.name %></strong></span>
         <% end %>
       </div>
 
@@ -62,7 +62,7 @@
                   <% items.each do |item| %>
                     <tr>
                       <td><%= render 'shared/pulse_resource_link', resource: search_result_to_hash(item) %></td>
-                      <td><%= item.superagent&.name || 'Unknown' %></td>
+                      <td><%= item.collective&.name || 'Unknown' %></td>
                       <td><%= timeago(item.created_at) %></td>
                       <td><%= timeago(item.deadline) %></td>
                       <td><%= item.backlink_count %></td>
@@ -110,7 +110,7 @@
           <tr><td><code>min-*/max-*:</code></td><td>links, backlinks, comments, readers, voters, participants</td></tr>
           <tr><td><code>critical-mass-achieved:</code></td><td>true, false</td></tr>
           <tr><td><code>sort:</code></td><td>newest, oldest, updated, deadline, relevance</td></tr>
-          <tr><td><code>group:</code></td><td>superagent, creator, type, status, date, week, month, none</td></tr>
+          <tr><td><code>group:</code></td><td>collective, creator, type, status, date, week, month, none</td></tr>
           <tr><td><code>cycle:</code></td><td>today, this-week, last-month, etc.</td></tr>
           <tr><td><code>after:</code></td><td>YYYY-MM-DD or -Nd/-Nw/-Nm/-Ny</td></tr>
           <tr><td><code>before:</code></td><td>YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny</td></tr>

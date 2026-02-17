@@ -4,7 +4,7 @@ require "webmock/minitest"
 class TrioControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
     @base_url = ENV.fetch("TRIO_BASE_URL", "http://trio:8000")

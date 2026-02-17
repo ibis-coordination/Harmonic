@@ -6,25 +6,25 @@ class RepresentationSession < ApplicationRecord
   include Linkable
   include Commentable
   include HasTruncatedId
-  include MightNotBelongToSuperagent
+  include MightNotBelongToCollective
 
   belongs_to :tenant
-  belongs_to :superagent, optional: true
+  belongs_to :collective, optional: true
   belongs_to :representative_user, class_name: "User"
   belongs_to :trustee_grant, optional: true
   has_many :representation_session_events, dependent: :destroy
 
   validates :began_at, presence: true
   validates :confirmed_understanding, inclusion: { in: [true] }
-  validate :superagent_presence_matches_session_type
+  validate :collective_presence_matches_session_type
 
-  # Studio representation requires superagent_id; user representation must NOT have superagent_id
+  # Studio representation requires collective_id; user representation must NOT have collective_id
   sig { void }
-  def superagent_presence_matches_session_type
-    if trustee_grant_id.present? && superagent_id.present?
-      errors.add(:superagent_id, "must be nil for user representation sessions")
-    elsif trustee_grant_id.nil? && superagent_id.nil?
-      errors.add(:superagent_id, "is required for studio representation sessions")
+  def collective_presence_matches_session_type
+    if trustee_grant_id.present? && collective_id.present?
+      errors.add(:collective_id, "must be nil for user representation sessions")
+    elsif trustee_grant_id.nil? && collective_id.nil?
+      errors.add(:collective_id, "is required for studio representation sessions")
     end
   end
 
@@ -43,7 +43,7 @@ class RepresentationSession < ApplicationRecord
       began_at: began_at,
       ended_at: ended_at,
       elapsed_time: elapsed_time,
-      superagent_id: superagent_id,
+      collective_id: collective_id,
       representative_user_id: representative_user_id,
       effective_user_id: effective_user.id,
     }
@@ -117,7 +117,7 @@ class RepresentationSession < ApplicationRecord
     if user_representation?
       T.must(T.must(trustee_grant).granting_user)
     else
-      T.must(T.must(superagent).proxy_user)
+      T.must(T.must(collective).proxy_user)
     end
   end
 
@@ -127,7 +127,7 @@ class RepresentationSession < ApplicationRecord
     if user_representation?
       represented_user&.display_name || "User"
     else
-      superagent&.name || "Studio"
+      collective&.name || "Studio"
     end
   end
 
@@ -147,11 +147,11 @@ class RepresentationSession < ApplicationRecord
     RepresentationSessionEvent.create!(
       representation_session: self,
       tenant_id: tenant_id,
-      superagent_id: superagent_id,
+      collective_id: collective_id,
       action_name: action_name,
       resource: resource,
       context_resource: context_resource,
-      resource_superagent_id: resource.superagent_id,
+      resource_collective_id: resource.collective_id,
       request_id: request.request_id
     )
   end
@@ -186,13 +186,13 @@ class RepresentationSession < ApplicationRecord
 
   sig { returns(String) }
   def path
-    if superagent
+    if collective
       # Studio representation session - path is studio-relative
-      "/studios/#{T.must(superagent).handle}/r/#{truncated_id}"
+      "/studios/#{T.must(collective).handle}/r/#{truncated_id}"
     else
       # User representation session - path is via trustee grant
       grant = trustee_grant
-      raise "Invalid state: RepresentationSession #{id} has no superagent and no trustee_grant" unless grant
+      raise "Invalid state: RepresentationSession #{id} has no collective and no trustee_grant" unless grant
 
       "/u/#{T.must(grant.granting_user).handle}/settings/trustee-grants/#{grant.truncated_id}"
 
@@ -221,7 +221,7 @@ class RepresentationSession < ApplicationRecord
       begin
         events = representation_session_events.order(created_at: :asc).to_a
 
-        # Preload resources unscoped to bypass default superagent scope
+        # Preload resources unscoped to bypass default collective scope
         # (events may reference resources in different studios)
         preload_polymorphic_unscoped(events, :resource)
         preload_polymorphic_unscoped(events, :context_resource)
@@ -233,7 +233,7 @@ class RepresentationSession < ApplicationRecord
           {
             happened_at: event.created_at,
             verb_phrase: event.verb_phrase,
-            superagent: display_resource&.respond_to?(:superagent) ? display_resource.superagent : nil,
+            collective: display_resource&.respond_to?(:collective) ? display_resource.collective : nil,
             main_resource: display_resource,
             event_count: grouped_events.size, # e.g., "voted on Decision (3 votes)"
           }
@@ -257,7 +257,7 @@ class RepresentationSession < ApplicationRecord
       ids = type_records.map(&id_col).compact.uniq
       next if ids.empty?
 
-      # Bypass superagent scope but keep tenant scope (records are from same tenant as session)
+      # Bypass collective scope but keep tenant scope (records are from same tenant as session)
       loaded = type.constantize.tenant_scoped_only(tenant_id).where(id: ids).index_by(&:id)
 
       # Assign back to records

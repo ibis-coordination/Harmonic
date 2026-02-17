@@ -13,7 +13,7 @@
   <% if @current_user %>
     <div class="pulse-comment-form">
       <%= form_with url: "#{commentable.path}/comments", method: :post, local: true, class: "pulse-new-comment-form", data: { comments_target: "form", action: "submit->comments#submit", turbo: "false" } do |form| %>
-        <div class="pulse-form-group mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+        <div class="pulse-form-group mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_collective.path %>">
           <%= form.text_area :text, placeholder: "Add a comment (use @ to mention users)...", rows: 3, class: "pulse-form-textarea", data: { mention_autocomplete_target: "input", comments_target: "textarea" } %>
           <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
         </div>

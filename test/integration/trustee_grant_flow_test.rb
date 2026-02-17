@@ -18,11 +18,11 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     @bob = create_user(email: "bob_#{SecureRandom.hex(4)}@example.com", name: "Bob")
     @tenant.add_user!(@alice)
     @tenant.add_user!(@bob)
-    # Create main superagent (required for sign_in_as to work)
-    @tenant.create_main_superagent!(created_by: @alice)
-    @superagent = create_superagent(tenant: @tenant, created_by: @alice, handle: "trustee-grant-studio-#{SecureRandom.hex(4)}")
-    @superagent.add_user!(@alice)
-    @superagent.add_user!(@bob)
+    # Create main collective (required for sign_in_as to work)
+    @tenant.create_main_collective!(created_by: @alice)
+    @collective = create_collective(tenant: @tenant, created_by: @alice, handle: "trustee-grant-studio-#{SecureRandom.hex(4)}")
+    @collective.add_user!(@alice)
+    @collective.add_user!(@bob)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
@@ -49,10 +49,10 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     assert permission.active?
     assert @bob.can_represent?(@alice)
 
-    # Step 3: Bob starts a user representation session (no superagent, has trustee_grant)
+    # Step 3: Bob starts a user representation session (no collective, has trustee_grant)
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation has no superagent
+      collective: nil,  # User representation has no collective
       trustee_grant: permission,
       representative_user: @bob,
       confirmed_understanding: true,
@@ -67,7 +67,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # During representation, content is attributed to the effective_user (Alice, the granting_user)
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: session.effective_user,  # Alice
       title: "Note created while representing Alice",
       text: "This is a test note.",
@@ -176,7 +176,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Create user representation session
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation has no superagent
+      collective: nil,  # User representation has no collective
       trustee_grant: permission,
       representative_user: @bob,
       confirmed_understanding: true,
@@ -198,7 +198,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
   # =========================================================================
 
   test "studio scope enforcement - include mode" do
-    other_studio = create_superagent(tenant: @tenant, created_by: @alice, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_studio = create_collective(tenant: @tenant, created_by: @alice, handle: "other-studio-#{SecureRandom.hex(4)}")
     other_studio.add_user!(@alice)
     other_studio.add_user!(@bob)
 
@@ -207,16 +207,16 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_note" => true },
-      studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] }
+      studio_scope: { "mode" => "include", "studio_ids" => [@collective.id] }
     )
     permission.accept!
 
-    assert permission.allows_studio?(@superagent)
+    assert permission.allows_studio?(@collective)
     assert_not permission.allows_studio?(other_studio)
   end
 
   test "studio scope enforcement - exclude mode" do
-    excluded_studio = create_superagent(tenant: @tenant, created_by: @alice, handle: "excluded-studio-#{SecureRandom.hex(4)}")
+    excluded_studio = create_collective(tenant: @tenant, created_by: @alice, handle: "excluded-studio-#{SecureRandom.hex(4)}")
     excluded_studio.add_user!(@alice)
     excluded_studio.add_user!(@bob)
 
@@ -229,7 +229,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     )
     permission.accept!
 
-    assert permission.allows_studio?(@superagent)
+    assert permission.allows_studio?(@collective)
     assert_not permission.allows_studio?(excluded_studio)
   end
 
@@ -245,7 +245,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       parent_id: @alice.id
     )
     @tenant.add_user!(ai_agent)
-    @superagent.add_user!(ai_agent)
+    @collective.add_user!(ai_agent)
 
     # Permission should be auto-created and pre-accepted
     permission = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @alice)
@@ -258,7 +258,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Alice can create a user representation session for the ai_agent
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation has no superagent
+      collective: nil,  # User representation has no collective
       trustee_grant: permission,
       representative_user: @alice,
       confirmed_understanding: true,
@@ -289,7 +289,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Create second granting user (Carol)
     carol = create_user(email: "carol_#{SecureRandom.hex(4)}@example.com", name: "Carol")
     @tenant.add_user!(carol)
-    @superagent.add_user!(carol)
+    @collective.add_user!(carol)
 
     # Carol also grants permission to Bob
     permission2 = TrusteeGrant.create!(
@@ -303,7 +303,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Bob starts session representing Alice
     session1 = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation
+      collective: nil,  # User representation
       trustee_grant: permission1,
       representative_user: @bob,
       confirmed_understanding: true,
@@ -338,7 +338,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation
+      collective: nil,  # User representation
       trustee_grant: permission,
       representative_user: @bob,
       confirmed_understanding: true,
@@ -351,9 +351,9 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # The effective_user is Alice (the granting_user, the person being represented)
     assert_equal @alice, session.effective_user
 
-    # After the migration, trustee_user on TrusteeGrant is the actual person (Bob), not a superagent_proxy
+    # After the migration, trustee_user on TrusteeGrant is the actual person (Bob), not a collective_proxy
     assert_equal @bob, permission.trustee_user
-    assert_not permission.trustee_user.superagent_proxy?
+    assert_not permission.trustee_user.collective_proxy?
     assert_equal "Bob", permission.trustee_user.name
   end
 
@@ -367,7 +367,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
   test "user representation session denies access to studio where granting user is not a member" do
     # Create a studio that only Bob is a member of (not Alice)
-    bobs_studio = create_superagent(tenant: @tenant, created_by: @bob, handle: "bobs-studio-#{SecureRandom.hex(4)}")
+    bobs_studio = create_collective(tenant: @tenant, created_by: @bob, handle: "bobs-studio-#{SecureRandom.hex(4)}")
     bobs_studio.add_user!(@bob)
     # Alice is NOT a member of bobs_studio
 
@@ -408,7 +408,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
   test "user representation session denies access to studio excluded by grant scope" do
     # Create another studio that both Alice and Bob are members of
-    excluded_studio = create_superagent(tenant: @tenant, created_by: @alice, handle: "excluded-studio-#{SecureRandom.hex(4)}")
+    excluded_studio = create_collective(tenant: @tenant, created_by: @alice, handle: "excluded-studio-#{SecureRandom.hex(4)}")
     excluded_studio.add_user!(@alice)
     excluded_studio.add_user!(@bob)
 
@@ -423,7 +423,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     grant.accept!
 
     # Verify grant scope configuration
-    assert grant.allows_studio?(@superagent)
+    assert grant.allows_studio?(@collective)
     assert_not grant.allows_studio?(excluded_studio)
 
     # Sign in as Bob
@@ -457,9 +457,9 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     )
     grant.accept!
 
-    # Alice is already a member of @superagent (from setup)
-    assert @superagent.superagent_members.exists?(user: @alice)
-    assert grant.allows_studio?(@superagent)
+    # Alice is already a member of @collective (from setup)
+    assert @collective.collective_members.exists?(user: @alice)
+    assert grant.allows_studio?(@collective)
 
     # Sign in as Bob
     sign_in_as(@bob, tenant: @tenant)
@@ -475,7 +475,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     # Now Bob (as trustee) accesses the allowed studio
-    get @superagent.path
+    get @collective.path
 
     # Access should be allowed - we should see the studio content, not a redirect to join
     assert_response :success,

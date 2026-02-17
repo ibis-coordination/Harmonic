@@ -179,11 +179,11 @@ module ApplicationHelper
   end
 
   # Render a rich group header for search results
-  # Returns HTML content for superagent/creator groupings, or the plain key otherwise
+  # Returns HTML content for collective/creator groupings, or the plain key otherwise
   def search_group_header(group_key)
     case group_key
-    when Superagent
-      search_superagent_header(group_key)
+    when Collective
+      search_collective_header(group_key)
     when User
       search_user_header(group_key)
     else
@@ -191,20 +191,20 @@ module ApplicationHelper
     end
   end
 
-  def search_superagent_header(superagent)
-    type_label = superagent.is_scene? ? "Scene" : "Studio"
-    initial = superagent.name.to_s.first&.upcase || "?"
+  def search_collective_header(collective)
+    type_label = collective.is_scene? ? "Scene" : "Studio"
+    initial = collective.name.to_s.first&.upcase || "?"
 
     avatar = content_tag(:span, class: "pulse-group-avatar") do
       content_tag(:span, initial, class: "pulse-group-avatar-initials")
     end
 
-    content_tag(:span, class: "pulse-group-header pulse-group-header-superagent") do
+    content_tag(:span, class: "pulse-group-header pulse-group-header-collective") do
       safe_join(
         [
           avatar,
           content_tag(:span, "#{type_label}: ", class: "pulse-group-type-label"),
-          link_to(superagent.name, superagent.path, class: "pulse-group-link"),
+          link_to(collective.name, collective.path, class: "pulse-group-link"),
         ]
       )
     end
@@ -237,7 +237,7 @@ module ApplicationHelper
   # Render a plain text/markdown group header for search results
   def search_group_header_markdown(group_key)
     case group_key
-    when Superagent
+    when Collective
       type_label = group_key.is_scene? ? "Scene" : "Studio"
       "#{type_label}: [#{group_key.name}](#{group_key.path})"
     when User

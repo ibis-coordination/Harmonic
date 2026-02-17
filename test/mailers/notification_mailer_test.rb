@@ -2,12 +2,12 @@ require "test_helper"
 
 class NotificationMailerTest < ActionMailer::TestCase
   test "notification_email sends email with correct content" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
       actor: user,
     )
@@ -44,12 +44,12 @@ class NotificationMailerTest < ActionMailer::TestCase
   end
 
   test "notification_email includes correct URL" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
       actor: user,
     )
@@ -77,12 +77,12 @@ class NotificationMailerTest < ActionMailer::TestCase
   end
 
   test "notification_email handles notification without body" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
       actor: user,
     )
@@ -113,12 +113,12 @@ class NotificationMailerTest < ActionMailer::TestCase
   end
 
   test "notification_email handles notification without URL" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
       actor: user,
     )

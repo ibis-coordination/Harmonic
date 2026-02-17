@@ -303,7 +303,7 @@ New table: `agent_subscriptions`
 | `id` | uuid | Primary key |
 | `tenant_id` | uuid | Tenant |
 | `subagent_id` | uuid | The watching agent |
-| `subscribable_type` | string | 'Superagent', 'Note', 'Decision', etc. |
+| `subscribable_type` | string | 'Collective', 'Note', 'Decision', etc. |
 | `subscribable_id` | uuid | What to watch |
 | `events` | jsonb | `['create', 'update', 'comment']` |
 | `enabled` | boolean | On/off |

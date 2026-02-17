@@ -2,7 +2,7 @@ require "test_helper"
 
 class CleanupExpiredInternalTokensJobTest < ActiveJob::TestCase
   def setup
-    @tenant, @superagent, @user = create_tenant_superagent_user
+    @tenant, @collective, @user = create_tenant_collective_user
   end
 
   test "deletes expired internal tokens" do

@@ -23,19 +23,19 @@ Yabeda.configure do
   group :content do
     counter :notes_created_total,
             comment: "Total notes created",
-            tags: [:tenant_id, :superagent_id]
+            tags: [:tenant_id, :collective_id]
 
     counter :decisions_created_total,
             comment: "Total decisions created",
-            tags: [:tenant_id, :superagent_id]
+            tags: [:tenant_id, :collective_id]
 
     counter :commitments_created_total,
             comment: "Total commitments created",
-            tags: [:tenant_id, :superagent_id]
+            tags: [:tenant_id, :collective_id]
 
     counter :votes_cast_total,
             comment: "Total votes cast on decisions",
-            tags: [:tenant_id, :superagent_id, :vote_type]
+            tags: [:tenant_id, :collective_id, :vote_type]
   end
 
   # API metrics

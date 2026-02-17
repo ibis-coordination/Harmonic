@@ -3,7 +3,7 @@
 # DataDeletionManager handles destructive data operations for admin use.
 #
 # IMPORTANT: This class uses safe unscoped wrapper methods to delete data across
-# all tenants/superagents. It is designed to be used only from Rails console
+# all tenants/collectives. It is designed to be used only from Rails console
 # with explicit confirmation tokens.
 #
 class DataDeletionManager
@@ -26,36 +26,36 @@ class DataDeletionManager
     raise message unless token == @confirmation_token
   end
 
-  sig { params(superagent: Superagent, confirmation_token: String).returns(String) }
-  def delete_superagent!(superagent:, confirmation_token:)
-    validate_confirmation_token!(confirmation_token, message: "delete_superagent! will delete all associated Notes, Decisions, Commitments, RepresentationSessions, TrusteeUsers, and any other associated data.")
-    # Ensure the superagent exists
-    superagent_name = superagent.name
-    superagent_id_value = superagent.id
+  sig { params(collective: Collective, confirmation_token: String).returns(String) }
+  def delete_collective!(collective:, confirmation_token:)
+    validate_confirmation_token!(confirmation_token, message: "delete_collective! will delete all associated Notes, Decisions, Commitments, RepresentationSessions, TrusteeUsers, and any other associated data.")
+    # Ensure the collective exists
+    collective_name = collective.name
+    collective_id_value = collective.id
     ActiveRecord::Base.transaction do
-      # Delete all associated data (all within same tenant, cross-superagent)
+      # Delete all associated data (all within same tenant, cross-collective)
       [
         RepresentationSessionEvent, RepresentationSession,
         Link, NoteHistoryEvent, Note,
         Vote, Option, DecisionParticipant, Decision,
         CommitmentParticipant, Commitment,
-        Invite, SuperagentMember
+        Invite, CollectiveMember
       ].each do |model|
-        model.tenant_scoped_only(superagent.tenant_id).where(superagent_id: superagent.id).delete_all
+        model.tenant_scoped_only(collective.tenant_id).where(collective_id: collective.id).delete_all
       end
       # Delete proxy user only if it does not have any conflicting associations
       # begin
-      #   delete_user!(user: superagent.proxy_user, confirmation_token: confirmation_token)
+      #   delete_user!(user: collective.proxy_user, confirmation_token: confirmation_token)
       # rescue ActiveRecord::RecordNotDestroyed
-      #   Rails.logger.info "Proxy user for superagent '#{superagent_name}' (ID: #{superagent_id_value}) could not be deleted due to conflicting associations."
+      #   Rails.logger.info "Proxy user for collective '#{collective_name}' (ID: #{collective_id_value}) could not be deleted due to conflicting associations."
       # end
-      # Delete the superagent itself
-      superagent.destroy!
+      # Delete the collective itself
+      collective.destroy!
     end
     # Log the deletion
-    # Rails.logger.info "Superagent '#{superagent_name}' (ID: #{superagent_id_value}) has been deleted by user '#{@user.name}' (ID: #{@user.id})."
+    # Rails.logger.info "Collective '#{collective_name}' (ID: #{collective_id_value}) has been deleted by user '#{@user.name}' (ID: #{@user.id})."
     # Notify the user about the deletion
-    "Superagent '#{superagent_name}' (ID: #{superagent_id_value}) has been deleted successfully."
+    "Collective '#{collective_name}' (ID: #{collective_id_value}) has been deleted successfully."
   end
 
   sig { params(user: User, confirmation_token: String, force_delete: T::Boolean).returns(String) }
@@ -77,13 +77,13 @@ class DataDeletionManager
         # AI agent users are not modified, but their API tokens are marked as deleted
         ApiToken.for_user_across_tenants(ai_agent).update_all(deleted_at: Time.current)
       end
-      SuperagentMember.for_user_across_tenants(user).each do |superagent_member|
-        superagent_member_is_sole_admin = superagent_member.is_admin? && superagent_member.superagent.admins.count == 1
-        if superagent_member_is_sole_admin
-          # If the user is the only admin of the superagent, we need to assign a new admin
-          other_superagent_members = superagent_member.superagent.superagent_members.where.not(user_id: user.id).where(archived_at: nil)
-          representatives =  other_superagent_members.where_has_role('representative')
-          new_admin = representatives.first || other_superagent_members.first
+      CollectiveMember.for_user_across_tenants(user).each do |collective_member|
+        collective_member_is_sole_admin = collective_member.is_admin? && collective_member.collective.admins.count == 1
+        if collective_member_is_sole_admin
+          # If the user is the only admin of the collective, we need to assign a new admin
+          other_collective_members = collective_member.collective.collective_members.where.not(user_id: user.id).where(archived_at: nil)
+          representatives =  other_collective_members.where_has_role('representative')
+          new_admin = representatives.first || other_collective_members.first
           if new_admin
             new_admin.add_role!('admin')
           else
@@ -91,8 +91,8 @@ class DataDeletionManager
             # TODO
           end
         end
-        superagent_member.archived_at = Time.current
-        superagent_member.save!
+        collective_member.archived_at = Time.current
+        collective_member.save!
       end
       TenantUser.for_user_across_tenants(user).each do |tenant_user|
         tenant_user.update!(
@@ -114,11 +114,11 @@ class DataDeletionManager
     note_title = note.title
     note_id = note.id
     ActiveRecord::Base.transaction do
-      # Delete all associated data (always in same superagent as parent)
+      # Delete all associated data (always in same collective as parent)
       NoteHistoryEvent.where(note_id: note.id).each do |event|
         event.destroy!
       end
-      # Links can be cross-superagent (for scenes), so query tenant-wide
+      # Links can be cross-collective (for scenes), so query tenant-wide
       Link.tenant_scoped_only(note.tenant_id).where(from_linkable: note).or(
         Link.tenant_scoped_only(note.tenant_id).where(to_linkable: note)
       ).each do |link|
@@ -139,7 +139,7 @@ class DataDeletionManager
     decision_question = decision.question
     decision_id = decision.id
     ActiveRecord::Base.transaction do
-      # Delete all associated data (always in same superagent as parent)
+      # Delete all associated data (always in same collective as parent)
       Vote.where(decision_id: decision.id).each do |vote|
         vote.destroy!
       end
@@ -149,7 +149,7 @@ class DataDeletionManager
       DecisionParticipant.where(decision_id: decision.id).each do |participant|
         participant.destroy!
       end
-      # Links can be cross-superagent (for scenes), so query tenant-wide
+      # Links can be cross-collective (for scenes), so query tenant-wide
       Link.tenant_scoped_only(decision.tenant_id).where(from_linkable: decision).or(
         Link.tenant_scoped_only(decision.tenant_id).where(to_linkable: decision)
       ).each do |link|
@@ -170,11 +170,11 @@ class DataDeletionManager
     commitment_title = commitment.title
     commitment_id = commitment.id
     ActiveRecord::Base.transaction do
-      # Delete all associated data (always in same superagent as parent)
+      # Delete all associated data (always in same collective as parent)
       CommitmentParticipant.where(commitment_id: commitment.id).each do |participant|
         participant.destroy!
       end
-      # Links can be cross-superagent (for scenes), so query tenant-wide
+      # Links can be cross-collective (for scenes), so query tenant-wide
       Link.tenant_scoped_only(commitment.tenant_id).where(from_linkable: commitment).or(
         Link.tenant_scoped_only(commitment.tenant_id).where(to_linkable: commitment)
       ).each do |link|

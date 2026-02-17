@@ -12,7 +12,7 @@ class SearchQuery
     "backlink_count", "link_count", "participant_count", "voter_count", "option_count", "comment_count", "reader_count",
   ].freeze
   VALID_GROUP_BYS = [
-    "none", "item_type", "status", "superagent", "creator", "date_created", "week_created", "month_created", "date_deadline", "week_deadline", "month_deadline",
+    "none", "item_type", "status", "collective", "creator", "date_created", "week_created", "month_created", "date_deadline", "week_deadline", "month_deadline",
   ].freeze
   # Minimum word_similarity threshold for trigram matching
   # 0.3 is a good balance - matches partial words but filters noise
@@ -22,20 +22,20 @@ class SearchQuery
     params(
       tenant: Tenant,
       current_user: T.nilable(User),
-      superagent: T.nilable(Superagent),
+      collective: T.nilable(Collective),
       params: T::Hash[T.any(String, Symbol), T.untyped],
       raw_query: T.nilable(String)
     ).void
   end
-  def initialize(tenant:, current_user:, superagent: nil, params: {}, raw_query: nil)
+  def initialize(tenant:, current_user:, collective: nil, params: {}, raw_query: nil)
     @tenant = tenant
-    @superagent = superagent
+    @collective = collective
     @current_user = current_user
     @raw_query = raw_query
     @params = build_params(params)
 
-    # Resolve superagent from studio:/scene: DSL operators
-    resolve_superagent_from_handle
+    # Resolve collective from studio:/scene: DSL operators
+    resolve_collective_from_handle
   end
 
   private
@@ -132,10 +132,10 @@ class SearchQuery
     return @group_by if defined?(@group_by)
 
     requested = @params[:group_by].to_s.strip
-    return @group_by = "superagent" if requested.blank?
+    return @group_by = "collective" if requested.blank?
     return @group_by = nil if requested == "none"
 
-    @group_by = VALID_GROUP_BYS.include?(requested) ? requested : "superagent"
+    @group_by = VALID_GROUP_BYS.include?(requested) ? requested : "collective"
   end
 
   sig { returns(T.nilable(String)) }
@@ -201,8 +201,8 @@ class SearchQuery
     @params[:scene_handle].presence
   end
 
-  sig { returns(T.nilable(Superagent)) }
-  attr_reader :superagent
+  sig { returns(T.nilable(Collective)) }
+  attr_reader :collective
 
   # Options for UI dropdowns
 
@@ -242,7 +242,7 @@ class SearchQuery
   sig { returns(T::Array[T::Array[String]]) }
   def group_by_options
     [
-      ["Studio/Scene", "superagent"],
+      ["Studio/Scene", "collective"],
       ["Creator", "creator"],
       ["Item type", "item_type"],
       ["None (flat list)", "none"],
@@ -298,17 +298,17 @@ class SearchQuery
   private
 
   sig { void }
-  def resolve_superagent_from_handle
-    return if @superagent.present? # Already have a superagent object
+  def resolve_collective_from_handle
+    return if @collective.present? # Already have a collective object
 
     # Check for studio: or scene: handle
     handle = studio_handle || scene_handle
     return if handle.blank?
 
-    superagent_type = studio_handle.present? ? "studio" : "scene"
+    collective_type = studio_handle.present? ? "studio" : "scene"
 
-    # Look up superagent by handle and type within the tenant
-    @superagent = @tenant.superagents.find_by(handle: handle, superagent_type: superagent_type)
+    # Look up collective by handle and type within the tenant
+    @collective = @tenant.collectives.find_by(handle: handle, collective_type: collective_type)
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -316,20 +316,20 @@ class SearchQuery
     # Require a query to show results - empty search page shows nothing
     return SearchIndex.none if @raw_query.blank?
 
-    # Use tenant_scoped_only to bypass superagent scope while keeping tenant scope
-    # We handle superagent filtering explicitly below with accessible_superagent_ids
+    # Use tenant_scoped_only to bypass collective scope while keeping tenant scope
+    # We handle collective filtering explicitly below with accessible_collective_ids
     @relation = SearchIndex.tenant_scoped_only(@tenant.id)
 
-    # Apply superagent scope with access control
-    # Always filter to accessible superagents to prevent information leakage
-    accessible_ids = accessible_superagent_ids
-    @relation = if @superagent.present?
-                  # Scoped to specific superagent, but only if user has access
+    # Apply collective scope with access control
+    # Always filter to accessible collectives to prevent information leakage
+    accessible_ids = accessible_collective_ids
+    @relation = if @collective.present?
+                  # Scoped to specific collective, but only if user has access
                   # If user doesn't have access, this returns no results (empty intersection)
-                  @relation.where(superagent_id: accessible_ids & [@superagent.id])
+                  @relation.where(collective_id: accessible_ids & [@collective.id])
                 else
-                  # Tenant-wide search: filter to all accessible superagents
-                  @relation.where(superagent_id: accessible_ids)
+                  # Tenant-wide search: filter to all accessible collectives
+                  @relation.where(collective_id: accessible_ids)
                 end
 
     apply_text_search
@@ -344,20 +344,20 @@ class SearchQuery
     apply_sorting
 
     # Eager load associations to avoid N+1 queries when grouping or displaying results
-    @relation = T.must(@relation).includes(:superagent, :created_by)
+    @relation = T.must(@relation).includes(:collective, :created_by)
 
     @relation
   end
 
   sig { returns(T::Array[String]) }
-  def accessible_superagent_ids
+  def accessible_collective_ids
     # All scenes (public) in tenant
-    scene_ids = @tenant.superagents.where(superagent_type: "scene").pluck(:id)
+    scene_ids = @tenant.collectives.where(collective_type: "scene").pluck(:id)
 
     # Studios the user is a member of
     studio_ids = if @current_user.present?
-                   @current_user.superagents
-                     .where(tenant_id: @tenant.id, superagent_type: "studio")
+                   @current_user.collectives
+                     .where(tenant_id: @tenant.id, collective_type: "studio")
                      .pluck(:id)
                  else
                    []
@@ -900,13 +900,13 @@ class SearchQuery
   def cycle
     return @cycle if defined?(@cycle)
     return @cycle = nil if cycle_name == "all"
-    # Cycle requires a superagent; for tenant-wide search, skip cycle filtering
-    return @cycle = nil if @superagent.nil?
+    # Cycle requires a collective; for tenant-wide search, skip cycle filtering
+    return @cycle = nil if @collective.nil?
 
     @cycle = Cycle.new(
       name: cycle_name,
       tenant: @tenant,
-      superagent: T.must(@superagent),
+      collective: T.must(@collective),
       current_user: @current_user
     )
   rescue StandardError
@@ -935,8 +935,8 @@ class SearchQuery
       row.item_type
     when "status"
       row.status
-    when "superagent"
-      row.superagent
+    when "collective"
+      row.collective
     when "creator"
       row.created_by
     when "date_created"
@@ -962,7 +962,7 @@ class SearchQuery
     when "status"
       ["open", "closed"]
     else
-      # For superagent, creator, and date/time-based groupings, return keys in order of first appearance
+      # For collective, creator, and date/time-based groupings, return keys in order of first appearance
       paginated_results.to_a.map { |row| extract_group_key(row) }.compact.uniq
     end
   end

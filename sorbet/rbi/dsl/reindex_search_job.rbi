@@ -9,15 +9,15 @@ class ReindexSearchJob
   class << self
     sig do
       params(
-        item_type: T.untyped,
-        item_id: T.untyped,
-        tenant_id: T.untyped,
+        item_type: ::String,
+        item_id: ::String,
+        tenant_id: ::String,
         block: T.nilable(T.proc.params(job: ReindexSearchJob).void)
       ).returns(T.any(ReindexSearchJob, FalseClass))
     end
     def perform_later(item_type:, item_id:, tenant_id:, &block); end
 
-    sig { params(item_type: T.untyped, item_id: T.untyped, tenant_id: T.untyped).returns(T.untyped) }
+    sig { params(item_type: ::String, item_id: ::String, tenant_id: ::String).void }
     def perform_now(item_type:, item_id:, tenant_id:); end
   end
 end

@@ -330,17 +330,23 @@ class RepresentationSession
   end
 
   module GeneratedAssociationMethods
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_collective(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_representative_user(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def build_superagent(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::TrusteeGrant) }
     def build_trustee_grant(*args, &blk); end
+
+    sig { returns(T.nilable(::Collective)) }
+    def collective; end
+
+    sig { params(value: T.nilable(::Collective)).void }
+    def collective=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def comment_ids; end
@@ -356,17 +362,17 @@ class RepresentationSession
     sig { params(value: T::Enumerable[::Note]).void }
     def comments=(value); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_representative_user(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_representative_user!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -394,11 +400,11 @@ class RepresentationSession
     sig { params(value: T::Enumerable[::Link]).void }
     def links=(value); end
 
+    sig { returns(T.nilable(::Collective)) }
+    def reload_collective; end
+
     sig { returns(T.nilable(::User)) }
     def reload_representative_user; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def reload_superagent; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -427,22 +433,16 @@ class RepresentationSession
     def representative_user=(value); end
 
     sig { void }
-    def reset_representative_user; end
+    def reset_collective; end
 
     sig { void }
-    def reset_superagent; end
+    def reset_representative_user; end
 
     sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_trustee_grant; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def superagent; end
-
-    sig { params(value: T.nilable(::Superagent)).void }
-    def superagent=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -683,6 +683,51 @@ class RepresentationSession
     sig { void }
     def began_at_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def collective_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def collective_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_was; end
+
+    sig { void }
+    def collective_id_will_change!; end
+
     sig { returns(T::Boolean) }
     def confirmed_understanding; end
 
@@ -922,6 +967,9 @@ class RepresentationSession
     def restore_began_at!; end
 
     sig { void }
+    def restore_collective_id!; end
+
+    sig { void }
     def restore_confirmed_understanding!; end
 
     sig { void }
@@ -935,9 +983,6 @@ class RepresentationSession
 
     sig { void }
     def restore_representative_user_id!; end
-
-    sig { void }
-    def restore_superagent_id!; end
 
     sig { void }
     def restore_tenant_id!; end
@@ -956,6 +1001,12 @@ class RepresentationSession
 
     sig { returns(T::Boolean) }
     def saved_change_to_began_at?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_collective_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_collective_id?; end
 
     sig { returns(T.nilable([T::Boolean, T::Boolean])) }
     def saved_change_to_confirmed_understanding; end
@@ -987,12 +1038,6 @@ class RepresentationSession
     sig { returns(T::Boolean) }
     def saved_change_to_representative_user_id?; end
 
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_superagent_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_superagent_id?; end
-
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
@@ -1016,51 +1061,6 @@ class RepresentationSession
 
     sig { returns(T::Boolean) }
     def saved_change_to_updated_at?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def superagent_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def superagent_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def superagent_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def superagent_id_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_was; end
-
-    sig { void }
-    def superagent_id_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1246,6 +1246,9 @@ class RepresentationSession
     def will_save_change_to_began_at?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_collective_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_confirmed_understanding?; end
 
     sig { returns(T::Boolean) }
@@ -1259,9 +1262,6 @@ class RepresentationSession
 
     sig { returns(T::Boolean) }
     def will_save_change_to_representative_user_id?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

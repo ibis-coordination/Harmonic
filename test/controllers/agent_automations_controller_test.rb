@@ -5,8 +5,8 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @tenant.set_feature_flag!("ai_agents", true)
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
 
     # Create an AI agent

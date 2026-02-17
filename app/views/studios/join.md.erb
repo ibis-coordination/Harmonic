@@ -1,12 +1,12 @@
-# Join <%= @current_superagent.name %>
+# Join <%= @current_collective.name %>
 
 <% if @current_user_is_member %>
 You are already a member of this studio.
 
-[Go to studio homepage](<%= @current_superagent.path %>)
+[Go to studio homepage](<%= @current_collective.path %>)
 <% elsif @invite %>
 You have been invited to join this studio.
-<% elsif @current_superagent.is_scene? %>
+<% elsif @current_collective.is_scene? %>
 This is a scene (open studio). You can join directly.
 <% else %>
 You need an invite code to join this studio.

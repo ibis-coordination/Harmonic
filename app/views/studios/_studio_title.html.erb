@@ -1,10 +1,10 @@
 <div>
-  <img src="<%= @current_superagent.image_path %>" id="studio-image" style="margin-top:3px; height:83px; min-width:50px; border-radius:10%;float:left;"/>
+  <img src="<%= @current_collective.image_path %>" id="studio-image" style="margin-top:3px; height:83px; min-width:50px; border-radius:10%;float:left;"/>
   <div style="padding-top:30px;">
     <h4 style="padding-left:92px;margin-top:0px;margin-bottom:0;">
       <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
-      <%= @current_superagent.superagent_type.titleize %> <code><%= @current_superagent.handle %></code>
-      <% if @current_superagent.is_scene? %>
+      <%= @current_collective.collective_type.titleize %> <code><%= @current_collective.handle %></code>
+      <% if @current_collective.is_scene? %>
         <span title="Scenes are publicly visible.">
           <%= octicon 'eye' %>
         </span>
@@ -15,7 +15,7 @@
       <% end %>
     </h4>
     <h1 style="padding-left:92px;margin-top:0;">
-      <%= @current_superagent.name %>
+      <%= @current_collective.name %>
     </h1>
   </div>
 </div>

@@ -40,8 +40,13 @@ class Api::V1::BaseController < ApplicationController
     }
   end
 
+  CONTROLLER_MODEL_MAPPING = {
+    "Studio" => Collective,
+  }.freeze
+
   def current_resource_model
-    self.class.name.sub('Api::V1::', '').sub('Controller', '').singularize.constantize
+    model_name = self.class.name.sub('Api::V1::', '').sub('Controller', '').singularize
+    CONTROLLER_MODEL_MAPPING[model_name] || model_name.constantize
   end
 
   def current_scope

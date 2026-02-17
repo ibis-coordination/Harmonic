@@ -2,7 +2,7 @@ require "test_helper"
 
 class FeatureFlagServiceTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_superagent_user
+    @tenant, @collective, @user = create_tenant_collective_user
   end
 
   test "config loads feature flags from yaml" do
@@ -59,22 +59,22 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert FeatureFlagService.tenant_enabled?(@tenant, "api")
   end
 
-  test "superagent_enabled? returns false when tenant level is disabled" do
+  test "collective_enabled? returns false when tenant level is disabled" do
     @tenant.set_feature_flag!("api", false)
-    @superagent.set_feature_flag!("api", true)
-    assert_not FeatureFlagService.superagent_enabled?(@superagent, "api")
+    @collective.set_feature_flag!("api", true)
+    assert_not FeatureFlagService.collective_enabled?(@collective, "api")
   end
 
-  test "superagent_enabled? returns true when tenant and studio are enabled" do
+  test "collective_enabled? returns true when tenant and studio are enabled" do
     @tenant.set_feature_flag!("api", true)
-    @superagent.set_feature_flag!("api", true)
-    assert FeatureFlagService.superagent_enabled?(@superagent, "api")
+    @collective.set_feature_flag!("api", true)
+    assert FeatureFlagService.collective_enabled?(@collective, "api")
   end
 
-  test "superagent_enabled? returns false when studio is disabled even if tenant is enabled" do
+  test "collective_enabled? returns false when studio is disabled even if tenant is enabled" do
     @tenant.set_feature_flag!("api", true)
-    @superagent.set_feature_flag!("api", false)
-    assert_not FeatureFlagService.superagent_enabled?(@superagent, "api")
+    @collective.set_feature_flag!("api", false)
+    assert_not FeatureFlagService.collective_enabled?(@collective, "api")
   end
 
   test "enabled? with no tenant or studio checks app level" do
@@ -91,21 +91,21 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
 
   test "enabled? with studio checks studio level" do
     @tenant.set_feature_flag!("api", true)
-    @superagent.set_feature_flag!("api", true)
-    assert FeatureFlagService.enabled?("api", tenant: @tenant, superagent: @superagent)
+    @collective.set_feature_flag!("api", true)
+    assert FeatureFlagService.enabled?("api", tenant: @tenant, collective: @collective)
 
-    @superagent.set_feature_flag!("api", false)
-    assert_not FeatureFlagService.enabled?("api", tenant: @tenant, superagent: @superagent)
+    @collective.set_feature_flag!("api", false)
+    assert_not FeatureFlagService.enabled?("api", tenant: @tenant, collective: @collective)
   end
 
   test "cascade: tenant disabled overrides studio enabled" do
     @tenant.set_feature_flag!("api", false)
-    @superagent.set_feature_flag!("api", true)
+    @collective.set_feature_flag!("api", true)
 
     # Studio has it enabled locally, but tenant is disabled
-    assert @superagent.feature_flag_enabled_locally?("api")
+    assert @collective.feature_flag_enabled_locally?("api")
     # But effective check returns false due to cascade
-    assert_not FeatureFlagService.superagent_enabled?(@superagent, "api")
+    assert_not FeatureFlagService.collective_enabled?(@collective, "api")
   end
 
   test "default_for_tenant returns config default" do
@@ -117,13 +117,13 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not FeatureFlagService.default_for_tenant("trio")
   end
 
-  test "default_for_superagent returns config default" do
+  test "default_for_collective returns config default" do
     # api default_studio is false in config
-    assert_not FeatureFlagService.default_for_superagent("api")
+    assert_not FeatureFlagService.default_for_collective("api")
     # file_attachments default_studio is true in config
-    assert FeatureFlagService.default_for_superagent("file_attachments")
+    assert FeatureFlagService.default_for_collective("file_attachments")
     # trio default_studio is true in config
-    assert FeatureFlagService.default_for_superagent("trio")
+    assert FeatureFlagService.default_for_collective("trio")
   end
 
   test "trio flag is app enabled" do
@@ -138,14 +138,14 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not @tenant.trio_enabled?
   end
 
-  test "trio_enabled? on superagent respects cascade" do
+  test "trio_enabled? on collective respects cascade" do
     @tenant.set_feature_flag!("trio", true)
-    @superagent.set_feature_flag!("trio", true)
-    assert @superagent.trio_enabled?
+    @collective.set_feature_flag!("trio", true)
+    assert @collective.trio_enabled?
 
-    # Disabling at tenant level should disable at superagent level
+    # Disabling at tenant level should disable at collective level
     @tenant.set_feature_flag!("trio", false)
-    assert_not @superagent.trio_enabled?
+    assert_not @collective.trio_enabled?
   end
 
   test "ai_agents flag is app enabled" do

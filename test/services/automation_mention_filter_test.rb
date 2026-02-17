@@ -5,19 +5,19 @@ require "test_helper"
 class AutomationMentionFilterTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     @tenant.set_feature_flag!("ai_agents", true)
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
 
     # Create an AI agent for testing (parent is required)
     # Adding to tenant creates the TenantUser record with a handle
     @ai_agent = create_ai_agent(parent: @user, name: "Test Agent")
     @tenant.add_user!(@ai_agent)
-    @superagent.add_user!(@ai_agent)
+    @collective.add_user!(@ai_agent)
   end
 
   # === No Filter (blank) ===
@@ -56,7 +56,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
   test "self filter does not match when different user is mentioned" do
     other_user = create_user(name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
     other_handle = agent_handle(other_user)
 
     note = create_note(text: "Hey @#{other_handle}, what do you think?")
@@ -68,7 +68,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
   test "self filter matches when agent is one of multiple mentions" do
     other_user = create_user(name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
     other_handle = agent_handle(other_user)
     agent_handle_str = agent_handle(@ai_agent)
 
@@ -91,7 +91,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
   test "any_agent filter matches when a different agent is mentioned" do
     other_agent = create_ai_agent(parent: @user, name: "Other Agent")
     @tenant.add_user!(other_agent)
-    @superagent.add_user!(other_agent)
+    @collective.add_user!(other_agent)
     other_handle = agent_handle(other_agent)
 
     note = create_note(text: "Hey @#{other_handle}!")
@@ -103,7 +103,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
   test "any_agent filter does not match when only human user is mentioned" do
     human_user = create_user(name: "Human User")
     @tenant.add_user!(human_user)
-    @superagent.add_user!(human_user)
+    @collective.add_user!(human_user)
     human_handle = agent_handle(human_user)
 
     note = create_note(text: "Hey @#{human_handle}!")
@@ -136,7 +136,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     decision = create_decision(question: "What does @#{handle} think?")
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "decision.created",
       actor: @user,
       subject: decision
@@ -153,7 +153,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "decision.created",
       actor: @user,
       subject: decision
@@ -167,7 +167,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     commitment = create_commitment(title: "Review with @#{handle}")
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "commitment.created",
       actor: @user,
       subject: commitment
@@ -184,7 +184,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "commitment.created",
       actor: @user,
       subject: commitment
@@ -198,7 +198,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
   test "handles nil subject gracefully" do
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "test.event",
       actor: @user,
       subject: nil
@@ -230,7 +230,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
 
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "comment.created",
       actor: @user,
       subject: comment
@@ -278,7 +278,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
   def create_event_for_note(note)
     Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note

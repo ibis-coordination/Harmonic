@@ -1,5 +1,5 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   'Members'
 ] %>
 
@@ -22,14 +22,14 @@
         <% @team.each do |u| %>
           <div class="pulse-participant">
             <%= render "shared/avatar", user: u %>
-            <a href="<%= u.superagent_member.path %>" class="pulse-participant-name"><%= u.display_name %></a>
+            <a href="<%= u.collective_member.path %>" class="pulse-participant-name"><%= u.display_name %></a>
             <% if u.ai_agent? %>
               <span class="pulse-badge pulse-badge-muted">ai_agent</span>
             <% end %>
-            <% if u.superagent_member.is_admin? %>
+            <% if u.collective_member.is_admin? %>
               <span class="pulse-badge pulse-badge-muted">admin</span>
             <% end %>
-            <% if u.superagent_member.is_representative? %>
+            <% if u.collective_member.is_representative? %>
               <span class="pulse-badge pulse-badge-muted">representative</span>
             <% end %>
           </div>
@@ -37,9 +37,9 @@
       </div>
     <% end %>
 
-    <% if @current_user&.superagent_member&.can_invite? %>
+    <% if @current_user&.collective_member&.can_invite? %>
       <div class="pulse-invite-section">
-        <a href="<%= @current_superagent.path %>/invite" class="pulse-invite-btn">
+        <a href="<%= @current_collective.path %>/invite" class="pulse-invite-btn">
           <%= octicon 'person-add', height: 16 %>
           Invite Members
         </a>

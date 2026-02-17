@@ -31,12 +31,12 @@ class AutomationRuleExecutionJob < TenantScopedJob
     # Skip if already processed
     return unless run.pending?
 
-    # Set superagent context if the rule/run has one
-    superagent = run.superagent || run.automation_rule&.superagent
-    if superagent
-      set_superagent_context!(superagent)
+    # Set collective context if the rule/run has one
+    collective = run.collective || run.automation_rule&.collective
+    if collective
+      set_collective_context!(collective)
     else
-      clear_superagent_context!
+      clear_collective_context!
     end
 
     # Execute the rule (any events created during execution will inherit the chain context)

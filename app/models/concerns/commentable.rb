@@ -34,7 +34,7 @@ module Commentable
       created_by: created_by,
       updated_by: created_by,
       tenant_id: tenant_id,
-      superagent_id: superagent_id,
+      collective_id: collective_id,
       deadline: Time.current
     )
   end

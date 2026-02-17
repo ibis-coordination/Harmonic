@@ -1,14 +1,14 @@
-# Studio: <%= @current_superagent.name %>
+# Studio: <%= @current_collective.name %>
 
-<% if !@current_superagent.is_main_superagent? && @current_user && !@current_heartbeat -%>
+<% if !@current_collective.is_main_collective? && @current_user && !@current_heartbeat -%>
 ## Heartbeat Required
 
 You must send a heartbeat to access this studio for the current cycle.
 <% else -%>
 ## Explore
 
-* [Cycles](<%= @current_superagent.path %>/cycles)
-* [Backlinks](<%= @current_superagent.path %>/backlinks)
+* [Cycles](<%= @current_collective.path %>/cycles)
+* [Backlinks](<%= @current_collective.path %>/backlinks)
 
 ## Pinned
 
@@ -22,8 +22,8 @@ No pinned items yet.
 
 ## Team
 
-<% if @current_superagent.users.length > 0 -%>
-<% @current_superagent.users.each do |user| -%>
+<% if @current_collective.users.length > 0 -%>
+<% @current_collective.users.each do |user| -%>
 * <%= user_link_md(user) %>
 <% end -%>
 <% else -%>

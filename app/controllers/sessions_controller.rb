@@ -256,8 +256,8 @@ class SessionsController < ApplicationController
 
   def redirect_to_invite_if_allowed
     raise 'Unexpected subdomain.' if request.subdomain == auth_subdomain
-    # Query needs to bypass superagent scope because current_superagent
-    # will be different than the invite superagent.
+    # Query needs to bypass collective scope because current_collective
+    # will be different than the invite collective.
     invite = Invite.tenant_scoped_only(current_tenant.id).find_by(
       code: cookies[:studio_invite_code]
     )
@@ -267,7 +267,7 @@ class SessionsController < ApplicationController
       unless tu
         current_tenant.add_user!(@current_user)
       end
-      redirect_to "#{invite.superagent.path}/join?code=#{invite.code}"
+      redirect_to "#{invite.collective.path}/join?code=#{invite.code}"
     else
       redirect_to root_path
     end

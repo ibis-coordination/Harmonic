@@ -3257,11 +3257,11 @@ a.pulse-activity-title:hover {
   z-index: 2;
 }
 
-.pulse-group-header-superagent .pulse-group-avatar {
+.pulse-group-header-collective .pulse-group-avatar {
   border-radius: 4px;
 }
 
-.pulse-group-header-superagent .pulse-group-avatar-img {
+.pulse-group-header-collective .pulse-group-avatar-img {
   border-radius: 4px;
 }
 

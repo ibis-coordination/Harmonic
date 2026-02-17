@@ -4,8 +4,8 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -18,11 +18,11 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
       "Content-Type" => "application/json",
     }
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
   end
 
   def api_path(path = "")
-    "#{@superagent.path}/api/v1/cycles#{path}"
+    "#{@collective.path}/api/v1/cycles#{path}"
   end
 
   # Index
@@ -52,7 +52,7 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
   end
 
   test "index with include=notes returns notes" do
-    create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    create_note(tenant: @tenant, collective: @collective, created_by: @user)
     get api_path("?include=notes"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -61,7 +61,7 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
   end
 
   test "index with include=decisions returns decisions" do
-    create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     get api_path("?include=decisions"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -70,7 +70,7 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
   end
 
   test "index with include=commitments returns commitments" do
-    create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
     get api_path("?include=commitments"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -80,7 +80,7 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
 
   # Show
   test "show today returns today's content" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Today's Note")
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Today's Note")
     get api_path("/today"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -92,7 +92,7 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
   end
 
   test "show this-week returns this week's content" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "This Week's Note")
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "This Week's Note")
     get api_path("/this-week"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -101,7 +101,7 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
   end
 
   test "show this-month returns this month's content" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "This Month's Note")
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "This Month's Note")
     get api_path("/this-month"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -139,10 +139,10 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
 
   # Cycles include content counts
   test "cycle counts include notes decisions and commitments" do
-    create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Second Note")
-    create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Second Note")
+    create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
     get api_path("/today"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)

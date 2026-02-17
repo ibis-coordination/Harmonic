@@ -4,13 +4,13 @@ require "test_helper"
 
 class CleanupExpiredTokensJobTest < ActiveJob::TestCase
   def setup
-    @tenant, @superagent, @user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    @tenant, @collective, @user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
   end
 
   def teardown
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
   end
 
   test "deletes tokens expired more than 30 days ago" do
@@ -80,10 +80,10 @@ class CleanupExpiredTokensJobTest < ActiveJob::TestCase
     tenant2 = create_tenant(subdomain: "cleanup-test")
     user2 = create_user
     tenant2.add_user!(user2)
-    superagent2 = create_superagent(tenant: tenant2, created_by: user2, handle: "cleanup-studio")
-    superagent2.add_user!(user2)
+    collective2 = create_collective(tenant: tenant2, created_by: user2, handle: "cleanup-studio")
+    collective2.add_user!(user2)
 
-    Superagent.scope_thread_to_superagent(subdomain: tenant2.subdomain, handle: superagent2.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant2.subdomain, handle: collective2.handle)
     Tenant.current_id = tenant2.id
 
     old_token_tenant2 = user2.api_tokens.create!(
@@ -93,7 +93,7 @@ class CleanupExpiredTokensJobTest < ActiveJob::TestCase
     )
 
     # Switch back to tenant1
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
 
     old_token_tenant1 = @user.api_tokens.create!(

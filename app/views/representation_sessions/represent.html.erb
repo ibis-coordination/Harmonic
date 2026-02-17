@@ -1,6 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
-  ['Representation', @current_superagent.path + '/representation'],
+  [@current_collective.name, @current_collective.path],
+  ['Representation', @current_collective.path + '/representation'],
   'Represent'
 ] %>
 
@@ -27,7 +27,7 @@
       </div>
     <% else %>
       <p>
-        Through representation, you can act on behalf of <%= @current_superagent.name %>.
+        Through representation, you can act on behalf of <%= @current_collective.name %>.
         Your actions during a representation session will be recorded and attributed to the studio.
       </p>
     <% end %>
@@ -36,29 +36,29 @@
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">
           <%= octicon 'organization', height: 16 %>
-          Represent <%= @current_superagent.name %>
+          Represent <%= @current_collective.name %>
         </h2>
         <p>
-          Because you have been assigned the <code>representative</code> role in <%= @current_superagent.name %>, you can act on the studio's behalf.
+          Because you have been assigned the <code>representative</code> role in <%= @current_collective.name %>, you can act on the studio's behalf.
         </p>
         <ul class="pulse-list" style="margin-bottom: 16px;">
           <li class="pulse-list-item">
-            You will assume the identity of <%= @current_superagent.name %> itself.
+            You will assume the identity of <%= @current_collective.name %> itself.
           </li>
           <li class="pulse-list-item">
-            Actions will be attributed to <%= @current_superagent.name %> as a whole.
+            Actions will be attributed to <%= @current_collective.name %> as a whole.
           </li>
           <li class="pulse-list-item">
             All actions will be recorded and visible to studio members.
           </li>
         </ul>
-        <%= form_with url: @current_superagent.path + '/represent', method: :post, class: 'pulse-form' do |f| %>
+        <%= form_with url: @current_collective.path + '/represent', method: :post, class: 'pulse-form' do |f| %>
           <label class="pulse-checkbox-label">
             <%= f.check_box :understand, id: 'i-understand-studio-checkbox', class: 'pulse-checkbox-input' %>
-            <span>I understand that my actions will be recorded and visible to all members of <%= @current_superagent.name %>.</span>
+            <span>I understand that my actions will be recorded and visible to all members of <%= @current_collective.name %>.</span>
           </label>
           <div class="pulse-form-actions">
-            <%= f.submit "Represent #{@current_superagent.name}", class: 'pulse-action-btn' %>
+            <%= f.submit "Represent #{@current_collective.name}", class: 'pulse-action-btn' %>
           </div>
         <% end %>
       </section>

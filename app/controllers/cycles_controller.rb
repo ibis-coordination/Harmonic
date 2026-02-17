@@ -6,13 +6,13 @@ class CyclesController < ApplicationController
   def index
     @page_title = 'Cycles'
     @daily_cycles = ['yesterday', 'today', 'tomorrow'].map do |name|
-      Cycle.new(name: name, tenant: @current_tenant, superagent: @current_superagent)
+      Cycle.new(name: name, tenant: @current_tenant, collective: @current_collective)
     end
     @weekly_cycles = ['last-week', 'this-week', 'next-week'].map do |name|
-      Cycle.new(name: name, tenant: @current_tenant, superagent: @current_superagent)
+      Cycle.new(name: name, tenant: @current_tenant, collective: @current_collective)
     end
     @monthly_cycles = ['last-month', 'this-month', 'next-month'].map do |name|
-      Cycle.new(name: name, tenant: @current_tenant, superagent: @current_superagent)
+      Cycle.new(name: name, tenant: @current_tenant, collective: @current_collective)
     end
   end
 
@@ -20,7 +20,7 @@ class CyclesController < ApplicationController
     @cycle = Cycle.new(
       name: params[:cycle],
       tenant: @current_tenant,
-      superagent: @current_superagent,
+      collective: @current_collective,
       current_user: @current_user,
     )
     @page_title = @cycle.display_window
@@ -34,7 +34,7 @@ class CyclesController < ApplicationController
     @cycle = Cycle.new(
       name: params[:cycle],
       tenant: @current_tenant,
-      superagent: @current_superagent,
+      collective: @current_collective,
       current_user: @current_user,
       params: {
         filters: params[:filters] || params[:filter],
@@ -49,13 +49,13 @@ class CyclesController < ApplicationController
 
   def redirect_to_show
     # If people go to /cycle/... instead of /cycles/...
-    redirect_to "#{@current_superagent.path}/cycles/#{params[:cycle]}"
+    redirect_to "#{@current_collective.path}/cycles/#{params[:cycle]}"
   end
 
   private
 
   def set_sidebar_mode
     @sidebar_mode = 'settings'
-    @team = @current_superagent.team
+    @team = @current_collective.team
   end
 end

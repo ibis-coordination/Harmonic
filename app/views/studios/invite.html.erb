@@ -1,6 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, @current_tenant.path],
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   'Invite'
 ] %>
 
@@ -17,7 +17,7 @@
 
   <div class="pulse-resource-body">
     <p class="pulse-body-text">
-      Share this link with your team to invite them to studio <strong><%= @current_superagent.name %></strong>.
+      Share this link with your team to invite them to studio <strong><%= @current_collective.name %></strong>.
       Anyone with this link will be able to join.
     </p>
 

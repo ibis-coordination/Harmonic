@@ -6,7 +6,7 @@ class ApiAppAdminTest < ActionDispatch::IntegrationTest
     @primary_tenant = Tenant.create!(subdomain: "admin-api-test-#{SecureRandom.hex(4)}", name: "Admin API Test Tenant")
     @admin_user = User.create!(email: "admin-#{SecureRandom.hex(4)}@example.com", name: "Admin User", user_type: "human")
     @primary_tenant.add_user!(@admin_user)
-    @primary_tenant.create_main_superagent!(created_by: @admin_user)
+    @primary_tenant.create_main_collective!(created_by: @admin_user)
 
     # Create an app_admin token with app_admin flag
     @admin_token = ApiToken.create!(

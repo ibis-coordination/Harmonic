@@ -309,20 +309,32 @@ class SearchIndex
   end
 
   module GeneratedAssociationMethods
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_collective(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_replying_to(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def build_superagent(*args, &blk); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_updated_by(*args, &blk); end
+
+    sig { returns(T.nilable(::Collective)) }
+    def collective; end
+
+    sig { params(value: T.nilable(::Collective)).void }
+    def collective=(value); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by(*args, &blk); end
@@ -335,12 +347,6 @@ class SearchIndex
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_replying_to!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -360,14 +366,14 @@ class SearchIndex
     sig { params(value: T.nilable(::User)).void }
     def created_by=(value); end
 
+    sig { returns(T.nilable(::Collective)) }
+    def reload_collective; end
+
     sig { returns(T.nilable(::User)) }
     def reload_created_by; end
 
     sig { returns(T.nilable(::User)) }
     def reload_replying_to; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def reload_superagent; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -382,25 +388,19 @@ class SearchIndex
     def replying_to=(value); end
 
     sig { void }
+    def reset_collective; end
+
+    sig { void }
     def reset_created_by; end
 
     sig { void }
     def reset_replying_to; end
 
     sig { void }
-    def reset_superagent; end
-
-    sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_updated_by; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def superagent; end
-
-    sig { params(value: T.nilable(::Superagent)).void }
-    def superagent=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -685,6 +685,51 @@ class SearchIndex
 
     sig { void }
     def body_will_change!; end
+
+    sig { returns(::String) }
+    def collective_id; end
+
+    sig { params(value: ::String).returns(::String) }
+    def collective_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_id_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_change_to_be_saved; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_previous_change; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_was; end
+
+    sig { void }
+    def collective_id_will_change!; end
 
     sig { returns(T.nilable(::Integer)) }
     def comment_count; end
@@ -1323,6 +1368,9 @@ class SearchIndex
     def restore_body!; end
 
     sig { void }
+    def restore_collective_id!; end
+
+    sig { void }
     def restore_comment_count!; end
 
     sig { void }
@@ -1374,9 +1422,6 @@ class SearchIndex
     def restore_subtype!; end
 
     sig { void }
-    def restore_superagent_id!; end
-
-    sig { void }
     def restore_tenant_id!; end
 
     sig { void }
@@ -1405,6 +1450,12 @@ class SearchIndex
 
     sig { returns(T::Boolean) }
     def saved_change_to_body?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_collective_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_collective_id?; end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def saved_change_to_comment_count; end
@@ -1507,12 +1558,6 @@ class SearchIndex
 
     sig { returns(T::Boolean) }
     def saved_change_to_subtype?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_superagent_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_superagent_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
@@ -1684,51 +1729,6 @@ class SearchIndex
 
     sig { void }
     def subtype_will_change!; end
-
-    sig { returns(::String) }
-    def superagent_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def superagent_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def superagent_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def superagent_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def superagent_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_id_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_was; end
-
-    sig { void }
-    def superagent_id_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -2007,6 +2007,9 @@ class SearchIndex
     def will_save_change_to_body?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_collective_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_comment_count?; end
 
     sig { returns(T::Boolean) }
@@ -2056,9 +2059,6 @@ class SearchIndex
 
     sig { returns(T::Boolean) }
     def will_save_change_to_subtype?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

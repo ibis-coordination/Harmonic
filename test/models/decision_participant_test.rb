@@ -5,20 +5,20 @@ require "test_helper"
 class DecisionParticipantTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
   end
 
   test "requires user" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     participant = DecisionParticipant.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       decision: decision,
       user: nil
     )
@@ -28,11 +28,11 @@ class DecisionParticipantTest < ActiveSupport::TestCase
   end
 
   test "valid with user" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     participant = DecisionParticipant.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       decision: decision,
       user: @user
     )
@@ -41,11 +41,11 @@ class DecisionParticipantTest < ActiveSupport::TestCase
   end
 
   test "authenticated? returns true" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     participant = DecisionParticipant.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       decision: decision,
       user: @user
     )

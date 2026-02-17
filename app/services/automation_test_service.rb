@@ -59,7 +59,7 @@ class AutomationTestService
     # Create a run record with 'test' source
     run = AutomationRuleRun.create!(
       tenant: @rule.tenant,
-      superagent: @rule.superagent,
+      collective: @rule.collective,
       automation_rule: @rule,
       triggered_by_event: test_event,
       trigger_source: "test",
@@ -111,7 +111,7 @@ class AutomationTestService
     # Store the simulated event type in metadata for reference
     Event.create!(
       tenant: @rule.tenant,
-      superagent: @rule.superagent,
+      collective: @rule.collective,
       event_type: "automation_rule.tested",
       actor: @rule.created_by,
       metadata: {

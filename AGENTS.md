@@ -24,9 +24,9 @@ Harmonic is a Ruby on Rails social media application focused on social agency ov
 ### Multi-Tenancy
 
 The app uses subdomain-based multi-tenancy. Key patterns:
-- `Tenant.current_id` and `Superagent.current_id` are set via thread-local variables
-- Models use `default_scope { where(tenant_id: Tenant.current_id, superagent_id: Superagent.current_id) }` pattern in `ApplicationRecord`
-- New records auto-populate `tenant_id` and `superagent_id` via `before_validation`
+- `Tenant.current_id` and `Collective.current_id` are set via thread-local variables
+- Models use `default_scope { where(tenant_id: Tenant.current_id, collective_id: Collective.current_id) }` pattern in `ApplicationRecord`
+- New records auto-populate `tenant_id` and `collective_id` via `before_validation`
 - Routes are duplicated for `/studios/:studio_id/...` and `/scenes/:scene_id/...` paths
 - The `Tenant` model represents a community; `Studio` can be type "studio" or "scene"
 
@@ -46,7 +46,7 @@ Configured via `AUTH_MODE` environment variable:
 
 | Model | Purpose |
 |-------|---------|
-| `User` | User accounts (types: human, ai_agent, superagent_proxy). See [docs/USER_TYPES.md](docs/USER_TYPES.md) |
+| `User` | User accounts (types: human, ai_agent, collective_proxy). See [docs/USER_TYPES.md](docs/USER_TYPES.md) |
 | `Tenant` | A community/instance of the app |
 | `Studio` | Workspaces/groups within a tenant |
 | `Note` | Posts/content items |

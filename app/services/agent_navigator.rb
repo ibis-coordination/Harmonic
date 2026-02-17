@@ -7,7 +7,7 @@
 # to create an autonomous agent that can complete tasks in the app.
 #
 # @example Run an agent to create a note
-#   agent = AgentNavigator.new(user: ai_agent, tenant: tenant, superagent: studio)
+#   agent = AgentNavigator.new(user: ai_agent, tenant: tenant, collective: studio)
 #   result = agent.run(task: "Create a note saying hello to the team")
 #   result[:steps].each { |step| puts step[:type] }
 #
@@ -37,8 +37,8 @@ class AgentNavigator
   sig { returns(Tenant) }
   attr_reader :tenant
 
-  sig { returns(T.nilable(Superagent)) }
-  attr_reader :starting_superagent
+  sig { returns(T.nilable(Collective)) }
+  attr_reader :starting_collective
 
   sig { returns(T::Array[Step]) }
   attr_reader :steps
@@ -47,18 +47,18 @@ class AgentNavigator
     params(
       user: User,
       tenant: Tenant,
-      superagent: T.nilable(Superagent),
+      collective: T.nilable(Collective),
       model: T.nilable(String)
     ).void
   end
-  def initialize(user:, tenant:, superagent: nil, model: nil)
+  def initialize(user:, tenant:, collective: nil, model: nil)
     @user = user
     @tenant = tenant
-    @starting_superagent = superagent
+    @starting_collective = collective
     @llm = T.let(LLMClient.new(model: model || "default"), LLMClient)
-    # Initialize service without a fixed superagent - it will resolve dynamically from paths
+    # Initialize service without a fixed collective - it will resolve dynamically from paths
     @service = T.let(
-      MarkdownUiService.new(tenant: tenant, superagent: superagent, user: user),
+      MarkdownUiService.new(tenant: tenant, collective: collective, user: user),
       MarkdownUiService
     )
     @steps = T.let([], T::Array[Step])
@@ -461,9 +461,9 @@ class AgentNavigator
 
   sig { returns(String) }
   def system_prompt
-    starting_context = if @starting_superagent
+    starting_context = if @starting_collective
                          <<~CONTEXT
-                           **Starting context**: You started in the "#{@starting_superagent.name}" studio (handle: #{@starting_superagent.handle}).
+                           **Starting context**: You started in the "#{@starting_collective.name}" studio (handle: #{@starting_collective.handle}).
                            You can navigate to other studios if needed for your task.
                          CONTEXT
                        else

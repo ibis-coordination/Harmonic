@@ -2,10 +2,10 @@ require "test_helper"
 
 class NotificationRecipientTest < ActiveSupport::TestCase
   test "NotificationRecipient.create works" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -28,10 +28,10 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "channel must be valid" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -51,10 +51,10 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "status must be valid" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -74,10 +74,10 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "dismiss! marks recipient as dismissed" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -100,10 +100,10 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "mark_delivered! marks recipient as delivered" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -125,10 +125,10 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "scopes filter correctly" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    event = Event.create!(tenant: tenant, superagent: superagent, event_type: "note.created")
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
     notification = Notification.create!(
       tenant: tenant,
       event: event,
@@ -166,8 +166,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   # === Scheduled Reminder Scopes ===
 
   test "scheduled scope returns future scheduled notifications" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     notification = Notification.create!(
       tenant: tenant,
@@ -205,8 +205,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "due scope returns past scheduled notifications" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     notification = Notification.create!(
       tenant: tenant,
@@ -235,8 +235,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "immediate scope returns non-scheduled notifications" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     notification = Notification.create!(
       tenant: tenant,
@@ -265,8 +265,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "scheduled? returns true for future scheduled notifications" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     notification = Notification.create!(
       tenant: tenant,
@@ -286,8 +286,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "scheduled? returns false for past scheduled notifications" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     notification = Notification.create!(
       tenant: tenant,
@@ -307,8 +307,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "due? returns true for past scheduled notifications" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     notification = Notification.create!(
       tenant: tenant,
@@ -328,8 +328,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "due? returns false for future scheduled notifications" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     notification = Notification.create!(
       tenant: tenant,
@@ -349,8 +349,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "rate_limited is a valid status" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     notification = Notification.create!(
       tenant: tenant,
@@ -369,8 +369,8 @@ class NotificationRecipientTest < ActiveSupport::TestCase
   end
 
   test "validates tenant matches notification tenant" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     other_tenant = Tenant.create!(
       name: "Other Tenant",

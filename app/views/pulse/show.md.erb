@@ -1,9 +1,9 @@
-# <%= @current_superagent.superagent_type.titleize %>: <%= @current_superagent.name %>
+# <%= @current_collective.collective_type.titleize %>: <%= @current_collective.name %>
 
-<% if !@current_superagent.is_main_superagent? && @current_user && @current_heartbeat.nil? -%>
+<% if !@current_collective.is_main_collective? && @current_user && @current_heartbeat.nil? -%>
 ## Heartbeat Required
 
-You must send a heartbeat to access this <%= @current_superagent.superagent_type %> for the current cycle.
+You must send a heartbeat to access this <%= @current_collective.collective_type %> for the current cycle.
 <% elsif @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil? -%>
 ## Heartbeat Required
 
@@ -12,7 +12,7 @@ You must send a heartbeat to view past cycles.
 ## Cycle: <%= @cycle.name.titleize %>
 
 <% unless @is_viewing_current_cycle -%>
-Viewing: <%= @cycle.name.titleize %> | [Back to current cycle](<%= @current_superagent.path %>)
+Viewing: <%= @cycle.name.titleize %> | [Back to current cycle](<%= @current_collective.path %>)
 <% end -%>
 
 ## Activity Feed
@@ -27,8 +27,8 @@ No activity in this cycle yet.
 
 ## Explore
 
-* [Cycles](<%= @current_superagent.path %>/cycles)
-* [Backlinks](<%= @current_superagent.path %>/backlinks)
+* [Cycles](<%= @current_collective.path %>/cycles)
+* [Backlinks](<%= @current_collective.path %>/backlinks)
 
 ## Pinned
 

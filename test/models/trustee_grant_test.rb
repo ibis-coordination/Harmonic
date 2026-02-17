@@ -7,9 +7,9 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     @trustee_user = create_user(email: "trusted_#{SecureRandom.hex(4)}@example.com", name: "Bob")
     @tenant.add_user!(@granting_user)
     @tenant.add_user!(@trustee_user)
-    @superagent = create_superagent(tenant: @tenant, created_by: @granting_user, handle: "trustee-perm-studio-#{SecureRandom.hex(4)}")
-    @superagent.add_user!(@granting_user)
-    @superagent.add_user!(@trustee_user)
+    @collective = create_collective(tenant: @tenant, created_by: @granting_user, handle: "trustee-perm-studio-#{SecureRandom.hex(4)}")
+    @collective.add_user!(@granting_user)
+    @collective.add_user!(@trustee_user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
@@ -36,9 +36,9 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       trustee_user: @trustee_user,
       permissions: {},
     )
-    # trustee_user is now the actual person (Bob), not a superagent_proxy user
+    # trustee_user is now the actual person (Bob), not a collective_proxy user
     assert_equal @trustee_user, permission.trustee_user
-    assert_not permission.trustee_user.superagent_proxy?
+    assert_not permission.trustee_user.collective_proxy?
     assert_equal "Bob", permission.trustee_user.name
   end
 
@@ -53,11 +53,11 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     assert_includes permission.errors[:trustee_user], "cannot be the same as the granting user"
   end
 
-  test "trustee_user cannot be a superagent_proxy user" do
+  test "trustee_user cannot be a collective_proxy user" do
     some_proxy = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
       name: "Some Proxy",
-      user_type: "superagent_proxy",
+      user_type: "collective_proxy",
     )
     permission = TrusteeGrant.new(
       tenant: @tenant,
@@ -66,7 +66,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       permissions: {},
     )
     assert_not permission.valid?
-    assert_includes permission.errors[:trustee_user], "cannot be a superagent proxy user"
+    assert_includes permission.errors[:trustee_user], "cannot be a collective proxy user"
   end
 
   # =========================================================================
@@ -312,7 +312,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       studio_scope: { "mode" => "all" },
     )
 
-    assert permission.allows_studio?(@superagent)
+    assert permission.allows_studio?(@collective)
   end
 
   test "allows_studio? returns true when studio is in include list" do
@@ -321,14 +321,14 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "include", "studio_ids" => [@superagent.id] },
+      studio_scope: { "mode" => "include", "studio_ids" => [@collective.id] },
     )
 
-    assert permission.allows_studio?(@superagent)
+    assert permission.allows_studio?(@collective)
   end
 
   test "allows_studio? returns false when studio is not in include list" do
-    other_studio = create_superagent(tenant: @tenant, created_by: @granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_studio = create_collective(tenant: @tenant, created_by: @granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
@@ -338,7 +338,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       studio_scope: { "mode" => "include", "studio_ids" => [other_studio.id] },
     )
 
-    assert_not permission.allows_studio?(@superagent)
+    assert_not permission.allows_studio?(@collective)
     assert permission.allows_studio?(other_studio)
   end
 
@@ -348,14 +348,14 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "exclude", "studio_ids" => [@superagent.id] },
+      studio_scope: { "mode" => "exclude", "studio_ids" => [@collective.id] },
     )
 
-    assert_not permission.allows_studio?(@superagent)
+    assert_not permission.allows_studio?(@collective)
   end
 
   test "allows_studio? returns true when studio is not in exclude list" do
-    other_studio = create_superagent(tenant: @tenant, created_by: @granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_studio = create_collective(tenant: @tenant, created_by: @granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
@@ -365,7 +365,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       studio_scope: { "mode" => "exclude", "studio_ids" => [other_studio.id] },
     )
 
-    assert permission.allows_studio?(@superagent)
+    assert permission.allows_studio?(@collective)
     assert_not permission.allows_studio?(other_studio)
   end
 
@@ -378,7 +378,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       studio_scope: nil,
     )
 
-    assert permission.allows_studio?(@superagent)
+    assert permission.allows_studio?(@collective)
   end
 
   # =========================================================================

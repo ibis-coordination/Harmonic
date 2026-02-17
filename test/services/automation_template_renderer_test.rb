@@ -5,11 +5,11 @@ require "test_helper"
 class AutomationTemplateRendererTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
   end
 
@@ -95,7 +95,7 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     note = create_note
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -113,7 +113,7 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     note = create_note
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -130,7 +130,7 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     note = create_note
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -138,16 +138,16 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
 
     context = AutomationTemplateRenderer.context_from_event(event)
 
-    assert_equal @superagent.id, context["studio"]["id"]
-    assert_equal @superagent.handle, context["studio"]["handle"]
-    assert_equal @superagent.name, context["studio"]["name"]
+    assert_equal @collective.id, context["studio"]["id"]
+    assert_equal @collective.handle, context["studio"]["handle"]
+    assert_equal @collective.name, context["studio"]["name"]
   end
 
   test "context_from_event handles nil actor" do
     note = create_note
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: nil,
       subject: note
@@ -164,7 +164,7 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     note = create_note
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -182,7 +182,7 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     note = create_note
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
@@ -192,8 +192,8 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     context = AutomationTemplateRenderer.context_from_event(event)
     result = AutomationTemplateRenderer.render(template, context)
 
-    assert_includes result, @superagent.name
-    assert_includes result, @superagent.handle
+    assert_includes result, @collective.name
+    assert_includes result, @collective.handle
   end
 
   # === Context Building from Trigger Data (webhooks) ===

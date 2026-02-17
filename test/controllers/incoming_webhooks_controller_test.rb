@@ -6,8 +6,8 @@ class IncomingWebhooksControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
 
     # Set up subdomain-based host for requests
@@ -16,7 +16,7 @@ class IncomingWebhooksControllerTest < ActionDispatch::IntegrationTest
     # Create a webhook-triggered automation rule
     @automation_rule = AutomationRule.unscoped.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Webhook Test Rule",
       trigger_type: "webhook",
@@ -359,13 +359,13 @@ class IncomingWebhooksControllerTest < ActionDispatch::IntegrationTest
   test "webhook path from another tenant returns 404" do
     # Create a second tenant with its own automation rule
     other_tenant = create_tenant(subdomain: "other-tenant-#{SecureRandom.hex(4)}")
-    other_superagent = other_tenant.main_superagent
+    other_collective = other_tenant.main_collective
     other_user = create_user(name: "Other User")
     other_tenant.add_user!(other_user)
 
     other_rule = AutomationRule.unscoped.create!(
       tenant: other_tenant,
-      superagent: other_superagent,
+      collective: other_collective,
       created_by: other_user,
       name: "Other Tenant Webhook",
       trigger_type: "webhook",

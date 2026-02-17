@@ -3,7 +3,7 @@
 <div class="pulse-notice pulse-notice-info">
   <h<%= header_level %> class="pulse-section-title">Active Sessions</h<%= header_level %>>
   <p>
-    <%= @current_superagent.name %> is currently being represented in <%= @active_sessions.count %> active session<%= @active_sessions.count == 1 ? '' : 's' %>.
+    <%= @current_collective.name %> is currently being represented in <%= @active_sessions.count %> active session<%= @active_sessions.count == 1 ? '' : 's' %>.
   </p>
   <ul class="pulse-list">
     <% @active_sessions.each do |session| %>
@@ -16,26 +16,26 @@
 </div>
 <% end %>
 
-<% if @current_user.superagent_member.can_represent? %>
+<% if @current_user.collective_member.can_represent? %>
   <p class="pulse-action-row">
-    <a href="<%= @current_superagent.path %>/represent" class="pulse-action-btn pulse-action-btn-primary">
+    <a href="<%= @current_collective.path %>/represent" class="pulse-action-btn pulse-action-btn-primary">
       <%= octicon "play" %> New Session
     </a>
   </p>
 <% end %>
 
-<p>Representation allows this studio (<%= @current_superagent.name %>) to act as an individual member of other studios.</p>
+<p>Representation allows this studio (<%= @current_collective.name %>) to act as an individual member of other studios.</p>
 
-<% if @current_superagent.proxy_user.superagents.empty? %>
+<% if @current_collective.proxy_user.collectives.empty? %>
   <p class="pulse-muted">
-    <%= @current_superagent.name %> is not currently a member of any other studios.
+    <%= @current_collective.name %> is not currently a member of any other studios.
   </p>
 <% else %>
   <p>
-    <%= @current_superagent.name %> is currently a member of the following studios:
+    <%= @current_collective.name %> is currently a member of the following studios:
   </p>
   <ul class="pulse-list">
-    <% @current_superagent.proxy_user.superagents.each do |studio| %>
+    <% @current_collective.proxy_user.collectives.each do |studio| %>
       <li class="pulse-list-item">
         <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
       </li>
@@ -47,12 +47,12 @@
 <section class="pulse-settings-section">
   <h<%= header_level %> class="pulse-section-title">Representatives</h<%= header_level %>>
 
-  <p>Representatives act on behalf of <%= @current_superagent.name %> through sessions during which their actions are recorded and made visible here.</p>
+  <p>Representatives act on behalf of <%= @current_collective.name %> through sessions during which their actions are recorded and made visible here.</p>
 
-  <% if @current_superagent.any_member_can_represent? %>
-    <p><%= @current_superagent.name %> is configured to allow any member to represent the studio.</p>
+  <% if @current_collective.any_member_can_represent? %>
+    <p><%= @current_collective.name %> is configured to allow any member to represent the studio.</p>
   <% else %>
-    <p><%= @current_superagent.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.</p>
+    <p><%= @current_collective.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.</p>
 
     <ul class="pulse-list">
       <% @representatives.each do |representative| %>

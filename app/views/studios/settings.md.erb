@@ -1,17 +1,17 @@
 # Studio Settings
 
-Current settings for **<%= @current_superagent.name %>**:
+Current settings for **<%= @current_collective.name %>**:
 
 | Setting | Value |
 |---------|-------|
-| Name | <%= @current_superagent.name %> |
-| Handle | <%= @current_superagent.handle %> |
-| Description | <%= @current_superagent.description || "(none)" %> |
-| Timezone | <%= @current_superagent.timezone %> |
-| Tempo | <%= @current_superagent.tempo %> |
-| Synchronization Mode | <%= @current_superagent.synchronization_mode %> |
-| Invitations | <%= @current_superagent.all_members_can_invite? ? 'All members can invite' : 'Only admins can invite' %> |
-| Representation | <%= @current_superagent.any_member_can_represent? ? 'Any member can represent' : 'Only representatives' %> |
+| Name | <%= @current_collective.name %> |
+| Handle | <%= @current_collective.handle %> |
+| Description | <%= @current_collective.description || "(none)" %> |
+| Timezone | <%= @current_collective.timezone %> |
+| Tempo | <%= @current_collective.tempo %> |
+| Synchronization Mode | <%= @current_collective.synchronization_mode %> |
+| Invitations | <%= @current_collective.all_members_can_invite? ? 'All members can invite' : 'Only admins can invite' %> |
+| Representation | <%= @current_collective.any_member_can_represent? ? 'Any member can represent' : 'Only representatives' %> |
 <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) } %>
 <% if available_flags.any? %>
 
@@ -21,11 +21,11 @@ Current settings for **<%= @current_superagent.name %>**:
 |---------|---------|
 <% available_flags.each do |flag_name| %>
 <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
-<% studio_enabled_locally = @current_superagent.feature_flag_enabled_locally?(flag_name) %>
+<% studio_enabled_locally = @current_collective.feature_flag_enabled_locally?(flag_name) %>
 | <%= metadata['name'] %> | <%= studio_enabled_locally ? 'Yes' : 'No' %> |
 <% end %>
 <% end %>
-<% if @current_superagent.feature_enabled?('api') && @studio_ai_agents.present? %>
+<% if @current_collective.feature_enabled?('api') && @studio_ai_agents.present? %>
 
 ## AI Agents in this Studio
 
@@ -36,4 +36,4 @@ Current settings for **<%= @current_superagent.name %>**:
 
 ## Additional Settings
 
-* [Manage Automations](<%= @current_superagent.path %>/settings/automations) - Configure event-triggered actions, webhooks, and schedules
+* [Manage Automations](<%= @current_collective.path %>/settings/automations) - Configure event-triggered actions, webhooks, and schedules

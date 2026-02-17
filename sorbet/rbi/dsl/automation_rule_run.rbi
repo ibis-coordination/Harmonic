@@ -346,14 +346,20 @@ class AutomationRuleRun
     sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRule) }
     def build_automation_rule(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def build_superagent(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_collective(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Event) }
     def build_triggered_by_event(*args, &blk); end
+
+    sig { returns(T.nilable(::Collective)) }
+    def collective; end
+
+    sig { params(value: T.nilable(::Collective)).void }
+    def collective=(value); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
     def create_ai_agent_task_run(*args, &blk); end
@@ -367,11 +373,11 @@ class AutomationRuleRun
     sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRule) }
     def create_automation_rule!(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent!(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -391,8 +397,8 @@ class AutomationRuleRun
     sig { returns(T.nilable(::AutomationRule)) }
     def reload_automation_rule; end
 
-    sig { returns(T.nilable(::Superagent)) }
-    def reload_superagent; end
+    sig { returns(T.nilable(::Collective)) }
+    def reload_collective; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -407,19 +413,13 @@ class AutomationRuleRun
     def reset_automation_rule; end
 
     sig { void }
-    def reset_superagent; end
+    def reset_collective; end
 
     sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_triggered_by_event; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def superagent; end
-
-    sig { params(value: T.nilable(::Superagent)).void }
-    def superagent=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -824,6 +824,51 @@ class AutomationRuleRun
     sig { void }
     def chain_metadata_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def collective_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def collective_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_was; end
+
+    sig { void }
+    def collective_id_will_change!; end
+
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
     def completed_at; end
 
@@ -1027,6 +1072,9 @@ class AutomationRuleRun
     def restore_chain_metadata!; end
 
     sig { void }
+    def restore_collective_id!; end
+
+    sig { void }
     def restore_completed_at!; end
 
     sig { void }
@@ -1043,9 +1091,6 @@ class AutomationRuleRun
 
     sig { void }
     def restore_status!; end
-
-    sig { void }
-    def restore_superagent_id!; end
 
     sig { void }
     def restore_tenant_id!; end
@@ -1086,6 +1131,12 @@ class AutomationRuleRun
     sig { returns(T::Boolean) }
     def saved_change_to_chain_metadata?; end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_collective_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_collective_id?; end
+
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_completed_at; end
 
@@ -1121,12 +1172,6 @@ class AutomationRuleRun
 
     sig { returns(T::Boolean) }
     def saved_change_to_status?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_superagent_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_superagent_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
@@ -1257,51 +1302,6 @@ class AutomationRuleRun
 
     sig { void }
     def status_will_change!; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def superagent_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def superagent_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def superagent_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def superagent_id_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_was; end
-
-    sig { void }
-    def superagent_id_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1541,6 +1541,9 @@ class AutomationRuleRun
     def will_save_change_to_chain_metadata?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_collective_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_completed_at?; end
 
     sig { returns(T::Boolean) }
@@ -1557,9 +1560,6 @@ class AutomationRuleRun
 
     sig { returns(T::Boolean) }
     def will_save_change_to_status?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

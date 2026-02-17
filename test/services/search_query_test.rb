@@ -4,11 +4,11 @@ require "test_helper"
 
 class SearchQueryTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
     # For Notes, searchable_text uses body (text) only since title is derived from text
-    @note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "Budget proposal details")
-    @decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user, question: "Approve budget?")
-    @commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Review budget")
+    @note = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "Budget proposal details")
+    @decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user, question: "Approve budget?")
+    @commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user, title: "Review budget")
 
     # Ensure search index is populated (callbacks should do this, but let's be explicit)
     SearchIndexer.reindex(@note)
@@ -20,7 +20,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "full-text search finds matching content" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "budget cycle:all"
     )
 
@@ -31,7 +31,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "full-text search returns empty for non-matching query" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "nonexistent cycle:all"
     )
 
@@ -40,7 +40,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "search without query returns no results" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       params: { cycle: "all" }
     )
 
@@ -49,7 +49,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "search with cycle:all returns all results" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "cycle:all"
     )
 
@@ -60,7 +60,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "type filter restricts to specified types" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "type:note cycle:all"
     )
 
@@ -71,7 +71,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "type filter accepts comma-separated types" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "type:note,decision cycle:all"
     )
 
@@ -83,7 +83,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "type=all returns all types" do
     # When no type filter is specified, all types are returned
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "cycle:all"
     )
 
@@ -96,7 +96,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "exclude_types excludes specified types" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "-type:note cycle:all"
     )
 
@@ -108,7 +108,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "exclude_types works with DSL via raw_query" do
     # This is the bug fix: -type:note should exclude notes
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "-type:note cycle:all"
     )
 
@@ -120,7 +120,7 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "exclude_types works with studio scope via raw_query" do
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "studio:#{@superagent.handle} -type:note cycle:all"
+      raw_query: "studio:#{@collective.handle} -type:note cycle:all"
     )
 
     results = search.results
@@ -135,7 +135,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     SearchIndexer.reindex(comment)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "subtype:comment cycle:all"
     )
 
@@ -149,7 +149,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     SearchIndexer.reindex(comment)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "type:note -subtype:comment cycle:all"
     )
 
@@ -165,12 +165,12 @@ class SearchQueryTest < ActiveSupport::TestCase
   # Time window tests
 
   test "cycle filter restricts to time window" do
-    old_note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Old note")
+    old_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Old note")
     old_note.update_columns(created_at: 1.month.ago, deadline: 1.month.ago + 1.day)
     SearchIndexer.reindex(old_note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       params: { cycle: "today" }
     )
 
@@ -180,7 +180,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "cycle=all returns all items" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "cycle:all"
     )
 
@@ -192,12 +192,12 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "mine filter returns items created by current user" do
     other_user = create_user(email: "other_mine@example.com", name: "Other Mine User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
-    other_note = create_note(tenant: @tenant, superagent: @superagent, created_by: other_user, title: "Other's note")
+    @collective.add_user!(other_user)
+    other_note = create_note(tenant: @tenant, collective: @collective, created_by: other_user, title: "Other's note")
     SearchIndexer.reindex(other_note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "creator:@#{@user.handle} cycle:all"
     )
 
@@ -208,12 +208,12 @@ class SearchQueryTest < ActiveSupport::TestCase
   test "not_mine filter excludes items created by current user" do
     other_user = create_user(email: "other_not_mine@example.com", name: "Other Not Mine User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
-    other_note = create_note(tenant: @tenant, superagent: @superagent, created_by: other_user, title: "Other's note")
+    @collective.add_user!(other_user)
+    other_note = create_note(tenant: @tenant, collective: @collective, created_by: other_user, title: "Other's note")
     SearchIndexer.reindex(other_note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "-creator:@#{@user.handle} cycle:all"
     )
 
@@ -224,12 +224,12 @@ class SearchQueryTest < ActiveSupport::TestCase
   # Status filters
 
   test "open filter returns items with future deadlines" do
-    closed_note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Closed note")
+    closed_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Closed note")
     closed_note.update_columns(deadline: 1.day.ago)
     SearchIndexer.reindex(closed_note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "status:open cycle:all"
     )
 
@@ -238,12 +238,12 @@ class SearchQueryTest < ActiveSupport::TestCase
   end
 
   test "closed filter returns items with past deadlines" do
-    closed_note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Closed note")
+    closed_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Closed note")
     closed_note.update_columns(deadline: 1.day.ago)
     SearchIndexer.reindex(closed_note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "status:closed cycle:all"
     )
 
@@ -254,12 +254,12 @@ class SearchQueryTest < ActiveSupport::TestCase
   # Presence filters
 
   test "has_backlinks filter returns items with backlinks" do
-    note2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Linking note")
-    Link.create!(from_linkable: note2, to_linkable: @note, tenant_id: @tenant.id, superagent_id: @superagent.id)
+    note2 = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Linking note")
+    Link.create!(from_linkable: note2, to_linkable: @note, tenant_id: @tenant.id, collective_id: @collective.id)
     SearchIndexer.reindex(@note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "min-backlinks:1 cycle:all"
     )
 
@@ -271,7 +271,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "sort_by=created_at-desc returns newest first" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "sort:newest cycle:all"
     )
 
@@ -282,7 +282,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "sort_by=created_at-asc returns oldest first" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "sort:oldest cycle:all"
     )
 
@@ -293,7 +293,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "sort_by=relevance-desc works with text search" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "budget sort:relevance cycle:all"
     )
 
@@ -306,12 +306,12 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "cursor pagination returns next page without overlap" do
     10.times do |i|
-      note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Note #{i}")
+      note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Note #{i}")
       SearchIndexer.reindex(note)
     end
 
     search1 = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "limit:5 cycle:all"
     )
 
@@ -319,7 +319,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     cursor = search1.next_cursor
 
     search2 = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "limit:5 cycle:all",
       params: { cursor: cursor }
     )
@@ -332,13 +332,13 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "per_page is clamped to valid range" do
     search_low = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "limit:-5 cycle:all"
     )
     assert_equal 25, search_low.per_page
 
     search_high = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "limit:500 cycle:all"
     )
     assert_equal 100, search_high.per_page
@@ -348,7 +348,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "grouped_results groups by item_type" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "group:type cycle:all"
     )
 
@@ -362,7 +362,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "group_by=none returns flat results" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "group:none cycle:all"
     )
 
@@ -372,12 +372,12 @@ class SearchQueryTest < ActiveSupport::TestCase
   end
 
   test "grouped_results groups by status" do
-    closed_note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Closed note")
+    closed_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Closed note")
     closed_note.update_columns(deadline: 1.day.ago)
     SearchIndexer.reindex(closed_note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "group:status cycle:all"
     )
 
@@ -390,16 +390,16 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   # Multi-tenancy tests
 
-  test "results are scoped to tenant and superagent" do
+  test "results are scoped to tenant and collective" do
     other_tenant = create_tenant(subdomain: "other")
     other_user = create_user(email: "other_tenant@example.com")
     other_tenant.add_user!(other_user)
-    other_superagent = create_superagent(tenant: other_tenant, created_by: other_user, handle: "other-studio")
-    other_note = create_note(tenant: other_tenant, superagent: other_superagent, created_by: other_user, title: "Other tenant note")
+    other_collective = create_collective(tenant: other_tenant, created_by: other_user, handle: "other-studio")
+    other_note = create_note(tenant: other_tenant, collective: other_collective, created_by: other_user, title: "Other tenant note")
     SearchIndexer.reindex(other_note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "cycle:all"
     )
 
@@ -411,7 +411,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "to_params returns query parameters" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       params: { q: "test", type: "note", cycle: "today", filters: "mine", sort_by: "created_at-desc" }
     )
 
@@ -427,7 +427,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "cycle_options returns valid options" do
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       params: {}
     )
 
@@ -440,13 +440,13 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "sort_by_options includes relevance when query is present" do
     search_with_query = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       params: { q: "test" }
     )
     assert search_with_query.sort_by_options.any? { |opt| opt[1] == "relevance-desc" }
 
     search_without_query = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       params: {}
     )
     assert search_without_query.sort_by_options.none? { |opt| opt[1] == "relevance-desc" }
@@ -455,11 +455,11 @@ class SearchQueryTest < ActiveSupport::TestCase
   # Exact phrase matching tests
 
   test "exact phrase matches consecutive substring" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "Budget proposal review")
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "Budget proposal review")
     SearchIndexer.reindex(note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: '"Budget proposal"',
       params: { cycle: "all" }
     )
@@ -468,11 +468,11 @@ class SearchQueryTest < ActiveSupport::TestCase
   end
 
   test "exact phrase does NOT match different word order" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "proposal Budget")
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "proposal Budget")
     SearchIndexer.reindex(note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: '"Budget proposal"',
       params: { cycle: "all" }
     )
@@ -482,11 +482,11 @@ class SearchQueryTest < ActiveSupport::TestCase
   end
 
   test "exact phrase does NOT match words in different positions" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "more search testing")
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "more search testing")
     SearchIndexer.reindex(note)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: '"testing more"',
       params: { cycle: "all" }
     )
@@ -498,13 +498,13 @@ class SearchQueryTest < ActiveSupport::TestCase
   # Excluded terms tests
 
   test "excluded term filters out matching results" do
-    note_with_term = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple banana")
-    note_without_term = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple cherry")
+    note_with_term = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "apple banana")
+    note_without_term = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "apple cherry")
     SearchIndexer.reindex(note_with_term)
     SearchIndexer.reindex(note_without_term)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "apple -banana",
       params: { cycle: "all" }
     )
@@ -515,15 +515,15 @@ class SearchQueryTest < ActiveSupport::TestCase
   end
 
   test "multiple excluded terms filter correctly" do
-    note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple banana")
-    note2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple cherry")
-    note3 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, text: "apple date")
+    note1 = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "apple banana")
+    note2 = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "apple cherry")
+    note3 = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "apple date")
     SearchIndexer.reindex(note1)
     SearchIndexer.reindex(note2)
     SearchIndexer.reindex(note3)
 
     search = SearchQuery.new(
-      tenant: @tenant, superagent: @superagent, current_user: @user,
+      tenant: @tenant, collective: @collective, current_user: @user,
       raw_query: "apple -banana -cherry",
       params: { cycle: "all" }
     )
@@ -538,15 +538,15 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "tenant-wide search includes items from scenes (public)" do
     # Create a scene
-    scene = Superagent.create!(
+    scene = Collective.create!(
       tenant: @tenant, created_by: @user,
       name: "Public Scene", handle: "public-scene",
-      superagent_type: "scene"
+      collective_type: "scene"
     )
-    scene_note = create_note(tenant: @tenant, superagent: scene, created_by: @user, text: "scene content")
+    scene_note = create_note(tenant: @tenant, collective: scene, created_by: @user, text: "scene content")
     SearchIndexer.reindex(scene_note)
 
-    # Tenant-wide search (no superagent specified)
+    # Tenant-wide search (no collective specified)
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
       raw_query: "cycle:all"
@@ -557,13 +557,13 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "tenant-wide search includes items from studios user is member of" do
     # Create a studio and add user as member
-    studio = Superagent.create!(
+    studio = Collective.create!(
       tenant: @tenant, created_by: @user,
       name: "Member Studio", handle: "member-studio",
-      superagent_type: "studio"
+      collective_type: "studio"
     )
     studio.add_user!(@user)
-    studio_note = create_note(tenant: @tenant, superagent: studio, created_by: @user, text: "studio member content")
+    studio_note = create_note(tenant: @tenant, collective: studio, created_by: @user, text: "studio member content")
     SearchIndexer.reindex(studio_note)
 
     # Tenant-wide search
@@ -581,13 +581,13 @@ class SearchQueryTest < ActiveSupport::TestCase
     @tenant.add_user!(other_user)
 
     # Create a private studio that @user is NOT a member of
-    private_studio = Superagent.create!(
+    private_studio = Collective.create!(
       tenant: @tenant, created_by: other_user,
       name: "Private Studio", handle: "private-studio",
-      superagent_type: "studio"
+      collective_type: "studio"
     )
     private_studio.add_user!(other_user)
-    private_note = create_note(tenant: @tenant, superagent: private_studio, created_by: other_user, text: "private studio content")
+    private_note = create_note(tenant: @tenant, collective: private_studio, created_by: other_user, text: "private studio content")
     SearchIndexer.reindex(private_note)
 
     # Tenant-wide search as @user (who is NOT a member of private_studio)
@@ -601,34 +601,34 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "tenant-wide search combines scenes and member studios" do
     # Create a scene
-    scene = Superagent.create!(
+    scene = Collective.create!(
       tenant: @tenant, created_by: @user,
       name: "Test Scene", handle: "test-scene-combo",
-      superagent_type: "scene"
+      collective_type: "scene"
     )
-    scene_note = create_note(tenant: @tenant, superagent: scene, created_by: @user, text: "scene combo")
+    scene_note = create_note(tenant: @tenant, collective: scene, created_by: @user, text: "scene combo")
     SearchIndexer.reindex(scene_note)
 
     # Create a studio user is member of
-    member_studio = Superagent.create!(
+    member_studio = Collective.create!(
       tenant: @tenant, created_by: @user,
       name: "Member Studio", handle: "member-studio-combo",
-      superagent_type: "studio"
+      collective_type: "studio"
     )
     member_studio.add_user!(@user)
-    studio_note = create_note(tenant: @tenant, superagent: member_studio, created_by: @user, text: "studio combo")
+    studio_note = create_note(tenant: @tenant, collective: member_studio, created_by: @user, text: "studio combo")
     SearchIndexer.reindex(studio_note)
 
     # Create another user's private studio
     other_user = User.create!(name: "Other", email: "other-combo-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_user)
-    private_studio = Superagent.create!(
+    private_studio = Collective.create!(
       tenant: @tenant, created_by: other_user,
       name: "Private", handle: "private-combo",
-      superagent_type: "studio"
+      collective_type: "studio"
     )
     private_studio.add_user!(other_user)
-    private_note = create_note(tenant: @tenant, superagent: private_studio, created_by: other_user, text: "private combo")
+    private_note = create_note(tenant: @tenant, collective: private_studio, created_by: other_user, text: "private combo")
     SearchIndexer.reindex(private_note)
 
     # Tenant-wide search
@@ -644,27 +644,27 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes result_ids, private_note.id, "Should exclude non-member studio items"
   end
 
-  # Security: explicit superagent access control
+  # Security: explicit collective access control
 
-  test "search with explicit superagent the user has NO access to returns no results" do
+  test "search with explicit collective the user has NO access to returns no results" do
     # Create another user who owns a private studio
     other_user = User.create!(name: "Studio Owner", email: "owner-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_user)
 
-    private_studio = Superagent.create!(
+    private_studio = Collective.create!(
       tenant: @tenant, created_by: other_user,
       name: "Private Studio", handle: "private-explicit",
-      superagent_type: "studio"
+      collective_type: "studio"
     )
     private_studio.add_user!(other_user)
-    private_note = create_note(tenant: @tenant, superagent: private_studio, created_by: other_user, text: "secret content")
+    private_note = create_note(tenant: @tenant, collective: private_studio, created_by: other_user, text: "secret content")
     SearchIndexer.reindex(private_note)
 
-    # Attempt to search with explicit superagent the user does NOT have access to
-    # This simulates a malicious or buggy caller passing a superagent without checking access
+    # Attempt to search with explicit collective the user does NOT have access to
+    # This simulates a malicious or buggy caller passing a collective without checking access
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      superagent: private_studio,
+      collective: private_studio,
       raw_query: "cycle:all"
     )
 
@@ -672,21 +672,21 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_empty search.results.pluck(:item_id), "Should not expose items from studios user has no access to"
   end
 
-  test "search with explicit superagent the user HAS access to returns results" do
+  test "search with explicit collective the user HAS access to returns results" do
     # Create a studio and add user as member
-    member_studio = Superagent.create!(
+    member_studio = Collective.create!(
       tenant: @tenant, created_by: @user,
       name: "Member Studio", handle: "member-explicit",
-      superagent_type: "studio"
+      collective_type: "studio"
     )
     member_studio.add_user!(@user)
-    studio_note = create_note(tenant: @tenant, superagent: member_studio, created_by: @user, text: "accessible content")
+    studio_note = create_note(tenant: @tenant, collective: member_studio, created_by: @user, text: "accessible content")
     SearchIndexer.reindex(studio_note)
 
-    # Search with explicit superagent the user has access to
+    # Search with explicit collective the user has access to
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      superagent: member_studio,
+      collective: member_studio,
       raw_query: "cycle:all"
     )
 
@@ -695,12 +695,12 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   test "search with explicit scene returns results for any user" do
     # Scenes are public, so anyone can search them
-    scene = Superagent.create!(
+    scene = Collective.create!(
       tenant: @tenant, created_by: @user,
       name: "Public Scene", handle: "public-explicit",
-      superagent_type: "scene"
+      collective_type: "scene"
     )
-    scene_note = create_note(tenant: @tenant, superagent: scene, created_by: @user, text: "public content")
+    scene_note = create_note(tenant: @tenant, collective: scene, created_by: @user, text: "public content")
     SearchIndexer.reindex(scene_note)
 
     # Different user searching the scene
@@ -709,24 +709,24 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, current_user: other_user,
-      superagent: scene,
+      collective: scene,
       raw_query: "cycle:all"
     )
 
     assert_includes search.results.pluck(:item_id), scene_note.id
   end
 
-  # studio: operator - superagent handle resolution
+  # studio: operator - collective handle resolution
 
-  test "studio: operator resolves superagent by handle" do
+  test "studio: operator resolves collective by handle" do
     # Create a studio
-    target_studio = Superagent.create!(
+    target_studio = Collective.create!(
       tenant: @tenant, created_by: @user,
       name: "Target Studio", handle: "target-studio",
-      superagent_type: "studio"
+      collective_type: "studio"
     )
     target_studio.add_user!(@user)
-    studio_note = create_note(tenant: @tenant, superagent: target_studio, created_by: @user, text: "target content")
+    studio_note = create_note(tenant: @tenant, collective: target_studio, created_by: @user, text: "target content")
     SearchIndexer.reindex(studio_note)
 
     # Search using studio: operator
@@ -735,9 +735,9 @@ class SearchQueryTest < ActiveSupport::TestCase
       raw_query: "content studio:target-studio cycle:all"
     )
 
-    assert_equal target_studio, search.superagent
+    assert_equal target_studio, search.collective
     assert_includes search.results.pluck(:item_id), studio_note.id
-    # Should NOT include items from other superagents
+    # Should NOT include items from other collectives
     assert_not_includes search.results.pluck(:item_id), @note.id
   end
 
@@ -747,22 +747,22 @@ class SearchQueryTest < ActiveSupport::TestCase
       raw_query: "content studio:nonexistent-studio cycle:all"
     )
 
-    # Invalid handle means no superagent resolved, falls back to tenant-wide
-    # Since the handle doesn't exist, @superagent is nil
-    assert_nil search.superagent
+    # Invalid handle means no collective resolved, falls back to tenant-wide
+    # Since the handle doesn't exist, @collective is nil
+    assert_nil search.collective
   end
 
   test "studio: operator respects access control" do
     # Create another user's private studio
     other_user = User.create!(name: "Other", email: "other-in-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_user)
-    private_studio = Superagent.create!(
+    private_studio = Collective.create!(
       tenant: @tenant, created_by: other_user,
       name: "Private", handle: "private-in-test",
-      superagent_type: "studio"
+      collective_type: "studio"
     )
     private_studio.add_user!(other_user)
-    private_note = create_note(tenant: @tenant, superagent: private_studio, created_by: other_user, text: "private in test")
+    private_note = create_note(tenant: @tenant, collective: private_studio, created_by: other_user, text: "private in test")
     SearchIndexer.reindex(private_note)
 
     # Try to search in the private studio as @user (not a member)
@@ -771,8 +771,8 @@ class SearchQueryTest < ActiveSupport::TestCase
       raw_query: "private studio:private-in-test cycle:all"
     )
 
-    # Superagent is resolved (exists) but user doesn't have access
-    assert_equal private_studio, search.superagent
+    # Collective is resolved (exists) but user doesn't have access
+    assert_equal private_studio, search.collective
     # No results because access control prevents it
     assert_empty search.results.pluck(:item_id)
   end

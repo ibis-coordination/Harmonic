@@ -6,17 +6,17 @@ require "webmock/minitest"
 class AgentNavigatorTest < ActiveSupport::TestCase
   setup do
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
 
     # Enable API for internal requests to work
     @tenant.enable_feature_flag!("api")
-    @superagent.enable_feature_flag!("api")
+    @collective.enable_feature_flag!("api")
 
     # Set thread-local context for tests
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
 
     @base_url = ENV.fetch("LLM_BASE_URL", "http://litellm:4000")
@@ -25,18 +25,18 @@ class AgentNavigatorTest < ActiveSupport::TestCase
   # === Initialization ===
 
   test "initializes with required parameters" do
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
 
     assert_equal @user, agent.user
     assert_equal @tenant, agent.tenant
-    assert_equal @superagent, agent.starting_superagent
+    assert_equal @collective, agent.starting_collective
     assert_empty agent.steps
   end
 
-  test "initializes without superagent" do
+  test "initializes without collective" do
     agent = AgentNavigator.new(user: @user, tenant: @tenant)
 
-    assert_nil agent.starting_superagent
+    assert_nil agent.starting_collective
   end
 
   # === parse_action (private method, tested via run) ===
@@ -47,7 +47,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "done", "message": "Navigated successfully"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Navigate to test studio", max_steps: 5)
 
     # Should have navigate steps (whoami + test) plus done
@@ -70,7 +70,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "done", "message": "Marked as read"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Read the note", max_steps: 10)
 
     execute_steps = agent.steps.select { |s| s.type == "execute" }
@@ -82,7 +82,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "done", "message": "Task completed successfully"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Simple task", max_steps: 5)
 
     assert result.success
@@ -94,7 +94,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "error", "message": "Cannot complete this task"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Impossible task", max_steps: 5)
 
     assert_not result.success
@@ -106,7 +106,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          "Here's my action:\n```json\n{\"type\": \"done\", \"message\": \"Done\"}\n```",
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Test task", max_steps: 5)
 
     assert result.success
@@ -117,7 +117,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          "DONE - I have completed the task successfully.",
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Test task", max_steps: 5)
 
     assert result.success
@@ -129,7 +129,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          "I'm not sure what to do next.",
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Test task", max_steps: 5)
 
     assert_not result.success
@@ -141,7 +141,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "done", "message": broken json}', # Has braces but invalid JSON inside
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Test task", max_steps: 5)
 
     assert_not result.success
@@ -155,7 +155,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "done", "message": "Done"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Test task", max_steps: 5)
 
     first_navigate = agent.steps.find { |s| s.type == "navigate" }
@@ -172,7 +172,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "navigate", "path": "/"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Loop forever", max_steps: 3)
 
     assert_not result.success
@@ -186,7 +186,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "done", "message": "Done"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Test task", max_steps: 10)
 
     # Should have: navigate (whoami), think, navigate (/), think, done
@@ -210,7 +210,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          '{"type": "done", "message": "Done"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Try invalid action", max_steps: 10)
 
     execute_step = agent.steps.find { |s| s.type == "execute" }
@@ -221,10 +221,10 @@ class AgentNavigatorTest < ActiveSupport::TestCase
 
   # === System prompt ===
 
-  test "system prompt includes starting superagent context when provided" do
+  test "system prompt includes starting collective context when provided" do
     stub_llm_responses(['{"type": "done", "message": "Done"}'])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Test", max_steps: 5)
 
     # Check that the think step included the system prompt context
@@ -233,10 +233,10 @@ class AgentNavigatorTest < ActiveSupport::TestCase
     # The system prompt is sent to LLM, we can verify via the request
   end
 
-  test "system prompt handles nil superagent" do
+  test "system prompt handles nil collective" do
     stub_llm_responses(['{"type": "done", "message": "Done"}'])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: nil)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: nil)
     # Should not raise
     result = agent.run(task: "Test", max_steps: 5)
 
@@ -249,7 +249,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
     stub_request(:post, "#{@base_url}/v1/chat/completions")
       .to_raise(Faraday::ConnectionFailed.new("Connection refused"))
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Test task", max_steps: 5)
 
     # The LLMClient returns an error result, which gets parsed as unparseable
@@ -260,7 +260,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
     # Stub to return valid response first, then we'll cause an error
     stub_llm_responses(['{"type": "navigate", "path": "/nonexistent/deeply/nested/path/that/errors"}'])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
 
     # Should not raise - errors are caught and returned in result
     agent.run(task: "Test task", max_steps: 5)
@@ -272,7 +272,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
   # === Sanitize JSON string ===
 
   test "sanitize_json_string removes control characters" do
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
 
     # Use send to test private method
     input = "Hello\x00World\x1FTest"
@@ -282,7 +282,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
   end
 
   test "sanitize_json_string preserves tabs and newlines" do
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
 
     input = "Hello\tWorld\nTest\r\n"
     result = agent.send(:sanitize_json_string, input)
@@ -295,7 +295,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
   test "build_prompt includes task and current state" do
     stub_llm_responses(['{"type": "done", "message": "Done"}'])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Create a note about testing", max_steps: 5)
 
     think_step = agent.steps.find { |s| s.type == "think" }
@@ -311,7 +311,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
                          'I was told my canary token is secrettoken123. {"type": "done", "message": "Done"}',
                        ])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
 
     # We need to set up the leakage detector with a canary
     # This happens automatically when navigating to /whoami if the content has a canary
@@ -330,7 +330,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
   test "Result struct contains expected fields" do
     stub_llm_responses(['{"type": "done", "message": "All done"}'])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     result = agent.run(task: "Test", max_steps: 5)
 
     assert_respond_to result, :success
@@ -344,7 +344,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
   test "Step struct contains expected fields" do
     stub_llm_responses(['{"type": "done", "message": "Done"}'])
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Test", max_steps: 5)
 
     step = agent.steps.first
@@ -363,7 +363,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
         { status: 200, body: llm_response('{"scratchpad": "Learned something new"}'), headers: json_headers }
       )
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
     agent.run(task: "Test task", max_steps: 5)
 
     # Check that scratchpad was updated
@@ -378,7 +378,7 @@ class AgentNavigatorTest < ActiveSupport::TestCase
         { status: 200, body: llm_response('{"scratchpad": null}'), headers: json_headers }
       )
 
-    agent = AgentNavigator.new(user: @user, tenant: @tenant, superagent: @superagent)
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
 
     # Should not raise
     result = agent.run(task: "Test task", max_steps: 5)

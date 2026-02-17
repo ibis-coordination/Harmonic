@@ -1,9 +1,9 @@
 <h1>Actions</h1>
 
-<% if !@current_superagent.is_main_superagent? && @current_heartbeat.nil? %>
+<% if !@current_collective.is_main_collective? && @current_heartbeat.nil? %>
 <ul>
   <li>
-    <a href="<%= @current_superagent.path %>/actions/send_heartbeat">send_heartbeat()</a> - Send a heartbeat to confirm your presence
+    <a href="<%= @current_collective.path %>/actions/send_heartbeat">send_heartbeat()</a> - Send a heartbeat to confirm your presence
   </li>
 </ul>
 <% end %>
@@ -13,7 +13,7 @@
 </p>
 
 <ul>
-  <li><a href="<%= @current_superagent.path %>/note">New Note</a></li>
-  <li><a href="<%= @current_superagent.path %>/decide">New Decision</a></li>
-  <li><a href="<%= @current_superagent.path %>/commit">New Commitment</a></li>
+  <li><a href="<%= @current_collective.path %>/note">New Note</a></li>
+  <li><a href="<%= @current_collective.path %>/decide">New Decision</a></li>
+  <li><a href="<%= @current_collective.path %>/commit">New Commitment</a></li>
 </ul>

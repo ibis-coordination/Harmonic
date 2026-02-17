@@ -3,11 +3,11 @@ require "test_helper"
 class ActionAuthorizationTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
   end
 
@@ -63,34 +63,34 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     assert ActionAuthorization.check_authorization(:tenant_admin, @user, {})
   end
 
-  # Test: Superagent admin authorization
-  test "superagent_admin authorization checks superagent_member admin role" do
-    context = { studio: @superagent }
-    refute ActionAuthorization.check_authorization(:superagent_admin, @user, context)
+  # Test: Collective admin authorization
+  test "collective_admin authorization checks collective_member admin role" do
+    context = { studio: @collective }
+    refute ActionAuthorization.check_authorization(:collective_admin, @user, context)
 
-    sm = @user.superagent_members.find_by(superagent_id: @superagent.id)
+    sm = @user.collective_members.find_by(collective_id: @collective.id)
     sm.add_role!("admin")
-    assert ActionAuthorization.check_authorization(:superagent_admin, @user, context)
+    assert ActionAuthorization.check_authorization(:collective_admin, @user, context)
   end
 
   # Test: Studio member authorization
-  test "superagent_member authorization checks studio membership" do
-    context = { studio: @superagent }
+  test "collective_member authorization checks studio membership" do
+    context = { studio: @collective }
 
     # User is already a member (from setup)
-    assert ActionAuthorization.check_authorization(:superagent_member, @user, context)
+    assert ActionAuthorization.check_authorization(:collective_member, @user, context)
 
     # Create a user who is not a member
     non_member = create_user
     @tenant.add_user!(non_member)
-    refute ActionAuthorization.check_authorization(:superagent_member, non_member, context)
+    refute ActionAuthorization.check_authorization(:collective_member, non_member, context)
   end
 
   # Test: Resource owner authorization
   test "resource_owner authorization checks created_by_id" do
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Test note"
     )
@@ -190,7 +190,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("send_heartbeat", nil, {})
 
     # With context where user is member, should pass
-    context = { studio: @superagent }
+    context = { studio: @collective }
     assert ActionAuthorization.authorized?("send_heartbeat", @user, context)
 
     # With context where user is NOT a member, should fail
@@ -267,8 +267,8 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("create_webhook", nil, {})
   end
 
-  test "webhook authorization requires superagent_admin for studio webhooks" do
-    context = { studio: @superagent }
+  test "webhook authorization requires collective_admin for studio webhooks" do
+    context = { studio: @collective }
 
     # Regular member cannot manage studio webhooks
     refute ActionAuthorization.authorized?("create_webhook", @user, context)
@@ -276,7 +276,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("delete_webhook", @user, context)
 
     # Studio admin can manage studio webhooks
-    sm = @user.superagent_members.find_by(superagent_id: @superagent.id)
+    sm = @user.collective_members.find_by(collective_id: @collective.id)
     sm.add_role!("admin")
     assert ActionAuthorization.authorized?("create_webhook", @user, context)
     assert ActionAuthorization.authorized?("update_webhook", @user, context)
@@ -335,11 +335,11 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("create_ai_agent", ai_agent, {})
     refute ActionAuthorization.authorized?("create_api_token", ai_agent, {})
 
-    # Create a superagent_proxy - proxy users also cannot create ai_agents or API tokens
+    # Create a collective_proxy - proxy users also cannot create ai_agents or API tokens
     proxy = User.create!(
       email: "proxy-test@example.com",
       name: "Test Proxy",
-      user_type: "superagent_proxy"
+      user_type: "collective_proxy"
     )
     @tenant.add_user!(proxy)
 

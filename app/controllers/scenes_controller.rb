@@ -5,7 +5,7 @@ class ScenesController < ApplicationController
 
   def index
     @page_title = "Scenes"
-    @scenes = Superagent.where(superagent_type: 'scene').limit(20)
+    @scenes = Collective.where(collective_type: 'scene').limit(20)
     respond_to do |format|
       format.html
       format.md
@@ -30,9 +30,9 @@ class ScenesController < ApplicationController
   end
 
   def show
-    return render 'shared/404' unless @current_superagent.superagent_type == 'scene'
-    @page_title = @current_superagent.name
-    @notes = @current_superagent.recent_notes.where(commentable_id: nil).order(created_at: :desc)
+    return render 'shared/404' unless @current_collective.collective_type == 'scene'
+    @page_title = @current_collective.name
+    @notes = @current_collective.recent_notes.where(commentable_id: nil).order(created_at: :desc)
     respond_to do |format|
       format.html
       format.md

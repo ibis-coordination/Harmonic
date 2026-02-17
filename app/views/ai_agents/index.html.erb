@@ -28,9 +28,9 @@
     <% if @ai_agents.any? %>
       <div class="pulse-ai-agents-list">
         <% @ai_agents.each do |ai_agent| %>
-          <% active_superagent_members = ai_agent.superagent_members.reject(&:archived?) %>
-          <% all_ai_agent_studios = active_superagent_members.map(&:superagent) %>
-          <% ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_superagent } %>
+          <% active_collective_members = ai_agent.collective_members.reject(&:archived?) %>
+          <% all_ai_agent_studios = active_collective_members.map(&:collective) %>
+          <% ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_collective } %>
 
           <div class="pulse-ai-agent-card">
             <div class="pulse-ai-agent-header">

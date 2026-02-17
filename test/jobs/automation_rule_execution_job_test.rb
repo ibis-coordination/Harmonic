@@ -4,7 +4,7 @@ require "test_helper"
 
 class AutomationRuleExecutionJobTest < ActiveJob::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
@@ -71,7 +71,7 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
   test "marks run as failed on error" do
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Bad rule",
       trigger_type: "event",
@@ -149,7 +149,7 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
   test "clears chain context even on error" do
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Bad rule",
       trigger_type: "event",
@@ -209,13 +209,13 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
   def create_pending_run(rule)
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Test note"
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note

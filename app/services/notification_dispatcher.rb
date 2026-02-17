@@ -45,8 +45,8 @@ class NotificationDispatcher
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
 
-    # Only notify users who have access to the superagent
-    mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
+    # Only notify users who have access to the collective
+    mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
     # Filter out AI agents (they don't receive notifications, they use automation rules)
     mentioned_users = mentioned_users.reject(&:ai_agent?)
@@ -99,10 +99,10 @@ class NotificationDispatcher
     commentable = comment.commentable
     return unless commentable
 
-    # Only notify users who have access to the superagent (skip AI agents - they use automation rules)
+    # Only notify users who have access to the collective (skip AI agents - they use automation rules)
     owner = get_created_by(commentable)
     return if owner.nil? || owner.id == event.actor_id
-    return unless user_can_access_superagent?(event, owner)
+    return unless user_can_access_collective?(event, owner)
     return if owner.ai_agent?
 
     actor_name = event.actor&.display_name || "Someone"
@@ -230,8 +230,8 @@ class NotificationDispatcher
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
 
-    # Only notify users who have access to the superagent
-    mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
+    # Only notify users who have access to the collective
+    mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
     # Filter out AI agents (they don't receive notifications, they use automation rules)
     mentioned_users = mentioned_users.reject(&:ai_agent?)
@@ -264,8 +264,8 @@ class NotificationDispatcher
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
 
-    # Only notify users who have access to the superagent
-    mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
+    # Only notify users who have access to the collective
+    mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
     # Filter out AI agents (they don't receive notifications, they use automation rules)
     mentioned_users = mentioned_users.reject(&:ai_agent?)
@@ -299,8 +299,8 @@ class NotificationDispatcher
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
 
-    # Only notify users who have access to the superagent
-    mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
+    # Only notify users who have access to the collective
+    mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
     # Filter out AI agents (they don't receive notifications, they use automation rules)
     mentioned_users = mentioned_users.reject(&:ai_agent?)
@@ -384,13 +384,13 @@ class NotificationDispatcher
     commitment.participants.includes(:user).map(&:user).compact
   end
 
-  # Check if a user has access to the superagent where the event occurred
+  # Check if a user has access to the collective where the event occurred
   sig { params(event: Event, user: User).returns(T::Boolean) }
-  def self.user_can_access_superagent?(event, user)
-    superagent_member = SuperagentMember.find_by(superagent: event.superagent, user: user)
-    superagent_member.present? && !superagent_member.archived?
+  def self.user_can_access_collective?(event, user)
+    collective_member = CollectiveMember.find_by(collective: event.collective, user: user)
+    collective_member.present? && !collective_member.archived?
   end
 
   private_class_method :get_created_by, :get_path, :decision_participants, :commitment_participants,
-                       :user_can_access_superagent?
+                       :user_can_access_collective?
 end

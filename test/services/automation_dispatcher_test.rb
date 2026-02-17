@@ -6,7 +6,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
 
@@ -117,7 +117,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     # Create a studio rule (not an agent rule)
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Studio Webhook Rule",
       trigger_type: "event",
@@ -131,7 +131,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     10.times do
       AutomationRuleRun.create!(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         automation_rule: rule,
         trigger_source: "event",
         status: "completed"
@@ -148,7 +148,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     # Create a studio rule (not an agent rule)
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Studio Webhook Rule",
       trigger_type: "event",
@@ -162,7 +162,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     9.times do
       AutomationRuleRun.create!(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         automation_rule: rule,
         trigger_source: "event",
         status: "completed"
@@ -550,10 +550,10 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
   test "chain limits apply equally to studio and agent rules" do
     event = create_event_with_subject(event_type: "note.created")
 
-    # Create a studio rule (has superagent, uses webhook actions)
+    # Create a studio rule (has collective, uses webhook actions)
     studio_rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Studio Rule",
       trigger_type: "event",
@@ -583,7 +583,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     # At depth 3, another rule (whether studio or agent) should be blocked
     another_studio_rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Another Studio Rule",
       trigger_type: "event",
@@ -700,7 +700,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     assert_no_difference -> { AutomationRuleRun.count } do
       Note.create!(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         created_by: @user,
         text: "This note should not trigger any automations"
       )
@@ -719,78 +719,78 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     end
   end
 
-  test "agent rule without superagent triggers for events in any superagent" do
-    # Create a second superagent
-    other_superagent = Superagent.create!(
+  test "agent rule without collective triggers for events in any collective" do
+    # Create a second collective
+    other_collective = Collective.create!(
       tenant: @tenant,
       handle: "other-studio-#{SecureRandom.hex(4)}",
       name: "Other Studio",
       created_by: @user
     )
 
-    # Create rule with no superagent (agent rules don't have superagent_id)
+    # Create rule with no collective (agent rules don't have collective_id)
     rule = create_rule_without_mention_filter
-    assert_nil rule.superagent_id, "Agent rule should have nil superagent_id"
+    assert_nil rule.collective_id, "Agent rule should have nil collective_id"
 
-    # Create event in a different superagent
+    # Create event in a different collective
     note = Note.create!(
       tenant: @tenant,
-      superagent: other_superagent,
+      collective: other_collective,
       created_by: @user,
       text: "Note in other studio"
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: other_superagent,
+      collective: other_collective,
       event_type: "note.created",
       actor: @user,
       subject: note
     )
 
-    # Rule should match even though event is in a different superagent
+    # Rule should match even though event is in a different collective
     matching_rules = AutomationDispatcher.find_matching_rules(event)
     assert_includes matching_rules, rule
   end
 
-  test "agent rule triggers regardless of current superagent context" do
-    # Create a second superagent
-    other_superagent = Superagent.create!(
+  test "agent rule triggers regardless of current collective context" do
+    # Create a second collective
+    other_collective = Collective.create!(
       tenant: @tenant,
       handle: "context-studio-#{SecureRandom.hex(4)}",
       name: "Context Studio",
       created_by: @user
     )
 
-    # Create rule with no superagent
+    # Create rule with no collective
     rule = create_rule_without_mention_filter
-    assert_nil rule.superagent_id
+    assert_nil rule.collective_id
 
-    # Create event in original superagent (with correct context)
+    # Create event in original collective (with correct context)
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Note in original studio"
     )
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
       subject: note
     )
 
-    # Now set thread-local context to the other superagent (simulating
+    # Now set thread-local context to the other collective (simulating
     # the scenario where the dispatcher is called in a different context)
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: other_superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: other_collective.handle)
 
-    # Rule should still be found even with different superagent context
+    # Rule should still be found even with different collective context
     # because find_matching_rules uses tenant_scoped_only, not the default scope
     matching_rules = AutomationDispatcher.find_matching_rules(event)
     assert_includes matching_rules, rule
   ensure
     # Reset thread-local context
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
   end
 
   private
@@ -836,14 +836,14 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: actor,
       text: text
     )
 
     Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: event_type,
       actor: actor,
       subject: note

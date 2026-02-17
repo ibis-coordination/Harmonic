@@ -314,11 +314,11 @@ class NoteHistoryEvent
   end
 
   module GeneratedAssociationMethods
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_collective(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
     def build_note(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def build_superagent(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
@@ -326,17 +326,23 @@ class NoteHistoryEvent
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_user(*args, &blk); end
 
+    sig { returns(T.nilable(::Collective)) }
+    def collective; end
+
+    sig { params(value: T.nilable(::Collective)).void }
+    def collective=(value); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
     def create_note(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
     def create_note!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -356,11 +362,11 @@ class NoteHistoryEvent
     sig { params(value: T.nilable(::Note)).void }
     def note=(value); end
 
+    sig { returns(T.nilable(::Collective)) }
+    def reload_collective; end
+
     sig { returns(T.nilable(::Note)) }
     def reload_note; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def reload_superagent; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -383,22 +389,16 @@ class NoteHistoryEvent
     def representation_session_events=(value); end
 
     sig { void }
-    def reset_note; end
+    def reset_collective; end
 
     sig { void }
-    def reset_superagent; end
+    def reset_note; end
 
     sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_user; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def superagent; end
-
-    sig { params(value: T.nilable(::Superagent)).void }
-    def superagent=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -594,6 +594,51 @@ class NoteHistoryEvent
   end
 
   module GeneratedAttributeMethods
+    sig { returns(T.nilable(::String)) }
+    def collective_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def collective_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_was; end
+
+    sig { void }
+    def collective_id_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -830,6 +875,9 @@ class NoteHistoryEvent
     def note_id_will_change!; end
 
     sig { void }
+    def restore_collective_id!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -845,9 +893,6 @@ class NoteHistoryEvent
     def restore_note_id!; end
 
     sig { void }
-    def restore_superagent_id!; end
-
-    sig { void }
     def restore_tenant_id!; end
 
     sig { void }
@@ -855,6 +900,12 @@ class NoteHistoryEvent
 
     sig { void }
     def restore_user_id!; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_collective_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_collective_id?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -886,12 +937,6 @@ class NoteHistoryEvent
     sig { returns(T::Boolean) }
     def saved_change_to_note_id?; end
 
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_superagent_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_superagent_id?; end
-
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
@@ -909,51 +954,6 @@ class NoteHistoryEvent
 
     sig { returns(T::Boolean) }
     def saved_change_to_user_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def superagent_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def superagent_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def superagent_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def superagent_id_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_was; end
-
-    sig { void }
-    def superagent_id_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1091,6 +1091,9 @@ class NoteHistoryEvent
     def user_id_will_change!; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_collective_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_created_at?; end
 
     sig { returns(T::Boolean) }
@@ -1104,9 +1107,6 @@ class NoteHistoryEvent
 
     sig { returns(T::Boolean) }
     def will_save_change_to_note_id?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

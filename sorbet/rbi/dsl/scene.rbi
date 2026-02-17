@@ -282,7 +282,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def ai_agent_task_run_resource_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :ai_agent_task_run_resources`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :ai_agent_task_run_resources`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::AiAgentTaskRunResource::PrivateCollectionProxy) }
     def ai_agent_task_run_resources; end
@@ -290,7 +290,7 @@ class Scene
     sig { params(value: T::Enumerable[::AiAgentTaskRunResource]).void }
     def ai_agent_task_run_resources=(value); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :ai_agent_task_runs`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :ai_agent_task_runs`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::AiAgentTaskRun::PrivateCollectionProxy) }
     def ai_agent_task_runs; end
@@ -304,13 +304,55 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def attachment_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :attachments`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :attachments`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Attachment::PrivateCollectionProxy) }
     def attachments; end
 
     sig { params(value: T::Enumerable[::Attachment]).void }
     def attachments=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def automation_rule_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def automation_rule_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def automation_rule_run_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def automation_rule_run_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def automation_rule_run_resource_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def automation_rule_run_resource_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :automation_rule_run_resources`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AutomationRuleRunResource::PrivateCollectionProxy) }
+    def automation_rule_run_resources; end
+
+    sig { params(value: T::Enumerable[::AutomationRuleRunResource]).void }
+    def automation_rule_run_resources=(value); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :automation_rule_runs`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AutomationRuleRun::PrivateCollectionProxy) }
+    def automation_rule_runs; end
+
+    sig { params(value: T::Enumerable[::AutomationRuleRun]).void }
+    def automation_rule_runs=(value); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :automation_rules`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AutomationRule::PrivateCollectionProxy) }
+    def automation_rules; end
+
+    sig { params(value: T::Enumerable[::AutomationRule]).void }
+    def automation_rules=(value); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
@@ -331,6 +373,20 @@ class Scene
     def build_updated_by(*args, &blk); end
 
     sig { returns(T::Array[T.untyped]) }
+    def collective_member_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def collective_member_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :collective_members`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::CollectiveMember::PrivateCollectionProxy) }
+    def collective_members; end
+
+    sig { params(value: T::Enumerable[::CollectiveMember]).void }
+    def collective_members=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def commitment_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -342,7 +398,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def commitment_participant_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :commitment_participants`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :commitment_participants`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::CommitmentParticipant::PrivateCollectionProxy) }
     def commitment_participants; end
@@ -350,7 +406,7 @@ class Scene
     sig { params(value: T::Enumerable[::CommitmentParticipant]).void }
     def commitment_participants=(value); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :commitments`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :commitments`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Commitment::PrivateCollectionProxy) }
     def commitments; end
@@ -412,7 +468,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def decision_participant_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :decision_participants`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :decision_participants`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::DecisionParticipant::PrivateCollectionProxy) }
     def decision_participants; end
@@ -420,7 +476,7 @@ class Scene
     sig { params(value: T::Enumerable[::DecisionParticipant]).void }
     def decision_participants=(value); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :decisions`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :decisions`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Decision::PrivateCollectionProxy) }
     def decisions; end
@@ -434,7 +490,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def event_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :events`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :events`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Event::PrivateCollectionProxy) }
     def events; end
@@ -448,7 +504,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def heartbeat_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :heartbeats`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :heartbeats`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Heartbeat::PrivateCollectionProxy) }
     def heartbeats; end
@@ -474,7 +530,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def invite_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :invites`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :invites`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Invite::PrivateCollectionProxy) }
     def invites; end
@@ -488,7 +544,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def link_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :links`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :links`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Link::PrivateCollectionProxy) }
     def links; end
@@ -502,7 +558,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def note_history_event_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :note_history_events`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :note_history_events`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::NoteHistoryEvent::PrivateCollectionProxy) }
     def note_history_events; end
@@ -516,7 +572,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def note_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :notes`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :notes`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Note::PrivateCollectionProxy) }
     def notes; end
@@ -536,7 +592,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def notification_recipient_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :notification_recipients`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :notification_recipients`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::NotificationRecipient::PrivateCollectionProxy) }
     def notification_recipients; end
@@ -544,7 +600,7 @@ class Scene
     sig { params(value: T::Enumerable[::NotificationRecipient]).void }
     def notification_recipients=(value); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :notifications`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :notifications`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Notification::PrivateCollectionProxy) }
     def notifications; end
@@ -552,7 +608,7 @@ class Scene
     sig { params(value: T::Enumerable[::Notification]).void }
     def notifications=(value); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :omni_auth_identities`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :omni_auth_identities`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::OmniAuthIdentity::PrivateCollectionProxy) }
     def omni_auth_identities; end
@@ -572,7 +628,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def option_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :options`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :options`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Option::PrivateCollectionProxy) }
     def options; end
@@ -610,7 +666,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def representation_session_event_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :representation_session_events`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :representation_session_events`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::RepresentationSessionEvent::PrivateCollectionProxy) }
     def representation_session_events; end
@@ -624,7 +680,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def representation_session_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :representation_sessions`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :representation_sessions`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::RepresentationSession::PrivateCollectionProxy) }
     def representation_sessions; end
@@ -650,7 +706,7 @@ class Scene
     sig { void }
     def reset_updated_by; end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :search_index`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :search_index`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::SearchIndex::PrivateCollectionProxy) }
     def search_index; end
@@ -664,20 +720,6 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def search_index_ids=(ids); end
 
-    sig { returns(T::Array[T.untyped]) }
-    def superagent_member_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def superagent_member_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :superagent_members`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::SuperagentMember::PrivateCollectionProxy) }
-    def superagent_members; end
-
-    sig { params(value: T::Enumerable[::SuperagentMember]).void }
-    def superagent_members=(value); end
-
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
 
@@ -690,7 +732,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def trustee_grant_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :trustee_grants`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :trustee_grants`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::TrusteeGrant::PrivateCollectionProxy) }
     def trustee_grants; end
@@ -710,7 +752,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def user_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :user_item_status`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :user_item_status`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::UserItemStatus::PrivateCollectionProxy) }
     def user_item_status; end
@@ -724,7 +766,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def user_item_status_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :users, through: :superagent_members`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :users, through: :collective_members`.
     # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
     sig { returns(::User::PrivateCollectionProxy) }
     def users; end
@@ -738,7 +780,7 @@ class Scene
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def vote_ids=(ids); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :votes`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :votes`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::Vote::PrivateCollectionProxy) }
     def votes; end
@@ -746,7 +788,7 @@ class Scene
     sig { params(value: T::Enumerable[::Vote]).void }
     def votes=(value); end
 
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :webhook_deliveries`.
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :webhook_deliveries`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::WebhookDelivery::PrivateCollectionProxy) }
     def webhook_deliveries; end
@@ -759,20 +801,6 @@ class Scene
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def webhook_delivery_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def webhook_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def webhook_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Superagent` class because it declared `has_many :webhooks`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::Webhook::PrivateCollectionProxy) }
-    def webhooks; end
-
-    sig { params(value: T::Enumerable[::Webhook]).void }
-    def webhooks=(value); end
   end
 
   module GeneratedAssociationRelationMethods
@@ -959,6 +987,51 @@ class Scene
   end
 
   module GeneratedAttributeMethods
+    sig { returns(::String) }
+    def collective_type; end
+
+    sig { params(value: ::String).returns(::String) }
+    def collective_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_type?; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_type_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_type_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_type_change_to_be_saved; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def collective_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_type_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_type_previous_change; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def collective_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_type_was; end
+
+    sig { void }
+    def collective_type_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -1320,6 +1393,9 @@ class Scene
     def proxy_user_id_will_change!; end
 
     sig { void }
+    def restore_collective_type!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -1347,9 +1423,6 @@ class Scene
     def restore_settings!; end
 
     sig { void }
-    def restore_superagent_type!; end
-
-    sig { void }
     def restore_tenant_id!; end
 
     sig { void }
@@ -1357,6 +1430,12 @@ class Scene
 
     sig { void }
     def restore_updated_by_id!; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_collective_type; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_collective_type?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -1411,12 +1490,6 @@ class Scene
 
     sig { returns(T::Boolean) }
     def saved_change_to_settings?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_superagent_type; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_superagent_type?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
@@ -1480,51 +1553,6 @@ class Scene
 
     sig { void }
     def settings_will_change!; end
-
-    sig { returns(::String) }
-    def superagent_type; end
-
-    sig { params(value: ::String).returns(::String) }
-    def superagent_type=(value); end
-
-    sig { returns(T::Boolean) }
-    def superagent_type?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_type_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def superagent_type_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def superagent_type_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_type_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_type_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def superagent_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_type_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_type_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def superagent_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_type_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_type_was; end
-
-    sig { void }
-    def superagent_type_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1662,6 +1690,9 @@ class Scene
     def updated_by_id_will_change!; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_collective_type?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_created_at?; end
 
     sig { returns(T::Boolean) }
@@ -1687,9 +1718,6 @@ class Scene
 
     sig { returns(T::Boolean) }
     def will_save_change_to_settings?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_superagent_type?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

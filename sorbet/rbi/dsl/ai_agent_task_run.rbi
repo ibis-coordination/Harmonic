@@ -334,8 +334,17 @@ class AiAgentTaskRun
     sig { params(value: T::Enumerable[::AiAgentTaskRunResource]).void }
     def ai_agent_task_run_resources=(value); end
 
+    sig { returns(T.nilable(::AutomationRule)) }
+    def automation_rule; end
+
+    sig { params(value: T.nilable(::AutomationRule)).void }
+    def automation_rule=(value); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_ai_agent(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRule) }
+    def build_automation_rule(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_initiated_by(*args, &blk); end
@@ -348,6 +357,12 @@ class AiAgentTaskRun
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_ai_agent!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRule) }
+    def create_automation_rule(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRule) }
+    def create_automation_rule!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_initiated_by(*args, &blk); end
@@ -370,6 +385,9 @@ class AiAgentTaskRun
     sig { returns(T.nilable(::User)) }
     def reload_ai_agent; end
 
+    sig { returns(T.nilable(::AutomationRule)) }
+    def reload_automation_rule; end
+
     sig { returns(T.nilable(::User)) }
     def reload_initiated_by; end
 
@@ -378,6 +396,9 @@ class AiAgentTaskRun
 
     sig { void }
     def reset_ai_agent; end
+
+    sig { void }
+    def reset_automation_rule; end
 
     sig { void }
     def reset_initiated_by; end
@@ -401,6 +422,9 @@ class AiAgentTaskRun
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def completed(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def create_with(*args, &blk); end
@@ -437,6 +461,9 @@ class AiAgentTaskRun
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def in_order_of(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def in_period(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def includes(*args, &blk); end
@@ -575,6 +602,9 @@ class AiAgentTaskRun
     def where(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with_usage(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def without(*args, &blk); end
   end
 
@@ -623,6 +653,51 @@ class AiAgentTaskRun
 
     sig { void }
     def ai_agent_id_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def automation_rule_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def automation_rule_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def automation_rule_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def automation_rule_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def automation_rule_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def automation_rule_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def automation_rule_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def automation_rule_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def automation_rule_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_id_was; end
+
+    sig { void }
+    def automation_rule_id_will_change!; end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
     def completed_at; end
@@ -769,6 +844,51 @@ class AiAgentTaskRun
     sig { void }
     def error_will_change!; end
 
+    sig { returns(T.nilable(::BigDecimal)) }
+    def estimated_cost_usd; end
+
+    sig { params(value: T.nilable(::BigDecimal)).returns(T.nilable(::BigDecimal)) }
+    def estimated_cost_usd=(value); end
+
+    sig { returns(T::Boolean) }
+    def estimated_cost_usd?; end
+
+    sig { returns(T.nilable(::BigDecimal)) }
+    def estimated_cost_usd_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def estimated_cost_usd_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def estimated_cost_usd_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
+    def estimated_cost_usd_change; end
+
+    sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
+    def estimated_cost_usd_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::BigDecimal), to: T.nilable(::BigDecimal)).returns(T::Boolean) }
+    def estimated_cost_usd_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::BigDecimal)) }
+    def estimated_cost_usd_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
+    def estimated_cost_usd_previous_change; end
+
+    sig { params(from: T.nilable(::BigDecimal), to: T.nilable(::BigDecimal)).returns(T::Boolean) }
+    def estimated_cost_usd_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::BigDecimal)) }
+    def estimated_cost_usd_previously_was; end
+
+    sig { returns(T.nilable(::BigDecimal)) }
+    def estimated_cost_usd_was; end
+
+    sig { void }
+    def estimated_cost_usd_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def final_message; end
 
@@ -904,6 +1024,51 @@ class AiAgentTaskRun
     sig { void }
     def initiated_by_id_will_change!; end
 
+    sig { returns(T.nilable(::Integer)) }
+    def input_tokens; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def input_tokens=(value); end
+
+    sig { returns(T::Boolean) }
+    def input_tokens?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def input_tokens_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def input_tokens_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def input_tokens_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def input_tokens_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def input_tokens_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def input_tokens_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def input_tokens_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def input_tokens_previous_change; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def input_tokens_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def input_tokens_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def input_tokens_was; end
+
+    sig { void }
+    def input_tokens_will_change!; end
+
     sig { returns(::Integer) }
     def max_steps; end
 
@@ -994,8 +1159,56 @@ class AiAgentTaskRun
     sig { void }
     def model_will_change!; end
 
+    sig { returns(T.nilable(::Integer)) }
+    def output_tokens; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def output_tokens=(value); end
+
+    sig { returns(T::Boolean) }
+    def output_tokens?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def output_tokens_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def output_tokens_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def output_tokens_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def output_tokens_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def output_tokens_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def output_tokens_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def output_tokens_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def output_tokens_previous_change; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def output_tokens_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def output_tokens_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def output_tokens_was; end
+
+    sig { void }
+    def output_tokens_will_change!; end
+
     sig { void }
     def restore_ai_agent_id!; end
+
+    sig { void }
+    def restore_automation_rule_id!; end
 
     sig { void }
     def restore_completed_at!; end
@@ -1007,6 +1220,9 @@ class AiAgentTaskRun
     def restore_error!; end
 
     sig { void }
+    def restore_estimated_cost_usd!; end
+
+    sig { void }
     def restore_final_message!; end
 
     sig { void }
@@ -1016,10 +1232,16 @@ class AiAgentTaskRun
     def restore_initiated_by_id!; end
 
     sig { void }
+    def restore_input_tokens!; end
+
+    sig { void }
     def restore_max_steps!; end
 
     sig { void }
     def restore_model!; end
+
+    sig { void }
+    def restore_output_tokens!; end
 
     sig { void }
     def restore_started_at!; end
@@ -1043,6 +1265,9 @@ class AiAgentTaskRun
     def restore_tenant_id!; end
 
     sig { void }
+    def restore_total_tokens!; end
+
+    sig { void }
     def restore_updated_at!; end
 
     sig { returns(T.nilable([::String, ::String])) }
@@ -1050,6 +1275,12 @@ class AiAgentTaskRun
 
     sig { returns(T::Boolean) }
     def saved_change_to_ai_agent_id?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_automation_rule_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_automation_rule_id?; end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_completed_at; end
@@ -1069,6 +1300,12 @@ class AiAgentTaskRun
     sig { returns(T::Boolean) }
     def saved_change_to_error?; end
 
+    sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
+    def saved_change_to_estimated_cost_usd; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_estimated_cost_usd?; end
+
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_final_message; end
 
@@ -1087,6 +1324,12 @@ class AiAgentTaskRun
     sig { returns(T::Boolean) }
     def saved_change_to_initiated_by_id?; end
 
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_input_tokens; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_input_tokens?; end
+
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def saved_change_to_max_steps; end
 
@@ -1098,6 +1341,12 @@ class AiAgentTaskRun
 
     sig { returns(T::Boolean) }
     def saved_change_to_model?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_output_tokens; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_output_tokens?; end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_started_at; end
@@ -1140,6 +1389,12 @@ class AiAgentTaskRun
 
     sig { returns(T::Boolean) }
     def saved_change_to_tenant_id?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_total_tokens; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_total_tokens?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
@@ -1472,6 +1727,51 @@ class AiAgentTaskRun
     sig { void }
     def tenant_id_will_change!; end
 
+    sig { returns(T.nilable(::Integer)) }
+    def total_tokens; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def total_tokens=(value); end
+
+    sig { returns(T::Boolean) }
+    def total_tokens?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def total_tokens_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def total_tokens_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def total_tokens_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def total_tokens_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def total_tokens_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def total_tokens_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def total_tokens_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def total_tokens_previous_change; end
+
+    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    def total_tokens_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def total_tokens_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def total_tokens_was; end
+
+    sig { void }
+    def total_tokens_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
 
@@ -1521,6 +1821,9 @@ class AiAgentTaskRun
     def will_save_change_to_ai_agent_id?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_automation_rule_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_completed_at?; end
 
     sig { returns(T::Boolean) }
@@ -1528,6 +1831,9 @@ class AiAgentTaskRun
 
     sig { returns(T::Boolean) }
     def will_save_change_to_error?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_estimated_cost_usd?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_final_message?; end
@@ -1539,10 +1845,16 @@ class AiAgentTaskRun
     def will_save_change_to_initiated_by_id?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_input_tokens?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_max_steps?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_model?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_output_tokens?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_started_at?; end
@@ -1566,6 +1878,9 @@ class AiAgentTaskRun
     def will_save_change_to_tenant_id?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_total_tokens?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_updated_at?; end
   end
 
@@ -1578,6 +1893,9 @@ class AiAgentTaskRun
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def completed(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def create_with(*args, &blk); end
@@ -1614,6 +1932,9 @@ class AiAgentTaskRun
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def in_order_of(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def in_period(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def includes(*args, &blk); end
@@ -1698,6 +2019,9 @@ class AiAgentTaskRun
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelationWhereChain) }
     def where(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with_usage(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def without(*args, &blk); end

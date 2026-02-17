@@ -5,16 +5,16 @@ require "test_helper"
 class AiAgentTaskRunTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
 
     @ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
     @tenant.add_user!(@ai_agent)
-    @superagent.add_user!(@ai_agent)
+    @collective.add_user!(@ai_agent)
   end
 
   # === formatted_cost Tests ===

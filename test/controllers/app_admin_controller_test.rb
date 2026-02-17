@@ -7,32 +7,32 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant = create_tenant(subdomain: ENV["PRIMARY_SUBDOMAIN"] || "app", name: "Primary Tenant")
     @primary_user = create_user(email: "primary@example.com", name: "Primary User")
     @primary_tenant.add_user!(@primary_user)
-    @primary_tenant.create_main_superagent!(created_by: @primary_user)
-    @primary_superagent = @primary_tenant.main_superagent
-    @primary_superagent.add_user!(@primary_user)
+    @primary_tenant.create_main_collective!(created_by: @primary_user)
+    @primary_collective = @primary_tenant.main_collective
+    @primary_collective.add_user!(@primary_user)
 
     # Create secondary tenant
     @secondary_tenant = create_tenant(subdomain: "secondary", name: "Secondary Tenant")
     @secondary_user = create_user(email: "secondary@example.com", name: "Secondary User")
     @secondary_tenant.add_user!(@secondary_user)
-    @secondary_tenant.create_main_superagent!(created_by: @secondary_user)
+    @secondary_tenant.create_main_collective!(created_by: @secondary_user)
 
     # Create app admin user on primary tenant
     @app_admin_user = create_user(email: "app_admin@example.com", name: "App Admin User")
     @app_admin_user.add_global_role!("app_admin")
     @primary_tenant.add_user!(@app_admin_user)
-    @primary_superagent.add_user!(@app_admin_user)
+    @primary_collective.add_user!(@app_admin_user)
 
     # Create sys_admin user (without app_admin role) on primary tenant
     @sys_admin_user = create_user(email: "sys_admin@example.com", name: "Sys Admin User")
     @sys_admin_user.add_global_role!("sys_admin")
     @primary_tenant.add_user!(@sys_admin_user)
-    @primary_superagent.add_user!(@sys_admin_user)
+    @primary_collective.add_user!(@sys_admin_user)
 
     # Create a regular non-admin user on primary tenant
     @non_admin_user = create_user(email: "non_admin@example.com", name: "Non Admin User")
     @primary_tenant.add_user!(@non_admin_user)
-    @primary_superagent.add_user!(@non_admin_user)
+    @primary_collective.add_user!(@non_admin_user)
   end
 
   # ==========================================
@@ -69,7 +69,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   test "app admin cannot access dashboard on secondary tenant" do
     # Add app_admin to secondary tenant so they can sign in
     @secondary_tenant.add_user!(@app_admin_user)
-    @secondary_tenant.main_superagent.add_user!(@app_admin_user)
+    @secondary_tenant.main_collective.add_user!(@app_admin_user)
 
     sign_in_as(@app_admin_user, tenant: @secondary_tenant)
 

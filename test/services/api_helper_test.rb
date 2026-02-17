@@ -3,17 +3,17 @@ require "test_helper"
 class ApiHelperTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    # Superagent.scope_thread_to_superagent sets the current studio and tenant.
+    # Collective.scope_thread_to_collective sets the current studio and tenant.
     # In controller actions, this is handled by ApplicationController
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
   end
 
-  test "ApiHelper.create_studio creates a superagent" do
+  test "ApiHelper.create_studio creates a collective" do
     params = {
       name: "Studio Name",
       handle: "studio-handle",
@@ -24,24 +24,24 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_representation_session: nil,
-      current_resource_model: Superagent,
+      current_resource_model: Collective,
       current_resource: nil,
       params: params,
       request: {}
     )
-    superagent = api_helper.create_studio
-    assert superagent.persisted?
-    assert_equal params[:name], superagent.name
-    assert_equal params[:handle], superagent.handle
-    assert_equal params[:description], superagent.description
-    assert_equal params[:timezone], superagent.timezone.name
-    assert_equal params[:tempo], superagent.tempo
-    assert_equal params[:synchronization_mode], superagent.synchronization_mode
-    assert_equal @tenant, superagent.tenant
-    assert_equal @user, superagent.created_by
+    collective = api_helper.create_studio
+    assert collective.persisted?
+    assert_equal params[:name], collective.name
+    assert_equal params[:handle], collective.handle
+    assert_equal params[:description], collective.description
+    assert_equal params[:timezone], collective.timezone.name
+    assert_equal params[:tempo], collective.tempo
+    assert_equal params[:synchronization_mode], collective.synchronization_mode
+    assert_equal @tenant, collective.tenant
+    assert_equal @user, collective.created_by
   end
 
   test "ApiHelper.create_note creates a note" do
@@ -52,7 +52,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Note,
@@ -75,7 +75,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Decision,
@@ -93,7 +93,7 @@ class ApiHelperTest < ActiveSupport::TestCase
   test "ApiHelper.confirm_read raises error for invalid resource model" do
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Decision,
@@ -110,7 +110,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     note = create_note
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Note,
@@ -129,7 +129,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     params = { title: "New Title", text: "Updated text." }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_representation_session: nil,
       current_resource_model: Note,
@@ -149,7 +149,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     params = { titles: ["Option Title"] }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_decision: decision,
       params: params,
@@ -174,7 +174,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_decision: decision,
       params: params,
@@ -202,7 +202,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_decision: decision,
       params: params,
@@ -228,7 +228,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     }
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       current_decision: decision,
       params: params,
@@ -253,7 +253,7 @@ class ApiHelperTest < ActiveSupport::TestCase
 
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       params: {},
       request: {}
@@ -262,7 +262,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     rep_session = api_helper.start_user_representation_session(grant: grant)
 
     assert rep_session.persisted?
-    assert_nil rep_session.superagent_id
+    assert_nil rep_session.collective_id
     assert_equal @user, rep_session.representative_user
     # effective_user is the granting_user (the person being represented)
     assert_equal grant.granting_user, rep_session.effective_user
@@ -284,7 +284,7 @@ class ApiHelperTest < ActiveSupport::TestCase
 
     api_helper = ApiHelper.new(
       current_user: @user,
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       params: {},
       request: {}
@@ -309,7 +309,7 @@ class ApiHelperTest < ActiveSupport::TestCase
 
     api_helper = ApiHelper.new(
       current_user: @user,  # @user is NOT the trustee user
-      current_superagent: @superagent,
+      current_collective: @collective,
       current_tenant: @tenant,
       params: {},
       request: {}

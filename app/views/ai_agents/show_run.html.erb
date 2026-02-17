@@ -138,7 +138,7 @@
         <% @created_resources.each do |task_run_resource| %>
           <% resource = task_run_resource.resource_unscoped %>
           <% next unless resource %>
-          <% superagent = task_run_resource.resource_superagent %>
+          <% collective = task_run_resource.resource_collective %>
           <% resource_title = task_run_resource.display_title(resource) %>
           <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--color-canvas-subtle); border-radius: 6px; margin-bottom: 8px;">
             <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
@@ -155,9 +155,9 @@
             </div>
             <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
               <span class="pulse-badge pulse-badge-muted" style="font-size: 11px;"><%= task_run_resource.action_type %></span>
-              <% if superagent && superagent != @current_superagent %>
-                <span class="pulse-badge pulse-badge-info" style="font-size: 11px;" title="Created in <%= superagent.name %>">
-                  <%= octicon 'home', height: 10 %> <%= superagent.name.to_s.truncate(15) %>
+              <% if collective && collective != @current_collective %>
+                <span class="pulse-badge pulse-badge-info" style="font-size: 11px;" title="Created in <%= collective.name %>">
+                  <%= octicon 'home', height: 10 %> <%= collective.name.to_s.truncate(15) %>
                 </span>
               <% end %>
             </div>

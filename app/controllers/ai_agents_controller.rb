@@ -14,7 +14,7 @@ class AiAgentsController < ApplicationController
     ai_agents = current_user.ai_agents
       .joins(:tenant_users)
       .where(tenant_users: { tenant_id: current_tenant.id })
-      .includes(:tenant_users, :superagent_members)
+      .includes(:tenant_users, :collective_members)
 
     # Load the most relevant run for each AI agent
     # Priority: running > queued > most recent completed/failed
@@ -71,13 +71,13 @@ class AiAgentsController < ApplicationController
     @page_title = "Settings - #{@ai_agent.display_name}"
 
     # Get studios the agent is a member of
-    active_superagent_members = @ai_agent.superagent_members.reject(&:archived?)
-    all_ai_agent_studios = active_superagent_members.map(&:superagent)
-    @ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_superagent }
+    active_collective_members = @ai_agent.collective_members.reject(&:archived?)
+    all_ai_agent_studios = active_collective_members.map(&:collective)
+    @ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_collective }
 
     # Get studios the agent can be added to (studios where current user can invite)
-    invitable_studios = @current_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
-    @available_studios = (invitable_studios - all_ai_agent_studios).reject { |s| s == @current_tenant.main_superagent }
+    invitable_studios = @current_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
+    @available_studios = (invitable_studios - all_ai_agent_studios).reject { |s| s == @current_tenant.main_collective }
   end
 
   # POST /ai-agents/:handle/settings - Update settings for a specific AI agent
@@ -179,13 +179,13 @@ class AiAgentsController < ApplicationController
     respond_to do |format|
       format.html do
         @created_resources = @task_run.ai_agent_task_run_resources
-          .includes(:resource_superagent)
+          .includes(:resource_collective)
           .order(:created_at)
         @page_title = "Task Run - #{@ai_agent.display_name}"
       end
       format.md do
         @created_resources = @task_run.ai_agent_task_run_resources
-          .includes(:resource_superagent)
+          .includes(:resource_collective)
           .order(:created_at)
         @page_title = "Task Run - #{@ai_agent.display_name}"
       end

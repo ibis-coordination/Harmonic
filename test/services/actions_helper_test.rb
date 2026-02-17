@@ -3,11 +3,11 @@ require "test_helper"
 class ActionsHelperTest < ActiveSupport::TestCase
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
-    Superagent.scope_thread_to_superagent(
+    Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
-      handle: @superagent.handle
+      handle: @collective.handle
     )
   end
 
@@ -145,7 +145,7 @@ class ActionsHelperTest < ActiveSupport::TestCase
   test "action_description includes resource when provided" do
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       text: "Test note"
     )

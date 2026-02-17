@@ -2,13 +2,13 @@
 
 class AutomationRuleRun < ApplicationRecord
   extend T::Sig
-  include MightNotBelongToSuperagent
+  include MightNotBelongToCollective
 
   STATUSES = ["pending", "running", "completed", "failed", "skipped"].freeze
   TRIGGER_SOURCES = ["event", "schedule", "webhook", "manual", "test"].freeze
 
   belongs_to :tenant
-  belongs_to :superagent, optional: true
+  belongs_to :collective, optional: true
   belongs_to :automation_rule
   belongs_to :triggered_by_event, class_name: "Event", optional: true
   belongs_to :ai_agent_task_run, optional: true
@@ -18,9 +18,9 @@ class AutomationRuleRun < ApplicationRecord
   validates :status, inclusion: { in: STATUSES }
   validates :trigger_source, inclusion: { in: TRIGGER_SOURCES }, allow_nil: true
   validate :tenant_matches_rule
-  validate :superagent_matches_rule
+  validate :collective_matches_rule
 
-  before_validation :set_tenant_and_superagent_from_rule, on: :create
+  before_validation :set_tenant_and_collective_from_rule, on: :create
 
   scope :pending, -> { where(status: "pending") }
   scope :running, -> { where(status: "running") }
@@ -244,12 +244,12 @@ class AutomationRuleRun < ApplicationRecord
   end
 
   sig { void }
-  def set_tenant_and_superagent_from_rule
+  def set_tenant_and_collective_from_rule
     rule = automation_rule
     return unless rule
 
     self.tenant_id = rule.tenant_id if tenant_id.nil?
-    self.superagent_id = rule.superagent_id if superagent_id.nil?
+    self.collective_id = rule.collective_id if collective_id.nil?
   end
 
   sig { void }
@@ -263,16 +263,16 @@ class AutomationRuleRun < ApplicationRecord
   end
 
   sig { void }
-  def superagent_matches_rule
+  def collective_matches_rule
     rule = automation_rule
     return unless rule
 
-    # Both nil is valid (for agent rules without superagent scope)
-    return if superagent_id.nil? && rule.superagent_id.nil?
+    # Both nil is valid (for agent rules without collective scope)
+    return if collective_id.nil? && rule.collective_id.nil?
 
     # Both must match if either is set
-    return if superagent_id == rule.superagent_id
+    return if collective_id == rule.collective_id
 
-    errors.add(:superagent, "must match the automation rule's superagent")
+    errors.add(:collective, "must match the automation rule's collective")
   end
 end

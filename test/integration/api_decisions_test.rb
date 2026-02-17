@@ -4,8 +4,8 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -18,11 +18,11 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
       "Content-Type" => "application/json",
     }
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
   end
 
   def api_path(path = "")
-    "#{@superagent.path}/api/v1/decisions#{path}"
+    "#{@collective.path}/api/v1/decisions#{path}"
   end
 
   # Index is not supported
@@ -35,7 +35,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
 
   # Show
   test "show returns a decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     get api_path("/#{decision.truncated_id}"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -53,8 +53,8 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
 
   test "show with include=options returns options" do
     skip "Bug: Option model missing api_json method"
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 1")
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option 1")
     get api_path("/#{decision.truncated_id}?include=options"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -63,7 +63,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   end
 
   test "show with include=participants returns participants" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     get api_path("/#{decision.truncated_id}?include=participants"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -71,7 +71,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   end
 
   test "show with include=results returns results" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     get api_path("/#{decision.truncated_id}?include=results"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -131,7 +131,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
 
   # Update
   test "update updates a decision by creator" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     update_params = {
       question: "Updated question?",
       description: "Updated description"
@@ -143,7 +143,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   end
 
   test "update can toggle options_open" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     decision.update!(options_open: true)
     update_params = { options_open: false }
     put api_path("/#{decision.truncated_id}"), params: update_params.to_json, headers: @headers
@@ -155,8 +155,8 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   test "update by non-creator returns forbidden" do
     other_user = create_user(email: "other@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: other_user)
+    @collective.add_user!(other_user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: other_user)
     update_params = { question: "Hacked question?" }
     put api_path("/#{decision.truncated_id}"), params: update_params.to_json, headers: @headers
     assert_response :forbidden
@@ -164,7 +164,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
 
   # Options
   test "create option adds option to decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     option_params = { title: "New Option", description: "Option description" }
     assert_difference "Option.count", 1 do
       post api_path("/#{decision.truncated_id}/options"), params: option_params.to_json, headers: @headers
@@ -175,11 +175,11 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   test "create option when options_open is false returns forbidden for non-creator" do
     other_user = create_user(email: "other@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
     other_token = ApiToken.create!(tenant: @tenant, user: other_user, scopes: ApiToken.valid_scopes)
     other_headers = @headers.merge("Authorization" => "Bearer #{other_token.plaintext_token}")
 
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     decision.update!(options_open: false)
     option_params = { title: "New Option" }
     post api_path("/#{decision.truncated_id}/options"), params: option_params.to_json, headers: other_headers
@@ -188,9 +188,9 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
 
   test "list options returns all options" do
     skip "Bug: Option model missing api_json method"
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 1")
-    create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 2")
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option 1")
+    create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option 2")
     get api_path("/#{decision.truncated_id}/options"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
@@ -199,8 +199,8 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
 
   # Votes
   test "create vote casts a vote" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
     vote_params = { accepted: 1, preferred: 0 }
     assert_difference "Vote.count", 1 do
       post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: vote_params.to_json, headers: @headers
@@ -212,8 +212,8 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   end
 
   test "create vote with preference" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
     vote_params = { accepted: 1, preferred: 1 }
     post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: vote_params.to_json, headers: @headers
     assert_response :success
@@ -222,8 +222,8 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   end
 
   test "update vote changes vote" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
     # First, cast a vote
     vote_params = { accepted: 1, preferred: 0 }
     post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: vote_params.to_json, headers: @headers
@@ -239,9 +239,9 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
 
   # Results
   test "get results returns voting results" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option1 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 1")
-    option2 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 2")
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option1 = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option 1")
+    option2 = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option 2")
     # Vote for option1
     post api_path("/#{decision.truncated_id}/options/#{option1.id}/votes"), params: { accepted: 1, preferred: 1 }.to_json, headers: @headers
     get api_path("/#{decision.truncated_id}/results"), headers: @headers
@@ -255,9 +255,9 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
 
   # Participants
   test "list participants returns decision participants" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     # Create a participant by voting
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    option = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
     post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: { accepted: 1 }.to_json, headers: @headers
     get api_path("/#{decision.truncated_id}/participants"), headers: @headers
     assert_response :success

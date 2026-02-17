@@ -20,50 +20,50 @@ class Cycle
     ]
   end
 
-  sig { params(end_of_cycle: String, tenant: Tenant, superagent: Superagent).returns(Cycle) }
-  def self.new_from_end_of_cycle_option(end_of_cycle:, tenant:, superagent:)
+  sig { params(end_of_cycle: String, tenant: Tenant, collective: Collective).returns(Cycle) }
+  def self.new_from_end_of_cycle_option(end_of_cycle:, tenant:, collective:)
     name = T.must(end_of_cycle.downcase.gsub(" ", "-").split(/end-of-(?:day-)?/).last)
-    new(name: name, tenant: tenant, superagent: superagent)
+    new(name: name, tenant: tenant, collective: collective)
   end
 
-  sig { params(tenant: Tenant, superagent: Superagent).returns(Cycle) }
-  def self.new_from_tempo(tenant:, superagent:)
-    case superagent.tempo
+  sig { params(tenant: Tenant, collective: Collective).returns(Cycle) }
+  def self.new_from_tempo(tenant:, collective:)
+    case collective.tempo
     when "daily"
-      new(name: "today", tenant: tenant, superagent: superagent)
+      new(name: "today", tenant: tenant, collective: collective)
     when "weekly"
-      new(name: "this-week", tenant: tenant, superagent: superagent)
+      new(name: "this-week", tenant: tenant, collective: collective)
     when "monthly"
-      new(name: "this-month", tenant: tenant, superagent: superagent)
+      new(name: "this-month", tenant: tenant, collective: collective)
     when "yearly"
-      new(name: "this-year", tenant: tenant, superagent: superagent)
+      new(name: "this-year", tenant: tenant, collective: collective)
     else
       raise "Invalid tempo"
     end
   end
 
-  sig { params(superagent: Superagent).returns(Cycle) }
-  def self.new_from_superagent(superagent)
-    new_from_tempo(tenant: T.must(superagent.tenant), superagent: superagent)
+  sig { params(collective: Collective).returns(Cycle) }
+  def self.new_from_collective(collective)
+    new_from_tempo(tenant: T.must(collective.tenant), collective: collective)
   end
 
   sig do
     params(
       name: String,
       tenant: Tenant,
-      superagent: Superagent,
+      collective: Collective,
       params: T::Hash[Symbol, T.untyped],
       current_user: T.nilable(User)
     ).void
   end
-  def initialize(name:, tenant:, superagent:, params: {}, current_user: nil)
+  def initialize(name:, tenant:, collective:, params: {}, current_user: nil)
     @name = name
     @tenant = tenant
-    @superagent = superagent
+    @collective = collective
     @params = params
     @current_user = current_user
     raise "Invalid tenant" if @tenant.nil?
-    raise "Invalid superagent" if @superagent.nil?
+    raise "Invalid collective" if @collective.nil?
   end
 
   # Returns the numeric offset for this cycle relative to "now"
@@ -178,7 +178,7 @@ class Cycle
 
   sig { returns(String) }
   def path
-    "#{@superagent.path}/cycles/#{@name}"
+    "#{@collective.path}/cycles/#{@name}"
   end
 
   sig { returns(String) }
@@ -285,7 +285,7 @@ class Cycle
 
   sig { returns(ActiveSupport::TimeWithZone) }
   def now
-    Time.current.in_time_zone(@superagent.timezone.name)
+    Time.current.in_time_zone(@collective.timezone.name)
   end
 
   sig { returns(ActiveSupport::TimeWithZone) }
@@ -314,7 +314,7 @@ class Cycle
   sig { params(model: T.class_of(ApplicationRecord)).returns(ActiveRecord::Relation) }
   def resources(model)
     # What if updated_at is after deadline?
-    rs = model.where(tenant_id: @tenant.id, superagent_id: @superagent.id)
+    rs = model.where(tenant_id: @tenant.id, collective_id: @collective.id)
       .where("#{model.table_name}.created_at < ?", end_date)
       .where("#{model.table_name}.deadline > ?", start_date)
     current_filters = filters
@@ -561,7 +561,7 @@ class Cycle
   sig { returns(T::Array[T.untyped]) }
   def backlinks
     # Link.backlink_leaderboard(start_date: start_date, end_date: end_date, tenant_id: @tenant.id)
-    Link.where(tenant: @tenant, superagent: @superagent)
+    Link.where(tenant: @tenant, collective: @collective)
       .where(from_linkable: [notes, decisions, commitments].flatten)
       .includes(:to_linkable)
       .map(&:to_linkable).uniq
@@ -569,7 +569,7 @@ class Cycle
 
   sig { returns(T::Array[T::Array[T.untyped]]) }
   def data_rows
-    rows = CycleDataRow.where(tenant_id: @tenant.id, superagent_id: @superagent.id)
+    rows = CycleDataRow.where(tenant_id: @tenant.id, collective_id: @collective.id)
       .where("created_at < ?", end_date)
       .where("deadline > ?", start_date)
     current_filters = filters

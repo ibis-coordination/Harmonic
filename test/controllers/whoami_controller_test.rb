@@ -3,7 +3,7 @@ require "test_helper"
 class WhoamiControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
@@ -145,10 +145,10 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows upcoming reminders section" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     ReminderService.create!(user: @user, title: "Upcoming reminder", scheduled_for: 1.day.from_now)
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/whoami", headers: { "Accept" => "text/markdown" }
     assert_response :success
@@ -167,10 +167,10 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows link to notifications page" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     ReminderService.create!(user: @user, title: "Test reminder", scheduled_for: 1.day.from_now)
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/whoami", headers: { "Accept" => "text/markdown" }
     assert_response :success
@@ -180,12 +180,12 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami limits displayed reminders to 5" do
     sign_in_as(@user, tenant: @tenant)
 
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     7.times do |i|
       ReminderService.create!(user: @user, title: "Reminder #{i}", scheduled_for: (i + 1).hours.from_now)
     end
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
 
     get "/whoami", headers: { "Accept" => "text/markdown" }
     assert_response :success

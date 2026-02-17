@@ -10,7 +10,7 @@ module Linkable
   end
 
   def parse_and_create_link_records!
-    unless self.superagent.is_main_superagent?
+    unless self.collective.is_main_collective?
       LinkParser.new(from_record: self).parse_and_create_link_records!
     end
   end

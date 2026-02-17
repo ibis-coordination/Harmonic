@@ -296,9 +296,9 @@ class AutomationExecutor
     end
 
     # For studio rules: check if the agent is a member of the same studio
-    if @rule.studio_rule? && @rule.superagent_id.present?
-      agent_is_studio_member = SuperagentMember
-        .where(superagent_id: @rule.superagent_id, user_id: agent.id)
+    if @rule.studio_rule? && @rule.collective_id.present?
+      agent_is_studio_member = CollectiveMember
+        .where(collective_id: @rule.collective_id, user_id: agent.id)
         .exists?
 
       if agent_is_studio_member

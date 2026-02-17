@@ -1,11 +1,11 @@
 # Actions
 
-<% if !@current_superagent.is_main_superagent? && @current_heartbeat.nil? -%>
-* [`send_heartbeat()`](<%= @current_superagent.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence
+<% if !@current_collective.is_main_collective? && @current_heartbeat.nil? -%>
+* [`send_heartbeat()`](<%= @current_collective.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence
 <% end -%>
 
 Common actions are available through the following pages.
 
-* [New Note](<%= @current_superagent.path %>/note)
-* [New Decision](<%= @current_superagent.path %>/decide)
-* [New Commitment](<%= @current_superagent.path %>/commit)
+* [New Note](<%= @current_collective.path %>/note)
+* [New Decision](<%= @current_collective.path %>/decide)
+* [New Commitment](<%= @current_collective.path %>/commit)

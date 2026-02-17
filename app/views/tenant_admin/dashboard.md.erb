@@ -33,16 +33,16 @@ The main studio is the default studio at the base path (i.e. `<%= @current_tenan
 
 | Property | Value |
 |----------|-------|
-| Name | <%= @current_tenant.main_superagent.name %> |
-| ID | `<%= @current_tenant.main_superagent.id %>` |
-| Notes | <%= @current_tenant.main_superagent.notes.count %> |
-| Decisions | <%= @current_tenant.main_superagent.decisions.count %> |
-| Commitments | <%= @current_tenant.main_superagent.commitments.count %> |
+| Name | <%= @current_tenant.main_collective.name %> |
+| ID | `<%= @current_tenant.main_collective.id %>` |
+| Notes | <%= @current_tenant.main_collective.notes.count %> |
+| Decisions | <%= @current_tenant.main_collective.decisions.count %> |
+| Commitments | <%= @current_tenant.main_collective.commitments.count %> |
 
 ### Other Studios
 
-<% @current_tenant.superagents.order(created_at: :desc).each do |studio| %>
-<% next if studio == @current_tenant.main_superagent %>
+<% @current_tenant.collectives.order(created_at: :desc).each do |studio| %>
+<% next if studio == @current_tenant.main_collective %>
 * [<%= studio.name %>](<%= studio.path %>) - created <%= time_ago_in_words(studio.created_at) %> ago
 <% end %>
 

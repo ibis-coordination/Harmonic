@@ -4,13 +4,13 @@ require "test_helper"
 
 class AutomationInternalActionServiceTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
-    # Ensure superagent has a proxy user
-    @superagent.create_proxy_user! unless @superagent.proxy_user
+    @tenant, @collective, @user = create_tenant_studio_user
+    # Ensure collective has a proxy user
+    @collective.create_proxy_user! unless @collective.proxy_user
 
     @rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Automation",
       trigger_type: "manual",
       trigger_config: {},
@@ -22,7 +22,7 @@ class AutomationInternalActionServiceTest < ActiveSupport::TestCase
 
     @run = AutomationRuleRun.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: @rule,
       trigger_source: "manual",
       status: "pending"
@@ -43,11 +43,11 @@ class AutomationInternalActionServiceTest < ActiveSupport::TestCase
     assert_includes result.error, "Unsupported action"
   end
 
-  test "execute returns error when superagent is nil" do
-    # Create a user-level rule (no superagent)
+  test "execute returns error when collective is nil" do
+    # Create a user-level rule (no collective)
     user_rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: nil,
+      collective: nil,
       user: @user,
       name: "User Automation",
       trigger_type: "manual",
@@ -58,7 +58,7 @@ class AutomationInternalActionServiceTest < ActiveSupport::TestCase
 
     user_run = AutomationRuleRun.create!(
       tenant: @tenant,
-      superagent: nil,
+      collective: nil,
       automation_rule: user_rule,
       trigger_source: "manual",
       status: "pending"
@@ -113,7 +113,7 @@ class AutomationInternalActionServiceTest < ActiveSupport::TestCase
     # Create a note directly, not through automation
     note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       text: "Manual note",
       created_by: @user
     )

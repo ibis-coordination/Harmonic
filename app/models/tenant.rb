@@ -7,10 +7,10 @@ class Tenant < ApplicationRecord
   self.implicit_order_column = "created_at"
   has_many :tenant_users
   has_many :users, through: :tenant_users
-  belongs_to :main_superagent, class_name: 'Superagent', optional: true # Only optional so that we can create the main superagent after the tenant is created
+  belongs_to :main_collective, class_name: 'Collective', optional: true # Only optional so that we can create the main collective after the tenant is created
   before_create :set_defaults
   # Admin controller handles this. Callbacks are buggy.
-  # after_create :create_main_superagent!
+  # after_create :create_main_collective!
 
   tables = ActiveRecord::Base.connection.tables - [
     'tenants', 'users', 'oauth_identities',
@@ -44,7 +44,7 @@ class Tenant < ApplicationRecord
     if tenant
       self.current_subdomain = tenant.subdomain
       self.current_id = tenant.id
-      self.current_main_superagent_id = tenant.main_superagent_id
+      self.current_main_collective_id = tenant.main_collective_id
     else
       raise "Invalid subdomain"
     end
@@ -56,7 +56,7 @@ class Tenant < ApplicationRecord
     Thread.current[:tenant_id] = nil
     Thread.current[:tenant_handle] = nil
     Thread.current[:tenant_subdomain] = nil
-    Thread.current[:main_superagent_id] = nil
+    Thread.current[:main_collective_id] = nil
   end
 
   # Set thread-local tenant context from a Tenant instance.
@@ -65,7 +65,7 @@ class Tenant < ApplicationRecord
   def self.set_thread_context(tenant)
     self.current_subdomain = tenant.subdomain
     self.current_id = tenant.id
-    self.current_main_superagent_id = tenant.main_superagent_id
+    self.current_main_collective_id = tenant.main_collective_id
   end
 
   sig { returns(T.nilable(String)) }
@@ -79,8 +79,8 @@ class Tenant < ApplicationRecord
   end
 
   sig { returns(T.nilable(String)) }
-  def self.current_main_superagent_id
-    Thread.current[:main_superagent_id]
+  def self.current_main_collective_id
+    Thread.current[:main_collective_id]
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -153,8 +153,8 @@ class Tenant < ApplicationRecord
       @timezone = ActiveSupport::TimeZone[value]
       set_defaults
       self.settings = self.settings.merge('timezone' => T.must(@timezone).name)
-      T.must(main_superagent).timezone = T.must(@timezone).name
-      T.must(main_superagent).save!
+      T.must(main_collective).timezone = T.must(@timezone).name
+      T.must(main_collective).save!
     end
   end
 
@@ -219,15 +219,15 @@ class Tenant < ApplicationRecord
   end
 
   sig { params(created_by: User).void }
-  def create_main_superagent!(created_by:)
-    self.main_superagent = superagents.create!(
+  def create_main_collective!(created_by:)
+    self.main_collective = collectives.create!(
       name: "#{self.subdomain}.#{ENV['HOSTNAME']}",
       handle: SecureRandom.hex(16),
       created_by: created_by,
     )
-    # Always enable API for the main superagent
-    # Both tenant and superagent must have API enabled for it to be accessible
-    T.must(main_superagent).enable_api!
+    # Always enable API for the main collective
+    # Both tenant and collective must have API enabled for it to be accessible
+    T.must(main_collective).enable_api!
     save!
   end
 
@@ -335,7 +335,7 @@ class Tenant < ApplicationRecord
   end
 
   sig { params(id: T.nilable(String)).void }
-  def self.current_main_superagent_id=(id)
-    Thread.current[:main_superagent_id] = id
+  def self.current_main_collective_id=(id)
+    Thread.current[:main_collective_id] = id
   end
 end

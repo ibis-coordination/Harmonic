@@ -10,13 +10,13 @@ class NoteHistoryEvent < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
-  belongs_to :superagent
-  before_validation :set_superagent_id
+  belongs_to :collective
+  before_validation :set_collective_id
   belongs_to :note
   belongs_to :user
   validates :event_type, presence: true, inclusion: { in: %w(create update read_confirmation) }
   validates :happened_at, presence: true
-  validate :validate_tenant_and_superagent_id
+  validate :validate_tenant_and_collective_id
 
   sig { void }
   def set_tenant_id
@@ -24,17 +24,17 @@ class NoteHistoryEvent < ApplicationRecord
   end
 
   sig { void }
-  def set_superagent_id
-    self.superagent_id = T.must(note).superagent_id if superagent_id.nil?
+  def set_collective_id
+    self.collective_id = T.must(note).collective_id if collective_id.nil?
   end
 
   sig { void }
-  def validate_tenant_and_superagent_id
+  def validate_tenant_and_collective_id
     if T.must(note).tenant_id != tenant_id
       errors.add(:tenant_id, "must match the tenant of the note")
     end
-    if T.must(note).superagent_id != superagent_id
-      errors.add(:superagent_id, "must match the superagent of the note")
+    if T.must(note).collective_id != collective_id
+      errors.add(:collective_id, "must match the collective of the note")
     end
   end
 

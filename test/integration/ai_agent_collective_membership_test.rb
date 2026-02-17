@@ -4,11 +4,11 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!  # Enable API at studio level for ai_agent functionality
+    @collective = @global_collective
+    @collective.enable_api!  # Enable API at studio level for ai_agent functionality
     @parent = @global_user
     # Ensure parent has admin role on studio to have invite permission
-    @parent.superagent_members.find_by(superagent: @superagent)&.add_role!('admin')
+    @parent.collective_members.find_by(collective: @collective)&.add_role!('admin')
     @ai_agent = create_ai_agent(parent: @parent, name: "AiAgent User")
     @tenant.add_user!(@ai_agent)
     # Note: @ai_agent is NOT added to @studio initially
@@ -24,29 +24,29 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
     sign_in_as(@parent, tenant: @tenant)
 
     # Verify ai_agent is not in studio initially
-    assert_nil SuperagentMember.find_by(superagent: @superagent, user: @ai_agent)
+    assert_nil CollectiveMember.find_by(collective: @collective, user: @ai_agent)
 
-    post "/u/#{@ai_agent.handle}/add_to_studio", params: { superagent_id: @superagent.id }
+    post "/u/#{@ai_agent.handle}/add_to_studio", params: { collective_id: @collective.id }
 
     assert_response :redirect
     follow_redirect!
 
     # Verify ai_agent is now in studio
-    assert_not_nil SuperagentMember.find_by(superagent: @superagent, user: @ai_agent)
+    assert_not_nil CollectiveMember.find_by(collective: @collective, user: @ai_agent)
   end
 
   test "parent cannot add their ai_agent to a studio where they lack invite permission" do
     # Create a studio where parent has no membership
     other_admin = create_user(name: "Other Admin")
     @tenant.add_user!(other_admin)
-    other_superagent = create_superagent(tenant: @tenant, created_by: other_admin, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_collective = create_collective(tenant: @tenant, created_by: other_admin, handle: "other-studio-#{SecureRandom.hex(4)}")
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{@ai_agent.handle}/add_to_studio", params: { superagent_id: other_superagent.id }
+    post "/u/#{@ai_agent.handle}/add_to_studio", params: { collective_id: other_collective.id }
 
     assert_response :forbidden
-    assert_nil SuperagentMember.find_by(superagent: other_superagent, user: @ai_agent)
+    assert_nil CollectiveMember.find_by(collective: other_collective, user: @ai_agent)
   end
 
   test "user cannot add another user's ai_agent to a studio" do
@@ -59,10 +59,10 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
     # @parent tries to add other_ai_agent to @studio
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{other_ai_agent.handle}/add_to_studio", params: { superagent_id: @superagent.id }
+    post "/u/#{other_ai_agent.handle}/add_to_studio", params: { collective_id: @collective.id }
 
     assert_response :forbidden
-    assert_nil SuperagentMember.find_by(superagent: @superagent, user: other_ai_agent)
+    assert_nil CollectiveMember.find_by(collective: @collective, user: other_ai_agent)
   end
 
   test "cannot add non-ai_agent user via add_to_studio endpoint" do
@@ -71,17 +71,17 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/u/#{regular_user.handle}/add_to_studio", params: { superagent_id: @superagent.id }
+    post "/u/#{regular_user.handle}/add_to_studio", params: { collective_id: @collective.id }
 
     assert_response :forbidden
     # Regular user might already be in studio from other tests, so just check response
   end
 
   test "unauthenticated user cannot add ai_agent to studio" do
-    post "/u/#{@ai_agent.handle}/add_to_studio", params: { superagent_id: @superagent.id }
+    post "/u/#{@ai_agent.handle}/add_to_studio", params: { collective_id: @collective.id }
 
     assert_response :redirect # Redirects to login
-    assert_nil SuperagentMember.find_by(superagent: @superagent, user: @ai_agent)
+    assert_nil CollectiveMember.find_by(collective: @collective, user: @ai_agent)
   end
 
   # ====================
@@ -91,19 +91,19 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
   test "ai_agents index page shows ai_agent studio memberships" do
     # Enable AI agents feature flag and add ai_agent to studio first
     @tenant.set_feature_flag!("ai_agents", true)
-    @superagent.add_user!(@ai_agent)
+    @collective.add_user!(@ai_agent)
 
     sign_in_as(@parent, tenant: @tenant)
     get "/ai-agents"
 
     assert_response :success
-    assert_match @superagent.name, response.body
+    assert_match @collective.name, response.body
   end
 
   test "ai_agents settings page shows available studios to add agent to" do
     # Enable AI agents feature flag and create another studio where parent has invite permission
     @tenant.set_feature_flag!("ai_agents", true)
-    another_superagent = create_superagent(tenant: @tenant, created_by: @parent, handle: "another-studio-#{SecureRandom.hex(4)}")
+    another_collective = create_collective(tenant: @tenant, created_by: @parent, handle: "another-studio-#{SecureRandom.hex(4)}")
 
     sign_in_as(@parent, tenant: @tenant)
     get "/ai-agents/#{@ai_agent.handle}/settings"
@@ -133,10 +133,10 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
 
   test "studio settings page shows ai_agents in that studio" do
     # Add ai_agent to studio first
-    @superagent.add_user!(@ai_agent)
+    @collective.add_user!(@ai_agent)
 
     sign_in_as(@parent, tenant: @tenant)
-    get "/studios/#{@superagent.handle}/settings"
+    get "/studios/#{@collective.handle}/settings"
 
     assert_response :success
     assert_match @ai_agent.display_name, response.body
@@ -147,9 +147,9 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
     sign_in_as(@parent, tenant: @tenant)
 
     # Verify ai_agent is not in studio initially
-    assert_nil SuperagentMember.find_by(superagent: @superagent, user: @ai_agent)
+    assert_nil CollectiveMember.find_by(collective: @collective, user: @ai_agent)
 
-    post "/studios/#{@superagent.handle}/settings/add_ai_agent",
+    post "/studios/#{@collective.handle}/settings/add_ai_agent",
          params: { ai_agent_id: @ai_agent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json
@@ -160,7 +160,7 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
     assert_equal @ai_agent.display_name, json_response["ai_agent_name"]
 
     # Verify ai_agent is now in studio
-    assert_not_nil SuperagentMember.find_by(superagent: @superagent, user: @ai_agent)
+    assert_not_nil CollectiveMember.find_by(collective: @collective, user: @ai_agent)
   end
 
   test "admin cannot add another user's ai_agent to studio via settings" do
@@ -171,25 +171,25 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/studios/#{@superagent.handle}/settings/add_ai_agent",
+    post "/studios/#{@collective.handle}/settings/add_ai_agent",
          params: { ai_agent_id: other_ai_agent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json
 
     assert_response :forbidden
-    assert_nil SuperagentMember.find_by(superagent: @superagent, user: other_ai_agent)
+    assert_nil CollectiveMember.find_by(collective: @collective, user: other_ai_agent)
   end
 
   test "admin can remove ai_agent from studio via settings JSON endpoint" do
     # First add ai_agent to studio
-    @superagent.add_user!(@ai_agent)
-    superagent_member = SuperagentMember.find_by(superagent: @superagent, user: @ai_agent)
-    assert_not_nil superagent_member
-    assert_not superagent_member.archived?
+    @collective.add_user!(@ai_agent)
+    collective_member = CollectiveMember.find_by(collective: @collective, user: @ai_agent)
+    assert_not_nil collective_member
+    assert_not collective_member.archived?
 
     sign_in_as(@parent, tenant: @tenant)
 
-    delete "/studios/#{@superagent.handle}/settings/remove_ai_agent",
+    delete "/studios/#{@collective.handle}/settings/remove_ai_agent",
            params: { ai_agent_id: @ai_agent.id },
            headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
            as: :json
@@ -200,17 +200,17 @@ class AiAgentStudioMembershipTest < ActionDispatch::IntegrationTest
     assert_equal true, json_response["can_readd"]
 
     # Verify ai_agent membership is archived (not deleted)
-    superagent_member.reload
-    assert superagent_member.archived?
+    collective_member.reload
+    assert collective_member.archived?
   end
 
   test "non-admin cannot add ai_agent to studio via settings" do
     # Remove admin role from parent
-    @parent.superagent_members.find_by(superagent: @superagent)&.remove_role!('admin')
+    @parent.collective_members.find_by(collective: @collective)&.remove_role!('admin')
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/studios/#{@superagent.handle}/settings/add_ai_agent",
+    post "/studios/#{@collective.handle}/settings/add_ai_agent",
          params: { ai_agent_id: @ai_agent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json

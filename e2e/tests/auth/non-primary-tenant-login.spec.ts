@@ -28,7 +28,7 @@ test.describe("Non-primary tenant login flow", () => {
   //   tenant = Tenant.create!(subdomain: "second", name: "Second Tenant")
   //   user = User.find_by(email: "e2e-test@example.com")
   //   tenant.add_user!(user)
-  //   tenant.create_main_superagent!(created_by: user)
+  //   tenant.create_main_collective!(created_by: user)
 
   test("login page shows correct tenant subdomain after redirect from non-primary tenant", async ({
     page,

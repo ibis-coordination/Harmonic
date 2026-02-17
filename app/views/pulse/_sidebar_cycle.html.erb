@@ -12,7 +12,7 @@
   has_heartbeat = @current_heartbeat.present?
   can_go_previous = has_heartbeat && prev_cycle_name && prev_cycle_name != @cycle.name
   can_go_next = next_cycle_name.present?
-  pulse_path = @current_superagent.path
+  pulse_path = @current_collective.path
 %>
 <div class="pulse-cycle-box">
   <div class="pulse-cycle-label"><%= @is_viewing_current_cycle ? 'Current Cycle' : 'Viewing Past Cycle' %></div>
