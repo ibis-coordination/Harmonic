@@ -119,7 +119,10 @@ class WebhookDeliveryService
   sig { params(delivery: WebhookDelivery).returns(String) }
   def self.determine_event_type(delivery)
     # If there's an associated event, use its type
-    return delivery.event.event_type if delivery.event&.event_type.present?
+    event = delivery.event
+    if event && event.event_type.present?
+      return event.event_type
+    end
 
     # Otherwise, use the automation rule's trigger type (e.g., "manual", "schedule", "webhook")
     run = delivery.automation_rule_run

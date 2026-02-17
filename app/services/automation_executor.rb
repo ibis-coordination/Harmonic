@@ -84,7 +84,7 @@ class AutomationExecutor
     end
 
     executed_actions = []
-    has_async_actions = false
+    has_async_actions = T.let(false, T::Boolean)
 
     actions.each_with_index do |action, index|
       action_type = action["type"]

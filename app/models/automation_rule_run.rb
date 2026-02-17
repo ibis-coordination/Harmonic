@@ -147,8 +147,9 @@ class AutomationRuleRun < ApplicationRecord
     end
 
     # Also check the linked ai_agent_task_run for agent rules
-    if ai_agent_task_run.present?
-      return false unless ai_agent_task_run.status.in?(%w[completed failed cancelled])
+    task_run = ai_agent_task_run
+    if task_run
+      return false unless task_run.status.in?(%w[completed failed cancelled])
     end
 
     true
@@ -205,8 +206,9 @@ class AutomationRuleRun < ApplicationRecord
     end
 
     # From linked agent rule task run
-    if ai_agent_task_run.present?
-      statuses << ai_agent_task_run.status
+    linked_task_run = ai_agent_task_run
+    if linked_task_run
+      statuses << linked_task_run.status
     end
 
     statuses
@@ -216,7 +218,9 @@ class AutomationRuleRun < ApplicationRecord
   def find_first_error
     # Check webhook errors
     failed_webhook = webhook_deliveries.where(status: "failed").first
-    return failed_webhook.error_message if failed_webhook&.error_message.present?
+    if failed_webhook && failed_webhook.error_message.present?
+      return failed_webhook.error_message
+    end
 
     # Check task run errors
     task_run_ids = (actions_executed || [])
@@ -226,11 +230,14 @@ class AutomationRuleRun < ApplicationRecord
 
     if task_run_ids.any?
       failed_task = AiAgentTaskRun.where(id: task_run_ids, status: "failed").first
-      return failed_task.error if failed_task&.error.present?
+      if failed_task
+        return failed_task.error if failed_task.error.present?
+      end
     end
 
-    if ai_agent_task_run&.status == "failed"
-      return ai_agent_task_run.error
+    linked_task = ai_agent_task_run
+    if linked_task && linked_task.status == "failed"
+      return linked_task.error
     end
 
     nil
