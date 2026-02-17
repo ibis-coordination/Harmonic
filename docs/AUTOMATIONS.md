@@ -13,6 +13,8 @@ Automations allow you to create IFTTT/Zapier-style workflows that trigger action
 - [Examples](#examples)
 - [YAML Schema Reference](#yaml-schema-reference)
 - [Testing Automations](#testing-automations)
+- [Rate Limits & Chain Protection](#rate-limits--chain-protection)
+- [Monitoring](#monitoring)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -33,7 +35,6 @@ Automations are rules that execute actions when specific conditions are met. Eac
 |------|-------|----------|
 | **Agent Automations** | AI Agent | Trigger an agent to perform tasks (e.g., respond to @mentions) |
 | **Studio Automations** | Studio | Send webhooks, trigger agents, or orchestrate workflows |
-| **User Automations** | User | Personal notification routing (coming soon) |
 
 ### How It Works
 
@@ -426,6 +427,8 @@ conditions:
 ## Template Variables
 
 Use `{{variable}}` syntax to insert dynamic values into your tasks, payloads, and conditions.
+
+> **Note:** Complex values (objects and arrays) are automatically JSON-encoded when rendered. For example, `{{payload.data}}` containing `{"key": "value"}` renders as the JSON string `{"key":"value"}`, not Ruby's hash format.
 
 ### Event Context
 
@@ -979,6 +982,77 @@ This tracking helps you:
 
 ---
 
+## Rate Limits & Chain Protection
+
+Automations have multiple layers of protection to prevent runaway execution and system overload.
+
+### Rate Limits
+
+| Limit Type | Value | Scope |
+|------------|-------|-------|
+| **Tenant-level** | 100 runs/minute | All automations across the tenant |
+| **Agent rules** | 3 runs/minute | Per individual agent automation |
+| **Studio rules** | 10 runs/minute | Per individual studio automation |
+
+When a rate limit is hit:
+- The automation execution is silently skipped
+- A metric is emitted for monitoring (see [Monitoring](#monitoring))
+- The event/trigger is not retried
+
+### Chain Protection
+
+When automations trigger other automations (e.g., an automation creates a note that triggers another automation), chain limits prevent infinite loops and cascade explosions.
+
+| Protection | Limit | Description |
+|------------|-------|-------------|
+| **Chain depth** | 3 levels | Max nesting of automation → automation calls |
+| **Rules per chain** | 10 | Max total rules that can execute in one chain |
+| **Loop detection** | Per rule | Same rule cannot execute twice in one chain |
+
+**Example chain:**
+```
+Event occurs
+  → Automation A triggers (depth 1)
+    → Creates note that triggers Automation B (depth 2)
+      → That triggers Automation C (depth 3)
+        → Any further triggers are blocked (depth limit)
+```
+
+---
+
+## Monitoring
+
+Automation metrics are exposed via Prometheus for operational monitoring.
+
+### Available Metrics
+
+| Metric | Type | Tags | Description |
+|--------|------|------|-------------|
+| `automations_runs_total` | Counter | `tenant_id`, `rule_type`, `trigger_type`, `status` | Total automation runs |
+| `automations_rate_limited_total` | Counter | `tenant_id`, `limit_type`, `rule_type` | Executions blocked by rate limits |
+| `automations_chain_blocked_total` | Counter | `tenant_id`, `block_reason` | Executions blocked by chain protection |
+
+### Example Queries
+
+```promql
+# Rate limit hits per tenant in last hour
+sum by (tenant_id, limit_type) (increase(automations_rate_limited_total[1h]))
+
+# Chain blocks by reason
+sum by (block_reason) (increase(automations_chain_blocked_total[1h]))
+
+# Automation runs by status
+sum by (status) (increase(automations_runs_total[1h]))
+```
+
+### Alerting Recommendations
+
+- **High rate limit hits**: May indicate runaway automation or need to adjust limits
+- **Chain depth blocks**: May indicate unintended automation loops
+- **Loop detection blocks**: Definitely indicates a configuration issue to fix
+
+---
+
 ## Troubleshooting
 
 ### Automation Not Triggering
@@ -987,7 +1061,8 @@ This tracking helps you:
 2. **Verify event type**: Make sure you're listening for the right event
 3. **Check mention filter**: If using `mention_filter: self`, ensure the agent is actually @mentioned
 4. **Review conditions**: Conditions may be filtering out events
-5. **Check rate limits**: Agent automations are limited to 3 executions per minute
+5. **Check rate limits**: See [Rate Limits](#rate-limits) - agent rules: 3/min, studio rules: 10/min, tenant: 100/min
+6. **Check chain limits**: If triggered by another automation, chain depth (3) or rules-per-chain (10) may be exceeded
 
 ### Webhook Actions Failing
 
@@ -1025,7 +1100,7 @@ This tracking helps you:
 | "Event type is required" | Missing event_type for event trigger | Add `event_type` field |
 | "Invalid cron expression" | Malformed cron schedule | Use 5-field cron format |
 | "Agent not found" | Invalid agent_id in trigger_agent | Verify agent UUID exists |
-| "Rate limit exceeded" | Too many executions | Wait or reduce trigger frequency |
+| "Rate limit exceeded" | Too many executions | Agent: 3/min, Studio: 10/min, Tenant: 100/min |
 | "Internal actions require a studio context" | User-level automation with internal_action | Use studio automation instead |
 | "Unsupported action" | Invalid action name | Use `create_note`, `create_decision`, or `create_commitment` |
 | "Studio does not have a proxy user" | Missing proxy user | Contact admin to configure studio |

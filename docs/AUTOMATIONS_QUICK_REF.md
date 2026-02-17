@@ -141,6 +141,8 @@ actions:
 
 ## Template Variables
 
+> Objects/arrays are JSON-encoded automatically.
+
 ### Event Context
 ```
 {{event.type}}           # "note.created"
@@ -156,6 +158,7 @@ actions:
 ### Webhook Context
 ```
 {{payload.field}}        # Any payload field
+{{payload.data}}         # JSON-encoded if object
 {{webhook.source_ip}}    # Sender IP
 ```
 
@@ -209,6 +212,33 @@ actions:
   max_steps: 15
 ```
 
+### Internal Action (Create Content)
+```yaml
+- type: internal_action
+  action: create_note    # or create_decision, create_commitment
+  params:
+    text: "Content here"
+    title: "Optional title"
+```
+
+---
+
+## Rate Limits
+
+| Limit | Value |
+|-------|-------|
+| Tenant-level | 100/min (all automations) |
+| Agent rules | 3/min (per rule) |
+| Studio rules | 10/min (per rule) |
+
+### Chain Protection
+
+| Protection | Limit |
+|------------|-------|
+| Chain depth | 3 levels max |
+| Rules per chain | 10 max |
+| Loop detection | Same rule can't run twice |
+
 ---
 
 ## Debugging Checklist
@@ -217,6 +247,7 @@ actions:
 - [ ] Event type correct?
 - [ ] Mention filter appropriate?
 - [ ] Conditions passing?
-- [ ] Rate limit hit? (3/min for agents)
+- [ ] Rate limit hit? (agent: 3/min, studio: 10/min, tenant: 100/min)
+- [ ] Chain limit hit? (depth: 3, rules: 10)
 - [ ] Check run history for errors
 - [ ] Test with Test button first
