@@ -6,14 +6,6 @@ class WebhookDeliveryServiceTest < ActiveSupport::TestCase
     @tenant, @superagent, @user = create_tenant_superagent_user
     Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
 
-    @webhook = Webhook.create!(
-      tenant: @tenant,
-      name: "Test Webhook",
-      url: "https://example.com/webhook",
-      events: ["note.created"],
-      created_by: @user,
-    )
-
     @note = create_note(
       tenant: @tenant,
       superagent: @superagent,
@@ -21,7 +13,36 @@ class WebhookDeliveryServiceTest < ActiveSupport::TestCase
     )
 
     @event = Event.where(event_type: "note.created", subject: @note).last
-    @delivery = WebhookDelivery.where(webhook: @webhook, event: @event).first
+
+    # Create automation rule and run for the delivery
+    @automation_rule = AutomationRule.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      name: "Test Automation",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/webhook" }],
+      created_by: @user,
+    )
+
+    @automation_run = AutomationRuleRun.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      automation_rule: @automation_rule,
+      triggered_by_event: @event,
+      trigger_source: "event",
+      status: "running",
+    )
+
+    @delivery = WebhookDelivery.create!(
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
+      event: @event,
+      url: "https://example.com/webhook",
+      secret: @automation_rule.webhook_secret,
+      request_body: '{"test":"data"}',
+      status: "pending",
+    )
   end
 
   test "deliver! updates delivery to success on 2xx response" do
@@ -87,33 +108,61 @@ class WebhookDeliveryServiceTest < ActiveSupport::TestCase
     assert_not_nil @delivery.error_message
   end
 
-  test "deliver! skips disabled webhooks" do
-    @webhook.update!(enabled: false)
-
+  test "deliver! sends correct headers including automation run id" do
+    captured_headers = {}
     stub_request(:post, "https://example.com/webhook")
+      .to_return(status: 200)
+      .with { |req| captured_headers = req.headers; true }
 
     WebhookDeliveryService.deliver!(@delivery)
 
-    # Should not make the request
-    assert_not_requested :post, "https://example.com/webhook"
+    assert_equal "application/json", captured_headers["Content-Type"]
+    assert_equal "note.created", captured_headers["X-Harmonic-Event"]
+    assert_equal @delivery.id, captured_headers["X-Harmonic-Delivery"]
+    assert_equal @automation_run.id, captured_headers["X-Harmonic-Automation-Run"]
+    assert captured_headers["X-Harmonic-Signature"].present?
+    assert captured_headers["X-Harmonic-Timestamp"].present?
   end
 
-  test "deliver! sends correct headers" do
-    stub_request(:post, "https://example.com/webhook")
-      .with(
-        headers: {
-          "Content-Type" => "application/json",
-          "X-Harmonic-Event" => "note.created",
-        },
-      )
+  test "deliver! uses automation trigger type when no event is present" do
+    # Create a manual trigger automation without an event
+    manual_rule = AutomationRule.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      name: "Manual Automation",
+      trigger_type: "manual",
+      trigger_config: { "inputs" => { "message" => { "type" => "string" } } },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/manual" }],
+      created_by: @user,
+    )
+
+    manual_run = AutomationRuleRun.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      automation_rule: manual_rule,
+      trigger_source: "manual",
+      status: "running",
+    )
+
+    delivery = WebhookDelivery.create!(
+      tenant: @tenant,
+      automation_rule_run: manual_run,
+      event: nil,  # No event for manual triggers
+      url: "https://example.com/manual",
+      secret: manual_rule.webhook_secret,
+      request_body: '{"message":"hello"}',
+      status: "pending",
+    )
+
+    captured_headers = {}
+    stub_request(:post, "https://example.com/manual")
       .to_return(status: 200)
+      .with { |req| captured_headers = req.headers; true }
 
-    WebhookDeliveryService.deliver!(@delivery)
+    WebhookDeliveryService.deliver!(delivery)
 
-    assert_requested :post, "https://example.com/webhook", headers: {
-      "Content-Type" => "application/json",
-      "X-Harmonic-Event" => "note.created",
-    }
+    assert_equal "automation.manual", captured_headers["X-Harmonic-Event"]
+    assert_equal manual_run.id, captured_headers["X-Harmonic-Automation-Run"]
   end
 
   test "sign generates correct HMAC signature" do

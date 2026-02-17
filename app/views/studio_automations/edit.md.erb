@@ -1,0 +1,16 @@
+# Edit: <%= @automation_rule.name %>
+
+Edit the YAML configuration for this automation.
+
+## Current Configuration
+
+```yaml
+<%= raw @automation_rule.yaml_source %>
+```
+
+<%= render 'shared/automation_yaml_reference', automation_type: :studio %>
+
+## Navigation
+
+* [Back to Automation](<%= automation_path(@automation_rule) %>)
+* [Back to Automations](<%= automations_index_path %>)

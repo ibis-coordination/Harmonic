@@ -201,12 +201,15 @@
       </section>
 
       <section class="pulse-settings-section">
-        <h2 class="pulse-section-title"><%= octicon 'webhook', height: 16 %> Webhooks</h2>
+        <h2 class="pulse-section-title"><%= octicon 'zap', height: 16 %> Automations</h2>
         <p class="pulse-section-description">
-          Webhooks allow external services to receive real-time notifications when events occur in this studio.
+          Automations run actions (webhooks, internal actions) in response to events or on a schedule.
+          <% if @total_automations_count > 0 %>
+            <br><%= @enabled_automations_count %> automation<%= @enabled_automations_count == 1 ? '' : 's' %> currently enabled.
+          <% end %>
         </p>
-        <a href="<%= @current_superagent.path %>/settings/webhooks" class="pulse-action-btn">
-          <%= octicon 'gear', height: 14 %> Manage Webhooks
+        <a href="<%= @current_superagent.path %>/settings/automations" class="pulse-action-btn">
+          <%= octicon 'gear', height: 14 %> Manage Automations
         </a>
       </section>
     <% end %>

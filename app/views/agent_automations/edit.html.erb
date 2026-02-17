@@ -1,0 +1,38 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@agent_handle}"],
+  ['Automations', "/ai-agents/#{@agent_handle}/automations"],
+  [@automation_rule.name, "/ai-agents/#{@agent_handle}/automations/#{@automation_rule.truncated_id}"],
+  'Edit'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'pencil', height: 14, class: 'pulse-resource-icon' %>
+        Edit Automation
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Edit: <%= @automation_rule.name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <form action="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/actions/update_automation_rule" method="post" class="pulse-form">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+
+      <section class="pulse-settings-section">
+        <label for="yaml_source" class="pulse-label">YAML Configuration</label>
+        <textarea id="yaml_source" name="yaml_source" class="pulse-form-input pulse-monospace" rows="20" style="font-family: monospace; white-space: pre;"><%= @automation_rule.yaml_source %></textarea>
+        <small class="pulse-hint">Edit the YAML configuration for this automation.</small>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Save Changes</button>
+        <a href="/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>" class="pulse-action-btn">Cancel</a>
+      </section>
+    </form>
+
+<%= render 'shared/automation_yaml_reference', automation_type: :agent %>
+  </div>
+</article>

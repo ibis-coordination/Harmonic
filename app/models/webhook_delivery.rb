@@ -6,25 +6,12 @@ class WebhookDelivery < ApplicationRecord
   STATUSES = %w[pending success failed retrying].freeze
 
   belongs_to :tenant
-  belongs_to :webhook
-  belongs_to :event
+  belongs_to :event, optional: true
+  belongs_to :automation_rule_run
 
   validates :status, presence: true, inclusion: { in: STATUSES }
-  validate :tenant_matches_webhook_tenant
-
-  private
-
-  sig { void }
-  def tenant_matches_webhook_tenant
-    wh = webhook
-    tid = tenant_id
-    return if wh.blank? || tid.blank?
-    return if wh.tenant_id == tid
-
-    errors.add(:tenant, "must match webhook tenant")
-  end
-
-  public
+  validates :url, presence: true
+  validates :secret, presence: true
 
   scope :pending, -> { where(status: "pending") }
   scope :failed, -> { where(status: "failed") }

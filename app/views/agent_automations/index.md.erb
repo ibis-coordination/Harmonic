@@ -1,0 +1,29 @@
+# Automations for <%= @ai_agent.display_name %>
+
+Automations define when and how this AI agent should be triggered.
+
+<% if @automation_rules.empty? -%>
+*No automations configured yet.*
+
+Without automations, this AI agent will only respond when you manually trigger tasks.
+
+## Quick Start
+
+Create an automation from a template:
+- [Respond to @ Mentions](/ai-agents/<%= @agent_handle %>/automations/new?template=respond_to_mentions)
+- [Respond to Comments](/ai-agents/<%= @agent_handle %>/automations/new?template=respond_to_comments)
+- [Daily Summary](/ai-agents/<%= @agent_handle %>/automations/new?template=daily_summary)
+
+<% else -%>
+| Name | Trigger | Status | Runs | Last Run | Next Scheduled Run |
+|------|---------|--------|------|----------|-------------------|
+<% @automation_rules.each do |rule| -%>
+| [<%= rule.name %>](/ai-agents/<%= @agent_handle %>/automations/<%= rule.truncated_id %>) | <%= rule.trigger_type %><% if rule.trigger_type == 'event' %> (<%= rule.event_type %>)<% end %> | <%= rule.enabled? ? "Enabled" : "Disabled" %> | <%= rule.execution_count %> | <%= rule.last_executed_at ? time_ago_in_words(rule.last_executed_at) + " ago" : "Never" %> | <%= rule.next_scheduled_run ? rule.next_scheduled_run.strftime("%Y-%m-%d %H:%M %Z") : "" %> |
+<% end -%>
+<% end -%>
+
+## Navigation
+
+* [New Automation](/ai-agents/<%= @agent_handle %>/automations/new)
+* [Browse Templates](/ai-agents/<%= @agent_handle %>/automations/templates)
+* [Back to <%= @ai_agent.display_name %>](/ai-agents/<%= @agent_handle %>)

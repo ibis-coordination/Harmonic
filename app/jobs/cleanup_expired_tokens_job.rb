@@ -1,6 +1,7 @@
 # typed: true
+# frozen_string_literal: true
 
-class CleanupExpiredTokensJob < ApplicationJob
+class CleanupExpiredTokensJob < SystemJob
   extend T::Sig
 
   queue_as :low_priority

@@ -965,6 +965,51 @@ h1.pulse-resource-title {
   margin-bottom: 16px;
 }
 
+/* Automation attribution badge for resources created by automations */
+.pulse-automation-attribution {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  background-color: var(--pulse-surface-secondary);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--pulse-text-secondary);
+  border: 1px solid var(--pulse-border);
+}
+
+.pulse-automation-icon {
+  color: var(--pulse-accent);
+  flex-shrink: 0;
+}
+
+.pulse-automation-label {
+  font-weight: 500;
+}
+
+.pulse-automation-link {
+  color: var(--pulse-accent);
+  text-decoration: none;
+}
+
+.pulse-automation-link:hover {
+  text-decoration: underline;
+}
+
+.pulse-automation-run-link {
+  color: var(--pulse-text-tertiary);
+  font-size: 12px;
+}
+
+.pulse-automation-run-link a {
+  color: inherit;
+}
+
+.pulse-automation-run-link a:hover {
+  color: var(--pulse-text-secondary);
+}
+
 .pulse-resource-body {
   margin-bottom: 24px;
 }

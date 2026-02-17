@@ -6,6 +6,7 @@ class AiAgentTaskRun < ApplicationRecord
   belongs_to :tenant
   belongs_to :ai_agent, class_name: "User"
   belongs_to :initiated_by, class_name: "User"
+  belongs_to :automation_rule, optional: true
 
   has_many :ai_agent_task_run_resources, dependent: :destroy
 
@@ -50,8 +51,9 @@ class AiAgentTaskRun < ApplicationRecord
     # @param initiated_by [User] The user who initiated the task
     # @param task [String] The task description/prompt
     # @param max_steps [Integer, nil] Optional max steps override
+    # @param automation_rule [AutomationRule, nil] Optional automation rule that triggered this task
     # @return [AiAgentTaskRun] The created task run
-    def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil)
+    def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil, automation_rule: nil)
       model = ai_agent.agent_configuration&.dig("model") || "default"
 
       create!(
@@ -61,7 +63,8 @@ class AiAgentTaskRun < ApplicationRecord
         task: task,
         max_steps: max_steps || DEFAULT_MAX_STEPS,
         model: model,
-        status: "queued"
+        status: "queued",
+        automation_rule: automation_rule
       )
     end
   end
@@ -99,10 +102,25 @@ class AiAgentTaskRun < ApplicationRecord
     status == "failed"
   end
 
-  def duration
-    return nil unless started_at && completed_at
+  def triggered_by_automation?
+    automation_rule_id.present?
+  end
 
-    completed_at - started_at
+  # Notify any parent automation rule runs that this task has reached a terminal state.
+  # Called after task completion/failure to update the run's aggregate status.
+  def notify_parent_automation_runs!
+    return unless triggered_by_automation?
+
+    # Find any AutomationRuleRun records that reference this task run
+    # either via the belongs_to association or via actions_executed array
+    parent_runs = find_parent_automation_runs
+    parent_runs.each do |run|
+      next unless run.running?
+
+      run.update_status_from_actions!
+    rescue StandardError => e
+      Rails.logger.error("AiAgentTaskRun: Failed to notify parent run #{run.id}: #{e.message}")
+    end
   end
 
   def formatted_duration
@@ -160,5 +178,34 @@ class AiAgentTaskRun < ApplicationRecord
     else # cancelled, pending, or unknown
       "pulse-badge-muted"
     end
+  end
+
+  private
+
+  def find_parent_automation_runs
+    runs = []
+
+    # For agent rules: AutomationRuleRun.ai_agent_task_run_id = self.id
+    direct_run = AutomationRuleRun.find_by(ai_agent_task_run_id: id)
+    runs << direct_run if direct_run
+
+    # For general rules with trigger_agent actions: actions_executed contains task_run_id
+    # This is more complex - we need to search JSON
+    AutomationRuleRun.where(status: "running").find_each do |run|
+      actions = run.actions_executed || []
+      has_this_task = actions.any? do |action|
+        (action.dig("result", "task_run_id") == id) ||
+          (action.dig("result", :task_run_id) == id)
+      end
+      runs << run if has_this_task
+    end
+
+    runs.uniq
+  end
+
+  def duration
+    return nil unless started_at && completed_at
+
+    completed_at - started_at
   end
 end

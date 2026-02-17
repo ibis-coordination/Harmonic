@@ -1,0 +1,40 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@agent_handle}"],
+  ['Automations', "/ai-agents/#{@agent_handle}/automations"],
+  'New'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'zap', height: 14, class: 'pulse-resource-icon' %>
+        New Automation
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">New Automation for <%= @ai_agent.display_name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>Define when and how this AI agent should be triggered using YAML configuration.</p>
+
+    <form action="/ai-agents/<%= @agent_handle %>/automations/new/actions/create_automation_rule" method="post" class="pulse-form">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+
+      <section class="pulse-settings-section">
+        <label for="yaml_source" class="pulse-label">YAML Configuration</label>
+        <textarea id="yaml_source" name="yaml_source" class="pulse-form-input pulse-monospace" rows="20" style="font-family: monospace; white-space: pre;"><%= @template_yaml %></textarea>
+        <small class="pulse-hint">Define the automation using YAML format. See the reference below for available options.</small>
+      </section>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Create Automation</button>
+        <a href="/ai-agents/<%= @agent_handle %>/automations" class="pulse-action-btn">Cancel</a>
+        <a href="/ai-agents/<%= @agent_handle %>/automations/templates" class="pulse-action-btn">Browse Templates</a>
+      </section>
+    </form>
+
+<%= render 'shared/automation_yaml_reference', automation_type: :agent %>
+  </div>
+</article>

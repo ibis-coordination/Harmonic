@@ -1,7 +1,7 @@
-\restrict tW3ZhhmfpDpacWGjIo2lsis8qr9giJ0UaKfebuS3Ro9FcuvaLo2Pob4dJl9WMG5
+\restrict IKEab0vq4eBkb83mWQWJWJzU4YsZi2WwUP3CPmuqfVBL9roH8XUWGWLCnBtbLau
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
--- Dumped by pg_dump version 15.15 (Debian 15.15-0+deb12u1)
+-- Dumped by pg_dump version 15.16 (Debian 15.16-0+deb12u1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -138,7 +138,8 @@ CREATE TABLE public.ai_agent_task_runs (
     input_tokens integer DEFAULT 0,
     output_tokens integer DEFAULT 0,
     total_tokens integer DEFAULT 0,
-    estimated_cost_usd numeric(10,6)
+    estimated_cost_usd numeric(10,6),
+    automation_rule_id uuid
 );
 
 
@@ -195,6 +196,78 @@ CREATE TABLE public.attachments (
     updated_by_id uuid NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: automation_rule_run_resources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.automation_rule_run_resources (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    automation_rule_run_id uuid NOT NULL,
+    resource_type character varying NOT NULL,
+    resource_id uuid NOT NULL,
+    resource_superagent_id uuid NOT NULL,
+    action_type character varying,
+    display_path character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: automation_rule_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.automation_rule_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    automation_rule_id uuid NOT NULL,
+    triggered_by_event_id uuid,
+    ai_agent_task_run_id uuid,
+    trigger_source character varying,
+    trigger_data jsonb DEFAULT '{}'::jsonb,
+    status character varying DEFAULT 'pending'::character varying,
+    actions_executed jsonb DEFAULT '[]'::jsonb,
+    error_message text,
+    started_at timestamp(6) without time zone,
+    completed_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    superagent_id uuid,
+    chain_metadata jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+--
+-- Name: automation_rules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.automation_rules (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    superagent_id uuid,
+    user_id uuid,
+    ai_agent_id uuid,
+    created_by_id uuid NOT NULL,
+    name character varying NOT NULL,
+    description text,
+    trigger_type character varying NOT NULL,
+    trigger_config jsonb DEFAULT '{}'::jsonb NOT NULL,
+    conditions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    actions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    yaml_source text,
+    enabled boolean DEFAULT true NOT NULL,
+    execution_count integer DEFAULT 0 NOT NULL,
+    last_executed_at timestamp(6) without time zone,
+    webhook_secret character varying,
+    webhook_path character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
+    updated_by_id uuid
 );
 
 
@@ -1766,8 +1839,7 @@ CREATE TABLE public.votes (
 
 CREATE TABLE public.webhook_deliveries (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    webhook_id uuid NOT NULL,
-    event_id uuid NOT NULL,
+    event_id uuid,
     status character varying DEFAULT 'pending'::character varying NOT NULL,
     attempt_count integer DEFAULT 0 NOT NULL,
     request_body text,
@@ -1778,29 +1850,10 @@ CREATE TABLE public.webhook_deliveries (
     next_retry_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    tenant_id uuid NOT NULL
-);
-
-
---
--- Name: webhooks; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.webhooks (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    superagent_id uuid,
-    name character varying NOT NULL,
-    url character varying NOT NULL,
-    secret character varying NOT NULL,
-    events jsonb DEFAULT '[]'::jsonb NOT NULL,
-    enabled boolean DEFAULT true NOT NULL,
-    created_by_id uuid NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
-    user_id uuid
+    automation_rule_run_id uuid,
+    url character varying,
+    secret character varying
 );
 
 
@@ -2089,6 +2142,30 @@ ALTER TABLE ONLY public.ar_internal_metadata
 
 ALTER TABLE ONLY public.attachments
     ADD CONSTRAINT attachments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: automation_rule_run_resources automation_rule_run_resources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_run_resources
+    ADD CONSTRAINT automation_rule_run_resources_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: automation_rule_runs automation_rule_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_runs
+    ADD CONSTRAINT automation_rule_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: automation_rules automation_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rules
+    ADD CONSTRAINT automation_rules_pkey PRIMARY KEY (id);
 
 
 --
@@ -2580,14 +2657,6 @@ ALTER TABLE ONLY public.webhook_deliveries
 
 
 --
--- Name: webhooks webhooks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT webhooks_pkey PRIMARY KEY (id);
-
-
---
 -- Name: idx_members_superagent_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2826,6 +2895,13 @@ CREATE INDEX index_ai_agent_task_runs_on_ai_agent_id_and_created_at ON public.ai
 
 
 --
+-- Name: index_ai_agent_task_runs_on_automation_rule_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_ai_agent_task_runs_on_automation_rule_id ON public.ai_agent_task_runs USING btree (automation_rule_id);
+
+
+--
 -- Name: index_ai_agent_task_runs_on_initiated_by_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2935,6 +3011,167 @@ CREATE UNIQUE INDEX index_attachments_on_tenant_studio_attachable_name ON public
 --
 
 CREATE INDEX index_attachments_on_updated_by_id ON public.attachments USING btree (updated_by_id);
+
+
+--
+-- Name: index_automation_rule_run_resources_on_automation_rule_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_run_resources_on_automation_rule_run_id ON public.automation_rule_run_resources USING btree (automation_rule_run_id);
+
+
+--
+-- Name: index_automation_rule_run_resources_on_resource_superagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_run_resources_on_resource_superagent_id ON public.automation_rule_run_resources USING btree (resource_superagent_id);
+
+
+--
+-- Name: index_automation_rule_run_resources_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_run_resources_on_tenant_id ON public.automation_rule_run_resources USING btree (tenant_id);
+
+
+--
+-- Name: index_automation_rule_runs_on_ai_agent_task_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_runs_on_ai_agent_task_run_id ON public.automation_rule_runs USING btree (ai_agent_task_run_id);
+
+
+--
+-- Name: index_automation_rule_runs_on_automation_rule_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_runs_on_automation_rule_id ON public.automation_rule_runs USING btree (automation_rule_id);
+
+
+--
+-- Name: index_automation_rule_runs_on_rule_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_runs_on_rule_and_status ON public.automation_rule_runs USING btree (automation_rule_id, status);
+
+
+--
+-- Name: index_automation_rule_runs_on_superagent_and_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_runs_on_superagent_and_created ON public.automation_rule_runs USING btree (superagent_id, created_at);
+
+
+--
+-- Name: index_automation_rule_runs_on_superagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_runs_on_superagent_id ON public.automation_rule_runs USING btree (superagent_id);
+
+
+--
+-- Name: index_automation_rule_runs_on_tenant_and_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_runs_on_tenant_and_created ON public.automation_rule_runs USING btree (tenant_id, created_at);
+
+
+--
+-- Name: index_automation_rule_runs_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_runs_on_tenant_id ON public.automation_rule_runs USING btree (tenant_id);
+
+
+--
+-- Name: index_automation_rule_runs_on_triggered_by_event_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rule_runs_on_triggered_by_event_id ON public.automation_rule_runs USING btree (triggered_by_event_id);
+
+
+--
+-- Name: index_automation_rules_on_ai_agent_and_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_ai_agent_and_enabled ON public.automation_rules USING btree (ai_agent_id, enabled);
+
+
+--
+-- Name: index_automation_rules_on_ai_agent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_ai_agent_id ON public.automation_rules USING btree (ai_agent_id);
+
+
+--
+-- Name: index_automation_rules_on_created_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_created_by_id ON public.automation_rules USING btree (created_by_id);
+
+
+--
+-- Name: index_automation_rules_on_superagent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_superagent_id ON public.automation_rules USING btree (superagent_id);
+
+
+--
+-- Name: index_automation_rules_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_tenant_id ON public.automation_rules USING btree (tenant_id);
+
+
+--
+-- Name: index_automation_rules_on_tenant_superagent_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_tenant_superagent_enabled ON public.automation_rules USING btree (tenant_id, superagent_id, enabled);
+
+
+--
+-- Name: index_automation_rules_on_truncated_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_automation_rules_on_truncated_id ON public.automation_rules USING btree (truncated_id);
+
+
+--
+-- Name: index_automation_rules_on_updated_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_updated_by_id ON public.automation_rules USING btree (updated_by_id);
+
+
+--
+-- Name: index_automation_rules_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_rules_on_user_id ON public.automation_rules USING btree (user_id);
+
+
+--
+-- Name: index_automation_rules_on_webhook_path; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_automation_rules_on_webhook_path ON public.automation_rules USING btree (webhook_path) WHERE (webhook_path IS NOT NULL);
+
+
+--
+-- Name: index_automation_run_resources_on_resource; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_run_resources_on_resource ON public.automation_rule_run_resources USING btree (resource_type, resource_id);
+
+
+--
+-- Name: index_automation_run_resources_on_tenant_and_resource; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_automation_run_resources_on_tenant_and_resource ON public.automation_rule_run_resources USING btree (tenant_id, resource_type, resource_id);
 
 
 --
@@ -3659,6 +3896,13 @@ CREATE INDEX index_votes_on_tenant_id ON public.votes USING btree (tenant_id);
 
 
 --
+-- Name: index_webhook_deliveries_on_automation_rule_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_webhook_deliveries_on_automation_rule_run_id ON public.webhook_deliveries USING btree (automation_rule_run_id);
+
+
+--
 -- Name: index_webhook_deliveries_on_event_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3684,62 +3928,6 @@ CREATE INDEX index_webhook_deliveries_on_status_and_next_retry_at ON public.webh
 --
 
 CREATE INDEX index_webhook_deliveries_on_tenant_id ON public.webhook_deliveries USING btree (tenant_id);
-
-
---
--- Name: index_webhook_deliveries_on_webhook_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhook_deliveries_on_webhook_id ON public.webhook_deliveries USING btree (webhook_id);
-
-
---
--- Name: index_webhooks_on_created_by_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_created_by_id ON public.webhooks USING btree (created_by_id);
-
-
---
--- Name: index_webhooks_on_superagent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_superagent_id ON public.webhooks USING btree (superagent_id);
-
-
---
--- Name: index_webhooks_on_superagent_id_and_enabled; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_superagent_id_and_enabled ON public.webhooks USING btree (superagent_id, enabled);
-
-
---
--- Name: index_webhooks_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_tenant_id ON public.webhooks USING btree (tenant_id);
-
-
---
--- Name: index_webhooks_on_tenant_id_and_enabled; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_tenant_id_and_enabled ON public.webhooks USING btree (tenant_id, enabled);
-
-
---
--- Name: index_webhooks_on_truncated_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_webhooks_on_truncated_id ON public.webhooks USING btree (truncated_id);
-
-
---
--- Name: index_webhooks_on_user_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_webhooks_on_user_id ON public.webhooks USING btree (user_id);
 
 
 --
@@ -7488,11 +7676,19 @@ ALTER TABLE ONLY public.ai_agent_task_run_resources
 
 
 --
--- Name: webhooks fk_rails_188617e004; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: automation_rules fk_rails_175ea68c06; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_188617e004 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
+ALTER TABLE ONLY public.automation_rules
+    ADD CONSTRAINT fk_rails_175ea68c06 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: webhook_deliveries fk_rails_17a316be6e; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT fk_rails_17a316be6e FOREIGN KEY (automation_rule_run_id) REFERENCES public.automation_rule_runs(id);
 
 
 --
@@ -7501,6 +7697,14 @@ ALTER TABLE ONLY public.webhooks
 
 ALTER TABLE ONLY public.invites
     ADD CONSTRAINT fk_rails_19f2570176 FOREIGN KEY (invited_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: automation_rule_run_resources fk_rails_23642e8a45; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_run_resources
+    ADD CONSTRAINT fk_rails_23642e8a45 FOREIGN KEY (automation_rule_run_id) REFERENCES public.automation_rule_runs(id);
 
 
 --
@@ -7624,6 +7828,14 @@ ALTER TABLE ONLY public.commitment_participants
 
 
 --
+-- Name: automation_rule_runs fk_rails_489983b9e8; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_runs
+    ADD CONSTRAINT fk_rails_489983b9e8 FOREIGN KEY (triggered_by_event_id) REFERENCES public.events(id);
+
+
+--
 -- Name: notes fk_rails_492bbd23f7; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7640,19 +7852,27 @@ ALTER TABLE ONLY public.commitments
 
 
 --
+-- Name: automation_rule_runs fk_rails_4e8a3745a1; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_runs
+    ADD CONSTRAINT fk_rails_4e8a3745a1 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
+
+
+--
+-- Name: automation_rule_runs fk_rails_505791fa36; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_runs
+    ADD CONSTRAINT fk_rails_505791fa36 FOREIGN KEY (automation_rule_id) REFERENCES public.automation_rules(id);
+
+
+--
 -- Name: notification_recipients fk_rails_51975e21a8; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.notification_recipients
     ADD CONSTRAINT fk_rails_51975e21a8 FOREIGN KEY (user_id) REFERENCES public.users(id);
-
-
---
--- Name: webhooks fk_rails_51bf96d3bc; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_51bf96d3bc FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -7701,6 +7921,14 @@ ALTER TABLE ONLY public.representation_session_events
 
 ALTER TABLE ONLY public.heartbeats
     ADD CONSTRAINT fk_rails_65aa64ba75 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: automation_rules fk_rails_67e5475e75; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rules
+    ADD CONSTRAINT fk_rails_67e5475e75 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
 
 
 --
@@ -7792,6 +8020,14 @@ ALTER TABLE ONLY public.decision_participants
 
 
 --
+-- Name: automation_rules fk_rails_858e51f175; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rules
+    ADD CONSTRAINT fk_rails_858e51f175 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: attachments fk_rails_87cce8e128; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7816,11 +8052,35 @@ ALTER TABLE ONLY public.representation_session_events
 
 
 --
+-- Name: automation_rule_runs fk_rails_8dea201cdb; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_runs
+    ADD CONSTRAINT fk_rails_8dea201cdb FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: representation_session_events fk_rails_901c70e333; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.representation_session_events
     ADD CONSTRAINT fk_rails_901c70e333 FOREIGN KEY (superagent_id) REFERENCES public.superagents(id);
+
+
+--
+-- Name: automation_rule_run_resources fk_rails_9206dc9615; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_run_resources
+    ADD CONSTRAINT fk_rails_9206dc9615 FOREIGN KEY (resource_superagent_id) REFERENCES public.superagents(id);
+
+
+--
+-- Name: automation_rules fk_rails_923f8bbd47; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rules
+    ADD CONSTRAINT fk_rails_923f8bbd47 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
 
 
 --
@@ -7880,6 +8140,14 @@ ALTER TABLE ONLY public.notification_recipients
 
 
 --
+-- Name: automation_rule_run_resources fk_rails_a9f3201d54; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_run_resources
+    ADD CONSTRAINT fk_rails_a9f3201d54 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: events fk_rails_ae2d71ac2b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7920,11 +8188,11 @@ ALTER TABLE ONLY public.ai_agent_task_runs
 
 
 --
--- Name: webhook_deliveries fk_rails_bed195a05d; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ai_agent_task_runs fk_rails_c09b289302; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.webhook_deliveries
-    ADD CONSTRAINT fk_rails_bed195a05d FOREIGN KEY (webhook_id) REFERENCES public.webhooks(id);
+ALTER TABLE ONLY public.ai_agent_task_runs
+    ADD CONSTRAINT fk_rails_c09b289302 FOREIGN KEY (automation_rule_id) REFERENCES public.automation_rules(id);
 
 
 --
@@ -7941,14 +8209,6 @@ ALTER TABLE ONLY public.active_storage_attachments
 
 ALTER TABLE ONLY public.heartbeats
     ADD CONSTRAINT fk_rails_c4c1ea3d5d FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
--- Name: webhooks fk_rails_c7a17f683f; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_c7a17f683f FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -7989,6 +8249,14 @@ ALTER TABLE ONLY public.links
 
 ALTER TABLE ONLY public.api_tokens
     ADD CONSTRAINT fk_rails_ce1100e505 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: automation_rules fk_rails_cf6a0dd51b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rules
+    ADD CONSTRAINT fk_rails_cf6a0dd51b FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8072,14 +8340,6 @@ ALTER TABLE ONLY public.commitments
 
 
 --
--- Name: webhooks fk_rails_e567730fa3; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhooks
-    ADD CONSTRAINT fk_rails_e567730fa3 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
-
-
---
 -- Name: heartbeats fk_rails_ef017bd5f0; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8152,6 +8412,22 @@ ALTER TABLE ONLY public.superagents
 
 
 --
+-- Name: automation_rule_runs fk_rails_fc1435e77b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rule_runs
+    ADD CONSTRAINT fk_rails_fc1435e77b FOREIGN KEY (ai_agent_task_run_id) REFERENCES public.ai_agent_task_runs(id);
+
+
+--
+-- Name: automation_rules fk_rails_fdf6ac9d56; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.automation_rules
+    ADD CONSTRAINT fk_rails_fdf6ac9d56 FOREIGN KEY (ai_agent_id) REFERENCES public.users(id);
+
+
+--
 -- Name: representation_sessions fk_rails_fe74e74f22; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8171,7 +8447,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict tW3ZhhmfpDpacWGjIo2lsis8qr9giJ0UaKfebuS3Ro9FcuvaLo2Pob4dJl9WMG5
+\unrestrict IKEab0vq4eBkb83mWQWJWJzU4YsZi2WwUP3CPmuqfVBL9roH8XUWGWLCnBtbLau
 
 SET search_path TO "$user", public;
 
@@ -8322,6 +8598,17 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260210000002'),
 ('20260210000003'),
 ('20260210234230'),
-('20260211114428');
+('20260211114428'),
+('20260211200000'),
+('20260211200001'),
+('20260211200002'),
+('20260212062528'),
+('20260212212340'),
+('20260214192742'),
+('20260214205415'),
+('20260214205558'),
+('20260214210049'),
+('20260215202823'),
+('20260216154858');
 
 

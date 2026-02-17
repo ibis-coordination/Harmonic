@@ -1,0 +1,62 @@
+# Settings - <%= @ai_agent.display_name %>
+
+## Profile
+
+| Property | Value |
+|----------|-------|
+| Name | <%= @ai_agent.name %> |
+| Handle | `<%= @ai_agent.handle %>` |
+| Mode | <%= @ai_agent.internal_ai_agent? ? "Internal" : "External" %> |
+<% if @ai_agent.internal_ai_agent? %>
+| Model | `<%= @ai_agent.agent_configuration&.dig("model") || "default" %>` |
+<% end %>
+
+<% if @ai_agent.internal_ai_agent? && @ai_agent.agent_configuration&.dig("identity_prompt").present? %>
+## Identity Prompt
+
+```
+<%= @ai_agent.agent_configuration&.dig("identity_prompt") %>
+```
+<% end %>
+
+<% if @ai_agent_studios.any? %>
+## Studio Memberships
+
+<% @ai_agent_studios.each do |studio| %>
+* [<%= studio.name %>](<%= studio.path %>)
+<% end %>
+<% end %>
+
+<% if @available_studios.any? %>
+## Add to Studio
+
+Add this agent (ID: `<%= @ai_agent.id %>`) to one of your studios:
+
+<% @available_studios.each do |studio| %>
+* [<%= studio.name %>](<%= studio.path %>/settings/actions/add_ai_agent_to_studio) - use `ai_agent_id: <%= @ai_agent.id %>`
+<% end %>
+<% end %>
+
+## API Tokens
+
+<% if @ai_agent.api_tokens.external.any? %>
+| Name | Created | Last Used | Expires | Status |
+|------|---------|-----------|---------|--------|
+<% @ai_agent.api_tokens.external.each do |token| %>
+| <%= token.name || 'Unnamed' %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Active' : 'Inactive' %> |
+<% end %>
+<% else %>
+This agent has no API tokens.
+<% end %>
+
+<% if @ai_agent.external_ai_agent? %>
+* [Create Token](<%= @ai_agent.path %>/settings/tokens/new)
+<% else %>
+*Internal agents cannot have API tokens.*
+<% end %>
+
+## Navigation
+
+* [Back to <%= @ai_agent.display_name %>](/ai-agents/<%= @ai_agent.handle %>)
+* [Automations](/ai-agents/<%= @ai_agent.handle %>/automations)
+* [Back to AI Agents](/ai-agents)

@@ -1122,8 +1122,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     ApiToken.where(name: "Security Test Token", user: @user).destroy_all
   end
 
-  test "GET /u/:handle/settings/ai-agents/new returns 200 markdown with actions in frontmatter" do
-    get "/u/#{@user.handle}/settings/ai-agents/new", headers: @headers
+  test "GET /ai-agents/new returns 200 markdown with actions in frontmatter" do
+    get "/ai-agents/new", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
     assert has_action_in_frontmatter?("create_ai_agent"), "Should show create_ai_agent action in frontmatter"
@@ -1132,7 +1132,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   test "POST create_ai_agent action creates ai_agent and returns 200 markdown" do
     ai_agent_name = "Test AiAgent #{SecureRandom.hex(4)}"
     initial_count = @user.ai_agents.count
-    post "/u/#{@user.handle}/settings/ai-agents/new/actions/create_ai_agent",
+    post "/ai-agents/new/actions/create_ai_agent",
       params: { name: ai_agent_name }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -1153,7 +1153,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   test "POST create_ai_agent action with generate_token creates ai_agent with token" do
     ai_agent_name = "AiAgent With Token #{SecureRandom.hex(4)}"
-    post "/u/#{@user.handle}/settings/ai-agents/new/actions/create_ai_agent",
+    post "/ai-agents/new/actions/create_ai_agent",
       params: { name: ai_agent_name, generate_token: true }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -1306,7 +1306,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # Try to create a ai_agent - should be blocked by capability check
-    post "/u/#{ai_agent.handle}/settings/ai-agents/new/actions/create_ai_agent",
+    post "/ai-agents/new/actions/create_ai_agent",
       params: { name: "Nested AiAgent" }.to_json,
       headers: ai_agent_headers
     assert_equal 403, response.status
@@ -1341,7 +1341,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # Try to access create ai_agent page - should be blocked
-    get "/u/#{ai_agent.handle}/settings/ai-agents/new", headers: ai_agent_headers
+    get "/ai-agents/new", headers: ai_agent_headers
     assert_equal 403, response.status
     assert_match(/Only human accounts can create AI agents/, response.body)
   ensure

@@ -1,0 +1,22 @@
+# Automations - <%= @current_superagent.name %>
+
+Studio automations run actions (webhooks, internal actions) in response to events or schedules.
+
+<% if @automation_rules.empty? -%>
+*No automations configured yet.*
+
+## Quick Start
+
+[Create New Automation](<%= automations_index_path %>/new)
+<% else -%>
+| Name | Trigger | Status | Runs | Last Run | Next Scheduled Run |
+|------|---------|--------|------|----------|-------------------|
+<% @automation_rules.each do |rule| -%>
+| [<%= rule.name %>](<%= automation_path(rule) %>) | <%= rule.trigger_type %><% if rule.trigger_type == 'event' %> (<%= rule.event_type %>)<% end %> | <%= rule.enabled? ? "Enabled" : "Disabled" %> | <%= rule.execution_count %> | <%= rule.last_executed_at ? time_ago_in_words(rule.last_executed_at) + " ago" : "Never" %> | <%= rule.next_scheduled_run ? rule.next_scheduled_run.strftime("%Y-%m-%d %H:%M %Z") : "" %> |
+<% end -%>
+<% end -%>
+
+## Navigation
+
+* [New Automation](<%= automations_index_path %>/new)
+* [Back to Studio Settings](<%= @current_superagent.path %>/settings)

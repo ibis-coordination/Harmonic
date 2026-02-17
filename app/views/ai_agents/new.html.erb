@@ -19,7 +19,7 @@
   <div class="pulse-resource-body">
     <p>AI Agents are identities for AI agents managed by you, the primary agent.</p>
 
-    <%= form_with url: "#{@current_user.path}/settings/ai-agents", class: "pulse-form", data: { controller: "ai-agent-mode" } do |form| %>
+    <%= form_with url: "/ai-agents/new/actions/create_ai_agent", class: "pulse-form", data: { controller: "ai-agent-mode" } do |form| %>
       <section class="pulse-settings-section">
         <label for="name" class="pulse-label">Name</label>
         <%= form.text_field :name, placeholder: 'My Assistant', class: "pulse-form-input" %>

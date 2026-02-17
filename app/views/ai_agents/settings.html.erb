@@ -1,0 +1,168 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@ai_agent.handle}"],
+  'Settings'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'gear', height: 14, class: 'pulse-resource-icon' %>
+        Settings
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Settings - <%= @ai_agent.display_name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if flash[:notice] %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;">
+        <%= flash[:notice] %>
+      </div>
+    <% end %>
+
+    <% if flash[:error] %>
+      <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 20px;">
+        <%= flash[:error] %>
+      </div>
+    <% end %>
+
+    <form action="/ai-agents/<%= @ai_agent.handle %>/settings" method="post" class="pulse-form">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+
+      <section class="pulse-settings-section">
+        <h3>Profile</h3>
+
+        <div class="pulse-form-group">
+          <label for="name" class="pulse-label">Name</label>
+          <input type="text" id="name" name="name" value="<%= @ai_agent.name %>" class="pulse-form-input">
+        </div>
+
+        <div class="pulse-form-group">
+          <label for="new_handle" class="pulse-label">Handle</label>
+          <input type="text" id="new_handle" name="new_handle" value="<%= @ai_agent.handle %>" class="pulse-form-input">
+          <small class="pulse-hint">The handle is used in URLs and @mentions</small>
+        </div>
+      </section>
+
+      <% if @ai_agent.internal_ai_agent? %>
+        <section class="pulse-settings-section">
+          <h3>Agent Configuration</h3>
+
+          <div class="pulse-form-group">
+            <label for="model" class="pulse-label">Model</label>
+            <select id="model" name="model" class="pulse-form-input">
+              <option value="" <%= @ai_agent.agent_configuration&.dig("model").nil? ? "selected" : "" %>>Default</option>
+              <option value="claude-3-5-sonnet" <%= @ai_agent.agent_configuration&.dig("model") == "claude-3-5-sonnet" ? "selected" : "" %>>Claude 3.5 Sonnet</option>
+              <option value="claude-3-5-haiku" <%= @ai_agent.agent_configuration&.dig("model") == "claude-3-5-haiku" ? "selected" : "" %>>Claude 3.5 Haiku</option>
+              <option value="claude-3-opus" <%= @ai_agent.agent_configuration&.dig("model") == "claude-3-opus" ? "selected" : "" %>>Claude 3 Opus</option>
+            </select>
+            <small class="pulse-hint">The AI model used for this agent's tasks</small>
+          </div>
+
+          <div class="pulse-form-group">
+            <label for="identity_prompt" class="pulse-label">Identity Prompt</label>
+            <textarea id="identity_prompt" name="identity_prompt" rows="6" class="pulse-form-input"><%= @ai_agent.agent_configuration&.dig("identity_prompt") %></textarea>
+            <small class="pulse-hint">Custom instructions that define this agent's personality and behavior</small>
+          </div>
+        </section>
+      <% end %>
+
+      <section class="pulse-settings-section pulse-action-row">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Save Settings</button>
+        <a href="/ai-agents/<%= @ai_agent.handle %>" class="pulse-action-btn">Cancel</a>
+      </section>
+    </form>
+
+    <% if @ai_agent_studios.any? %>
+      <section class="pulse-settings-section">
+        <h3>Studio Memberships</h3>
+        <ul class="pulse-list">
+          <% @ai_agent_studios.each do |studio| %>
+            <li class="pulse-list-item">
+              <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
+            </li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+
+    <% if @available_studios.any? %>
+      <section class="pulse-settings-section">
+        <h3>Add to Studio</h3>
+        <p class="pulse-hint">Add this agent to one of your studios</p>
+        <ul class="pulse-list">
+          <% @available_studios.each do |studio| %>
+            <li class="pulse-list-item" style="display: flex; align-items: center; justify-content: space-between;">
+              <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
+              <%= form_with url: "#{studio.path}/settings/add_ai_agent", method: :post, local: true, style: "margin: 0;" do %>
+                <%= hidden_field_tag :ai_agent_id, @ai_agent.id %>
+                <%= hidden_field_tag :return_to, "/ai-agents/#{@ai_agent.handle}/settings" %>
+                <%= submit_tag "Add", class: "pulse-action-btn-small" %>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+
+    <section class="pulse-settings-section">
+      <h3>API Tokens</h3>
+      <% if @ai_agent.api_tokens.external.any? %>
+        <div class="pulse-table-wrapper">
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Token</th>
+                <th>Created</th>
+                <th>Last Used</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @ai_agent.api_tokens.external.each do |token| %>
+                <tr>
+                  <td><%= token.name || 'Unnamed' %></td>
+                  <td>
+                    <code class="pulse-code"><%= token.obfuscated_token %></code>
+                    <% if token.plaintext_token.present? %>
+                      <%= render 'shared/copy_button', text: token.plaintext_token %>
+                    <% end %>
+                  </td>
+                  <td><%= timeago(token.created_at) %></td>
+                  <td><%= token.last_used_at ? timeago(token.last_used_at) : 'Never' %></td>
+                  <td><%= timeago(token.expires_at) %></td>
+                  <td>
+                    <% if token.active? %>
+                      <span class="pulse-badge pulse-badge-success">Active</span>
+                    <% else %>
+                      <span class="pulse-badge pulse-badge-muted">Inactive</span>
+                    <% end %>
+                  </td>
+                  <td><a href="<%= token.path %>" class="pulse-link">View</a></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <p class="pulse-hint">This agent has no API tokens.</p>
+      <% end %>
+
+      <% if @ai_agent.external_ai_agent? %>
+        <div class="pulse-form-actions" style="margin-top:12px;">
+          <a href="<%= @ai_agent.path %>/settings/tokens/new" class="pulse-action-btn-small">
+            <%= octicon 'key', height: 12 %>
+            Create Token
+          </a>
+        </div>
+      <% else %>
+        <p class="pulse-hint" style="margin-top:12px; font-style: italic;">Internal agents cannot have API tokens.</p>
+      <% end %>
+    </section>
+  </div>
+</article>

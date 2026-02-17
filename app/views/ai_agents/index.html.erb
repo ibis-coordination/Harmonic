@@ -10,7 +10,7 @@
         <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
         AI Agents
       </span>
-      <a href="<%= @current_user.path %>/settings/ai-agents/new" class="pulse-feed-action-link" style="margin-left: auto;">
+      <a href="/ai-agents/new" class="pulse-feed-action-link" style="margin-left: auto;">
         <%= octicon 'plus', height: 14 %> Create AI Agent
       </a>
     </div>
@@ -37,7 +37,7 @@
               <img src="<%= ai_agent.image_url %>" alt="<%= ai_agent.name %>" class="pulse-ai-agent-avatar">
               <div class="pulse-ai-agent-info">
                 <div class="pulse-ai-agent-name">
-                  <a href="<%= ai_agent.path %>"><%= ai_agent.name %></a>
+                  <a href="/ai-agents/<%= ai_agent.handle %>"><%= ai_agent.name %></a>
                   <% if ai_agent.archived? %>
                     <span class="pulse-badge pulse-badge-muted">Archived</span>
                   <% end %>
@@ -52,7 +52,7 @@
                 <% latest_run = @latest_runs_by_ai_agent[ai_agent.id] %>
                 <% if latest_run %>
                   <div class="pulse-ai-agent-latest-run" style="margin-top: 4px;">
-                    <a href="<%= ai_agent_run_path(ai_agent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id }&.handle, latest_run.id) %>" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; text-decoration: none;">
+                    <a href="<%= ai_agent_run_path(ai_agent.handle, latest_run.id) %>" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; text-decoration: none;">
                       <span class="pulse-muted">Last run <%= timeago(latest_run.created_at) %></span>
                       <span class="pulse-badge <%= latest_run.status_badge_class %>" style="font-size: 10px;">
                         <% case latest_run.status %>
@@ -78,8 +78,11 @@
                   <a href="<%= ai_agent_runs_path(ai_agent.handle) %>" class="pulse-action-btn-small">
                     <%= octicon 'history', height: 12 %> Runs
                   </a>
+                  <a href="/ai-agents/<%= ai_agent.handle %>/automations" class="pulse-action-btn-small">
+                    <%= octicon 'zap', height: 12 %> Automations
+                  </a>
                 <% end %>
-                <a href="<%= ai_agent.path %>/settings" class="pulse-action-btn-small">Settings</a>
+                <a href="/ai-agents/<%= ai_agent.handle %>/settings" class="pulse-action-btn-small">Settings</a>
               </div>
             </div>
 
@@ -103,7 +106,7 @@
         <%= octicon 'command-palette', height: 48, class: 'pulse-muted' %>
         <h3 style="margin: 16px 0 8px 0;">No AI Agents Yet</h3>
         <p class="pulse-muted" style="margin-bottom: 16px;">Create an AI Agent to start running automated tasks.</p>
-        <a href="<%= @current_user.path %>/settings/ai-agents/new" class="pulse-action-btn">
+        <a href="/ai-agents/new" class="pulse-action-btn">
           <%= octicon 'person-add', height: 14 %>
           Create AI Agent
         </a>

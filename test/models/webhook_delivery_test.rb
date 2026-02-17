@@ -5,12 +5,22 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
     @tenant, @superagent, @user = create_tenant_superagent_user
     Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
 
-    @webhook = Webhook.create!(
+    @automation_rule = AutomationRule.create!(
       tenant: @tenant,
-      name: "Test Webhook",
-      url: "https://example.com/webhook",
-      events: ["note.created"],
+      superagent: @superagent,
+      name: "Test Automation",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/webhook" }],
       created_by: @user,
+    )
+
+    @automation_run = AutomationRuleRun.create!(
+      tenant: @tenant,
+      superagent: @superagent,
+      automation_rule: @automation_rule,
+      trigger_source: "event",
+      status: "running",
     )
 
     @event = Event.create!(
@@ -21,10 +31,13 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
     )
   end
 
-  test "valid delivery creation" do
+  test "valid delivery creation with automation_rule_run" do
     delivery = WebhookDelivery.new(
-      webhook: @webhook,
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "pending",
       attempt_count: 0,
       request_body: '{"test":"data"}',
@@ -32,10 +45,27 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
     assert delivery.valid?
   end
 
+  test "requires automation_rule_run" do
+    delivery = WebhookDelivery.new(
+      tenant: @tenant,
+      event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
+      status: "pending",
+      attempt_count: 0,
+      request_body: '{"test":"data"}',
+    )
+    assert_not delivery.valid?
+    assert_includes delivery.errors[:automation_rule_run], "must exist"
+  end
+
   test "requires valid status" do
     delivery = WebhookDelivery.new(
-      webhook: @webhook,
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "invalid",
       attempt_count: 0,
       request_body: '{"test":"data"}',
@@ -70,16 +100,22 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
 
   test "pending scope returns pending deliveries" do
     pending_delivery = WebhookDelivery.create!(
-      webhook: @webhook,
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "pending",
       attempt_count: 0,
       request_body: '{"test":"data"}',
     )
 
     WebhookDelivery.create!(
-      webhook: @webhook,
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "success",
       attempt_count: 1,
       request_body: '{"test":"data"}',
@@ -92,16 +128,22 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
 
   test "failed scope returns failed deliveries" do
     WebhookDelivery.create!(
-      webhook: @webhook,
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "pending",
       attempt_count: 0,
       request_body: '{"test":"data"}',
     )
 
     failed_delivery = WebhookDelivery.create!(
-      webhook: @webhook,
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "failed",
       attempt_count: 5,
       request_body: '{"test":"data"}',
@@ -114,8 +156,11 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
 
   test "needs_retry scope returns deliveries ready for retry" do
     WebhookDelivery.create!(
-      webhook: @webhook,
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "retrying",
       attempt_count: 1,
       request_body: '{"test":"data"}',
@@ -123,8 +168,11 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
     )
 
     ready_delivery = WebhookDelivery.create!(
-      webhook: @webhook,
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "retrying",
       attempt_count: 1,
       request_body: '{"test":"data"}',
@@ -136,22 +184,19 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
     assert_equal ready_delivery.id, needs_retry.first.id
   end
 
-  test "validates tenant matches webhook tenant" do
-    other_tenant = Tenant.create!(
-      name: "Other Tenant",
-      subdomain: "other-tenant-#{SecureRandom.hex(4)}",
-    )
-
-    delivery = WebhookDelivery.new(
-      tenant: other_tenant,
-      webhook: @webhook,
+  test "automation_rule_run association" do
+    delivery = WebhookDelivery.create!(
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
       event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
       status: "pending",
       attempt_count: 0,
       request_body: '{"test":"data"}',
     )
 
-    assert_not delivery.valid?
-    assert_includes delivery.errors[:tenant], "must match webhook tenant"
+    assert_equal @automation_run, delivery.automation_rule_run
+    assert_includes @automation_run.webhook_deliveries, delivery
   end
 end

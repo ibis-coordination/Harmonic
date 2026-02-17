@@ -133,7 +133,6 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
   end
 
   test "create with read-only token returns forbidden" do
-    skip "Bug: api_tokens not recognized as valid resource for scope validation"
     @api_token.update!(scopes: ApiToken.read_scopes)
     token_params = { name: "Test", scopes: ["read:all"] }
     post api_path, params: token_params.to_json, headers: @headers
@@ -220,7 +219,6 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
 
   # Token scopes
   test "token with read scope can read but not write" do
-    skip "Bug: api_tokens not recognized as valid resource for scope validation"
     read_only_token = ApiToken.create!(
       tenant: @tenant,
       user: @user,
@@ -304,5 +302,80 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     # Find the newly created token
     created_token = ApiToken.order(created_at: :desc).first
     assert_not created_token.internal?, "Token should be external even though internal: true was passed"
+  end
+
+  # === Authorization Tests ===
+
+  test "user cannot create token for another human user" do
+    other_user = create_user(name: "Other User")
+    @tenant.add_user!(other_user)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "ApiToken.count" do
+      post "/u/#{other_user.handle}/settings/tokens", params: {
+        api_token: { name: "Attempted Token", read_write: "read" },
+      }
+    end
+
+    assert_response :forbidden
+  end
+
+  test "user cannot create token for another user's AI agent" do
+    other_user = create_user(name: "Other Parent")
+    @tenant.add_user!(other_user)
+    other_ai_agent = create_ai_agent(parent: other_user, name: "Other Agent")
+    @tenant.add_user!(other_ai_agent)
+    # Make it external so it can have tokens
+    other_ai_agent.agent_configuration = { "mode" => "external" }
+    other_ai_agent.save!
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "ApiToken.count" do
+      post "/u/#{other_ai_agent.handle}/settings/tokens", params: {
+        api_token: { name: "Attempted Token", read_write: "read" },
+      }
+    end
+
+    assert_response :forbidden
+  end
+
+  test "parent can create token for their own AI agent" do
+    ai_agent = create_ai_agent(parent: @user, name: "My Agent")
+    @tenant.add_user!(ai_agent)
+    # Make it external so it can have tokens
+    ai_agent.agent_configuration = { "mode" => "external" }
+    ai_agent.save!
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "ApiToken.count", 1 do
+      post "/u/#{ai_agent.handle}/settings/tokens", params: {
+        api_token: { name: "Agent Token", read_write: "read" },
+      }
+    end
+
+    # Token should be associated with the AI agent, not the parent
+    created_token = ApiToken.order(created_at: :desc).first
+    assert_equal ai_agent.id, created_token.user_id
+  end
+
+  test "cannot create token for internal AI agent" do
+    ai_agent = create_ai_agent(parent: @user, name: "Internal Agent")
+    @tenant.add_user!(ai_agent)
+    # Keep it internal (default)
+    ai_agent.agent_configuration = { "mode" => "internal" }
+    ai_agent.save!
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "ApiToken.count" do
+      post "/u/#{ai_agent.handle}/settings/tokens", params: {
+        api_token: { name: "Attempted Token", read_write: "read" },
+      }
+    end
+
+    assert_response :forbidden
   end
 end

@@ -48,8 +48,8 @@ class NotificationDispatcher
     # Only notify users who have access to the superagent
     mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
 
-    # Trigger agent tasks for any mentioned AI agents
-    trigger_ai_agent_tasks(event, mentioned_users, note.path)
+    # Filter out AI agents (they don't receive notifications, they use automation rules)
+    mentioned_users = mentioned_users.reject(&:ai_agent?)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -74,17 +74,10 @@ class NotificationDispatcher
     commentable = comment.commentable
     return unless commentable
 
-    # Trigger agent tasks for AI agents who have commented on this content
-    # This allows AI agents to respond when someone continues a conversation
-    ai_agent_commenters = find_ai_agent_commenters(commentable, exclude_user_id: event.actor_id)
-    trigger_ai_agent_tasks(event, ai_agent_commenters, get_path(commentable))
-
-    # Notify the owner of the content being commented on
+    # Notify the owner of the content being commented on (skip AI agents - they use automation rules)
     owner = get_created_by(commentable)
     return if owner.nil? || owner.id == event.actor_id
-
-    # Trigger agent task if the content owner is an AI agent (and not already triggered above)
-    trigger_ai_agent_tasks(event, [owner], get_path(commentable)) unless ai_agent_commenters.any? { |u| u.id == owner.id }
+    return if owner.ai_agent?
 
     actor_name = event.actor&.display_name || "Someone"
     content_type = commentable.class.name.underscore.humanize.downcase
@@ -106,18 +99,11 @@ class NotificationDispatcher
     commentable = comment.commentable
     return unless commentable
 
-    # Trigger agent tasks for AI agents who have commented on this content
-    # This allows AI agents to respond when someone continues a conversation
-    ai_agent_commenters = find_ai_agent_commenters(commentable, exclude_user_id: event.actor_id)
-    trigger_ai_agent_tasks(event, ai_agent_commenters, get_path(commentable))
-
-    # Only notify users who have access to the superagent
+    # Only notify users who have access to the superagent (skip AI agents - they use automation rules)
     owner = get_created_by(commentable)
     return if owner.nil? || owner.id == event.actor_id
     return unless user_can_access_superagent?(event, owner)
-
-    # Trigger agent task if the content owner is an AI agent (and not already triggered above)
-    trigger_ai_agent_tasks(event, [owner], get_path(commentable)) unless ai_agent_commenters.any? { |u| u.id == owner.id }
+    return if owner.ai_agent?
 
     actor_name = event.actor&.display_name || "Someone"
     content_type = commentable.class.name.underscore.humanize.downcase
@@ -247,8 +233,8 @@ class NotificationDispatcher
     # Only notify users who have access to the superagent
     mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
 
-    # Trigger agent tasks for any mentioned AI agents
-    trigger_ai_agent_tasks(event, mentioned_users, decision.path)
+    # Filter out AI agents (they don't receive notifications, they use automation rules)
+    mentioned_users = mentioned_users.reject(&:ai_agent?)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -281,8 +267,8 @@ class NotificationDispatcher
     # Only notify users who have access to the superagent
     mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
 
-    # Trigger agent tasks for any mentioned AI agents
-    trigger_ai_agent_tasks(event, mentioned_users, commitment.path)
+    # Filter out AI agents (they don't receive notifications, they use automation rules)
+    mentioned_users = mentioned_users.reject(&:ai_agent?)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -316,8 +302,8 @@ class NotificationDispatcher
     # Only notify users who have access to the superagent
     mentioned_users = mentioned_users.select { |u| user_can_access_superagent?(event, u) }
 
-    # Trigger agent tasks for any mentioned AI agents
-    trigger_ai_agent_tasks(event, mentioned_users, decision&.path)
+    # Filter out AI agents (they don't receive notifications, they use automation rules)
+    mentioned_users = mentioned_users.reject(&:ai_agent?)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -398,19 +384,6 @@ class NotificationDispatcher
     commitment.participants.includes(:user).map(&:user).compact
   end
 
-  # Find AI agents who have previously commented on this content
-  sig { params(commentable: T.untyped, exclude_user_id: T.nilable(String)).returns(T::Array[User]) }
-  def self.find_ai_agent_commenters(commentable, exclude_user_id: nil)
-    # Comments are Notes with a commentable association (bypass superagent scope)
-    comments = Note.tenant_scoped_only(commentable.tenant_id).where(commentable: commentable).includes(:created_by)
-    commenters = comments.map(&:created_by).compact.uniq
-
-    # Filter to AI agents only, excluding the specified user
-    commenters.select do |user|
-      user.ai_agent? && user.id != exclude_user_id
-    end
-  end
-
   # Check if a user has access to the superagent where the event occurred
   sig { params(event: Event, user: User).returns(T::Boolean) }
   def self.user_can_access_superagent?(event, user)
@@ -418,49 +391,6 @@ class NotificationDispatcher
     superagent_member.present? && !superagent_member.archived?
   end
 
-  # Trigger agent tasks for any AI agents in the mentioned users list
-  sig { params(event: Event, mentioned_users: T::Array[User], item_path: T.nilable(String)).void }
-  def self.trigger_ai_agent_tasks(event, mentioned_users, item_path)
-    tenant = event.tenant
-    return unless tenant&.ai_agents_enabled?
-
-    ai_agents = mentioned_users.select(&:ai_agent?)
-    return if ai_agents.empty?
-
-    ai_agents.each do |ai_agent|
-      # Rate limit: max 3 task triggers per minute per AI agent
-      recent_runs = AiAgentTaskRun
-        .where(ai_agent: ai_agent, tenant_id: event.tenant_id)
-        .where("created_at > ?", 1.minute.ago)
-        .count
-
-      if recent_runs >= 3
-        Rails.logger.info("Rate limiting AI agent task for #{ai_agent.id}")
-        next
-      end
-
-      # Create the task run record with "queued" status
-      AiAgentTaskRun.create_queued(
-        ai_agent: ai_agent,
-        tenant: tenant,
-        initiated_by: event.actor,
-        task: build_task_prompt(event, item_path)
-      )
-
-      # Kick off the queue processor
-      AgentQueueProcessorJob.perform_later(ai_agent_id: ai_agent.id, tenant_id: event.tenant_id)
-    end
-  end
-
-  # Build the task prompt for an agent based on trigger context
-  sig { params(event: Event, item_path: T.nilable(String)).returns(String) }
-  def self.build_task_prompt(event, item_path)
-    # actor_name = event.actor&.display_name || "Someone"
-    # "You were mentioned by #{actor_name}. Navigate to #{item_path} to see the context and respond appropriately by adding a comment."
-    "Navigate to /notifications to see if you have any notifications. If you do, respond appropriately, take necessary action, and clear your notifications when complete. If not, explore the recent activity of your studios and contribute where it would be helpful."
-  end
-
   private_class_method :get_created_by, :get_path, :decision_participants, :commitment_participants,
-                       :find_ai_agent_commenters, :user_can_access_superagent?, :trigger_ai_agent_tasks,
-                       :build_task_prompt
+                       :user_can_access_superagent?
 end

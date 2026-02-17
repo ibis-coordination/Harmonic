@@ -777,22 +777,35 @@ class ApiHelper
 
   private
 
-  # Track resources created during an AiAgentTaskRun for traceability
+  # Track resources created during an AiAgentTaskRun or AutomationRuleRun for traceability
   sig { params(resource: T.untyped, action_type: String).void }
   def track_task_run_resource(resource, action_type:)
-    return unless AiAgentTaskRun.current_id
     return unless resource.respond_to?(:superagent_id) && resource.superagent_id.present?
 
-    AiAgentTaskRunResource.create!(
-      ai_agent_task_run_id: AiAgentTaskRun.current_id,
-      resource: resource,
-      resource_superagent_id: resource.superagent_id,
-      action_type: action_type,
-      display_path: compute_display_path(resource),
-    )
+    # Track for AI agent task runs
+    if AiAgentTaskRun.current_id
+      AiAgentTaskRunResource.create!(
+        ai_agent_task_run_id: AiAgentTaskRun.current_id,
+        resource: resource,
+        resource_superagent_id: resource.superagent_id,
+        action_type: action_type,
+        display_path: compute_display_path(resource),
+      )
+    end
+
+    # Track for automation rule runs
+    if AutomationContext.current_run_id
+      AutomationRuleRunResource.create!(
+        automation_rule_run_id: AutomationContext.current_run_id,
+        resource: resource,
+        resource_superagent_id: resource.superagent_id,
+        action_type: action_type,
+        display_path: compute_display_path(resource),
+      )
+    end
   rescue ActiveRecord::RecordInvalid => e
     # Log but don't fail the main operation
-    Rails.logger.warn("Failed to track task run resource: #{e.message}")
+    Rails.logger.warn("Failed to track resource: #{e.message}")
   end
 
   # Compute the linkable path for a resource at creation time

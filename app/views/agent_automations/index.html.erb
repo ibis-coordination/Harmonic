@@ -1,0 +1,114 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@agent_handle}"],
+  'Automations'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'zap', height: 14, class: 'pulse-resource-icon' %>
+        Automations
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Automations for <%= @ai_agent.display_name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>Automations define when and how this AI agent should be triggered. Each automation specifies a trigger (like an event or schedule), optional conditions, and a task prompt.</p>
+
+    <p class="pulse-action-row">
+      <a href="/ai-agents/<%= @agent_handle %>/automations/new" class="pulse-action-btn pulse-action-btn-primary">
+        <%= octicon "plus" %> New Automation
+      </a>
+      <a href="/ai-agents/<%= @agent_handle %>/automations/templates" class="pulse-action-btn">
+        <%= octicon "repo-template" %> Templates
+      </a>
+    </p>
+
+    <% if @automation_rules.empty? %>
+      <p class="pulse-empty-content"><em>No automations configured yet.</em></p>
+      <p>Without automations, this AI agent will only respond when you manually trigger tasks.</p>
+
+      <%= render 'shared/pulse_accordion', title: 'Quick Start Templates', open: true do %>
+        <p>Get started quickly with a pre-configured template:</p>
+        <ul class="pulse-list">
+          <li class="pulse-list-item">
+            <a href="/ai-agents/<%= @agent_handle %>/automations/new?template=respond_to_mentions" class="pulse-link">
+              <strong>Respond to @ Mentions</strong>
+            </a>
+            - Trigger when this agent is @mentioned
+          </li>
+          <li class="pulse-list-item">
+            <a href="/ai-agents/<%= @agent_handle %>/automations/new?template=respond_to_comments" class="pulse-link">
+              <strong>Respond to Comments</strong>
+            </a>
+            - Trigger when someone comments on content created by this agent
+          </li>
+          <li class="pulse-list-item">
+            <a href="/ai-agents/<%= @agent_handle %>/automations/new?template=daily_summary" class="pulse-link">
+              <strong>Daily Summary</strong>
+            </a>
+            - Post a daily activity summary every morning
+          </li>
+        </ul>
+      <% end %>
+    <% else %>
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Trigger</th>
+            <th>Status</th>
+            <th>Runs</th>
+            <th>Last Run</th>
+            <th>Next Scheduled Run</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @automation_rules.each do |rule| %>
+            <tr>
+              <td>
+                <a href="/ai-agents/<%= @agent_handle %>/automations/<%= rule.truncated_id %>" class="pulse-link">
+                  <%= rule.name %>
+                </a>
+                <% if rule.description.present? %>
+                  <br><small class="pulse-hint"><%= truncate(rule.description, length: 60) %></small>
+                <% end %>
+              </td>
+              <td>
+                <span class="pulse-tag"><%= rule.trigger_type %></span>
+                <% if rule.trigger_type == 'event' %>
+                  <small class="pulse-hint"><%= rule.event_type %></small>
+                <% elsif rule.trigger_type == 'schedule' %>
+                  <small class="pulse-hint"><%= rule.cron_expression %></small>
+                <% end %>
+              </td>
+              <td>
+                <% if rule.enabled? %>
+                  <span class="pulse-tag pulse-tag-success">Enabled</span>
+                <% else %>
+                  <span class="pulse-tag">Disabled</span>
+                <% end %>
+              </td>
+              <td><%= rule.execution_count %></td>
+              <td>
+                <% if rule.last_executed_at %>
+                  <%= time_ago_in_words(rule.last_executed_at) %> ago
+                <% else %>
+                  <em>Never</em>
+                <% end %>
+              </td>
+              <td>
+                <% if rule.next_scheduled_run %>
+                  in <%= countdown(rule.next_scheduled_run, base_unit: 'minutes') %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
+</article>

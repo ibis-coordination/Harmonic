@@ -1,0 +1,99 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@agent_handle}"],
+  ['Automations', "/ai-agents/#{@agent_handle}/automations"],
+  'Templates'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'repo-template', height: 14, class: 'pulse-resource-icon' %>
+        Templates
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Automation Templates</h1>
+    <p class="pulse-resource-subtitle">Pre-configured automation patterns for <%= @ai_agent.display_name %></p>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>Select a template to quickly create a new automation. Templates provide a starting point that you can customize.</p>
+
+    <section class="pulse-settings-section">
+      <h3>Event-Triggered Automations</h3>
+      <p class="pulse-hint">Automations that trigger when specific events occur</p>
+
+      <div class="pulse-card-grid">
+        <% @templates.select { |t| t.trigger_type == 'event' }.each do |template| %>
+          <div class="pulse-card">
+            <h4><%= template.name %></h4>
+            <p><%= template.description %></p>
+            <p>
+              <a href="/ai-agents/<%= @agent_handle %>/automations/new?template=<%= template.key %>" class="pulse-action-btn pulse-action-btn-primary">
+                Use Template
+              </a>
+            </p>
+          </div>
+        <% end %>
+      </div>
+    </section>
+
+    <section class="pulse-settings-section">
+      <h3>Scheduled Automations</h3>
+      <p class="pulse-hint">Automations that run on a recurring schedule using cron expressions</p>
+
+      <div class="pulse-card-grid">
+        <% @templates.select { |t| t.trigger_type == 'schedule' }.each do |template| %>
+          <div class="pulse-card">
+            <h4><%= template.name %></h4>
+            <p><%= template.description %></p>
+            <p>
+              <a href="/ai-agents/<%= @agent_handle %>/automations/new?template=<%= template.key %>" class="pulse-action-btn pulse-action-btn-primary">
+                Use Template
+              </a>
+            </p>
+          </div>
+        <% end %>
+      </div>
+    </section>
+
+    <p class="pulse-action-row">
+      <a href="/ai-agents/<%= @agent_handle %>/automations/new" class="pulse-action-btn">
+        <%= octicon "plus" %> Create Custom Automation
+      </a>
+      <a href="/ai-agents/<%= @agent_handle %>/automations" class="pulse-action-btn">
+        Back to Automations
+      </a>
+    </p>
+  </div>
+</article>
+
+<style>
+.pulse-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.pulse-card {
+  border: 1px solid var(--pulse-border);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--pulse-bg);
+}
+
+.pulse-card h4 {
+  margin: 0 0 0.5rem 0;
+}
+
+.pulse-card p {
+  margin: 0.5rem 0;
+  color: var(--pulse-text-secondary);
+}
+
+.pulse-card p:last-child {
+  margin-bottom: 0;
+}
+</style>

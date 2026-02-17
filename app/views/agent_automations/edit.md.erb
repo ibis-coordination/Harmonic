@@ -1,0 +1,16 @@
+# Edit: <%= @automation_rule.name %>
+
+Edit the YAML configuration for this automation.
+
+## Current Configuration
+
+```yaml
+<%= raw @automation_rule.yaml_source %>
+```
+
+<%= render 'shared/automation_yaml_reference', automation_type: :agent %>
+
+## Navigation
+
+* [Back to Automation](/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>)
+* [Back to Automations](/ai-agents/<%= @agent_handle %>/automations)

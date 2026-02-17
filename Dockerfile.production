@@ -3,7 +3,7 @@
 # live code reloading.
 
 # Build stage - compile assets and install dependencies
-FROM ruby:3.1.7-slim AS builder
+FROM ruby:3.3.7-slim AS builder
 
 ENV RAILS_ENV=production
 ENV NODE_ENV=production
@@ -54,7 +54,7 @@ RUN rm -rf node_modules tmp/cache vendor/bundle/ruby/*/cache \
 
 
 # Runtime stage - minimal image for running the app
-FROM ruby:3.1.7-slim AS runtime
+FROM ruby:3.3.7-slim AS runtime
 
 ENV RAILS_ENV=production
 ENV BUNDLE_PATH=/gems

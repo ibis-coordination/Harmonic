@@ -7,8 +7,8 @@ class AttachmentTest < ActiveSupport::TestCase
     @tenant = Tenant.create!(subdomain: "attach-test-#{SecureRandom.hex(4)}", name: "Test Tenant")
     @user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
     @superagent = Superagent.create!(tenant: @tenant, created_by: @user, name: "Test Studio", handle: "test-studio-#{SecureRandom.hex(4)}")
-    Thread.current[:tenant_id] = @tenant.id
-    Thread.current[:superagent_id] = @superagent.id
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Superagent.set_thread_context(@superagent)
     @note = Note.create!(
       tenant: @tenant,
       superagent: @superagent,
@@ -20,8 +20,8 @@ class AttachmentTest < ActiveSupport::TestCase
   end
 
   def teardown
-    Thread.current[:tenant_id] = nil
-    Thread.current[:superagent_id] = nil
+    Tenant.clear_thread_scope
+    Superagent.clear_thread_scope
   end
 
   # Helper to create a valid PNG file (1x1 transparent pixel)

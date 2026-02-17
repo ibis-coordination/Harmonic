@@ -1,0 +1,62 @@
+# <%= @automation_rule.name %>
+
+**Status:** <%= @automation_rule.enabled? ? "Enabled" : "Disabled" %>
+<% if @automation_rule.description.present? -%>
+
+<%= @automation_rule.description %>
+<% end -%>
+
+## Trigger
+
+- **Type:** <%= @automation_rule.trigger_type %>
+<% if @automation_rule.trigger_type == 'event' -%>
+- **Event Type:** `<%= @automation_rule.event_type %>`
+<% if @automation_rule.mention_filter.present? -%>
+- **Mention Filter:** `<%= @automation_rule.mention_filter %>`
+<% end -%>
+<% elsif @automation_rule.trigger_type == 'schedule' -%>
+- **Cron:** `<%= @automation_rule.cron_expression %>`
+- **Timezone:** <%= @automation_rule.timezone %>
+<% end -%>
+
+<% if @automation_rule.conditions.present? && @automation_rule.conditions.any? -%>
+## Conditions
+
+| Field | Operator | Value |
+|-------|----------|-------|
+<% @automation_rule.conditions.each do |condition| -%>
+| `<%= condition['field'] %>` | `<%= condition['operator'] %>` | `<%= condition['value'] %>` |
+<% end -%>
+<% end -%>
+
+## Task Prompt
+
+```
+<%= @automation_rule.task_template %>
+```
+<% if @automation_rule.max_steps.present? -%>
+
+*Max steps: <%= @automation_rule.max_steps %>*
+<% end -%>
+
+## Statistics
+
+- **Total Executions:** <%= @automation_rule.execution_count %>
+- **Last Executed:** <%= @automation_rule.last_executed_at ? @automation_rule.last_executed_at.strftime('%Y-%m-%d %H:%M:%S %Z') : "Never" %>
+- **Created:** <%= @automation_rule.created_at.strftime('%Y-%m-%d %H:%M:%S %Z') %>
+
+<% if @recent_runs.any? -%>
+## Recent Runs
+
+| Time | Status | Trigger |
+|------|--------|---------|
+<% @recent_runs.first(5).each do |run| -%>
+| <%= time_ago_in_words(run.created_at) %> ago | <%= run.status %> | <%= run.trigger_source %> |
+<% end -%>
+<% end -%>
+
+## Navigation
+
+* [Edit](/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/edit)
+* [Run History](/ai-agents/<%= @agent_handle %>/automations/<%= @automation_rule.truncated_id %>/runs)
+* [Back to Automations](/ai-agents/<%= @agent_handle %>/automations)

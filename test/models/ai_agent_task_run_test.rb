@@ -286,4 +286,73 @@ class AiAgentTaskRunTest < ActiveSupport::TestCase
     total_cost = AiAgentTaskRun.total_cost_for_period(start_date, end_date)
     assert_equal 0, total_cost.to_f
   end
+
+  # === Automation Rule Tracking Tests ===
+
+  test "triggered_by_automation? returns false when automation_rule is nil" do
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      initiated_by: @user,
+      task: "Manual task",
+      max_steps: 10,
+      status: "queued"
+    )
+
+    assert_not task_run.triggered_by_automation?
+  end
+
+  test "triggered_by_automation? returns true when automation_rule is set" do
+    @tenant.set_feature_flag!("ai_agents", true)
+
+    automation_rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Test automation",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Do something" },
+      enabled: true
+    )
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      initiated_by: @user,
+      task: "Automated task",
+      max_steps: 10,
+      status: "queued",
+      automation_rule: automation_rule
+    )
+
+    assert task_run.triggered_by_automation?
+    assert_equal automation_rule, task_run.automation_rule
+  end
+
+  test "create_queued accepts automation_rule parameter" do
+    @tenant.set_feature_flag!("ai_agents", true)
+
+    automation_rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Test automation",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Do something" },
+      enabled: true
+    )
+
+    task_run = AiAgentTaskRun.create_queued(
+      ai_agent: @ai_agent,
+      tenant: @tenant,
+      initiated_by: @user,
+      task: "Test task",
+      automation_rule: automation_rule
+    )
+
+    assert_equal automation_rule, task_run.automation_rule
+    assert task_run.triggered_by_automation?
+  end
 end

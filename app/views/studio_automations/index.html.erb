@@ -1,0 +1,82 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_superagent.name, @current_superagent.path],
+  ['Settings', @current_superagent.path + '/settings'],
+  'Automations'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'zap', height: 14, class: 'pulse-resource-icon' %>
+        Automations
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Automations</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p class="pulse-action-row">
+      <a href="<%= automations_index_path %>/new" class="pulse-action-btn pulse-action-btn-primary">
+        <%= octicon "plus" %> New Automation
+      </a>
+    </p>
+
+    <% if @automation_rules.empty? %>
+      <p class="pulse-empty-content"><em>No automations configured yet.</em></p>
+      <p>Automations run actions (webhooks, trigger agents) in response to events or on a schedule.</p>
+    <% else %>
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Trigger</th>
+            <th>Status</th>
+            <th>Runs</th>
+            <th>Last Run</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @automation_rules.each do |rule| %>
+            <tr>
+              <td>
+                <a href="<%= automation_path(rule) %>" class="pulse-link">
+                  <%= rule.name %>
+                </a>
+              </td>
+              <td>
+                <span class="pulse-tag"><%= rule.trigger_type %></span>
+                <% if rule.trigger_type == 'event' && rule.event_type.present? %>
+                  <code><%= rule.event_type %></code>
+                <% elsif rule.trigger_type == 'schedule' && rule.cron_expression.present? %>
+                  <code><%= rule.cron_expression %></code>
+                <% end %>
+              </td>
+              <td>
+                <% if rule.enabled? %>
+                  <span class="pulse-tag pulse-tag-success">Enabled</span>
+                <% else %>
+                  <span class="pulse-tag">Disabled</span>
+                <% end %>
+              </td>
+              <td><%= rule.execution_count %></td>
+              <td>
+                <% if rule.last_executed_at %>
+                  <%= time_ago_in_words(rule.last_executed_at) %> ago
+                <% else %>
+                  <em>Never</em>
+                <% end %>
+              </td>
+              <td>
+                <a href="<%= automation_path(rule) %>" class="pulse-action-btn">
+                  View
+                </a>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
+</article>

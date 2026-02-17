@@ -1,0 +1,30 @@
+# Automation Templates
+
+Pre-configured automation patterns for <%= @ai_agent.display_name %>.
+
+## Event-Triggered Automations
+
+<% @templates.select { |t| t.trigger_type == 'event' }.each do |template| -%>
+### <%= template.name %>
+
+<%= template.description %>
+
+[Use this template](/ai-agents/<%= @agent_handle %>/automations/new?template=<%= template.key %>)
+
+<% end -%>
+
+## Scheduled Automations
+
+<% @templates.select { |t| t.trigger_type == 'schedule' }.each do |template| -%>
+### <%= template.name %>
+
+<%= template.description %>
+
+[Use this template](/ai-agents/<%= @agent_handle %>/automations/new?template=<%= template.key %>)
+
+<% end -%>
+
+## Navigation
+
+* [Create Custom Automation](/ai-agents/<%= @agent_handle %>/automations/new)
+* [Back to Automations](/ai-agents/<%= @agent_handle %>/automations)

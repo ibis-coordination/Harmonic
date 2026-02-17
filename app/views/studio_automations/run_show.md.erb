@@ -1,0 +1,170 @@
+# Run Details
+
+**Run ID:** `<%= @run.id %>`
+
+## Run Information
+
+| Field | Value |
+|-------|-------|
+| Status | <%= @run.status %> |
+| Trigger Source | <%= @run.trigger_source %> |
+| Created | <%= @run.created_at.strftime('%Y-%m-%d %H:%M:%S %Z') %> |
+<% if @run.started_at -%>
+| Started | <%= @run.started_at.strftime('%Y-%m-%d %H:%M:%S %Z') %> |
+<% end -%>
+<% if @run.completed_at -%>
+| Completed | <%= @run.completed_at.strftime('%Y-%m-%d %H:%M:%S %Z') %> |
+<% end -%>
+<% if @run.started_at && @run.completed_at -%>
+| Duration | <%= distance_of_time_in_words(@run.started_at, @run.completed_at) %> |
+<% end -%>
+<% if @run.error_message.present? -%>
+| Error | <%= @run.error_message %> |
+<% end -%>
+<% if @run.trigger_data&.dig("source_ip").present? -%>
+| Source IP | `<%= @run.trigger_data["source_ip"] %>` |
+<% end -%>
+
+<% if @run.triggered_by_event -%>
+## Triggering Event
+
+<% is_test_event = @run.triggered_by_event.event_type == "automation_rule.tested" -%>
+| Field | Value |
+|-------|-------|
+<% if is_test_event -%>
+| Type | Test Event |
+<% simulated_type = @run.triggered_by_event.metadata&.dig("simulated_event_type") -%>
+<% if simulated_type -%>
+| Simulating | `<%= simulated_type %>` |
+<% end -%>
+<% else -%>
+| Event Type | `<%= @run.triggered_by_event.event_type %>` |
+<% end -%>
+<% if @run.triggered_by_event.actor -%>
+| Actor | <%= @run.triggered_by_event.actor.display_name %> |
+<% end -%>
+| Created At | <%= @run.triggered_by_event.created_at.strftime('%Y-%m-%d %H:%M:%S %Z') %> |
+<% end -%>
+
+<% if @run.trigger_data.present? && @run.trigger_data.keys.any? { |k| k != "source_ip" } -%>
+## Trigger Data
+
+```json
+<%= JSON.pretty_generate(@run.trigger_data) %>
+```
+<% end -%>
+
+<% if @run.ai_agent_task_run -%>
+## AI Agent Task
+
+| Field | Value |
+|-------|-------|
+| Agent | <%= @run.ai_agent_task_run.ai_agent.display_name %> |
+| Task Status | <%= @run.ai_agent_task_run.status %> |
+| Steps | <%= @run.ai_agent_task_run.steps_completed %> / <%= @run.ai_agent_task_run.max_steps %> |
+| View Task | [<%= @run.ai_agent_task_run.path %>](<%= @run.ai_agent_task_run.path %>) |
+<% end -%>
+
+<% if @run.actions_executed.present? && @run.actions_executed.any? -%>
+## Actions Executed
+
+<% @run.actions_executed.each_with_index do |action, index| -%>
+<%
+  action_type = action["type"] || action[:type]
+  action_result = action["result"] || action[:result]
+-%>
+### Action <%= index + 1 %>: <%= action_type %>
+
+<% case action_type -%>
+<% when "webhook" -%>
+<%
+  delivery_id = action_result&.dig("delivery_id") || action_result&.dig(:delivery_id)
+  delivery = delivery_id && @webhook_deliveries.find { |d| d.id == delivery_id }
+-%>
+<% if delivery -%>
+| Field | Value |
+|-------|-------|
+| URL | `<%= delivery.url %>` |
+| Status | <%= delivery.status %> |
+<% if delivery.response_code -%>
+| Response Code | <%= delivery.response_code %> |
+<% end -%>
+| Attempts | <%= delivery.attempt_count %> |
+<% if delivery.delivered_at -%>
+| Delivered At | <%= delivery.delivered_at.strftime('%Y-%m-%d %H:%M:%S %Z') %> |
+<% end -%>
+<% if delivery.error_message.present? -%>
+| Error | <%= delivery.error_message %> |
+<% end -%>
+
+<% if delivery.request_body.present? -%>
+**Request Body:**
+```json
+<%= begin; JSON.pretty_generate(JSON.parse(delivery.request_body)); rescue; delivery.request_body; end %>
+```
+<% end -%>
+
+<% if delivery.response_body.present? -%>
+**Response Body:**
+```json
+<%= begin; JSON.pretty_generate(JSON.parse(delivery.response_body)); rescue; delivery.response_body; end %>
+```
+<% end -%>
+<% else -%>
+No webhook delivery recorded.
+<% end -%>
+
+<% when "trigger_agent" -%>
+<%
+  task_run_id = action_result&.dig("task_run_id") || action_result&.dig(:task_run_id)
+  task_run = task_run_id && AiAgentTaskRun.find_by(id: task_run_id)
+-%>
+<% if task_run -%>
+| Field | Value |
+|-------|-------|
+| Agent | <%= task_run.ai_agent.display_name %> |
+| Status | <%= task_run.status %> |
+| Steps | <%= task_run.steps_completed %> / <%= task_run.max_steps %> |
+| View | [<%= task_run.path %>](<%= task_run.path %>) |
+<% else -%>
+No task run recorded.
+<% end -%>
+
+<% when "internal_action" -%>
+| Field | Value |
+|-------|-------|
+| Action | `<%= action_result&.dig("action") || action_result&.dig(:action) %>` |
+<% if action_result&.dig("status") || action_result&.dig(:status) -%>
+| Status | <%= action_result&.dig("status") || action_result&.dig(:status) %> |
+<% end -%>
+
+<% if action_result&.dig("params") || action_result&.dig(:params) -%>
+**Parameters:**
+```json
+<%= JSON.pretty_generate(action_result&.dig("params") || action_result&.dig(:params)) %>
+```
+<% end -%>
+
+<% else -%>
+```json
+<%= JSON.pretty_generate(action) %>
+```
+<% end -%>
+
+<% end -%>
+<% end -%>
+
+<% if @webhook_deliveries.any? && @run.actions_executed.blank? -%>
+## Webhook Deliveries
+
+| URL | Status | Response | Attempts |
+|-----|--------|----------|----------|
+<% @webhook_deliveries.each do |delivery| -%>
+| `<%= truncate(delivery.url, length: 50) %>` | <%= delivery.status %> | <%= delivery.response_code || '-' %> | <%= delivery.attempt_count %> |
+<% end -%>
+<% end -%>
+
+## Navigation
+
+* [Back to Run History](<%= automation_path(@automation_rule) %>/runs)
+* [Back to Automation](<%= automation_path(@automation_rule) %>)

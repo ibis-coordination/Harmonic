@@ -137,6 +137,9 @@ class StudiosController < ApplicationController
       active_studio_ai_agent_ids = @studio_ai_agents.pluck(:id)
       addable_ids = user_ai_agent_ids - active_studio_ai_agent_ids
       @addable_ai_agents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+      # Automation counts for display
+      @enabled_automations_count = @current_superagent.automation_rules.where(enabled: true).count
+      @total_automations_count = @current_superagent.automation_rules.count
     else
 @sidebar_mode = 'minimal'
       return render layout: 'application', html: 'You must be an admin to access studio settings.'
@@ -199,7 +202,10 @@ class StudiosController < ApplicationController
       end
       format.html do
         flash[:notice] = "#{ai_agent.display_name} has been added to #{@current_superagent.name}"
-        redirect_to "#{@current_superagent.path}/settings"
+        # Only allow local redirects (paths starting with /)
+        return_path = params[:return_to]
+        redirect_path = return_path&.start_with?("/") ? return_path : "#{@current_superagent.path}/settings"
+        redirect_to redirect_path
       end
     end
   end

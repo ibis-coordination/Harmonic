@@ -1,7 +1,7 @@
 source "https://rubygems.org"
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-ruby "3.1.7"
+ruby "3.3.7"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 7.0.8"
@@ -102,6 +102,7 @@ group :development, :test do
 end
 
 gem 'sidekiq'
+gem 'sidekiq-cron' # Scheduled/recurring jobs
 
 gem 'omniauth-github'
 gem 'omniauth-rails_csrf_protection', '~> 1.0' # prevents forged authentication requests
@@ -119,6 +120,7 @@ gem 'aws-sdk-s3', '~> 1.208'
 # Security gems
 gem 'rack-attack' # Rate limiting and request filtering
 gem 'clamby' # ClamAV virus scanning
+gem 'ssrf_filter' # SSRF protection for outbound HTTP requests
 
 # Monitoring and error tracking
 gem 'sentry-ruby'

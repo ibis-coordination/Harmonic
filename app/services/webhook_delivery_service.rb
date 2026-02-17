@@ -1,7 +1,7 @@
 # typed: true
 
-require "net/http"
 require "openssl"
+require "ssrf_filter"
 
 class WebhookDeliveryService
   extend T::Sig
@@ -12,29 +12,33 @@ class WebhookDeliveryService
 
   sig { params(delivery: WebhookDelivery).void }
   def self.deliver!(delivery)
-    webhook = delivery.webhook
-    return if webhook.nil? || !webhook.enabled?
+    url = delivery.url
+    secret = delivery.secret
+
+    return if url.blank? || secret.blank?
 
     timestamp = Time.current.to_i
     body = T.must(delivery.request_body)
-    signature = sign(body, timestamp, webhook.secret)
+    signature = sign(body, timestamp, secret)
 
-    uri = URI.parse(webhook.url)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = (uri.scheme == "https")
-    http.open_timeout = TIMEOUT_SECONDS
-    http.read_timeout = TIMEOUT_SECONDS
+    # Build headers for the request
+    headers = {
+      "Content-Type" => "application/json",
+      "X-Harmonic-Signature" => "sha256=#{signature}",
+      "X-Harmonic-Timestamp" => timestamp.to_s,
+      "X-Harmonic-Event" => determine_event_type(delivery),
+      "X-Harmonic-Delivery" => delivery.id,
+      "X-Harmonic-Automation-Run" => delivery.automation_rule_run_id.to_s,
+    }
 
-    request = Net::HTTP::Post.new(uri.path.presence || "/")
-    request["Content-Type"] = "application/json"
-    request["X-Harmonic-Signature"] = "sha256=#{signature}"
-    request["X-Harmonic-Timestamp"] = timestamp.to_s
-    event = delivery.event
-    request["X-Harmonic-Event"] = event&.event_type || "unknown"
-    request["X-Harmonic-Delivery"] = delivery.id
-    request.body = body
-
-    response = http.request(request)
+    # Use ssrf_filter for SSRF-safe HTTP requests
+    # This validates the URL after DNS resolution to prevent DNS rebinding attacks
+    response = SsrfFilter.post(
+      url,
+      body: body,
+      headers: headers,
+      timeout: TIMEOUT_SECONDS
+    )
 
     if response.code.to_i >= 200 && response.code.to_i < 300
       delivery.update!(
@@ -44,9 +48,19 @@ class WebhookDeliveryService
         delivered_at: Time.current,
         attempt_count: delivery.attempt_count + 1,
       )
+      # Notify parent run that this delivery completed
+      notify_parent_run(delivery)
     else
       handle_failure(delivery, "HTTP #{response.code}: #{response.message}")
     end
+  rescue SsrfFilter::Error => e
+    # SSRF attempt detected - fail permanently, don't retry
+    delivery.update!(
+      status: "failed",
+      error_message: "Blocked: #{e.message}",
+      attempt_count: delivery.attempt_count + 1,
+    )
+    notify_parent_run(delivery)
   rescue StandardError => e
     handle_failure(delivery, e.message)
   end
@@ -61,6 +75,8 @@ class WebhookDeliveryService
         error_message: error_message,
         attempt_count: attempt,
       )
+      # Notify parent run that this delivery failed permanently
+      notify_parent_run(delivery)
     else
       retry_delay = RETRY_DELAYS[attempt - 1] || RETRY_DELAYS.last
       delivery.update!(
@@ -71,6 +87,18 @@ class WebhookDeliveryService
       )
       WebhookDeliveryJob.set(wait_until: delivery.next_retry_at).perform_later(delivery.id)
     end
+  end
+
+  # Notify the parent automation run that this delivery has reached a terminal state.
+  # The run will check if all its actions are complete and update its status accordingly.
+  sig { params(delivery: WebhookDelivery).void }
+  def self.notify_parent_run(delivery)
+    run = delivery.automation_rule_run
+    return unless run&.running?
+
+    run.update_status_from_actions!
+  rescue StandardError => e
+    Rails.logger.error("WebhookDeliveryService: Failed to notify parent run: #{e.message}")
   end
 
   sig { params(body: String, timestamp: Integer, secret: String).returns(String) }
@@ -84,5 +112,23 @@ class WebhookDeliveryService
     # Remove "sha256=" prefix if present
     actual = signature.sub(/^sha256=/, "")
     ActiveSupport::SecurityUtils.secure_compare(expected, actual)
+  end
+
+  # Determine the event type for the X-Harmonic-Event header.
+  # Uses the event type if available, otherwise falls back to the automation trigger type.
+  sig { params(delivery: WebhookDelivery).returns(String) }
+  def self.determine_event_type(delivery)
+    # If there's an associated event, use its type
+    event = delivery.event
+    if event && event.event_type.present?
+      return event.event_type
+    end
+
+    # Otherwise, use the automation rule's trigger type (e.g., "manual", "schedule", "webhook")
+    run = delivery.automation_rule_run
+    trigger_type = run&.automation_rule&.trigger_type
+    return "automation.#{trigger_type}" if trigger_type.present?
+
+    "automation"
   end
 end

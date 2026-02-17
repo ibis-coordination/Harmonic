@@ -67,6 +67,21 @@ Yabeda.configure do
           comment: "Number of users active in the last 15 minutes",
           tags: [:tenant_id]
   end
+
+  # Automation metrics
+  group :automations do
+    counter :runs_total,
+            comment: "Total automation runs",
+            tags: [:tenant_id, :rule_type, :trigger_type, :status]
+
+    counter :rate_limited_total,
+            comment: "Total automation executions blocked by rate limits",
+            tags: [:tenant_id, :limit_type, :rule_type]
+
+    counter :chain_blocked_total,
+            comment: "Total automation executions blocked by chain limits",
+            tags: [:tenant_id, :block_reason]
+  end
 end
 
 # NOTE: yabeda-rails and yabeda-sidekiq auto-install via Railtie

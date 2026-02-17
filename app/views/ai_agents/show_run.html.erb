@@ -120,6 +120,11 @@
     <div class="pulse-section-label" style="margin-bottom: 8px;">
       <%= octicon 'tasklist', height: 12 %> Task
     </div>
+    <% if @task_run.triggered_by_automation? %>
+      <div>
+        Triggered by: <a href="<%= @task_run.automation_rule.path %>"><%= octicon 'zap', height: 12 %> <%= @task_run.automation_rule.name %></a>
+      </div>
+    <% end %>
     <div style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; margin-bottom: 24px;">
       <pre style="margin: 0; white-space: pre-wrap; font-size: 13px;"><%= @task_run.task %></pre>
     </div>

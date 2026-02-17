@@ -59,6 +59,7 @@ services:
     env_file:
       - .env
     networks:
+      - frontend  # needs external access for webhook deliveries
       - backend
 
   # Local PostgreSQL database (production uses managed database)

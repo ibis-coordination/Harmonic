@@ -5,7 +5,8 @@
 **Status:** <%= @task_run.success ? 'Completed' : 'Failed' %>
 **Steps:** <%= @task_run.steps_count %><% if @task_run.formatted_duration %>
 **Duration:** <%= @task_run.formatted_duration %><% end %>
-**Started:** <%= @task_run.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %>
+**Started:** <%= @task_run.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %><% if @task_run.triggered_by_automation? %>
+**Triggered by:** [<%= @task_run.automation_rule.name %>](<%= @task_run.automation_rule.path %>)<% end %>
 
 <% if @task_run.error.present? -%>
 **Error:** <%= @task_run.error %>

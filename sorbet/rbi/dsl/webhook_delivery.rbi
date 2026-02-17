@@ -314,14 +314,26 @@ class WebhookDelivery
   end
 
   module GeneratedAssociationMethods
+    sig { returns(T.nilable(::AutomationRuleRun)) }
+    def automation_rule_run; end
+
+    sig { params(value: T.nilable(::AutomationRuleRun)).void }
+    def automation_rule_run=(value); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRuleRun) }
+    def build_automation_rule_run(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Event) }
     def build_event(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Webhook) }
-    def build_webhook(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRuleRun) }
+    def create_automation_rule_run(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRuleRun) }
+    def create_automation_rule_run!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Event) }
     def create_event(*args, &blk); end
@@ -335,17 +347,14 @@ class WebhookDelivery
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant!(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Webhook) }
-    def create_webhook(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Webhook) }
-    def create_webhook!(*args, &blk); end
-
     sig { returns(T.nilable(::Event)) }
     def event; end
 
     sig { params(value: T.nilable(::Event)).void }
     def event=(value); end
+
+    sig { returns(T.nilable(::AutomationRuleRun)) }
+    def reload_automation_rule_run; end
 
     sig { returns(T.nilable(::Event)) }
     def reload_event; end
@@ -353,8 +362,8 @@ class WebhookDelivery
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
-    sig { returns(T.nilable(::Webhook)) }
-    def reload_webhook; end
+    sig { void }
+    def reset_automation_rule_run; end
 
     sig { void }
     def reset_event; end
@@ -362,20 +371,11 @@ class WebhookDelivery
     sig { void }
     def reset_tenant; end
 
-    sig { void }
-    def reset_webhook; end
-
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
 
     sig { params(value: T.nilable(::Tenant)).void }
     def tenant=(value); end
-
-    sig { returns(T.nilable(::Webhook)) }
-    def webhook; end
-
-    sig { params(value: T.nilable(::Webhook)).void }
-    def webhook=(value); end
   end
 
   module GeneratedAssociationRelationMethods
@@ -613,6 +613,51 @@ class WebhookDelivery
     sig { void }
     def attempt_count_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_run_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def automation_rule_run_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def automation_rule_run_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_run_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def automation_rule_run_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def automation_rule_run_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def automation_rule_run_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def automation_rule_run_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def automation_rule_run_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_run_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def automation_rule_run_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def automation_rule_run_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_run_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def automation_rule_run_id_was; end
+
+    sig { void }
+    def automation_rule_run_id_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -758,10 +803,10 @@ class WebhookDelivery
     sig { void }
     def error_message_will_change!; end
 
-    sig { returns(::String) }
+    sig { returns(T.nilable(::String)) }
     def event_id; end
 
-    sig { params(value: ::String).returns(::String) }
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
     def event_id=(value); end
 
     sig { returns(T::Boolean) }
@@ -776,22 +821,22 @@ class WebhookDelivery
     sig { returns(T::Boolean) }
     def event_id_came_from_user?; end
 
-    sig { returns(T.nilable([::String, ::String])) }
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def event_id_change; end
 
-    sig { returns(T.nilable([::String, ::String])) }
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def event_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
     def event_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
     def event_id_in_database; end
 
-    sig { returns(T.nilable([::String, ::String])) }
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def event_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
     def event_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1042,6 +1087,9 @@ class WebhookDelivery
     def restore_attempt_count!; end
 
     sig { void }
+    def restore_automation_rule_run_id!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -1069,6 +1117,9 @@ class WebhookDelivery
     def restore_response_code!; end
 
     sig { void }
+    def restore_secret!; end
+
+    sig { void }
     def restore_status!; end
 
     sig { void }
@@ -1078,13 +1129,19 @@ class WebhookDelivery
     def restore_updated_at!; end
 
     sig { void }
-    def restore_webhook_id!; end
+    def restore_url!; end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def saved_change_to_attempt_count; end
 
     sig { returns(T::Boolean) }
     def saved_change_to_attempt_count?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_automation_rule_run_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_automation_rule_run_id?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -1104,7 +1161,7 @@ class WebhookDelivery
     sig { returns(T::Boolean) }
     def saved_change_to_error_message?; end
 
-    sig { returns(T.nilable([::String, ::String])) }
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_event_id; end
 
     sig { returns(T::Boolean) }
@@ -1140,6 +1197,12 @@ class WebhookDelivery
     sig { returns(T::Boolean) }
     def saved_change_to_response_code?; end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_secret; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_secret?; end
+
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_status; end
 
@@ -1158,11 +1221,56 @@ class WebhookDelivery
     sig { returns(T::Boolean) }
     def saved_change_to_updated_at?; end
 
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_webhook_id; end
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_url; end
 
     sig { returns(T::Boolean) }
-    def saved_change_to_webhook_id?; end
+    def saved_change_to_url?; end
+
+    sig { returns(T.nilable(::String)) }
+    def secret; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def secret=(value); end
+
+    sig { returns(T::Boolean) }
+    def secret?; end
+
+    sig { returns(T.nilable(::String)) }
+    def secret_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def secret_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def secret_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def secret_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def secret_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def secret_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def secret_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def secret_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def secret_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def secret_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def secret_was; end
+
+    sig { void }
+    def secret_will_change!; end
 
     sig { returns(::String) }
     def status; end
@@ -1299,53 +1407,56 @@ class WebhookDelivery
     sig { void }
     def updated_at_will_change!; end
 
-    sig { returns(::String) }
-    def webhook_id; end
+    sig { returns(T.nilable(::String)) }
+    def url; end
 
-    sig { params(value: ::String).returns(::String) }
-    def webhook_id=(value); end
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def url=(value); end
 
     sig { returns(T::Boolean) }
-    def webhook_id?; end
+    def url?; end
 
     sig { returns(T.nilable(::String)) }
-    def webhook_id_before_last_save; end
+    def url_before_last_save; end
 
     sig { returns(T.untyped) }
-    def webhook_id_before_type_cast; end
+    def url_before_type_cast; end
 
     sig { returns(T::Boolean) }
-    def webhook_id_came_from_user?; end
+    def url_came_from_user?; end
 
-    sig { returns(T.nilable([::String, ::String])) }
-    def webhook_id_change; end
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def url_change; end
 
-    sig { returns(T.nilable([::String, ::String])) }
-    def webhook_id_change_to_be_saved; end
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def url_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def webhook_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def webhook_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def webhook_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def webhook_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def url_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
-    def webhook_id_previously_was; end
+    def url_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def url_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def url_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
-    def webhook_id_was; end
+    def url_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def url_was; end
 
     sig { void }
-    def webhook_id_will_change!; end
+    def url_will_change!; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_attempt_count?; end
+
+    sig { returns(T::Boolean) }
+    def will_save_change_to_automation_rule_run_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_created_at?; end
@@ -1375,6 +1486,9 @@ class WebhookDelivery
     def will_save_change_to_response_code?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_secret?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_status?; end
 
     sig { returns(T::Boolean) }
@@ -1384,7 +1498,7 @@ class WebhookDelivery
     def will_save_change_to_updated_at?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_webhook_id?; end
+    def will_save_change_to_url?; end
   end
 
   module GeneratedRelationMethods
