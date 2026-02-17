@@ -97,6 +97,7 @@ module AutomationContext
         "[AutomationContext] Chain depth limit reached (#{chain[:depth]} >= #{MAX_CHAIN_DEPTH}) " \
         "for rule #{rule.id}"
       )
+      emit_chain_blocked_metric(rule.tenant_id, "depth_limit")
       return false
     end
 
@@ -105,6 +106,7 @@ module AutomationContext
       Rails.logger.info(
         "[AutomationContext] Loop detected: rule #{rule.id} already executed in this chain"
       )
+      emit_chain_blocked_metric(rule.tenant_id, "loop_detected")
       return false
     end
 
@@ -114,6 +116,7 @@ module AutomationContext
         "[AutomationContext] Max rules per chain limit reached " \
         "(#{chain[:executed_rule_ids].size} >= #{MAX_RULES_PER_CHAIN}) for rule #{rule.id}"
       )
+      emit_chain_blocked_metric(rule.tenant_id, "max_rules_per_chain")
       return false
     end
 
@@ -172,4 +175,16 @@ module AutomationContext
   def self.chain_depth
     current_chain[:depth]
   end
+
+  # Emit metrics for chain blocking (skip in test environment)
+  sig { params(tenant_id: String, block_reason: String).void }
+  def self.emit_chain_blocked_metric(tenant_id, block_reason)
+    return if Rails.env.test?
+
+    Yabeda.automations.chain_blocked_total.increment(
+      { tenant_id: tenant_id, block_reason: block_reason },
+      by: 1
+    )
+  end
+  private_class_method :emit_chain_blocked_metric
 end

@@ -71,6 +71,7 @@ class AutomationDispatcher
         "[AutomationDispatcher] Tenant rate limit reached for tenant #{event.tenant_id} " \
         "(limit: #{TENANT_RUNS_PER_MINUTE}/min)"
       )
+      emit_rate_limit_metric(event.tenant_id, "tenant", rule_type_for_metrics(rule))
       return
     end
 
@@ -93,6 +94,7 @@ class AutomationDispatcher
         "[AutomationDispatcher] Rate limiting rule #{rule.id} " \
         "(#{recent_runs} runs in last minute, limit: #{max_per_minute})"
       )
+      emit_rate_limit_metric(event.tenant_id, "per_rule", rule_type_for_metrics(rule))
       return
     end
 
@@ -135,4 +137,23 @@ class AutomationDispatcher
     recent_runs < TENANT_RUNS_PER_MINUTE
   end
   private_class_method :tenant_within_rate_limit?
+
+  # Emit metrics for rate limiting (skip in test environment)
+  sig { params(tenant_id: String, limit_type: String, rule_type: String).void }
+  def self.emit_rate_limit_metric(tenant_id, limit_type, rule_type)
+    return if Rails.env.test?
+
+    Yabeda.automations.rate_limited_total.increment(
+      { tenant_id: tenant_id, limit_type: limit_type, rule_type: rule_type },
+      by: 1
+    )
+  end
+  private_class_method :emit_rate_limit_metric
+
+  # Get rule type string for metrics
+  sig { params(rule: AutomationRule).returns(String) }
+  def self.rule_type_for_metrics(rule)
+    rule.agent_rule? ? "agent" : "studio"
+  end
+  private_class_method :rule_type_for_metrics
 end
