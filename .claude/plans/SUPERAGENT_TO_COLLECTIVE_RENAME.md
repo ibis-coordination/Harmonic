@@ -1,8 +1,8 @@
 # Superagent → Collective Rename Plan
 
-**Status:** Draft (branch created, no changes yet)
+**Status:** Ready for implementation
 **Created:** 2026-02-12
-**Last Verified:** 2026-02-17
+**Last Verified:** 2026-02-17 (updated with thread-local findings)
 **Approach:** Big Bang Migration
 **Branch:** `rename-superagent-to-collective`
 
@@ -71,7 +71,9 @@ The migration must recreate `cycle_data_*` views with `collective_id`. Reference
 | **Search DSL** | `app/services/search_query.rb`, `search_query_parser.rb` | Hardcoded `"superagent"` string as group_by option |
 | **Routes** | `config/routes.rb` | ~70 routes use `:superagent_handle` parameter |
 | **JavaScript** | 5 files | Class names, JSON keys (`superagent_id`), data attributes (`data-superagent-id`) |
-| **Jobs** | `app/jobs/tenant_scoped_job.rb` | `set_superagent_context!` method, `Superagent` type reference |
+| **Jobs** | `app/jobs/tenant_scoped_job.rb`, `application_job.rb` | `set_superagent_context!` method, thread-local key symbols (`:superagent_id`, `:superagent_handle`, `:main_superagent_id`) |
+| **Thread-locals** | `app/models/tenant.rb`, `app/models/superagent.rb` | `Thread.current[:main_superagent_id]`, `Tenant.current_main_superagent_id` methods |
+| **Pinnable concern** | `app/models/concerns/pinnable.rb` | References `tenant.main_superagent_id` |
 | **Metrics** | `config/initializers/yabeda.rb` | `superagent_id` metric tag - changing breaks historical continuity |
 | **Logging** | `config/initializers/lograge.rb` | `superagent_id` in structured logs |
 
@@ -706,6 +708,63 @@ Models to update:
 # app/models/tenant.rb
 belongs_to :main_collective, class_name: "Collective", optional: true
 # was: belongs_to :main_superagent
+```
+
+**Thread-local variables for main collective ID:**
+
+The Tenant model caches the main collective ID in a thread-local variable for quick access during request handling. These must be renamed:
+
+```ruby
+# app/models/tenant.rb
+
+# Thread-local key rename: :main_superagent_id → :main_collective_id
+
+# In scope_thread_to_tenant:
+self.current_main_collective_id = tenant.main_collective_id
+# was: self.current_main_superagent_id = tenant.main_superagent_id
+
+# In clear_thread_scope:
+Thread.current[:main_collective_id] = nil
+# was: Thread.current[:main_superagent_id] = nil
+
+# In set_thread_context:
+self.current_main_collective_id = tenant.main_collective_id
+# was: self.current_main_superagent_id = tenant.main_superagent_id
+
+# Getter:
+def self.current_main_collective_id
+  Thread.current[:main_collective_id]
+end
+# was: def self.current_main_superagent_id
+
+# Setter:
+def self.current_main_collective_id=(id)
+  Thread.current[:main_collective_id] = id
+end
+# was: def self.current_main_superagent_id=
+```
+
+**ApplicationJob thread-local save/restore:**
+
+```ruby
+# app/jobs/application_job.rb
+
+def save_tenant_context
+  {
+    # ...
+    main_collective_id: Thread.current[:main_collective_id],
+    collective_id: Thread.current[:collective_id],
+    collective_handle: Thread.current[:collective_handle],
+    # was: main_superagent_id, superagent_id, superagent_handle
+  }
+end
+
+def restore_tenant_context(saved)
+  # ...
+  Thread.current[:main_collective_id] = saved[:main_collective_id]
+  Thread.current[:collective_id] = saved[:collective_id]
+  Thread.current[:collective_handle] = saved[:collective_handle]
+end
 ```
 
 ### 2.7 Update User Model
