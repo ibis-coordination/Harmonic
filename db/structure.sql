@@ -1,4 +1,4 @@
-\restrict 0yykmFoUwpkkD0Gn75g8KJxxoJGa1IDhB23sEq93H1bcQhHWHkfCJEVkyQFu2xW
+\restrict IKEab0vq4eBkb83mWQWJWJzU4YsZi2WwUP3CPmuqfVBL9roH8XUWGWLCnBtbLau
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.16 (Debian 15.16-0+deb12u1)
@@ -236,7 +236,8 @@ CREATE TABLE public.automation_rule_runs (
     completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    superagent_id uuid
+    superagent_id uuid,
+    chain_metadata jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 
@@ -8446,7 +8447,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0yykmFoUwpkkD0Gn75g8KJxxoJGa1IDhB23sEq93H1bcQhHWHkfCJEVkyQFu2xW
+\unrestrict IKEab0vq4eBkb83mWQWJWJzU4YsZi2WwUP3CPmuqfVBL9roH8XUWGWLCnBtbLau
 
 SET search_path TO "$user", public;
 
@@ -8607,6 +8608,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260214205415'),
 ('20260214205558'),
 ('20260214210049'),
-('20260215202823');
+('20260215202823'),
+('20260216154858');
 
 

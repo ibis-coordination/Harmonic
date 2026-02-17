@@ -309,7 +309,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
   # === General Rules (non-agent) ===
 
-  test "executes general rule with internal_action (records but skips)" do
+  test "executes general rule with internal_action" do
     rule = AutomationRule.create!(
       tenant: @tenant,
       superagent: @superagent,
@@ -326,13 +326,15 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     event = create_test_event
     run = create_automation_run(rule, event)
 
-    AutomationExecutor.execute(run)
+    assert_difference "Note.count", 1 do
+      AutomationExecutor.execute(run)
+    end
 
     run.reload
     assert run.completed?
     assert_equal 1, run.actions_executed.size
     assert_equal "internal_action", run.actions_executed.first["type"]
-    assert_includes run.actions_executed.first["result"]["status"], "skipped"
+    assert_equal "success", run.actions_executed.first["result"]["status"]
   end
 
   test "executes general rule with trigger_agent action" do
