@@ -3,6 +3,11 @@
 class AutomationDispatcher
   extend T::Sig
 
+  # Tenant-level rate limit to prevent system overload
+  # Individual rules have their own limits (3/min for agents, 10/min for studio rules)
+  # but this ensures no single tenant can overwhelm the system
+  TENANT_RUNS_PER_MINUTE = 100
+
   # Dispatch an event to all matching automation rules
   sig { params(event: Event).void }
   def self.dispatch(event)
@@ -60,7 +65,16 @@ class AutomationDispatcher
       return
     end
 
-    # Record this execution in the chain BEFORE rate limit check
+    # Tenant-level rate limit: prevent any single tenant from overwhelming the system
+    unless tenant_within_rate_limit?(event.tenant_id)
+      Rails.logger.info(
+        "[AutomationDispatcher] Tenant rate limit reached for tenant #{event.tenant_id} " \
+        "(limit: #{TENANT_RUNS_PER_MINUTE}/min)"
+      )
+      return
+    end
+
+    # Record this execution in the chain BEFORE per-rule rate limit check
     # (so even rate-limited rules count toward chain limits)
     AutomationContext.record_rule_execution!(rule, event)
 
@@ -109,4 +123,16 @@ class AutomationDispatcher
       chain: chain_metadata
     )
   end
+
+  # Check if tenant is within the global rate limit
+  sig { params(tenant_id: String).returns(T::Boolean) }
+  def self.tenant_within_rate_limit?(tenant_id)
+    recent_runs = AutomationRuleRun
+      .where(tenant_id: tenant_id)
+      .where("created_at > ?", 1.minute.ago)
+      .count
+
+    recent_runs < TENANT_RUNS_PER_MINUTE
+  end
+  private_class_method :tenant_within_rate_limit?
 end

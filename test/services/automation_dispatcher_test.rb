@@ -176,6 +176,110 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
   end
 
   # ===========================================================================
+  # Tenant-level rate limiting tests
+  # ===========================================================================
+
+  test "rate limits at tenant level (100 per minute)" do
+    rule = create_rule_without_mention_filter
+    event = create_event_with_subject(event_type: "note.created")
+
+    # Create 100 recent runs for this tenant using multiple rules
+    # (to avoid hitting per-rule limits which are lower)
+    100.times do |i|
+      temp_rule = AutomationRule.create!(
+        tenant: @tenant,
+        ai_agent: @ai_agent,
+        created_by: @user,
+        name: "Temp Rule #{i}",
+        trigger_type: "event",
+        trigger_config: { "event_type" => "note.created" },
+        actions: { "task" => "Do something" },
+        enabled: true
+      )
+      AutomationRuleRun.create!(
+        tenant: @tenant,
+        automation_rule: temp_rule,
+        trigger_source: "event",
+        status: "completed"
+      )
+    end
+
+    # Should not queue another execution - tenant limit reached
+    assert_no_difference -> { AutomationRuleRun.count } do
+      AutomationDispatcher.queue_rule_execution(rule, event)
+    end
+  end
+
+  test "allows execution below tenant rate limit" do
+    rule = create_rule_without_mention_filter
+    event = create_event_with_subject(event_type: "note.created")
+
+    # Create 99 recent runs using multiple rules
+    # (to avoid hitting per-rule limits which are lower)
+    99.times do |i|
+      temp_rule = AutomationRule.create!(
+        tenant: @tenant,
+        ai_agent: @ai_agent,
+        created_by: @user,
+        name: "Temp Rule #{i}",
+        trigger_type: "event",
+        trigger_config: { "event_type" => "note.created" },
+        actions: { "task" => "Do something" },
+        enabled: true
+      )
+      AutomationRuleRun.create!(
+        tenant: @tenant,
+        automation_rule: temp_rule,
+        trigger_source: "event",
+        status: "completed"
+      )
+    end
+
+    # Should allow one more - below tenant limit and rule hasn't been used
+    assert_difference -> { AutomationRuleRun.count }, 1 do
+      AutomationDispatcher.queue_rule_execution(rule, event)
+    end
+  end
+
+  test "tenant rate limit is independent per tenant" do
+    rule = create_rule_without_mention_filter
+    event = create_event_with_subject(event_type: "note.created")
+
+    # Create another tenant with its own user, agent, and rules
+    other_tenant = Tenant.create!(name: "Other Tenant", subdomain: "other-tenant")
+    other_tenant.set_feature_flag!("ai_agents", true)
+    other_user = create_user(name: "Other User")
+    other_tenant.add_user!(other_user)
+    other_agent = create_ai_agent(parent: other_user, name: "Other Agent")
+    other_tenant.add_user!(other_agent)
+
+    # Max out the other tenant's runs
+    100.times do |i|
+      other_rule = AutomationRule.create!(
+        tenant: other_tenant,
+        ai_agent: other_agent,
+        created_by: other_user,
+        name: "Other Rule #{i}",
+        trigger_type: "event",
+        trigger_config: { "event_type" => "note.created" },
+        actions: { "task" => "Do something" },
+        enabled: true
+      )
+      AutomationRuleRun.create!(
+        tenant: other_tenant,
+        automation_rule: other_rule,
+        trigger_source: "event",
+        status: "completed"
+      )
+    end
+
+    # Current tenant (@tenant) should still be allowed since it has no runs
+    assert_difference -> { AutomationRuleRun.count }, 1 do
+      AutomationDispatcher.queue_rule_execution(rule, event)
+    end
+  end
+
+  # ===========================================================================
   # Chain protection tests
   # ===========================================================================
 

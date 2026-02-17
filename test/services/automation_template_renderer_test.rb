@@ -50,6 +50,45 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     assert_equal "Text: &lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;", result
   end
 
+  test "serializes hash values as JSON" do
+    context = { "data" => { "a" => 1, "b" => "hello" } }
+    result = AutomationTemplateRenderer.render("Data: {{data}}", context)
+
+    # Should output valid JSON, not Ruby hash format
+    assert_equal 'Data: {&quot;a&quot;:1,&quot;b&quot;:&quot;hello&quot;}', result
+    # The unescaped version should be valid JSON
+    assert_nothing_raised { JSON.parse(CGI.unescapeHTML(result.gsub("Data: ", ""))) }
+  end
+
+  test "serializes array values as JSON" do
+    context = { "items" => [1, 2, "three"] }
+    result = AutomationTemplateRenderer.render("Items: {{items}}", context)
+
+    assert_equal 'Items: [1,2,&quot;three&quot;]', result
+  end
+
+  test "serializes nested hash in payload as JSON" do
+    # Simulates webhook payload with nested data
+    context = { "payload" => { "event" => "test", "data" => { "id" => 123, "name" => "Test" } } }
+    result = AutomationTemplateRenderer.render("Payload data: {{payload.data}}", context)
+
+    assert_equal 'Payload data: {&quot;id&quot;:123,&quot;name&quot;:&quot;Test&quot;}', result
+  end
+
+  test "renders scalar types normally" do
+    context = {
+      "string" => "hello",
+      "number" => 42,
+      "float" => 3.14,
+      "bool" => true,
+    }
+
+    assert_equal "hello", AutomationTemplateRenderer.render("{{string}}", context)
+    assert_equal "42", AutomationTemplateRenderer.render("{{number}}", context)
+    assert_equal "3.14", AutomationTemplateRenderer.render("{{float}}", context)
+    assert_equal "true", AutomationTemplateRenderer.render("{{bool}}", context)
+  end
+
   # === Context Building from Events ===
 
   test "context_from_event builds event context with actor" do

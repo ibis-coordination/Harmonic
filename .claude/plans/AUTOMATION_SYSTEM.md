@@ -721,21 +721,42 @@ ensure
 end
 ```
 
-### Rate Limiting Extension
+### Rate Limiting
 
-In addition to chain protection, extend the existing rate limit to ALL automation rules:
+#### Tenant-Level Rate Limit
+
+Prevents any single tenant from overwhelming the system:
+
+```ruby
+TENANT_RUNS_PER_MINUTE = 100  # Global limit per tenant
+```
+
+Checked in `AutomationDispatcher.queue_rule_execution` before per-rule limits.
+
+#### Per-Rule Rate Limits
+
+Individual rules have their own limits based on rule type:
+
+| Rule Type | Limit | Rationale |
+|-----------|-------|-----------|
+| Agent rules | 3/min | Conservative - agents do lots of work per execution |
+| Studio rules | 10/min | More lenient - typically just webhook/internal actions |
 
 ```ruby
 def self.queue_rule_execution(rule, event)
   # ... chain protection ...
 
-  # Rate limit for ALL rules (not just agent rules)
+  # Tenant-level rate limit
+  unless tenant_within_rate_limit?(event.tenant_id)
+    return
+  end
+
+  # Per-rule rate limit
+  max_per_minute = rule.agent_rule? ? 3 : 10
   recent_runs = AutomationRuleRun
     .where(automation_rule: rule, tenant_id: event.tenant_id)
     .where("created_at > ?", 1.minute.ago)
     .count
-
-  max_per_minute = rule.agent_rule? ? 3 : 10  # More lenient for studio rules
 
   if recent_runs >= max_per_minute
     Rails.logger.info("Rate limiting automation rule #{rule.id}")
@@ -783,5 +804,3 @@ end
    ```
 
 3. **Chain visualization**: Show chain graph in automation run details UI
-
-4. **Tenant-level limits**: Global limits on automations per tenant per minute

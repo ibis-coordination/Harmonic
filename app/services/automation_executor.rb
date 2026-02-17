@@ -97,12 +97,12 @@ class AutomationExecutor
         result = execute_webhook_action(action)
         executed_actions << { index: index, type: action_type, result: result }
         # Only count as async if webhook delivery was actually created
-        has_async_actions = true if result[:success] && result[:delivery_id].present?
+        has_async_actions = true if result["status"] == "success" && result["delivery_id"].present?
       when "trigger_agent"
         result = execute_trigger_agent_action(action)
         executed_actions << { index: index, type: action_type, result: result }
         # Only count as async if task run was actually created
-        has_async_actions = true if result[:status] == "success" && result[:task_run_id].present?
+        has_async_actions = true if result["status"] == "success" && result["task_run_id"].present?
       else
         executed_actions << { index: index, type: action_type, result: "unknown action type" }
       end
@@ -146,7 +146,7 @@ class AutomationExecutor
     action_name = action["action"]
     params = action["params"] || {}
 
-    return { action: action_name, status: "failed", error: "Action name is required" } if action_name.blank?
+    return { "action" => action_name, "status" => "failed", "error" => "Action name is required" } if action_name.blank?
 
     # Render any template variables in params
     rendered_params = render_params(params)
@@ -157,37 +157,37 @@ class AutomationExecutor
 
     if result.success
       {
-        action: action_name,
-        params: rendered_params,
-        status: "success",
-        resource_id: result.resource_id,
-        resource_path: result.resource_path,
-        message: result.message,
+        "action" => action_name,
+        "params" => rendered_params,
+        "status" => "success",
+        "resource_id" => result.resource_id,
+        "resource_path" => result.resource_path,
+        "message" => result.message,
       }
     else
       {
-        action: action_name,
-        params: rendered_params,
-        status: "failed",
-        error: result.error,
+        "action" => action_name,
+        "params" => rendered_params,
+        "status" => "failed",
+        "error" => result.error,
       }
     end
   end
 
-  sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[Symbol, T.untyped]) }
+  sig { params(action: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }
   def execute_webhook_action(action)
     url = action["url"]
-    return { success: false, error: "URL is required for webhook action" } if url.blank?
+    return { "status" => "failed", "error" => "URL is required for webhook action" } if url.blank?
 
     # Basic URL format validation (SSRF protection is handled by ssrf_filter at delivery time)
     begin
       uri = URI.parse(url)
       unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
-        return { success: false, error: "URL must be HTTP or HTTPS" }
+        return { "status" => "failed", "error" => "URL must be HTTP or HTTPS" }
       end
-      return { success: false, error: "URL must have a hostname" } if uri.host.blank?
+      return { "status" => "failed", "error" => "URL must have a hostname" } if uri.host.blank?
     rescue URI::InvalidURIError
-      return { success: false, error: "Invalid URL format" }
+      return { "status" => "failed", "error" => "Invalid URL format" }
     end
 
     # Build the request body with template rendering
@@ -208,9 +208,9 @@ class AutomationExecutor
     # Queue async delivery with retry support
     WebhookDeliveryJob.perform_later(delivery.id)
 
-    { success: true, delivery_id: delivery.id, status: "queued" }
+    { "status" => "success", "delivery_id" => delivery.id }
   rescue StandardError => e
-    { success: false, error: e.message }
+    { "status" => "failed", "error" => e.message }
   end
 
   sig { params(body: T.untyped).returns(T.untyped) }
@@ -241,7 +241,7 @@ class AutomationExecutor
     task_template = action["task"]
 
     agent = User.find_by(id: agent_id)
-    return { status: "failed", error: "Agent not found or not an AI agent" } unless agent&.ai_agent?
+    return { "status" => "failed", "error" => "Agent not found or not an AI agent" } unless agent&.ai_agent?
 
     # Authorization check: can the rule creator trigger this agent?
     auth_result = authorize_agent_trigger(agent)
@@ -267,7 +267,7 @@ class AutomationExecutor
 
     AgentQueueProcessorJob.perform_later(ai_agent_id: agent.id, tenant_id: @rule.tenant_id)
 
-    { status: "success", task_run_id: task_run.id }
+    { "status" => "success", "task_run_id" => task_run.id }
   end
 
   sig { params(params: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }

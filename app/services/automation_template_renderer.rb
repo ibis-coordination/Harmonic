@@ -176,8 +176,16 @@ class AutomationTemplateRenderer
   def sanitize_output(value)
     return "" if value.nil?
 
-    # Convert to string and sanitize HTML entities for safety
-    str = value.to_s
+    # JSON-encode complex types (Hash, Array) for clean output
+    # Scalars (String, Integer, etc.) use to_s
+    str = case value
+          when Hash, Array
+            value.to_json
+          else
+            value.to_s
+          end
+
+    # Sanitize HTML entities for safety
     ERB::Util.html_escape(str)
   end
 end

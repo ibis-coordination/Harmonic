@@ -436,7 +436,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     # Run stays "running" until webhook is delivered
     assert run.running?
     assert_equal "webhook", run.actions_executed.first["type"]
-    assert run.actions_executed.first["result"]["success"]
+    assert_equal "success", run.actions_executed.first["result"]["status"]
     assert run.actions_executed.first["result"]["delivery_id"].present?
 
     # Verify WebhookDelivery was created with correct data

@@ -243,12 +243,16 @@
                 end
               end
 
-              # Fall back to action_result success for other action types or if resource not found
+              # Fall back to action_result status for other action types or if resource not found
               if action_status_tag.nil? && action_result.is_a?(Hash)
-                if action_result["success"] || action_result[:success]
+                action_status = action_result["status"] || action_result[:status]
+                case action_status
+                when "success"
                   action_status_tag = '<span class="pulse-tag pulse-tag-success" style="margin-left: 0.5rem;">Success</span>'
-                else
+                when "failed"
                   action_status_tag = '<span class="pulse-tag pulse-tag-danger" style="margin-left: 0.5rem;">Failed</span>'
+                else
+                  action_status_tag = '<span class="pulse-tag" style="margin-left: 0.5rem;">' + (action_status || 'Unknown').to_s.humanize + '</span>'
                 end
               end
             %>
