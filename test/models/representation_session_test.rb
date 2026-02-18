@@ -5,8 +5,8 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     @tenant = create_tenant(subdomain: "rep-session-#{SecureRandom.hex(4)}")
     @user = create_user(email: "rep_#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(@user)
-    @superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "rep-studio-#{SecureRandom.hex(4)}")
-    @superagent.add_user!(@user)
+    @collective = create_collective(tenant: @tenant, created_by: @user, handle: "rep-studio-#{SecureRandom.hex(4)}")
+    @collective.add_user!(@user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
@@ -15,7 +15,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "representation session requires confirmed_understanding to be true" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @user,
       confirmed_understanding: false,
       began_at: Time.current,
@@ -27,7 +27,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "representation session requires began_at" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @user,
       confirmed_understanding: true,
       began_at: nil,
@@ -36,22 +36,22 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_includes session.errors[:began_at], "can't be blank"
   end
 
-  test "studio representation session requires superagent" do
-    # Studio representation (no trustee_grant) requires superagent_id
+  test "studio representation session requires collective" do
+    # Studio representation (no trustee_grant) requires collective_id
     session = RepresentationSession.new(
       tenant: @tenant,
-      superagent: nil,
+      collective: nil,
       trustee_grant: nil,
       representative_user: @user,
       confirmed_understanding: true,
       began_at: Time.current,
     )
     assert_not session.valid?
-    assert_includes session.errors[:superagent_id], "is required for studio representation sessions"
+    assert_includes session.errors[:collective_id], "is required for studio representation sessions"
   end
 
-  test "user representation session must not have superagent" do
-    # User representation (has trustee_grant) must NOT have superagent_id
+  test "user representation session must not have collective" do
+    # User representation (has trustee_grant) must NOT have collective_id
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @user,
@@ -61,26 +61,26 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
     session = RepresentationSession.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       trustee_grant: grant,
       representative_user: grant.trustee_user,
       confirmed_understanding: true,
       began_at: Time.current,
     )
     assert_not session.valid?
-    assert_includes session.errors[:superagent_id], "must be nil for user representation sessions"
+    assert_includes session.errors[:collective_id], "must be nil for user representation sessions"
   end
 
   test "representation session can be created with valid attributes" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     assert session.persisted?
     assert_equal @user, session.representative_user
     # effective_user returns the studio trustee for studio representation
-    assert_equal @superagent.proxy_user, session.effective_user
+    assert_equal @collective.proxy_user, session.effective_user
   end
 
   # === Lifecycle Tests ===
@@ -88,7 +88,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "begin! raises if confirmed_understanding is false" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @user,
       confirmed_understanding: false,
     )
@@ -100,7 +100,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "begin! sets began_at" do
     session = RepresentationSession.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @user,
       confirmed_understanding: true,
     )
@@ -111,7 +111,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "active? returns true when ended_at is nil" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     assert session.active?
@@ -120,7 +120,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "active? returns false when ended_at is set" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     session.end!
@@ -130,7 +130,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "end! sets ended_at" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     assert_nil session.ended_at
@@ -141,7 +141,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "end! is idempotent" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     session.end!
@@ -153,7 +153,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "ended? returns true after end! is called" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     assert_not session.ended?
@@ -164,7 +164,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "expired? returns true after 24 hours" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
       began_at: 25.hours.ago,
     )
@@ -174,7 +174,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "expired? returns false within 24 hours" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
       began_at: 23.hours.ago,
     )
@@ -184,7 +184,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "expired? returns true when session is ended" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     session.end!
@@ -196,7 +196,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "elapsed_time returns seconds since began_at for active session" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
       began_at: 1.hour.ago,
     )
@@ -207,7 +207,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "elapsed_time returns duration for ended session" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
       began_at: 2.hours.ago,
     )
@@ -223,12 +223,12 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "record_event! raises if session has ended" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     session.end!
 
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     mock_request = OpenStruct.new(request_id: 'req-123')
     assert_raises RuntimeError, "Session has ended" do
       session.record_event!(
@@ -242,12 +242,12 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "record_event! raises if session has expired" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
       began_at: 25.hours.ago,
     )
 
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     mock_request = OpenStruct.new(request_id: 'req-123')
     assert_raises RuntimeError, "Session has expired" do
       session.record_event!(
@@ -259,10 +259,10 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   end
 
   test "record_event! creates RepresentationSessionEvent" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
 
@@ -276,16 +276,16 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert event.persisted?
     assert_equal "create_note", event.action_name
     assert_equal note, event.resource
-    assert_equal @superagent.id, event.resource_superagent_id
+    assert_equal @collective.id, event.resource_collective_id
   end
 
   test "record_events! creates multiple events" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option1 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 1")
-    option2 = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision, title: "Option 2")
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option1 = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option 1")
+    option2 = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision, title: "Option 2")
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
 
@@ -309,7 +309,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "title returns truncated_id based title" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     assert_match(/Representation Session \w+/, session.title)
@@ -318,16 +318,16 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "path returns studio-scoped path" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
-    assert_equal "/studios/#{@superagent.handle}/r/#{session.truncated_id}", session.path
+    assert_equal "/studios/#{@collective.handle}/r/#{session.truncated_id}", session.path
   end
 
   test "url returns full URL with tenant subdomain" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     assert_match(/#{@tenant.subdomain}.*#{session.truncated_id}/, session.url)
@@ -336,17 +336,17 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "action_count returns 0 for session with no events" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     assert_equal 0, session.action_count
   end
 
   test "action_count returns count of distinct request_ids" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
 
@@ -365,7 +365,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "api_json returns expected fields" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
 
@@ -375,9 +375,9 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert json[:began_at].present?
     assert_nil json[:ended_at]
     assert json[:elapsed_time].is_a?(Numeric)
-    assert_equal @superagent.id, json[:superagent_id]
+    assert_equal @collective.id, json[:collective_id]
     assert_equal @user.id, json[:representative_user_id]
-    assert_equal @superagent.proxy_user.id, json[:effective_user_id]
+    assert_equal @collective.proxy_user.id, json[:effective_user_id]
   end
 
   # =========================================================================
@@ -390,7 +390,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     # Create a second user who will grant permission
     granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
     @tenant.add_user!(granting_user)
-    @superagent.add_user!(granting_user)
+    @collective.add_user!(granting_user)
 
     # Create trustee permission: granting_user grants @user permission to act on their behalf
     grant = TrusteeGrant.create!(
@@ -404,7 +404,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     # Create user representation session using the trustee grant
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # No superagent for user representation
+      collective: nil,  # No collective for user representation
       trustee_grant: grant,
       representative_user: @user,  # The trustee_user who is doing the representing
       confirmed_understanding: true,
@@ -421,7 +421,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "user representation session effective_user is the granting user" do
     granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
     @tenant.add_user!(granting_user)
-    @superagent.add_user!(granting_user)
+    @collective.add_user!(granting_user)
 
     grant = TrusteeGrant.create!(
       tenant: @tenant,
@@ -433,7 +433,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,
+      collective: nil,
       trustee_grant: grant,
       representative_user: @user,
       confirmed_understanding: true,
@@ -448,7 +448,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   test "user representation session can record events" do
     granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
     @tenant.add_user!(granting_user)
-    @superagent.add_user!(granting_user)
+    @collective.add_user!(granting_user)
 
     grant = TrusteeGrant.create!(
       tenant: @tenant,
@@ -460,14 +460,14 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,
+      collective: nil,
       trustee_grant: grant,
       representative_user: @user,
       confirmed_understanding: true,
       began_at: Time.current,
     )
 
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: granting_user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: granting_user)
     mock_request = OpenStruct.new(request_id: 'req-123')
 
     event = session.record_event!(
@@ -486,14 +486,14 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     # First, create a studio representation session
     first_session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
     assert first_session.active?
 
     # Create another studio
-    other_superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "other-studio-#{SecureRandom.hex(4)}")
-    other_superagent.add_user!(@user)
+    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_collective.add_user!(@user)
 
     # Attempting to create a second session should fail (or be prevented by business logic)
     # This test documents that we need to enforce single session constraint
@@ -508,10 +508,10 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
   # === User Representation Session Properties ===
 
-  test "user representation session has no superagent" do
+  test "user representation session has no collective" do
     granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
     @tenant.add_user!(granting_user)
-    @superagent.add_user!(granting_user)
+    @collective.add_user!(granting_user)
 
     grant = TrusteeGrant.create!(
       tenant: @tenant,
@@ -524,27 +524,27 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation has no superagent
+      collective: nil,  # User representation has no collective
       trustee_grant: grant,
       representative_user: @user,
       confirmed_understanding: true,
       began_at: Time.current,
     )
 
-    # User representation sessions have no superagent_id
-    assert_nil session.superagent
+    # User representation sessions have no collective_id
+    assert_nil session.collective
     assert session.user_representation?
   end
 
   test "user representation session can record events in different studios" do
     granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
     @tenant.add_user!(granting_user)
-    @superagent.add_user!(granting_user)
+    @collective.add_user!(granting_user)
 
     # Create a second studio
-    other_superagent = create_superagent(tenant: @tenant, created_by: granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
-    other_superagent.add_user!(@user)
-    other_superagent.add_user!(granting_user)
+    other_collective = create_collective(tenant: @tenant, created_by: granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_collective.add_user!(@user)
+    other_collective.add_user!(granting_user)
 
     grant = TrusteeGrant.create!(
       tenant: @tenant,
@@ -557,7 +557,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation has no superagent
+      collective: nil,  # User representation has no collective
       trustee_grant: grant,
       representative_user: @user,
       confirmed_understanding: true,
@@ -565,7 +565,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     )
 
     # Record event in the first studio
-    note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: granting_user)
+    note1 = create_note(tenant: @tenant, collective: @collective, created_by: granting_user)
     mock_request = OpenStruct.new(request_id: 'req-123')
     session.record_event!(
       request: mock_request,
@@ -574,7 +574,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     )
 
     # Record event in a different studio (within the same session)
-    note2 = create_note(tenant: @tenant, superagent: other_superagent, created_by: granting_user)
+    note2 = create_note(tenant: @tenant, collective: other_collective, created_by: granting_user)
     session.record_event!(
       request: mock_request,
       action_name: "create_note",
@@ -583,10 +583,10 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
     assert_equal 2, session.representation_session_events.count
 
-    # Verify the resource_superagent_id is captured correctly
+    # Verify the resource_collective_id is captured correctly
     events = session.representation_session_events.order(:created_at)
-    assert_equal @superagent.id, events[0].resource_superagent_id
-    assert_equal other_superagent.id, events[1].resource_superagent_id
+    assert_equal @collective.id, events[0].resource_collective_id
+    assert_equal other_collective.id, events[1].resource_collective_id
   end
 
   # === Representation Session with Parent-AiAgent ===
@@ -599,7 +599,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       parent_id: @user.id,
     )
     @tenant.add_user!(ai_agent)
-    @superagent.add_user!(ai_agent)
+    @collective.add_user!(ai_agent)
 
     # Auto-created grant should exist
     grant = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @user)
@@ -609,7 +609,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     # Parent can create representation session using the trustee grant
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil,  # User representation has no superagent
+      collective: nil,  # User representation has no collective
       trustee_grant: grant,
       representative_user: @user,  # The parent (trustee_user)
       confirmed_understanding: true,
@@ -627,22 +627,22 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   # These tests protect the existing studio representation behavior.
   # =========================================================================
 
-  test "studio representation session gets correct superagent_id" do
+  test "studio representation session gets correct collective_id" do
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
 
-    assert_equal @superagent.id, session.superagent_id,
-                 "Studio representation session must have correct superagent_id"
+    assert_equal @collective.id, session.collective_id,
+                 "Studio representation session must have correct collective_id"
   end
 
-  test "studio representation session events get correct superagent_id" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+  test "studio representation session events get correct collective_id" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
 
@@ -653,17 +653,17 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       resource: note
     )
 
-    assert_equal @superagent.id, event.superagent_id,
-                 "Event must have correct superagent_id"
-    assert_equal @superagent.id, event.resource_superagent_id,
-                 "Event must have correct resource_superagent_id"
+    assert_equal @collective.id, event.collective_id,
+                 "Event must have correct collective_id"
+    assert_equal @collective.id, event.resource_collective_id,
+                 "Event must have correct resource_collective_id"
   end
 
   test "studio representation session is findable via has_many association" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
 
@@ -679,14 +679,14 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_equal note, session.representation_session_events.first.resource
   end
 
-  test "multiple event recordings in studio session all get correct superagent_id" do
-    note1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    note2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+  test "multiple event recordings in studio session all get correct collective_id" do
+    note1 = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    note2 = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user,
     )
 
@@ -702,10 +702,10 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       )
     end
 
-    # All events should have correct superagent_id
+    # All events should have correct collective_id
     session.representation_session_events.each do |event|
-      assert_equal @superagent.id, event.superagent_id,
-                   "All events must have correct superagent_id"
+      assert_equal @collective.id, event.collective_id,
+                   "All events must have correct collective_id"
     end
   end
 end

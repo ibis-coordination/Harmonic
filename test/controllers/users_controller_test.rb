@@ -3,7 +3,7 @@ require "test_helper"
 class UsersControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
@@ -62,7 +62,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "ai_agent profile does not show ai_agent count" do
     ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
     @tenant.add_user!(ai_agent)
-    @superagent.add_user!(ai_agent)
+    @collective.add_user!(ai_agent)
 
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{ai_agent.handle}"

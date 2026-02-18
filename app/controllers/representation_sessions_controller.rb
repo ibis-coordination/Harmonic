@@ -8,10 +8,10 @@ class RepresentationSessionsController < ApplicationController
   before_action :set_sidebar_mode, only: [:index, :show, :represent, :representing]
 
   def index
-    @representatives = current_superagent.representatives
+    @representatives = current_collective.representatives
     @page_title = "Representation"
-    @representation_sessions = current_superagent.representation_sessions.where.not(ended_at: nil).order(ended_at: :desc).limit(100)
-    @active_sessions = current_superagent.representation_sessions.where(ended_at: nil).order(began_at: :desc).limit(100)
+    @representation_sessions = current_collective.representation_sessions.where.not(ended_at: nil).order(ended_at: :desc).limit(100)
+    @active_sessions = current_collective.representation_sessions.where(ended_at: nil).order(began_at: :desc).limit(100)
     respond_to do |format|
       format.html
       format.md
@@ -26,7 +26,7 @@ class RepresentationSessionsController < ApplicationController
   def show
     @page_title = "Representation Session"
     column = params[:id].length == 8 ? "truncated_id" : "id"
-    @representation_session = current_superagent.representation_sessions.find_by!(column => params[:id])
+    @representation_session = current_collective.representation_sessions.find_by!(column => params[:id])
     respond_to do |format|
       format.html
       format.md
@@ -36,7 +36,7 @@ class RepresentationSessionsController < ApplicationController
   def represent
     # Studio representation page - only shows option to represent the studio itself.
     # User representation is initiated from the trustee grants settings page instead.
-    @can_represent_studio = @current_user.superagent_member&.can_represent?
+    @can_represent_studio = @current_user.collective_member&.can_represent?
 
     if @can_represent_studio
       @page_title = "Represent"
@@ -54,7 +54,7 @@ class RepresentationSessionsController < ApplicationController
       flash[:alert] = "Nested representation sessions are not allowed. End your current session before starting a new one."
       return redirect_to "/representing"
     end
-    return render status: :forbidden, plain: "403 Unauthorized" unless current_user.superagent_member.can_represent?
+    return render status: :forbidden, plain: "403 Unauthorized" unless current_user.collective_member.can_represent?
 
     confirmed_understanding = ["true", "1"].include?(params[:understand])
     unless confirmed_understanding
@@ -63,7 +63,7 @@ class RepresentationSessionsController < ApplicationController
     end
     rep_session = RepresentationSession.create!(
       tenant: current_tenant,
-      superagent: current_superagent,
+      collective: current_collective,
       representative_user: current_user,
       confirmed_understanding: confirmed_understanding,
       began_at: Time.current
@@ -71,7 +71,7 @@ class RepresentationSessionsController < ApplicationController
     rep_session.begin!
     # Set session cookies (matches API headers: X-Representation-Session-ID, X-Representing-Studio)
     session[:representation_session_id] = rep_session.id
-    session[:representing_studio] = current_superagent.handle
+    session[:representing_studio] = current_collective.handle
     redirect_to "/representing"
   end
 
@@ -95,7 +95,7 @@ class RepresentationSessionsController < ApplicationController
     end
 
     # Verify the grant allows the current studio context
-    unless grant.allows_studio?(current_superagent)
+    unless grant.allows_studio?(current_collective)
       flash[:alert] = "This trustee grant does not include this studio."
       return redirect_to request.referer || root_path
     end
@@ -120,10 +120,10 @@ class RepresentationSessionsController < ApplicationController
     @representation_session = current_representation_session
     return redirect_to root_path unless @representation_session
 
-    @studio = @representation_session.superagent
+    @studio = @representation_session.collective
     # For user representation, use the represented user's (granting_user/ai_agent) studios, not the parent's
     studios_user = @representation_session.user_representation? ? @representation_session.represented_user : current_user
-    @other_studios = studios_user.superagents.where.not(id: @current_tenant.main_superagent_id)
+    @other_studios = studios_user.collectives.where.not(id: @current_tenant.main_collective_id)
   end
 
   def stop_representing
@@ -150,7 +150,7 @@ class RepresentationSessionsController < ApplicationController
       respond_to do |format|
         format.html do
           flash[:notice] = "Your representation session has ended. A record of this session can be found [here](#{session_url})."
-          redirect_to current_superagent.path
+          redirect_to current_collective.path
         end
         format.md { render plain: "# Session Ended\n\nYour representation session has ended.\n\nSession record: #{session_url}" }
         format.json { render json: { message: "Representation session ended", session_url: session_url } }
@@ -159,7 +159,7 @@ class RepresentationSessionsController < ApplicationController
       respond_to do |format|
         format.html do
           flash[:alert] = "Could not find representation session."
-          redirect_to current_superagent.path
+          redirect_to current_collective.path
         end
         format.md { render plain: "# Error\n\nCould not find representation session.", status: :not_found }
         format.json { render json: { error: "Could not find representation session" }, status: :not_found }
@@ -211,7 +211,7 @@ class RepresentationSessionsController < ApplicationController
 
   def set_sidebar_mode
     @sidebar_mode = "settings"
-    @team = @current_superagent.team
+    @team = @current_collective.team
   end
 
   def current_resource_model
@@ -223,7 +223,7 @@ class RepresentationSessionsController < ApplicationController
 
     if params[:representation_session_id]
       column = params[:representation_session_id].length == 8 ? "truncated_id" : "id"
-      @current_resource = current_superagent.representation_sessions.find_by!(column => params[:representation_session_id])
+      @current_resource = current_collective.representation_sessions.find_by!(column => params[:representation_session_id])
     else
       super
     end

@@ -3,7 +3,7 @@ require "test_helper"
 class MottoControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end

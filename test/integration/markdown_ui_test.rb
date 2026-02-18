@@ -4,13 +4,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
 
-    # Set tenant/superagent context for direct database operations
+    # Set tenant/collective context for direct database operations
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -83,50 +83,50 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /studios/:studio_handle returns 200 markdown with actions" do
-    assert_200_markdown_page_with_actions(@superagent.name, "/studios/#{@superagent.handle}")
+    assert_200_markdown_page_with_actions(@collective.name, "/studios/#{@collective.handle}")
   end
 
   test "GET /studios/:studio_handle/note returns 200 markdown with actions" do
-    assert_200_markdown_page_with_actions("Note", "/studios/#{@superagent.handle}/note")
+    assert_200_markdown_page_with_actions("Note", "/studios/#{@collective.handle}/note")
   end
 
   test "GET /studios/:studio_handle/decide returns 200 markdown with actions" do
-    assert_200_markdown_page_with_actions("Decide", "/studios/#{@superagent.handle}/decide")
+    assert_200_markdown_page_with_actions("Decide", "/studios/#{@collective.handle}/decide")
   end
 
   test "GET /studios/:studio_handle/commit returns 200 markdown with actions" do
-    assert_200_markdown_page_with_actions("Commit", "/studios/#{@superagent.handle}/commit")
+    assert_200_markdown_page_with_actions("Commit", "/studios/#{@collective.handle}/commit")
   end
 
   test "GET /studios/:studio_handle/n/:note_id returns 200 markdown with actions" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test note")
-    assert_200_markdown_page_with_actions(note.title, "/studios/#{@superagent.handle}/n/#{note.truncated_id}")
+    note = create_note(collective: @collective, created_by: @user, title: "Test note")
+    assert_200_markdown_page_with_actions(note.title, "/studios/#{@collective.handle}/n/#{note.truncated_id}")
   end
 
   test "GET /studios/:studio_handle/n/:note_id/edit returns 200 markdown with actions" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test note")
-    assert_200_markdown_page_with_actions("Edit Note", "/studios/#{@superagent.handle}/n/#{note.truncated_id}/edit")
+    note = create_note(collective: @collective, created_by: @user, title: "Test note")
+    assert_200_markdown_page_with_actions("Edit Note", "/studios/#{@collective.handle}/n/#{note.truncated_id}/edit")
   end
 
   test "GET /studios/:studio_handle/d/:decision_id returns 200 markdown with actions" do
-    decision = create_decision(superagent: @superagent, created_by: @user, question: "Test decision?")
-    assert_200_markdown_page_with_actions(decision.question, "/studios/#{@superagent.handle}/d/#{decision.truncated_id}")
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    assert_200_markdown_page_with_actions(decision.question, "/studios/#{@collective.handle}/d/#{decision.truncated_id}")
   end
 
   test "GET /studios/:studio_handle/c/:commitment_id returns 200 markdown with actions" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Test commitment")
-    assert_200_markdown_page_with_actions(commitment.title, "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}")
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Test commitment")
+    assert_200_markdown_page_with_actions(commitment.title, "/studios/#{@collective.handle}/c/#{commitment.truncated_id}")
   end
 
   # Cycle detail pages
   test "GET /studios/:studio_handle/cycles returns 200 markdown" do
-    get "/studios/#{@superagent.handle}/cycles", headers: @headers
+    get "/studios/#{@collective.handle}/cycles", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
   end
 
   test "GET /studios/:studio_handle/cycles/today returns 200 markdown" do
-    get "/studios/#{@superagent.handle}/cycles/today", headers: @headers
+    get "/studios/#{@collective.handle}/cycles/today", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
   end
@@ -148,15 +148,15 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert is_markdown?
 
     # Verify studio was created
-    superagent = Superagent.find_by(handle: handle)
-    assert superagent, "Studio should have been created"
-    assert_equal "Test Studio", superagent.name
+    collective = Collective.find_by(handle: handle)
+    assert collective, "Studio should have been created"
+    assert_equal "Test Studio", collective.name
   end
 
   # Note actions
   test "POST create_note action creates note and returns 200 markdown" do
     note_count_before = Note.count
-    post "/studios/#{@superagent.handle}/note/actions/create_note",
+    post "/studios/#{@collective.handle}/note/actions/create_note",
       params: { text: "This is a test note" }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -168,8 +168,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST confirm_read action creates read confirmation and returns 200 markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test note")
-    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/actions/confirm_read",
+    note = create_note(collective: @collective, created_by: @user, title: "Test note")
+    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -181,8 +181,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST update_note action updates note and returns 200 markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test note", text: "Original text")
-    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/edit/actions/update_note",
+    note = create_note(collective: @collective, created_by: @user, title: "Test note", text: "Original text")
+    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/edit/actions/update_note",
       params: { text: "Updated note text" }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -196,7 +196,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   # Decision actions
   test "POST create_decision action creates decision and returns 200 markdown" do
     decision_count_before = Decision.count
-    post "/studios/#{@superagent.handle}/decide/actions/create_decision",
+    post "/studios/#{@collective.handle}/decide/actions/create_decision",
       params: {
         question: "Test decision question?",
         description: "A test decision",
@@ -213,9 +213,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST add_options action adds multiple options to decision and returns 200 markdown" do
-    decision = create_decision(superagent: @superagent, created_by: @user, question: "Test decision?")
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
     options_count_before = decision.options.count
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/add_options",
+    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/actions/add_options",
       params: { titles: ["Option A", "Option B", "Option C"] }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -230,12 +230,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST vote action records multiple votes and returns 200 markdown" do
-    decision = create_decision(superagent: @superagent, created_by: @user, question: "Test decision?")
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
     # Add options to vote on
     option_a = create_option(decision: decision, title: "Option A")
     option_b = create_option(decision: decision, title: "Option B")
 
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/vote",
+    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/actions/vote",
       params: {
         votes: [
           { option_title: "Option A", accept: true, prefer: false },
@@ -262,7 +262,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   # Commitment actions
   test "POST create_commitment action creates commitment and returns 200 markdown" do
     commitment_count_before = Commitment.count
-    post "/studios/#{@superagent.handle}/commit/actions/create_commitment",
+    post "/studios/#{@collective.handle}/commit/actions/create_commitment",
       params: {
         title: "Test commitment",
         description: "A test commitment",
@@ -279,8 +279,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST join_commitment action joins user to commitment and returns 200 markdown" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Test commitment")
-    post "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}/actions/join_commitment",
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Test commitment")
+    post "/studios/#{@collective.handle}/c/#{commitment.truncated_id}/actions/join_commitment",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -295,9 +295,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   # Heartbeat gate tests
   test "studio homepage without heartbeat shows only send_heartbeat action" do
     # Ensure no heartbeat exists for this cycle
-    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+    Heartbeat.where(collective: @collective, user: @user).delete_all
 
-    get "/studios/#{@superagent.handle}", headers: @headers
+    get "/studios/#{@collective.handle}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -320,12 +320,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Create a heartbeat for the current cycle
     heartbeat = Heartbeat.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       user: @user,
       expires_at: 1.day.from_now,
     )
 
-    get "/studios/#{@superagent.handle}", headers: @headers
+    get "/studios/#{@collective.handle}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -342,26 +342,26 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   test "POST send_heartbeat action creates heartbeat and returns 200" do
     # Ensure no heartbeat exists
-    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+    Heartbeat.where(collective: @collective, user: @user).delete_all
 
-    post "/studios/#{@superagent.handle}/actions/send_heartbeat",
+    post "/studios/#{@collective.handle}/actions/send_heartbeat",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
     # Verify heartbeat was created
-    assert Heartbeat.where(superagent: @superagent, user: @user).exists?,
+    assert Heartbeat.where(collective: @collective, user: @user).exists?,
       "Heartbeat should have been created"
   ensure
-    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+    Heartbeat.where(collective: @collective, user: @user).delete_all
   end
 
   test "send_heartbeat action appears in frontmatter when no heartbeat exists" do
     # Ensure no heartbeat exists for this cycle
-    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+    Heartbeat.where(collective: @collective, user: @user).delete_all
 
-    get "/studios/#{@superagent.handle}", headers: @headers
+    get "/studios/#{@collective.handle}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -373,19 +373,19 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert frontmatter.include?("- name: send_heartbeat"),
       "Frontmatter should include send_heartbeat action when no heartbeat exists"
   ensure
-    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+    Heartbeat.where(collective: @collective, user: @user).delete_all
   end
 
   test "send_heartbeat action does not appear in frontmatter when heartbeat exists" do
     # Create a heartbeat for the current cycle
     heartbeat = Heartbeat.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       user: @user,
       expires_at: 1.day.from_now,
     )
 
-    get "/studios/#{@superagent.handle}", headers: @headers
+    get "/studios/#{@collective.handle}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -402,9 +402,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   test "studio actions index shows send_heartbeat when no heartbeat exists" do
     # Ensure no heartbeat exists for this cycle
-    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+    Heartbeat.where(collective: @collective, user: @user).delete_all
 
-    get "/studios/#{@superagent.handle}/actions", headers: @headers
+    get "/studios/#{@collective.handle}/actions", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -412,19 +412,19 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert response.body.include?("send_heartbeat"),
       "Actions index should include send_heartbeat action when no heartbeat exists"
   ensure
-    Heartbeat.where(superagent: @superagent, user: @user).delete_all
+    Heartbeat.where(collective: @collective, user: @user).delete_all
   end
 
   test "studio actions index does not show send_heartbeat when heartbeat exists" do
     # Create a heartbeat for the current cycle
     heartbeat = Heartbeat.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       user: @user,
       expires_at: 1.day.from_now,
     )
 
-    get "/studios/#{@superagent.handle}/actions", headers: @headers
+    get "/studios/#{@collective.handle}/actions", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -437,8 +437,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # add_comment action tests
   test "POST add_comment action on note returns 200 markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test note")
-    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/actions/add_comment",
+    note = create_note(collective: @collective, created_by: @user, title: "Test note")
+    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/actions/add_comment",
       params: { text: "This is a test comment" }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -449,8 +449,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST add_comment action on decision returns 200 markdown" do
-    decision = create_decision(superagent: @superagent, created_by: @user, question: "Test decision?")
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/add_comment",
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/actions/add_comment",
       params: { text: "This is a test comment" }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -461,8 +461,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST add_comment action on commitment returns 200 markdown" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Test commitment")
-    post "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}/actions/add_comment",
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Test commitment")
+    post "/studios/#{@collective.handle}/c/#{commitment.truncated_id}/actions/add_comment",
       params: { text: "This is a test comment" }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -474,9 +474,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # Conditional action display tests
   test "commitment show page shows join_commitment action when user has not joined" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Test commitment")
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Test commitment")
 
-    get "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}", headers: @headers
+    get "/studios/#{@collective.handle}/c/#{commitment.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -485,7 +485,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "commitment show page renders correctly when user has already joined" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Test commitment")
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Test commitment")
 
     # Join the commitment
     participant = CommitmentParticipant.find_or_create_by!(
@@ -495,7 +495,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     participant.update!(committed: true, committed_at: Time.current)
 
-    get "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}", headers: @headers
+    get "/studios/#{@collective.handle}/c/#{commitment.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
     # Verify content renders correctly
@@ -503,10 +503,10 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "commitment show page renders correctly when commitment is closed" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Test commitment")
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Test commitment")
     commitment.update!(deadline: 1.day.ago) # closed? checks if deadline < Time.now
 
-    get "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}", headers: @headers
+    get "/studios/#{@collective.handle}/c/#{commitment.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
     # Verify content renders correctly
@@ -514,9 +514,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "note show page shows confirm_read action when user has not confirmed" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test note")
+    note = create_note(collective: @collective, created_by: @user, title: "Test note")
 
-    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}", headers: @headers
+    get "/studios/#{@collective.handle}/n/#{note.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -525,7 +525,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "note show page hides confirm_read action when user has confirmed" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test note")
+    note = create_note(collective: @collective, created_by: @user, title: "Test note")
 
     # Confirm read by creating a history event
     NoteHistoryEvent.create!(
@@ -536,7 +536,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       happened_at: Time.current,
     )
 
-    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}", headers: @headers
+    get "/studios/#{@collective.handle}/n/#{note.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -546,7 +546,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "note show page shows reconfirm action when note updated after confirmation" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test note")
+    note = create_note(collective: @collective, created_by: @user, title: "Test note")
 
     # Confirm read by creating a history event in the past
     NoteHistoryEvent.create!(
@@ -560,7 +560,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Update note after confirmation
     note.update!(updated_at: Time.current)
 
-    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}", headers: @headers
+    get "/studios/#{@collective.handle}/n/#{note.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -571,10 +571,10 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   # Settings action tests
   test "POST update_studio_settings action updates studio and returns 200 markdown" do
     # Make user an admin for this test
-    superagent_member = @user.superagent_members.find_by(superagent: @superagent)
-    superagent_member.add_role!('admin')
+    collective_member = @user.collective_members.find_by(collective: @collective)
+    collective_member.add_role!('admin')
 
-    post "/studios/#{@superagent.handle}/settings/actions/update_studio_settings",
+    post "/studios/#{@collective.handle}/settings/actions/update_studio_settings",
       params: {
         name: "Updated Studio Name",
         description: "Updated description",
@@ -584,95 +584,95 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert is_markdown?
 
     # Verify studio was updated
-    @superagent.reload
-    assert_equal "Updated Studio Name", @superagent.name, "Studio name should have been updated"
-    assert_equal "Updated description", @superagent.description, "Studio description should have been updated"
+    @collective.reload
+    assert_equal "Updated Studio Name", @collective.name, "Studio name should have been updated"
+    assert_equal "Updated description", @collective.description, "Studio description should have been updated"
   ensure
     # Restore original name
-    @superagent.update!(name: "Global Studio", description: nil)
-    superagent_member&.remove_role!('admin')
+    @collective.update!(name: "Global Studio", description: nil)
+    collective_member&.remove_role!('admin')
   end
 
   test "POST update_studio_settings action with invitations param updates setting" do
-    superagent_member = @user.superagent_members.find_by(superagent: @superagent)
-    superagent_member.add_role!('admin')
+    collective_member = @user.collective_members.find_by(collective: @collective)
+    collective_member.add_role!('admin')
 
     # Set initial value
-    @superagent.settings['all_members_can_invite'] = false
-    @superagent.save!
+    @collective.settings['all_members_can_invite'] = false
+    @collective.save!
 
-    post "/studios/#{@superagent.handle}/settings/actions/update_studio_settings",
+    post "/studios/#{@collective.handle}/settings/actions/update_studio_settings",
       params: { invitations: "all_members" }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    assert @superagent.all_members_can_invite?, "Studio should have all_members_can_invite enabled"
+    @collective.reload
+    assert @collective.all_members_can_invite?, "Studio should have all_members_can_invite enabled"
   ensure
-    superagent_member&.remove_role!('admin')
+    collective_member&.remove_role!('admin')
   end
 
   test "POST update_studio_settings action with representation param updates setting" do
-    superagent_member = @user.superagent_members.find_by(superagent: @superagent)
-    superagent_member.add_role!('admin')
+    collective_member = @user.collective_members.find_by(collective: @collective)
+    collective_member.add_role!('admin')
 
     # Set initial value
-    @superagent.settings['any_member_can_represent'] = false
-    @superagent.save!
+    @collective.settings['any_member_can_represent'] = false
+    @collective.save!
 
-    post "/studios/#{@superagent.handle}/settings/actions/update_studio_settings",
+    post "/studios/#{@collective.handle}/settings/actions/update_studio_settings",
       params: { representation: "any_member" }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    assert @superagent.any_member_can_represent?, "Studio should have any_member_can_represent enabled"
+    @collective.reload
+    assert @collective.any_member_can_represent?, "Studio should have any_member_can_represent enabled"
   ensure
-    superagent_member&.remove_role!('admin')
+    collective_member&.remove_role!('admin')
   end
 
   test "POST update_studio_settings action with file_uploads param updates setting" do
-    superagent_member = @user.superagent_members.find_by(superagent: @superagent)
-    superagent_member.add_role!('admin')
+    collective_member = @user.collective_members.find_by(collective: @collective)
+    collective_member.add_role!('admin')
 
     # Set initial value
-    @superagent.settings['allow_file_uploads'] = false
-    @superagent.save!
+    @collective.settings['allow_file_uploads'] = false
+    @collective.save!
 
-    post "/studios/#{@superagent.handle}/settings/actions/update_studio_settings",
+    post "/studios/#{@collective.handle}/settings/actions/update_studio_settings",
       params: { file_uploads: true }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    assert @superagent.allow_file_uploads?, "Studio should have file uploads enabled"
+    @collective.reload
+    assert @collective.allow_file_uploads?, "Studio should have file uploads enabled"
   ensure
-    superagent_member&.remove_role!('admin')
+    collective_member&.remove_role!('admin')
   end
 
   test "POST update_studio_settings action with api_enabled=true param enables API" do
-    superagent_member = @user.superagent_members.find_by(superagent: @superagent)
-    superagent_member.add_role!('admin')
+    collective_member = @user.collective_members.find_by(collective: @collective)
+    collective_member.add_role!('admin')
 
     # Studio already has API enabled in setup, but verify setting api_enabled=true works
-    post "/studios/#{@superagent.handle}/settings/actions/update_studio_settings",
+    post "/studios/#{@collective.handle}/settings/actions/update_studio_settings",
       params: { api_enabled: true }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    assert @superagent.feature_enabled?('api'), "Studio should have API enabled"
+    @collective.reload
+    assert @collective.feature_enabled?('api'), "Studio should have API enabled"
   ensure
-    superagent_member&.remove_role!('admin')
+    collective_member&.remove_role!('admin')
   end
 
   test "POST update_decision_settings action updates decision and returns 200 markdown" do
-    decision = create_decision(superagent: @superagent, created_by: @user, question: "Original question?")
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/settings/actions/update_decision_settings",
+    decision = create_decision(collective: @collective, created_by: @user, question: "Original question?")
+    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/settings/actions/update_decision_settings",
       params: {
         question: "Updated question?",
         description: "Updated description",
@@ -688,8 +688,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST update_commitment_settings action updates commitment and returns 200 markdown" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Original title")
-    post "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}/settings/actions/update_commitment_settings",
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Original title")
+    post "/studios/#{@collective.handle}/c/#{commitment.truncated_id}/settings/actions/update_commitment_settings",
       params: {
         title: "Updated title",
         description: "Updated description",
@@ -706,8 +706,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # HTML entities are expected in markdown output for safety
   test "note with apostrophe in title should be escaped in markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test's apostrophe note")
-    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}", headers: @headers
+    note = create_note(collective: @collective, created_by: @user, title: "Test's apostrophe note")
+    get "/studios/#{@collective.handle}/n/#{note.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
@@ -737,15 +737,15 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Create a note by a different user
     other_user = User.create!(name: "Other", email: "other-#{SecureRandom.hex(4)}@test.com")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
-    note = create_note(superagent: @superagent, created_by: other_user, title: "Not my note")
+    @collective.add_user!(other_user)
+    note = create_note(collective: @collective, created_by: other_user, title: "Not my note")
 
-    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}/edit", headers: @headers
+    get "/studios/#{@collective.handle}/n/#{note.truncated_id}/edit", headers: @headers
     assert_equal 403, response.status
     assert response.content_type.starts_with?("text/markdown"), "403 page should return markdown format"
     assert_match(/403 Forbidden/, response.body, "Should show 403 message")
   ensure
-    SuperagentMember.where(user: other_user).delete_all if other_user
+    CollectiveMember.where(user: other_user).delete_all if other_user
     TenantUser.where(user: other_user).delete_all if other_user
     Event.where(actor_id: other_user&.id).delete_all if other_user
     note&.destroy
@@ -764,11 +764,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   test "POST join_studio action joins scene and returns 200 markdown" do
     # Create a scene (open studio) that allows direct join
-    scene = Superagent.create!(
+    scene = Collective.create!(
       tenant: @tenant,
       name: "Test Scene",
       handle: "test-scene-#{SecureRandom.hex(4)}",
-      superagent_type: 'scene',
+      collective_type: 'scene',
       open_scene: true,
       created_by: @user,
     )
@@ -800,9 +800,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     # Verify user joined the scene
     other_user.reload
-    assert other_user.superagents.include?(scene), "User should have joined the scene"
+    assert other_user.collectives.include?(scene), "User should have joined the scene"
   ensure
-    SuperagentMember.where(superagent: scene).delete_all if scene
+    CollectiveMember.where(collective: scene).delete_all if scene
     scene&.destroy
     TenantUser.where(user: other_user).delete_all if other_user
     other_token&.destroy
@@ -812,98 +812,98 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   # === Pin/Unpin Action Tests ===
 
   test "GET note settings returns 200 markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Test Note")
-    get "/studios/#{@superagent.handle}/n/#{note.truncated_id}/settings", headers: @headers
+    note = create_note(collective: @collective, created_by: @user, title: "Test Note")
+    get "/studios/#{@collective.handle}/n/#{note.truncated_id}/settings", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
     assert_match(/Note Settings/, response.body, "Should show note settings heading")
   end
 
   test "POST pin_note action pins note and returns 200 markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Pinnable Note")
-    refute note.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Note should not be pinned initially"
+    note = create_note(collective: @collective, created_by: @user, title: "Pinnable Note")
+    refute note.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Note should not be pinned initially"
 
-    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/settings/actions/pin_note",
+    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/settings/actions/pin_note",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    assert note.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Note should be pinned after action"
+    @collective.reload
+    assert note.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Note should be pinned after action"
   end
 
   test "POST unpin_note action unpins note and returns 200 markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Pinned Note")
-    note.pin!(tenant: @tenant, superagent: @superagent, user: @user)
-    assert note.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Note should be pinned initially"
+    note = create_note(collective: @collective, created_by: @user, title: "Pinned Note")
+    note.pin!(tenant: @tenant, collective: @collective, user: @user)
+    assert note.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Note should be pinned initially"
 
-    post "/studios/#{@superagent.handle}/n/#{note.truncated_id}/settings/actions/unpin_note",
+    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/settings/actions/unpin_note",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    refute note.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Note should be unpinned after action"
+    @collective.reload
+    refute note.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Note should be unpinned after action"
   end
 
   test "POST pin_decision action pins decision and returns 200 markdown" do
-    decision = create_decision(superagent: @superagent, created_by: @user, question: "Pinnable Decision?")
-    refute decision.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Decision should not be pinned initially"
+    decision = create_decision(collective: @collective, created_by: @user, question: "Pinnable Decision?")
+    refute decision.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Decision should not be pinned initially"
 
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/settings/actions/pin_decision",
+    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/settings/actions/pin_decision",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    assert decision.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Decision should be pinned after action"
+    @collective.reload
+    assert decision.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Decision should be pinned after action"
   end
 
   test "POST unpin_decision action unpins decision and returns 200 markdown" do
-    decision = create_decision(superagent: @superagent, created_by: @user, question: "Pinned Decision?")
-    decision.pin!(tenant: @tenant, superagent: @superagent, user: @user)
-    assert decision.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Decision should be pinned initially"
+    decision = create_decision(collective: @collective, created_by: @user, question: "Pinned Decision?")
+    decision.pin!(tenant: @tenant, collective: @collective, user: @user)
+    assert decision.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Decision should be pinned initially"
 
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/settings/actions/unpin_decision",
+    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/settings/actions/unpin_decision",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    refute decision.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Decision should be unpinned after action"
+    @collective.reload
+    refute decision.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Decision should be unpinned after action"
   end
 
   test "POST pin_commitment action pins commitment and returns 200 markdown" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Pinnable Commitment")
-    refute commitment.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Commitment should not be pinned initially"
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Pinnable Commitment")
+    refute commitment.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Commitment should not be pinned initially"
 
-    post "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}/settings/actions/pin_commitment",
+    post "/studios/#{@collective.handle}/c/#{commitment.truncated_id}/settings/actions/pin_commitment",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    assert commitment.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Commitment should be pinned after action"
+    @collective.reload
+    assert commitment.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Commitment should be pinned after action"
   end
 
   test "POST unpin_commitment action unpins commitment and returns 200 markdown" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Pinned Commitment")
-    commitment.pin!(tenant: @tenant, superagent: @superagent, user: @user)
-    assert commitment.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Commitment should be pinned initially"
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Pinned Commitment")
+    commitment.pin!(tenant: @tenant, collective: @collective, user: @user)
+    assert commitment.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Commitment should be pinned initially"
 
-    post "/studios/#{@superagent.handle}/c/#{commitment.truncated_id}/settings/actions/unpin_commitment",
+    post "/studios/#{@collective.handle}/c/#{commitment.truncated_id}/settings/actions/unpin_commitment",
       params: {}.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    refute commitment.is_pinned?(tenant: @tenant, superagent: @superagent, user: @user), "Commitment should be unpinned after action"
+    @collective.reload
+    refute commitment.is_pinned?(tenant: @tenant, collective: @collective, user: @user), "Commitment should be unpinned after action"
   end
 
   # === Create Studio with Optional Settings ===
@@ -924,9 +924,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
 
-    superagent = Superagent.find_by(handle: handle)
-    assert superagent, "Studio should have been created"
-    assert superagent.api_enabled?, "Studio should have API enabled"
+    collective = Collective.find_by(handle: handle)
+    assert collective, "Studio should have been created"
+    assert collective.api_enabled?, "Studio should have API enabled"
   end
 
   test "POST create_studio with invitations param creates studio with correct setting" do
@@ -944,9 +944,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
 
-    superagent = Superagent.find_by(handle: handle)
-    assert superagent, "Studio should have been created"
-    refute superagent.all_members_can_invite?, "Studio should have only_admins can invite"
+    collective = Collective.find_by(handle: handle)
+    assert collective, "Studio should have been created"
+    refute collective.all_members_can_invite?, "Studio should have only_admins can invite"
   end
 
   test "POST create_studio with representation param creates studio with correct setting" do
@@ -964,9 +964,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
 
-    superagent = Superagent.find_by(handle: handle)
-    assert superagent, "Studio should have been created"
-    refute superagent.any_member_can_represent?, "Studio should have only_representatives setting"
+    collective = Collective.find_by(handle: handle)
+    assert collective, "Studio should have been created"
+    refute collective.any_member_can_represent?, "Studio should have only_representatives setting"
   end
 
   test "POST create_studio with file_uploads param creates studio with correct setting" do
@@ -984,44 +984,44 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
 
-    superagent = Superagent.find_by(handle: handle)
-    assert superagent, "Studio should have been created"
-    assert superagent.allow_file_uploads?, "Studio should have file uploads enabled"
+    collective = Collective.find_by(handle: handle)
+    assert collective, "Studio should have been created"
+    assert collective.allow_file_uploads?, "Studio should have file uploads enabled"
   end
 
   # === API Protection: api_enabled not changeable via API ===
 
   test "POST update_studio_settings ignores api_enabled param entirely" do
-    superagent_member = @user.superagent_members.find_by(superagent: @superagent)
-    superagent_member.add_role!('admin')
+    collective_member = @user.collective_members.find_by(collective: @collective)
+    collective_member.add_role!('admin')
 
     # Ensure API is enabled first
-    @superagent.settings['feature_flags'] ||= {}
-    @superagent.settings['feature_flags']['api'] = true
-    @superagent.save!
-    assert @superagent.api_enabled?, "Studio should have API enabled initially"
+    @collective.settings['feature_flags'] ||= {}
+    @collective.settings['feature_flags']['api'] = true
+    @collective.save!
+    assert @collective.api_enabled?, "Studio should have API enabled initially"
 
     # api_enabled param should be ignored entirely (can't change via API)
     # Try to disable - should be ignored
-    post "/studios/#{@superagent.handle}/settings/actions/update_studio_settings",
+    post "/studios/#{@collective.handle}/settings/actions/update_studio_settings",
       params: { api_enabled: false }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @superagent.reload
-    assert @superagent.api_enabled?, "api_enabled=false should be ignored - setting unchanged"
+    @collective.reload
+    assert @collective.api_enabled?, "api_enabled=false should be ignored - setting unchanged"
 
     # Try to enable (already enabled) - should also be ignored (no-op)
-    post "/studios/#{@superagent.handle}/settings/actions/update_studio_settings",
+    post "/studios/#{@collective.handle}/settings/actions/update_studio_settings",
       params: { api_enabled: true }.to_json,
       headers: @headers
     assert_equal 200, response.status
 
-    @superagent.reload
-    assert @superagent.api_enabled?, "api_enabled=true should be ignored - setting unchanged"
+    @collective.reload
+    assert @collective.api_enabled?, "api_enabled=true should be ignored - setting unchanged"
   ensure
-    superagent_member&.remove_role!('admin')
+    collective_member&.remove_role!('admin')
   end
 
   # === Phase 2: User Management Actions ===
@@ -1183,30 +1183,30 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(ai_agent)
 
     # Create a second studio where user is admin
-    second_superagent = Superagent.create!(
+    second_collective = Collective.create!(
       tenant: @tenant,
       name: "Second Studio #{SecureRandom.hex(4)}",
       handle: "second-#{SecureRandom.hex(4)}",
       created_by: @user,
     )
-    second_superagent.add_user!(@user, roles: ['admin'])
-    second_superagent.enable_api!
+    second_collective.add_user!(@user, roles: ['admin'])
+    second_collective.enable_api!
 
     # AiAgent should not be in the second studio initially
-    refute ai_agent.superagents.include?(second_superagent), "AiAgent should not be in studio initially"
+    refute ai_agent.collectives.include?(second_collective), "AiAgent should not be in studio initially"
 
     # Add ai_agent to studio via API
-    post "/studios/#{second_superagent.handle}/settings/actions/add_ai_agent_to_studio",
+    post "/studios/#{second_collective.handle}/settings/actions/add_ai_agent_to_studio",
       params: { ai_agent_id: ai_agent.id }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
     ai_agent.reload
-    assert ai_agent.superagents.include?(second_superagent), "AiAgent should now be in the studio"
+    assert ai_agent.collectives.include?(second_collective), "AiAgent should now be in the studio"
   ensure
-    SuperagentMember.where(superagent: second_superagent).delete_all if second_superagent
-    second_superagent&.destroy
+    CollectiveMember.where(collective: second_collective).delete_all if second_collective
+    second_collective&.destroy
     TenantUser.where(user: ai_agent).delete_all if ai_agent
     ai_agent&.destroy
   end
@@ -1223,40 +1223,40 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(ai_agent)
 
     # Create a second studio where user is admin
-    second_superagent = Superagent.create!(
+    second_collective = Collective.create!(
       tenant: @tenant,
       name: "Remove Studio #{SecureRandom.hex(4)}",
       handle: "remove-#{SecureRandom.hex(4)}",
       created_by: @user,
     )
-    second_superagent.add_user!(@user, roles: ['admin'])
-    second_superagent.add_user!(ai_agent)
-    second_superagent.enable_api!
+    second_collective.add_user!(@user, roles: ['admin'])
+    second_collective.add_user!(ai_agent)
+    second_collective.enable_api!
 
     # AiAgent should be in the studio initially
-    assert ai_agent.superagents.include?(second_superagent), "AiAgent should be in studio initially"
+    assert ai_agent.collectives.include?(second_collective), "AiAgent should be in studio initially"
 
     # Remove ai_agent from studio via API
-    post "/studios/#{second_superagent.handle}/settings/actions/remove_ai_agent_from_studio",
+    post "/studios/#{second_collective.handle}/settings/actions/remove_ai_agent_from_studio",
       params: { ai_agent_id: ai_agent.id }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
     ai_agent.reload
-    # The superagent_member should be archived, not deleted
-    superagent_member = SuperagentMember.unscoped.find_by(superagent: second_superagent, user: ai_agent)
-    assert superagent_member.archived?, "AiAgent's studio membership should be archived"
+    # The collective_member should be archived, not deleted
+    collective_member = CollectiveMember.unscoped.find_by(collective: second_collective, user: ai_agent)
+    assert collective_member.archived?, "AiAgent's studio membership should be archived"
   ensure
-    SuperagentMember.where(superagent: second_superagent).delete_all if second_superagent
-    second_superagent&.destroy
+    CollectiveMember.where(collective: second_collective).delete_all if second_collective
+    second_collective&.destroy
     TenantUser.where(user: ai_agent).delete_all if ai_agent
     ai_agent&.destroy
   end
 
   test "Studio settings markdown shows add_ai_agent_to_studio action when ai_agents exist" do
-    superagent_member = @user.superagent_members.find_by(superagent: @superagent)
-    superagent_member.add_role!('admin')
+    collective_member = @user.collective_members.find_by(collective: @collective)
+    collective_member.add_role!('admin')
 
     # Create a ai_agent that's not in this studio
     ai_agent = User.create!(
@@ -1267,12 +1267,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     @tenant.add_user!(ai_agent)
 
-    get "/studios/#{@superagent.handle}/settings", headers: @headers
+    get "/studios/#{@collective.handle}/settings", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
     assert_match(/add_ai_agent_to_studio/, response.body, "Should show add_ai_agent_to_studio action")
   ensure
-    superagent_member&.remove_role!('admin')
+    collective_member&.remove_role!('admin')
     TenantUser.where(user: ai_agent).delete_all if ai_agent
     ai_agent&.destroy
   end
@@ -1461,7 +1461,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     @tenant.add_user!(acting_ai_agent)
     @tenant.add_user!(other_ai_agent)
-    @superagent.add_user!(acting_ai_agent)
+    @collective.add_user!(acting_ai_agent)
     token = ApiToken.create!(
       user: acting_ai_agent,
       tenant: @tenant,
@@ -1477,14 +1477,14 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # Try to add another ai_agent to studio - should be blocked by capability check
-    post "/studios/#{@superagent.handle}/settings/actions/add_ai_agent_to_studio",
+    post "/studios/#{@collective.handle}/settings/actions/add_ai_agent_to_studio",
       params: { ai_agent_id: other_ai_agent.id }.to_json,
       headers: ai_agent_headers
     assert_equal 403, response.status
     assert_match(/capabilities do not include.*add_ai_agent_to_studio/, response.body)
   ensure
     token&.destroy
-    SuperagentMember.where(user: [acting_ai_agent, other_ai_agent]).delete_all
+    CollectiveMember.where(user: [acting_ai_agent, other_ai_agent]).delete_all
     TenantUser.where(user: [acting_ai_agent, other_ai_agent]).delete_all
     acting_ai_agent&.destroy
     other_ai_agent&.destroy
@@ -1506,8 +1506,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     @tenant.add_user!(acting_ai_agent)
     @tenant.add_user!(other_ai_agent)
-    @superagent.add_user!(acting_ai_agent)
-    @superagent.add_user!(other_ai_agent)
+    @collective.add_user!(acting_ai_agent)
+    @collective.add_user!(other_ai_agent)
     token = ApiToken.create!(
       user: acting_ai_agent,
       tenant: @tenant,
@@ -1523,14 +1523,14 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # Try to remove another ai_agent from studio - should be blocked by capability check
-    post "/studios/#{@superagent.handle}/settings/actions/remove_ai_agent_from_studio",
+    post "/studios/#{@collective.handle}/settings/actions/remove_ai_agent_from_studio",
       params: { ai_agent_id: other_ai_agent.id }.to_json,
       headers: ai_agent_headers
     assert_equal 403, response.status
     assert_match(/capabilities do not include.*remove_ai_agent_from_studio/, response.body)
   ensure
     token&.destroy
-    SuperagentMember.where(user: [acting_ai_agent, other_ai_agent]).delete_all
+    CollectiveMember.where(user: [acting_ai_agent, other_ai_agent]).delete_all
     TenantUser.where(user: [acting_ai_agent, other_ai_agent]).delete_all
     acting_ai_agent&.destroy
     other_ai_agent&.destroy
@@ -1912,7 +1912,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     attachment = Attachment.create!(
       tenant_id: @tenant.id,
-      superagent_id: @superagent.id,
+      collective_id: @collective.id,
       attachable: note,
       file: blob,
       created_by: @user,
@@ -1943,8 +1943,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   test "GET /n/:id/edit/actions/add_attachment describes add_attachment action" do
     @tenant.settings["allow_file_uploads"] = "true"
     @tenant.save!
-    @superagent.settings["allow_file_uploads"] = "true"
-    @superagent.save!
+    @collective.settings["allow_file_uploads"] = "true"
+    @collective.save!
     note = create_note(text: "Test note")
 
     get "#{note.path}/edit/actions/add_attachment", headers: @headers
@@ -1959,8 +1959,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   test "POST /n/:id/edit/actions/add_attachment adds attachment via base64" do
     @tenant.settings["allow_file_uploads"] = "true"
     @tenant.save!
-    @superagent.settings["allow_file_uploads"] = "true"
-    @superagent.save!
+    @collective.settings["allow_file_uploads"] = "true"
+    @collective.save!
     note = create_note(text: "Test note for attachment")
     file_content = "Hello, this is test file content"
     encoded_content = Base64.encode64(file_content)
@@ -1996,7 +1996,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     attachment = Attachment.create!(
       tenant_id: @tenant.id,
-      superagent_id: @superagent.id,
+      collective_id: @collective.id,
       attachable: note,
       file: blob,
       created_by: @user,
@@ -2021,7 +2021,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     attachment = Attachment.create!(
       tenant_id: @tenant.id,
-      superagent_id: @superagent.id,
+      collective_id: @collective.id,
       attachable: note,
       file: blob,
       created_by: @user,
@@ -2051,7 +2051,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     attachment = Attachment.create!(
       tenant_id: @tenant.id,
-      superagent_id: @superagent.id,
+      collective_id: @collective.id,
       attachable: decision,
       file: blob,
       created_by: @user,
@@ -2077,7 +2077,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     attachment = Attachment.create!(
       tenant_id: @tenant.id,
-      superagent_id: @superagent.id,
+      collective_id: @collective.id,
       attachable: commitment,
       file: blob,
       created_by: @user,
@@ -2103,12 +2103,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       email: "other-notif-#{SecureRandom.hex(4)}@test.com",
     )
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
     # Create a notification for @user
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: other_user,
     )
@@ -2139,7 +2139,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     NotificationRecipient.where(notification: notification).delete_all if notification
     notification&.destroy
     event&.destroy
-    SuperagentMember.where(user: other_user).delete_all if other_user
+    CollectiveMember.where(user: other_user).delete_all if other_user
     TenantUser.where(user: other_user).delete_all if other_user
     other_user&.destroy
   end
@@ -2165,12 +2165,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       email: "other-notif2-#{SecureRandom.hex(4)}@test.com",
     )
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
     # Create a notification for @user
     event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: other_user,
     )
@@ -2204,7 +2204,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     NotificationRecipient.where(notification: notification).delete_all if notification
     notification&.destroy
     event&.destroy
-    SuperagentMember.where(user: other_user).delete_all if other_user
+    CollectiveMember.where(user: other_user).delete_all if other_user
     TenantUser.where(user: other_user).delete_all if other_user
     other_user&.destroy
   end
@@ -2212,7 +2212,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   # === Threaded Comments in Markdown UI ===
 
   test "note with no comments shows 'No comments yet' in markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Note without comments")
+    note = create_note(collective: @collective, created_by: @user, title: "Note without comments")
 
     get note.path, headers: @headers
     assert_equal 200, response.status
@@ -2224,7 +2224,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "note with single comment shows comment in markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Note with comment")
+    note = create_note(collective: @collective, created_by: @user, title: "Note with comment")
     comment = note.add_comment(text: "This is a test comment", created_by: @user)
 
     get note.path, headers: @headers
@@ -2239,7 +2239,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "note with threaded comments shows replies indented in markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Note with threaded comments")
+    note = create_note(collective: @collective, created_by: @user, title: "Note with threaded comments")
     top_level_comment = note.add_comment(text: "Top level comment", created_by: @user)
     reply = top_level_comment.add_comment(text: "Reply to top level", created_by: @user)
 
@@ -2256,7 +2256,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "nested reply shows 'Replying to @handle' context in markdown" do
-    note = create_note(superagent: @superagent, created_by: @user, title: "Note with nested replies")
+    note = create_note(collective: @collective, created_by: @user, title: "Note with nested replies")
     top_level_comment = note.add_comment(text: "Top level comment", created_by: @user)
     first_reply = top_level_comment.add_comment(text: "First reply", created_by: @user)
     # This is a reply to first_reply, not to top_level_comment, so it should show context
@@ -2276,7 +2276,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "decision with threaded comments shows them in markdown" do
-    decision = create_decision(superagent: @superagent, created_by: @user, question: "Decision with comments?")
+    decision = create_decision(collective: @collective, created_by: @user, question: "Decision with comments?")
     comment = decision.add_comment(text: "Comment on decision", created_by: @user)
 
     get decision.path, headers: @headers
@@ -2290,7 +2290,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "commitment with threaded comments shows them in markdown" do
-    commitment = create_commitment(superagent: @superagent, created_by: @user, title: "Commitment with comments")
+    commitment = create_commitment(collective: @collective, created_by: @user, title: "Commitment with comments")
     comment = commitment.add_comment(text: "Comment on commitment", created_by: @user)
 
     get commitment.path, headers: @headers
@@ -2304,10 +2304,10 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "representation session with comments shows them in markdown" do
-    # Create a studio representation session (no trustee_grant, has superagent)
+    # Create a studio representation session (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @user,
       confirmed_understanding: true,
       began_at: 1.hour.ago,

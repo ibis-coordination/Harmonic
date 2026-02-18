@@ -72,9 +72,9 @@ docker compose exec js npm test
 ### Multi-Tenancy Pattern
 
 Subdomain-based multi-tenancy using thread-local variables:
-- `Tenant.current_id` and `Superagent.current_id` are set via thread-local variables
-- Models use `default_scope { where(tenant_id: Tenant.current_id, superagent_id: Superagent.current_id) }` pattern in `ApplicationRecord`
-- New records auto-populate `tenant_id` and `superagent_id` via `before_validation`
+- `Tenant.current_id` and `Collective.current_id` are set via thread-local variables
+- Models use `default_scope { where(tenant_id: Tenant.current_id, collective_id: Collective.current_id) }` pattern in `ApplicationRecord`
+- New records auto-populate `tenant_id` and `collective_id` via `before_validation`
 
 ### Tenant Safety: Banned `.unscoped` Usage
 
@@ -82,7 +82,7 @@ Subdomain-based multi-tenancy using thread-local variables:
 
 | Method | Use Case | Runtime Check |
 |--------|----------|---------------|
-| `Model.tenant_scoped_only(tenant_id)` | Cross-superagent access within a tenant | Requires non-nil tenant_id (defaults to `Tenant.current_id`) |
+| `Model.tenant_scoped_only(tenant_id)` | Cross-collective access within a tenant | Requires non-nil tenant_id (defaults to `Tenant.current_id`) |
 | `Model.unscoped_for_admin(user)` | Admin operations | Requires `app_admin?` or `sys_admin?` |
 | `Model.unscoped_for_system_job` | Background jobs | Requires `Tenant.current_id.nil?` |
 | `Model.for_user_across_tenants(user)` | User's own data across tenants | Requires model has `user_id` column |

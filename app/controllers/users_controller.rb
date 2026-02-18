@@ -24,26 +24,26 @@ class UsersController < ApplicationController
     @showing_user = tu.user
     @showing_user.tenant_user = tu
     @page_title = @showing_user.display_name
-    if params[:superagent_handle]
-      # Showing user in a specific superagent
-      sm = @showing_user.superagent_members.where(superagent: current_superagent).first
+    if params[:collective_handle]
+      # Showing user in a specific collective
+      sm = @showing_user.collective_members.where(collective: current_collective).first
       return render '404' if sm.nil?
-      @showing_user.superagent_member = sm
-      @common_studios = [current_superagent]
+      @showing_user.collective_member = sm
+      @common_studios = [current_collective]
       @additional_common_studio_count = (
-        current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
+        current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
       ).count - 1
     else
-      # Showing user at the tenant level, so we want to show all common superagents between the current user and the showing user
-      @common_studios = current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
+      # Showing user at the tenant level, so we want to show all common collectives between the current user and the showing user
+      @common_studios = current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
       @additional_common_studio_count = 0
     end
 
     # Compute counts of common studios and scenes for profile display
     if @current_user != @showing_user
-      all_common = current_user.superagents & @showing_user.superagents - [current_tenant.main_superagent]
-      @common_studio_count = all_common.count { |s| s.superagent_type == "studio" }
-      @common_scene_count = all_common.count { |s| s.superagent_type == "scene" }
+      all_common = current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
+      @common_studio_count = all_common.count { |s| s.collective_type == "studio" }
+      @common_scene_count = all_common.count { |s| s.collective_type == "scene" }
     else
       @common_studio_count = 0
       @common_scene_count = 0
@@ -77,9 +77,9 @@ class UsersController < ApplicationController
 
     # For human users, show their AI agents
     if @settings_user.human?
-      @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
-      # Superagents where settings user has invite permission (for adding AI agents)
-      @invitable_studios = @settings_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
+      @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :collective_members).where(tenant_users: { tenant_id: @current_tenant.id })
+      # Collectives where settings user has invite permission (for adding AI agents)
+      @invitable_studios = @settings_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
 
       # Load all API tokens: user's own + AI agents' tokens
       # Sorted by: user's tokens first, then agents alphabetically, then by created_at desc
@@ -104,22 +104,22 @@ class UsersController < ApplicationController
     return render status: 404, plain: "404 Not Found" if tu.nil?
     ai_agent = tu.user
     return render status: 403, plain: "403 Unauthorized" unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
-    superagent = Superagent.find(params[:superagent_id])
-    return render status: 403, plain: "403 Unauthorized" unless current_user.can_add_ai_agent_to_superagent?(ai_agent, superagent)
+    collective = Collective.find(params[:collective_id])
+    return render status: 403, plain: "403 Unauthorized" unless current_user.can_add_ai_agent_to_collective?(ai_agent, collective)
 
-    # Add AI agent to the superagent
-    superagent.add_user!(ai_agent)
+    # Add AI agent to the collective
+    collective.add_user!(ai_agent)
 
     respond_to do |format|
       format.json do
         render json: {
-          superagent_id: superagent.id,
-          superagent_name: superagent.name,
-          superagent_path: superagent.path,
+          collective_id: collective.id,
+          collective_name: collective.name,
+          collective_path: collective.path,
         }
       end
       format.html do
-        flash[:notice] = "#{ai_agent.display_name} has been added to #{superagent.name}"
+        flash[:notice] = "#{ai_agent.display_name} has been added to #{collective.name}"
         redirect_to "#{current_user.path}/settings"
       end
     end
@@ -131,21 +131,21 @@ class UsersController < ApplicationController
     ai_agent = tu.user
     return render status: 403, plain: "403 Unauthorized" unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
 
-    superagent = Superagent.find(params[:superagent_id])
-    superagent_member = SuperagentMember.find_by(superagent: superagent, user: ai_agent)
-    return render status: 404, plain: "404 Not Found" if superagent_member.nil? || superagent_member.archived?
+    collective = Collective.find(params[:collective_id])
+    collective_member = CollectiveMember.find_by(collective: collective, user: ai_agent)
+    return render status: 404, plain: "404 Not Found" if collective_member.nil? || collective_member.archived?
 
-    superagent_member.archive!
+    collective_member.archive!
 
     respond_to do |format|
       format.json do
         render json: {
-          superagent_id: superagent.id,
-          superagent_name: superagent.name,
+          collective_id: collective.id,
+          collective_name: collective.name,
         }
       end
       format.html do
-        flash[:notice] = "#{ai_agent.display_name} has been removed from #{superagent.name}"
+        flash[:notice] = "#{ai_agent.display_name} has been removed from #{collective.name}"
         redirect_to "#{current_user.path}/settings"
       end
     end
@@ -309,8 +309,8 @@ class UsersController < ApplicationController
 
     # For human users, show their AI agents and consolidated API tokens
     if @settings_user.human?
-      @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :superagent_members).where(tenant_users: { tenant_id: @current_tenant.id })
-      @invitable_studios = @settings_user.superagent_members.includes(:superagent).select(&:can_invite?).map(&:superagent)
+      @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :collective_members).where(tenant_users: { tenant_id: @current_tenant.id })
+      @invitable_studios = @settings_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
 
       # Load all API tokens: user's own + AI agents' tokens
       user_tokens = @settings_user.api_tokens.external.includes(:user).to_a

@@ -14,8 +14,8 @@ class SearchQueryParser
   # Handle pattern for user filters (@ prefix optional)
   HANDLE_PATTERN = /^@?[a-zA-Z0-9_-]+$/
 
-  # Superagent handle pattern (alphanumeric with dashes)
-  SUPERAGENT_HANDLE_PATTERN = /^[a-zA-Z0-9-]+$/i
+  # Collective handle pattern (alphanumeric with dashes)
+  COLLECTIVE_HANDLE_PATTERN = /^[a-zA-Z0-9-]+$/i
 
   # Date pattern for after:/before: operators
   DATE_PATTERN = /^(\d{4}-\d{2}-\d{2}|[+-]\d+[dwmy])$/
@@ -29,8 +29,8 @@ class SearchQueryParser
   # - multi: whether multiple comma-separated values are allowed
   OPERATORS = T.let({
     # Location scope
-    "studio" => { pattern: SUPERAGENT_HANDLE_PATTERN, multi: false },
-    "scene" => { pattern: SUPERAGENT_HANDLE_PATTERN, multi: false },
+    "studio" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
+    "scene" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
 
     # User filters
     "creator" => { pattern: HANDLE_PATTERN, multi: true },
@@ -69,7 +69,7 @@ class SearchQueryParser
 
     # Display options
     "sort" => { values: ["newest", "oldest", "updated", "deadline", "relevance", "backlinks", "new", "old"], multi: false },
-    "group" => { values: ["superagent", "creator", "type", "status", "date", "week", "month", "none"], multi: false },
+    "group" => { values: ["collective", "creator", "type", "status", "date", "week", "month", "none"], multi: false },
     "limit" => { pattern: INTEGER_PATTERN, multi: false },
   }.freeze, T::Hash[String, T::Hash[Symbol, T.untyped]])
 
@@ -91,7 +91,7 @@ class SearchQueryParser
 
   # Map DSL group values to SearchQuery group_by format
   GROUP_MAPPING = T.let({
-    "superagent" => "superagent",
+    "collective" => "collective",
     "creator" => "creator",
     "type" => "item_type",
     "status" => "status",
@@ -300,9 +300,9 @@ class SearchQueryParser
     # Limit
     params[:per_page] = build_limit_param
 
-    # Superagent scope (studio: or scene:)
-    params[:studio_handle] = build_superagent_param("studio")
-    params[:scene_handle] = build_superagent_param("scene")
+    # Collective scope (studio: or scene:)
+    params[:studio_handle] = build_collective_param("studio")
+    params[:scene_handle] = build_collective_param("scene")
 
     params.compact
   end
@@ -477,7 +477,7 @@ class SearchQueryParser
   end
 
   sig { params(key: String).returns(T.nilable(String)) }
-  def build_superagent_param(key)
+  def build_collective_param(key)
     values = @operators[key]
     return nil if values.blank?
 

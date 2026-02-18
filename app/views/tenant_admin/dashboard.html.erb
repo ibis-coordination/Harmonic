@@ -78,33 +78,33 @@
       <tbody>
         <tr>
           <td><strong>Name</strong></td>
-          <td><code class="pulse-code"><%= @current_tenant.main_superagent.name %></code></td>
+          <td><code class="pulse-code"><%= @current_tenant.main_collective.name %></code></td>
         </tr>
         <tr>
           <td><strong>ID</strong></td>
           <td>
-            <code class="pulse-code"><%= @current_tenant.main_superagent.id %></code>
-            <%= render 'shared/copy_button', text: @current_tenant.main_superagent.id %>
+            <code class="pulse-code"><%= @current_tenant.main_collective.id %></code>
+            <%= render 'shared/copy_button', text: @current_tenant.main_collective.id %>
           </td>
         </tr>
         <tr>
           <td><strong>Notes</strong></td>
-          <td><%= @current_tenant.main_superagent.notes.count %></td>
+          <td><%= @current_tenant.main_collective.notes.count %></td>
         </tr>
         <tr>
           <td><strong>Decisions</strong></td>
-          <td><%= @current_tenant.main_superagent.decisions.count %></td>
+          <td><%= @current_tenant.main_collective.decisions.count %></td>
         </tr>
         <tr>
           <td><strong>Commitments</strong></td>
-          <td><%= @current_tenant.main_superagent.commitments.count %></td>
+          <td><%= @current_tenant.main_collective.commitments.count %></td>
         </tr>
       </tbody>
     </table>
   </div>
 <% end %>
 
-<% other_studios = @current_tenant.superagents.order(created_at: :desc).reject { |s| s == @current_tenant.main_superagent } %>
+<% other_studios = @current_tenant.collectives.order(created_at: :desc).reject { |s| s == @current_tenant.main_collective } %>
 <%= render 'shared/pulse_accordion', title: 'Other Studios', icon: 'repo', count: other_studios.count, open: false do %>
   <% if other_studios.any? %>
     <div class="pulse-studios-list">

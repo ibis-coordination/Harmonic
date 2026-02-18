@@ -48,9 +48,9 @@ class FeatureFlagService
     metadata["default_tenant"] == true
   end
 
-  # Get the default value for a superagent
+  # Get the default value for a collective
   sig { params(flag_name: String).returns(T::Boolean) }
-  def self.default_for_superagent(flag_name)
+  def self.default_for_collective(flag_name)
     metadata = flag_metadata(flag_name)
     return false if metadata.nil?
 
@@ -67,29 +67,29 @@ class FeatureFlagService
     tenant.feature_flag_enabled_locally?(flag_name)
   end
 
-  # Check if a flag is enabled at the superagent level (considering cascade from tenant)
-  sig { params(superagent: Superagent, flag_name: String).returns(T::Boolean) }
-  def self.superagent_enabled?(superagent, flag_name)
+  # Check if a flag is enabled at the collective level (considering cascade from tenant)
+  sig { params(collective: Collective, flag_name: String).returns(T::Boolean) }
+  def self.collective_enabled?(collective, flag_name)
     # Must be enabled at tenant level (which includes app level check)
-    return false unless tenant_enabled?(T.must(superagent.tenant), flag_name)
+    return false unless tenant_enabled?(T.must(collective.tenant), flag_name)
 
-    # Check superagent's local setting
-    superagent.feature_flag_enabled_locally?(flag_name)
+    # Check collective's local setting
+    collective.feature_flag_enabled_locally?(flag_name)
   end
 
   # Main entry point: check if a feature is enabled at the appropriate level
   # If only tenant is provided, checks tenant level
-  # If superagent is provided, checks superagent level (which cascades through tenant and app)
+  # If collective is provided, checks collective level (which cascades through tenant and app)
   sig do
     params(
       flag_name: String,
       tenant: T.nilable(Tenant),
-      superagent: T.nilable(Superagent)
+      collective: T.nilable(Collective)
     ).returns(T::Boolean)
   end
-  def self.enabled?(flag_name, tenant: nil, superagent: nil)
-    if superagent
-      superagent_enabled?(superagent, flag_name)
+  def self.enabled?(flag_name, tenant: nil, collective: nil)
+    if collective
+      collective_enabled?(collective, flag_name)
     elsif tenant
       tenant_enabled?(tenant, flag_name)
     else

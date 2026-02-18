@@ -30,7 +30,7 @@ Harmonic uses **subdomain-based multi-tenancy** with strict data isolation:
 
 | Method | Use Case | Runtime Check |
 |--------|----------|---------------|
-| `tenant_scoped_only(tenant_id)` | Cross-superagent access within same tenant | Raises if `tenant_id` is nil (defaults to `Tenant.current_id`) |
+| `tenant_scoped_only(tenant_id)` | Cross-collective access within same tenant | Raises if `tenant_id` is nil (defaults to `Tenant.current_id`) |
 | `unscoped_for_admin(user)` | Admin operations | Raises unless `user.app_admin?` or `user.sys_admin?` |
 | `unscoped_for_system_job` | Background jobs | Raises unless `Tenant.current_id.nil?` |
 | `for_user_across_tenants(user)` | User's own data across tenants | Raises if user nil or model lacks `user_id` |

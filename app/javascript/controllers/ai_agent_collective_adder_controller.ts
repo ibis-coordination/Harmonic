@@ -1,13 +1,13 @@
 import { Controller } from "@hotwired/stimulus"
 import { fetchWithCsrf } from "../utils/csrf"
 
-export default class AiAgentSuperagentAdderController extends Controller {
-  static targets = ["form", "select", "superagentList"]
+export default class AiAgentCollectiveAdderController extends Controller {
+  static targets = ["form", "select", "collectiveList"]
   static values = { removeUrl: String }
 
   declare readonly formTarget: HTMLFormElement
   declare readonly selectTarget: HTMLSelectElement
-  declare readonly superagentListTarget: HTMLElement
+  declare readonly collectiveListTarget: HTMLElement
   declare readonly hasSelectTarget: boolean
   declare readonly hasFormTarget: boolean
   declare readonly removeUrlValue: string
@@ -17,8 +17,8 @@ export default class AiAgentSuperagentAdderController extends Controller {
 
     if (!this.hasSelectTarget) return
 
-    const superagentId = this.selectTarget.value
-    if (!superagentId) return
+    const collectiveId = this.selectTarget.value
+    if (!collectiveId) return
 
     const url = this.formTarget.action
 
@@ -27,17 +27,17 @@ export default class AiAgentSuperagentAdderController extends Controller {
       headers: {
         Accept: "application/json",
       },
-      body: JSON.stringify({ superagent_id: superagentId }),
+      body: JSON.stringify({ collective_id: collectiveId }),
     })
       .then((response) => {
         if (response.ok) return response.json()
         throw new Error("Failed to add to studio")
       })
-      .then((data: { superagent_id: number; superagent_name: string; superagent_path: string }) => {
+      .then((data: { collective_id: number; collective_name: string; collective_path: string }) => {
         // Add studio to the list
-        this.addSuperagentToList(data)
+        this.addCollectiveToList(data)
         // Remove option from select
-        this.removeOptionFromSelect(String(data.superagent_id))
+        this.removeOptionFromSelect(String(data.collective_id))
       })
       .catch((error) => {
         console.error("Error adding to studio:", error)
@@ -49,31 +49,31 @@ export default class AiAgentSuperagentAdderController extends Controller {
     event.preventDefault()
 
     const button = event.currentTarget as HTMLButtonElement
-    const superagentId = button.dataset.superagentId
-    const superagentName = button.dataset.superagentName || "this studio"
+    const collectiveId = button.dataset.collectiveId
+    const collectiveName = button.dataset.collectiveName || "this studio"
     const url = this.removeUrlValue
 
-    if (!superagentId || !url) return
+    if (!collectiveId || !url) return
 
-    if (!confirm(`Remove this ai_agent from ${superagentName}?`)) return
+    if (!confirm(`Remove this ai_agent from ${collectiveName}?`)) return
 
     fetchWithCsrf(url, {
       method: "DELETE",
       headers: {
         Accept: "application/json",
       },
-      body: JSON.stringify({ superagent_id: superagentId }),
+      body: JSON.stringify({ collective_id: collectiveId }),
     })
       .then((response) => {
         if (response.ok) return response.json()
         throw new Error("Failed to remove from studio")
       })
-      .then((data: { superagent_id: number; superagent_name: string }) => {
+      .then((data: { collective_id: number; collective_name: string }) => {
         // Remove studio from list
-        this.removeSuperagentFromList(String(data.superagent_id))
+        this.removeCollectiveFromList(String(data.collective_id))
         // Add option back to select if it exists
         if (this.hasSelectTarget) {
-          this.addOptionToSelect(String(data.superagent_id), data.superagent_name)
+          this.addOptionToSelect(String(data.collective_id), data.collective_name)
         }
       })
       .catch((error) => {
@@ -82,34 +82,34 @@ export default class AiAgentSuperagentAdderController extends Controller {
       })
   }
 
-  private addSuperagentToList(data: { superagent_id: number; superagent_name: string; superagent_path: string }): void {
+  private addCollectiveToList(data: { collective_id: number; collective_name: string; collective_path: string }): void {
     // Remove "None" message if present
-    const noneMessage = this.superagentListTarget.querySelector(".none-message")
+    const noneMessage = this.collectiveListTarget.querySelector(".none-message")
     if (noneMessage) noneMessage.remove()
 
     // Create new studio item as <li>
     const item = document.createElement("li")
     item.className = "studio-item"
-    item.dataset.superagentId = String(data.superagent_id)
-    item.innerHTML = `<a href="${data.superagent_path}">${data.superagent_name}</a> <button type="button" class="button-small button-danger" data-action="ai_agent-superagent-adder#remove" data-superagent-id="${data.superagent_id}" data-superagent-name="${data.superagent_name}">Remove from studio</button>`
+    item.dataset.collectiveId = String(data.collective_id)
+    item.innerHTML = `<a href="${data.collective_path}">${data.collective_name}</a> <button type="button" class="button-small button-danger" data-action="ai_agent-collective-adder#remove" data-collective-id="${data.collective_id}" data-collective-name="${data.collective_name}">Remove from studio</button>`
 
     // Add to the list
-    this.superagentListTarget.appendChild(item)
+    this.collectiveListTarget.appendChild(item)
   }
 
-  private removeSuperagentFromList(superagentId: string): void {
-    const item = this.superagentListTarget.querySelector(`.studio-item[data-superagent-id="${superagentId}"]`)
+  private removeCollectiveFromList(collectiveId: string): void {
+    const item = this.collectiveListTarget.querySelector(`.studio-item[data-collective-id="${collectiveId}"]`)
     if (item) {
       item.remove()
     }
 
     // Show "None" if no studios left
-    const remainingItems = this.superagentListTarget.querySelectorAll(".studio-item")
+    const remainingItems = this.collectiveListTarget.querySelectorAll(".studio-item")
     if (remainingItems.length === 0) {
       const noneMessage = document.createElement("li")
       noneMessage.className = "none-message"
       noneMessage.innerHTML = "<em>Not a member of any studios</em>"
-      this.superagentListTarget.appendChild(noneMessage)
+      this.collectiveListTarget.appendChild(noneMessage)
     }
 
     // Show the form if it was hidden
@@ -118,9 +118,9 @@ export default class AiAgentSuperagentAdderController extends Controller {
     }
   }
 
-  private removeOptionFromSelect(superagentId: string): void {
+  private removeOptionFromSelect(collectiveId: string): void {
     if (!this.hasSelectTarget) return
-    const option = this.selectTarget.querySelector(`option[value="${superagentId}"]`)
+    const option = this.selectTarget.querySelector(`option[value="${collectiveId}"]`)
     if (option) option.remove()
     this.selectTarget.value = ""
 
@@ -130,11 +130,11 @@ export default class AiAgentSuperagentAdderController extends Controller {
     }
   }
 
-  private addOptionToSelect(superagentId: string, superagentName: string): void {
+  private addOptionToSelect(collectiveId: string, collectiveName: string): void {
     if (!this.hasSelectTarget) return
     const option = document.createElement("option")
-    option.value = superagentId
-    option.text = superagentName
+    option.value = collectiveId
+    option.text = collectiveName
     this.selectTarget.appendChild(option)
   }
 }

@@ -4,15 +4,15 @@ require "test_helper"
 
 class AutomationRuleRunResourceTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
 
     # Set thread context for queries that use default_scope
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Superagent.set_thread_context(@superagent)
+    Collective.set_thread_context(@collective)
 
     @rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Automation",
       trigger_type: "manual",
       trigger_config: {},
@@ -22,7 +22,7 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
 
     @run = AutomationRuleRun.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: @rule,
       trigger_source: "manual",
       status: "pending"
@@ -30,7 +30,7 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
 
     @note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       text: "Test note",
       created_by: @user
     )
@@ -46,7 +46,7 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
         tenant: @tenant,
         automation_rule_run: @run,
         resource: @note, # Use Note for simplicity
-        resource_superagent: @superagent,
+        resource_collective: @collective,
         action_type: "create"
       )
       resource.write_attribute(:resource_type, type)
@@ -62,7 +62,7 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
       tenant: @tenant,
       automation_rule_run: @run,
       resource: @note,
-      resource_superagent: @superagent,
+      resource_collective: @collective,
       action_type: "create"
     )
     assert resource.valid?
@@ -78,7 +78,7 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
       tenant: @tenant,
       automation_rule_run: @run,
       resource: @note,
-      resource_superagent: @superagent,
+      resource_collective: @collective,
       action_type: "create"
     )
 
@@ -89,7 +89,7 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
   test "run_for returns nil for resources not created by automation" do
     other_note = Note.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       text: "Other note",
       created_by: @user
     )
@@ -104,7 +104,7 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
       tenant: @tenant,
       automation_rule_run: @run,
       resource: @note,
-      resource_superagent: @superagent,
+      resource_collective: @collective,
       action_type: "update"
     )
 
@@ -113,12 +113,12 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
     assert_nil found_run
   end
 
-  test "resource_unscoped loads resource across superagents" do
+  test "resource_unscoped loads resource across collectives" do
     resource_record = AutomationRuleRunResource.create!(
       tenant: @tenant,
       automation_rule_run: @run,
       resource: @note,
-      resource_superagent: @superagent,
+      resource_collective: @collective,
       action_type: "create"
     )
 
@@ -132,7 +132,7 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
       tenant: @tenant,
       automation_rule_run: @run,
       resource: @note,
-      resource_superagent: @superagent,
+      resource_collective: @collective,
       action_type: "create"
     )
 
@@ -140,8 +140,8 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
     assert_equal @note.title.truncate(60), title
   end
 
-  test "validates resource_superagent matches resource" do
-    other_superagent = Superagent.create!(
+  test "validates resource_collective matches resource" do
+    other_collective = Collective.create!(
       tenant: @tenant,
       name: "Other Studio",
       handle: "other-studio-#{SecureRandom.hex(4)}",
@@ -152,19 +152,19 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
       tenant: @tenant,
       automation_rule_run: @run,
       resource: @note,
-      resource_superagent: other_superagent, # Wrong superagent!
+      resource_collective: other_collective, # Wrong collective!
       action_type: "create"
     )
 
     assert_not resource.valid?
-    assert_includes resource.errors[:resource_superagent], "must match resource's superagent"
+    assert_includes resource.errors[:resource_collective], "must match resource's collective"
   end
 
   test "sets tenant_id from automation_rule_run" do
     resource = AutomationRuleRunResource.new(
       automation_rule_run: @run,
       resource: @note,
-      resource_superagent: @superagent,
+      resource_collective: @collective,
       action_type: "create"
     )
 

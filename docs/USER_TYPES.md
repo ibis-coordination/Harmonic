@@ -8,7 +8,7 @@ This document describes the three user types in Harmonic and their roles in the 
 |------|-----------|------------|---------|
 | `human` | Yes | No | Regular human users who authenticate via OAuth |
 | `ai_agent` | No | Yes (required) | AI agents or automated users managed by a parent |
-| `superagent_proxy` | No | No | Synthetic users representing studios for collective agency |
+| `collective_proxy` | No | No | Synthetic users representing studios for collective agency |
 
 ## User Type Details
 
@@ -44,22 +44,22 @@ A **ai_agent** is an automated user (typically an AI agent) that operates under 
 - Actions are attributed to the granting_user (linked to the ai_agent via TrusteeGrant)
 - Parent can stop representation at any time
 
-### Superagent Proxy
+### Collective Proxy
 
-A **superagent_proxy** is a synthetic user that enables collective agency. Proxy users allow a superagent (studio) to act as a unified entity.
+A **collective_proxy** is a synthetic user that enables collective agency. Proxy users allow a collective (studio) to act as a unified entity.
 
 **Characteristics:**
-- Created automatically when a superagent is created (never by users directly)
+- Created automatically when a collective is created (never by users directly)
 - Has a generated email like `{uuid}@not-a-real-email.com`
 - Cannot have a `parent_id`
-- Cannot be a member of the main superagent (validation enforced)
+- Cannot be a member of the main collective (validation enforced)
 - Cannot be the creator of content (validation enforced)
 
 **Usage:**
-- Every superagent automatically creates a proxy user via `Superagent#create_proxy_user!`
-- `Superagent.proxy_user` points to this user
-- `User#superagent_proxy?` returns true
-- `User#proxy_superagent` returns the associated superagent
+- Every collective automatically creates a proxy user via `Collective#create_proxy_user!`
+- `Collective.proxy_user` points to this user
+- `User#collective_proxy?` returns true
+- `User#proxy_collective` returns the associated collective
 
 ## Relationship Diagram
 
@@ -68,13 +68,13 @@ A **superagent_proxy** is a synthetic user that enables collective agency. Proxy
 |                         HUMAN USER                              |
 |  - Authenticates via OAuth                                       |
 |  - Can create ai_agents                                          |
-|  - Can represent superagents                                     |
+|  - Can represent collectives                                     |
 +---------------------+-------------------+------------------------+
                       |                   |
                       | creates           | can_represent?
                       v                   v
 +-----------------------------+   +-----------------------------+
-|       SUBAGENT USER         |   |       SUPERAGENT            |
+|       SUBAGENT USER         |   |       COLLECTIVE            |
 |  - parent_id -> human      |   |  - has proxy_user           |
 |  - No OAuth identity        |   |  - has representative role  |
 |  - Parent can represent     |   +--------------+--------------+
@@ -82,8 +82,8 @@ A **superagent_proxy** is a synthetic user that enables collective agency. Proxy
                                                  | has
                                                  v
                                   +-----------------------------+
-                                  |   SUPERAGENT PROXY USER     |
-                                  |  - Represents superagent    |
+                                  |   COLLECTIVE PROXY USER     |
+                                  |  - Represents collective    |
                                   |  - Created automatically    |
                                   |  - Used in representation   |
                                   +-----------------------------+
@@ -91,12 +91,12 @@ A **superagent_proxy** is a synthetic user that enables collective agency. Proxy
 
 ## Authorization Methods
 
-### `User#can_represent?(superagent_or_user)`
+### `User#can_represent?(collective_or_user)`
 
-Returns true if this user can act on behalf of a superagent or user:
-- Proxy user can represent their own superagent
-- Superagent member with `representative` role can represent
-- Superagent member can represent if `superagent.any_member_can_represent?` is true
+Returns true if this user can act on behalf of a collective or user:
+- Proxy user can represent their own collective
+- Collective member with `representative` role can represent
+- Collective member can represent if `collective.any_member_can_represent?` is true
 
 ### `User#can_edit?(user)`
 
@@ -104,9 +104,9 @@ Returns true if this user can modify another user's profile:
 - Users can edit themselves
 - Parents can edit their ai_agents
 
-### `User#can_add_ai_agent_to_superagent?(ai_agent, superagent)`
+### `User#can_add_ai_agent_to_collective?(ai_agent, collective)`
 
-Returns true if this user can add a ai_agent to a superagent:
+Returns true if this user can add a ai_agent to a collective:
 - Must be the ai_agent's parent
 - Must have invite permission in the studio
 
@@ -117,8 +117,8 @@ Returns true if this user can add a ai_agent to a superagent:
 | Human cannot have parent_id | `User#ai_agent_must_have_parent` |
 | AI Agent must have parent_id | `User#ai_agent_must_have_parent` |
 | User cannot be its own parent | `User#ai_agent_must_have_parent` |
-| Proxy user cannot be member of main superagent | `SuperagentMember#proxy_users_not_member_of_main_superagent` |
-| Proxy user cannot create content | `Superagent#creator_is_not_superagent_proxy` |
+| Proxy user cannot be member of main collective | `CollectiveMember#proxy_users_not_member_of_main_collective` |
+| Proxy user cannot create content | `Collective#creator_is_not_collective_proxy` |
 
 ## Related Documentation
 

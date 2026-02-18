@@ -1,4 +1,4 @@
-<% if @showing_user != @current_user && @current_superagent.id == @current_tenant.main_superagent_id %>
+<% if @showing_user != @current_user && @current_collective.id == @current_tenant.main_collective_id %>
   <h2>Common Studios</h2>
   <% if @common_studios.empty? %>
     <p><em>You and <%= @showing_user.display_name %> do not have any studios in common.</em></p>
@@ -7,7 +7,7 @@
       You and <%= @showing_user.display_name %> have <%= @common_studios.count %> studio<%= 's' if @common_studios.count != 1 %> in common.
     </p>
   <% end %>
-<% elsif @current_superagent.id == @current_tenant.main_superagent_id %>
+<% elsif @current_collective.id == @current_tenant.main_collective_id %>
   Others can also see your activity here, but only for the studios that you both have in common.
   <h2>Your Studios</h2>
 <% end %>
@@ -21,13 +21,13 @@
   </p>
 <% end %>
 <% @common_studios.each do |studio| %>
-  <% next if studio == @current_tenant.main_superagent %>
-  <% Superagent.scope_thread_to_superagent(subdomain: @current_tenant.subdomain, handle: studio.handle) %>
-  <% if @current_superagent.id == @current_tenant.main_superagent_id %>
+  <% next if studio == @current_tenant.main_collective %>
+  <% Collective.scope_thread_to_collective(subdomain: @current_tenant.subdomain, handle: studio.handle) %>
+  <% if @current_collective.id == @current_tenant.main_collective_id %>
     <div class="homepage-studio-section">
     <h2><a href="<%= studio.path %>"><%= studio.name %></a></h2>
   <% end %>
-  <% su = @showing_user.superagent_members.find_by(superagent: studio) %>
+  <% su = @showing_user.collective_members.find_by(collective: studio) %>
   <h3>
     <%= octicon 'book' %>
     Read Notes
@@ -93,8 +93,8 @@
       </li>
     <% end %>
   </ul>
-  <% if @current_superagent.id == @current_tenant.main_superagent_id %>
+  <% if @current_collective.id == @current_tenant.main_collective_id %>
     </div>
   <% end %>
 <% end %>
-<% Superagent.scope_thread_to_superagent(subdomain: @current_tenant.subdomain, handle: @current_superagent.handle) %>
+<% Collective.scope_thread_to_collective(subdomain: @current_tenant.subdomain, handle: @current_collective.handle) %>

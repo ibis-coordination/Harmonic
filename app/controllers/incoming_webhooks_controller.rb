@@ -85,7 +85,7 @@ class IncomingWebhooksController < ActionController::Base
     AutomationRuleRun.create!(
       automation_rule: @automation_rule,
       tenant_id: @current_tenant.id,
-      superagent_id: @automation_rule.superagent_id,
+      collective_id: @automation_rule.collective_id,
       trigger_source: "webhook",
       status: "pending",
       trigger_data: {

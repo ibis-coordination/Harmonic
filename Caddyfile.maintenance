@@ -1,0 +1,42 @@
+# Maintenance mode Caddyfile
+# Serves maintenance responses for all requests
+# Supports HTML, JSON, and Markdown based on Accept header
+# Health check returns 503 so load balancers know the app is down
+
+{$HOSTNAME}, *.{$HOSTNAME} {
+	# Health check returns 503 Service Unavailable
+	@healthcheck path /healthcheck
+	respond @healthcheck 503
+
+	# JSON response for API clients
+	@json header Accept *application/json*
+	respond @json 503 {
+		body `{"status":"maintenance","message":"We're performing a quick update. Back shortly."}`
+		close
+	}
+	header @json Content-Type "application/json"
+
+	# Markdown response for AI agents
+	@markdown header Accept *text/markdown*
+	respond @markdown 503 {
+		body `# Maintenance
+
+We're performing a quick update. Back shortly.
+
+**Status:** In progress
+`
+		close
+	}
+	header @markdown Content-Type "text/markdown"
+
+	# HTML response for browsers (default)
+	root * /srv/public
+	rewrite * /maintenance.html
+	file_server
+
+	# Set appropriate headers for all responses
+	header {
+		Retry-After "300"
+		Cache-Control "no-cache, no-store, must-revalidate"
+	}
+}

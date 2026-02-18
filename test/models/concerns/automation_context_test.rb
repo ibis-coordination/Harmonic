@@ -31,14 +31,14 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "can_execute_rule? returns true for first rule in chain" do
-    tenant, _superagent, user = create_tenant_studio_user
+    tenant, _collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
 
     assert AutomationContext.can_execute_rule?(rule)
   end
 
   test "can_execute_rule? returns false when depth exceeds limit" do
-    tenant, _superagent, user = create_tenant_studio_user
+    tenant, _collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
 
     # Simulate chain at max depth
@@ -51,7 +51,7 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "can_execute_rule? returns false when rule already executed (loop detection)" do
-    tenant, _superagent, user = create_tenant_studio_user
+    tenant, _collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
 
     # Record this rule as already executed
@@ -61,7 +61,7 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "can_execute_rule? returns false when max rules per chain exceeded" do
-    tenant, _superagent, user = create_tenant_studio_user
+    tenant, _collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
 
     # Execute max number of different rules
@@ -76,7 +76,7 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "record_rule_execution! increments depth" do
-    tenant, _superagent, user = create_tenant_studio_user
+    tenant, _collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
 
     assert_equal 0, AutomationContext.chain_depth
@@ -87,7 +87,7 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "record_rule_execution! adds rule to executed set" do
-    tenant, _superagent, user = create_tenant_studio_user
+    tenant, _collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
 
     AutomationContext.record_rule_execution!(rule, nil)
@@ -96,9 +96,9 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "record_rule_execution! sets origin_event_id on first execution" do
-    tenant, superagent, user = create_tenant_studio_user
+    tenant, collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
-    event = create_event(tenant: tenant, superagent: superagent, user: user)
+    event = create_event(tenant: tenant, collective: collective, user: user)
 
     AutomationContext.record_rule_execution!(rule, event)
 
@@ -106,11 +106,11 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "record_rule_execution! preserves origin_event_id on subsequent executions" do
-    tenant, superagent, user = create_tenant_studio_user
+    tenant, collective, user = create_tenant_studio_user
     rule1 = create_automation_rule(tenant: tenant, user: user, name: "Rule 1")
     rule2 = create_automation_rule(tenant: tenant, user: user, name: "Rule 2")
-    event1 = create_event(tenant: tenant, superagent: superagent, user: user)
-    event2 = create_event(tenant: tenant, superagent: superagent, user: user)
+    event1 = create_event(tenant: tenant, collective: collective, user: user)
+    event2 = create_event(tenant: tenant, collective: collective, user: user)
 
     AutomationContext.record_rule_execution!(rule1, event1)
     AutomationContext.record_rule_execution!(rule2, event2)
@@ -120,9 +120,9 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "chain_to_hash serializes chain state" do
-    tenant, superagent, user = create_tenant_studio_user
+    tenant, collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
-    event = create_event(tenant: tenant, superagent: superagent, user: user)
+    event = create_event(tenant: tenant, collective: collective, user: user)
 
     AutomationContext.record_rule_execution!(rule, event)
     hash = AutomationContext.chain_to_hash
@@ -163,7 +163,7 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "clear_chain! resets chain state" do
-    tenant, _superagent, user = create_tenant_studio_user
+    tenant, _collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
 
     AutomationContext.record_rule_execution!(rule, nil)
@@ -190,7 +190,7 @@ class AutomationContextTest < ActiveSupport::TestCase
   end
 
   test "in_chain? returns true when depth > 0" do
-    tenant, _superagent, user = create_tenant_studio_user
+    tenant, _collective, user = create_tenant_studio_user
     rule = create_automation_rule(tenant: tenant, user: user)
 
     AutomationContext.record_rule_execution!(rule, nil)
@@ -203,11 +203,11 @@ class AutomationContextTest < ActiveSupport::TestCase
   # ===========================================================================
 
   test "with_run sets current_run_id for duration of block" do
-    tenant, superagent, user = create_tenant_studio_user
-    rule = create_automation_rule(tenant: tenant, user: user, superagent: superagent)
+    tenant, collective, user = create_tenant_studio_user
+    rule = create_automation_rule(tenant: tenant, user: user, collective: collective)
     run = AutomationRuleRun.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       automation_rule: rule,
       trigger_source: "manual",
       status: "pending"
@@ -226,10 +226,10 @@ class AutomationContextTest < ActiveSupport::TestCase
 
   private
 
-  def create_automation_rule(tenant:, user:, name: "Test Rule", superagent: nil)
+  def create_automation_rule(tenant:, user:, name: "Test Rule", collective: nil)
     AutomationRule.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       name: name,
       trigger_type: "event",
@@ -239,16 +239,16 @@ class AutomationContextTest < ActiveSupport::TestCase
     )
   end
 
-  def create_event(tenant:, superagent:, user:)
+  def create_event(tenant:, collective:, user:)
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       text: "Test note"
     )
     Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
       actor: user,
       subject: note

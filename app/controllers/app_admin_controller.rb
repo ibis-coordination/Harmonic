@@ -62,7 +62,7 @@ class AppAdminController < ApplicationController
     t.subdomain = tenant_params[:subdomain]
     t.name = tenant_params[:name]
     t.save!
-    t.create_main_superagent!(created_by: @current_user)
+    t.create_main_collective!(created_by: @current_user)
     tu = t.add_user!(@current_user)
     tu.add_role!('admin')
     redirect_to "/app-admin/tenants/#{t.subdomain}/complete"
@@ -293,7 +293,7 @@ class AppAdminController < ApplicationController
     t.subdomain = params[:subdomain]
     t.name = params[:name]
     t.save!
-    t.create_main_superagent!(created_by: @current_user)
+    t.create_main_collective!(created_by: @current_user)
     tu = t.add_user!(@current_user)
     tu.add_role!('admin')
 

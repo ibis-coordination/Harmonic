@@ -1,6 +1,6 @@
 <span data-controller="note" data-note-id="<%= @note.id %>">
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   (@note.is_comment? ? 'Comment' : 'Note')
 ] %>
 
@@ -18,7 +18,7 @@
       </span>
       <div class="pulse-resource-actions">
         <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-        <% unless @current_superagent.is_scene? %>
+        <% unless @current_collective.is_scene? %>
           <%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %>
         <% end %>
         <% if @note.user_can_edit?(@current_user) %>

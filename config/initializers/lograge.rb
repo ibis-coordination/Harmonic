@@ -26,7 +26,7 @@ Rails.application.configure do
 
       # Multi-tenancy context
       tenant_id: event.payload[:tenant_id],
-      superagent_id: event.payload[:superagent_id],
+      collective_id: event.payload[:collective_id],
       user_id: event.payload[:user_id],
 
       # Request details
@@ -46,7 +46,7 @@ Rails.application.configure do
       remote_ip: controller.request.remote_ip,
       request_id: controller.request.request_id,
       tenant_id: controller.instance_variable_get(:@current_tenant)&.id,
-      superagent_id: controller.instance_variable_get(:@current_superagent)&.id,
+      collective_id: controller.instance_variable_get(:@current_collective)&.id,
       user_id: controller.instance_variable_get(:@current_user)&.id,
     }
   end

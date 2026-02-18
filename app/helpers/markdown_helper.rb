@@ -75,7 +75,7 @@ module MarkdownHelper
   # Add commonly needed variables here as the conditional actions system grows.
   def build_condition_context
     {
-      superagent: instance_variable_get(:@current_superagent),
+      collective: instance_variable_get(:@current_collective),
       current_heartbeat: instance_variable_get(:@current_heartbeat),
       user: instance_variable_get(:@current_user),
       tenant: instance_variable_get(:@current_tenant),

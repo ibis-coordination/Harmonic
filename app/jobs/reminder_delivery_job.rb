@@ -70,15 +70,15 @@ class ReminderDeliveryJob < SystemJob
       return
     end
 
-    # Find a superagent context for the user
-    superagent = find_superagent_for_user(user, tenant)
-    unless superagent
-      Rails.logger.warn("User #{user.id} has no superagent membership in tenant #{tenant.id}, cannot deliver reminders")
+    # Find a collective context for the user
+    collective = find_collective_for_user(user, tenant)
+    unless collective
+      Rails.logger.warn("User #{user.id} has no collective membership in tenant #{tenant.id}, cannot deliver reminders")
       return
     end
 
-    # Process batch with tenant and superagent context
-    with_tenant_and_superagent_context(tenant, superagent) do
+    # Process batch with tenant and collective context
+    with_tenant_and_collective_context(tenant, collective) do
       # Create single batched event to trigger webhooks
       EventService.record!(
         event_type: "reminders.delivered",
@@ -107,16 +107,16 @@ class ReminderDeliveryJob < SystemJob
     end
   end
 
-  sig { params(user: User, tenant: Tenant).returns(T.nilable(Superagent)) }
-  def find_superagent_for_user(user, tenant)
-    # Find a superagent the user is a member of in this tenant
-    membership = SuperagentMember.unscoped_for_system_job
-      .joins(:superagent)
+  sig { params(user: User, tenant: Tenant).returns(T.nilable(Collective)) }
+  def find_collective_for_user(user, tenant)
+    # Find a collective the user is a member of in this tenant
+    membership = CollectiveMember.unscoped_for_system_job
+      .joins(:collective)
       .where(user: user)
-      .where(superagents: { tenant_id: tenant.id })
+      .where(collectives: { tenant_id: tenant.id })
       .where(archived_at: nil)
       .first
 
-    membership&.superagent
+    membership&.collective
   end
 end

@@ -105,7 +105,7 @@ class MarkdownRenderer
 
   sig { params(html: String).returns(String) }
   def self.display_refereces(html)
-    link_parser = LinkParser.new(subdomain: Tenant.current_subdomain, superagent_handle: Superagent.current_handle)
+    link_parser = LinkParser.new(subdomain: Tenant.current_subdomain, collective_handle: Collective.current_handle)
     doc = Nokogiri::HTML.fragment(html)
     doc.search('a').each do |a|
       a['href'] && link_parser.parse(a['href']) do |resource|

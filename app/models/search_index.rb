@@ -6,7 +6,7 @@ class SearchIndex < ApplicationRecord
   self.table_name = "search_index"
 
   belongs_to :tenant
-  belongs_to :superagent
+  belongs_to :collective
   belongs_to :created_by, class_name: "User", optional: true
   belongs_to :updated_by, class_name: "User", optional: true
   belongs_to :replying_to, class_name: "User", optional: true
@@ -29,7 +29,7 @@ class SearchIndex < ApplicationRecord
              when "Commitment" then "c"
              else raise "Unknown item type: #{item_type}"
              end
-    "#{T.must(superagent).path}/#{prefix}/#{truncated_id}"
+    "#{T.must(collective).path}/#{prefix}/#{truncated_id}"
   end
 
   sig { returns(T::Boolean) }

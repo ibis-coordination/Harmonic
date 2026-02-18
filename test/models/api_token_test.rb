@@ -2,7 +2,7 @@ require "test_helper"
 
 class ApiTokenTest < ActiveSupport::TestCase
   def setup
-    @tenant, @superagent, @user = create_tenant_superagent_user
+    @tenant, @collective, @user = create_tenant_collective_user
   end
 
   # === Token Generation Tests ===

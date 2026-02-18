@@ -1,6 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
-  ['Views', @current_superagent.path + '/views'],
+  [@current_collective.name, @current_collective.path],
+  ['Views', @current_collective.path + '/views'],
   'View'
 ] %>
 
@@ -18,7 +18,7 @@
   <div class="pulse-resource-body">
     <section class="pulse-settings-section">
       <span data-controller="cycle-filters">
-        <%= form_with url: "#{@current_superagent.path}/view", method: :get, local: true, id: 'sort-filter-form', class: 'pulse-form pulse-filters-form' do |form| %>
+        <%= form_with url: "#{@current_collective.path}/view", method: :get, local: true, id: 'sort-filter-form', class: 'pulse-form pulse-filters-form' do |form| %>
           <div class="pulse-form-row">
             <div class="pulse-form-group">
               <label class="pulse-form-label">Cycle</label>

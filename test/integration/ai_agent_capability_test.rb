@@ -4,8 +4,8 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @parent = @global_user
     @tenant.enable_feature_flag!("ai_agents")
 
@@ -28,7 +28,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   def create_ai_agent_for(parent, name)
     ai_agent = create_ai_agent(parent: parent, name: name)
     @tenant.add_user!(ai_agent)
-    @superagent.add_user!(ai_agent)
+    @collective.add_user!(ai_agent)
     ai_agent
   end
 
@@ -76,27 +76,27 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Send heartbeat first to establish studio context
-    post "/studios/#{@superagent.handle}/actions/send_heartbeat",
+    post "/studios/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
     assert_response :success
 
     # Create a decision to vote on
     decision = create_decision(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @parent,
       question: "Test Decision"
     )
     option = create_option(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @parent,
       decision: decision,
       title: "Option 1"
     )
 
     # Try to vote (not in capabilities) - use full path with studio handle
-    post "/studios/#{@superagent.handle}/d/#{decision.truncated_id}/actions/vote",
+    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/actions/vote",
       params: { votes: [{ option_title: option.title, accept: true, prefer: false }] },
       headers: api_headers
 
@@ -110,12 +110,12 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: nil)
 
     # Send heartbeat first to ensure studio access
-    post "/studios/#{@superagent.handle}/actions/send_heartbeat",
+    post "/studios/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
     assert_response :success
 
     # Create a note through the API
-    post "/studios/#{@superagent.handle}/note/actions/create_note",
+    post "/studios/#{@collective.handle}/note/actions/create_note",
       params: { text: "Test note from ai_agent" },
       headers: api_headers
 
@@ -128,7 +128,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # send_heartbeat is always allowed
-    post "/studios/#{@superagent.handle}/actions/send_heartbeat",
+    post "/studios/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
 
     assert_response :success
@@ -210,11 +210,11 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: nil)
 
     # Send heartbeat first
-    post "/studios/#{@superagent.handle}/actions/send_heartbeat",
+    post "/studios/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
 
     # Create a note
-    post "/studios/#{@superagent.handle}/note/actions/create_note",
+    post "/studios/#{@collective.handle}/note/actions/create_note",
       params: { text: "Test note" },
       headers: api_headers
 
@@ -229,7 +229,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["vote"] })
 
     # Try to create note via legacy HTML route (not /actions/)
-    post "/studios/#{@superagent.handle}/note",
+    post "/studios/#{@collective.handle}/note",
       params: { title: "Test", text: "Test note" },
       headers: api_headers
 
@@ -242,11 +242,11 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Send heartbeat first
-    post "/studios/#{@superagent.handle}/actions/send_heartbeat",
+    post "/studios/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
 
     # Create note via legacy HTML route
-    post "/studios/#{@superagent.handle}/note",
+    post "/studios/#{@collective.handle}/note",
       params: { title: "Test", text: "Test note via legacy route" },
       headers: api_headers
 
@@ -257,7 +257,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   test "ai_agent cannot create decision via legacy HTML route when not in capabilities" do
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
-    post "/studios/#{@superagent.handle}/decide",
+    post "/studios/#{@collective.handle}/decide",
       params: { question: "Test decision?" },
       headers: api_headers
 
@@ -268,7 +268,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   test "ai_agent cannot create commitment via legacy HTML route when not in capabilities" do
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
-    post "/studios/#{@superagent.handle}/commit",
+    post "/studios/#{@collective.handle}/commit",
       params: { title: "Test commitment" },
       headers: api_headers
 
@@ -295,7 +295,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   test "ai_agent cannot create note via v1 API when not in capabilities" do
     @ai_agent.update!(agent_configuration: { "capabilities" => ["vote"] })
 
-    post "/studios/#{@superagent.handle}/api/v1/notes",
+    post "/studios/#{@collective.handle}/api/v1/notes",
       params: { title: "Test", text: "Test note via API" },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
@@ -308,10 +308,10 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Send heartbeat first
-    post "/studios/#{@superagent.handle}/actions/send_heartbeat",
+    post "/studios/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
 
-    post "/studios/#{@superagent.handle}/api/v1/notes",
+    post "/studios/#{@collective.handle}/api/v1/notes",
       params: { title: "Test", text: "Test note via v1 API" },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
@@ -323,7 +323,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   test "ai_agent cannot create decision via v1 API when not in capabilities" do
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
-    post "/studios/#{@superagent.handle}/api/v1/decisions",
+    post "/studios/#{@collective.handle}/api/v1/decisions",
       params: { question: "Test decision?" },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
@@ -338,13 +338,13 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     # Create a decision to vote on
     decision = create_decision(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @parent,
       question: "Test Decision"
     )
     option = create_option(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @parent,
       decision: decision,
       title: "Option 1"
@@ -354,7 +354,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
       user: @ai_agent
     )
 
-    post "/studios/#{@superagent.handle}/api/v1/decisions/#{decision.id}/participants/#{participant.id}/votes",
+    post "/studios/#{@collective.handle}/api/v1/decisions/#{decision.id}/participants/#{participant.id}/votes",
       params: { option_id: option.id, accepted: true },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
@@ -381,12 +381,12 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
 
     commitment = create_commitment(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @parent,
       title: "Test Commitment"
     )
 
-    post "/studios/#{@superagent.handle}/api/v1/commitments/#{commitment.id}/join",
+    post "/studios/#{@collective.handle}/api/v1/commitments/#{commitment.id}/join",
       params: { committed: true },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json

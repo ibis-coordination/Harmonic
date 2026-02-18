@@ -2,12 +2,12 @@ require "test_helper"
 
 class EventTest < ActiveSupport::TestCase
   test "Event.create works" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
       actor: user,
       metadata: { test: true },
@@ -16,20 +16,20 @@ class EventTest < ActiveSupport::TestCase
     assert event.persisted?
     assert_equal "note.created", event.event_type
     assert_equal tenant, event.tenant
-    assert_equal superagent, event.superagent
+    assert_equal collective, event.collective
     assert_equal user, event.actor
     assert_equal({ "test" => true }, event.metadata)
   end
 
   test "Event can have polymorphic subject" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    note = create_note(tenant: tenant, superagent: superagent, created_by: user)
+    note = create_note(tenant: tenant, collective: collective, created_by: user)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
       actor: user,
       subject: note,
@@ -41,12 +41,12 @@ class EventTest < ActiveSupport::TestCase
   end
 
   test "event_category returns first part of event_type" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
     )
 
@@ -54,12 +54,12 @@ class EventTest < ActiveSupport::TestCase
   end
 
   test "event_action returns last part of event_type" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
     )
 
@@ -67,13 +67,13 @@ class EventTest < ActiveSupport::TestCase
   end
 
   test "scopes work correctly" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     # Create events directly (not through Tracked concern) for predictable test
-    event1 = Event.create!(tenant: tenant, superagent: superagent, event_type: "test.created")
-    event2 = Event.create!(tenant: tenant, superagent: superagent, event_type: "test.updated")
-    event3 = Event.create!(tenant: tenant, superagent: superagent, event_type: "other.created")
+    event1 = Event.create!(tenant: tenant, collective: collective, event_type: "test.created")
+    event2 = Event.create!(tenant: tenant, collective: collective, event_type: "test.updated")
+    event3 = Event.create!(tenant: tenant, collective: collective, event_type: "other.created")
 
     assert_includes Event.of_type("test.created").to_a, event1
     assert_includes Event.of_type("test.updated").to_a, event2

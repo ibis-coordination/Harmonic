@@ -4,7 +4,7 @@
 #
 # RULE: Direct .unscoped calls are banned. Use one of the safe alternatives:
 #
-#   - .tenant_scoped_only(tenant_id)  - Cross-superagent access within a tenant
+#   - .tenant_scoped_only(tenant_id)  - Cross-collective access within a tenant
 #   - .unscoped_for_admin(user)       - Cross-tenant access for app/system admins
 #   - .unscoped_for_system_job        - Cross-tenant access for background jobs
 #
@@ -162,7 +162,7 @@ if [[ "$1" == "--staged" ]]; then
         echo -e "${GREEN}✓ No banned .unscoped usage found.${NC}"
     else
         echo -e "${RED}✗ .unscoped is banned. Use a safe alternative:${NC}"
-        echo "  - .tenant_scoped_only(tenant_id) for cross-superagent access"
+        echo "  - .tenant_scoped_only(tenant_id) for cross-collective access"
         echo "  - .unscoped_for_admin(user) for admin operations"
         echo "  - .unscoped_for_system_job for background jobs"
         exit 1
@@ -180,7 +180,7 @@ if check_files "$FILES"; then
 else
     echo ""
     echo -e "${RED}Replace .unscoped with a safe alternative:${NC}"
-    echo "  - .tenant_scoped_only(tenant_id) for cross-superagent access within a tenant"
+    echo "  - .tenant_scoped_only(tenant_id) for cross-collective access within a tenant"
     echo "  - .unscoped_for_admin(current_user) for admin operations"
     echo "  - .unscoped_for_system_job for background maintenance jobs"
     echo ""

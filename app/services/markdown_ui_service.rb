@@ -33,8 +33,8 @@ class MarkdownUiService
   sig { returns(Tenant) }
   attr_reader :tenant
 
-  sig { returns(T.nilable(Superagent)) }
-  attr_reader :superagent
+  sig { returns(T.nilable(Collective)) }
+  attr_reader :collective
 
   sig { returns(T.nilable(User)) }
   attr_reader :user
@@ -45,13 +45,13 @@ class MarkdownUiService
   sig do
     params(
       tenant: Tenant,
-      superagent: T.nilable(Superagent),
+      collective: T.nilable(Collective),
       user: T.nilable(User)
     ).void
   end
-  def initialize(tenant:, superagent: nil, user: nil)
+  def initialize(tenant:, collective: nil, user: nil)
     @tenant = tenant
-    @superagent = superagent
+    @collective = collective
     @user = user
     @current_path = T.let(nil, T.nilable(String))
     @token = T.let(nil, T.nilable(ApiToken))

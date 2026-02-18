@@ -57,22 +57,22 @@ class SystemJob < ApplicationJob
     yield
   ensure
     Tenant.clear_thread_scope
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
   end
 
-  # Temporarily set tenant and superagent context for a block.
+  # Temporarily set tenant and collective context for a block.
   #
   # @param tenant [Tenant] The tenant to scope to
-  # @param superagent [Superagent] The superagent to scope to
-  # @yield Block to execute with tenant and superagent context
-  sig { params(tenant: Tenant, superagent: Superagent, _block: T.proc.void).void }
-  def with_tenant_and_superagent_context(tenant, superagent, &_block)
+  # @param collective [Collective] The collective to scope to
+  # @yield Block to execute with tenant and collective context
+  sig { params(tenant: Tenant, collective: Collective, _block: T.proc.void).void }
+  def with_tenant_and_collective_context(tenant, collective, &_block)
     Tenant.set_thread_context(tenant)
-    Superagent.set_thread_context(superagent)
+    Collective.set_thread_context(collective)
     yield
   ensure
     Tenant.clear_thread_scope
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
   end
 
   private

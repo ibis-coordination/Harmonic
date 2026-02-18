@@ -7,14 +7,14 @@ class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
 
   before_validation :set_tenant_id
-  before_validation :set_superagent_id
+  before_validation :set_collective_id
   before_validation :set_updated_by
 
   default_scope do
     if belongs_to_tenant? && Tenant.current_id
       s = where(tenant_id: Tenant.current_id)
-      if belongs_to_superagent? && Superagent.current_id
-        s = s.where(superagent_id: Superagent.current_id)
+      if belongs_to_collective? && Collective.current_id
+        s = s.where(collective_id: Collective.current_id)
       end
       s
     else
@@ -35,13 +35,13 @@ class ApplicationRecord < ActiveRecord::Base
   end
 
   sig { returns(T::Boolean) }
-  def self.belongs_to_superagent?
-    return false if self == SuperagentMember # This is a special case
-    self.column_names.include?("superagent_id")
+  def self.belongs_to_collective?
+    return false if self == CollectiveMember # This is a special case
+    self.column_names.include?("collective_id")
   end
 
-  # Query with only tenant scoping (bypasses superagent scope).
-  # Use this instead of `unscoped` when you need cross-superagent access within a tenant.
+  # Query with only tenant scoping (bypasses collective scope).
+  # Use this instead of `unscoped` when you need cross-collective access within a tenant.
   # In request context, tenant_id defaults to Tenant.current_id.
   # In background jobs, pass tenant_id explicitly.
   sig { params(tenant_id: T.nilable(String)).returns(T.untyped) }
@@ -82,9 +82,9 @@ class ApplicationRecord < ActiveRecord::Base
   end
 
   sig { void }
-  def set_superagent_id
-    if self.class.belongs_to_superagent?
-      T.unsafe(self).superagent_id ||= Superagent.current_id
+  def set_collective_id
+    if self.class.belongs_to_collective?
+      T.unsafe(self).collective_id ||= Collective.current_id
     end
   end
 
@@ -132,7 +132,7 @@ class ApplicationRecord < ActiveRecord::Base
 
   sig { returns(T.nilable(String)) }
   def path
-    "#{T.unsafe(self).superagent.path}/#{T.unsafe(self).path_prefix}/#{T.unsafe(self).truncated_id}"
+    "#{T.unsafe(self).collective.path}/#{T.unsafe(self).path_prefix}/#{T.unsafe(self).truncated_id}"
   end
 
   sig { returns(T.nilable(String)) }

@@ -5,8 +5,8 @@ class UserTest < ActiveSupport::TestCase
     @tenant = create_tenant(subdomain: "user-test-#{SecureRandom.hex(4)}")
     @user = create_user(email: "usertest_#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(@user)
-    @superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "user-superagent-#{SecureRandom.hex(4)}")
-    @superagent.add_user!(@user)
+    @collective = create_collective(tenant: @tenant, created_by: @user, handle: "user-collective-#{SecureRandom.hex(4)}")
+    @collective.add_user!(@user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
@@ -48,7 +48,7 @@ class UserTest < ActiveSupport::TestCase
     user = User.new(user_type: "human")
     assert user.human?
     assert_not user.ai_agent?
-    assert_not user.superagent_proxy?
+    assert_not user.collective_proxy?
   end
 
   test "ai_agent? returns true for ai_agent user type" do
@@ -56,12 +56,12 @@ class UserTest < ActiveSupport::TestCase
     user = User.new(user_type: "ai_agent", parent_id: parent.id)
     assert user.ai_agent?
     assert_not user.human?
-    assert_not user.superagent_proxy?
+    assert_not user.collective_proxy?
   end
 
-  test "superagent_proxy? returns true for superagent_proxy user type" do
-    user = User.new(user_type: "superagent_proxy")
-    assert user.superagent_proxy?
+  test "collective_proxy? returns true for collective_proxy user type" do
+    user = User.new(user_type: "collective_proxy")
+    assert user.collective_proxy?
     assert_not user.human?
     assert_not user.ai_agent?
   end
@@ -73,9 +73,9 @@ class UserTest < ActiveSupport::TestCase
     assert_includes @user.tenants, @tenant
   end
 
-  test "user has many superagent_members" do
-    assert @user.superagent_members.any?
-    assert_includes @user.superagents, @superagent
+  test "user has many collective_members" do
+    assert @user.collective_members.any?
+    assert_includes @user.collectives, @collective
   end
 
   test "user can have multiple tenants" do
@@ -182,24 +182,24 @@ class UserTest < ActiveSupport::TestCase
   # === Invite Acceptance Tests ===
 
   test "user can accept invite for themselves" do
-    new_superagent = Superagent.create!(
+    new_collective = Collective.create!(
       tenant: @tenant,
       created_by: @user,
       name: "Invite Studio",
-      handle: "invite-superagent-#{SecureRandom.hex(4)}"
+      handle: "invite-collective-#{SecureRandom.hex(4)}"
     )
     invite = Invite.create!(
       tenant: @tenant,
-      superagent: new_superagent,
+      collective: new_collective,
       created_by: @user,
       invited_user: @user,
       code: SecureRandom.hex(8),
       expires_at: 1.week.from_now
     )
 
-    assert_not new_superagent.user_is_member?(@user)
+    assert_not new_collective.user_is_member?(@user)
     @user.accept_invite!(invite)
-    assert new_superagent.user_is_member?(@user)
+    assert new_collective.user_is_member?(@user)
   end
 
   test "user cannot accept invite for another user" do
@@ -209,7 +209,7 @@ class UserTest < ActiveSupport::TestCase
 
     invite = Invite.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       invited_user: other_user,
       code: SecureRandom.hex(8),
@@ -221,18 +221,18 @@ class UserTest < ActiveSupport::TestCase
     end
   end
 
-  # === Superagents Minus Main Tests ===
+  # === Collectives Minus Main Tests ===
 
-  test "superagents_minus_main excludes main superagent" do
+  test "collectives_minus_main excludes main collective" do
     # Set the thread tenant context for the scope
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain) do
-      @tenant.create_main_superagent!(created_by: @user)
-      main_superagent = @tenant.main_superagent
-      main_superagent.add_user!(@user)
+      @tenant.create_main_collective!(created_by: @user)
+      main_collective = @tenant.main_collective
+      main_collective.add_user!(@user)
 
-      studios = @user.superagents_minus_main
-      assert_not_includes studios, main_superagent
-      assert_includes studios, @superagent
+      studios = @user.collectives_minus_main
+      assert_not_includes studios, main_collective
+      assert_includes studios, @collective
     end
   end
 
@@ -258,57 +258,57 @@ class UserTest < ActiveSupport::TestCase
     assert_equal "github", external.first.provider
   end
 
-  # === Superagent Proxy User Tests ===
+  # === Collective Proxy User Tests ===
 
-  test "superagent_proxy? returns true for superagent's proxy user" do
-    proxy = @superagent.proxy_user
-    assert proxy.superagent_proxy?
+  test "collective_proxy? returns true for collective's proxy user" do
+    proxy = @collective.proxy_user
+    assert proxy.collective_proxy?
   end
 
-  test "proxy_superagent returns associated superagent" do
-    proxy = @superagent.proxy_user
-    assert_equal @superagent, proxy.proxy_superagent
+  test "proxy_collective returns associated collective" do
+    proxy = @collective.proxy_user
+    assert_equal @collective, proxy.proxy_collective
   end
 
-  test "proxy_superagent returns nil for person user" do
-    assert_nil @user.proxy_superagent
+  test "proxy_collective returns nil for person user" do
+    assert_nil @user.proxy_collective
   end
 
-  test "proxy_superagent returns nil for superagent_proxy without associated superagent" do
+  test "proxy_collective returns nil for collective_proxy without associated collective" do
     proxy = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
       name: "Orphan Proxy",
-      user_type: "superagent_proxy",
+      user_type: "collective_proxy",
     )
-    assert_nil proxy.proxy_superagent
+    assert_nil proxy.proxy_collective
   end
 
   # === Representation Authorization Tests ===
 
   test "can_represent? returns true for proxy user representing their own studio" do
-    proxy = @superagent.proxy_user
-    assert proxy.can_represent?(@superagent)
+    proxy = @collective.proxy_user
+    assert proxy.can_represent?(@collective)
   end
 
   test "can_represent? returns true for user with representative role" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
-    assert @user.can_represent?(@superagent)
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
+    assert @user.can_represent?(@collective)
   end
 
   test "can_represent? returns false for user without representative role" do
-    assert_not @user.can_represent?(@superagent)
+    assert_not @user.can_represent?(@collective)
   end
 
   test "can_represent? returns true when any_member_can_represent is enabled" do
-    @superagent.settings['any_member_can_represent'] = true
-    @superagent.save!
-    assert @user.can_represent?(@superagent)
+    @collective.settings['any_member_can_represent'] = true
+    @collective.save!
+    assert @user.can_represent?(@collective)
   end
 
   test "can_represent? returns false for non-member of studio" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User For Rep")
     @tenant.add_user!(other_user)
-    assert_not other_user.can_represent?(@superagent)
+    assert_not other_user.can_represent?(@collective)
   end
 
   test "can_represent? returns true for parent representing ai_agent" do
@@ -333,27 +333,27 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "can_represent? returns true for representative representing studio proxy" do
-    @superagent.superagent_members.find_by(user: @user).add_role!('representative')
-    proxy = @superagent.proxy_user
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
+    proxy = @collective.proxy_user
     assert @user.can_represent?(proxy)
   end
 
   test "can_represent? returns false for non-representative trying to represent studio proxy" do
-    proxy = @superagent.proxy_user
+    proxy = @collective.proxy_user
     assert_not @user.can_represent?(proxy)
   end
 
   test "can_represent? returns true for studio proxy when any_member_can_represent is enabled" do
-    @superagent.settings['any_member_can_represent'] = true
-    @superagent.save!
-    proxy = @superagent.proxy_user
+    @collective.settings['any_member_can_represent'] = true
+    @collective.save!
+    proxy = @collective.proxy_user
     assert @user.can_represent?(proxy)
   end
 
   test "can_represent? returns false for non-member trying to represent studio proxy" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    proxy = @superagent.proxy_user
+    proxy = @collective.proxy_user
     assert_not other_user.can_represent?(proxy)
   end
 
@@ -832,36 +832,36 @@ class UserTest < ActiveSupport::TestCase
   end
 
   # === is_trusted_as? Tests ===
-  # Note: is_trusted_as? now only applies to superagent proxies (studio representation),
+  # Note: is_trusted_as? now only applies to collective proxies (studio representation),
   # not user-to-user grants. User-to-user grants use can_represent? directly.
 
   test "is_trusted_as? returns false for regular users" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
 
-    # Regular users are not superagent_proxy users
+    # Regular users are not collective_proxy users
     assert_not @user.is_trusted_as?(other_user)
   end
 
-  test "is_trusted_as? returns true for superagent proxy when user is representative" do
+  test "is_trusted_as? returns true for collective proxy when user is representative" do
     # Create a studio and make @user a representative
-    studio = create_superagent(tenant: @tenant, created_by: @user, handle: "test-studio-#{SecureRandom.hex(4)}")
+    studio = create_collective(tenant: @tenant, created_by: @user, handle: "test-studio-#{SecureRandom.hex(4)}")
     studio.add_user!(@user, roles: ["representative"])
 
     # Get the studio's proxy user
     proxy = studio.proxy_user
-    assert proxy.superagent_proxy?
-    assert proxy.proxy_superagent.present?
+    assert proxy.collective_proxy?
+    assert proxy.proxy_collective.present?
 
-    # @user should be trusted as the superagent proxy
+    # @user should be trusted as the collective proxy
     assert @user.is_trusted_as?(proxy)
   end
 
-  test "is_trusted_as? returns false for superagent proxy when user is not representative" do
+  test "is_trusted_as? returns false for collective proxy when user is not representative" do
     # Create a studio without @user as representative
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    studio = create_superagent(tenant: @tenant, created_by: other_user, handle: "test-studio-#{SecureRandom.hex(4)}")
+    studio = create_collective(tenant: @tenant, created_by: other_user, handle: "test-studio-#{SecureRandom.hex(4)}")
 
     # @user is not a member of the studio
     proxy = studio.proxy_user
@@ -885,9 +885,9 @@ class UserTest < ActiveSupport::TestCase
     assert permission.present?, "TrusteeGrant should be auto-created when ai_agent is created"
     assert permission.active?, "Auto-created permission should be pre-accepted (active)"
     assert permission.accepted_at.present?
-    # trustee_user is the parent (a regular person, not a superagent_proxy type)
+    # trustee_user is the parent (a regular person, not a collective_proxy type)
     assert_equal @user, permission.trustee_user
-    assert_not permission.trustee_user.superagent_proxy?
+    assert_not permission.trustee_user.collective_proxy?
   end
 
   test "parent can represent ai_agent via auto-created TrusteeGrant" do
@@ -930,7 +930,7 @@ class UserTest < ActiveSupport::TestCase
 
     permission = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @user)
     assert permission.present?
-    assert permission.allows_studio?(@superagent)
+    assert permission.allows_studio?(@collective)
   end
 end
 

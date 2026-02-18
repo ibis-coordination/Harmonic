@@ -7,7 +7,7 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @user = @global_user
-    @superagent = @global_superagent
+    @collective = @global_collective
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
 
     # Store original AUTH_MODE to restore after tests
@@ -91,7 +91,7 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
              Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
     user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
     tenant.add_user!(user)
-    tenant.create_main_superagent!(created_by: user) unless tenant.main_superagent
+    tenant.create_main_collective!(created_by: user) unless tenant.main_collective
 
     # Use localhost without subdomain
     host! ENV['HOSTNAME']
@@ -112,7 +112,7 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
              Tenant.create!(subdomain: ENV['PRIMARY_SUBDOMAIN'], name: "Primary Tenant")
     user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
     tenant.add_user!(user)
-    tenant.create_main_superagent!(created_by: user) unless tenant.main_superagent
+    tenant.create_main_collective!(created_by: user) unless tenant.main_collective
 
     host! ENV['HOSTNAME']
 

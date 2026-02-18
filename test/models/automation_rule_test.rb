@@ -4,7 +4,7 @@ require "test_helper"
 
 class AutomationRuleTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
     @ai_agent = create_ai_agent(parent: @user)
   end
 
@@ -28,7 +28,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
   test "creates studio automation rule with valid attributes" do
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Notify on critical mass",
       trigger_type: "event",
@@ -82,7 +82,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
   test "validates only one scope type" do
     rule = AutomationRule.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       user: @user,
       created_by: @user,
       name: "Test rule",
@@ -115,7 +115,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
     event_rule = AutomationRule.create!(
       tenant: @tenant,
       created_by: @user,
-      superagent: @superagent,
+      collective: @collective,
       name: "Event trigger with webhook action",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
@@ -128,7 +128,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
     schedule_rule = AutomationRule.create!(
       tenant: @tenant,
       created_by: @user,
-      superagent: @superagent,
+      collective: @collective,
       name: "Scheduled webhook",
       trigger_type: "schedule",
       trigger_config: { "cron" => "0 9 * * *" },

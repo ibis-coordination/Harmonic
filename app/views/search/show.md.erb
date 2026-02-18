@@ -2,8 +2,8 @@
 
 <% if @search.raw_query.present? -%>
 Query: `<%= @search.raw_query %>`
-<% if @search.superagent.present? -%>
-<%= @search.superagent.superagent_type.capitalize %>: [<%= @search.superagent.name %>](<%= @search.superagent.path %>)
+<% if @search.collective.present? -%>
+<%= @search.collective.collective_type.capitalize %>: [<%= @search.collective.name %>](<%= @search.collective.path %>)
 <% end -%>
 <% if @end_position < @total_count || @start_position > 1 -%>
 Showing <%= @start_position %>-<%= @end_position %> of <%= @total_count %> results
@@ -23,7 +23,7 @@ No items in this group.
 <% items.each do |item| -%>
 * [<%= item.title %>](<%= item.path %>)
   * Type: <%= item.item_type %>
-  * Location: <%= item.superagent&.name || 'Unknown' %>
+  * Location: <%= item.collective&.name || 'Unknown' %>
   * Created: <%= time_ago_or_from_now(item.created_at) %>
   * Deadline: <%= time_ago_or_from_now(item.deadline) %>
   * Backlinks: <%= item.backlink_count %>
@@ -62,7 +62,7 @@ Use operators to filter, sort, and group results. Plain text searches content. U
 | `min-*/max-*:` | links, backlinks, comments, readers, voters, participants |
 | `critical-mass-achieved:` | true, false |
 | `sort:` | newest, oldest, updated, deadline, relevance |
-| `group:` | superagent, creator, type, status, date, week, month, none |
+| `group:` | collective, creator, type, status, date, week, month, none |
 | `cycle:` | today, this-week, last-month, etc. |
 | `after:` | YYYY-MM-DD or -Nd/-Nw/-Nm/-Ny |
 | `before:` | YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny |

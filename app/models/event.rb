@@ -4,7 +4,7 @@ class Event < ApplicationRecord
   extend T::Sig
 
   belongs_to :tenant
-  belongs_to :superagent
+  belongs_to :collective
   belongs_to :actor, class_name: "User", optional: true
   belongs_to :subject, polymorphic: true, optional: true
 

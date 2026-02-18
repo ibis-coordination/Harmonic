@@ -1,9 +1,9 @@
 # typed: false
 
-# HasGlobalRoles provides app-wide roles that are NOT scoped to any tenant or superagent.
+# HasGlobalRoles provides app-wide roles that are NOT scoped to any tenant or collective.
 #
-# This is distinct from HasRoles (used by TenantUser and SuperagentMember), which provides
-# roles scoped to a specific tenant or superagent (e.g., "admin" within a tenant).
+# This is distinct from HasRoles (used by TenantUser and CollectiveMember), which provides
+# roles scoped to a specific tenant or collective (e.g., "admin" within a tenant).
 #
 # Global roles apply across the entire application. Currently supported:
 #

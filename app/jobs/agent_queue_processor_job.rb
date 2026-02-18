@@ -30,8 +30,8 @@ class AgentQueueProcessorJob < TenantScopedJob
     # Set additional context for this specific task run
     set_task_run_context!(task_run)
 
-    superagent = resolve_superagent(task_run)
-    set_superagent_context!(superagent) if superagent
+    collective = resolve_collective(task_run)
+    set_collective_context!(collective) if collective
 
     begin
       run_task(task_run)
@@ -99,7 +99,7 @@ class AgentQueueProcessorJob < TenantScopedJob
     navigator = self.class.navigator_class.new(
       user: task_run.ai_agent,
       tenant: task_run.tenant,
-      superagent: resolve_superagent(task_run),
+      collective: resolve_collective(task_run),
       model: task_run.model
     )
 
@@ -129,10 +129,10 @@ class AgentQueueProcessorJob < TenantScopedJob
     task_run.notify_parent_automation_runs!
   end
 
-  sig { params(task_run: AiAgentTaskRun).returns(T.nilable(Superagent)) }
-  def resolve_superagent(task_run)
-    # Extract superagent from task path if possible, or use first available
-    T.must(task_run.ai_agent).superagent_members.first&.superagent
+  sig { params(task_run: AiAgentTaskRun).returns(T.nilable(Collective)) }
+  def resolve_collective(task_run)
+    # Extract collective from task path if possible, or use first available
+    T.must(task_run.ai_agent).collective_members.first&.collective
   end
 
   sig { params(ai_agent_id: String, tenant_id: String).void }

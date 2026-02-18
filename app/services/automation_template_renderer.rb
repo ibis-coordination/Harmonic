@@ -35,8 +35,8 @@ class AutomationTemplateRenderer
       "subject" => build_subject_context(event.subject),
     }
 
-    superagent = event.superagent
-    context["studio"] = build_studio_context(superagent) if superagent
+    collective = event.collective
+    context["studio"] = build_studio_context(collective) if collective
 
     context
   end
@@ -108,13 +108,13 @@ class AutomationTemplateRenderer
     context
   end
 
-  sig { params(superagent: Superagent).returns(T::Hash[String, T.untyped]) }
-  def self.build_studio_context(superagent)
+  sig { params(collective: Collective).returns(T::Hash[String, T.untyped]) }
+  def self.build_studio_context(collective)
     {
-      "id" => superagent.id,
-      "handle" => superagent.handle,
-      "name" => superagent.name,
-      "path" => superagent.path,
+      "id" => collective.id,
+      "handle" => collective.handle,
+      "name" => collective.name,
+      "path" => collective.path,
     }
   end
 

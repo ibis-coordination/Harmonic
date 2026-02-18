@@ -36,10 +36,10 @@ namespace :e2e do
     end
 
     # Add to main studio
-    if tenant.main_superagent
-      unless tenant.main_superagent.superagent_members.exists?(user: user)
-        tenant.main_superagent.add_user!(user)
-        puts "Added user to main studio: #{tenant.main_superagent.name}"
+    if tenant.main_collective
+      unless tenant.main_collective.collective_members.exists?(user: user)
+        tenant.main_collective.add_user!(user)
+        puts "Added user to main studio: #{tenant.main_collective.name}"
       end
     end
 

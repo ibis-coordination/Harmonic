@@ -13,8 +13,8 @@ class User < ApplicationRecord
   has_many :note_history_events
   has_many :tenant_users
   has_many :tenants, through: :tenant_users
-  has_many :superagent_members
-  has_many :superagents, through: :superagent_members
+  has_many :collective_members
+  has_many :collectives, through: :collective_members
   has_many :api_tokens
   has_many :ai_agents, class_name: "User", foreign_key: "parent_id"
   has_many :notification_recipients
@@ -33,7 +33,7 @@ class User < ApplicationRecord
   # Auto-create TrusteeGrant when an AI agent is created
   after_create :create_parent_trustee_grant!, if: :ai_agent?
 
-  validates :user_type, inclusion: { in: ["human", "ai_agent", "superagent_proxy"] }
+  validates :user_type, inclusion: { in: ["human", "ai_agent", "collective_proxy"] }
   validates :email, presence: true
   validates :name, presence: true
   validate :ai_agent_must_have_parent
@@ -42,9 +42,9 @@ class User < ApplicationRecord
   sig { params(options: T.untyped).returns(User) }
   def reload(options = nil)
     remove_instance_variable(:@tenant_user) if defined?(@tenant_user)
-    remove_instance_variable(:@superagent_member) if defined?(@superagent_member)
-    remove_instance_variable(:@proxy_superagent) if defined?(@proxy_superagent)
-    remove_instance_variable(:@superagents) if defined?(@superagents)
+    remove_instance_variable(:@collective_member) if defined?(@collective_member)
+    remove_instance_variable(:@proxy_collective) if defined?(@proxy_collective)
+    remove_instance_variable(:@collectives) if defined?(@collectives)
     super
   end
 
@@ -72,8 +72,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def image_url
-    if superagent_proxy?
-      Superagent.where(proxy_user: self).first&.image_path
+    if collective_proxy?
+      Collective.where(proxy_user: self).first&.image_path
     else
       image_path_no_placeholder || super || image_path
     end
@@ -112,56 +112,56 @@ class User < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def superagent_proxy?
-    user_type == "superagent_proxy"
+  def collective_proxy?
+    user_type == "collective_proxy"
   end
 
-  # Returns the superagent this user is a proxy for, if any
-  sig { returns(T.nilable(Superagent)) }
-  def proxy_superagent
-    return nil unless superagent_proxy?
-    return @proxy_superagent if defined?(@proxy_superagent)
+  # Returns the collective this user is a proxy for, if any
+  sig { returns(T.nilable(Collective)) }
+  def proxy_collective
+    return nil unless collective_proxy?
+    return @proxy_collective if defined?(@proxy_collective)
 
-    @proxy_superagent = Superagent.where(proxy_user: self).first
+    @proxy_collective = Collective.where(proxy_user: self).first
   end
 
   # Check if this user is authorized to use the given proxy identity.
   # Used to validate that a proxy_user_id in the session is legitimate.
   #
-  # Superagent proxy users represent studios for collective agency.
+  # Collective proxy users represent studios for collective agency.
   # TrusteeGrants authorize users to act on behalf of other users (a separate concept).
   sig { params(proxy_user: User).returns(T::Boolean) }
   def is_trusted_as?(proxy_user)
-    return false unless proxy_user.superagent_proxy?
-    return false unless proxy_user.proxy_superagent.present?
+    return false unless proxy_user.collective_proxy?
+    return false unless proxy_user.proxy_collective.present?
 
-    superagent = proxy_user.proxy_superagent
-    return false unless superagent
+    collective = proxy_user.proxy_collective
+    return false unless collective
 
-    can_represent?(superagent)
+    can_represent?(collective)
   end
 
-  sig { params(superagent_or_user: T.any(Superagent, User)).returns(T::Boolean) }
-  def can_represent?(superagent_or_user)
-    if superagent_or_user.is_a?(Superagent)
-      superagent = superagent_or_user
-      is_proxy_of_superagent = proxy_superagent == superagent
-      return is_proxy_of_superagent if superagent_proxy?
+  sig { params(collective_or_user: T.any(Collective, User)).returns(T::Boolean) }
+  def can_represent?(collective_or_user)
+    if collective_or_user.is_a?(Collective)
+      collective = collective_or_user
+      is_proxy_of_collective = proxy_collective == collective
+      return is_proxy_of_collective if collective_proxy?
 
-      sm = superagent_members.find_by(superagent_id: superagent.id)
-      return sm&.can_represent? || false
-    elsif superagent_or_user.is_a?(User)
-      user = superagent_or_user
+      cm = collective_members.find_by(collective_id: collective.id)
+      return cm&.can_represent? || false
+    elsif collective_or_user.is_a?(User)
+      user = collective_or_user
       # Cannot represent archived users
       return false if user.archived?
 
       # Parent can represent their AI agent
       return true if is_parent_of?(user)
 
-      # Check if self can represent user's superagent proxy
-      if user.superagent_proxy?
-        sm = superagent_members.find_by(superagent_id: T.must(user.proxy_superagent).id)
-        return sm&.can_represent? || false
+      # Check if self can represent user's collective proxy
+      if user.collective_proxy?
+        cm = collective_members.find_by(collective_id: T.must(user.proxy_collective).id)
+        return cm&.can_represent? || false
       end
 
       # The trustee_user (self) can represent the granting_user (user) if there's an active grant
@@ -185,12 +185,12 @@ class User < ApplicationRecord
     user == self || (user.ai_agent? && user.parent_id == id)
   end
 
-  sig { params(ai_agent: User, superagent: Superagent).returns(T::Boolean) }
-  def can_add_ai_agent_to_superagent?(ai_agent, superagent)
+  sig { params(ai_agent: User, collective: Collective).returns(T::Boolean) }
+  def can_add_ai_agent_to_collective?(ai_agent, collective)
     return false unless ai_agent.ai_agent? && ai_agent.parent_id == id
 
-    sm = superagent_members.find_by(superagent_id: superagent.id)
-    sm&.can_invite? || false
+    cm = collective_members.find_by(collective_id: collective.id)
+    cm&.can_invite? || false
   end
 
   sig { void }
@@ -241,26 +241,26 @@ class User < ApplicationRecord
     T.must(tenant_user).save!
   end
 
-  sig { params(sm: SuperagentMember).void }
-  def superagent_member=(sm)
-    raise "SuperagentMember user_id does not match User id" unless sm.user_id == id
+  sig { params(cm: CollectiveMember).void }
+  def collective_member=(cm)
+    raise "CollectiveMember user_id does not match User id" unless cm.user_id == id
 
-    @superagent_member = sm
+    @collective_member = cm
   end
 
-  sig { returns(T.nilable(SuperagentMember)) }
-  def superagent_member
-    @superagent_member ||= superagent_members.where(superagent_id: Superagent.current_id).first
+  sig { returns(T.nilable(CollectiveMember)) }
+  def collective_member
+    @collective_member ||= collective_members.where(collective_id: Collective.current_id).first
   end
 
   sig { void }
-  def save_superagent_member!
-    T.must(superagent_member).save!
+  def save_collective_member!
+    T.must(collective_member).save!
   end
 
   sig { returns(ActiveRecord::Relation) }
-  def superagents
-    @superagents ||= Superagent.joins(:superagent_members).where(superagent_members: { user_id: id })
+  def collectives
+    @collectives ||= Collective.joins(:collective_members).where(collective_members: { user_id: id })
   end
 
   sig { params(name: String).void }
@@ -270,8 +270,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def display_name
-    if superagent_proxy?
-      Superagent.where(proxy_user: self).first&.name
+    if collective_proxy?
+      Collective.where(proxy_user: self).first&.name
     else
       tenant_user&.display_name
     end
@@ -299,9 +299,9 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def handle
-    if superagent_proxy?
-      superagent = Superagent.where(proxy_user: self).first
-      superagent ? "studios/" + T.must(superagent.handle) : nil
+    if collective_proxy?
+      collective = Collective.where(proxy_user: self).first
+      collective ? "studios/" + T.must(collective.handle) : nil
     else
       tenant_user&.handle
     end
@@ -309,8 +309,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def path
-    if superagent_proxy?
-      Superagent.where(proxy_user: self).first&.path
+    if collective_proxy?
+      Collective.where(proxy_user: self).first&.path
     else
       tenant_user&.path
     end
@@ -351,17 +351,17 @@ class User < ApplicationRecord
     ApiToken.where(user_id: id, tenant_id: T.must(tenant_user).tenant_id, deleted_at: nil)
   end
 
-  sig { params(invite: Invite).returns(SuperagentMember) }
+  sig { params(invite: Invite).returns(CollectiveMember) }
   def accept_invite!(invite)
     raise "Cannot accept invite for another user" unless invite.invited_user_id == id || invite.invited_user_id.nil?
 
-    SuperagentMember.find_or_create_by!(superagent_id: invite.superagent_id, user_id: id)
+    CollectiveMember.find_or_create_by!(collective_id: invite.collective_id, user_id: id)
     # TODO: track invite accepted event
   end
 
   sig { returns(ActiveRecord::Relation) }
-  def superagents_minus_main
-    superagents.includes(:tenant).where("tenants.main_superagent_id != superagents.id")
+  def collectives_minus_main
+    collectives.includes(:tenant).where("tenants.main_collective_id != collectives.id")
   end
 
   sig { returns(ActiveRecord::Relation) }

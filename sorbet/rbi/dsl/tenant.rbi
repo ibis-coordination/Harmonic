@@ -320,8 +320,78 @@ class Tenant
     sig { params(value: T::Enumerable[::Attachment]).void }
     def attachments=(value); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def build_main_superagent(*args, &blk); end
+    sig { returns(T::Array[T.untyped]) }
+    def automation_rule_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def automation_rule_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def automation_rule_run_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def automation_rule_run_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def automation_rule_run_resource_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def automation_rule_run_resource_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :automation_rule_run_resources`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AutomationRuleRunResource::PrivateCollectionProxy) }
+    def automation_rule_run_resources; end
+
+    sig { params(value: T::Enumerable[::AutomationRuleRunResource]).void }
+    def automation_rule_run_resources=(value); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :automation_rule_runs`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AutomationRuleRun::PrivateCollectionProxy) }
+    def automation_rule_runs; end
+
+    sig { params(value: T::Enumerable[::AutomationRuleRun]).void }
+    def automation_rule_runs=(value); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :automation_rules`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AutomationRule::PrivateCollectionProxy) }
+    def automation_rules; end
+
+    sig { params(value: T::Enumerable[::AutomationRule]).void }
+    def automation_rules=(value); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_main_collective(*args, &blk); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def collective_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def collective_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def collective_member_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def collective_member_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :collective_members`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::CollectiveMember::PrivateCollectionProxy) }
+    def collective_members; end
+
+    sig { params(value: T::Enumerable[::CollectiveMember]).void }
+    def collective_members=(value); end
+
+    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :collectives`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::Collective::PrivateCollectionProxy) }
+    def collectives; end
+
+    sig { params(value: T::Enumerable[::Collective]).void }
+    def collectives=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def commitment_ids; end
@@ -351,11 +421,11 @@ class Tenant
     sig { params(value: T::Enumerable[::Commitment]).void }
     def commitments=(value); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_main_superagent(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_main_collective(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_main_superagent!(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_main_collective!(*args, &blk); end
 
     sig { returns(T::Array[T.untyped]) }
     def decision_ids; end
@@ -441,11 +511,11 @@ class Tenant
     sig { params(value: T::Enumerable[::Link]).void }
     def links=(value); end
 
-    sig { returns(T.nilable(::Superagent)) }
-    def main_superagent; end
+    sig { returns(T.nilable(::Collective)) }
+    def main_collective; end
 
-    sig { params(value: T.nilable(::Superagent)).void }
-    def main_superagent=(value); end
+    sig { params(value: T.nilable(::Collective)).void }
+    def main_collective=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def note_history_event_ids; end
@@ -531,8 +601,8 @@ class Tenant
     sig { params(value: T::Enumerable[::Option]).void }
     def options=(value); end
 
-    sig { returns(T.nilable(::Superagent)) }
-    def reload_main_superagent; end
+    sig { returns(T.nilable(::Collective)) }
+    def reload_main_collective; end
 
     sig { returns(T::Array[T.untyped]) }
     def representation_session_event_ids; end
@@ -563,7 +633,7 @@ class Tenant
     def representation_sessions=(value); end
 
     sig { void }
-    def reset_main_superagent; end
+    def reset_main_collective; end
 
     # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :search_index`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
@@ -578,34 +648,6 @@ class Tenant
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def search_index_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def superagent_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def superagent_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def superagent_member_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def superagent_member_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :superagent_members`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::SuperagentMember::PrivateCollectionProxy) }
-    def superagent_members; end
-
-    sig { params(value: T::Enumerable[::SuperagentMember]).void }
-    def superagent_members=(value); end
-
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :superagents`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::Superagent::PrivateCollectionProxy) }
-    def superagents; end
-
-    sig { params(value: T::Enumerable[::Superagent]).void }
-    def superagents=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def tenant_user_ids; end
@@ -690,20 +732,6 @@ class Tenant
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def webhook_delivery_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def webhook_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def webhook_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `Tenant` class because it declared `has_many :webhooks`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::Webhook::PrivateCollectionProxy) }
-    def webhooks; end
-
-    sig { params(value: T::Enumerable[::Webhook]).void }
-    def webhooks=(value); end
   end
 
   module GeneratedAssociationRelationMethods
@@ -1033,49 +1061,49 @@ class Tenant
     def id_will_change!; end
 
     sig { returns(T.nilable(::String)) }
-    def main_superagent_id; end
+    def main_collective_id; end
 
     sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def main_superagent_id=(value); end
+    def main_collective_id=(value); end
 
     sig { returns(T::Boolean) }
-    def main_superagent_id?; end
+    def main_collective_id?; end
 
     sig { returns(T.nilable(::String)) }
-    def main_superagent_id_before_last_save; end
+    def main_collective_id_before_last_save; end
 
     sig { returns(T.untyped) }
-    def main_superagent_id_before_type_cast; end
+    def main_collective_id_before_type_cast; end
 
     sig { returns(T::Boolean) }
-    def main_superagent_id_came_from_user?; end
+    def main_collective_id_came_from_user?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def main_superagent_id_change; end
+    def main_collective_id_change; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def main_superagent_id_change_to_be_saved; end
+    def main_collective_id_change_to_be_saved; end
 
     sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def main_superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def main_collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
-    def main_superagent_id_in_database; end
+    def main_collective_id_in_database; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def main_superagent_id_previous_change; end
+    def main_collective_id_previous_change; end
 
     sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def main_superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def main_collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
-    def main_superagent_id_previously_was; end
+    def main_collective_id_previously_was; end
 
     sig { returns(T.nilable(::String)) }
-    def main_superagent_id_was; end
+    def main_collective_id_was; end
 
     sig { void }
-    def main_superagent_id_will_change!; end
+    def main_collective_id_will_change!; end
 
     sig { returns(::String) }
     def name; end
@@ -1132,7 +1160,7 @@ class Tenant
     def restore_id!; end
 
     sig { void }
-    def restore_main_superagent_id!; end
+    def restore_main_collective_id!; end
 
     sig { void }
     def restore_name!; end
@@ -1171,10 +1199,10 @@ class Tenant
     def saved_change_to_id?; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_main_superagent_id; end
+    def saved_change_to_main_collective_id; end
 
     sig { returns(T::Boolean) }
-    def saved_change_to_main_superagent_id?; end
+    def saved_change_to_main_collective_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_name; end
@@ -1457,7 +1485,7 @@ class Tenant
     def will_save_change_to_id?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_main_superagent_id?; end
+    def will_save_change_to_main_collective_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_name?; end

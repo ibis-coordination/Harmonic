@@ -5,8 +5,8 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     @tenant = create_tenant(subdomain: "auth-test-#{SecureRandom.hex(4)}")
     @user = create_unique_user
     @tenant.add_user!(@user)
-    @superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "auth-studio-#{SecureRandom.hex(4)}")
-    @superagent.add_user!(@user)
+    @collective = create_collective(tenant: @tenant, created_by: @user, handle: "auth-studio-#{SecureRandom.hex(4)}")
+    @collective.add_user!(@user)
   end
 
   # Helper to create users with unique names to avoid handle collisions
@@ -26,7 +26,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert user.valid?
     assert user.human?
     assert_not user.ai_agent?
-    assert_not user.superagent_proxy?
+    assert_not user.collective_proxy?
   end
 
   test "ai_agent user type requires parent_id" do
@@ -67,10 +67,10 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert_includes user.errors[:parent_id], "user cannot be its own parent"
   end
 
-  test "superagent_proxy user type is valid" do
-    user = User.new(email: "proxy@example.com", name: "Proxy", user_type: "superagent_proxy")
+  test "collective_proxy user type is valid" do
+    user = User.new(email: "proxy@example.com", name: "Proxy", user_type: "collective_proxy")
     assert user.valid?
-    assert user.superagent_proxy?
+    assert user.collective_proxy?
   end
 
   test "invalid user type is rejected" do
@@ -175,20 +175,20 @@ class UserAuthorizationTest < ActiveSupport::TestCase
   # === Studio Access Tests ===
 
   test "user has access to studio they belong to" do
-    su = @superagent.superagent_members.find_by(user: @user)
+    su = @collective.collective_members.find_by(user: @user)
     assert_not_nil su
   end
 
   test "user does not have access to studio they don't belong to" do
     # Create another studio in the same tenant
-    other_superagent = Superagent.create!(
+    other_collective = Collective.create!(
       tenant: @tenant,
       created_by: @user,
       name: "Other Studio",
       handle: "other-studio-#{SecureRandom.hex(4)}"
     )
 
-    # Create a new user not in other_superagent
+    # Create a new user not in other_collective
     new_user = create_user(email: "new_user_#{SecureRandom.hex(4)}@example.com")
     tu = TenantUser.create!(
       tenant: @tenant,
@@ -196,9 +196,9 @@ class UserAuthorizationTest < ActiveSupport::TestCase
       display_name: new_user.name,
       handle: "new-user-#{SecureRandom.hex(4)}"
     )
-    # Don't add new_user to other_superagent
+    # Don't add new_user to other_collective
 
-    su = other_superagent.superagent_members.find_by(user: new_user)
+    su = other_collective.collective_members.find_by(user: new_user)
     assert_nil su
   end
 
@@ -207,12 +207,12 @@ class UserAuthorizationTest < ActiveSupport::TestCase
   test "parent can add ai_agent to studio where they have invite permission" do
     parent = create_unique_user
     @tenant.add_user!(parent)
-    @superagent.add_user!(parent, roles: ['admin'])
+    @collective.add_user!(parent, roles: ['admin'])
 
     ai_agent = create_ai_agent(parent: parent, name: "AiAgent #{SecureRandom.hex(4)}")
     @tenant.add_user!(ai_agent)
 
-    assert parent.can_add_ai_agent_to_superagent?(ai_agent, @superagent)
+    assert parent.can_add_ai_agent_to_collective?(ai_agent, @collective)
   end
 
   test "parent cannot add ai_agent to studio where they lack invite permission" do
@@ -223,7 +223,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     ai_agent = create_ai_agent(parent: parent, name: "AiAgent #{SecureRandom.hex(4)}")
     @tenant.add_user!(ai_agent)
 
-    assert_not parent.can_add_ai_agent_to_superagent?(ai_agent, @superagent)
+    assert_not parent.can_add_ai_agent_to_collective?(ai_agent, @collective)
   end
 
   test "user cannot add another user's ai_agent to studio" do
@@ -231,13 +231,13 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     parent2 = create_unique_user
     @tenant.add_user!(parent1)
     @tenant.add_user!(parent2)
-    @superagent.add_user!(parent2, roles: ['admin'])
+    @collective.add_user!(parent2, roles: ['admin'])
 
     ai_agent = create_ai_agent(parent: parent1, name: "AiAgent #{SecureRandom.hex(4)}")
     @tenant.add_user!(ai_agent)
 
     # Parent2 has invite permission but ai_agent belongs to parent1
-    assert_not parent2.can_add_ai_agent_to_superagent?(ai_agent, @superagent)
+    assert_not parent2.can_add_ai_agent_to_collective?(ai_agent, @collective)
   end
 
   test "cannot add non-ai_agent user to studio via can_add_ai_agent_to_studio" do
@@ -245,9 +245,9 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     regular_user = create_unique_user
     @tenant.add_user!(parent)
     @tenant.add_user!(regular_user)
-    @superagent.add_user!(parent, roles: ['admin'])
+    @collective.add_user!(parent, roles: ['admin'])
 
-    assert_not parent.can_add_ai_agent_to_superagent?(regular_user, @superagent)
+    assert_not parent.can_add_ai_agent_to_collective?(regular_user, @collective)
   end
 
   # === Archive Tests ===

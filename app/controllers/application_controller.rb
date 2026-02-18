@@ -5,7 +5,7 @@ class ApplicationController < ActionController::Base
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
 
-  before_action :check_auth_subdomain, :current_app, :current_tenant, :current_superagent,
+  before_action :check_auth_subdomain, :current_app, :current_tenant, :current_collective,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
   before_action :check_session_timeout
@@ -44,33 +44,33 @@ class ApplicationController < ActionController::Base
   def current_tenant
     return @current_tenant if defined?(@current_tenant)
 
-    current_superagent
-    @current_tenant ||= @current_superagent.tenant
+    current_collective
+    @current_tenant ||= @current_collective.tenant
     redirect_to "/404" if @current_tenant.archived?
     @current_tenant
   end
 
-  def current_superagent
-    return @current_superagent if defined?(@current_superagent)
+  def current_collective
+    return @current_collective if defined?(@current_collective)
 
     # begin
-    # Superagent.scope_thread_to_superagent sets the current superagent and tenant based on the subdomain and handle
+    # Collective.scope_thread_to_collective sets the current collective and tenant based on the subdomain and handle
     # and raises an error if the subdomain or handle is not found.
     # Default scope is configured in ApplicationRecord to scope all queries to
-    # Tenant.current_tenant_id and Superagent.current_superagent_id
-    # and automatically set tenant_id and superagent_id on any new records.
-    @current_superagent = Superagent.scope_thread_to_superagent(
+    # Tenant.current_tenant_id and Collective.current_collective_id
+    # and automatically set tenant_id and collective_id on any new records.
+    @current_collective = Collective.scope_thread_to_collective(
       subdomain: request.subdomain,
-      handle: params[:superagent_handle]
+      handle: params[:collective_handle]
     )
-    @current_tenant = @current_superagent.tenant
+    @current_tenant = @current_collective.tenant
     # Set these associations to avoid unnecessary reloading.
-    @current_superagent.tenant = @current_tenant
-    @current_tenant.main_superagent = @current_superagent if @current_tenant.main_superagent_id == @current_superagent.id
+    @current_collective.tenant = @current_tenant
+    @current_tenant.main_collective = @current_collective if @current_tenant.main_collective_id == @current_collective.id
     # rescue
     #   raise ActionController::RoutingError.new('Not Found')
     # end
-    @current_superagent
+    @current_collective
   end
 
   def current_path
@@ -102,9 +102,9 @@ class ApplicationController < ActionController::Base
   def api_authorize!
     # Internal tokens bypass API enabled checks - they are system-managed
     # and used for internal operations like agent runners
-    unless current_token&.internal? || (current_superagent.api_enabled? && current_tenant.api_enabled?)
-      superagent_or_tenant = current_tenant.api_enabled? ? "studio" : "tenant"
-      return render json: { error: "API not enabled for this #{superagent_or_tenant}" }, status: :forbidden
+    unless current_token&.internal? || (current_collective.api_enabled? && current_tenant.api_enabled?)
+      collective_or_tenant = current_tenant.api_enabled? ? "studio" : "tenant"
+      return render json: { error: "API not enabled for this #{collective_or_tenant}" }, status: :forbidden
     end
     return render json: { error: "API only supports JSON or Markdown formats" }, status: :forbidden unless json_or_markdown_request?
 
@@ -250,7 +250,7 @@ class ApplicationController < ActionController::Base
     else
       # Studio representation requires X-Representing-Studio header
       representing_studio_header = request.headers["X-Representing-Studio"]
-      expected_handle = session.superagent&.handle
+      expected_handle = session.collective&.handle
 
       unless representing_studio_header.present?
         render json: { error: "X-Representing-Studio header required for studio representation" }, status: :forbidden
@@ -292,7 +292,7 @@ class ApplicationController < ActionController::Base
   # @return [User] The user if no active sessions, or renders error and returns nil
   def check_for_active_representation_session(user)
     # Check for active representation sessions where this user is the representative
-    # Uses tenant_scoped_only to bypass superagent scope but keep tenant scope
+    # Uses tenant_scoped_only to bypass collective scope but keep tenant scope
     active_session = RepresentationSession.tenant_scoped_only(current_tenant.id).where(
       representative_user_id: user.id,
       ended_at: nil
@@ -342,7 +342,7 @@ class ApplicationController < ActionController::Base
     return unless session[:representation_session_id].present?
     return unless @current_human_user
 
-    # Look up the RepresentationSession (bypass superagent scope)
+    # Look up the RepresentationSession (bypass collective scope)
     rep_session = RepresentationSession.tenant_scoped_only(current_tenant.id).find_by(
       id: session[:representation_session_id]
     )
@@ -403,7 +403,7 @@ class ApplicationController < ActionController::Base
     else
       # Studio representation requires representing_studio cookie
       representing_studio = session[:representing_studio]
-      expected_handle = rep_session.superagent&.handle
+      expected_handle = rep_session.collective&.handle
       representing_studio.present? && representing_studio == expected_handle
     end
   end
@@ -424,7 +424,7 @@ class ApplicationController < ActionController::Base
 
     @current_invite = if params[:code] || cookies[:invite_code]
                         Invite.find_by(
-                          superagent: current_superagent,
+                          collective: current_collective,
                           code: params[:code] || cookies[:invite_code]
                         )
                       end
@@ -434,16 +434,16 @@ class ApplicationController < ActionController::Base
   def validate_authenticated_access
     tu = @current_tenant.tenant_users.find_by(user: @current_user)
     if tu.nil?
-      accepting_invite = current_invite && current_invite.superagent == @current_superagent
+      accepting_invite = current_invite && current_invite.collective == @current_collective
       if @current_tenant.require_login? && controller_name != "sessions" && !accepting_invite
         @sidebar_mode = "none"
         render status: :forbidden, layout: "application", template: "sessions/403_to_logout"
       elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
-        # The user still has to click "accept" to accept the invite to the superagent,
+        # The user still has to click "accept" to accept the invite to the collective,
         # but they need to access the tenant to do so.
         # Not sure how to handle the case where the user does not accept the invite.
         # Should we remove the tenant_user record somehow?
-        # Should we require that all tenant users be a member of at least one (non-main) superagent?
+        # Should we require that all tenant users be a member of at least one (non-main) collective?
         @current_tenant.add_user!(@current_user)
       end
     else
@@ -452,36 +452,36 @@ class ApplicationController < ActionController::Base
     end
 
     # Check grant studio scope for user representation sessions
-    if @current_representation_session&.user_representation? && !current_superagent.is_main_superagent?
+    if @current_representation_session&.user_representation? && !current_collective.is_main_collective?
       grant = @current_representation_session.trustee_grant
-      unless grant&.allows_studio?(current_superagent)
+      unless grant&.allows_studio?(current_collective)
         flash[:alert] = "This studio is not included in your representation grant."
         redirect_to "/representing"
         return
       end
     end
 
-    sm = current_superagent.superagent_members.find_by(user: @current_user)
+    sm = current_collective.collective_members.find_by(user: @current_user)
     if sm.nil?
-      if current_superagent == current_tenant.main_superagent
-        if controller_name.ends_with?("sessions") || @current_user.superagent_proxy?
-          # Do nothing - sessions controller or superagent proxy user doesn't need superagent membership on main
+      if current_collective == current_tenant.main_collective
+        if controller_name.ends_with?("sessions") || @current_user.collective_proxy?
+          # Do nothing - sessions controller or collective proxy user doesn't need collective membership on main
         else
-          current_superagent.add_user!(@current_user)
+          current_collective.add_user!(@current_user)
         end
-      elsif current_superagent.accessible_by?(@current_user)
-        # Superagent proxy user accessing their own superagent
+      elsif current_collective.accessible_by?(@current_user)
+        # Collective proxy user accessing their own collective
         # No membership record needed, but access is allowed
       else
-        # If this user has an invite to this superagent, they will see the option to accept on the superagent's join page.
-        # Otherwise, they will see the superagent's default join page, which may or may not allow them to join.
-        path = "#{current_superagent.path}/join"
+        # If this user has an invite to this collective, they will see the option to accept on the collective's join page.
+        # Otherwise, they will see the collective's default join page, which may or may not allow them to join.
+        path = "#{current_collective.path}/join"
         redirect_to path unless request.path == path
       end
     else
-      # TODO: Add last_seen_at to SuperagentMember instead of touch
+      # TODO: Add last_seen_at to CollectiveMember instead of touch
       sm.touch if controller_name != "sessions" && controller_name != "studios"
-      @current_user.superagent_member = sm
+      @current_user.collective_member = sm
     end
   end
 
@@ -552,10 +552,10 @@ class ApplicationController < ActionController::Base
   def current_heartbeat
     return @current_heartbeat if defined?(@current_heartbeat)
 
-    @current_heartbeat = if current_user && !current_superagent.is_main_superagent?
+    @current_heartbeat = if current_user && !current_collective.is_main_collective?
                            Heartbeat.where(
                              tenant: current_tenant,
-                             superagent: current_superagent,
+                             collective: current_collective,
                              user: current_user
                            ).where(
                              "created_at > ? and expires_at > ?", current_cycle.start_date, Time.current
@@ -574,7 +574,7 @@ class ApplicationController < ActionController::Base
                                  end
   end
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth"].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "studios"].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
@@ -684,13 +684,13 @@ class ApplicationController < ActionController::Base
   def current_cycle
     return @current_cycle if defined?(@current_cycle)
 
-    @current_cycle = Cycle.new_from_tempo(tenant: current_tenant, superagent: current_superagent)
+    @current_cycle = Cycle.new_from_tempo(tenant: current_tenant, collective: current_collective)
   end
 
   def previous_cycle
     return @previous_cycle if defined?(@previous_cycle)
 
-    @previous_cycle = Cycle.new(name: current_cycle.previous_cycle, tenant: current_tenant, superagent: current_superagent)
+    @previous_cycle = Cycle.new(name: current_cycle.previous_cycle, tenant: current_tenant, collective: current_collective)
   end
 
   def metric
@@ -722,6 +722,7 @@ class ApplicationController < ActionController::Base
   end
 
   def model_params
+    return params unless current_resource_model
     params[current_resource_model.name.underscore.to_sym] || params
   end
 
@@ -730,7 +731,7 @@ class ApplicationController < ActionController::Base
     if ["no_deadline", "close_at_critical_mass"].include?(deadline_option)
       100.years.from_now
     elsif deadline_option == "datetime" && params[:deadline]
-      utc_deadline_param = @current_superagent.timezone.parse(params[:deadline]).utc
+      utc_deadline_param = @current_collective.timezone.parse(params[:deadline]).utc
       [utc_deadline_param, Time.current].max
     elsif deadline_option == "close_now"
       Time.current
@@ -777,9 +778,9 @@ class ApplicationController < ActionController::Base
     return render "404", status: :not_found unless @pinnable
 
     if params[:pinned] == true
-      @pinnable.pin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
+      @pinnable.pin!(tenant: @current_tenant, collective: @current_collective, user: @current_user)
     elsif params[:pinned] == false
-      @pinnable.unpin!(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
+      @pinnable.unpin!(tenant: @current_tenant, collective: @current_collective, user: @current_user)
     else
       raise "pinned param required. must be boolean value"
     end
@@ -792,8 +793,8 @@ class ApplicationController < ActionController::Base
 
   def set_pin_vars
     @pinnable = current_resource
-    pin_destination = current_superagent == current_tenant.main_superagent ? "your profile" : "the studio homepage"
-    @is_pinned = current_resource.is_pinned?(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
+    pin_destination = current_collective == current_tenant.main_collective ? "your profile" : "the studio homepage"
+    @is_pinned = current_resource.is_pinned?(tenant: @current_tenant, collective: @current_collective, user: @current_user)
     @pin_click_title = "Click to " + (@is_pinned ? "unpin from " : "pin to ") + pin_destination
   end
 
@@ -803,7 +804,7 @@ class ApplicationController < ActionController::Base
     if params
       ApiHelper.new(
         current_user: current_user,
-        current_superagent: current_superagent,
+        current_collective: current_collective,
         current_tenant: current_tenant,
         current_representation_session: current_representation_session,
         current_cycle: current_cycle,
@@ -822,7 +823,7 @@ class ApplicationController < ActionController::Base
     else
       @api_helper ||= ApiHelper.new(
         current_user: current_user,
-        current_superagent: current_superagent,
+        current_collective: current_collective,
         current_tenant: current_tenant,
         current_representation_session: current_representation_session,
         current_cycle: current_cycle,
@@ -898,11 +899,11 @@ class ApplicationController < ActionController::Base
   end
 
   def actions_index_default
-    raise NotImplementedError, "actions index must be implemented in child classes" if current_superagent.is_main_superagent?
+    raise NotImplementedError, "actions index must be implemented in child classes" if current_collective.is_main_collective?
 
     # This should be overridden in child classes.
 
-    @page_title = "Actions | #{current_superagent.name}"
+    @page_title = "Actions | #{current_collective.name}"
     render "shared/actions_index_studio", locals: {
       base_path: request.path.split("/actions")[0],
     }
@@ -992,7 +993,7 @@ class ApplicationController < ActionController::Base
 
     Sentry.set_tags(
       tenant_id: @current_tenant&.id,
-      superagent_id: @current_superagent&.id,
+      collective_id: @current_collective&.id,
       subdomain: request.subdomain
     )
 

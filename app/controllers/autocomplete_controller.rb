@@ -5,24 +5,24 @@ class AutocompleteController < ApplicationController
 
   # GET /autocomplete/users?q=search_term
   # Returns JSON list of users matching the search query for @mention autocomplete
-  # Scoped to members of the current superagent
-  # If query is blank, returns 10 superagent members sorted alphabetically by handle
+  # Scoped to members of the current collective
+  # If query is blank, returns 10 collective members sorted alphabetically by handle
   def users
     query = params[:q].to_s.strip.downcase
-    return render json: [] if @current_superagent.blank?
+    return render json: [] if @current_collective.blank?
 
-    # Get user IDs who are members of the current superagent (excluding current user)
-    superagent_member_ids = SuperagentMember
-      .where(tenant_id: @current_tenant.id, superagent_id: @current_superagent.id, archived_at: nil)
+    # Get user IDs who are members of the current collective (excluding current user)
+    collective_member_ids = CollectiveMember
+      .where(tenant_id: @current_tenant.id, collective_id: @current_collective.id, archived_at: nil)
       .where.not(user_id: @current_user.id)
       .pluck(:user_id)
 
-    return render json: [] if superagent_member_ids.empty?
+    return render json: [] if collective_member_ids.empty?
 
-    # Search tenant users by handle or display_name, limited to superagent members
+    # Search tenant users by handle or display_name, limited to collective members
     tenant_users = TenantUser
       .where(tenant_id: @current_tenant.id)
-      .where(user_id: superagent_member_ids)
+      .where(user_id: collective_member_ids)
       .where(archived_at: nil)
 
     if query.present?

@@ -7,7 +7,7 @@
 # and action execution should consult this module.
 #
 # Authorization types are defined in AUTHORIZATION_CHECKS and can be:
-# - Symbols (e.g., :authenticated, :superagent_member)
+# - Symbols (e.g., :authenticated, :collective_member)
 # - Arrays of symbols (OR logic - any authorization suffices)
 # - Procs for custom logic
 #
@@ -23,7 +23,7 @@ module ActionAuthorization
   # Admin levels are independent flags - a user can have any combination.
   # There is no inheritance between admin levels.
   #
-  # Context-sensitive checks (superagent_member, superagent_admin, resource_owner, self, representative)
+  # Context-sensitive checks (collective_member, collective_admin, resource_owner, self, representative)
   # are PERMISSIVE when no context is provided (for /actions listing) - they allow any authenticated
   # user to see the action. When context IS provided (for execution), they do strict checks.
   AUTHORIZATION_CHECKS = T.let({
@@ -35,18 +35,18 @@ module ActionAuthorization
     system_admin: ->(user, _context) { user&.sys_admin? || false },
     app_admin: ->(user, _context) { user&.app_admin? || false },
     tenant_admin: ->(user, _context) { user&.tenant_user&.is_admin? || false },
-    superagent_admin: lambda { |user, context|
+    collective_admin: lambda { |user, context|
       return false unless user
 
       studio = context[:studio]
       # No studio context = permissive for listing (user might be admin of some studio)
       return true unless studio
 
-      user.superagent_members.find_by(superagent_id: studio.id)&.is_admin? || false
+      user.collective_members.find_by(collective_id: studio.id)&.is_admin? || false
     },
 
     # Role-based
-    superagent_member: lambda { |user, context|
+    collective_member: lambda { |user, context|
       return false unless user
 
       studio = context[:studio]
@@ -128,7 +128,7 @@ module ActionAuthorization
   # Check if a trustee user is authorized for this action.
   #
   # For user representation sessions: checks grant permissions.
-  # For studio representation: superagent trustees have full access.
+  # For studio representation: collective trustees have full access.
   #
   # @param user [User, nil] The user attempting the action
   # @param action_name [String] The action to check
@@ -161,11 +161,11 @@ module ActionAuthorization
       return CapabilityCheck.allowed?(T.must(grant.granting_user), action_name)
     end
 
-    # For studio representation: current_user is a superagent_proxy user
-    return true unless user&.superagent_proxy?
-    return true if user.proxy_superagent.present?  # Superagent proxies have full access
+    # For studio representation: current_user is a collective_proxy user
+    return true unless user&.collective_proxy?
+    return true if user.proxy_collective.present?  # Collective proxies have full access
 
-    # No other superagent_proxy types should exist
+    # No other collective_proxy types should exist
     false
   end
 

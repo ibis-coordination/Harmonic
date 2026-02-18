@@ -1,5 +1,5 @@
 <% content_for :header_actions do %>
-  <a href="<%= @current_superagent.path %>/note" class="pulse-action-btn">+ New</a>
+  <a href="<%= @current_collective.path %>/note" class="pulse-action-btn">+ New</a>
 <% end %>
 
 <% if @current_user && @current_heartbeat.nil? %>
@@ -7,7 +7,7 @@
     <button
       class="pulse-heartbeat-btn"
       data-heartbeat-target="sendButton"
-      data-url="<%= @current_superagent.path %>/heartbeats"
+      data-url="<%= @current_collective.path %>/heartbeats"
     >
       <%= octicon 'heart' %>
       <span data-heartbeat-target="sendButtonText">Send a Heartbeat</span>
@@ -16,18 +16,18 @@
       <%= octicon 'heart-fill' %>
     </span>
     <span data-heartbeat-target="heartbeatMessage">
-      to access <strong><%= @current_superagent.name %></strong> <%= @cycle.display_name.downcase %>.
+      to access <strong><%= @current_collective.name %></strong> <%= @cycle.display_name.downcase %>.
     </span>
     <%= render 'shared/tooltip' do %>
       <p>Every studio has a tempo (daily, weekly, or monthly) that defines how frequently members of the studio should check in to keep everyone in sync.</p>
-      <p><strong><%= @current_superagent.name %></strong>'s tempo is set to <code><%= @current_superagent.tempo %></code>.</p>
+      <p><strong><%= @current_collective.name %></strong>'s tempo is set to <code><%= @current_collective.tempo %></code>.</p>
       <p style="margin-bottom:0;">Sending a heartbeat each <%= @cycle.unit %> signals your continuing presence to the group.</p>
     <% end %>
     <button data-heartbeat-target="dismissButton" class="pulse-heartbeat-dismiss" style="display:none;" title="Dismiss">
       <%= octicon 'x' %>
     </button>
     <span data-heartbeat-target="heartbeatsIndexLink" style="display:none;">
-      <a href="<%= @current_superagent.path %>/heartbeats">View all heartbeats</a>.
+      <a href="<%= @current_collective.path %>/heartbeats">View all heartbeats</a>.
     </span>
   </div>
 <% end %>
@@ -44,7 +44,7 @@
     <div class="pulse-feed-empty">
       <% if @is_viewing_current_cycle %>
         <p>No activity this cycle yet.</p>
-        <a href="<%= @current_superagent.path %>/note" class="pulse-action-btn">Create the first note</a>
+        <a href="<%= @current_collective.path %>/note" class="pulse-action-btn">Create the first note</a>
       <% else %>
         <p>No activity this cycle.</p>
       <% end %>

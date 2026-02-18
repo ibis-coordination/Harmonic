@@ -2,14 +2,14 @@
 
 class RepresentationSessionEvent < ApplicationRecord
   extend T::Sig
-  include MightNotBelongToSuperagent
+  include MightNotBelongToCollective
 
   belongs_to :tenant
-  belongs_to :superagent, optional: true
+  belongs_to :collective, optional: true
   belongs_to :representation_session
   belongs_to :resource, polymorphic: true
   belongs_to :context_resource, polymorphic: true, optional: true
-  belongs_to :resource_superagent, class_name: "Superagent"
+  belongs_to :resource_collective, class_name: "Collective"
 
   VALID_RESOURCE_TYPES = %w[
     Note Decision Commitment Heartbeat
@@ -23,7 +23,7 @@ class RepresentationSessionEvent < ApplicationRecord
   validates :context_resource_type, inclusion: { in: VALID_CONTEXT_RESOURCE_TYPES }, allow_nil: true
 
   before_validation :set_tenant_id
-  before_validation :set_superagent_id
+  before_validation :set_collective_id
 
   sig { void }
   def set_tenant_id
@@ -33,10 +33,10 @@ class RepresentationSessionEvent < ApplicationRecord
   end
 
   sig { void }
-  def set_superagent_id
-    return if superagent_id.present?
+  def set_collective_id
+    return if collective_id.present?
 
-    self.superagent_id = representation_session&.superagent_id
+    self.collective_id = representation_session&.collective_id
   end
 
   # Class method to find the creation event for a resource

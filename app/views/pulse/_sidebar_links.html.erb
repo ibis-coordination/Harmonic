@@ -2,31 +2,31 @@
   <div class="pulse-section-label">Explore</div>
   <ul class="pulse-links-list">
     <li>
-      <a href="<%= @current_superagent.path %>/cycles">
+      <a href="<%= @current_collective.path %>/cycles">
         <%= octicon 'iterations', height: 14 %> Cycles
       </a>
     </li>
     <li>
-      <a href="<%= @current_superagent.path %>/backlinks">
+      <a href="<%= @current_collective.path %>/backlinks">
         <%= octicon 'link', height: 14 %> Backlinks
       </a>
     </li>
     <li>
-      <a href="<%= @current_superagent.path %>/representation">
+      <a href="<%= @current_collective.path %>/representation">
         <%= octicon 'people', height: 14 %> Representation
       </a>
     </li>
-    <% if @current_user&.superagent_member&.can_edit_settings? %>
+    <% if @current_user&.collective_member&.can_edit_settings? %>
       <li>
-        <a href="<%= @current_superagent.path %>/settings">
+        <a href="<%= @current_collective.path %>/settings">
           <%= octicon 'gear', height: 14 %> Settings
         </a>
       </li>
     <% end %>
   </ul>
-  <% if @current_user&.superagent_member&.can_invite? %>
+  <% if @current_user&.collective_member&.can_invite? %>
     <div class="pulse-invite-section">
-      <a href="<%= @current_superagent.path %>/invite" class="pulse-invite-btn">
+      <a href="<%= @current_collective.path %>/invite" class="pulse-invite-btn">
         <%= octicon 'person-add', height: 14 %> Invite Member
       </a>
     </div>

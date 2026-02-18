@@ -6,9 +6,9 @@ class CommitmentsController < ApplicationController
   def new
     @page_title = "Commit"
     @page_description = "Start a group commitment"
-    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
     @sidebar_mode = 'resource'
-    @team = @current_superagent.team
+    @team = @current_collective.team
     @commitment = Commitment.new(
       title: params[:title],
     )
@@ -26,10 +26,10 @@ class CommitmentsController < ApplicationController
       }
       @commitment = api_helper(params: helper_params).create_commitment
       # Handle file attachments separately (not in ApiHelper since it's HTML-form specific)
-      if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
+      if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
         @commitment.attach!(params[:files])
       end
-      if params[:pinned] == '1' && current_superagent.id != current_tenant.main_studio_id
+      if params[:pinned] == '1' && current_collective.id != current_tenant.main_studio_id
         api_helper.pin_resource(@commitment)
       end
       redirect_to @commitment.path
@@ -53,7 +53,7 @@ class CommitmentsController < ApplicationController
     @page_title = @commitment.title
     @page_description = "Coordinate with your team"
     @sidebar_mode = 'resource'
-    @team = @current_superagent.team
+    @team = @current_collective.team
     set_pin_vars
   end
 
@@ -95,7 +95,7 @@ class CommitmentsController < ApplicationController
     @page_title = "Commitment Settings"
     @page_description = "Change settings for this commitment"
     @sidebar_mode = 'resource'
-    @team = @current_superagent.team
+    @team = @current_collective.team
     set_pin_vars
   end
 

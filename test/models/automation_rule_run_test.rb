@@ -4,7 +4,7 @@ require "test_helper"
 
 class AutomationRuleRunTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
@@ -22,7 +22,7 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
 
     @studio_rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Studio Rule",
       trigger_type: "event",
@@ -32,7 +32,7 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
     )
   end
 
-  # === Callback: set_tenant_and_superagent_from_rule ===
+  # === Callback: set_tenant_and_collective_from_rule ===
 
   test "automatically sets tenant_id from rule" do
     run = AutomationRuleRun.create!(
@@ -44,24 +44,24 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
     assert_equal @tenant.id, run.tenant_id
   end
 
-  test "automatically sets superagent_id from rule" do
+  test "automatically sets collective_id from rule" do
     run = AutomationRuleRun.create!(
       automation_rule: @studio_rule,
       trigger_source: "event",
       status: "pending"
     )
 
-    assert_equal @superagent.id, run.superagent_id
+    assert_equal @collective.id, run.collective_id
   end
 
-  test "superagent_id is nil for agent rules without superagent scope" do
+  test "collective_id is nil for agent rules without collective scope" do
     run = AutomationRuleRun.create!(
       automation_rule: @agent_rule,
       trigger_source: "event",
       status: "pending"
     )
 
-    assert_nil run.superagent_id
+    assert_nil run.collective_id
   end
 
   # === Validation: tenant_matches_rule ===
@@ -91,27 +91,27 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
     assert run.valid?
   end
 
-  # === Validation: superagent_matches_rule ===
+  # === Validation: collective_matches_rule ===
 
-  test "validates superagent matches rule" do
-    other_superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "other")
+  test "validates collective matches rule" do
+    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other")
 
     run = AutomationRuleRun.new(
       tenant: @tenant,
-      superagent: other_superagent,
+      collective: other_collective,
       automation_rule: @studio_rule,
       trigger_source: "event",
       status: "pending"
     )
 
     assert_not run.valid?
-    assert_includes run.errors[:superagent], "must match the automation rule's superagent"
+    assert_includes run.errors[:collective], "must match the automation rule's collective"
   end
 
-  test "allows superagent that matches rule" do
+  test "allows collective that matches rule" do
     run = AutomationRuleRun.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: @studio_rule,
       trigger_source: "event",
       status: "pending"
@@ -120,10 +120,10 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
     assert run.valid?
   end
 
-  test "allows nil superagent for agent rules without superagent scope" do
+  test "allows nil collective for agent rules without collective scope" do
     run = AutomationRuleRun.new(
       tenant: @tenant,
-      superagent: nil,
+      collective: nil,
       automation_rule: @agent_rule,
       trigger_source: "event",
       status: "pending"
@@ -132,17 +132,17 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
     assert run.valid?
   end
 
-  test "rejects non-nil superagent for agent rules without superagent scope" do
+  test "rejects non-nil collective for agent rules without collective scope" do
     run = AutomationRuleRun.new(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: @agent_rule,
       trigger_source: "event",
       status: "pending"
     )
 
     assert_not run.valid?
-    assert_includes run.errors[:superagent], "must match the automation rule's superagent"
+    assert_includes run.errors[:collective], "must match the automation rule's collective"
   end
 
   # === Status methods ===

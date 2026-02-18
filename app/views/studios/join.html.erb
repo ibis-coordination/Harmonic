@@ -1,10 +1,10 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, @current_tenant.path],
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   'Join'
 ] %>
 
-<% scene_or_studio = @current_superagent.superagent_type %>
+<% scene_or_studio = @current_collective.collective_type %>
 
 <article class="pulse-resource-detail">
   <header class="pulse-resource-header">
@@ -18,26 +18,26 @@
   </header>
 
   <div class="pulse-resource-body">
-    <% if @current_superagent.is_scene? && @current_superagent.scene_is_open? && !@current_user_is_member %>
+    <% if @current_collective.is_scene? && @current_collective.scene_is_open? && !@current_user_is_member %>
       <p class="pulse-body-text">
         This scene is open for anyone to join.
       </p>
       <div class="pulse-form-actions">
-        <%= button_to 'Join Scene', "#{@current_superagent.path}/join", method: :post, class: 'pulse-action-btn' %>
+        <%= button_to 'Join Scene', "#{@current_collective.path}/join", method: :post, class: 'pulse-action-btn' %>
       </div>
     <% elsif @invite %>
       <p class="pulse-body-text">
-        Click the button below to join <%= scene_or_studio %> <strong><%= @current_superagent.name %></strong>.
+        Click the button below to join <%= scene_or_studio %> <strong><%= @current_collective.name %></strong>.
       </p>
       <div class="pulse-form-actions">
-        <%= button_to "Join #{scene_or_studio.titleize}", "#{@current_superagent.path}/join", method: :post, params: { code: @invite.code }, class: 'pulse-action-btn' %>
+        <%= button_to "Join #{scene_or_studio.titleize}", "#{@current_collective.path}/join", method: :post, params: { code: @invite.code }, class: 'pulse-action-btn' %>
       </div>
     <% elsif @current_user_is_member %>
       <p class="pulse-body-text">
         You are already a member of this <%= scene_or_studio %>.
       </p>
       <div class="pulse-form-actions">
-        <a href="<%= @current_superagent.path %>" class="pulse-action-btn">View <%= scene_or_studio %> homepage</a>
+        <a href="<%= @current_collective.path %>" class="pulse-action-btn">View <%= scene_or_studio %> homepage</a>
       </div>
     <% else %>
       <p class="pulse-body-text">

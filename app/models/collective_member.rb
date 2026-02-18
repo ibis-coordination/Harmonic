@@ -1,28 +1,28 @@
 # typed: true
 
-class SuperagentMember < ApplicationRecord
+class CollectiveMember < ApplicationRecord
   extend T::Sig
 
   include HasRoles
   include HasDismissibleNotices
   self.implicit_order_column = "created_at"
   belongs_to :tenant
-  belongs_to :superagent
+  belongs_to :collective
   belongs_to :user
 
-  validate :proxy_users_not_member_of_main_superagent
+  validate :proxy_users_not_member_of_main_collective
 
   sig { void }
-  def proxy_users_not_member_of_main_superagent
-    if user.superagent_proxy? && superagent == T.must(tenant).main_superagent
-      errors.add(:user, "Superagent proxy users cannot be members of the main superagent")
+  def proxy_users_not_member_of_main_collective
+    if user.collective_proxy? && collective == T.must(tenant).main_collective
+      errors.add(:user, "Collective proxy users cannot be members of the main collective")
     end
   end
 
   sig { returns(User) }
   def user
     @user ||= super
-    T.must(@user).superagent_member ||= self
+    T.must(@user).collective_member ||= self
     T.must(@user)
   end
 
@@ -30,7 +30,7 @@ class SuperagentMember < ApplicationRecord
   def confirmed_read_note_events(limit: 10)
     NoteHistoryEvent.where(
       tenant_id: tenant_id,
-      superagent_id: superagent_id,
+      collective_id: collective_id,
       user_id: user_id,
       event_type: 'read_confirmation',
     ).includes(:note).order(happened_at: :desc).limit(limit)
@@ -40,7 +40,7 @@ class SuperagentMember < ApplicationRecord
   def latest_note_reads(limit: 10)
     T.unsafe(NoteHistoryEvent.where(
       tenant_id: tenant_id,
-      superagent_id: superagent_id,
+      collective_id: collective_id,
       user_id: user_id,
       event_type: 'read_confirmation',
     ).includes(:note))
@@ -59,7 +59,7 @@ class SuperagentMember < ApplicationRecord
   def latest_votes(limit: 10)
     DecisionParticipant.where(
       tenant_id: tenant_id,
-      superagent_id: superagent_id,
+      collective_id: collective_id,
       user_id: user_id,
     ).includes(:votes)
     .where.not(votes: {id: nil})
@@ -78,7 +78,7 @@ class SuperagentMember < ApplicationRecord
   def latest_commitment_joins(limit: 10)
     CommitmentParticipant.where(
       tenant_id: tenant_id,
-      superagent_id: superagent_id,
+      collective_id: collective_id,
       user_id: user_id,
     ).where.not(committed_at: nil)
     .includes(:commitment)
@@ -94,7 +94,7 @@ class SuperagentMember < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def can_invite?
-    archived_at.nil? && (has_role?('admin') || T.must(superagent).allow_invites?)
+    archived_at.nil? && (has_role?('admin') || T.must(collective).allow_invites?)
   end
 
   sig { returns(T::Boolean) }
@@ -104,7 +104,7 @@ class SuperagentMember < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def can_represent?
-    archived_at.nil? && (has_role?('representative') || T.must(superagent).any_member_can_represent?)
+    archived_at.nil? && (has_role?('representative') || T.must(collective).any_member_can_represent?)
   end
 
   # Alias for backwards compatibility
@@ -115,11 +115,11 @@ class SuperagentMember < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def path
-    if user.superagent_proxy?
-      s = Superagent.where(proxy_user: user).first
-      s&.path
+    if user.collective_proxy?
+      c = Collective.where(proxy_user: user).first
+      c&.path
     else
-      "#{T.must(superagent).path}/u/#{user.handle}"
+      "#{T.must(collective).path}/u/#{user.handle}"
     end
   end
 

@@ -13,7 +13,7 @@
 # This redundant check is a security feature. Both are set via Rails console only.
 #
 class Api::AppAdminController < ApplicationController
-  skip_before_action :current_superagent, :current_tenant, :current_user,
+  skip_before_action :current_collective, :current_tenant, :current_user,
                      :current_resource, :current_representation_session,
                      :current_heartbeat, :load_unread_notification_count
 

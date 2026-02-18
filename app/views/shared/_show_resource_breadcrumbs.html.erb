@@ -2,39 +2,39 @@
 <% hide_studio_path ||= false %>
 <h4 style="margin-top:0px;margin-bottom:0;">
   <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
-  <% unless hide_studio_path || @current_superagent.is_main_superagent? %>
-    <a href="<%= @current_superagent.path || '/' %>">
-      <img src="<%= @current_superagent.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
-      <%= @current_superagent.name %>
+  <% unless hide_studio_path || @current_collective.is_main_collective? %>
+    <a href="<%= @current_collective.path || '/' %>">
+      <img src="<%= @current_collective.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
+      <%= @current_collective.name %>
     </a> /
   <% end %>
   <% if resource.nil? %>
     <%= yield %>
-    <% if @current_superagent.is_scene? %>
+    <% if @current_collective.is_scene? %>
       <span title="publicly visible">
         <%= octicon 'eye' %>
       </span>
-    <% elsif !@current_superagent.is_main_superagent? %>
-      <span title="only visible to members of <%= @current_superagent.name %>">
+    <% elsif !@current_collective.is_main_collective? %>
+      <span title="only visible to members of <%= @current_collective.name %>">
         <%= octicon 'lock' %>
       </span>
     <% end %>
   <% elsif resource.is_a?(String) %>
     <%= resource %>
   <% elsif resource.class == RepresentationSession %>
-    <a href="<%= @current_superagent.path %>/representation">Representation</a> /
+    <a href="<%= @current_collective.path %>/representation">Representation</a> /
     <span style="white-space:nowrap;">
       <%= octicon 'feed-person' %> Session <code><%= resource.truncated_id %></code>
     </span>
   <% else %>
     <span style="white-space:nowrap;">
       <i class="<%= resource.class.to_s.downcase %>-icon"></i> <%= resource.class.to_s %> <code><%= resource.truncated_id %></code>
-      <% if @current_superagent.is_scene? %>
+      <% if @current_collective.is_scene? %>
         <span title="This <%= resource.class.to_s.downcase %> is publicly visible.">
           <%= octicon 'eye' %>
         </span>
-      <% elsif !@current_superagent.is_main_superagent? %>
-        <span title="Only members of <%= @current_superagent.name %> can see this <%= resource.class.to_s.downcase %>.">
+      <% elsif !@current_collective.is_main_collective? %>
+        <span title="Only members of <%= @current_collective.name %> can see this <%= resource.class.to_s.downcase %>.">
           <%= octicon 'lock' %>
         </span>
       <% end %>

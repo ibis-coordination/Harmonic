@@ -51,7 +51,7 @@
             <input type="hidden" name="reply_to_id" id="reply-to-<%= comment.truncated_id %>" value="<%= comment.truncated_id %>">
             <div class="pulse-form-group mention-autocomplete-container"
                  data-controller="mention-autocomplete"
-                 data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+                 data-mention-autocomplete-studio-path-value="<%= @current_collective.path %>">
               <%= form.text_area :text,
                                  placeholder: "Write a reply...",
                                  rows: 2,

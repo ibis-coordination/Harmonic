@@ -14,7 +14,7 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
     @tenant = create_tenant(subdomain: "security-test-#{SecureRandom.hex(4)}")
     @user = create_user(email: "security-test-#{SecureRandom.hex(4)}@example.com", name: "Security Test User")
     @tenant.add_user!(@user)
-    @tenant.create_main_superagent!(created_by: @user)
+    @tenant.create_main_collective!(created_by: @user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
     @identity = OmniAuthIdentity.create!(

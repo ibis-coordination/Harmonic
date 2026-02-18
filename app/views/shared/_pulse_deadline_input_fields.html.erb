@@ -1,8 +1,8 @@
 <% form ||= nil # required %>
 <% resource ||= nil %>
-<% current_time_in_zone = @current_superagent.time_in_zone(Time.current) %>
+<% current_time_in_zone = @current_collective.time_in_zone(Time.current) %>
 <% deadline = deadline ? deadline : (resource ? resource.deadline : current_time_in_zone) %>
-<% deadline = @current_superagent.time_in_zone(deadline) %>
+<% deadline = @current_collective.time_in_zone(deadline) %>
 <% requires_manual_close = resource ? resource.requires_manual_close? : false %>
 <% closing_at_critical_mass = resource && !requires_manual_close ? resource.close_at_critical_mass? : false %>
 <% close_now_option ||= false %>
@@ -25,7 +25,7 @@
       <span class="pulse-deadline-datetime-wrapper">
         <% deadline_val = requires_manual_close ? current_time_in_zone : deadline %>
         <%= form.datetime_local_field :deadline, value: deadline_val.strftime('%Y-%m-%dT%H:%M'), min: [deadline_val, current_time_in_zone].min.strftime('%Y-%m-%dT%H:%M'), class: 'pulse-form-input pulse-form-input-inline' %>
-        <span class="pulse-timezone-hint"><%= @current_superagent.timezone %></span>
+        <span class="pulse-timezone-hint"><%= @current_collective.timezone %></span>
       </span>
     </label>
     <% if close_now_option && !resource.closed? %>

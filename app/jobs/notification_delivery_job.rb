@@ -66,12 +66,12 @@ class NotificationDeliveryJob < TenantScopedJob
     event = notification.event
     user = recipient.user
 
-    # Need tenant and superagent context to fire events
-    return unless event&.tenant_id && event.superagent_id
+    # Need tenant and collective context to fire events
+    return unless event&.tenant_id && event.collective_id
 
-    # Set superagent context for EventService
-    superagent = event.superagent
-    set_superagent_context!(superagent) if superagent
+    # Set collective context for EventService
+    collective = event.collective
+    set_collective_context!(collective) if collective
 
     EventService.record!(
       event_type: "notifications.delivered",

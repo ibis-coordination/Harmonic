@@ -54,7 +54,7 @@ export default class NotificationActionsController extends Controller<HTMLElemen
 
         // Check if the accordion group is now empty and remove it
         if (studioId) {
-          const groupElement = this.element.querySelector(`[data-superagent-group="${studioId}"]`)
+          const groupElement = this.element.querySelector(`[data-collective-group="${studioId}"]`)
           if (groupElement) {
             const remainingItems = groupElement.querySelectorAll("[data-notification-item]")
             if (remainingItems.length === 0) {
@@ -111,7 +111,7 @@ export default class NotificationActionsController extends Controller<HTMLElemen
           item.remove()
         })
         // Remove all accordion groups
-        this.element.querySelectorAll("[data-superagent-group]").forEach((item) => {
+        this.element.querySelectorAll("[data-collective-group]").forEach((item) => {
           item.remove()
         })
         // Update unread count to 0
@@ -160,7 +160,7 @@ export default class NotificationActionsController extends Controller<HTMLElemen
         const dismissedCount = data.count ?? 0
 
         // Remove all notification items in this studio group
-        const groupElement = this.element.querySelector(`[data-superagent-group="${studioId}"]`)
+        const groupElement = this.element.querySelector(`[data-collective-group="${studioId}"]`)
         if (groupElement) {
           groupElement.remove()
         }
@@ -169,7 +169,7 @@ export default class NotificationActionsController extends Controller<HTMLElemen
         this.decrementUnreadCountBy(dismissedCount)
 
         // If no more groups, hide dismiss all button
-        const remainingGroups = this.element.querySelectorAll("[data-superagent-group]")
+        const remainingGroups = this.element.querySelectorAll("[data-collective-group]")
         if (remainingGroups.length === 0 && this.hasDismissAllButtonTarget) {
           this.dismissAllButtonTarget.style.display = "none"
         }

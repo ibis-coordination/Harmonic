@@ -7,7 +7,7 @@ class Heartbeat < ApplicationRecord
   include HasRepresentationSessionEvents
 
   belongs_to :tenant
-  belongs_to :superagent
+  belongs_to :collective
   belongs_to :user
 
   # TODO - activity log
@@ -17,9 +17,9 @@ class Heartbeat < ApplicationRecord
     T.unsafe(self).where('created_at > ? and created_at < ?', cycle.start_date, cycle.end_date)
   end
 
-  sig { params(superagent: Superagent).returns(ActiveRecord::Relation) }
-  def self.current_for_superagent(superagent)
-    T.unsafe(self).where(superagent: superagent).where('expires_at > ?', Time.current)
+  sig { params(collective: Collective).returns(ActiveRecord::Relation) }
+  def self.current_for_collective(collective)
+    T.unsafe(self).where(collective: collective).where('expires_at > ?', Time.current)
   end
 
   sig { returns(String) }

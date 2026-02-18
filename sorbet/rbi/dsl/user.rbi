@@ -305,6 +305,34 @@ class User
     def build_image_blob(*args, &blk); end
 
     sig { returns(T::Array[T.untyped]) }
+    def collective_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def collective_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def collective_member_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def collective_member_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :collective_members`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::CollectiveMember::PrivateCollectionProxy) }
+    def collective_members; end
+
+    sig { params(value: T::Enumerable[::CollectiveMember]).void }
+    def collective_members=(value); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :collectives, through: :collective_members`.
+    # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
+    sig { returns(::Collective::PrivateCollectionProxy) }
+    def collectives; end
+
+    sig { params(value: T::Enumerable[::Collective]).void }
+    def collectives=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def commitment_participant_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -451,34 +479,6 @@ class User
 
     sig { void }
     def reset_image_blob; end
-
-    sig { returns(T::Array[T.untyped]) }
-    def superagent_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def superagent_ids=(ids); end
-
-    sig { returns(T::Array[T.untyped]) }
-    def superagent_member_ids; end
-
-    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-    def superagent_member_ids=(ids); end
-
-    # This method is created by ActiveRecord on the `User` class because it declared `has_many :superagent_members`.
-    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
-    sig { returns(::SuperagentMember::PrivateCollectionProxy) }
-    def superagent_members; end
-
-    sig { params(value: T::Enumerable[::SuperagentMember]).void }
-    def superagent_members=(value); end
-
-    # This method is created by ActiveRecord on the `User` class because it declared `has_many :superagents, through: :superagent_members`.
-    # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
-    sig { returns(::Superagent::PrivateCollectionProxy) }
-    def superagents; end
-
-    sig { params(value: T::Enumerable[::Superagent]).void }
-    def superagents=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def tenant_ids; end

@@ -3,14 +3,14 @@ require "test_helper"
 class AiAgentTaskRunAccessTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @parent = @global_user
     @tenant.enable_feature_flag!("ai_agents")
 
     @ai_agent = create_ai_agent_for(@parent, "My AiAgent")
     @other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(@other_parent)
-    @superagent.add_user!(@other_parent)
+    @collective.add_user!(@other_parent)
     @other_ai_agent = create_ai_agent_for(@other_parent, "Other AiAgent")
     @other_task_run = create_task_run(@other_ai_agent, @other_parent)
 
@@ -22,7 +22,7 @@ class AiAgentTaskRunAccessTest < ActionDispatch::IntegrationTest
   def create_ai_agent_for(parent, name)
     ai_agent = create_ai_agent(parent: parent, name: name)
     @tenant.add_user!(ai_agent)
-    @superagent.add_user!(ai_agent)
+    @collective.add_user!(ai_agent)
     ai_agent
   end
 

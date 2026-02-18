@@ -62,19 +62,19 @@ class ActiveSupport::TestCase
   # fixtures :all  # Removed - no fixture YAML files exist
 
   setup do
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     Tenant.clear_thread_scope
     @global_tenant = Tenant.create!(subdomain: "global", name: "Global Tenant")
     @global_user = User.create!(email: "global_user@example.com", name: "Global User", user_type: "human")
     @global_tenant.add_user!(@global_user)
-    @global_tenant.create_main_superagent!(created_by: @global_user)
-    @global_superagent = Superagent.create!(tenant: @global_tenant, created_by: @global_user, name: "Global Studio", handle: "global-studio")
-    @global_superagent.add_user!(@global_user)
+    @global_tenant.create_main_collective!(created_by: @global_user)
+    @global_collective = Collective.create!(tenant: @global_tenant, created_by: @global_user, name: "Global Studio", handle: "global-studio")
+    @global_collective.add_user!(@global_user)
   end
 
   # Clear thread-local state between tests
   teardown do
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     Tenant.clear_thread_scope
     AiAgentTaskRun.clear_thread_scope
   end
@@ -87,37 +87,37 @@ class ActiveSupport::TestCase
     User.create!(email: email, name: name, user_type: user_type)
   end
 
-  def create_superagent(tenant:, created_by:, name: "Test Studio", handle: "test-studio")
-    Superagent.create!(tenant: tenant, created_by: created_by, name: name, handle: handle)
+  def create_collective(tenant:, created_by:, name: "Test Studio", handle: "test-studio")
+    Collective.create!(tenant: tenant, created_by: created_by, name: name, handle: handle)
   end
-  alias_method :create_studio, :create_superagent
+  alias_method :create_studio, :create_collective
 
-  def create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Test Note", text: "This is a test note.", commentable: nil)
-    Note.create!(tenant: tenant, superagent: superagent, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week, commentable: commentable)
-  end
-
-  def create_decision(tenant: @tenant, superagent: @superagent, created_by: @user, question: "Test Decision?", description: "This is a test decision.")
-    Decision.create!(tenant: tenant, superagent: superagent, created_by: created_by, question: question, description: description, deadline: Time.current + 1.week, options_open: true)
+  def create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Test Note", text: "This is a test note.", commentable: nil)
+    Note.create!(tenant: tenant, collective: collective, created_by: created_by, title: title, text: text, deadline: Time.current + 1.week, commentable: commentable)
   end
 
-  def create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Test Commitment", description: "This is a test commitment.")
-    Commitment.create!(tenant: tenant, superagent: superagent, created_by: created_by, title: title, description: description, critical_mass: 1, deadline: Time.current + 1.week)
+  def create_decision(tenant: @tenant, collective: @collective, created_by: @user, question: "Test Decision?", description: "This is a test decision.")
+    Decision.create!(tenant: tenant, collective: collective, created_by: created_by, question: question, description: description, deadline: Time.current + 1.week, options_open: true)
   end
 
-  def create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision:, title: "Test Option")
+  def create_commitment(tenant: @tenant, collective: @collective, created_by: @user, title: "Test Commitment", description: "This is a test commitment.")
+    Commitment.create!(tenant: tenant, collective: collective, created_by: created_by, title: title, description: description, critical_mass: 1, deadline: Time.current + 1.week)
+  end
+
+  def create_option(tenant: @tenant, collective: @collective, created_by: @user, decision:, title: "Test Option")
     decision_participant = DecisionParticipantManager.new(decision: decision, user: created_by).find_or_create_participant
-    Option.create!(tenant: tenant, superagent: superagent, decision_participant: decision_participant, decision: decision, title: title)
+    Option.create!(tenant: tenant, collective: collective, decision_participant: decision_participant, decision: decision, title: title)
   end
 
-  def create_tenant_superagent_user
+  def create_tenant_collective_user
     tenant = create_tenant
     user = create_user
     tenant.add_user!(user)
-    superagent = create_superagent(tenant: tenant, created_by: user)
-    superagent.add_user!(user)
-    [tenant, superagent, user]
+    collective = create_collective(tenant: tenant, created_by: user)
+    collective.add_user!(user)
+    [tenant, collective, user]
   end
-  alias_method :create_tenant_studio_user, :create_tenant_superagent_user
+  alias_method :create_tenant_studio_user, :create_tenant_collective_user
 
   # Creates a ai_agent user with the given parent
   # AiAgents authenticate via API tokens generated by their parent
@@ -150,18 +150,18 @@ class ActiveSupport::TestCase
     end
   end
 
-  # Creates a representation session for a user acting on behalf of a superagent
-  # The representative must have can_represent? permission on the superagent
+  # Creates a representation session for a user acting on behalf of a collective
+  # The representative must have can_represent? permission on the collective
   def create_representation_session(
     tenant:,
-    superagent:,
+    collective:,
     representative:,
     confirmed_understanding: true,
     began_at: Time.current
   )
     RepresentationSession.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       representative_user: representative,
       confirmed_understanding: confirmed_understanding,
       began_at: began_at,
@@ -193,7 +193,7 @@ class ActiveSupport::TestCase
 
   # Creates a representation session for a user acting via a trustee grant
   # (as opposed to a studio trustee). User representation sessions do NOT have
-  # a superagent - only studio representation sessions have superagent.
+  # a collective - only studio representation sessions have collective.
   def create_trustee_grant_representation_session(
     tenant:,
     trustee_grant:,
@@ -202,7 +202,7 @@ class ActiveSupport::TestCase
   )
     RepresentationSession.create!(
       tenant: tenant,
-      superagent: nil,
+      collective: nil,
       representative_user: trustee_grant.trustee_user,
       trustee_grant: trustee_grant,
       confirmed_understanding: confirmed_understanding,

@@ -71,13 +71,13 @@
       </div>
 
       <div class="pulse-notifications-grouped">
-        <% @notifications_by_superagent.each do |superagent, recipients| %>
-          <% studio_id = superagent&.id || 'reminders' %>
-          <% studio_name = superagent&.name || 'Other' %>
-          <details class="pulse-accordion" open data-superagent-group="<%= studio_id %>">
+        <% @notifications_by_collective.each do |collective, recipients| %>
+          <% studio_id = collective&.id || 'reminders' %>
+          <% studio_name = collective&.name || 'Other' %>
+          <details class="pulse-accordion" open data-collective-group="<%= studio_id %>">
             <summary class="pulse-accordion-header">
               <span class="pulse-accordion-title">
-                <% if superagent %>
+                <% if collective %>
                   <%= octicon 'home', height: 14 %>
                 <% else %>
                   <%= octicon 'bell', height: 14 %>

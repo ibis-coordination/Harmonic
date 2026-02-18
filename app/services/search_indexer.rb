@@ -43,7 +43,7 @@ class SearchIndexer
   def build_attributes
     {
       tenant_id: @item.tenant_id,
-      superagent_id: @item.superagent_id,
+      collective_id: @item.collective_id,
       item_type: @item.class.name,
       item_id: @item.id,
       truncated_id: @item.truncated_id,
@@ -143,7 +143,7 @@ class SearchIndexer
 
   sig { returns(T::Boolean) }
   def is_pinned
-    # Pinning is user/superagent-specific, so we can't store it at the item level.
+    # Pinning is user/collective-specific, so we can't store it at the item level.
     # This field is reserved for future use when we implement global pinning.
     false
   end

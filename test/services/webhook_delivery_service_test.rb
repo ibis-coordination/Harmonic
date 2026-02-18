@@ -3,12 +3,12 @@ require "webmock/minitest"
 
 class WebhookDeliveryServiceTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    @tenant, @collective, @user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     @note = create_note(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
     )
 
@@ -17,7 +17,7 @@ class WebhookDeliveryServiceTest < ActiveSupport::TestCase
     # Create automation rule and run for the delivery
     @automation_rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Automation",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
@@ -27,7 +27,7 @@ class WebhookDeliveryServiceTest < ActiveSupport::TestCase
 
     @automation_run = AutomationRuleRun.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: @automation_rule,
       triggered_by_event: @event,
       trigger_source: "event",
@@ -128,7 +128,7 @@ class WebhookDeliveryServiceTest < ActiveSupport::TestCase
     # Create a manual trigger automation without an event
     manual_rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Manual Automation",
       trigger_type: "manual",
       trigger_config: { "inputs" => { "message" => { "type" => "string" } } },
@@ -138,7 +138,7 @@ class WebhookDeliveryServiceTest < ActiveSupport::TestCase
 
     manual_run = AutomationRuleRun.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: manual_rule,
       trigger_source: "manual",
       status: "running",

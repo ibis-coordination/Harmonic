@@ -6,10 +6,10 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   class MockNavigator
     attr_accessor :mock_result
 
-    def initialize(user:, tenant:, superagent:, model: nil)
+    def initialize(user:, tenant:, collective:, model: nil)
       @user = user
       @tenant = tenant
-      @superagent = superagent
+      @collective = collective
       @model = model
     end
 
@@ -28,9 +28,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
       attr_accessor :mock_result
     end
 
-    def self.new(user:, tenant:, superagent:, model: nil)
+    def self.new(user:, tenant:, collective:, model: nil)
       instance = allocate
-      instance.send(:initialize, user: user, tenant: tenant, superagent: superagent, model: model)
+      instance.send(:initialize, user: user, tenant: tenant, collective: collective, model: model)
       instance.mock_result = @mock_result
       instance
     end
@@ -46,11 +46,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "claims and runs oldest queued task" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!("ai_agents")
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    ai_agent = create_ai_agent(user, tenant, superagent)
+    ai_agent = create_ai_agent(user, tenant, collective)
 
     # Create queued task
     task_run = AiAgentTaskRun.create!(
@@ -86,11 +86,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "skips when another task is already running" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!("ai_agents")
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    ai_agent = create_ai_agent(user, tenant, superagent)
+    ai_agent = create_ai_agent(user, tenant, collective)
 
     # Create a running task
     AiAgentTaskRun.create!(
@@ -126,11 +126,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "processes tasks in FIFO order" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!("ai_agents")
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    ai_agent = create_ai_agent(user, tenant, superagent)
+    ai_agent = create_ai_agent(user, tenant, collective)
 
     # Create two queued tasks with different timestamps
     older_task = AiAgentTaskRun.create!(
@@ -177,11 +177,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "records failed task run when agent fails" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!("ai_agents")
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    ai_agent = create_ai_agent(user, tenant, superagent)
+    ai_agent = create_ai_agent(user, tenant, collective)
 
     task_run = AiAgentTaskRun.create!(
       tenant: tenant,
@@ -215,11 +215,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "enqueues next processor job after completion" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!("ai_agents")
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    ai_agent = create_ai_agent(user, tenant, superagent)
+    ai_agent = create_ai_agent(user, tenant, collective)
 
     AiAgentTaskRun.create!(
       tenant: tenant,
@@ -249,11 +249,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "skips when ai_agents feature not enabled" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     # Note: feature flag NOT enabled
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    ai_agent = create_ai_agent(user, tenant, superagent)
+    ai_agent = create_ai_agent(user, tenant, collective)
 
     task_run = AiAgentTaskRun.create!(
       tenant: tenant,
@@ -275,9 +275,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "skips when user is not a ai_agent" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!("ai_agents")
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     # Use regular user (not a ai_agent)
     AgentQueueProcessorJob.perform_now(
@@ -289,11 +289,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "skips when tenant not found" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!("ai_agents")
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    ai_agent = create_ai_agent(user, tenant, superagent)
+    ai_agent = create_ai_agent(user, tenant, collective)
 
     # Should not raise - just exit gracefully
     AgentQueueProcessorJob.perform_now(
@@ -303,11 +303,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
   end
 
   test "skips when no queued tasks exist" do
-    tenant, superagent, user = create_tenant_superagent_user
+    tenant, collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!("ai_agents")
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    ai_agent = create_ai_agent(user, tenant, superagent)
+    ai_agent = create_ai_agent(user, tenant, collective)
 
     # No tasks queued - should not enqueue another processor
     assert_no_enqueued_jobs(only: AgentQueueProcessorJob) do
@@ -320,7 +320,7 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
 
   private
 
-  def create_ai_agent(user, tenant, superagent)
+  def create_ai_agent(user, tenant, collective)
     ai_agent = User.create!(
       name: "Test Agent",
       email: "test-agent-#{SecureRandom.hex(4)}@not-real.com",
@@ -329,7 +329,7 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
     )
     tu = tenant.add_user!(ai_agent)
     ai_agent.tenant_user = tu
-    SuperagentMember.create!(superagent: superagent, user: ai_agent)
+    CollectiveMember.create!(collective: collective, user: ai_agent)
     ai_agent
   end
 end

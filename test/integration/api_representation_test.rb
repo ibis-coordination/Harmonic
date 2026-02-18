@@ -29,11 +29,11 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(@alice)
     @tenant.add_user!(@bob)
     @tenant.enable_api!
-    @tenant.create_main_superagent!(created_by: @alice)
-    @superagent = create_superagent(tenant: @tenant, created_by: @alice, handle: "api-rep-studio-#{SecureRandom.hex(4)}")
-    @superagent.add_user!(@alice)
-    @superagent.add_user!(@bob)
-    @superagent.enable_api!
+    @tenant.create_main_collective!(created_by: @alice)
+    @collective = create_collective(tenant: @tenant, created_by: @alice, handle: "api-rep-studio-#{SecureRandom.hex(4)}")
+    @collective.add_user!(@alice)
+    @collective.add_user!(@bob)
+    @collective.enable_api!
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
     # Create an API token for Bob
@@ -82,7 +82,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   def create_representation_session_directly(grant:, representative:)
     RepresentationSession.create!(
       tenant: @tenant,
-      superagent: nil, # User representation sessions have NULL superagent_id
+      collective: nil, # User representation sessions have NULL collective_id
       representative_user: representative,
       trustee_grant: grant,
       confirmed_understanding: true,
@@ -114,7 +114,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle
     )
 
-    get @superagent.path, headers: headers_with_representation
+    get @collective.path, headers: headers_with_representation
     assert_response :success
 
     # The response should indicate Bob is acting as a trustee for Alice
@@ -142,7 +142,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     )
 
     # Use studio-specific path to ensure note is created in the correct studio
-    post "/studios/#{@superagent.handle}/note/actions/create_note",
+    post "/studios/#{@collective.handle}/note/actions/create_note",
          params: { title: "Test Note", text: "Created via API as trustee" },
          headers: headers_with_representation
     assert_response :success
@@ -165,7 +165,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representation-Session-ID" => fake_session_id
     )
 
-    get @superagent.path, headers: headers_with_fake_session
+    get @collective.path, headers: headers_with_fake_session
 
     # Should return 403 Forbidden when session ID is invalid
     assert_response :forbidden,
@@ -193,7 +193,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle
     )
 
-    get @superagent.path, headers: headers_with_ended_session
+    get @collective.path, headers: headers_with_ended_session
 
     # Should return 403 Forbidden because session is ended
     assert_response :forbidden,
@@ -221,7 +221,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle
     )
 
-    get @superagent.path, headers: headers_with_revoked_grant
+    get @collective.path, headers: headers_with_revoked_grant
 
     # Should return 403 Forbidden because grant is revoked
     assert_response :forbidden,
@@ -232,7 +232,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   test "API rejects representation when token user is not the representative" do
     carol = create_user(email: "carol_#{SecureRandom.hex(4)}@example.com", name: "Carol")
     @tenant.add_user!(carol)
-    @superagent.add_user!(carol)
+    @collective.add_user!(carol)
 
     # Alice grants Bob (not Carol) permission
     grant = TrusteeGrant.create!(
@@ -261,7 +261,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle,
     }
 
-    get @superagent.path, headers: carol_headers
+    get @collective.path, headers: carol_headers
 
     # Should return 403 Forbidden because Carol is not the session's representative
     assert_response :forbidden,
@@ -290,7 +290,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
 
     # Bob makes an API call WITHOUT the X-Representation-Session-ID header
     # Even though the session exists, we're not passing it
-    get @superagent.path, headers: @headers
+    get @collective.path, headers: @headers
 
     # Should return 409 Conflict with info about active session
     # This forces the API caller to be explicit about their intent
@@ -329,7 +329,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     )
 
     # Create a note via API using studio-specific path
-    post "/studios/#{@superagent.handle}/note/actions/create_note",
+    post "/studios/#{@collective.handle}/note/actions/create_note",
          params: { title: "Logged Note", text: "This should be logged" },
          headers: headers_with_representation
     assert_response :success
@@ -358,7 +358,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "Accept" => "text/markdown",
     }
 
-    get @superagent.path, headers: internal_headers
+    get @collective.path, headers: internal_headers
     assert_response :success
 
     # Currently acts as Bob
@@ -389,7 +389,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representation-Session-ID" => session_id
     )
 
-    get @superagent.path, headers: headers_without_representing_user
+    get @collective.path, headers: headers_without_representing_user
 
     assert_response :forbidden
     assert_includes response.body, "X-Representing-User header required"
@@ -414,7 +414,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => "wrong-handle"
     )
 
-    get @superagent.path, headers: headers_with_wrong_user
+    get @collective.path, headers: headers_with_wrong_user
 
     assert_response :forbidden
     assert_includes response.body, "does not match the represented user"
@@ -439,7 +439,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle
     )
 
-    get @superagent.path, headers: headers_with_correct_user
+    get @collective.path, headers: headers_with_correct_user
 
     assert_response :success
     assert_includes response.body, "acting on behalf of"
@@ -447,12 +447,12 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
 
   test "studio representation requires X-Representing-Studio header" do
     # Set up Bob as a representative for the studio
-    @superagent.superagent_members.find_by(user: @bob).add_role!("representative")
+    @collective.collective_members.find_by(user: @bob).add_role!("representative")
 
-    # Create a studio representation session (no trustee_grant, has superagent)
+    # Create a studio representation session (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
@@ -463,19 +463,19 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representation-Session-ID" => session.id
     )
 
-    get @superagent.path, headers: headers_without_representing_studio
+    get @collective.path, headers: headers_without_representing_studio
 
     assert_response :forbidden
     assert_includes response.body, "X-Representing-Studio header required"
   end
 
   test "studio representation rejects wrong X-Representing-Studio header" do
-    @superagent.superagent_members.find_by(user: @bob).add_role!("representative")
+    @collective.collective_members.find_by(user: @bob).add_role!("representative")
 
-    # Create a studio representation session (no trustee_grant, has superagent)
+    # Create a studio representation session (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
@@ -487,19 +487,19 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-Studio" => "wrong-studio-handle"
     )
 
-    get @superagent.path, headers: headers_with_wrong_studio
+    get @collective.path, headers: headers_with_wrong_studio
 
     assert_response :forbidden
     assert_includes response.body, "does not match the represented studio"
   end
 
   test "studio representation succeeds with correct X-Representing-Studio header" do
-    @superagent.superagent_members.find_by(user: @bob).add_role!("representative")
+    @collective.collective_members.find_by(user: @bob).add_role!("representative")
 
-    # Create a studio representation session (no trustee_grant, has superagent)
+    # Create a studio representation session (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
@@ -508,10 +508,10 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     # Request with CORRECT X-Representing-Studio header
     headers_with_correct_studio = @headers.merge(
       "X-Representation-Session-ID" => session.id,
-      "X-Representing-Studio" => @superagent.handle
+      "X-Representing-Studio" => @collective.handle
     )
 
-    get @superagent.path, headers: headers_with_correct_studio
+    get @collective.path, headers: headers_with_correct_studio
 
     assert_response :success
     assert_includes response.body, "acting on behalf of"
@@ -547,13 +547,13 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   end
 
   test "ending studio representation session does not require X-Representing-Studio header" do
-    @superagent.superagent_members.find_by(user: @bob).add_role!("representative")
+    @collective.collective_members.find_by(user: @bob).add_role!("representative")
 
     # Studio representation sessions don't have an API start action yet,
-    # so we create directly for this test (no trustee_grant, has superagent)
+    # so we create directly for this test (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative_user: @bob,
       confirmed_understanding: true,
       began_at: Time.current,
@@ -564,7 +564,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representation-Session-ID" => session.id
     )
 
-    delete "/studios/#{@superagent.handle}/represent", headers: headers_for_end
+    delete "/studios/#{@collective.handle}/represent", headers: headers_for_end
 
     # Should not get a 403 about missing header
     assert_not_equal 403, response.status,
@@ -601,7 +601,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle
     )
 
-    post "/studios/#{@superagent.handle}/note/actions/create_note",
+    post "/studios/#{@collective.handle}/note/actions/create_note",
          params: { title: "E2E Test Note", text: "Created in end-to-end test" },
          headers: headers_with_representation
     assert_response :success
@@ -619,7 +619,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     assert session.ended?, "Session should be ended after end_representation"
 
     # Step 4: Verify session ID no longer works
-    get @superagent.path, headers: headers_with_representation
+    get @collective.path, headers: headers_with_representation
     assert_response :forbidden, "Ended session should be rejected"
   end
 end

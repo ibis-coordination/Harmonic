@@ -4,9 +4,9 @@
   <%= render 'pulse/sidebar_studio_info' %>
 
   <nav class="pulse-nav">
-    <a href="<%= @current_superagent.path %>" class="pulse-nav-item">
+    <a href="<%= @current_collective.path %>" class="pulse-nav-item">
       <%= octicon 'arrow-left', height: 16 %>
-      <span>Back to <%= @current_superagent.superagent_type.titleize %></span>
+      <span>Back to <%= @current_collective.collective_type.titleize %></span>
     </a>
   </nav>
 </aside>

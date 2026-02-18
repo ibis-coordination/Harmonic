@@ -4,7 +4,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @user = @global_user
-    @superagent = @global_superagent
+    @collective = @global_collective
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
@@ -52,11 +52,11 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   # reproduce the bug in a real browser environment.
 
   test "non-primary tenant login flow preserves subdomain through redirect" do
-    # Create a non-primary tenant with required main superagent
+    # Create a non-primary tenant with required main collective
     secondary_tenant = create_tenant(subdomain: "secondary", name: "Secondary Tenant")
     secondary_user = create_user(email: "secondary@example.com", name: "Secondary User")
     secondary_tenant.add_user!(secondary_user)
-    secondary_tenant.create_main_superagent!(created_by: secondary_user)
+    secondary_tenant.create_main_collective!(created_by: secondary_user)
 
     # Step 1: User visits the secondary tenant's login page
     host! "#{secondary_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
@@ -106,7 +106,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
       primary_tenant = create_tenant(subdomain: ENV.fetch("PRIMARY_SUBDOMAIN", nil), name: "Primary Tenant")
       primary_user = create_user(email: "primary@example.com", name: "Primary User")
       primary_tenant.add_user!(primary_user)
-      primary_tenant.create_main_superagent!(created_by: primary_user)
+      primary_tenant.create_main_collective!(created_by: primary_user)
     end
 
     host! auth_host

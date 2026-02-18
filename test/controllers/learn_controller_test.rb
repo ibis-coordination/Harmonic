@@ -3,7 +3,7 @@ require "test_helper"
 class LearnControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
@@ -100,7 +100,7 @@ class LearnControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Superagency"
   end
 
-  test "superagency page explains what a superagent is" do
+  test "superagency page explains what a collective is" do
     sign_in_as(@user, tenant: @tenant)
     get "/learn/superagency"
     assert_response :success

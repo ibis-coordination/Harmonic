@@ -6,18 +6,18 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   setup do
-    @tenant, @superagent, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_studio_user
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
 
     # Clear tenant context since this is a system job
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     Tenant.clear_thread_scope
   end
 
   teardown do
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     Tenant.clear_thread_scope
   end
 
@@ -221,7 +221,7 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
 
     rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       name: "Scheduled Webhook",
       trigger_type: "schedule",
@@ -291,8 +291,8 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
     tenant2 = create_tenant(subdomain: "tenant2")
     user2 = create_user(name: "User 2")
     tenant2.add_user!(user2)
-    superagent2 = create_superagent(tenant: tenant2, created_by: user2)
-    superagent2.add_user!(user2)
+    collective2 = create_collective(tenant: tenant2, created_by: user2)
+    collective2.add_user!(user2)
     tenant2.set_feature_flag!("ai_agents", true)
     ai_agent2 = create_ai_agent(parent: user2)
     tenant2.add_user!(ai_agent2)
@@ -310,7 +310,7 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
     )
 
     # Clear context
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
     assert_difference "AutomationRuleRun.count", 2 do

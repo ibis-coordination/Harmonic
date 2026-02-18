@@ -264,17 +264,29 @@ class Invite
   end
 
   module GeneratedAssociationMethods
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_collective(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_invited_user(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def build_superagent(*args, &blk); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
+
+    sig { returns(T.nilable(::Collective)) }
+    def collective; end
+
+    sig { params(value: T.nilable(::Collective)).void }
+    def collective=(value); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by(*args, &blk); end
@@ -287,12 +299,6 @@ class Invite
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_invited_user!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -312,17 +318,20 @@ class Invite
     sig { params(value: T.nilable(::User)).void }
     def invited_user=(value); end
 
+    sig { returns(T.nilable(::Collective)) }
+    def reload_collective; end
+
     sig { returns(T.nilable(::User)) }
     def reload_created_by; end
 
     sig { returns(T.nilable(::User)) }
     def reload_invited_user; end
 
-    sig { returns(T.nilable(::Superagent)) }
-    def reload_superagent; end
-
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
+
+    sig { void }
+    def reset_collective; end
 
     sig { void }
     def reset_created_by; end
@@ -331,16 +340,7 @@ class Invite
     def reset_invited_user; end
 
     sig { void }
-    def reset_superagent; end
-
-    sig { void }
     def reset_tenant; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def superagent; end
-
-    sig { params(value: T.nilable(::Superagent)).void }
-    def superagent=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -575,6 +575,51 @@ class Invite
     sig { void }
     def code_will_change!; end
 
+    sig { returns(::String) }
+    def collective_id; end
+
+    sig { params(value: ::String).returns(::String) }
+    def collective_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_id_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_change_to_be_saved; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_previous_change; end
+
+    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    def collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_was; end
+
+    sig { void }
+    def collective_id_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -804,6 +849,9 @@ class Invite
     def restore_code!; end
 
     sig { void }
+    def restore_collective_id!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -819,9 +867,6 @@ class Invite
     def restore_invited_user_id!; end
 
     sig { void }
-    def restore_superagent_id!; end
-
-    sig { void }
     def restore_tenant_id!; end
 
     sig { void }
@@ -832,6 +877,12 @@ class Invite
 
     sig { returns(T::Boolean) }
     def saved_change_to_code?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_collective_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_collective_id?; end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -864,12 +915,6 @@ class Invite
     def saved_change_to_invited_user_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_superagent_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_superagent_id?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
     sig { returns(T::Boolean) }
@@ -880,51 +925,6 @@ class Invite
 
     sig { returns(T::Boolean) }
     def saved_change_to_updated_at?; end
-
-    sig { returns(::String) }
-    def superagent_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def superagent_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def superagent_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def superagent_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def superagent_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_id_change_to_be_saved; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def superagent_id_previous_change; end
-
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
-    def superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_was; end
-
-    sig { void }
-    def superagent_id_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1020,6 +1020,9 @@ class Invite
     def will_save_change_to_code?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_collective_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_created_at?; end
 
     sig { returns(T::Boolean) }
@@ -1033,9 +1036,6 @@ class Invite
 
     sig { returns(T::Boolean) }
     def will_save_change_to_invited_user_id?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end

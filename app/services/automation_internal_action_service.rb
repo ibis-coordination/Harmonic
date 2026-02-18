@@ -65,7 +65,7 @@ class AutomationInternalActionService
   def initialize(run)
     @run = run
     @rule = T.let(T.must(run.automation_rule), AutomationRule)
-    @superagent = T.let(run.superagent, T.nilable(Superagent))
+    @collective = T.let(run.collective, T.nilable(Collective))
   end
 
   sig { params(action_name: String, params: T::Hash[String, T.untyped]).returns(Result) }
@@ -79,8 +79,8 @@ class AutomationInternalActionService
       )
     end
 
-    # Validate superagent exists for studio rules
-    unless @superagent
+    # Validate collective exists for studio rules
+    unless @collective
       return Result.new(
         success: false,
         message: "Action executed",
@@ -89,7 +89,7 @@ class AutomationInternalActionService
     end
 
     # Get the studio's proxy user
-    proxy_user = @superagent.proxy_user
+    proxy_user = @collective.proxy_user
     unless proxy_user
       return Result.new(
         success: false,
@@ -121,12 +121,12 @@ class AutomationInternalActionService
     tenant = @rule.tenant
 
     # Build the path to the action
-    studio_path = "/studios/#{@superagent&.handle}#{config[:path_suffix]}"
+    studio_path = "/studios/#{@collective&.handle}#{config[:path_suffix]}"
 
     # Create the markdown UI service with the proxy user
     service = MarkdownUiService.new(
       tenant: T.must(tenant),
-      superagent: @superagent,
+      collective: @collective,
       user: proxy_user
     )
 

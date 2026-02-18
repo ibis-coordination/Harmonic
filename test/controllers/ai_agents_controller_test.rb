@@ -5,7 +5,7 @@ require "test_helper"
 class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @tenant = @global_tenant
-    @superagent = @global_superagent
+    @collective = @global_collective
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
 
@@ -14,15 +14,15 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     # Create an AI agent for tests
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     @ai_agent = create_ai_agent(parent: @user, name: "Test AI Agent")
     @tenant.add_user!(@ai_agent)
-    @superagent.add_user!(@ai_agent)
+    @collective.add_user!(@ai_agent)
 
     @ai_agent_handle = @ai_agent.tenant_users.find_by(tenant: @tenant).handle
 
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
     Tenant.clear_thread_scope
   end
 
@@ -302,7 +302,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "non-parent user cannot access another user's AI agent run task form" do
     other_user = create_user(email: "other-user-#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
     sign_in_as(other_user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}/run"
@@ -312,7 +312,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "non-parent user cannot execute task on another user's AI agent" do
     other_user = create_user(email: "other-user-#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
     sign_in_as(other_user, tenant: @tenant)
     post "/ai-agents/#{@ai_agent_handle}/run", params: { task: "Test task" }
@@ -322,7 +322,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "non-parent user cannot view another user's AI agent runs" do
     other_user = create_user(email: "other-user-#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
     sign_in_as(other_user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}/runs"
@@ -343,7 +343,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     other_user = create_user(email: "other-user-#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
     sign_in_as(other_user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}/runs/#{task_run.id}"
@@ -364,7 +364,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     other_user = create_user(email: "other-user-#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
     sign_in_as(other_user, tenant: @tenant)
     post "/ai-agents/#{@ai_agent_handle}/runs/#{task_run.id}/cancel"
@@ -378,7 +378,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "index does not show AI agents owned by other users" do
     other_user = create_user(email: "other-user-#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
 
     sign_in_as(other_user, tenant: @tenant)
     get "/ai-agents"

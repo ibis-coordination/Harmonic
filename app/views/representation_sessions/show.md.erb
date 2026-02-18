@@ -19,12 +19,12 @@
 <% if @representation_session.activity_log_entries.empty? -%>
 No actions were performed during this session.
 <% else -%>
-<%= @representation_session.representative_user.display_name %> performed the following actions on behalf of <%= @representation_session.superagent.name %>:
+<%= @representation_session.representative_user.display_name %> performed the following actions on behalf of <%= @representation_session.collective.name %>:
 
 | # | Time | Action | Item | Studio |
 |---|------|--------|------|--------|
 <% @representation_session.activity_log_entries.each.with_index do |activity_item, i| -%>
-| <%= i + 1 %> | <%= activity_item[:happened_at].to_time.in_time_zone(@current_superagent.timezone.name).strftime('%H:%M %Z') %> | <%= activity_item[:verb_phrase] %> | [<%= activity_item[:main_resource].class.to_s %> `<%= activity_item[:main_resource].truncated_id %>`](<%= activity_item[:main_resource].path %>) | <% if activity_item[:superagent] %>[<%= activity_item[:superagent].name %>](<%= activity_item[:superagent].path %>)<% end %> |
+| <%= i + 1 %> | <%= activity_item[:happened_at].to_time.in_time_zone(@current_collective.timezone.name).strftime('%H:%M %Z') %> | <%= activity_item[:verb_phrase] %> | [<%= activity_item[:main_resource].class.to_s %> `<%= activity_item[:main_resource].truncated_id %>`](<%= activity_item[:main_resource].path %>) | <% if activity_item[:collective] %>[<%= activity_item[:collective].name %>](<%= activity_item[:collective].path %>)<% end %> |
 <% end -%>
 <% end -%>
 

@@ -6,8 +6,8 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   setup do
-    @tenant, @superagent, @user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    @tenant, @collective, @user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
   end
 
   # =========================================================================
@@ -15,12 +15,12 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   # =========================================================================
 
   test "creating a read_confirmation NoteHistoryEvent enqueues reindex for the note" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note.id, tenant_id: @tenant.id }]) do
       NoteHistoryEvent.create!(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         note: note,
         user: @user,
         event_type: "read_confirmation",
@@ -30,7 +30,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   end
 
   test "creating a create NoteHistoryEvent does not enqueue reindex" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Clear any jobs enqueued during note creation
     clear_enqueued_jobs
@@ -38,7 +38,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     assert_no_enqueued_jobs(only: ReindexSearchJob) do
       NoteHistoryEvent.create!(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         note: note,
         user: @user,
         event_type: "create",
@@ -48,7 +48,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   end
 
   test "creating an update NoteHistoryEvent does not enqueue reindex" do
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Clear any jobs enqueued during note creation
     clear_enqueued_jobs
@@ -56,7 +56,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     assert_no_enqueued_jobs(only: ReindexSearchJob) do
       NoteHistoryEvent.create!(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         note: note,
         user: @user,
         event_type: "update",
@@ -70,8 +70,8 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   # =========================================================================
 
   test "creating a Link enqueues reindex for both linked items" do
-    note_1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Note 1")
-    note_2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Note 2")
+    note_1 = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Note 1")
+    note_2 = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Note 2")
 
     # Clear any jobs enqueued during note creation
     clear_enqueued_jobs
@@ -81,7 +81,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
       assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: note_2.id, tenant_id: @tenant.id }]) do
         Link.create!(
           tenant: @tenant,
-          superagent: @superagent,
+          collective: @collective,
           from_linkable: note_1,
           to_linkable: note_2
         )
@@ -90,11 +90,11 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   end
 
   test "destroying a Link enqueues reindex for both linked items" do
-    note_1 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Note 1")
-    note_2 = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Note 2")
+    note_1 = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Note 1")
+    note_2 = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Note 2")
     link = Link.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       from_linkable: note_1,
       to_linkable: note_2
     )
@@ -114,19 +114,19 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   # =========================================================================
 
   test "creating an Option enqueues reindex for the decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Clear any jobs enqueued during decision creation
     clear_enqueued_jobs
 
     assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
-      create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+      create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
     end
   end
 
   test "destroying an Option enqueues reindex for the decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
 
     # Clear any jobs enqueued during creation
     clear_enqueued_jobs
@@ -141,8 +141,8 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   # =========================================================================
 
   test "creating a Vote enqueues reindex for the decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
     decision_participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
 
     # Clear any jobs enqueued during setup
@@ -151,7 +151,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       Vote.create!(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         decision: decision,
         option: option,
         decision_participant: decision_participant,
@@ -162,12 +162,12 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   end
 
   test "destroying a Vote enqueues reindex for the decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
-    option = create_option(tenant: @tenant, superagent: @superagent, created_by: @user, decision: decision)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
     decision_participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
     vote = Vote.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       decision: decision,
       option: option,
       decision_participant: decision_participant,
@@ -188,7 +188,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   # =========================================================================
 
   test "creating a CommitmentParticipant enqueues reindex for the commitment" do
-    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Clear any jobs enqueued during commitment creation
     clear_enqueued_jobs
@@ -196,7 +196,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Commitment", item_id: commitment.id, tenant_id: @tenant.id }]) do
       CommitmentParticipant.create!(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         commitment: commitment,
         user: @user
       )
@@ -204,10 +204,10 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   end
 
   test "updating a CommitmentParticipant enqueues reindex for the commitment" do
-    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
     participant = CommitmentParticipant.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       commitment: commitment,
       user: @user
     )
@@ -221,10 +221,10 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   end
 
   test "destroying a CommitmentParticipant enqueues reindex for the commitment" do
-    commitment = create_commitment(tenant: @tenant, superagent: @superagent, created_by: @user)
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
     participant = CommitmentParticipant.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       commitment: commitment,
       user: @user
     )
@@ -242,7 +242,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   # =========================================================================
 
   test "creating a comment Note enqueues reindex for the parent Note" do
-    parent_note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user, title: "Parent Note")
+    parent_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Parent Note")
 
     # Clear any jobs enqueued during parent creation
     clear_enqueued_jobs
@@ -250,7 +250,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Note", item_id: parent_note.id, tenant_id: @tenant.id }]) do
       create_note(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         created_by: @user,
         title: "Comment",
         commentable: parent_note
@@ -259,7 +259,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   end
 
   test "creating a comment on a Decision enqueues reindex for the Decision" do
-    decision = create_decision(tenant: @tenant, superagent: @superagent, created_by: @user)
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Clear any jobs enqueued during decision creation
     clear_enqueued_jobs
@@ -267,7 +267,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     assert_enqueued_with(job: ReindexSearchJob, args: [{ item_type: "Decision", item_id: decision.id, tenant_id: @tenant.id }]) do
       create_note(
         tenant: @tenant,
-        superagent: @superagent,
+        collective: @collective,
         created_by: @user,
         title: "Comment",
         commentable: decision
@@ -279,7 +279,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # A regular note (not a comment) should have search_index_items return []
     # This means InvalidatesSearchIndex won't enqueue any reindex jobs
     # (The Searchable concern will still enqueue a job for the note itself, but that's separate)
-    note = create_note(tenant: @tenant, superagent: @superagent, created_by: @user)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     # Verify that search_index_items returns empty for a non-comment note
     assert_equal [], note.send(:search_index_items)
@@ -288,11 +288,11 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
   test "creating a comment on a non-searchable item (RepresentationSession) does not enqueue parent reindex" do
     # RepresentationSession is commentable but NOT searchable
     # Comments on it should still be indexed themselves, but should NOT trigger parent reindex
-    @superagent.settings["any_member_can_represent"] = true
-    @superagent.save!
+    @collective.settings["any_member_can_represent"] = true
+    @collective.save!
     session = create_representation_session(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       representative: @user
     )
 
@@ -303,7 +303,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
     # (The comment itself will still be indexed via Searchable concern)
     comment = create_note(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       created_by: @user,
       title: "Session comment",
       commentable: session

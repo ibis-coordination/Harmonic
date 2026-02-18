@@ -1,6 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
-  ['Representation', @current_superagent.path + '/representation'],
+  [@current_collective.name, @current_collective.path],
+  ['Representation', @current_collective.path + '/representation'],
   "Session #{@representation_session.truncated_id}"
 ] %>
 
@@ -44,7 +44,7 @@
         <p class="pulse-empty-content"><em>No actions were performed during this session.</em></p>
       <% else %>
         <p>
-          <%= @representation_session.representative_user.display_name %> performed the following actions on behalf of <%= @representation_session.superagent.name %>:
+          <%= @representation_session.representative_user.display_name %> performed the following actions on behalf of <%= @representation_session.collective.name %>:
         </p>
         <table class="pulse-table">
           <thead>
@@ -60,7 +60,7 @@
             <% @representation_session.activity_log_entries.each.with_index do |activity_item, i| %>
               <tr>
                 <td><%= i + 1 %></td>
-                <td><%= activity_item[:happened_at].to_time.in_time_zone(@current_superagent.timezone.name).strftime('%H:%M %Z') %></td>
+                <td><%= activity_item[:happened_at].to_time.in_time_zone(@current_collective.timezone.name).strftime('%H:%M %Z') %></td>
                 <td><%= activity_item[:verb_phrase] %></td>
                 <td>
                   <% if activity_item[:main_resource] %>
@@ -73,8 +73,8 @@
                   <% end %>
                 </td>
                 <td>
-                  <% if activity_item[:superagent] %>
-                    <a href="<%= activity_item[:superagent].path %>" class="pulse-link"><%= activity_item[:superagent].name %></a>
+                  <% if activity_item[:collective] %>
+                    <a href="<%= activity_item[:collective].path %>" class="pulse-link"><%= activity_item[:collective].name %></a>
                   <% end %>
                 </td>
               </tr>

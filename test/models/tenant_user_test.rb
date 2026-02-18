@@ -4,7 +4,7 @@ class TenantUserTest < ActiveSupport::TestCase
   # Notification Preferences Tests
 
   test "notification_preferences returns defaults when not set" do
-    tenant, _superagent, user = create_tenant_superagent_user
+    tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
 
     prefs = tenant_user.notification_preferences
@@ -20,7 +20,7 @@ class TenantUserTest < ActiveSupport::TestCase
   end
 
   test "notification_channels_for returns correct channels based on defaults" do
-    tenant, _superagent, user = create_tenant_superagent_user
+    tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
 
     # Mention defaults to both channels
@@ -35,7 +35,7 @@ class TenantUserTest < ActiveSupport::TestCase
   end
 
   test "notification_enabled? returns correct status" do
-    tenant, _superagent, user = create_tenant_superagent_user
+    tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
 
     assert tenant_user.notification_enabled?("mention", "in_app")
@@ -45,7 +45,7 @@ class TenantUserTest < ActiveSupport::TestCase
   end
 
   test "set_notification_preference! updates preference" do
-    tenant, _superagent, user = create_tenant_superagent_user
+    tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
 
     # Disable email for mentions
@@ -63,7 +63,7 @@ class TenantUserTest < ActiveSupport::TestCase
   end
 
   test "notification_channels_for respects custom preferences" do
-    tenant, _superagent, user = create_tenant_superagent_user
+    tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
 
     # Customize preferences
@@ -81,7 +81,7 @@ class TenantUserTest < ActiveSupport::TestCase
   end
 
   test "notification_channels_for returns empty array when all disabled" do
-    tenant, _superagent, user = create_tenant_superagent_user
+    tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
 
     # Disable all channels for a notification type
@@ -93,7 +93,7 @@ class TenantUserTest < ActiveSupport::TestCase
   end
 
   test "notification_channels_for handles unknown notification type" do
-    tenant, _superagent, user = create_tenant_superagent_user
+    tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
 
     # Unknown type should return empty array

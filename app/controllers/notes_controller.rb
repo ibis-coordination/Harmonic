@@ -10,7 +10,7 @@ class NotesController < ApplicationController
     @page_title = @note.title.presence || "Note #{@note.truncated_id}"
     @page_description = "Note page"
     @sidebar_mode = "resource"
-    @team = @current_superagent.team
+    @team = @current_collective.team
     set_pin_vars
     @note_reader = NoteReader.new(note: @note, user: current_user)
   end
@@ -18,9 +18,9 @@ class NotesController < ApplicationController
   def new
     @page_title = "Note"
     @page_description = "Make a note for your team"
-    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
     @sidebar_mode = "resource"
-    @team = @current_superagent.team
+    @team = @current_collective.team
     @note = Note.new(
       title: params[:title]
     )
@@ -29,7 +29,7 @@ class NotesController < ApplicationController
   def edit
     @note = current_note
     @sidebar_mode = "resource"
-    @team = @current_superagent.team
+    @team = @current_collective.team
     return render "404", status: :not_found unless @note
     return render "shared/403", status: :forbidden unless @note.user_can_edit?(@current_user)
 
@@ -41,17 +41,17 @@ class NotesController < ApplicationController
     helper_params = { title: model_params[:title], text: model_params[:text] }
     @note = api_helper(params: helper_params).create_note
     # Handle file attachments separately (HTML form specific)
-    if params[:files] && @current_tenant.allow_file_uploads? && @current_superagent.allow_file_uploads?
+    if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
       @note.attach!(params[:files])
     end
     # Handle pinning (HTML form specific)
-    if params[:pinned] == "1" && current_superagent.id != current_tenant.main_studio_id
+    if params[:pinned] == "1" && current_collective.id != current_tenant.main_studio_id
       api_helper.pin_resource(@note)
     end
     redirect_to @note.path
   rescue ActiveRecord::RecordInvalid => e
     e.record.errors.full_messages.each { |msg| flash.now[:alert] = msg }
-    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_superagent.tempo)
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
     @note = Note.new(title: model_params[:title], text: model_params[:text])
     render :new
   end
@@ -205,7 +205,7 @@ class NotesController < ApplicationController
 
     @page_title = "Actions | Note Settings"
     actions = []
-    actions << if @note.is_pinned?(tenant: @current_tenant, superagent: @current_superagent, user: @current_user)
+    actions << if @note.is_pinned?(tenant: @current_tenant, collective: @current_collective, user: @current_user)
                  { name: "unpin_note", params_string: "()" }
                else
                  { name: "pin_note", params_string: "()" }

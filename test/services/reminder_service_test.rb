@@ -2,13 +2,13 @@ require "test_helper"
 
 class ReminderServiceTest < ActiveSupport::TestCase
   def setup
-    @tenant, @superagent, @user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    @tenant, @collective, @user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
   end
 
   def teardown
-    Superagent.clear_thread_scope
+    Collective.clear_thread_scope
   end
 
   # === Create Tests ===
@@ -82,7 +82,7 @@ class ReminderServiceTest < ActiveSupport::TestCase
 
     other_user = create_user(name: "Other User")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
     ReminderService.create!(user: other_user, title: "Other", scheduled_for: 1.day.from_now)
 
     reminders = ReminderService.scheduled_for(@user)
@@ -138,7 +138,7 @@ class ReminderServiceTest < ActiveSupport::TestCase
     # Add another recipient
     other_user = create_user(name: "Other User Delete")
     @tenant.add_user!(other_user)
-    @superagent.add_user!(other_user)
+    @collective.add_user!(other_user)
     NotificationRecipient.create!(
       notification: notification,
       user: other_user,

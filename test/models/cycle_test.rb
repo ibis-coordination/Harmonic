@@ -5,54 +5,54 @@ class CycleTest < ActiveSupport::TestCase
     @tenant = create_tenant(subdomain: "cycle-test-#{SecureRandom.hex(4)}")
     @user = create_user(email: "cycletest_#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(@user)
-    @superagent = create_superagent(tenant: @tenant, created_by: @user, handle: "cycle-studio-#{SecureRandom.hex(4)}")
-    @superagent.settings["timezone"] = "UTC"
-    @superagent.save!
+    @collective = create_collective(tenant: @tenant, created_by: @user, handle: "cycle-studio-#{SecureRandom.hex(4)}")
+    @collective.settings["timezone"] = "UTC"
+    @collective.save!
   end
 
   # === Factory Tests ===
 
   test "new_from_tempo creates daily cycle for daily tempo" do
-    @superagent.settings["tempo"] = "daily"
-    @superagent.save!
+    @collective.settings["tempo"] = "daily"
+    @collective.save!
 
-    cycle = Cycle.new_from_tempo(tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new_from_tempo(tenant: @tenant, collective: @collective)
     assert_equal "today", cycle.name
     assert_equal "day", cycle.unit
   end
 
   test "new_from_tempo creates weekly cycle for weekly tempo" do
-    @superagent.settings["tempo"] = "weekly"
-    @superagent.save!
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
 
-    cycle = Cycle.new_from_tempo(tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new_from_tempo(tenant: @tenant, collective: @collective)
     assert_equal "this-week", cycle.name
     assert_equal "week", cycle.unit
   end
 
   test "new_from_tempo creates monthly cycle for monthly tempo" do
-    @superagent.settings["tempo"] = "monthly"
-    @superagent.save!
+    @collective.settings["tempo"] = "monthly"
+    @collective.save!
 
-    cycle = Cycle.new_from_tempo(tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new_from_tempo(tenant: @tenant, collective: @collective)
     assert_equal "this-month", cycle.name
     assert_equal "month", cycle.unit
   end
 
   test "new_from_tempo creates yearly cycle for yearly tempo" do
-    @superagent.settings["tempo"] = "yearly"
-    @superagent.save!
+    @collective.settings["tempo"] = "yearly"
+    @collective.save!
 
-    cycle = Cycle.new_from_tempo(tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new_from_tempo(tenant: @tenant, collective: @collective)
     assert_equal "this-year", cycle.name
     assert_equal "year", cycle.unit
   end
 
-  test "new_from_superagent uses superagent's tempo" do
-    @superagent.settings["tempo"] = "weekly"
-    @superagent.save!
+  test "new_from_collective uses collective's tempo" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
 
-    cycle = Cycle.new_from_superagent(@superagent)
+    cycle = Cycle.new_from_collective(@collective)
     assert_equal "this-week", cycle.name
   end
 
@@ -60,7 +60,7 @@ class CycleTest < ActiveSupport::TestCase
     cycle = Cycle.new_from_end_of_cycle_option(
       end_of_cycle: "end of this week",
       tenant: @tenant,
-      superagent: @superagent
+      collective: @collective
     )
     assert_equal "this-week", cycle.name
   end
@@ -68,85 +68,85 @@ class CycleTest < ActiveSupport::TestCase
   # === Unit Calculation Tests ===
 
   test "unit returns day for today" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert_equal "day", cycle.unit
   end
 
   test "unit returns day for yesterday" do
-    cycle = Cycle.new(name: "yesterday", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "yesterday", tenant: @tenant, collective: @collective)
     assert_equal "day", cycle.unit
   end
 
   test "unit returns day for tomorrow" do
-    cycle = Cycle.new(name: "tomorrow", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "tomorrow", tenant: @tenant, collective: @collective)
     assert_equal "day", cycle.unit
   end
 
   test "unit returns week for this-week" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     assert_equal "week", cycle.unit
   end
 
   test "unit returns week for last-week" do
-    cycle = Cycle.new(name: "last-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "last-week", tenant: @tenant, collective: @collective)
     assert_equal "week", cycle.unit
   end
 
   test "unit returns month for this-month" do
-    cycle = Cycle.new(name: "this-month", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-month", tenant: @tenant, collective: @collective)
     assert_equal "month", cycle.unit
   end
 
   test "unit returns year for this-year" do
-    cycle = Cycle.new(name: "this-year", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-year", tenant: @tenant, collective: @collective)
     assert_equal "year", cycle.unit
   end
 
   # === Date Calculation Tests ===
 
   test "start_date for today is beginning of day" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert_equal Time.current.in_time_zone("UTC").beginning_of_day.to_date, cycle.start_date.to_date
   end
 
   test "start_date for yesterday is beginning of yesterday" do
-    cycle = Cycle.new(name: "yesterday", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "yesterday", tenant: @tenant, collective: @collective)
     expected = (Time.current - 1.day).in_time_zone("UTC").beginning_of_day.to_date
     assert_equal expected, cycle.start_date.to_date
   end
 
   test "start_date for tomorrow is beginning of tomorrow" do
-    cycle = Cycle.new(name: "tomorrow", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "tomorrow", tenant: @tenant, collective: @collective)
     expected = (Time.current + 1.day).in_time_zone("UTC").beginning_of_day.to_date
     assert_equal expected, cycle.start_date.to_date
   end
 
   test "start_date for this-week is beginning of week" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     expected = Time.current.in_time_zone("UTC").beginning_of_week.to_date
     assert_equal expected, cycle.start_date.to_date
   end
 
   test "end_date is one unit after start_date" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     expected = cycle.start_date + 1.day
     assert_equal expected, cycle.end_date
   end
 
   test "window returns range from start to end" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert_equal cycle.start_date..cycle.end_date, cycle.window
   end
 
   # === Display Tests ===
 
   test "display_name titleizes cycle name" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     assert_equal "This Week", cycle.display_name
   end
 
   test "display_window formats day correctly" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     # Should include day name, month, date, year
     assert_match(/\w+day/, cycle.display_window)  # Contains day name
     assert_match(/\d{4}/, cycle.display_window)   # Contains year
@@ -155,7 +155,7 @@ class CycleTest < ActiveSupport::TestCase
   test "display_window does not contain double spaces for single-digit days" do
     # Test with a fixed date that has a single-digit day
     travel_to Time.zone.local(2026, 1, 9, 12, 0, 0) do
-      cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+      cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
       display = cycle.display_window
       # Should not have double spaces (e.g., "January  9" should be "January 9")
       refute_match(/  /, display, "display_window should not contain double spaces: #{display}")
@@ -165,207 +165,207 @@ class CycleTest < ActiveSupport::TestCase
   end
 
   test "display_window formats week as range" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     assert_match(/-/, cycle.display_window)  # Contains dash for range
   end
 
   test "display_duration returns 1 day for day unit" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert_equal "1 day", cycle.display_duration
   end
 
   test "display_duration returns 1 week for week unit" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     assert_equal "1 week", cycle.display_duration
   end
 
   # === Path Tests ===
 
   test "path returns studio path with cycle name" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
-    assert_equal "#{@superagent.path}/cycles/today", cycle.path
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
+    assert_equal "#{@collective.path}/cycles/today", cycle.path
   end
 
   test "id returns Cycles > display_name format" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     assert_equal "Cycles > This Week", cycle.id
   end
 
   # === Previous Cycle Tests ===
 
   test "previous_cycle returns yesterday for today" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert_equal "yesterday", cycle.previous_cycle
   end
 
   test "previous_cycle returns last-week for this-week" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     assert_equal "last-week", cycle.previous_cycle
   end
 
   test "previous_cycle returns last-month for this-month" do
-    cycle = Cycle.new(name: "this-month", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-month", tenant: @tenant, collective: @collective)
     assert_equal "last-month", cycle.previous_cycle
   end
 
   # === Next Cycle Tests ===
 
   test "next_cycle returns nil for today" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert_nil cycle.next_cycle
   end
 
   test "next_cycle returns today for yesterday" do
-    cycle = Cycle.new(name: "yesterday", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "yesterday", tenant: @tenant, collective: @collective)
     assert_equal "today", cycle.next_cycle
   end
 
   test "next_cycle returns nil for this-week" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     assert_nil cycle.next_cycle
   end
 
   test "next_cycle returns this-week for last-week" do
-    cycle = Cycle.new(name: "last-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "last-week", tenant: @tenant, collective: @collective)
     assert_equal "this-week", cycle.next_cycle
   end
 
   test "next_cycle returns nil for this-month" do
-    cycle = Cycle.new(name: "this-month", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-month", tenant: @tenant, collective: @collective)
     assert_nil cycle.next_cycle
   end
 
   test "next_cycle returns this-month for last-month" do
-    cycle = Cycle.new(name: "last-month", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "last-month", tenant: @tenant, collective: @collective)
     assert_equal "this-month", cycle.next_cycle
   end
 
   # === Is Current Cycle Tests ===
 
   test "is_current_cycle? returns true for today" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert cycle.is_current_cycle?
   end
 
   test "is_current_cycle? returns true for this-week" do
-    cycle = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
     assert cycle.is_current_cycle?
   end
 
   test "is_current_cycle? returns true for this-month" do
-    cycle = Cycle.new(name: "this-month", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "this-month", tenant: @tenant, collective: @collective)
     assert cycle.is_current_cycle?
   end
 
   test "is_current_cycle? returns false for yesterday" do
-    cycle = Cycle.new(name: "yesterday", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "yesterday", tenant: @tenant, collective: @collective)
     refute cycle.is_current_cycle?
   end
 
   test "is_current_cycle? returns false for last-week" do
-    cycle = Cycle.new(name: "last-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "last-week", tenant: @tenant, collective: @collective)
     refute cycle.is_current_cycle?
   end
 
   test "is_current_cycle? returns false for last-month" do
-    cycle = Cycle.new(name: "last-month", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "last-month", tenant: @tenant, collective: @collective)
     refute cycle.is_current_cycle?
   end
 
   # === Multi-step Navigation Tests ===
 
   test "previous_cycle returns 2-days-ago for yesterday" do
-    cycle = Cycle.new(name: "yesterday", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "yesterday", tenant: @tenant, collective: @collective)
     assert_equal "2-days-ago", cycle.previous_cycle
   end
 
   test "previous_cycle returns 3-days-ago for 2-days-ago" do
-    cycle = Cycle.new(name: "2-days-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "2-days-ago", tenant: @tenant, collective: @collective)
     assert_equal "3-days-ago", cycle.previous_cycle
   end
 
   test "previous_cycle returns 2-weeks-ago for last-week" do
-    cycle = Cycle.new(name: "last-week", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "last-week", tenant: @tenant, collective: @collective)
     assert_equal "2-weeks-ago", cycle.previous_cycle
   end
 
   test "previous_cycle returns 3-weeks-ago for 2-weeks-ago" do
-    cycle = Cycle.new(name: "2-weeks-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "2-weeks-ago", tenant: @tenant, collective: @collective)
     assert_equal "3-weeks-ago", cycle.previous_cycle
   end
 
   test "next_cycle returns yesterday for 2-days-ago" do
-    cycle = Cycle.new(name: "2-days-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "2-days-ago", tenant: @tenant, collective: @collective)
     assert_equal "yesterday", cycle.next_cycle
   end
 
   test "next_cycle returns 2-days-ago for 3-days-ago" do
-    cycle = Cycle.new(name: "3-days-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "3-days-ago", tenant: @tenant, collective: @collective)
     assert_equal "2-days-ago", cycle.next_cycle
   end
 
   test "next_cycle returns last-week for 2-weeks-ago" do
-    cycle = Cycle.new(name: "2-weeks-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "2-weeks-ago", tenant: @tenant, collective: @collective)
     assert_equal "last-week", cycle.next_cycle
   end
 
   test "next_cycle returns 2-weeks-ago for 3-weeks-ago" do
-    cycle = Cycle.new(name: "3-weeks-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "3-weeks-ago", tenant: @tenant, collective: @collective)
     assert_equal "2-weeks-ago", cycle.next_cycle
   end
 
   # === Offset Tests ===
 
   test "offset returns 0 for today" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert_equal 0, cycle.offset
   end
 
   test "offset returns -1 for yesterday" do
-    cycle = Cycle.new(name: "yesterday", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "yesterday", tenant: @tenant, collective: @collective)
     assert_equal(-1, cycle.offset)
   end
 
   test "offset returns -2 for 2-days-ago" do
-    cycle = Cycle.new(name: "2-days-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "2-days-ago", tenant: @tenant, collective: @collective)
     assert_equal(-2, cycle.offset)
   end
 
   test "offset returns -3 for 3-weeks-ago" do
-    cycle = Cycle.new(name: "3-weeks-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "3-weeks-ago", tenant: @tenant, collective: @collective)
     assert_equal(-3, cycle.offset)
   end
 
   test "unit returns day for N-days-ago patterns" do
-    cycle = Cycle.new(name: "5-days-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "5-days-ago", tenant: @tenant, collective: @collective)
     assert_equal "day", cycle.unit
   end
 
   test "unit returns week for N-weeks-ago patterns" do
-    cycle = Cycle.new(name: "4-weeks-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "4-weeks-ago", tenant: @tenant, collective: @collective)
     assert_equal "week", cycle.unit
   end
 
   test "unit returns month for N-months-ago patterns" do
-    cycle = Cycle.new(name: "3-months-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "3-months-ago", tenant: @tenant, collective: @collective)
     assert_equal "month", cycle.unit
   end
 
   test "start_date for 2-weeks-ago is 2 weeks before this week" do
-    cycle_this_week = Cycle.new(name: "this-week", tenant: @tenant, superagent: @superagent)
-    cycle_2_weeks_ago = Cycle.new(name: "2-weeks-ago", tenant: @tenant, superagent: @superagent)
+    cycle_this_week = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
+    cycle_2_weeks_ago = Cycle.new(name: "2-weeks-ago", tenant: @tenant, collective: @collective)
     assert_equal cycle_this_week.start_date - 2.weeks, cycle_2_weeks_ago.start_date
   end
 
   test "display_name formats N-days-ago correctly" do
-    cycle = Cycle.new(name: "3-days-ago", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "3-days-ago", tenant: @tenant, collective: @collective)
     assert_equal "3 Days Ago", cycle.display_name
   end
 
   # === API JSON Tests ===
 
   test "api_json returns expected fields" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     json = cycle.api_json
 
     assert_equal "today", json[:name]
@@ -393,21 +393,21 @@ class CycleTest < ActiveSupport::TestCase
   test "initialize requires tenant" do
     # Sorbet runtime type checking raises TypeError before our manual nil check
     assert_raises TypeError do
-      Cycle.new(name: "today", tenant: nil, superagent: @superagent)
+      Cycle.new(name: "today", tenant: nil, collective: @collective)
     end
   end
 
   test "initialize requires studio" do
     # Sorbet runtime type checking raises TypeError before our manual nil check
     assert_raises TypeError do
-      Cycle.new(name: "today", tenant: @tenant, superagent: nil)
+      Cycle.new(name: "today", tenant: @tenant, collective: nil)
     end
   end
 
   # === Sort and Group Options ===
 
   test "cycle_options returns all cycle options" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     options = cycle.cycle_options
 
     assert_equal 12, options.length
@@ -417,7 +417,7 @@ class CycleTest < ActiveSupport::TestCase
   end
 
   test "sort_by_options returns available sort options" do
-    cycle = Cycle.new(name: "today", tenant: @tenant, superagent: @superagent)
+    cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     options = cycle.sort_by_options
 
     assert options.any? { |o| o[1].include?("deadline") }

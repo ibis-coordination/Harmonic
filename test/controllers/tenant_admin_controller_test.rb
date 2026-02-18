@@ -7,17 +7,17 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant = create_tenant(subdomain: ENV["PRIMARY_SUBDOMAIN"] || "app", name: "Primary Tenant")
     @primary_user = create_user(email: "primary@example.com", name: "Primary User")
     @primary_tenant.add_user!(@primary_user)
-    @primary_tenant.create_main_superagent!(created_by: @primary_user)
-    @primary_superagent = @primary_tenant.main_superagent
-    @primary_superagent.add_user!(@primary_user)
+    @primary_tenant.create_main_collective!(created_by: @primary_user)
+    @primary_collective = @primary_tenant.main_collective
+    @primary_collective.add_user!(@primary_user)
 
     # Create secondary tenant with admin user
     @secondary_tenant = create_tenant(subdomain: "secondary", name: "Secondary Tenant")
     @secondary_admin = create_user(email: "secondary_admin@example.com", name: "Secondary Admin")
     @secondary_tenant.add_user!(@secondary_admin)
-    @secondary_tenant.create_main_superagent!(created_by: @secondary_admin)
-    @secondary_superagent = @secondary_tenant.main_superagent
-    @secondary_superagent.add_user!(@secondary_admin)
+    @secondary_tenant.create_main_collective!(created_by: @secondary_admin)
+    @secondary_collective = @secondary_tenant.main_collective
+    @secondary_collective.add_user!(@secondary_admin)
     # Make them a tenant admin
     @secondary_tenant_user = @secondary_tenant.tenant_users.find_by(user: @secondary_admin)
     @secondary_tenant_user.add_role!('admin')
@@ -25,7 +25,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     # Create tenant admin user on primary tenant
     @tenant_admin_user = create_user(email: "tenant_admin@example.com", name: "Tenant Admin User")
     @primary_tenant.add_user!(@tenant_admin_user)
-    @primary_superagent.add_user!(@tenant_admin_user)
+    @primary_collective.add_user!(@tenant_admin_user)
     # Make them a tenant admin
     @primary_tenant_user = @primary_tenant.tenant_users.find_by(user: @tenant_admin_user)
     @primary_tenant_user.add_role!('admin')
@@ -33,7 +33,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     # Create a regular non-admin user on primary tenant
     @non_admin_user = create_user(email: "non_admin@example.com", name: "Non Admin User")
     @primary_tenant.add_user!(@non_admin_user)
-    @primary_superagent.add_user!(@non_admin_user)
+    @primary_collective.add_user!(@non_admin_user)
     @non_admin_tenant_user = @primary_tenant.tenant_users.find_by(user: @non_admin_user)
   end
 

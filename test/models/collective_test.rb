@@ -1,6 +1,6 @@
 require "test_helper"
 
-class SuperagentTest < ActiveSupport::TestCase
+class CollectiveTest < ActiveSupport::TestCase
   # Helper methods to create common test objects
   def create_tenant(subdomain: "test", name: "Test Tenant")
     Tenant.create!(subdomain: subdomain, name: name)
@@ -10,27 +10,27 @@ class SuperagentTest < ActiveSupport::TestCase
     User.create!(email: email, name: name, user_type: user_type)
   end
 
-  test "Superagent.create works" do
+  test "Collective.create works" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Test Studio",
       handle: "test"
     )
-    assert superagent.persisted?
-    assert_equal "Test Tenant", superagent.tenant.name
-    assert_equal "Test Person", superagent.created_by.name
-    assert_equal "Test Studio", superagent.name
-    assert_equal "test", superagent.handle
+    assert collective.persisted?
+    assert_equal "Test Tenant", collective.tenant.name
+    assert_equal "Test Person", collective.created_by.name
+    assert_equal "Test Studio", collective.name
+    assert_equal "test", collective.handle
   end
 
-  test "Superagent.handle_is_valid validation" do
+  test "Collective.handle_is_valid validation" do
     tenant = create_tenant
     user = create_user
     begin
-      Superagent.create!(
+      Collective.create!(
         tenant: tenant,
         created_by: user,
         name: "Invalid Handle Studio",
@@ -41,149 +41,149 @@ class SuperagentTest < ActiveSupport::TestCase
     end
   end
 
-  test "Superagent.creator_is_not_superagent_proxy validation" do
+  test "Collective.creator_is_not_collective_proxy validation" do
     tenant = create_tenant
-    proxy_user = create_user(user_type: "superagent_proxy")
+    proxy_user = create_user(user_type: "collective_proxy")
     begin
-      Superagent.create!(
+      Collective.create!(
         tenant: tenant,
         created_by: proxy_user,
         name: "Proxy Studio",
         handle: "proxy-studio"
       )
     rescue ActiveRecord::RecordInvalid => e
-      assert_match(/created by cannot be a superagent proxy/, e.message.downcase)
+      assert_match(/created by cannot be a collective proxy/, e.message.downcase)
     end
   end
 
-  test "Superagent.set_defaults sets default settings" do
+  test "Collective.set_defaults sets default settings" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Default Settings Studio",
       handle: "default-settings"
     )
-    assert superagent.settings["unlisted"]
-    assert superagent.settings["invite_only"]
-    assert_equal "UTC", superagent.settings["timezone"]
-    assert_equal "daily", superagent.settings["tempo"]
+    assert collective.settings["unlisted"]
+    assert collective.settings["invite_only"]
+    assert_equal "UTC", collective.settings["timezone"]
+    assert_equal "daily", collective.settings["tempo"]
   end
 
-  test "Superagent.handle_available? returns true for available handle" do
-    assert Superagent.handle_available?("unique-handle")
+  test "Collective.handle_available? returns true for available handle" do
+    assert Collective.handle_available?("unique-handle")
   end
 
-  test "Superagent.handle_available? returns false for taken handle" do
+  test "Collective.handle_available? returns false for taken handle" do
     tenant = create_tenant
     user = create_user
-    Superagent.create!(
+    Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Existing Studio",
       handle: "existing-handle"
     )
-    assert_not Superagent.handle_available?("existing-handle")
+    assert_not Collective.handle_available?("existing-handle")
   end
 
-  test "Superagent.create_proxy_user! creates a proxy user" do
+  test "Collective.create_proxy_user! creates a proxy user" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Proxy Studio",
       handle: "proxy-studio"
     )
-    assert superagent.proxy_user.present?
-    assert_equal "superagent_proxy", superagent.proxy_user.user_type
+    assert collective.proxy_user.present?
+    assert_equal "collective_proxy", collective.proxy_user.user_type
   end
 
-  test "Superagent.within_file_upload_limit? returns true when usage is below limit" do
+  test "Collective.within_file_upload_limit? returns true when usage is below limit" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "File Upload Studio",
       handle: "file-upload"
     )
-    assert superagent.within_file_upload_limit?
+    assert collective.within_file_upload_limit?
   end
 
-  test "Superagent.add_user! adds a user to the superagent" do
+  test "Collective.add_user! adds a user to the collective" do
     tenant = create_tenant
     user = create_user
     new_user = create_user(name: "New User")
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Team Studio",
       handle: "team-studio"
     )
-    assert_not superagent.user_is_member?(new_user)
-    superagent.add_user!(new_user)
-    assert superagent.user_is_member?(new_user)
+    assert_not collective.user_is_member?(new_user)
+    collective.add_user!(new_user)
+    assert collective.user_is_member?(new_user)
   end
 
-  test "Superagent.is_main_superagent? returns true for main superagent" do
+  test "Collective.is_main_collective? returns true for main collective" do
     tenant = create_tenant
     user = create_user
-    tenant.create_main_superagent!(created_by: user)
-    superagent = tenant.main_superagent
-    assert superagent.is_main_superagent?
+    tenant.create_main_collective!(created_by: user)
+    collective = tenant.main_collective
+    assert collective.is_main_collective?
   end
 
-  test "Superagent.is_main_superagent? returns false for non-main superagent" do
+  test "Collective.is_main_collective? returns false for non-main collective" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Non-Main Studio",
       handle: "non-main-studio"
     )
-    assert_not superagent.is_main_superagent?
+    assert_not collective.is_main_collective?
   end
 
   # === Scene Tests ===
 
-  test "Superagent can be created as a scene" do
+  test "Collective can be created as a scene" do
     tenant = create_tenant
     user = create_user
-    scene = Superagent.create!(
+    scene = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Test Scene",
       handle: "test-scene",
-      superagent_type: "scene"
+      collective_type: "scene"
     )
     assert scene.is_scene?
-    assert_equal "scene", scene.superagent_type
+    assert_equal "scene", scene.collective_type
   end
 
-  test "Superagent default type is superagent" do
+  test "Collective default type is collective" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Default Type Studio",
       handle: "default-type"
     )
-    assert_not superagent.is_scene?
+    assert_not collective.is_scene?
   end
 
   test "Scene can be open or invite-only" do
     tenant = create_tenant
     user = create_user
-    scene = Superagent.create!(
+    scene = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Open Scene",
       handle: "open-scene",
-      superagent_type: "scene"
+      collective_type: "scene"
     )
 
     assert scene.scene_is_invite_only?
@@ -198,114 +198,114 @@ class SuperagentTest < ActiveSupport::TestCase
 
   # === API Settings Tests ===
 
-  test "Superagent.api_enabled? returns true for main superagent" do
+  test "Collective.api_enabled? returns true for main collective" do
     tenant = create_tenant
     user = create_user
-    tenant.create_main_superagent!(created_by: user)
-    main_superagent = tenant.main_superagent
+    tenant.create_main_collective!(created_by: user)
+    main_collective = tenant.main_collective
 
-    assert main_superagent.api_enabled?
+    assert main_collective.api_enabled?
   end
 
-  test "Superagent.api_enabled? returns false by default for non-main superagent" do
+  test "Collective.api_enabled? returns false by default for non-main collective" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "API Test Studio",
       handle: "api-test-studio"
     )
 
-    assert_not superagent.api_enabled?
+    assert_not collective.api_enabled?
   end
 
-  test "Superagent.enable_api! enables API for superagent" do
+  test "Collective.enable_api! enables API for collective" do
     tenant = create_tenant
     user = create_user
     # Enable API at tenant level first (required for cascade)
     tenant.set_feature_flag!("api", true)
 
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Enable API Studio",
       handle: "enable-api-studio"
     )
 
-    superagent.enable_api!
-    assert superagent.api_enabled?
+    collective.enable_api!
+    assert collective.api_enabled?
   end
 
   # === Tempo Tests ===
 
-  test "Superagent.tempo returns default tempo" do
+  test "Collective.tempo returns default tempo" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Tempo Studio",
       handle: "tempo-studio"
     )
 
-    assert_equal "daily", superagent.tempo
+    assert_equal "daily", collective.tempo
   end
 
-  test "Superagent.tempo= sets tempo" do
+  test "Collective.tempo= sets tempo" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Tempo Change Studio",
       handle: "tempo-change-studio"
     )
 
-    superagent.tempo = "weekly"
-    superagent.save!
-    assert_equal "weekly", superagent.tempo
+    collective.tempo = "weekly"
+    collective.save!
+    assert_equal "weekly", collective.tempo
   end
 
   # === Timezone Tests ===
 
-  test "Superagent.timezone returns UTC by default" do
+  test "Collective.timezone returns UTC by default" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Timezone Studio",
       handle: "timezone-studio"
     )
 
-    assert_equal "UTC", superagent.timezone.name
+    assert_equal "UTC", collective.timezone.name
   end
 
   # === Path Tests ===
 
-  test "Superagent.path returns correct path for superagent" do
+  test "Collective.path returns correct path for collective" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Path Studio",
       handle: "path-studio"
     )
 
-    assert_equal "/studios/path-studio", superagent.path
+    assert_equal "/studios/path-studio", collective.path
   end
 
-  test "Superagent.path returns correct path for scene" do
+  test "Collective.path returns correct path for scene" do
     tenant = create_tenant
     user = create_user
-    scene = Superagent.create!(
+    scene = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Path Scene",
       handle: "path-scene",
-      superagent_type: "scene"
+      collective_type: "scene"
     )
 
     assert_equal "/scenes/path-scene", scene.path
@@ -313,30 +313,30 @@ class SuperagentTest < ActiveSupport::TestCase
 
   # === API JSON Tests ===
 
-  test "Superagent.api_json includes expected fields" do
+  test "Collective.api_json includes expected fields" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "API JSON Studio",
       handle: "api-json-studio"
     )
 
-    json = superagent.api_json
-    assert_equal superagent.id, json[:id]
-    assert_equal superagent.name, json[:name]
-    assert_equal superagent.handle, json[:handle]
-    assert_equal superagent.timezone.name, json[:timezone]
-    assert_equal superagent.tempo, json[:tempo]
+    json = collective.api_json
+    assert_equal collective.id, json[:id]
+    assert_equal collective.name, json[:name]
+    assert_equal collective.handle, json[:handle]
+    assert_equal collective.timezone.name, json[:timezone]
+    assert_equal collective.tempo, json[:tempo]
   end
 
   # === Recent Activity Tests ===
 
-  test "Superagent.recent_notes returns notes within time window" do
+  test "Collective.recent_notes returns notes within time window" do
     tenant = create_tenant
     user = create_user
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Recent Notes Studio",
@@ -346,14 +346,14 @@ class SuperagentTest < ActiveSupport::TestCase
     # Create a recent note
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Recent Note",
       text: "This is recent"
     )
 
-    recent = superagent.recent_notes(time_window: 1.week)
+    recent = collective.recent_notes(time_window: 1.week)
     assert_includes recent, note
   end
 
@@ -365,15 +365,15 @@ class SuperagentTest < ActiveSupport::TestCase
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Access Test Studio",
       handle: "access-test-#{SecureRandom.hex(4)}"
     )
-    superagent.add_user!(user)
+    collective.add_user!(user)
 
-    assert superagent.accessible_by?(user)
+    assert collective.accessible_by?(user)
   end
 
   test "accessible_by? returns false for non-members" do
@@ -382,61 +382,61 @@ class SuperagentTest < ActiveSupport::TestCase
     other_user = create_user(name: "Other User")
     tenant.add_user!(user)
     tenant.add_user!(other_user)
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Access Test Studio",
       handle: "access-test-#{SecureRandom.hex(4)}"
     )
-    superagent.add_user!(user)
-    # other_user is NOT added to superagent
+    collective.add_user!(user)
+    # other_user is NOT added to collective
 
-    assert_not superagent.accessible_by?(other_user)
+    assert_not collective.accessible_by?(other_user)
   end
 
-  test "accessible_by? returns true for superagent proxy accessing own superagent" do
+  test "accessible_by? returns true for collective proxy accessing own collective" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
-    superagent = Superagent.create!(
+    collective = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Access Test Studio",
       handle: "access-test-#{SecureRandom.hex(4)}"
     )
-    superagent.add_user!(user)
-    superagent.create_proxy_user!
+    collective.add_user!(user)
+    collective.create_proxy_user!
 
-    proxy = superagent.proxy_user
-    assert proxy.proxy_superagent.present?
-    assert superagent.accessible_by?(proxy)
+    proxy = collective.proxy_user
+    assert proxy.proxy_collective.present?
+    assert collective.accessible_by?(proxy)
   end
 
-  test "accessible_by? returns false for superagent proxy accessing different superagent" do
+  test "accessible_by? returns false for collective proxy accessing different collective" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
-    superagent1 = Superagent.create!(
+    collective1 = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Studio 1",
       handle: "studio-1-#{SecureRandom.hex(4)}"
     )
-    superagent1.add_user!(user)
-    superagent1.create_proxy_user!
+    collective1.add_user!(user)
+    collective1.create_proxy_user!
 
-    superagent2 = Superagent.create!(
+    collective2 = Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Studio 2",
       handle: "studio-2-#{SecureRandom.hex(4)}"
     )
-    superagent2.add_user!(user)
+    collective2.add_user!(user)
 
-    proxy = superagent1.proxy_user
-    assert proxy.proxy_superagent.present?
-    # Proxy of superagent1 should not have access to superagent2
-    assert_not superagent2.accessible_by?(proxy)
+    proxy = collective1.proxy_user
+    assert proxy.proxy_collective.present?
+    # Proxy of collective1 should not have access to collective2
+    assert_not collective2.accessible_by?(proxy)
   end
 
   test "accessible_by? returns false for non-member even with trustee grant" do
@@ -447,7 +447,7 @@ class SuperagentTest < ActiveSupport::TestCase
     tenant.add_user!(bob)
 
     # Alice creates one studio she's a member of
-    alices_studio = Superagent.create!(
+    alices_studio = Collective.create!(
       tenant: tenant,
       created_by: alice,
       name: "Alice's Studio",
@@ -456,7 +456,7 @@ class SuperagentTest < ActiveSupport::TestCase
     alices_studio.add_user!(alice)
 
     # Bob creates a studio that Alice is NOT a member of
-    bobs_studio = Superagent.create!(
+    bobs_studio = Collective.create!(
       tenant: tenant,
       created_by: bob,
       name: "Bob's Studio",

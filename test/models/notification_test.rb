@@ -2,12 +2,12 @@ require "test_helper"
 
 class NotificationTest < ActiveSupport::TestCase
   test "Notification.create works" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
       actor: user,
     )
@@ -28,12 +28,12 @@ class NotificationTest < ActiveSupport::TestCase
   end
 
   test "notification_type must be valid" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
     )
 
@@ -49,12 +49,12 @@ class NotificationTest < ActiveSupport::TestCase
   end
 
   test "notification can have recipients" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
     )
 
@@ -77,12 +77,12 @@ class NotificationTest < ActiveSupport::TestCase
   end
 
   test "notification_category returns notification_type" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
     )
 
@@ -97,12 +97,12 @@ class NotificationTest < ActiveSupport::TestCase
   end
 
   test "scopes work correctly" do
-    tenant, superagent, user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: tenant.subdomain, handle: superagent.handle)
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       event_type: "note.created",
     )
 

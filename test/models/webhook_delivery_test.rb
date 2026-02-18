@@ -2,12 +2,12 @@ require "test_helper"
 
 class WebhookDeliveryTest < ActiveSupport::TestCase
   setup do
-    @tenant, @superagent, @user = create_tenant_superagent_user
-    Superagent.scope_thread_to_superagent(subdomain: @tenant.subdomain, handle: @superagent.handle)
+    @tenant, @collective, @user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     @automation_rule = AutomationRule.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       name: "Test Automation",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
@@ -17,7 +17,7 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
 
     @automation_run = AutomationRuleRun.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: @automation_rule,
       trigger_source: "event",
       status: "running",
@@ -25,7 +25,7 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
 
     @event = Event.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       event_type: "note.created",
       actor: @user,
     )

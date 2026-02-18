@@ -60,7 +60,7 @@ Sorbet/SignaturesEnforced:
 Priority order (by dependency count and usage):
 1. `app/models/user.rb`
 2. `app/models/tenant.rb`
-3. `app/models/superagent.rb`
+3. `app/models/collective.rb`
 4. `app/models/note.rb`
 5. `app/models/decision.rb`
 6. `app/models/commitment.rb`

@@ -3,7 +3,7 @@
 class ApiHelper
   extend T::Sig
 
-  attr_reader :current_user, :current_superagent, :current_tenant,
+  attr_reader :current_user, :current_collective, :current_tenant,
               :current_representation_session, :current_resource_model,
               :current_resource, :current_note, :current_decision,
               :current_commitment, :current_decision_participant,
@@ -13,7 +13,7 @@ class ApiHelper
   sig do
     params(
       current_user: User,
-      current_superagent: Superagent,
+      current_collective: Collective,
       current_tenant: Tenant,
       current_resource_model: T.nilable(T::Class[T.anything]),
       current_resource: T.untyped,
@@ -31,7 +31,7 @@ class ApiHelper
     ).void
   end
   def initialize(
-    current_user:, current_superagent:, current_tenant:,
+    current_user:, current_collective:, current_tenant:,
     current_resource_model: nil,  current_resource: nil, current_note: nil,
     current_decision: nil, current_commitment: nil,
     current_decision_participant: nil, current_commitment_participant: nil,
@@ -39,7 +39,7 @@ class ApiHelper
     current_representation_session: nil, current_cycle: nil, current_heartbeat: nil
   )
     @current_user = current_user
-    @current_superagent = current_superagent
+    @current_collective = current_collective
     @current_tenant = current_tenant
     @current_representation_session = current_representation_session
     @current_cycle = current_cycle
@@ -68,12 +68,12 @@ class ApiHelper
     end
   end
 
-  sig { returns(Superagent) }
+  sig { returns(Collective) }
   def create_studio
-    studio = T.let(nil, T.nilable(Superagent))
+    studio = T.let(nil, T.nilable(Collective))
     note = nil
     ActiveRecord::Base.transaction do
-      studio = Superagent.create!(
+      studio = Collective.create!(
         name: params[:name],
         handle: params[:handle],
         description: params[:description],
@@ -101,19 +101,19 @@ class ApiHelper
 
       # This is needed to ensure that all the models created in this transaction
       # are associated with the correct tenant and studio
-      Superagent.scope_thread_to_superagent(handle: studio.handle, subdomain: T.must(studio.tenant).subdomain)
+      Collective.scope_thread_to_collective(handle: studio.handle, subdomain: T.must(studio.tenant).subdomain)
       studio.add_user!(current_user, roles: ['admin', 'representative'])
     end
     T.must(studio)
   end
 
-  sig { returns(Superagent) }
+  sig { returns(Collective) }
   def create_scene
-    scene = T.let(nil, T.nilable(Superagent))
+    scene = T.let(nil, T.nilable(Collective))
     note = nil
     ActiveRecord::Base.transaction do
-      scene = Superagent.create!(
-        superagent_type: 'scene',
+      scene = Collective.create!(
+        collective_type: 'scene',
         name: params[:name],
         handle: params[:handle],
         description: params[:description],
@@ -125,7 +125,7 @@ class ApiHelper
       )
       # This is needed to ensure that all the models created in this transaction
       # are associated with the correct tenant and scene
-      Superagent.scope_thread_to_superagent(handle: scene.handle, subdomain: T.must(scene.tenant).subdomain)
+      Collective.scope_thread_to_collective(handle: scene.handle, subdomain: T.must(scene.tenant).subdomain)
       scene.add_user!(current_user, roles: ['admin', 'representative'])
     end
     T.must(scene)
@@ -137,7 +137,7 @@ class ApiHelper
     ActiveRecord::Base.transaction do
       association_params = {
         tenant: current_tenant,
-        superagent: current_superagent,
+        collective: current_collective,
         user: current_user
       }
       existing_heartbeat = Heartbeat.where(
@@ -278,7 +278,7 @@ class ApiHelper
     # note.deadline = Cycle.new_from_end_of_cycle_option(
     #   end_of_cycle: params[:end_of_cycle],
     #   tenant: current_tenant,
-    #   superagent: current_superagent,
+    #   collective: current_collective,
     # ).end_date
     if note.changed? || T.unsafe(note).files_changed?
       note.updated_by = current_user
@@ -375,7 +375,7 @@ class ApiHelper
 
     associations = {
       tenant: current_tenant,
-      superagent: current_superagent,
+      collective: current_collective,
       decision: current_decision,
       option: current_option,
       decision_participant: current_decision_participant,
@@ -415,7 +415,7 @@ class ApiHelper
 
         associations = {
           tenant: current_tenant,
-          superagent: current_superagent,
+          collective: current_collective,
           decision: current_decision,
           option: option,
           decision_participant: current_decision_participant,
@@ -549,62 +549,62 @@ class ApiHelper
     @current_option
   end
 
-  sig { params(invite: T.nilable(Invite)).returns(SuperagentMember) }
+  sig { params(invite: T.nilable(Invite)).returns(CollectiveMember) }
   def join_studio(invite: nil)
-    raise 'User is already a member of this studio' if current_user.superagents.include?(current_superagent)
+    raise 'User is already a member of this studio' if current_user.collectives.include?(current_collective)
 
-    superagent_member = T.let(nil, T.nilable(SuperagentMember))
+    collective_member = T.let(nil, T.nilable(CollectiveMember))
     ActiveRecord::Base.transaction do
       if invite
-        raise 'Invite does not match studio' unless invite.superagent == current_superagent
+        raise 'Invite does not match studio' unless invite.collective == current_collective
         current_user.accept_invite!(invite)
-        superagent_member = current_user.superagent_members.find_by(superagent: current_superagent)
-      elsif current_superagent.is_scene?
+        collective_member = current_user.collective_members.find_by(collective: current_collective)
+      elsif current_collective.is_scene?
         # Scenes allow direct join without invite
-        current_superagent.add_user!(current_user)
-        superagent_member = current_user.superagent_members.find_by(superagent: current_superagent)
+        current_collective.add_user!(current_user)
+        collective_member = current_user.collective_members.find_by(collective: current_collective)
       else
         raise 'Valid invite required to join this studio'
       end
 
     end
-    T.must(superagent_member)
+    T.must(collective_member)
   end
 
-  sig { returns(Superagent) }
+  sig { returns(Collective) }
   def update_studio_settings
-    raise 'Unauthorized: must be admin' unless current_user.superagent_member&.is_admin?
+    raise 'Unauthorized: must be admin' unless current_user.collective_member&.is_admin?
 
     ActiveRecord::Base.transaction do
-      current_superagent.name = params[:name] if params[:name].present?
-      current_superagent.description = params[:description] if params[:description].present?
-      current_superagent.timezone = params[:timezone] if params[:timezone].present?
-      current_superagent.tempo = params[:tempo] if params[:tempo].present?
-      current_superagent.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
+      current_collective.name = params[:name] if params[:name].present?
+      current_collective.description = params[:description] if params[:description].present?
+      current_collective.timezone = params[:timezone] if params[:timezone].present?
+      current_collective.tempo = params[:tempo] if params[:tempo].present?
+      current_collective.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
 
       # Handle settings stored in JSON column
       if params.has_key?(:invitations)
-        current_superagent.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+        current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
       end
       if params.has_key?(:representation)
-        current_superagent.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+        current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
       end
       if params.has_key?(:file_uploads)
         # Use unified feature flag system
         enabled = params[:file_uploads] == true || params[:file_uploads] == "true" || params[:file_uploads] == "1"
-        current_superagent.settings["feature_flags"] ||= {}
-        current_superagent.settings["feature_flags"]["file_attachments"] = enabled
+        current_collective.settings["feature_flags"] ||= {}
+        current_collective.settings["feature_flags"]["file_attachments"] = enabled
       end
       # api_enabled is intentionally not changeable via API:
       # - Can't enable if already disabled (no API access)
       # - Can't disable (would lock out the caller)
       # Use HTML UI to change this setting
 
-      current_superagent.updated_by = current_user
-      current_superagent.save!
+      current_collective.updated_by = current_user
+      current_collective.save!
 
     end
-    current_superagent
+    current_collective
   end
 
   sig { params(grant: TrusteeGrant).returns(RepresentationSession) }
@@ -614,7 +614,7 @@ class ApiHelper
 
     rep_session = RepresentationSession.create!(
       tenant: current_tenant,
-      superagent_id: nil,
+      collective_id: nil,
       representative_user: current_user,
       trustee_grant: grant,
       confirmed_understanding: true,
@@ -685,7 +685,7 @@ class ApiHelper
   # Pin a resource (Note, Decision, or Commitment)
   sig { params(resource: T.any(Note, Decision, Commitment)).returns(T.any(Note, Decision, Commitment)) }
   def pin_resource(resource)
-    resource.pin!(tenant: current_tenant, superagent: current_superagent, user: current_user)
+    resource.pin!(tenant: current_tenant, collective: current_collective, user: current_user)
     if current_representation_session
       action_name = "pin_#{T.must(resource.class.name).underscore}"
       current_representation_session.record_event!(
@@ -700,7 +700,7 @@ class ApiHelper
   # Unpin a resource (Note, Decision, or Commitment)
   sig { params(resource: T.any(Note, Decision, Commitment)).returns(T.any(Note, Decision, Commitment)) }
   def unpin_resource(resource)
-    resource.unpin!(tenant: current_tenant, superagent: current_superagent, user: current_user)
+    resource.unpin!(tenant: current_tenant, collective: current_collective, user: current_user)
     if current_representation_session
       action_name = "unpin_#{T.must(resource.class.name).underscore}"
       current_representation_session.record_event!(
@@ -780,14 +780,14 @@ class ApiHelper
   # Track resources created during an AiAgentTaskRun or AutomationRuleRun for traceability
   sig { params(resource: T.untyped, action_type: String).void }
   def track_task_run_resource(resource, action_type:)
-    return unless resource.respond_to?(:superagent_id) && resource.superagent_id.present?
+    return unless resource.respond_to?(:collective_id) && resource.collective_id.present?
 
     # Track for AI agent task runs
     if AiAgentTaskRun.current_id
       AiAgentTaskRunResource.create!(
         ai_agent_task_run_id: AiAgentTaskRun.current_id,
         resource: resource,
-        resource_superagent_id: resource.superagent_id,
+        resource_collective_id: resource.collective_id,
         action_type: action_type,
         display_path: compute_display_path(resource),
       )
@@ -798,7 +798,7 @@ class ApiHelper
       AutomationRuleRunResource.create!(
         automation_rule_run_id: AutomationContext.current_run_id,
         resource: resource,
-        resource_superagent_id: resource.superagent_id,
+        resource_collective_id: resource.collective_id,
         action_type: action_type,
         display_path: compute_display_path(resource),
       )
@@ -812,7 +812,7 @@ class ApiHelper
   # (avoids scoping issues when displaying later)
   sig { params(resource: T.untyped).returns(T.nilable(String)) }
   def compute_display_path(resource)
-    # Use unscoped queries to handle cross-superagent resources
+    # Use unscoped queries to handle cross-collective resources
     tenant_id = resource.tenant_id
     case resource
     when Note, Decision, Commitment

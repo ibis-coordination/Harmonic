@@ -4,12 +4,12 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
 
     # Make user a studio admin
-    member = @superagent.superagent_members.find_by(user: @user)
+    member = @collective.collective_members.find_by(user: @user)
     member.update!(settings: { "roles" => ["admin"] })
 
     @api_token = ApiToken.create!(
@@ -51,7 +51,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
   def create_studio_automation_rule(attrs = {})
     defaults = {
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       ai_agent_id: nil,
       created_by: @user,
       name: "Test Studio Rule",
@@ -66,7 +66,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
   # === Index Tests ===
 
   test "studio admin can view automations index" do
-    get "/studios/#{@superagent.handle}/settings/automations", headers: @headers
+    get "/studios/#{@collective.handle}/settings/automations", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "Automations"
@@ -75,7 +75,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "automations are listed in index" do
     rule = create_studio_automation_rule(name: "Listed Studio Rule")
 
-    get "/studios/#{@superagent.handle}/settings/automations", headers: @headers
+    get "/studios/#{@collective.handle}/settings/automations", headers: @headers
     assert_response :success
     assert_includes response.body, rule.truncated_id
     assert_includes response.body, "Listed Studio Rule"
@@ -98,7 +98,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
       actions: { "task" => "Test task" },
     )
 
-    get "/studios/#{@superagent.handle}/settings/automations", headers: @headers
+    get "/studios/#{@collective.handle}/settings/automations", headers: @headers
     assert_response :success
     assert_includes response.body, "Studio Rule"
     assert_not_includes response.body, "Agent Rule"
@@ -107,7 +107,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
   # === New Page Tests ===
 
   test "studio admin can view new automation page" do
-    get "/studios/#{@superagent.handle}/settings/automations/new", headers: @headers
+    get "/studios/#{@collective.handle}/settings/automations/new", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "New Automation"
@@ -117,7 +117,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
 
   test "studio admin can create automation" do
     assert_difference "AutomationRule.unscoped.count" do
-      post "/studios/#{@superagent.handle}/settings/automations/new/actions/create_automation_rule",
+      post "/studios/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
         params: { yaml_source: valid_yaml }.to_json,
         headers: @headers
     end
@@ -127,7 +127,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "created successfully"
 
     rule = AutomationRule.unscoped.order(created_at: :desc).first
-    assert_equal @superagent.id, rule.superagent_id
+    assert_equal @collective.id, rule.collective_id
     assert_nil rule.ai_agent_id
     assert_equal @user, rule.created_by
     assert_equal "Studio Automation Test", rule.name
@@ -138,7 +138,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
 
   test "create requires yaml_source" do
     assert_no_difference "AutomationRule.unscoped.count" do
-      post "/studios/#{@superagent.handle}/settings/automations/new/actions/create_automation_rule",
+      post "/studios/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
         params: {}.to_json,
         headers: @headers
     end
@@ -159,7 +159,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
     YAML
 
     assert_no_difference "AutomationRule.unscoped.count" do
-      post "/studios/#{@superagent.handle}/settings/automations/new/actions/create_automation_rule",
+      post "/studios/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
         params: { yaml_source: invalid_yaml }.to_json,
         headers: @headers
     end
@@ -177,7 +177,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
       description: "Test description",
     )
 
-    get "/studios/#{@superagent.handle}/settings/automations/#{rule.truncated_id}", headers: @headers
+    get "/studios/#{@collective.handle}/settings/automations/#{rule.truncated_id}", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "My Studio Automation"
@@ -189,7 +189,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "studio admin can view edit page" do
     rule = create_studio_automation_rule(name: "Editable Rule")
 
-    get "/studios/#{@superagent.handle}/settings/automations/#{rule.truncated_id}/edit", headers: @headers
+    get "/studios/#{@collective.handle}/settings/automations/#{rule.truncated_id}/edit", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "Edit"
@@ -215,7 +215,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
           method: POST
     YAML
 
-    post "/studios/#{@superagent.handle}/settings/automations/#{rule.truncated_id}/actions/update_automation_rule",
+    post "/studios/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/update_automation_rule",
       params: { yaml_source: updated_yaml }.to_json,
       headers: @headers
 
@@ -233,7 +233,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
     rule = create_studio_automation_rule(name: "To Delete")
 
     assert_difference "AutomationRule.unscoped.count", -1 do
-      post "/studios/#{@superagent.handle}/settings/automations/#{rule.truncated_id}/actions/delete_automation_rule",
+      post "/studios/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/delete_automation_rule",
         headers: @headers
     end
 
@@ -246,7 +246,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "studio admin can toggle automation enabled state" do
     rule = create_studio_automation_rule(name: "Toggle Test", enabled: true)
 
-    post "/studios/#{@superagent.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
+    post "/studios/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
       headers: @headers
 
     assert_response :success
@@ -254,7 +254,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
     rule.reload
     assert_not rule.enabled?
 
-    post "/studios/#{@superagent.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
+    post "/studios/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
       headers: @headers
 
     assert_response :success
@@ -270,13 +270,13 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     AutomationRuleRun.unscoped.create!(
       tenant: @tenant,
-      superagent: @superagent,
+      collective: @collective,
       automation_rule: rule,
       trigger_source: "event",
       status: "completed",
     )
 
-    get "/studios/#{@superagent.handle}/settings/automations/#{rule.truncated_id}/runs", headers: @headers
+    get "/studios/#{@collective.handle}/settings/automations/#{rule.truncated_id}/runs", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "Run History"
@@ -287,20 +287,20 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
 
   test "non-admin cannot view automations" do
     # Remove admin role
-    member = @superagent.superagent_members.find_by(user: @user)
+    member = @collective.collective_members.find_by(user: @user)
     member.update!(settings: { "roles" => [] })
 
-    get "/studios/#{@superagent.handle}/settings/automations", headers: @headers
+    get "/studios/#{@collective.handle}/settings/automations", headers: @headers
     assert_response :forbidden
     assert_includes response.body, "admin"
   end
 
   test "non-admin cannot create automation" do
-    member = @superagent.superagent_members.find_by(user: @user)
+    member = @collective.collective_members.find_by(user: @user)
     member.update!(settings: { "roles" => [] })
 
     assert_no_difference "AutomationRule.unscoped.count" do
-      post "/studios/#{@superagent.handle}/settings/automations/new/actions/create_automation_rule",
+      post "/studios/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
         params: { yaml_source: valid_yaml }.to_json,
         headers: @headers
     end
@@ -311,11 +311,11 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "non-admin cannot delete automation" do
     rule = create_studio_automation_rule(name: "Protected Rule")
 
-    member = @superagent.superagent_members.find_by(user: @user)
+    member = @collective.collective_members.find_by(user: @user)
     member.update!(settings: { "roles" => [] })
 
     assert_no_difference "AutomationRule.unscoped.count" do
-      post "/studios/#{@superagent.handle}/settings/automations/#{rule.truncated_id}/actions/delete_automation_rule",
+      post "/studios/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/delete_automation_rule",
         headers: @headers
     end
 
@@ -340,7 +340,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
     YAML
 
     assert_difference "AutomationRule.unscoped.count" do
-      post "/studios/#{@superagent.handle}/settings/automations/new/actions/create_automation_rule",
+      post "/studios/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
         params: { yaml_source: webhook_yaml }.to_json,
         headers: @headers
     end
@@ -372,7 +372,7 @@ class StudioAutomationsControllerTest < ActionDispatch::IntegrationTest
     YAML
 
     assert_difference "AutomationRule.unscoped.count" do
-      post "/studios/#{@superagent.handle}/settings/automations/new/actions/create_automation_rule",
+      post "/studios/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
         params: { yaml_source: schedule_yaml }.to_json,
         headers: @headers
     end

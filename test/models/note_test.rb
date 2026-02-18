@@ -1,16 +1,16 @@
 require "test_helper"
 
 class NoteTest < ActiveSupport::TestCase
-  # Note: create_tenant, create_user, create_superagent helpers are inherited from test_helper.rb
+  # Note: create_tenant, create_user, create_collective helpers are inherited from test_helper.rb
 
   test "Note.create works" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Note",
@@ -21,7 +21,7 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal "Test Note", note.title
     assert_equal "This is a test note.", note.text
     assert_equal tenant, note.tenant
-    assert_equal superagent, note.superagent
+    assert_equal collective, note.collective
     assert_equal user, note.created_by
     assert_equal user, note.updated_by
   end
@@ -29,11 +29,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Note creates a history event on creation" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Note",
@@ -44,7 +44,7 @@ class NoteTest < ActiveSupport::TestCase
     assert history_event.present?
     assert_equal "create", history_event.event_type
     assert_equal note, history_event.note
-    assert_equal superagent, history_event.superagent
+    assert_equal collective, history_event.collective
     assert_equal user, history_event.user
     assert_equal note.created_at, history_event.happened_at
   end
@@ -52,11 +52,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Note creates a history event on update" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Note",
@@ -69,7 +69,7 @@ class NoteTest < ActiveSupport::TestCase
     assert history_event.present?
     assert_equal "update", history_event.event_type
     assert_equal note, history_event.note
-    assert_equal superagent, history_event.superagent
+    assert_equal collective, history_event.collective
     assert_equal user, history_event.user
     assert_equal note.updated_at, history_event.happened_at
   end
@@ -77,11 +77,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Note.confirm_read! creates a read confirmation event" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Note",
@@ -92,18 +92,18 @@ class NoteTest < ActiveSupport::TestCase
     assert confirmation_event.present?
     assert_equal "read_confirmation", confirmation_event.event_type
     assert_equal note, confirmation_event.note
-    assert_equal superagent, confirmation_event.superagent
+    assert_equal collective, confirmation_event.collective
     assert_equal user, confirmation_event.user
   end
 
   test "Note.user_has_read? returns true if user has read the note" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Note",
@@ -117,11 +117,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Note.user_has_read? returns false if user has not read the note" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Note",
@@ -134,11 +134,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Note.api_json includes expected fields" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user)
+    collective = create_collective(tenant: tenant, created_by: user)
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Note",
@@ -160,11 +160,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Note with deadline in the future is open" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "deadline-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "deadline-studio-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Future Deadline Note",
@@ -178,11 +178,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Note with deadline in the past is closed" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "past-deadline-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "past-deadline-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Past Deadline Note",
@@ -198,38 +198,38 @@ class NoteTest < ActiveSupport::TestCase
   test "Note can be pinned" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "pin-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "pin-studio-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Pinnable Note",
       text: "This note can be pinned."
     )
 
-    note.pin!(tenant: tenant, superagent: superagent, user: user)
-    assert note.is_pinned?(tenant: tenant, superagent: superagent, user: user)
+    note.pin!(tenant: tenant, collective: collective, user: user)
+    assert note.is_pinned?(tenant: tenant, collective: collective, user: user)
   end
 
   test "Note can be unpinned" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "unpin-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "unpin-studio-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Unpinnable Note",
       text: "This note can be unpinned."
     )
 
-    note.pin!(tenant: tenant, superagent: superagent, user: user)
-    note.unpin!(tenant: tenant, superagent: superagent, user: user)
-    assert_not note.is_pinned?(tenant: tenant, superagent: superagent, user: user)
+    note.pin!(tenant: tenant, collective: collective, user: user)
+    note.unpin!(tenant: tenant, collective: collective, user: user)
+    assert_not note.is_pinned?(tenant: tenant, collective: collective, user: user)
   end
 
   # === Link Tests ===
@@ -237,11 +237,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Note can have backlinks" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "link-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "link-studio-#{SecureRandom.hex(4)}")
 
     note1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note 1",
@@ -250,7 +250,7 @@ class NoteTest < ActiveSupport::TestCase
 
     note2 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note 2",
@@ -259,7 +259,7 @@ class NoteTest < ActiveSupport::TestCase
 
     Link.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       from_linkable: note1,
       to_linkable: note2
     )
@@ -274,11 +274,11 @@ class NoteTest < ActiveSupport::TestCase
   test "Multiple updates create multiple history events" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "history-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "history-studio-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "History Note",
@@ -298,11 +298,11 @@ class NoteTest < ActiveSupport::TestCase
   test "all_descendants returns empty array for note with no replies" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-empty-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "descendants-empty-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note without replies",
@@ -315,11 +315,11 @@ class NoteTest < ActiveSupport::TestCase
   test "all_descendants returns direct replies" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-direct-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "descendants-direct-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Parent Note",
@@ -328,7 +328,7 @@ class NoteTest < ActiveSupport::TestCase
 
     reply1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "First reply",
@@ -337,7 +337,7 @@ class NoteTest < ActiveSupport::TestCase
 
     reply2 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Second reply",
@@ -353,11 +353,11 @@ class NoteTest < ActiveSupport::TestCase
   test "all_descendants returns deeply nested replies" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-deep-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "descendants-deep-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Root Note",
@@ -367,7 +367,7 @@ class NoteTest < ActiveSupport::TestCase
     # Level 1: direct reply
     level1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Level 1 reply",
@@ -377,7 +377,7 @@ class NoteTest < ActiveSupport::TestCase
     # Level 2: reply to level1
     level2 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Level 2 reply",
@@ -387,7 +387,7 @@ class NoteTest < ActiveSupport::TestCase
     # Level 3: reply to level2
     level3 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Level 3 reply",
@@ -397,7 +397,7 @@ class NoteTest < ActiveSupport::TestCase
     # Level 4: reply to level3
     level4 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Level 4 reply",
@@ -415,11 +415,11 @@ class NoteTest < ActiveSupport::TestCase
   test "all_descendants returns replies in chronological order" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-chrono-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "descendants-chrono-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Parent Note",
@@ -429,7 +429,7 @@ class NoteTest < ActiveSupport::TestCase
     # Create replies with explicit timestamps to ensure order
     reply1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "First reply (oldest)",
@@ -439,7 +439,7 @@ class NoteTest < ActiveSupport::TestCase
 
     reply2 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Second reply (middle)",
@@ -449,7 +449,7 @@ class NoteTest < ActiveSupport::TestCase
 
     reply3 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Third reply (newest)",
@@ -464,11 +464,11 @@ class NoteTest < ActiveSupport::TestCase
   test "all_descendants does not return unrelated notes" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "descendants-unrelated-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "descendants-unrelated-#{SecureRandom.hex(4)}")
 
     note1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note 1",
@@ -477,7 +477,7 @@ class NoteTest < ActiveSupport::TestCase
 
     note2 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note 2",
@@ -487,7 +487,7 @@ class NoteTest < ActiveSupport::TestCase
     # Reply to note1
     reply_to_note1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Reply to note 1",
@@ -497,7 +497,7 @@ class NoteTest < ActiveSupport::TestCase
     # Reply to note2
     reply_to_note2 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Reply to note 2",
@@ -516,12 +516,12 @@ class NoteTest < ActiveSupport::TestCase
     tenant2 = create_tenant(subdomain: "tenant2-#{SecureRandom.hex(4)}")
     user = create_user
 
-    superagent1 = create_superagent(tenant: tenant1, created_by: user, handle: "studio1-#{SecureRandom.hex(4)}")
-    superagent2 = create_superagent(tenant: tenant2, created_by: user, handle: "studio2-#{SecureRandom.hex(4)}")
+    collective1 = create_collective(tenant: tenant1, created_by: user, handle: "studio1-#{SecureRandom.hex(4)}")
+    collective2 = create_collective(tenant: tenant2, created_by: user, handle: "studio2-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant1,
-      superagent: superagent1,
+      collective: collective1,
       created_by: user,
       updated_by: user,
       title: "Note in tenant 1",
@@ -531,7 +531,7 @@ class NoteTest < ActiveSupport::TestCase
     # Reply in tenant1 (should be included)
     reply_tenant1 = Note.create!(
       tenant: tenant1,
-      superagent: superagent1,
+      collective: collective1,
       created_by: user,
       updated_by: user,
       text: "Reply in tenant 1",
@@ -542,7 +542,7 @@ class NoteTest < ActiveSupport::TestCase
     # This should NOT be returned because it's in a different tenant
     Note.create!(
       tenant: tenant2,
-      superagent: superagent2,
+      collective: collective2,
       created_by: user,
       updated_by: user,
       text: "Note in tenant 2",
@@ -560,12 +560,12 @@ class NoteTest < ActiveSupport::TestCase
   test "comments_with_threads returns empty hash for resource with no comments" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "threads-empty-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "threads-empty-#{SecureRandom.hex(4)}")
 
     # Create a standalone note (not a comment)
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note with no comments",
@@ -580,12 +580,12 @@ class NoteTest < ActiveSupport::TestCase
   test "comments_with_threads returns top-level comments with empty threads" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "threads-top-only-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "threads-top-only-#{SecureRandom.hex(4)}")
 
     # Create a standalone note
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note with comments",
@@ -595,7 +595,7 @@ class NoteTest < ActiveSupport::TestCase
     # Create top-level comments (no replies)
     comment1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "First comment",
@@ -604,7 +604,7 @@ class NoteTest < ActiveSupport::TestCase
 
     comment2 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Second comment",
@@ -622,12 +622,12 @@ class NoteTest < ActiveSupport::TestCase
   test "comments_with_threads returns threads with nested replies" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "threads-nested-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "threads-nested-#{SecureRandom.hex(4)}")
 
     # Create a standalone note
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note with threaded comments",
@@ -637,7 +637,7 @@ class NoteTest < ActiveSupport::TestCase
     # Create a top-level comment
     top_level = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Top level comment",
@@ -647,7 +647,7 @@ class NoteTest < ActiveSupport::TestCase
     # Create a reply to the top-level comment
     reply1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Reply to top level",
@@ -657,7 +657,7 @@ class NoteTest < ActiveSupport::TestCase
     # Create a nested reply (reply to the reply)
     nested_reply = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Nested reply",
@@ -678,11 +678,11 @@ class NoteTest < ActiveSupport::TestCase
   test "comments_with_threads returns comments in chronological order" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "threads-chrono-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "threads-chrono-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Note with chronological comments",
@@ -692,7 +692,7 @@ class NoteTest < ActiveSupport::TestCase
     # Create comments with explicit timestamps
     comment1 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "First comment (oldest)",
@@ -702,7 +702,7 @@ class NoteTest < ActiveSupport::TestCase
 
     comment2 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Second comment (middle)",
@@ -712,7 +712,7 @@ class NoteTest < ActiveSupport::TestCase
 
     comment3 = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       text: "Third comment (newest)",
@@ -729,11 +729,11 @@ class NoteTest < ActiveSupport::TestCase
   test "preload_for_display loads created_by association" do
     tenant = create_tenant
     user = create_user
-    superagent = create_superagent(tenant: tenant, created_by: user, handle: "preload-test-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "preload-test-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user,
       updated_by: user,
       title: "Test Note",
@@ -756,11 +756,11 @@ class NoteTest < ActiveSupport::TestCase
     tenant = create_tenant
     user1 = create_user
     user2 = create_user(name: "Second User")
-    superagent = create_superagent(tenant: tenant, created_by: user1, handle: "memo-test-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user1, handle: "memo-test-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
-      superagent: superagent,
+      collective: collective,
       created_by: user1,
       updated_by: user1,
       title: "Test Note",

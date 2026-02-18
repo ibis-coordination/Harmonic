@@ -4,8 +4,8 @@ class ApiTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @superagent = @global_superagent
-    @superagent.enable_api!
+    @collective = @global_collective
+    @collective.enable_api!
     @user = @global_user
     @api_token = ApiToken.create!(
       tenant: @tenant,
@@ -21,7 +21,7 @@ class ApiTest < ActionDispatch::IntegrationTest
   end
 
   def v1_api_base_path
-    "#{@superagent.path}/api/v1"
+    "#{@collective.path}/api/v1"
   end
 
   def v1_api_endpoint
@@ -96,27 +96,27 @@ class ApiTest < ActionDispatch::IntegrationTest
 
   test "denies access when API is disabled at studio level" do
     # Create a non-main studio since main studios always have API enabled
-    non_main_superagent = Superagent.create!(
+    non_main_collective = Collective.create!(
       name: "Test Studio",
       handle: "test-studio-#{SecureRandom.hex(4)}",
       tenant: @tenant,
-      superagent_type: "studio",
+      collective_type: "studio",
       created_by: @user,
       updated_by: @user
     )
-    non_main_superagent.enable_api!
+    non_main_collective.enable_api!
 
     # Use the non-main studio's API endpoint
-    non_main_api_endpoint = "#{non_main_superagent.path}/api/v1/cycles"
+    non_main_api_endpoint = "#{non_main_collective.path}/api/v1/cycles"
 
     # Verify it works when enabled
     get non_main_api_endpoint, headers: @headers
     assert_response :success
 
     # Now disable and verify it fails
-    non_main_superagent.settings['api_enabled'] = false
-    non_main_superagent.settings['feature_flags'] = { 'api' => false }
-    non_main_superagent.save!
+    non_main_collective.settings['api_enabled'] = false
+    non_main_collective.settings['feature_flags'] = { 'api' => false }
+    non_main_collective.save!
 
     get non_main_api_endpoint, headers: @headers
     assert_response :forbidden
@@ -137,18 +137,18 @@ class ApiTest < ActionDispatch::IntegrationTest
 
   test "internal token bypasses studio-level API check" do
     # Create a non-main studio with API disabled
-    non_main_superagent = Superagent.create!(
+    non_main_collective = Collective.create!(
       name: "Internal Test Studio",
       handle: "internal-test-#{SecureRandom.hex(4)}",
       tenant: @tenant,
-      superagent_type: "studio",
+      collective_type: "studio",
       created_by: @user,
       updated_by: @user
     )
     # Ensure API is disabled
-    non_main_superagent.settings['api_enabled'] = false
-    non_main_superagent.settings['feature_flags'] = { 'api' => false }
-    non_main_superagent.save!
+    non_main_collective.settings['api_enabled'] = false
+    non_main_collective.settings['feature_flags'] = { 'api' => false }
+    non_main_collective.save!
 
     # Create internal token
     internal_token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
@@ -158,7 +158,7 @@ class ApiTest < ActionDispatch::IntegrationTest
     }
 
     # Internal token should bypass the studio API check
-    non_main_api_endpoint = "#{non_main_superagent.path}/api/v1/cycles"
+    non_main_api_endpoint = "#{non_main_collective.path}/api/v1/cycles"
     get non_main_api_endpoint, headers: internal_headers
     assert_response :success
   end

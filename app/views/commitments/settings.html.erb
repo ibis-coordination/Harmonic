@@ -1,5 +1,5 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   ['Commitment', @commitment.path],
   'Settings'
 ] %>
@@ -24,7 +24,7 @@
 
       <section class="pulse-settings-section">
         <label for="description" class="pulse-label">Description</label>
-        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_collective.path %>">
           <%= form.text_area :description, placeholder: 'Description (markdown supported, use @ to mention users)', value: @commitment.description, class: "pulse-form-input", data: { mention_autocomplete_target: "input" } %>
           <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
         </div>

@@ -26,7 +26,7 @@ This document describes the technical architecture of Harmonic. For design philo
 │  └── LinkParser, MarkdownRenderer, etc.                             │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Models (ActiveRecord)                                               │
-│  └── Scoped by Tenant + Superagent via Thread.current               │
+│  └── Scoped by Tenant + Collective via Thread.current               │
 └────────┬────────────────────────────────────────────────────────────┘
          │
          ▼
@@ -42,10 +42,10 @@ Harmonic uses **subdomain-based multi-tenancy**. Each tenant is an independent c
 ### How It Works
 
 1. **Request arrives** with subdomain (e.g., `acme.harmonic.example.com`)
-2. **`ApplicationController#current_tenant`** calls `Superagent.scope_thread_to_superagent`
+2. **`ApplicationController#current_tenant`** calls `Collective.scope_thread_to_collective`
 3. **Thread-local variables** are set:
    - `Thread.current[:tenant_id]`
-   - `Thread.current[:superagent_id]`
+   - `Thread.current[:collective_id]`
 4. **`ApplicationRecord` default_scope** filters all queries:
    ```ruby
    default_scope do
@@ -54,20 +54,20 @@ Harmonic uses **subdomain-based multi-tenancy**. Each tenant is an independent c
      end
    end
    ```
-5. **New records** automatically get `tenant_id` and `superagent_id` via `before_validation`
+5. **New records** automatically get `tenant_id` and `collective_id` via `before_validation`
 
 ### Key Classes
 
 | Class | Responsibility |
 |-------|---------------|
 | `Tenant` | Community/instance. Has subdomain, settings, users |
-| `Superagent` | Group within tenant. Can be "studio" (private) or "scene" (public) |
+| `Collective` | Group within tenant. Can be "studio" (private) or "scene" (public) |
 | `TenantUser` | User membership in a tenant |
-| `SuperagentMember` | User membership in a superagent (with roles) |
+| `CollectiveMember` | User membership in a collective (with roles) |
 
 ### Thread Safety
 
-Tenant/superagent context is stored in `Thread.current`. This works because:
+Tenant/collective context is stored in `Thread.current`. This works because:
 - Each Rails request runs in its own thread
 - Context is set at the start of each request in `ApplicationController`
 - Context is cleared after request completes
@@ -77,7 +77,7 @@ Tenant/superagent context is stored in `Thread.current`. This works because:
 Direct `.unscoped` calls are **banned** to prevent accidental cross-tenant data leaks. Instead, use these safe wrapper methods defined in `ApplicationRecord`:
 
 ```ruby
-# Cross-superagent access within the same tenant
+# Cross-collective access within the same tenant
 Model.tenant_scoped_only(tenant_id)
 # Runtime check: raises if tenant_id is nil (defaults to Tenant.current_id)
 
@@ -188,12 +188,12 @@ Link
 
 | Entity | Purpose |
 |--------|---------|
-| `User` | User account (types: human, ai_agent, superagent_proxy) |
-| `Heartbeat` | Periodic presence signal for superagent access |
-| `RepresentationSession` | When user acts on behalf of a superagent |
+| `User` | User account (types: human, ai_agent, collective_proxy) |
+| `Heartbeat` | Periodic presence signal for collective access |
+| `RepresentationSession` | When user acts on behalf of a collective |
 | `ApiToken` | Token for API authentication |
 | `Attachment` | File attached to notes/decisions/commitments |
-| `Invite` | Invitation to join a superagent |
+| `Invite` | Invitation to join a collective |
 
 ### Model Concerns
 
@@ -203,12 +203,12 @@ Shared behaviors extracted into concerns:
 |---------|---------|---------|
 | `HasTruncatedId` | Short 8-char IDs for URLs | Note, Decision, Commitment |
 | `Linkable` | Bidirectional linking | Note, Decision, Commitment |
-| `Pinnable` | Can be pinned to superagent | Note, Decision, Commitment |
+| `Pinnable` | Can be pinned to collective | Note, Decision, Commitment |
 | `Attachable` | File attachments | Note, Decision, Commitment |
 | `Commentable` | Comments (which are Notes) | Note, Decision, Commitment |
 | `Tracked` | Webhook tracking (stubbed) | Note, Decision, Commitment |
-| `HasImage` | Profile/superagent images | User, Superagent |
-| `CanPin` | Can pin other items | Superagent |
+| `HasImage` | Profile/collective images | User, Collective |
+| `CanPin` | Can pin other items | Collective |
 
 ## Authentication
 
@@ -296,7 +296,7 @@ Renders the markdown UI without requiring a controller/HTTP request context.
 Enables AI agents to navigate the app internally from chat sessions.
 
 ```ruby
-service = MarkdownUiService.new(tenant: tenant, superagent: superagent, user: user)
+service = MarkdownUiService.new(tenant: tenant, collective: collective, user: user)
 result = service.navigate("/studios/team")
 result = service.execute_action("create_note", { text: "Hello" })
 ```
@@ -461,7 +461,7 @@ Rules can be scoped to different levels:
 | Scope | Field Set | Use Case |
 |-------|-----------|----------|
 | Agent | `ai_agent_id` | AI agent behaviors (respond to @mentions) |
-| Studio | `superagent_id` | Studio-wide workflows |
+| Studio | `collective_id` | Studio-wide workflows |
 | User | `user_id` | Personal automations (future) |
 
 ### Integration Points
@@ -555,7 +555,7 @@ Content routes use prefixes:
 
 API routes:
 - `/api/v1/` - Top-level API
-- `/studios/:superagent_handle/api/v1/` - Superagent-scoped API
+- `/studios/:collective_handle/api/v1/` - Collective-scoped API
 
 ## Environment Variables
 

@@ -17,9 +17,9 @@ No notifications.
 <% else -%>
 ## Recent Notifications
 
-<% @notifications_by_superagent.each do |superagent, recipients| -%>
-<% studio_id = superagent&.id || 'reminders' -%>
-<% studio_name = superagent&.name || 'Other' -%>
+<% @notifications_by_collective.each do |collective, recipients| -%>
+<% studio_id = collective&.id || 'reminders' -%>
+<% studio_name = collective&.name || 'Other' -%>
 ### <%= studio_name %> (<%= recipients.size %>) - [dismiss_for_studio](/notifications/actions/dismiss_for_studio?studio_id=<%= studio_id %>)
 
 | Title | Time | Actions |

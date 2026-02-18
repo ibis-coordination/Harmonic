@@ -1,6 +1,6 @@
 # typed: true
 
-class Superagent < ApplicationRecord
+class Collective < ApplicationRecord
   extend T::Sig
 
   include CanPin
@@ -15,7 +15,7 @@ class Superagent < ApplicationRecord
   before_create :set_defaults
   tables = ActiveRecord::Base.connection.tables - [
     "tenants", "users", "tenant_users",
-    "superagents", "api_tokens", "oauth_identities",
+    "collectives", "api_tokens", "oauth_identities",
     # Rails internal tables
     "ar_internal_metadata", "schema_migrations",
     "active_storage_attachments", "active_storage_blobs",
@@ -24,10 +24,10 @@ class Superagent < ApplicationRecord
   tables.each do |table|
     has_many table.to_sym
   end
-  has_many :users, through: :superagent_members
-  validates :superagent_type, inclusion: { in: ["studio", "scene"] }
+  has_many :users, through: :collective_members
+  validates :collective_type, inclusion: { in: ["studio", "scene"] }
   validate :handle_is_valid
-  validate :creator_is_not_superagent_proxy, on: :create
+  validate :creator_is_not_collective_proxy, on: :create
 
   # NOTE: This is commented out because there is a bug where
   # the corresponding note history event is not created
@@ -35,61 +35,61 @@ class Superagent < ApplicationRecord
   # So we rely on the controller to create the welcome note.
   # after_create :create_welcome_note!
 
-  sig { params(subdomain: String, handle: T.nilable(String)).returns(Superagent) }
-  def self.scope_thread_to_superagent(subdomain:, handle:)
+  sig { params(subdomain: String, handle: T.nilable(String)).returns(Collective) }
+  def self.scope_thread_to_collective(subdomain:, handle:)
     # In single-tenant mode, treat empty/blank subdomain as PRIMARY_SUBDOMAIN
     subdomain = Tenant.single_tenant_subdomain.to_s if Tenant.single_tenant_mode? && subdomain.blank?
 
     tenant = Tenant.scope_thread_to_tenant(subdomain: subdomain)
-    superagent = handle ? tenant.superagents.find_by!(handle: handle) : tenant.main_superagent
-    if superagent.nil? && subdomain == ENV["AUTH_SUBDOMAIN"]
+    collective = handle ? tenant.collectives.find_by!(handle: handle) : tenant.main_collective
+    if collective.nil? && subdomain == ENV["AUTH_SUBDOMAIN"]
       # This is a special case for the auth subdomain.
-      # We only need a temporary superagent object to set the thread scope.
+      # We only need a temporary collective object to set the thread scope.
       # It will not be persisted to the database.
-      superagent = Superagent.new(
+      collective = Collective.new(
         id: SecureRandom.uuid,
         name: "Harmonic",
         handle: SecureRandom.hex(16),
         tenant: tenant
       )
-      tenant.main_superagent = superagent
-    elsif superagent.nil? && tenant.main_superagent.nil?
-      raise ActiveRecord::RecordNotFound, "Tenant with subdomain '#{subdomain}' is missing a main superagent"
-    elsif superagent.nil?
-      raise ActiveRecord::RecordNotFound, "Superagent with handle '#{handle}' not found"
+      tenant.main_collective = collective
+    elsif collective.nil? && tenant.main_collective.nil?
+      raise ActiveRecord::RecordNotFound, "Tenant with subdomain '#{subdomain}' is missing a main collective"
+    elsif collective.nil?
+      raise ActiveRecord::RecordNotFound, "Collective with handle '#{handle}' not found"
     end
-    Thread.current[:superagent_id] = superagent.id
-    Thread.current[:superagent_handle] = superagent.handle
-    superagent
+    Thread.current[:collective_id] = collective.id
+    Thread.current[:collective_handle] = collective.handle
+    collective
   end
 
   sig { void }
   def self.clear_thread_scope
-    Thread.current[:superagent_id] = nil
-    Thread.current[:superagent_handle] = nil
+    Thread.current[:collective_id] = nil
+    Thread.current[:collective_handle] = nil
   end
 
-  # Set thread-local superagent context from a Superagent instance.
-  # Use this in jobs and other contexts where you have a Superagent record.
-  sig { params(superagent: Superagent).void }
-  def self.set_thread_context(superagent)
-    Thread.current[:superagent_id] = superagent.id
-    Thread.current[:superagent_handle] = superagent.handle
+  # Set thread-local collective context from a Collective instance.
+  # Use this in jobs and other contexts where you have a Collective record.
+  sig { params(collective: Collective).void }
+  def self.set_thread_context(collective)
+    Thread.current[:collective_id] = collective.id
+    Thread.current[:collective_handle] = collective.handle
   end
 
   sig { returns(T.nilable(String)) }
   def self.current_handle
-    Thread.current[:superagent_handle]
+    Thread.current[:collective_handle]
   end
 
   sig { returns(T.nilable(String)) }
   def self.current_id
-    Thread.current[:superagent_id]
+    Thread.current[:collective_id]
   end
 
   sig { params(handle: String).returns(T::Boolean) }
   def self.handle_available?(handle)
-    Superagent.where(handle: handle).count == 0
+    Collective.where(handle: handle).count == 0
   end
 
   sig { void }
@@ -117,13 +117,13 @@ class Superagent < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def is_main_superagent?
-    T.must(tenant).main_superagent_id == id
+  def is_main_collective?
+    T.must(tenant).main_collective_id == id
   end
 
   sig { returns(T::Boolean) }
   def is_scene?
-    superagent_type == "scene"
+    collective_type == "scene"
   end
 
   sig { params(value: T::Boolean).void }
@@ -147,8 +147,8 @@ class Superagent < ApplicationRecord
   end
 
   sig { void }
-  def creator_is_not_superagent_proxy
-    errors.add(:created_by, "cannot be a superagent proxy") if created_by&.superagent_proxy?
+  def creator_is_not_collective_proxy
+    errors.add(:created_by, "cannot be a collective proxy") if created_by&.collective_proxy?
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
@@ -165,15 +165,15 @@ class Superagent < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def api_enabled?
-    # Main superagent always has API enabled
-    return true if is_main_superagent?
+    # Main collective always has API enabled
+    return true if is_main_collective?
 
-    FeatureFlagService.superagent_enabled?(self, "api")
+    FeatureFlagService.collective_enabled?(self, "api")
   end
 
   sig { returns(T::Boolean) }
   def trio_enabled?
-    FeatureFlagService.superagent_enabled?(self, "trio")
+    FeatureFlagService.collective_enabled?(self, "trio")
   end
 
   sig { void }
@@ -181,10 +181,10 @@ class Superagent < ApplicationRecord
     enable_feature_flag!("api")
   end
 
-  # Check if a feature is enabled at the superagent level (with cascade from tenant/app)
+  # Check if a feature is enabled at the collective level (with cascade from tenant/app)
   sig { params(flag_name: String).returns(T::Boolean) }
   def feature_enabled?(flag_name)
-    FeatureFlagService.superagent_enabled?(self, flag_name)
+    FeatureFlagService.collective_enabled?(self, flag_name)
   end
 
   sig { params(value: T.nilable(String)).void }
@@ -320,7 +320,7 @@ class Superagent < ApplicationRecord
 
   sig { returns(Integer) }
   def file_storage_usage
-    @byte_sum ||= Attachment.where(superagent: self).sum(:byte_size)
+    @byte_sum ||= Attachment.where(collective: self).sum(:byte_size)
   end
 
   sig { returns(String) }
@@ -342,7 +342,7 @@ class Superagent < ApplicationRecord
   def file_attachments_enabled?
     # Use unified feature flag system with legacy fallback
     if feature_flags_hash.key?("file_attachments")
-      FeatureFlagService.superagent_enabled?(self, "file_attachments")
+      FeatureFlagService.collective_enabled?(self, "file_attachments")
     else
       # Legacy: check old setting location
       FeatureFlagService.tenant_enabled?(T.must(tenant), "file_attachments") &&
@@ -367,7 +367,7 @@ class Superagent < ApplicationRecord
     proxy = User.create!(
       name: name,
       email: SecureRandom.uuid + "@not-a-real-email.com",
-      user_type: "superagent_proxy"
+      user_type: "collective_proxy"
     )
     TenantUser.create!(
       tenant: tenant,
@@ -416,12 +416,12 @@ class Superagent < ApplicationRecord
 
   sig { returns(String) }
   def path_prefix
-    "#{superagent_type}s"
+    "#{collective_type}s"
   end
 
   sig { returns(T.nilable(String)) }
   def path
-    if is_main_superagent?
+    if is_main_collective?
       nil
     else
       "/#{path_prefix}/#{handle}"
@@ -442,31 +442,31 @@ class Superagent < ApplicationRecord
     handle
   end
 
-  sig { params(user: User, roles: T::Array[String]).returns(SuperagentMember) }
+  sig { params(user: User, roles: T::Array[String]).returns(CollectiveMember) }
   def add_user!(user, roles: [])
-    existing_sm = superagent_members.find_by(user: user)
-    if existing_sm
-      existing_sm.unarchive! if existing_sm.archived?
-      existing_sm.add_roles!(roles)
-      return existing_sm
+    existing_cm = collective_members.find_by(user: user)
+    if existing_cm
+      existing_cm.unarchive! if existing_cm.archived?
+      existing_cm.add_roles!(roles)
+      return existing_cm
     end
-    sm = superagent_members.create!(
+    cm = collective_members.create!(
       tenant: tenant,
       user: user
     )
-    sm.add_roles!(roles)
-    sm
+    cm.add_roles!(roles)
+    cm
   end
 
   sig { params(user: User).returns(T::Boolean) }
   def user_is_member?(user)
-    superagent_members.where(user: user).count > 0
+    collective_members.where(user: user).count > 0
   end
 
-  # Check if a user can access this superagent.
+  # Check if a user can access this collective.
   # Access requires either:
   # - Direct membership, OR
-  # - Being the superagent's own proxy user
+  # - Being the collective's own proxy user
   #
   # TrusteeGrants do NOT give direct access - they only work during
   # active representation sessions (handled elsewhere in controller/session logic).
@@ -475,9 +475,9 @@ class Superagent < ApplicationRecord
     # Direct membership check
     return true if user_is_member?(user)
 
-    # Superagent proxy accessing their own superagent
-    if user.superagent_proxy? && user.proxy_superagent.present?
-      return user.proxy_superagent == self
+    # Collective proxy accessing their own collective
+    if user.collective_proxy? && user.proxy_collective.present?
+      return user.proxy_collective == self
     end
 
     false
@@ -485,19 +485,19 @@ class Superagent < ApplicationRecord
 
   sig { params(limit: Integer).returns(T::Array[User]) }
   def team(limit: 100)
-    superagent_members
+    collective_members
       .where(archived_at: nil)
       .includes(:user)
       .limit(limit)
-      .order(created_at: :desc).map do |sm|
-        sm.user.superagent_member = sm
-        sm.user
+      .order(created_at: :desc).map do |cm|
+        cm.user.collective_member = cm
+        cm.user
       end
   end
 
   sig { params(start_date: T.nilable(Time), end_date: T.nilable(Time), limit: Integer).returns(T.untyped) }
   def backlink_leaderboard(start_date: nil, end_date: nil, limit: 10)
-    Link.backlink_leaderboard(superagent_id: id)
+    Link.backlink_leaderboard(collective_id: id)
   end
 
   sig { returns(T.noreturn) }
@@ -508,12 +508,12 @@ class Superagent < ApplicationRecord
   sig { params(created_by: User).returns(Invite) }
   def find_or_create_shareable_invite(created_by)
     invite = Invite.where(
-      superagent: self,
+      collective: self,
       invited_user: nil
     ).where("expires_at > ?", 2.days.from_now).first
     if invite.nil?
       invite = Invite.create!(
-        superagent: self,
+        collective: self,
         created_by: created_by,
         code: SecureRandom.hex(16),
         expires_at: 1.week.from_now
@@ -531,12 +531,12 @@ class Superagent < ApplicationRecord
 
   sig { returns(T::Array[User]) }
   def representatives
-    T.unsafe(superagent_members).where_has_role("representative").map(&:user)
+    T.unsafe(collective_members).where_has_role("representative").map(&:user)
   end
 
   sig { returns(T::Array[User]) }
   def admins
-    T.unsafe(superagent_members).where_has_role("admin").map(&:user)
+    T.unsafe(collective_members).where_has_role("admin").map(&:user)
   end
 
   sig { returns(T::Boolean) }
@@ -551,9 +551,6 @@ class Superagent < ApplicationRecord
 
   sig { returns(Cycle) }
   def current_cycle
-    Cycle.new_from_superagent(self)
+    Cycle.new_from_collective(self)
   end
 end
-
-# Constant alias for backwards compatibility (used in old migrations)
-Studio = Superagent

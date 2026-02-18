@@ -1,5 +1,5 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_superagent.name, @current_superagent.path],
+  [@current_collective.name, @current_collective.path],
   'New'
 ] %>
 
@@ -7,7 +7,7 @@
 
 <article class="pulse-resource-detail">
 
-  <%= form_with(url: "#{@current_superagent.path}/decide", class: "pulse-form") do |form| %>
+  <%= form_with(url: "#{@current_collective.path}/decide", class: "pulse-form") do |form| %>
     <div class="pulse-form-group">
       <label class="pulse-form-label">Question</label>
       <%= form.text_field :question,
@@ -19,7 +19,7 @@
 
     <div class="pulse-form-group">
       <label class="pulse-form-label">Description <span class="pulse-form-label-optional">(optional)</span></label>
-      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_superagent.path %>">
+      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_collective.path %>">
         <%= form.text_area :description,
             placeholder: "Add context or background for this decision... (use @ to mention users)",
             value: @decision.description,
@@ -52,7 +52,7 @@
     <div class="pulse-form-actions">
       <%= form.submit 'Start Decision', class: 'pulse-action-btn' %>
       <span class="pulse-visibility-hint">
-        <% if @current_superagent.is_scene? %>
+        <% if @current_collective.is_scene? %>
           <%= octicon 'eye', height: 14 %>
           Decisions posted in scenes are publicly visible.
         <% else %>

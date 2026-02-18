@@ -40,7 +40,7 @@ module AttachmentActions
         # Direct file upload
         attachment = Attachment.create!(
           tenant_id: resource.tenant_id,
-          superagent_id: resource.superagent_id,
+          collective_id: resource.collective_id,
           attachable: resource,
           file: file_param,
           created_by: @current_user,
@@ -79,7 +79,7 @@ module AttachmentActions
 
         attachment = Attachment.create!(
           tenant_id: resource.tenant_id,
-          superagent_id: resource.superagent_id,
+          collective_id: resource.collective_id,
           attachable: resource,
           file: blob,
           created_by: @current_user,
@@ -176,8 +176,8 @@ module AttachmentActions
     end
   end
 
-  # Check if file uploads are enabled for both tenant and superagent
+  # Check if file uploads are enabled for both tenant and collective
   def file_uploads_allowed?
-    @current_tenant&.allow_file_uploads? && @current_superagent&.allow_file_uploads?
+    @current_tenant&.allow_file_uploads? && @current_collective&.allow_file_uploads?
   end
 end

@@ -1,12 +1,12 @@
 <div class="top-right-display" data-controller="notification-badge" data-notification-badge-poll-interval-value="30000">
 <% if @current_user %>
-  <%# Only auto-populate search filter for non-main superagents (studios/scenes) %>
-  <% search_superagent = @current_superagent&.id != @current_tenant&.main_superagent_id ? @current_superagent : nil %>
+  <%# Only auto-populate search filter for non-main collectives (studios/scenes) %>
+  <% search_collective = @current_collective&.id != @current_tenant&.main_collective_id ? @current_collective : nil %>
   <div style="display:inline-block;vertical-align:top;margin-right:12px;"
        data-controller="header-search"
-       data-header-search-superagent-handle-value="<%= search_superagent&.handle %>"
-       data-header-search-superagent-type-value="<%= search_superagent&.superagent_type %>"
-       data-header-search-superagent-name-value="<%= search_superagent&.name %>">
+       data-header-search-collective-handle-value="<%= search_collective&.handle %>"
+       data-header-search-collective-type-value="<%= search_collective&.collective_type %>"
+       data-header-search-collective-name-value="<%= search_collective&.name %>">
     <form action="/search" method="get" class="header-search-form" data-header-search-target="form">
       <span class="header-search-icon" data-action="click->header-search#focusInput">
         <%= octicon 'search', height: 16 %>

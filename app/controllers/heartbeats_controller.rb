@@ -20,7 +20,7 @@ class HeartbeatsController < ApplicationController
     if current_heartbeat
       return render status: 409, json: { error: "Heartbeat already exists" }
     end
-    other_heartbeats = Heartbeat.current_for_superagent(current_superagent).count
+    other_heartbeats = Heartbeat.current_for_collective(current_collective).count
     heartbeat = api_helper.create_heartbeat
     render json: {
       expires_at: heartbeat.expires_at,
@@ -54,6 +54,6 @@ class HeartbeatsController < ApplicationController
 
   def set_sidebar_mode
     @sidebar_mode = 'settings'
-    @team = @current_superagent.team
+    @team = @current_collective.team
   end
 end

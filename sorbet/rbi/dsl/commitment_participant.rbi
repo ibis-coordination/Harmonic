@@ -330,11 +330,11 @@ class CommitmentParticipant
   end
 
   module GeneratedAssociationMethods
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_collective(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Commitment) }
     def build_commitment(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def build_superagent(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
@@ -342,23 +342,29 @@ class CommitmentParticipant
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_user(*args, &blk); end
 
+    sig { returns(T.nilable(::Collective)) }
+    def collective; end
+
+    sig { params(value: T.nilable(::Collective)).void }
+    def collective=(value); end
+
     sig { returns(T.nilable(::Commitment)) }
     def commitment; end
 
     sig { params(value: T.nilable(::Commitment)).void }
     def commitment=(value); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Commitment) }
     def create_commitment(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Commitment) }
     def create_commitment!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Superagent) }
-    def create_superagent!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -372,11 +378,11 @@ class CommitmentParticipant
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_user!(*args, &blk); end
 
+    sig { returns(T.nilable(::Collective)) }
+    def reload_collective; end
+
     sig { returns(T.nilable(::Commitment)) }
     def reload_commitment; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def reload_superagent; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -399,22 +405,16 @@ class CommitmentParticipant
     def representation_session_events=(value); end
 
     sig { void }
-    def reset_commitment; end
+    def reset_collective; end
 
     sig { void }
-    def reset_superagent; end
+    def reset_commitment; end
 
     sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_user; end
-
-    sig { returns(T.nilable(::Superagent)) }
-    def superagent; end
-
-    sig { params(value: T.nilable(::Superagent)).void }
-    def superagent=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -610,6 +610,51 @@ class CommitmentParticipant
   end
 
   module GeneratedAttributeMethods
+    sig { returns(T.nilable(::String)) }
+    def collective_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def collective_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def collective_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_was; end
+
+    sig { void }
+    def collective_id_will_change!; end
+
     sig { returns(::String) }
     def commitment_id; end
 
@@ -800,51 +845,6 @@ class CommitmentParticipant
     sig { void }
     def id_will_change!; end
 
-    sig { returns(T.nilable(::String)) }
-    def name; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def name=(value); end
-
-    sig { returns(T::Boolean) }
-    def name?; end
-
-    sig { returns(T.nilable(::String)) }
-    def name_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def name_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def name_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def name_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def name_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def name_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def name_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def name_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def name_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def name_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def name_was; end
-
-    sig { void }
-    def name_will_change!; end
-
     sig { returns(::String) }
     def participant_uid; end
 
@@ -891,6 +891,9 @@ class CommitmentParticipant
     def participant_uid_will_change!; end
 
     sig { void }
+    def restore_collective_id!; end
+
+    sig { void }
     def restore_commitment_id!; end
 
     sig { void }
@@ -903,13 +906,7 @@ class CommitmentParticipant
     def restore_id!; end
 
     sig { void }
-    def restore_name!; end
-
-    sig { void }
     def restore_participant_uid!; end
-
-    sig { void }
-    def restore_superagent_id!; end
 
     sig { void }
     def restore_tenant_id!; end
@@ -919,6 +916,12 @@ class CommitmentParticipant
 
     sig { void }
     def restore_user_id!; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_collective_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_collective_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_commitment_id; end
@@ -944,23 +947,11 @@ class CommitmentParticipant
     sig { returns(T::Boolean) }
     def saved_change_to_id?; end
 
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_name; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_name?; end
-
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_participant_uid; end
 
     sig { returns(T::Boolean) }
     def saved_change_to_participant_uid?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_superagent_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_superagent_id?; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
@@ -979,51 +970,6 @@ class CommitmentParticipant
 
     sig { returns(T::Boolean) }
     def saved_change_to_user_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def superagent_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def superagent_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def superagent_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def superagent_id_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def superagent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def superagent_id_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def superagent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def superagent_id_was; end
-
-    sig { void }
-    def superagent_id_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1161,6 +1107,9 @@ class CommitmentParticipant
     def user_id_will_change!; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_collective_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_commitment_id?; end
 
     sig { returns(T::Boolean) }
@@ -1173,13 +1122,7 @@ class CommitmentParticipant
     def will_save_change_to_id?; end
 
     sig { returns(T::Boolean) }
-    def will_save_change_to_name?; end
-
-    sig { returns(T::Boolean) }
     def will_save_change_to_participant_uid?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_superagent_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_tenant_id?; end
