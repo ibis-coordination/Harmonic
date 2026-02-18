@@ -1,4 +1,4 @@
-\restrict guCJPruAdnheuOfGgbG1Ga41uSKeX6dLG3fgtXWDem9t4WsW46OnjNlhdEHYj8p
+\restrict VQKA68Sdx4N3AHEHtgorn3m0Y781DPLx0mdNPRXADPiFBXvMoWUVCJ5WkFxazIr
 
 -- Dumped from database version 13.10 (Debian 13.10-1.pgdg110+1)
 -- Dumped by pg_dump version 15.16 (Debian 15.16-0+deb12u1)
@@ -301,7 +301,7 @@ CREATE TABLE public.collectives (
     updated_at timestamp(6) without time zone NOT NULL,
     created_by_id uuid NOT NULL,
     updated_by_id uuid NOT NULL,
-    proxy_user_id uuid,
+    identity_user_id uuid,
     description text,
     collective_type character varying DEFAULT 'studio'::character varying NOT NULL,
     internal boolean DEFAULT false NOT NULL
@@ -8443,7 +8443,7 @@ ALTER TABLE ONLY public.representation_session_events
 -- PostgreSQL database dump complete
 --
 
-\unrestrict guCJPruAdnheuOfGgbG1Ga41uSKeX6dLG3fgtXWDem9t4WsW46OnjNlhdEHYj8p
+\unrestrict VQKA68Sdx4N3AHEHtgorn3m0Y781DPLx0mdNPRXADPiFBXvMoWUVCJ5WkFxazIr
 
 SET search_path TO "$user", public;
 
@@ -8606,6 +8606,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260214210049'),
 ('20260215202823'),
 ('20260216154858'),
-('20260217142214');
+('20260217142214'),
+('20260218073707');
 
 

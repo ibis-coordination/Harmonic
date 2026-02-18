@@ -10,12 +10,12 @@ class CollectiveMember < ApplicationRecord
   belongs_to :collective
   belongs_to :user
 
-  validate :proxy_users_not_member_of_main_collective
+  validate :identity_users_not_member_of_main_collective
 
   sig { void }
-  def proxy_users_not_member_of_main_collective
-    if user.collective_proxy? && collective == T.must(tenant).main_collective
-      errors.add(:user, "Collective proxy users cannot be members of the main collective")
+  def identity_users_not_member_of_main_collective
+    if user.collective_identity? && collective == T.must(tenant).main_collective
+      errors.add(:user, "Collective identity users cannot be members of the main collective")
     end
   end
 
@@ -115,8 +115,8 @@ class CollectiveMember < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def path
-    if user.collective_proxy?
-      c = Collective.where(proxy_user: user).first
+    if user.collective_identity?
+      c = Collective.where(identity_user: user).first
       c&.path
     else
       "#{T.must(collective).path}/u/#{user.handle}"

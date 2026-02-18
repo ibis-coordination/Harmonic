@@ -12,12 +12,12 @@
 
 Representation allows this studio (<%= @current_collective.name %>) to act as an individual member of other studios.
 
-<% if @current_collective.proxy_user.collectives.empty? %>
+<% if @current_collective.identity_user.collectives.empty? %>
 <%= @current_collective.name %> is not currently a member of any other studios.
 <% else %>
 <%= @current_collective.name %> is currently a member of the following studios:
 
-<% @current_collective.proxy_user.collectives.each do |studio| %>
+<% @current_collective.identity_user.collectives.each do |studio| %>
 * [<%= studio.name %>](<%= studio.path %>)
 <% end %>
 <% end %>

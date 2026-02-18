@@ -464,13 +464,13 @@ class ApplicationController < ActionController::Base
     sm = current_collective.collective_members.find_by(user: @current_user)
     if sm.nil?
       if current_collective == current_tenant.main_collective
-        if controller_name.ends_with?("sessions") || @current_user.collective_proxy?
-          # Do nothing - sessions controller or collective proxy user doesn't need collective membership on main
+        if controller_name.ends_with?("sessions") || @current_user.collective_identity?
+          # Do nothing - sessions controller or collective identity user doesn't need collective membership on main
         else
           current_collective.add_user!(@current_user)
         end
       elsif current_collective.accessible_by?(@current_user)
-        # Collective proxy user accessing their own collective
+        # Collective identity user accessing their own collective
         # No membership record needed, but access is allowed
       else
         # If this user has an invite to this collective, they will see the option to accept on the collective's join page.

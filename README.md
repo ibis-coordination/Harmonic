@@ -11,7 +11,7 @@
 - [docs/MONITORING.md](docs/MONITORING.md) — Monitoring and alerting
 - [docs/SECURITY_AND_SCALING.md](docs/SECURITY_AND_SCALING.md) — Security and scaling
 - [docs/REPRESENTATION.md](docs/REPRESENTATION.md) — Collective agency via representation
-- [docs/USER_TYPES.md](docs/USER_TYPES.md) — User types (human, ai_agent, collective_proxy)
+- [docs/USER_TYPES.md](docs/USER_TYPES.md) — User types (human, ai_agent, collective_identity)
 - [AGENTS.md](AGENTS.md) — Guidelines for AI coding assistants
 
 ## Quick Start

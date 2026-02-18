@@ -312,7 +312,7 @@ actions:
 
 #### Internal Actions
 
-Create content directly within the studio. Internal actions execute as the **studio proxy user** and are automatically tracked for attribution.
+Create content directly within the studio. Internal actions execute as the **studio identity user** and are automatically tracked for attribution.
 
 **Supported Actions:**
 
@@ -1081,7 +1081,7 @@ sum by (status) (increase(automations_runs_total[1h]))
 ### Internal Actions Failing
 
 1. **Check studio context**: Internal actions require a studio automation (not user-level)
-2. **Verify proxy user**: Studio must have a proxy user configured
+2. **Verify identity user**: Studio must have an identity user configured
 3. **Check required params**: Each action has required parameters (see table above)
 4. **Review run details**: Check the run's executed actions for specific errors
 
@@ -1103,7 +1103,7 @@ sum by (status) (increase(automations_runs_total[1h]))
 | "Rate limit exceeded" | Too many executions | Agent: 3/min, Studio: 10/min, Tenant: 100/min |
 | "Internal actions require a studio context" | User-level automation with internal_action | Use studio automation instead |
 | "Unsupported action" | Invalid action name | Use `create_note`, `create_decision`, or `create_commitment` |
-| "Studio does not have a proxy user" | Missing proxy user | Contact admin to configure studio |
+| "Studio does not have an identity user" | Missing identity user | Contact admin to configure studio |
 
 ---
 

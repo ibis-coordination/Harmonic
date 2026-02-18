@@ -5,8 +5,8 @@ require "test_helper"
 class AutomationInternalActionServiceTest < ActiveSupport::TestCase
   setup do
     @tenant, @collective, @user = create_tenant_studio_user
-    # Ensure collective has a proxy user
-    @collective.create_proxy_user! unless @collective.proxy_user
+    # Ensure collective has an identity user
+    @collective.create_identity_user! unless @collective.identity_user
 
     @rule = AutomationRule.create!(
       tenant: @tenant,

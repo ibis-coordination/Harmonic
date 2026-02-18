@@ -33,7 +33,7 @@ class User < ApplicationRecord
   # Auto-create TrusteeGrant when an AI agent is created
   after_create :create_parent_trustee_grant!, if: :ai_agent?
 
-  validates :user_type, inclusion: { in: ["human", "ai_agent", "collective_proxy"] }
+  validates :user_type, inclusion: { in: ["human", "ai_agent", "collective_identity"] }
   validates :email, presence: true
   validates :name, presence: true
   validate :ai_agent_must_have_parent
@@ -43,7 +43,7 @@ class User < ApplicationRecord
   def reload(options = nil)
     remove_instance_variable(:@tenant_user) if defined?(@tenant_user)
     remove_instance_variable(:@collective_member) if defined?(@collective_member)
-    remove_instance_variable(:@proxy_collective) if defined?(@proxy_collective)
+    remove_instance_variable(:@identity_collective) if defined?(@identity_collective)
     remove_instance_variable(:@collectives) if defined?(@collectives)
     super
   end
@@ -72,8 +72,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def image_url
-    if collective_proxy?
-      Collective.where(proxy_user: self).first&.image_path
+    if collective_identity?
+      Collective.where(identity_user: self).first&.image_path
     else
       image_path_no_placeholder || super || image_path
     end
@@ -112,30 +112,30 @@ class User < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def collective_proxy?
-    user_type == "collective_proxy"
+  def collective_identity?
+    user_type == "collective_identity"
   end
 
-  # Returns the collective this user is a proxy for, if any
+  # Returns the collective this user is an identity for, if any
   sig { returns(T.nilable(Collective)) }
-  def proxy_collective
-    return nil unless collective_proxy?
-    return @proxy_collective if defined?(@proxy_collective)
+  def identity_collective
+    return nil unless collective_identity?
+    return @identity_collective if defined?(@identity_collective)
 
-    @proxy_collective = Collective.where(proxy_user: self).first
+    @identity_collective = Collective.where(identity_user: self).first
   end
 
-  # Check if this user is authorized to use the given proxy identity.
-  # Used to validate that a proxy_user_id in the session is legitimate.
+  # Check if this user is authorized to use the given identity user.
+  # Used to validate that an identity_user_id in the session is legitimate.
   #
-  # Collective proxy users represent studios for collective agency.
+  # Collective identity users represent studios for collective agency.
   # TrusteeGrants authorize users to act on behalf of other users (a separate concept).
-  sig { params(proxy_user: User).returns(T::Boolean) }
-  def is_trusted_as?(proxy_user)
-    return false unless proxy_user.collective_proxy?
-    return false unless proxy_user.proxy_collective.present?
+  sig { params(identity_user: User).returns(T::Boolean) }
+  def is_trusted_as?(identity_user)
+    return false unless identity_user.collective_identity?
+    return false unless identity_user.identity_collective.present?
 
-    collective = proxy_user.proxy_collective
+    collective = identity_user.identity_collective
     return false unless collective
 
     can_represent?(collective)
@@ -145,8 +145,8 @@ class User < ApplicationRecord
   def can_represent?(collective_or_user)
     if collective_or_user.is_a?(Collective)
       collective = collective_or_user
-      is_proxy_of_collective = proxy_collective == collective
-      return is_proxy_of_collective if collective_proxy?
+      is_identity_of_collective = identity_collective == collective
+      return is_identity_of_collective if collective_identity?
 
       cm = collective_members.find_by(collective_id: collective.id)
       return cm&.can_represent? || false
@@ -158,9 +158,9 @@ class User < ApplicationRecord
       # Parent can represent their AI agent
       return true if is_parent_of?(user)
 
-      # Check if self can represent user's collective proxy
-      if user.collective_proxy?
-        cm = collective_members.find_by(collective_id: T.must(user.proxy_collective).id)
+      # Check if self can represent user's collective identity
+      if user.collective_identity?
+        cm = collective_members.find_by(collective_id: T.must(user.identity_collective).id)
         return cm&.can_represent? || false
       end
 
@@ -270,8 +270,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def display_name
-    if collective_proxy?
-      Collective.where(proxy_user: self).first&.name
+    if collective_identity?
+      Collective.where(identity_user: self).first&.name
     else
       tenant_user&.display_name
     end
@@ -299,8 +299,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def handle
-    if collective_proxy?
-      collective = Collective.where(proxy_user: self).first
+    if collective_identity?
+      collective = Collective.where(identity_user: self).first
       collective ? "studios/" + T.must(collective.handle) : nil
     else
       tenant_user&.handle
@@ -309,8 +309,8 @@ class User < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def path
-    if collective_proxy?
-      Collective.where(proxy_user: self).first&.path
+    if collective_identity?
+      Collective.where(identity_user: self).first&.path
     else
       tenant_user&.path
     end
