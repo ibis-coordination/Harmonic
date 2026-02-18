@@ -6,11 +6,19 @@ Production uses pre-built Docker images from GitHub Container Registry. No sourc
 
 ### Server Setup (One-Time)
 
+Clone the repo or copy these files to your server:
+
 ```
 /opt/harmonic/
-├── docker-compose.yml    # copy of docker-compose.production.yml
-├── .env                  # your configuration
-└── Caddyfile             # reverse proxy config
+├── docker-compose.production.yml
+├── .env                      # your configuration
+├── Caddyfile                 # reverse proxy config
+├── Caddyfile.maintenance     # maintenance mode config
+├── config/
+│   └── maintenance/
+│       └── maintenance.html  # maintenance page
+└── scripts/
+    └── maintenance.sh        # maintenance mode toggle script
 ```
 
 ### Release Workflow
@@ -26,18 +34,63 @@ git push --tags
 ### Deploy
 
 ```bash
-docker compose pull
-docker compose up -d
-docker compose exec web bundle exec rails db:migrate  # if needed
+docker compose -f docker-compose.production.yml pull
+docker compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.production.yml exec web bundle exec rails db:migrate  # if needed
+```
+
+### Maintenance Mode
+
+For deployments requiring downtime (e.g., database migrations that change schema):
+
+```bash
+# Enable maintenance mode (serves static page, returns 503 on /healthcheck)
+./scripts/maintenance.sh on
+
+# Check status
+./scripts/maintenance.sh status
+
+# Disable maintenance mode
+./scripts/maintenance.sh off
+```
+
+The script:
+- Backs up `Caddyfile` and switches to `Caddyfile.maintenance`
+- Serves `config/maintenance/maintenance.html` for all requests
+- Returns 503 on `/healthcheck` so load balancers know the app is down
+- Works in both development (with `HOST_MODE=caddy`) and production
+
+### Deployments with Downtime
+
+For schema-changing migrations:
+
+```bash
+# 1. Drain Sidekiq queue
+docker compose -f docker-compose.production.yml stop sidekiq
+# Wait for in-flight jobs to complete
+
+# 2. Enable maintenance mode
+./scripts/maintenance.sh on
+
+# 3. Deploy
+docker compose -f docker-compose.production.yml pull
+docker compose -f docker-compose.production.yml exec web bundle exec rails db:migrate
+docker compose -f docker-compose.production.yml up -d web
+
+# 4. Disable maintenance mode
+./scripts/maintenance.sh off
+
+# 5. Restart Sidekiq
+docker compose -f docker-compose.production.yml up -d sidekiq
 ```
 
 ### Rollback
 
 ```bash
-# Edit docker-compose.yml to pin version:
+# Edit docker-compose.production.yml to pin version:
 # image: ghcr.io/ibis-coordination/harmonic:v1.2.2
-docker compose pull
-docker compose up -d
+docker compose -f docker-compose.production.yml pull
+docker compose -f docker-compose.production.yml up -d
 ```
 
 ## Environment Variables
@@ -74,10 +127,10 @@ After deploying, verify everything is working:
 curl https://yourdomain.com/healthcheck
 
 # Check application logs
-docker compose logs web --tail 50
+docker compose -f docker-compose.production.yml logs web --tail 50
 
 # Check background job processing
-docker compose logs sidekiq --tail 50
+docker compose -f docker-compose.production.yml logs sidekiq --tail 50
 ```
 
 ## Troubleshooting
@@ -85,34 +138,34 @@ docker compose logs sidekiq --tail 50
 ### Migrations Not Applied
 
 ```bash
-docker compose exec web bundle exec rails db:migrate
+docker compose -f docker-compose.production.yml exec web bundle exec rails db:migrate
 ```
 
 ### View Logs
 
 ```bash
-docker compose logs web --tail 100
-docker compose logs sidekiq --tail 100
+docker compose -f docker-compose.production.yml logs web --tail 100
+docker compose -f docker-compose.production.yml logs sidekiq --tail 100
 ```
 
 ### Health Check Failing
 
 ```bash
 # Check database connectivity
-docker compose exec web rails runner "ActiveRecord::Base.connection.execute('SELECT 1')"
+docker compose -f docker-compose.production.yml exec web rails runner "ActiveRecord::Base.connection.execute('SELECT 1')"
 
 # Check Redis connectivity
-docker compose exec web rails runner "Redis.new(url: ENV['REDIS_URL']).ping"
+docker compose -f docker-compose.production.yml exec web rails runner "Redis.new(url: ENV['REDIS_URL']).ping"
 ```
 
 ### Container Won't Start
 
 ```bash
 # Check for startup errors
-docker compose logs web --tail 200
+docker compose -f docker-compose.production.yml logs web --tail 200
 
 # Verify environment variables
-docker compose exec web env | grep -E "(DATABASE|REDIS|SECRET)"
+docker compose -f docker-compose.production.yml exec web env | grep -E "(DATABASE|REDIS|SECRET)"
 ```
 
 ## Related Documentation

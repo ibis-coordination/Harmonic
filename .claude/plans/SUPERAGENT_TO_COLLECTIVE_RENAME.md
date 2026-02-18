@@ -1,6 +1,6 @@
 # Superagent → Collective Rename Plan
 
-**Status:** Ready for implementation
+**Status:** Code complete - Ready for production deployment
 **Created:** 2026-02-12
 **Last Verified:** 2026-02-17 (updated with thread-local findings)
 **Approach:** Big Bang Migration
@@ -1146,3 +1146,276 @@ Use these patterns for find-and-replace (with manual review):
 - **Routes**: Internal parameter name changes but URLs remain `/studios/...`
 - **Aliases**: None - remove the dead `Studio = Superagent` alias, don't add any new ones
 - **Scope reduction**: Views that only use "studio" in user-facing text don't need changes - only internal variable/method names need updating
+
+---
+
+## Production Deployment Checklist
+
+This checklist covers deploying the superagent → collective rename to production. The migration requires brief downtime because the database schema and application code must change atomically.
+
+### Prerequisites
+
+- [ ] All code changes merged to main branch
+- [ ] CI passing on main
+- [ ] Staging environment tested (if available)
+- [ ] Deployment window communicated to users (if needed)
+
+### Step 1: Pre-Deployment Preparation
+
+```bash
+# SSH into production server
+ssh user@production-server
+
+# Navigate to app directory
+cd /path/to/harmonic
+
+# Pull latest code (but don't restart yet)
+git pull origin main
+```
+
+### Step 2: Create Database Backup
+
+```bash
+# Create timestamped backup
+docker compose -f docker-compose.production.yml exec -T web \
+  pg_dump -h $DATABASE_HOST -U $DATABASE_USER $DATABASE_NAME \
+  > backup_$(date +%Y%m%d_%H%M%S)_pre_collective_rename.sql
+
+# Verify backup exists and has reasonable size
+ls -lh backup_*.sql
+```
+
+### Step 3: Drain Sidekiq Queue
+
+Stop new jobs from being enqueued and wait for current jobs to complete.
+
+```bash
+# Check current queue status via Rails console
+docker compose -f docker-compose.production.yml exec web \
+  bundle exec rails runner "
+    puts 'Queue sizes:'
+    Sidekiq::Queue.all.each { |q| puts \"  #{q.name}: #{q.size}\" }
+    puts \"Retry set: #{Sidekiq::RetrySet.new.size}\"
+    puts \"Scheduled: #{Sidekiq::ScheduledSet.new.size}\"
+    puts \"Workers busy: #{Sidekiq::ProcessSet.new.sum { |p| p['busy'] }}\"
+  "
+
+# Stop the Sidekiq container (no new jobs will be picked up)
+docker compose -f docker-compose.production.yml stop sidekiq
+
+# Wait for in-flight jobs to complete (check every 30 seconds)
+# Jobs have a default timeout, so this should complete within a few minutes
+watch -n 30 'docker compose -f docker-compose.production.yml exec web \
+  bundle exec rails runner "puts \"Workers busy: #{Sidekiq::ProcessSet.new.sum { |p| p[\"busy\"] }}\""'
+
+# When "Workers busy: 0", proceed to next step
+```
+
+### Step 4: Enable Maintenance Mode
+
+```bash
+# Enable maintenance mode (shows maintenance page, health check returns 503)
+./scripts/maintenance.sh on
+
+# Verify it's enabled
+./scripts/maintenance.sh status
+```
+
+### Step 5: Run Database Migration
+
+```bash
+# Pull new image with migration
+docker compose -f docker-compose.production.yml pull web
+
+# Run the migration
+docker compose -f docker-compose.production.yml run --rm web \
+  bundle exec rails db:migrate
+
+# Verify migration completed successfully
+docker compose -f docker-compose.production.yml run --rm web \
+  bundle exec rails db:migrate:status | tail -5
+# Should show: "up     20260217142214  Rename superagent to collective"
+```
+
+### Step 6: Verify Database Changes
+
+```bash
+# Check no superagent columns remain
+docker compose -f docker-compose.production.yml run --rm web \
+  bundle exec rails runner "
+    found = false
+    ActiveRecord::Base.connection.tables.each do |table|
+      cols = ActiveRecord::Base.connection.columns(table).map(&:name)
+      superagent_cols = cols.select { |c| c.include?('superagent') }
+      if superagent_cols.any?
+        puts \"REMAINING COLUMN: #{table}: #{superagent_cols.join(', ')}\"
+        found = true
+      end
+    end
+    puts '✓ All superagent columns renamed!' unless found
+  "
+
+# Check no superagent tables remain
+docker compose -f docker-compose.production.yml run --rm web \
+  bundle exec rails runner "
+    result = ActiveRecord::Base.connection.execute(\"
+      SELECT tablename FROM pg_tables
+      WHERE schemaname = 'public' AND tablename LIKE '%superagent%'
+    \")
+    if result.count > 0
+      puts 'REMAINING TABLES:'
+      result.each { |r| puts r['tablename'] }
+    else
+      puts '✓ All superagent tables renamed!'
+    end
+  "
+```
+
+### Step 7: Start Application
+
+```bash
+# Start web container with new code
+docker compose -f docker-compose.production.yml up -d web
+
+# Wait for health check to pass
+docker compose -f docker-compose.production.yml exec web \
+  curl -sf http://localhost:3000/healthcheck || echo "Still starting..."
+
+# Check container health (repeat until healthy)
+docker compose -f docker-compose.production.yml ps web
+```
+
+### Step 8: Disable Maintenance Mode
+
+```bash
+# Disable maintenance mode (restores original Caddyfile)
+./scripts/maintenance.sh off
+
+# Verify it's disabled
+./scripts/maintenance.sh status
+```
+
+### Step 9: Restart Sidekiq
+
+```bash
+# Start Sidekiq with new code
+docker compose -f docker-compose.production.yml up -d sidekiq
+
+# Verify Sidekiq is running
+docker compose -f docker-compose.production.yml logs --tail=20 sidekiq
+```
+
+### Step 10: Smoke Tests
+
+Run these checks to verify the deployment succeeded:
+
+```bash
+# 1. Health check endpoint
+curl -sf https://app.harmonic.team/healthcheck && echo "✓ Health check passed"
+
+# 2. Can load a page (via curl or browser)
+curl -sf -o /dev/null -w "%{http_code}" https://app.harmonic.team/ && echo "✓ Homepage loads"
+
+# 3. Check Rails logs for errors
+docker compose -f docker-compose.production.yml logs --tail=50 web | grep -i error
+
+# 4. Check Sidekiq is processing jobs
+docker compose -f docker-compose.production.yml exec web \
+  bundle exec rails runner "
+    puts 'Sidekiq status:'
+    puts \"  Queues: #{Sidekiq::Queue.all.map { |q| \"#{q.name}(#{q.size})\" }.join(', ')}\"
+    puts \"  Workers: #{Sidekiq::ProcessSet.new.sum { |p| p['concurrency'] }} total\"
+  "
+```
+
+### Step 11: Manual Verification (Browser)
+
+- [ ] Log in as a regular user
+- [ ] Navigate to a studio page
+- [ ] Create a test note
+- [ ] View the pulse/cycle
+- [ ] Check that existing data is visible
+- [ ] Log in as admin and check admin dashboard
+
+### Step 12: Post-Deployment Cleanup
+
+```bash
+# Remove backup after 24-48 hours if everything is stable
+# rm backup_*_pre_collective_rename.sql
+
+# Monitor error tracking (Sentry) for any new errors
+# Watch application logs for a few hours
+docker compose -f docker-compose.production.yml logs -f web | grep -i error
+```
+
+---
+
+## Rollback Procedure
+
+If critical issues are discovered after deployment:
+
+### Quick Rollback (Code Only)
+
+If the migration ran successfully but there's a code bug:
+
+```bash
+# 1. Revert to previous commit
+git checkout HEAD~1
+
+# 2. Rebuild and restart
+docker compose -f docker-compose.production.yml up -d --build web sidekiq
+
+# 3. Note: This will FAIL because code expects old column names
+#    You MUST run the database rollback too
+```
+
+### Full Rollback (Code + Database)
+
+```bash
+# 1. Stop services
+docker compose -f docker-compose.production.yml stop web sidekiq
+
+# 2. Run migration rollback
+docker compose -f docker-compose.production.yml run --rm web \
+  bundle exec rails db:rollback
+
+# 3. Verify rollback
+docker compose -f docker-compose.production.yml run --rm web \
+  bundle exec rails db:migrate:status | tail -5
+# Should show: "down   20260217142214  Rename superagent to collective"
+
+# 4. Checkout previous code
+git checkout HEAD~1
+
+# 5. Start services with old code
+docker compose -f docker-compose.production.yml up -d web sidekiq
+```
+
+### Restore from Backup (Nuclear Option)
+
+Only if rollback migration fails:
+
+```bash
+# 1. Stop all services
+docker compose -f docker-compose.production.yml down
+
+# 2. Restore database from backup
+psql -h $DATABASE_HOST -U $DATABASE_USER $DATABASE_NAME < backup_YYYYMMDD_HHMMSS_pre_collective_rename.sql
+
+# 3. Checkout previous code
+git checkout HEAD~1
+
+# 4. Start services
+docker compose -f docker-compose.production.yml up -d
+```
+
+---
+
+## Estimated Downtime
+
+| Step | Duration |
+|------|----------|
+| Queue drain | 1-5 minutes (depends on job complexity) |
+| Migration | ~30 seconds (index renames are metadata-only) |
+| App restart | ~30 seconds |
+| **Total** | **2-6 minutes** |
