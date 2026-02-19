@@ -55,8 +55,11 @@
 # Ignore MCP config (contains API tokens)
 .mcp.json
 
-# Ignore Caddyfile
+# Ignore Caddyfile (auto-generated from tenant subdomains)
 Caddyfile
+Caddyfile.backup
+Caddyfile.generated
+Caddyfile.generated-maintenance
 
 # Test coverage reports
 /coverage/

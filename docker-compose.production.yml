@@ -56,6 +56,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    volumes:
+      # RegenerateCaddyfileJob writes updated Caddyfile when tenants change
+      - ./Caddyfile:/app/Caddyfile
     deploy:
       resources:
         limits:

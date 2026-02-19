@@ -20,7 +20,6 @@ Requires Docker and Docker Compose.
 
 ```bash
 cp .env.example .env
-cp Caddyfile.example ./Caddyfile
 ./scripts/setup.sh   # one-time setup
 ./scripts/start.sh   # start the app
 ./scripts/stop.sh    # stop the app

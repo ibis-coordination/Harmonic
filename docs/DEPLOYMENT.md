@@ -12,12 +12,13 @@ Clone the repo or copy these files to your server:
 /opt/harmonic/
 ├── docker-compose.production.yml
 ├── .env                      # your configuration
-├── Caddyfile                 # reverse proxy config
-├── Caddyfile.maintenance     # maintenance mode config
+├── Caddyfile                 # reverse proxy config (auto-generated)
 ├── config/
 │   └── maintenance/
-│       └── maintenance.html  # maintenance page
+│       ├── Caddyfile.template  # maintenance mode template
+│       └── maintenance.html    # maintenance page
 └── scripts/
+    ├── generate-caddyfile.sh # generate Caddyfile from tenant subdomains
     └── maintenance.sh        # maintenance mode toggle script
 ```
 
@@ -39,6 +40,26 @@ docker compose -f docker-compose.production.yml up -d
 docker compose -f docker-compose.production.yml exec web bundle exec rails db:migrate  # if needed
 ```
 
+### Caddyfile Management
+
+The Caddyfile is auto-generated from tenant subdomains in the database. It is automatically regenerated whenever a tenant is created, destroyed, or has its subdomain changed (via `RegenerateCaddyfileJob`).
+
+To manually regenerate (e.g., during initial setup or after a database restore):
+
+```bash
+# Preview changes without applying
+./scripts/generate-caddyfile.sh --dry-run
+
+# Generate and apply (reloads Caddy automatically)
+./scripts/generate-caddyfile.sh
+```
+
+The script is idempotent - safe to run anytime. It:
+- Queries all tenant subdomains from the database
+- Generates a Caddyfile with entries for each tenant plus the primary/auth subdomains
+- Shows a diff if changes are detected
+- Reloads Caddy to apply changes
+
 ### Maintenance Mode
 
 For deployments requiring downtime (e.g., database migrations that change schema):
@@ -55,7 +76,8 @@ For deployments requiring downtime (e.g., database migrations that change schema
 ```
 
 The script:
-- Backs up `Caddyfile` and switches to `Caddyfile.maintenance`
+- Backs up `Caddyfile` and generates a maintenance version from `config/maintenance/Caddyfile.template`
+- Automatically extracts all domain blocks from the current Caddyfile (no manual sync needed)
 - Serves `config/maintenance/maintenance.html` for all requests
 - Returns 503 on `/healthcheck` so load balancers know the app is down
 - Works in both development (with `HOST_MODE=caddy`) and production

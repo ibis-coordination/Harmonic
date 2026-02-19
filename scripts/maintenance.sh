@@ -9,9 +9,10 @@ set -e
 cd "$(dirname "$0")/.."
 
 CADDYFILE="Caddyfile"
-CADDYFILE_MAINTENANCE="Caddyfile.maintenance"
+CADDYFILE_GENERATED="Caddyfile.generated-maintenance"
 CADDYFILE_BACKUP="Caddyfile.backup"
 MAINTENANCE_HTML="config/maintenance/maintenance.html"
+MAINTENANCE_TEMPLATE="config/maintenance/Caddyfile.template"
 
 # Colors for output
 RED='\033[0;31m'
@@ -70,6 +71,50 @@ get_caddy_container() {
     docker compose -f "$COMPOSE_FILE" ${COMPOSE_PROFILES:-} ps -q caddy 2>/dev/null || true
 }
 
+generate_maintenance_caddyfile() {
+    # Generate maintenance Caddyfile from template + current Caddyfile domains
+    #
+    # Extracts domain patterns from the current Caddyfile and generates
+    # a maintenance version that serves 503 responses for all domains.
+
+    if [ ! -f "$MAINTENANCE_TEMPLATE" ]; then
+        echo -e "${RED}Error: $MAINTENANCE_TEMPLATE not found.${NC}"
+        return 1
+    fi
+
+    if [ ! -f "$CADDYFILE" ]; then
+        echo -e "${RED}Error: $CADDYFILE not found.${NC}"
+        return 1
+    fi
+
+    # Start with the template
+    cp "$MAINTENANCE_TEMPLATE" "$CADDYFILE_GENERATED"
+
+    # Extract domain blocks from current Caddyfile
+    # Matches top-level lines like: domain.com {  or  *.domain.com {  or  {$VAR}.domain {
+    # - Must start at column 0 (no leading whitespace) to exclude indented directives
+    # - Must end with { (and optional whitespace) to match block openers
+    # - Excludes snippet definitions like: (snippet_name) {
+    # - Excludes comments starting with #
+    grep -E '^[^[:space:](#].*\{[[:space:]]*$' "$CADDYFILE" | while read -r line; do
+        # Extract the domain pattern (strip only the trailing { that opens the block)
+        domain=$(echo "$line" | sed 's/[[:space:]]*{[[:space:]]*$//')
+
+        # Skip empty lines
+        if [ -z "$domain" ]; then
+            continue
+        fi
+
+        # Add this domain with the maintenance response
+        echo "" >> "$CADDYFILE_GENERATED"
+        echo "$domain {" >> "$CADDYFILE_GENERATED"
+        echo "	import maintenance_response" >> "$CADDYFILE_GENERATED"
+        echo "}" >> "$CADDYFILE_GENERATED"
+    done
+
+    echo "  Generated maintenance Caddyfile with domains from $CADDYFILE"
+}
+
 maintenance_on() {
     echo -e "${YELLOW}Enabling maintenance mode...${NC}"
     echo "Environment: $ENVIRONMENT"
@@ -85,8 +130,8 @@ maintenance_on() {
         echo -e "${RED}Error: $CADDYFILE not found.${NC}"
         exit 1
     fi
-    if [ ! -f "$CADDYFILE_MAINTENANCE" ]; then
-        echo -e "${RED}Error: $CADDYFILE_MAINTENANCE not found.${NC}"
+    if [ ! -f "$MAINTENANCE_TEMPLATE" ]; then
+        echo -e "${RED}Error: $MAINTENANCE_TEMPLATE not found.${NC}"
         exit 1
     fi
     if [ ! -f "$MAINTENANCE_HTML" ]; then
@@ -98,9 +143,17 @@ maintenance_on() {
     echo "  Backing up current Caddyfile..."
     cp "$CADDYFILE" "$CADDYFILE_BACKUP"
 
-    # Copy maintenance Caddyfile
+    # Generate maintenance Caddyfile from current domains
+    echo "  Generating maintenance Caddyfile..."
+    if ! generate_maintenance_caddyfile; then
+        echo -e "${RED}Error: Failed to generate maintenance Caddyfile.${NC}"
+        rm -f "$CADDYFILE_BACKUP"
+        exit 1
+    fi
+
+    # Switch to generated maintenance Caddyfile
     echo "  Switching to maintenance Caddyfile..."
-    cp "$CADDYFILE_MAINTENANCE" "$CADDYFILE"
+    cp "$CADDYFILE_GENERATED" "$CADDYFILE"
 
     # Copy maintenance page into caddy container and reload
     CADDY_CONTAINER=$(get_caddy_container)
@@ -145,6 +198,9 @@ maintenance_off() {
     # Restore original Caddyfile
     echo "  Restoring original Caddyfile..."
     mv "$CADDYFILE_BACKUP" "$CADDYFILE"
+
+    # Clean up generated maintenance file
+    rm -f "$CADDYFILE_GENERATED"
 
     # Reload Caddy configuration
     CADDY_CONTAINER=$(get_caddy_container)
