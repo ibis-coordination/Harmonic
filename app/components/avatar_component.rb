@@ -1,13 +1,17 @@
-# typed: false
+# typed: true
 
 class AvatarComponent < ViewComponent::Base
-  # Renders a user avatar with initials fallback and optional image.
-  #
-  # @param user [User] object with display_name, handle, image_url, and path methods
-  # @param size [String, nil] CSS class suffix for size variant (e.g., "small", "large")
-  # @param show_link [Boolean] whether to wrap in a link to user.path
-  # @param title [String, nil] custom title attribute (defaults to user.display_name)
-  # @param css_class [String] CSS class for the avatar container
+  extend T::Sig
+
+  sig do
+    params(
+      user: T.untyped,
+      size: T.nilable(String),
+      show_link: T::Boolean,
+      title: T.nilable(String),
+      css_class: String,
+    ).void
+  end
   def initialize(user:, size: nil, show_link: false, title: nil, css_class: "pulse-author-avatar")
     super()
     @user = user
@@ -17,12 +21,14 @@ class AvatarComponent < ViewComponent::Base
     @css_class = css_class
   end
 
+  sig { returns(T::Boolean) }
   def render?
     @user.present?
   end
 
   private
 
+  sig { returns(String) }
   def initials
     name = @user&.display_name || @user&.handle
     return "?" if name.blank?
@@ -35,10 +41,12 @@ class AvatarComponent < ViewComponent::Base
     end
   end
 
+  sig { returns(T::Boolean) }
   def has_image?
     @user&.image_url.present? && @user.image_url != "/placeholder.png"
   end
 
+  sig { returns(String) }
   def avatar_class
     result = @css_class
     result += " pulse-avatar-#{@size}" if @size
