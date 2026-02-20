@@ -31,7 +31,7 @@ module OAuth2
 
     # @yield [@config]
     #
-    # source://oauth2//lib/oauth2.rb#32
+    # source://oauth2//lib/oauth2.rb#35
     def configure; end
   end
 end
@@ -48,8 +48,8 @@ class OAuth2::AccessToken
   # @option opts
   # @option opts
   # @param client [Client] the OAuth2::Client instance
-  # @param token [String] the Access Token value (optional, may not be used in refresh flows)
   # @param opts [Hash] the options to create the Access Token with
+  # @param token [String] the Access Token value (optional, may not be used in refresh flows)
   # @return [AccessToken] a new instance of AccessToken
   #
   # source://oauth2//lib/oauth2/access_token.rb#62
@@ -168,7 +168,7 @@ class OAuth2::AccessToken
   # @note does not modify the receiver, so bang is not the default method
   # @return [AccessToken] a new AccessToken
   #
-  # source://oauth2//lib/oauth2/access_token.rb#117
+  # source://oauth2//lib/oauth2/access_token.rb#133
   def refresh!(params = T.unsafe(nil), access_token_opts = T.unsafe(nil)); end
 
   # Returns the value of attribute refresh_token.
@@ -185,10 +185,10 @@ class OAuth2::AccessToken
 
   # Make a request with the Access Token
   #
-  # @param verb [Symbol] the HTTP request method
-  # @param path [String] the HTTP URL path of the request
   # @param opts [Hash] the options to make the request with
   #   @see Client#request
+  # @param path [String] the HTTP URL path of the request
+  # @param verb [Symbol] the HTTP request method
   #
   # source://oauth2//lib/oauth2/access_token.rb#148
   def request(verb, path, opts = T.unsafe(nil), &block); end
@@ -396,11 +396,11 @@ class OAuth2::Client
 
   # Initializes an AccessToken by making a request to the token endpoint
   #
+  # @param access_token_opts [Hash] access token options, to pass to the AccessToken object
+  # @param extract_access_token [Proc] proc that extracts the access token from the response (DEPRECATED)
   # @param params [Hash] a Hash of params for the token endpoint, except:
   #   @option params [Symbol] :parse @see Response#initialize
   #   @option params [true, false] :snaky (true) @see Response#initialize
-  # @param access_token_opts [Hash] access token options, to pass to the AccessToken object
-  # @param extract_access_token [Proc] proc that extracts the access token from the response (DEPRECATED)
   # @return [AccessToken] the initialized AccessToken
   # @yield [req] @see Faraday::Connection#run_request
   #
@@ -456,10 +456,10 @@ class OAuth2::Client
   #
   # @api semipublic
   # @return [Hash] the params to add to a request or URL
+  # @see https://datatracker.ietf.org/doc/html/rfc6749#section-10.6
   # @see https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
   # @see https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
   # @see https://datatracker.ietf.org/doc/html/rfc6749#section-4.2.1
-  # @see https://datatracker.ietf.org/doc/html/rfc6749#section-10.6
   #
   # source://oauth2//lib/oauth2/client.rb#252
   def redirection_params; end
@@ -474,9 +474,9 @@ class OAuth2::Client
   # @option opts
   # @option opts
   # @option opts
-  # @param verb [Symbol] one of :get, :post, :put, :delete
-  # @param url [String] URL path of request
   # @param opts [Hash] the options to make the request with
+  # @param url [String] URL path of request
+  # @param verb [Symbol] one of :get, :post, :put, :delete
   # @see https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.2
   # @yield [req] @see Faraday::Connection#run_request
   #
@@ -601,12 +601,12 @@ end
 class OAuth2::Response
   # Initializes a Response instance
   #
-  # @param response [Faraday::Response] The Faraday response instance
+  # @param options [Hash] all other options for initializing the instance
   # @param parse [Symbol] (:automatic) how to parse the response body.  one of :query (for x-www-form-urlencoded),
   #   :json, or :automatic (determined by Content-Type response header)
+  # @param response [Faraday::Response] The Faraday response instance
   # @param snaky [true, false] (true) Convert @parsed to a snake-case,
   #   indifferent-access SnakyHash::StringKeyed, which is a subclass of Hashie::Mash (from hashie gem)?
-  # @param options [Hash] all other options for initializing the instance
   # @return [Response] a new instance of Response
   #
   # source://oauth2//lib/oauth2/response.rb#51
@@ -720,7 +720,7 @@ module OAuth2::Strategy; end
 #
 # @see https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-10#section-4.1.3
 #
-# source://oauth2//lib/oauth2/strategy/assertion.rb#35
+# source://oauth2//lib/oauth2/strategy/assertion.rb#32
 class OAuth2::Strategy::Assertion < ::OAuth2::Strategy::Base
   # Not used for this strategy
   #
@@ -758,13 +758,13 @@ class OAuth2::Strategy::Assertion < ::OAuth2::Strategy::Base
   # @option algorithm
   # @option key
   # @option request_opts
+  # @param algorithm [Hash] a customizable set of options
   # @param claims [Hash] the hash representation of the claims that should be encoded as a JWT (JSON Web Token)
   # @param encoding_opts [Hash] a hash containing instructions on how the JWT should be encoded
+  # @param key [Hash] a customizable set of options
   # @param request_opts [Hash] options that will be used to assemble the request
   # @param response_opts [Hash] this will be merged with the token response to create the AccessToken object
   #   @see the access_token_opts argument to Client#get_token
-  # @param algorithm [Hash] a customizable set of options
-  # @param key [Hash] a customizable set of options
   #
   # source://oauth2//lib/oauth2/strategy/assertion.rb#79
   def get_token(claims, encoding_opts, request_opts = T.unsafe(nil), response_opts = T.unsafe(nil)); end
@@ -784,7 +784,7 @@ end
 #
 # @see http://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-15#section-4.1
 #
-# source://oauth2//lib/oauth2/strategy/auth_code.rb#11
+# source://oauth2//lib/oauth2/strategy/auth_code.rb#8
 class OAuth2::Strategy::AuthCode < ::OAuth2::Strategy::Base
   # The required query parameters for the authorize URL
   #
@@ -804,8 +804,8 @@ class OAuth2::Strategy::AuthCode < ::OAuth2::Strategy::Base
   #
   # @note that you must also provide a :redirect_uri with most OAuth 2.0 providers
   # @param code [String] The Authorization Code value
-  # @param params [Hash] additional params
   # @param opts [Hash] access_token_opts, @see Client#get_token
+  # @param params [Hash] additional params
   #
   # source://oauth2//lib/oauth2/strategy/auth_code.rb#30
   def get_token(code, params = T.unsafe(nil), opts = T.unsafe(nil)); end
@@ -830,7 +830,7 @@ end
 #
 # @see http://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-15#section-4.4
 #
-# source://oauth2//lib/oauth2/strategy/client_credentials.rb#11
+# source://oauth2//lib/oauth2/strategy/client_credentials.rb#8
 class OAuth2::Strategy::ClientCredentials < ::OAuth2::Strategy::Base
   # Not used for this strategy
   #
@@ -841,8 +841,8 @@ class OAuth2::Strategy::ClientCredentials < ::OAuth2::Strategy::Base
 
   # Retrieve an access token given the specified client.
   #
-  # @param params [Hash] additional params
   # @param opts [Hash] options
+  # @param params [Hash] additional params
   #
   # source://oauth2//lib/oauth2/strategy/client_credentials.rb#20
   def get_token(params = T.unsafe(nil), opts = T.unsafe(nil)); end
@@ -852,7 +852,7 @@ end
 #
 # @see http://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-26#section-4.2
 #
-# source://oauth2//lib/oauth2/strategy/implicit.rb#11
+# source://oauth2//lib/oauth2/strategy/implicit.rb#8
 class OAuth2::Strategy::Implicit < ::OAuth2::Strategy::Base
   # The required query parameters for the authorize URL
   #
@@ -887,7 +887,7 @@ end
 #
 # @see http://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-15#section-4.3
 #
-# source://oauth2//lib/oauth2/strategy/password.rb#11
+# source://oauth2//lib/oauth2/strategy/password.rb#8
 class OAuth2::Strategy::Password < ::OAuth2::Strategy::Base
   # Not used for this strategy
   #
@@ -898,9 +898,9 @@ class OAuth2::Strategy::Password < ::OAuth2::Strategy::Base
 
   # Retrieve an access token given the specified End User username and password.
   #
-  # @param username [String] the End User username
-  # @param password [String] the End User password
   # @param params [Hash] additional params
+  # @param password [String] the End User password
+  # @param username [String] the End User username
   #
   # source://oauth2//lib/oauth2/strategy/password.rb#21
   def get_token(username, password, params = T.unsafe(nil), opts = T.unsafe(nil)); end

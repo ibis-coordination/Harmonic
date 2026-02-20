@@ -5,6 +5,28 @@
 # Please instead update this file by running `bin/tapioca gem json`.
 
 
+class Array
+  include ::Enumerable
+  include ::JSON::Ext::Generator::GeneratorMethods::Array
+end
+
+class FalseClass
+  include ::JSON::Ext::Generator::GeneratorMethods::FalseClass
+end
+
+class Float < ::Numeric
+  include ::JSON::Ext::Generator::GeneratorMethods::Float
+end
+
+class Hash
+  include ::Enumerable
+  include ::JSON::Ext::Generator::GeneratorMethods::Hash
+end
+
+class Integer < ::Numeric
+  include ::JSON::Ext::Generator::GeneratorMethods::Integer
+end
+
 # = JavaScript \Object Notation (\JSON)
 #
 # \JSON is a lightweight data-interchange format.
@@ -1159,6 +1181,15 @@ module JSON
     # source://json//lib/json/common.rb#132
     def [](object, opts = T.unsafe(nil)); end
 
+    # source://json//lib/json/common.rb#206
+    def _dump_default_options; end
+
+    # source://json//lib/json/common.rb#206
+    def _load_default_options; end
+
+    # source://json//lib/json/common.rb#206
+    def _unsafe_load_default_options; end
+
     # Returns the current create identifier.
     # See also JSON.create_id=.
     #
@@ -1205,6 +1236,12 @@ module JSON
     #
     # source://json//lib/json/common.rb#930
     def dump(obj, anIO = T.unsafe(nil), limit = T.unsafe(nil), kwargs = T.unsafe(nil)); end
+
+    # source://json//lib/json/common.rb#206
+    def dump_default_options; end
+
+    # source://json//lib/json/common.rb#206
+    def dump_default_options=(val); end
 
     # :call-seq:
     #   JSON.fast_generate(obj, opts) -> new_string
@@ -1414,6 +1451,23 @@ module JSON
     #
     # source://json//lib/json/common.rb#854
     def load(source, proc = T.unsafe(nil), options = T.unsafe(nil)); end
+
+    # source://json//lib/json/common.rb#206
+    def load_default_options; end
+
+    # source://json//lib/json/common.rb#206
+    def load_default_options=(val); end
+
+    # :call-seq:
+    #   JSON.load_file(path, opts={}) -> object
+    #
+    # Calls:
+    #   parse(File.read(path), opts)
+    #
+    # See method #parse.
+    #
+    # source://json//lib/json/common.rb#388
+    def load_file(path, *args, **_arg2); end
 
     # :call-seq:
     #   JSON.load_file!(path, opts = {})
@@ -1692,6 +1746,12 @@ module JSON
     # source://json//lib/json/common.rb#683
     def unsafe_load(source, proc = T.unsafe(nil), options = T.unsafe(nil)); end
 
+    # source://json//lib/json/common.rb#206
+    def unsafe_load_default_options; end
+
+    # source://json//lib/json/common.rb#206
+    def unsafe_load_default_options=(val); end
+
     private
 
     # source://json//lib/json/common.rb#1008
@@ -1762,7 +1822,7 @@ class JSON::Coder
   #
   # Serialize the given object into a \JSON document.
   #
-  # source://json//lib/json/common.rb#1076
+  # source://json//lib/json/common.rb#1079
   def generate(object, io = T.unsafe(nil)); end
 
   # call-seq:
@@ -1786,7 +1846,7 @@ class JSON::Coder
   #
   # Parse the given \JSON document and return an equivalent Ruby object.
   #
-  # source://json//lib/json/common.rb#1085
+  # source://json//lib/json/common.rb#1088
   def parse(source); end
 end
 
@@ -1831,7 +1891,7 @@ class JSON::Ext::Generator::State
   # Configure this State instance with the Hash _opts_, and return
   # itself.
   #
-  # source://json//lib/json/ext/generator/state.rb#23
+  # source://json//lib/json/ext/generator/state.rb#36
   def merge(opts); end
 
   # call-seq: to_h
@@ -1847,7 +1907,7 @@ class JSON::Ext::Generator::State
   # Returns the configuration instance variables as a hash, that can be
   # passed to the configure method.
   #
-  # source://json//lib/json/ext/generator/state.rb#42
+  # source://json//lib/json/ext/generator/state.rb#72
   def to_hash; end
 end
 
@@ -1863,6 +1923,14 @@ class JSON::Ext::Parser
 
   # source://json//lib/json/ext.rb#22
   def source; end
+
+  class << self
+    # Allow redefinition by extensions
+    # Allow redefinition by extensions
+    #
+    # source://json//lib/json/ext.rb#11
+    def parse(_arg0, _arg1); end
+  end
 end
 
 # source://json//lib/json/ext.rb#32
@@ -1889,22 +1957,35 @@ class JSON::Fragment < ::Struct
   # Returns the value of attribute json
   #
   # @return [Object] the current value of json
+  #
+  # source://json//lib/json/common.rb#287
   def json; end
 
   # Sets the attribute json
   #
   # @param value [Object] the value to set the attribute json to.
   # @return [Object] the newly set value
+  #
+  # source://json//lib/json/common.rb#287
   def json=(_); end
 
   # source://json//lib/json/common.rb#296
   def to_json(state = T.unsafe(nil), *_arg1); end
 
   class << self
+    # source://json//lib/json/common.rb#287
     def [](*_arg0); end
+
+    # source://json//lib/json/common.rb#287
     def inspect; end
+
+    # source://json//lib/json/common.rb#287
     def keyword_init?; end
+
+    # source://json//lib/json/common.rb#287
     def members; end
+
+    # source://json//lib/json/common.rb#287
     def new(*_arg0); end
   end
 end
@@ -1942,6 +2023,9 @@ class JSON::GenericObject < ::OpenStruct
   def |(other); end
 
   class << self
+    # source://json//lib/json/generic_object.rb#11
+    def [](*_arg0); end
+
     # source://json//lib/json/generic_object.rb#45
     def dump(obj, *args); end
 
@@ -2044,4 +2128,25 @@ module Kernel
   #
   # source://json//lib/json/common.rb#1120
   def jj(*objs); end
+end
+
+class NilClass
+  include ::JSON::Ext::Generator::GeneratorMethods::NilClass
+end
+
+class Object < ::BasicObject
+  include ::Kernel
+  include ::DEBUGGER__::ForkInterceptor
+  include ::DEBUGGER__::TrapInterceptor
+  include ::PP::ObjectMixin
+  include ::JSON::Ext::Generator::GeneratorMethods::Object
+end
+
+class String
+  include ::Comparable
+  include ::JSON::Ext::Generator::GeneratorMethods::String
+end
+
+class TrueClass
+  include ::JSON::Ext::Generator::GeneratorMethods::TrueClass
 end

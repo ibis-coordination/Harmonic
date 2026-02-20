@@ -25,11 +25,11 @@ module Selenium::WebDriver
     # @overload for
     # @overload for
     # @return [Driver]
-    # @see Selenium::WebDriver::Remote::Driver
+    # @see Selenium::WebDriver::Chrome::Driver
+    # @see Selenium::WebDriver::Edge::Driver
     # @see Selenium::WebDriver::Firefox::Driver
     # @see Selenium::WebDriver::IE::Driver
-    # @see Selenium::WebDriver::Edge::Driver
-    # @see Selenium::WebDriver::Chrome::Driver
+    # @see Selenium::WebDriver::Remote::Driver
     # @see Selenium::WebDriver::Safari::Driver
     # @see Selenium::WebDriver::Support::AbstractEventListener
     #
@@ -60,11 +60,11 @@ class Selenium::WebDriver::ActionBuilder
   # the mouse is moving. Keep in mind that pauses must be added for other devices in order to line up the actions
   # correctly when using asynchronous.
   #
-  # @param bridge [Selenium::WebDriver::Remote::Bridge] the bridge for the current driver instance
-  # @param mouse [Selenium::WebDriver::Interactions::PointerInput] PointerInput for the mouse.
-  # @param keyboard [Selenium::WebDriver::Interactions::KeyInput] KeyInput for the keyboard.
   # @param async [Boolean] Whether to perform the actions asynchronously per device. Defaults to false for
   #   backwards compatibility.
+  # @param bridge [Selenium::WebDriver::Remote::Bridge] the bridge for the current driver instance
+  # @param keyboard [Selenium::WebDriver::Interactions::KeyInput] KeyInput for the keyboard.
+  # @param mouse [Selenium::WebDriver::Interactions::PointerInput] PointerInput for the mouse.
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/action_builder.rb#42
@@ -88,8 +88,8 @@ class Selenium::WebDriver::ActionBuilder
   #
   #   builder = device.action
   #   builder.add_pointer_input('touch', :touch)
-  # @param name [String] name for the device
   # @param kind [Symbol] kind of pointer device to create
+  # @param name [String] name for the device
   # @return [Interactions::PointerInput] The pointer input added
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/action_builder.rb#63
@@ -145,8 +145,8 @@ class Selenium::WebDriver::ActionBuilder
   #   el = driver.find_element(id: "some_id")
   #   driver.action.click(el).pauses(keyboard, 3).send_keys('keys').perform
   # @param device [InputDevice] Input device to pause
-  # @param number [Integer] of pauses to add for the device
   # @param duration [Float] Duration to pause
+  # @param number [Integer] of pauses to add for the device
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/action_builder.rb#155
@@ -334,8 +334,8 @@ class Selenium::WebDriver::Chrome::Options < ::Selenium::WebDriver::Options
   # @option opts
   # @option opts
   # @option opts
-  # @param :profile [Profile] An instance of a Chrome::Profile Class
   # @param :encoded_extensions [Array] List of extensions that do not need to be Base64 encoded
+  # @param :profile [Profile] An instance of a Chrome::Profile Class
   # @param opts [Hash] the pre-defined options to create the Chrome::Options with
   # @return [Options] a new instance of Options
   #
@@ -356,12 +356,12 @@ class Selenium::WebDriver::Chrome::Options < ::Selenium::WebDriver::Options
   #
   # see: http://chromedriver.chromium.org/mobile-emulation
   #
-  # @example Start Chrome in mobile emulation mode by device name
-  #   options = Selenium::WebDriver::Chrome::Options.new
-  #   options.add_emulation(device_name: 'iPhone 6')
   # @example Start Chrome in mobile emulation mode by device metrics
   #   options = Selenium::WebDriver::Chrome::Options.new
   #   options.add_emulation(device_metrics: {width: 400, height: 800, pixelRatio: 1, touch: true})
+  # @example Start Chrome in mobile emulation mode by device name
+  #   options = Selenium::WebDriver::Chrome::Options.new
+  #   options.add_emulation(device_name: 'iPhone 6')
   # @option opts
   # @option opts
   # @option opts
@@ -403,11 +403,11 @@ class Selenium::WebDriver::Chrome::Options < ::Selenium::WebDriver::Options
 
   # Enables mobile browser use on Android.
   #
+  # @param activity [String] Name of the Activity hosting the WebView (Not available on Chrome Apps).
   # @param package [String] The package name of the Chrome or WebView app.
   # @param serial_number [String] The device serial number on which to launch the Chrome or WebView app.
   # @param use_running_app [String] When true uses an already-running Chrome or WebView app,
   #   instead of launching the app with a clear data directory.
-  # @param activity [String] Name of the Activity hosting the WebView (Not available on Chrome Apps).
   # @see https://chromedriver.chromium.org/getting-started/getting-started---android
   #
   # source://selenium-webdriver//lib/selenium/webdriver/chrome/options.rb#212
@@ -990,40 +990,57 @@ class Selenium::WebDriver::Dimension < ::Struct
   # Returns the value of attribute height
   #
   # @return [Object] the current value of height
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#35
   def height; end
 
   # Sets the attribute height
   #
   # @param value [Object] the value to set the attribute height to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#35
   def height=(_); end
 
   # Returns the value of attribute width
   #
   # @return [Object] the current value of width
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#35
   def width; end
 
   # Sets the attribute width
   #
   # @param value [Object] the value to set the attribute width to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#35
   def width=(_); end
 
   class << self
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#35
     def [](*_arg0); end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#35
     def inspect; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#35
     def keyword_init?; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#35
     def members; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#35
     def new(*_arg0); end
   end
 end
 
 # The main class through which you control the browser.
 #
-# @see SearchContext
 # @see Navigation
-# @see TargetLocator
 # @see Options
+# @see SearchContext
+# @see TargetLocator
 #
 # source://selenium-webdriver//lib/selenium/webdriver/common/driver.rb#31
 class Selenium::WebDriver::Driver
@@ -1061,7 +1078,7 @@ class Selenium::WebDriver::Driver
 
   # driver.all(class: 'bar') #=> [#<WebDriver::Element:0x1011c3b88, ...]
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/search_context.rb#75
+  # source://selenium-webdriver//lib/selenium/webdriver/common/driver.rb#263
   def all(*args); end
 
   # source://selenium-webdriver//lib/selenium/webdriver/common/driver.rb#289
@@ -1089,8 +1106,8 @@ class Selenium::WebDriver::Driver
   # invoking the provided callback. This callback is always injected into the
   # executed function as the last argument.
   #
-  # @param script [String] JavaScript source to execute
   # @param args [WebDriver::Element, Integer, Float, Boolean, NilClass, String, Array] Arguments to the script. May be empty.
+  # @param script [String] JavaScript source to execute
   # @return [WebDriver::Element, Integer, Float, Boolean, NilClass, String, Array]
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/driver.rb#247
@@ -1098,8 +1115,8 @@ class Selenium::WebDriver::Driver
 
   # Execute the given JavaScript
   #
-  # @param script [String] JavaScript source to execute
   # @param args [WebDriver::Element, Integer, Float, Boolean, NilClass, String, Array] Arguments will be available in the given script in the 'arguments' pseudo-array.
+  # @param script [String] JavaScript source to execute
   # @return [WebDriver::Element, Integer, Float, Boolean, NilClass, String, Array] The value returned from the script.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/driver.rb#228
@@ -1107,7 +1124,7 @@ class Selenium::WebDriver::Driver
 
   # driver.first(id: 'foo')
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/search_context.rb#57
+  # source://selenium-webdriver//lib/selenium/webdriver/common/driver.rb#257
   def first(*args); end
 
   # Opens the specified URL in the browser.
@@ -1156,13 +1173,13 @@ class Selenium::WebDriver::Driver
 
   # Execute the given JavaScript
   #
-  # @param script [String] JavaScript source to execute
   # @param args [WebDriver::Element, Integer, Float, Boolean, NilClass, String, Array] Arguments will be available in the given script in the 'arguments' pseudo-array.
+  # @param script [String] JavaScript source to execute
   # @return [WebDriver::Element, Integer, Float, Boolean, NilClass, String, Array] The value returned from the script.
   #
   #   driver.script('function() { ... };')
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/driver.rb#228
+  # source://selenium-webdriver//lib/selenium/webdriver/common/driver.rb#269
   def script(script, *args); end
 
   # information about whether a remote end is in a state in which it can create new sessions,
@@ -1315,9 +1332,9 @@ module Selenium::WebDriver::DriverExtensions::HasAuthentication
   # @example Authenticate based on URL
   #   driver.register(username: 'admin1', password: '123456', uri: /mysite1\.com/)
   #   driver.register(username: 'admin2', password: '123456', uri: /mysite2\.com/)
-  # @param username [String]
   # @param password [String]
   # @param uri [Regexp] to associate the credentials with
+  # @param username [String]
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/driver_extensions/has_authentication.rb#43
   def register(username:, password:, uri: T.unsafe(nil)); end
@@ -1442,7 +1459,7 @@ module Selenium::WebDriver::DriverExtensions::HasLocation
 
   # @raise [Error::UnsupportedOperationError]
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/driver_extensions/has_location.rb#25
+  # source://selenium-webdriver//lib/selenium/webdriver/common/driver_extensions/has_location.rb#32
   def set_location; end
 end
 
@@ -1457,23 +1474,23 @@ module Selenium::WebDriver::DriverExtensions::HasLogEvents
   # This currently relies on DevTools so is only supported in
   # Chromium browsers.
   #
-  # @example Collect console messages
-  #   logs = []
-  #   driver.on_log_event(:console) do |event|
-  #   logs.push(event)
+  # @example Collect DOM mutations
+  #   mutations = []
+  #   driver.on_log_event(:mutation) do |event|
+  #   mutations.push(event)
   #   end
   # @example Collect JavaScript exceptions
   #   exceptions = []
   #   driver.on_log_event(:exception) do |event|
   #   exceptions.push(event)
   #   end
-  # @example Collect DOM mutations
-  #   mutations = []
-  #   driver.on_log_event(:mutation) do |event|
-  #   mutations.push(event)
+  # @example Collect console messages
+  #   logs = []
+  #   driver.on_log_event(:console) do |event|
+  #   logs.push(event)
   #   end
-  # @param kind [Symbol] :console, :exception or :mutation
   # @param block [#call] which is called when event happens
+  # @param kind [Symbol] :console, :exception or :mutation
   # @raise [Error::WebDriverError]
   # @yieldparam [DevTools::ConsoleEvent, DevTools::ExceptionEvent, DevTools::MutationEvent]
   #
@@ -1561,13 +1578,6 @@ module Selenium::WebDriver::DriverExtensions::HasNetworkInterception
   #   puts "#{request.method} #{request.url}"
   #   continue.call(request)
   #   end
-  # @example Stub requests for images
-  #   driver.intercept do |request, &continue|
-  #   if request.url.match?(/\.png$/)
-  #   request.url = 'https://upload.wikimedia.org/wikipedia/commons/d/d5/Selenium_Logo.png'
-  #   end
-  #   continue.call(request)
-  #   end
   # @example Log responses and pass through
   #   driver.intercept do |request, &continue|
   #   continue.call(request) do |response|
@@ -1580,9 +1590,16 @@ module Selenium::WebDriver::DriverExtensions::HasNetworkInterception
   #   response.body << 'Added by Selenium!' if request.url.include?('/myurl')
   #   end
   #   end
+  # @example Stub requests for images
+  #   driver.intercept do |request, &continue|
+  #   if request.url.match?(/\.png$/)
+  #   request.url = 'https://upload.wikimedia.org/wikipedia/commons/d/d5/Selenium_Logo.png'
+  #   end
+  #   continue.call(request)
+  #   end
   # @param block [Proc] which is called when request is intercepted
-  # @yieldparam request [DevTools::Request]
   # @yieldparam continue [Proc] block which proceeds with the request and optionally yields response
+  # @yieldparam request [DevTools::Request]
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/driver_extensions/has_network_interception.rb#63
   def intercept(&block); end
@@ -1865,7 +1882,7 @@ class Selenium::WebDriver::Element
   # @see #dom_attribute
   # @see #property element['class'] or element[:class] #=> "someclass"
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#126
+  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#347
   def [](name); end
 
   # Gets the computed WAI-ARIA label of element.
@@ -1877,7 +1894,7 @@ class Selenium::WebDriver::Element
 
   # element.all(class: 'bar')
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/search_context.rb#75
+  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#342
   def all(*args); end
 
   # Gets the computed WAI-ARIA role of element
@@ -2002,12 +2019,12 @@ class Selenium::WebDriver::Element
   # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#232
   def enabled?; end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#43
+  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#46
   def eql?(other); end
 
   # element.first(id: 'foo')
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/search_context.rb#57
+  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#336
   def first(*args); end
 
   # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#48
@@ -2072,7 +2089,7 @@ class Selenium::WebDriver::Element
   # @param args [String, Symbol, Array] keystrokes to send
   # @see Keys::KEYS
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#207
+  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#210
   def send_key(*args); end
 
   # Send keystrokes to this element
@@ -2112,7 +2129,7 @@ class Selenium::WebDriver::Element
   #
   # @see http://www.w3.org/TR/DOM-Level-2-Style/css.html#CSS-CSSStyleDeclaration
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#275
+  # source://selenium-webdriver//lib/selenium/webdriver/common/element.rb#278
   def style(prop); end
 
   # Submit this element
@@ -2572,11 +2589,11 @@ class Selenium::WebDriver::Firefox::Options < ::Selenium::WebDriver::Options
 
   # Enables mobile browser use on Android.
   #
+  # @param activity [String] The fully qualified class name of the activity to be launched.
+  # @param intent_arguments [Array] Arguments to launch the intent with.
   # @param package [String] The package name of the Chrome or WebView app.
   # @param serial_number [String] The serial number of the device on which to launch the application.
   #   If not specified and multiple devices are attached, an error will be returned.
-  # @param activity [String] The fully qualified class name of the activity to be launched.
-  # @param intent_arguments [Array] Arguments to launch the intent with.
   # @see https://developer.mozilla.org/en-US/docs/Web/WebDriver/Capabilities/firefoxOptions#android
   #
   # source://selenium-webdriver//lib/selenium/webdriver/firefox/options.rb#150
@@ -2673,7 +2690,7 @@ class Selenium::WebDriver::Firefox::Profile
   # source://selenium-webdriver//lib/selenium/webdriver/firefox/profile.rb#119
   def add_extension(path, name = T.unsafe(nil)); end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/common/profile_helper.rb#38
+  # source://selenium-webdriver//lib/selenium/webdriver/firefox/profile.rb#146
   def as_json; end
 
   # source://selenium-webdriver//lib/selenium/webdriver/firefox/profile.rb#75
@@ -2888,8 +2905,8 @@ end
 
 # source://selenium-webdriver//lib/selenium/webdriver/common/html5/shared_web_storage.rb#23
 module Selenium::WebDriver::HTML5::SharedWebStorage
-  include ::Enumerable
   include ::ActiveSupport::ToJsonWithActiveSupportEncoder
+  include ::Enumerable
 
   # source://selenium-webdriver//lib/selenium/webdriver/common/html5/shared_web_storage.rb#43
   def each; end
@@ -2906,7 +2923,7 @@ module Selenium::WebDriver::HTML5::SharedWebStorage
 
   # @return [Boolean]
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/html5/shared_web_storage.rb#26
+  # source://selenium-webdriver//lib/selenium/webdriver/common/html5/shared_web_storage.rb#30
   def has_key?(key); end
 
   # @return [Boolean]
@@ -2916,7 +2933,7 @@ module Selenium::WebDriver::HTML5::SharedWebStorage
 
   # @return [Boolean]
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/html5/shared_web_storage.rb#26
+  # source://selenium-webdriver//lib/selenium/webdriver/common/html5/shared_web_storage.rb#29
   def member?(key); end
 end
 
@@ -3348,8 +3365,8 @@ module Selenium::WebDriver::KeyActions
   # @option args
   # @overload key_down
   # @overload key_down
-  # @param args [Array]
   # @param action [Symbol] The name of the key action to perform
+  # @param args [Array]
   # @param device [Symbol, String] optional name of the KeyInput device to press the key on
   # @return [ActionBuilder] A self reference
   #
@@ -3389,41 +3406,62 @@ class Selenium::WebDriver::Location < ::Struct
   # Returns the value of attribute altitude
   #
   # @return [Object] the current value of altitude
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#37
   def altitude; end
 
   # Sets the attribute altitude
   #
   # @param value [Object] the value to set the attribute altitude to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#37
   def altitude=(_); end
 
   # Returns the value of attribute latitude
   #
   # @return [Object] the current value of latitude
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#37
   def latitude; end
 
   # Sets the attribute latitude
   #
   # @param value [Object] the value to set the attribute latitude to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#37
   def latitude=(_); end
 
   # Returns the value of attribute longitude
   #
   # @return [Object] the current value of longitude
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#37
   def longitude; end
 
   # Sets the attribute longitude
   #
   # @param value [Object] the value to set the attribute longitude to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#37
   def longitude=(_); end
 
   class << self
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#37
     def [](*_arg0); end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#37
     def inspect; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#37
     def keyword_init?; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#37
     def members; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#37
     def new(*_arg0); end
   end
 end
@@ -3478,36 +3516,36 @@ class Selenium::WebDriver::Logger
   # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#51
   def initialize(progname = T.unsafe(nil)); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def close(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def debug(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def debug?(*args, **_arg1, &block); end
 
   # Marks code as deprecated with/without replacement.
   #
-  # @param old [String]
-  # @param new [String, nil]
   # @param id [Symbol, Array<Symbol>]
+  # @param new [String, nil]
+  # @param old [String]
   # @param reference [String]
   # @yield appends additional message to end of provided template
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#115
   def deprecate(old, new = T.unsafe(nil), id: T.unsafe(nil), reference: T.unsafe(nil), &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def error(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def error?(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def fatal(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def fatal?(*args, **_arg1, &block); end
 
   # Will not log the provided ID.
@@ -3517,10 +3555,10 @@ class Selenium::WebDriver::Logger
   # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#85
   def ignore(id); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def info(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def info?(*args, **_arg1, &block); end
 
   # Returns IO object used by logger internally.
@@ -3536,10 +3574,10 @@ class Selenium::WebDriver::Logger
   # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#76
   def io; end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def level(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def level=(*args, **_arg1, &block); end
 
   # Changes logger output to a new IO.
@@ -3551,14 +3589,14 @@ class Selenium::WebDriver::Logger
 
   # Overrides default #warn to skip ignored messages by provided id
   #
-  # @param message [String]
   # @param id [Symbol, Array<Sybmol>]
+  # @param message [String]
   # @yield see #deprecate
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#96
   def warn(message, id: T.unsafe(nil)); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://selenium-webdriver//lib/selenium/webdriver/common/logger.rb#39
   def warn?(*args, **_arg1, &block); end
 
   private
@@ -3721,7 +3759,7 @@ class Selenium::WebDriver::Options
   # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#111
   def as_json(*_arg0); end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#99
+  # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#105
   def eql?(other); end
 
   # Returns the value of attribute options.
@@ -3786,10 +3824,10 @@ class Selenium::WebDriver::Options
     # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#38
     def ie(**opts); end
 
-    # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#38
+    # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#41
     def internet_explorer(**opts); end
 
-    # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#43
+    # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#46
     def microsoftedge(**opts); end
 
     # source://selenium-webdriver//lib/selenium/webdriver/common/options.rb#48
@@ -4086,30 +4124,47 @@ class Selenium::WebDriver::Point < ::Struct
   # Returns the value of attribute x
   #
   # @return [Object] the current value of x
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#34
   def x; end
 
   # Sets the attribute x
   #
   # @param value [Object] the value to set the attribute x to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#34
   def x=(_); end
 
   # Returns the value of attribute y
   #
   # @return [Object] the current value of y
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#34
   def y; end
 
   # Sets the attribute y
   #
   # @param value [Object] the value to set the attribute y to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#34
   def y=(_); end
 
   class << self
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#34
     def [](*_arg0); end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#34
     def inspect; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#34
     def keyword_init?; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#34
     def members; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#34
     def new(*_arg0); end
   end
 end
@@ -4122,16 +4177,16 @@ module Selenium::WebDriver::PointerActions
   #
   # When no element is passed, the current mouse position will be clicked.
   #
+  # @example Clicking at the current mouse position
+  #
+  #   driver.action.click.perform
   # @example Clicking on an element
   #
   #   el = driver.find_element(id: "some_id")
   #   driver.action.click(el).perform
-  # @example Clicking at the current mouse position
-  #
-  #   driver.action.click.perform
-  # @param element [Selenium::WebDriver::Element] An optional element to click.
   # @param device [Symbol || String] optional name of the PointerInput device with the button
   #   that will be clicked
+  # @param element [Selenium::WebDriver::Element] An optional element to click.
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/interactions/pointer_actions.rb#235
@@ -4146,8 +4201,8 @@ module Selenium::WebDriver::PointerActions
   #
   #   el = driver.find_element(id: "some_id")
   #   driver.action.click_and_hold(el).perform
-  # @param element [Selenium::WebDriver::Element] the element to move to and click.
   # @param device [Symbol || String] optional name of the PointerInput device to click with
+  # @param element [Selenium::WebDriver::Element] the element to move to and click.
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/interactions/pointer_actions.rb#189
@@ -4165,9 +4220,9 @@ module Selenium::WebDriver::PointerActions
   # @example Context-clicking at the current mouse position
   #
   #   driver.action.context_click.perform
-  # @param element [Selenium::WebDriver::Element] An element to context click.
   # @param device [Symbol || String] optional name of the PointerInput device with the button
   #   that will be context-clicked
+  # @param element [Selenium::WebDriver::Element] An element to context click.
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/interactions/pointer_actions.rb#292
@@ -4198,9 +4253,9 @@ module Selenium::WebDriver::PointerActions
   # @example Double-clicking at the current mouse position
   #
   #   driver.action.double_click.perform
-  # @param element [Selenium::WebDriver::Element] An optional element to move to.
   # @param device [Symbol || String] optional name of the PointerInput device with the button
   #   that will be double-clicked
+  # @param element [Selenium::WebDriver::Element] An optional element to move to.
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/interactions/pointer_actions.rb#264
@@ -4215,11 +4270,11 @@ module Selenium::WebDriver::PointerActions
   #   el1 = driver.find_element(id: "some_id1")
   #   el2 = driver.find_element(id: "some_id2")
   #   driver.action.drag_and_drop(el1, el2).perform
+  # @param device [Symbol || String] optional name of the PointerInput device with the button
+  #   that will perform the drag and drop
   # @param source [Selenium::WebDriver::Element] element to emulate button down at.
   # @param target [Selenium::WebDriver::Element] element to move to and release the
   #   mouse at.
-  # @param device [Symbol || String] optional name of the PointerInput device with the button
-  #   that will perform the drag and drop
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/interactions/pointer_actions.rb#318
@@ -4232,11 +4287,11 @@ module Selenium::WebDriver::PointerActions
   #
   #   el = driver.find_element(id: "some_id1")
   #   driver.action.drag_and_drop_by(el, 100, 100).perform
-  # @param source [Selenium::WebDriver::Element] Element to emulate button down at.
-  # @param right_by [Integer] horizontal move offset.
-  # @param down_by [Integer] vertical move offset.
   # @param device [Symbol || String] optional name of the PointerInput device with the button
   #   that will perform the drag and drop
+  # @param down_by [Integer] vertical move offset.
+  # @param right_by [Integer] horizontal move offset.
+  # @param source [Selenium::WebDriver::Element] Element to emulate button down at.
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/interactions/pointer_actions.rb#342
@@ -4250,9 +4305,9 @@ module Selenium::WebDriver::PointerActions
   # @example Move the mouse to a certain offset from its current position
   #
   #   driver.action.move_by(100, 100).perform
-  # @param right_by [Integer] horizontal offset. A negative value means moving the mouse left.
-  # @param down_by [Integer] vertical offset. A negative value means moving the mouse up.
   # @param device [Symbol || String] optional name of the PointerInput device to move
+  # @param down_by [Integer] vertical offset. A negative value means moving the mouse up.
+  # @param right_by [Integer] horizontal offset. A negative value means moving the mouse left.
   # @raise [MoveTargetOutOfBoundsError] if the provided offset is outside the document's boundaries.
   # @return [ActionBuilder] A self reference.
   #
@@ -4268,20 +4323,20 @@ module Selenium::WebDriver::PointerActions
   #
   # Note that when using offsets, both coordinates need to be passed.
   #
-  # @example Scroll element into view and move the mouse to it
-  #
-  #   el = driver.find_element(id: "some_id")
-  #   driver.action.move_to(el).perform
   # @example
   #
   #   el = driver.find_element(id: "some_id")
   #   driver.action.move_to(el, 100, 100).perform
+  # @example Scroll element into view and move the mouse to it
+  #
+  #   el = driver.find_element(id: "some_id")
+  #   driver.action.move_to(el).perform
+  # @param device [Symbol || String] optional name of the PointerInput device to move.
+  # @param down_by [Integer] Optional offset from the top-left corner. A negative value means
+  #   coordinates above the element.
   # @param element [Selenium::WebDriver::Element] to move to.
   # @param right_by [Integer] Optional offset from the top-left corner. A negative value means
   #   coordinates to the left of the element.
-  # @param down_by [Integer] Optional offset from the top-left corner. A negative value means
-  #   coordinates above the element.
-  # @param device [Symbol || String] optional name of the PointerInput device to move.
   # @return [ActionBuilder] A self reference.
   #
   # source://selenium-webdriver//lib/selenium/webdriver/common/interactions/pointer_actions.rb#98
@@ -4295,9 +4350,9 @@ module Selenium::WebDriver::PointerActions
   # @example Move the mouse to a certain position in the viewport
   #
   #   driver.action.move_to_location(100, 100).perform
+  # @param device [Symbol || String] optional name of the PointerInput device to move
   # @param x [Integer] horizontal position. Equivalent to a css 'left' value.
   # @param y [Integer] vertical position. Equivalent to a css 'top' value.
-  # @param device [Symbol || String] optional name of the PointerInput device to move
   # @raise [MoveTargetOutOfBoundsError] if the provided x or y value is outside the document's boundaries.
   # @return [ActionBuilder] A self reference.
   #
@@ -4451,7 +4506,7 @@ class Selenium::WebDriver::Proxy
   # source://selenium-webdriver//lib/selenium/webdriver/common/proxy.rb#104
   def auto_detect=(bool); end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/common/proxy.rb#74
+  # source://selenium-webdriver//lib/selenium/webdriver/common/proxy.rb#77
   def eql?(other); end
 
   # source://selenium-webdriver//lib/selenium/webdriver/common/proxy.rb#43
@@ -4534,52 +4589,77 @@ class Selenium::WebDriver::Rectangle < ::Struct
   # Returns the value of attribute height
   #
   # @return [Object] the current value of height
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#36
   def height; end
 
   # Sets the attribute height
   #
   # @param value [Object] the value to set the attribute height to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#36
   def height=(_); end
 
   # Returns the value of attribute width
   #
   # @return [Object] the current value of width
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#36
   def width; end
 
   # Sets the attribute width
   #
   # @param value [Object] the value to set the attribute width to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#36
   def width=(_); end
 
   # Returns the value of attribute x
   #
   # @return [Object] the current value of x
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#36
   def x; end
 
   # Sets the attribute x
   #
   # @param value [Object] the value to set the attribute x to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#36
   def x=(_); end
 
   # Returns the value of attribute y
   #
   # @return [Object] the current value of y
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#36
   def y; end
 
   # Sets the attribute y
   #
   # @param value [Object] the value to set the attribute y to.
   # @return [Object] the newly set value
+  #
+  # source://selenium-webdriver//lib/selenium/webdriver.rb#36
   def y=(_); end
 
   class << self
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#36
     def [](*_arg0); end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#36
     def inspect; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#36
     def keyword_init?; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#36
     def members; end
+
+    # source://selenium-webdriver//lib/selenium/webdriver.rb#36
     def new(*_arg0); end
   end
 end
@@ -4598,8 +4678,8 @@ class Selenium::WebDriver::Remote::Bridge
   # Initializes the bridge with the given server URL
   #
   # @api private
-  # @param :url [String, URI] url for the remote server
   # @param :http_client [Object] an HTTP client instance that implements the same protocol as Http::Default
+  # @param :url [String, URI] url for the remote server
   # @return [Bridge] a new instance of Bridge
   #
   # source://selenium-webdriver//lib/selenium/webdriver/remote/bridge.rb#38
@@ -4617,7 +4697,7 @@ class Selenium::WebDriver::Remote::Bridge
 
   # actions
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/remote/bridge.rb#372
+  # source://selenium-webdriver//lib/selenium/webdriver/remote/bridge.rb#378
   def actions(async = T.unsafe(nil)); end
 
   # finding elements
@@ -4901,7 +4981,7 @@ class Selenium::WebDriver::Remote::Bridge
 
   # finding elements
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/remote/bridge.rb#520
+  # source://selenium-webdriver//lib/selenium/webdriver/remote/bridge.rb#524
   def switch_to_active_element; end
 
   # source://selenium-webdriver//lib/selenium/webdriver/remote/bridge.rb#181
@@ -5011,17 +5091,17 @@ Selenium::WebDriver::Remote::Bridge::UNICODE_CODE_POINT = T.let(T.unsafe(nil), I
 # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#29
 class Selenium::WebDriver::Remote::Capabilities
   # @api public
+  # @option :accept_insecure_certs
   # @option :browser_name
   # @option :browser_version
   # @option :platform_name
-  # @option :accept_insecure_certs
   # @option :proxy
-  # @param opts [Hash]
+  # @param :accept_insecure_certs [Hash] a customizable set of options
   # @param :browser_name [Hash] a customizable set of options
   # @param :browser_version [Hash] a customizable set of options
   # @param :platform_name [Hash] a customizable set of options
-  # @param :accept_insecure_certs [Hash] a customizable set of options
   # @param :proxy [Hash] a customizable set of options
+  # @param opts [Hash]
   # @return [Capabilities] a new instance of Capabilities
   #
   # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#177
@@ -5061,7 +5141,7 @@ class Selenium::WebDriver::Remote::Capabilities
   # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#53
   def browser_version=(value); end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#266
+  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#272
   def eql?(other); end
 
   # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#228
@@ -5085,10 +5165,10 @@ class Selenium::WebDriver::Remote::Capabilities
   # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#240
   def page_load_timeout=(timeout); end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#49
+  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#64
   def platform; end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#53
+  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#65
   def platform=(value); end
 
   # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#49
@@ -5144,10 +5224,10 @@ class Selenium::WebDriver::Remote::Capabilities
 
   # Backward compatibility
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#49
+  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#62
   def version; end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#53
+  # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#63
   def version=(value); end
 
   # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#49
@@ -5187,7 +5267,7 @@ class Selenium::WebDriver::Remote::Capabilities
     # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#78
     def edge(opts = T.unsafe(nil)); end
 
-    # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#85
+    # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#90
     def ff(opts = T.unsafe(nil)); end
 
     # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#85
@@ -5199,7 +5279,7 @@ class Selenium::WebDriver::Remote::Capabilities
     # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#98
     def htmlunit(opts = T.unsafe(nil)); end
 
-    # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#104
+    # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#110
     def ie(opts = T.unsafe(nil)); end
 
     # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#104
@@ -5210,7 +5290,7 @@ class Selenium::WebDriver::Remote::Capabilities
     # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#124
     def json_create(data); end
 
-    # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#78
+    # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#83
     def microsoftedge(opts = T.unsafe(nil)); end
 
     # source://selenium-webdriver//lib/selenium/webdriver/remote/capabilities.rb#92
@@ -5689,10 +5769,10 @@ class Selenium::WebDriver::Service
     # source://selenium-webdriver//lib/selenium/webdriver/common/service.rb#39
     def ie(**opts); end
 
-    # source://selenium-webdriver//lib/selenium/webdriver/common/service.rb#39
+    # source://selenium-webdriver//lib/selenium/webdriver/common/service.rb#42
     def internet_explorer(**opts); end
 
-    # source://selenium-webdriver//lib/selenium/webdriver/common/service.rb#44
+    # source://selenium-webdriver//lib/selenium/webdriver/common/service.rb#47
     def microsoftedge(**opts); end
 
     # source://selenium-webdriver//lib/selenium/webdriver/common/service.rb#49
@@ -5829,7 +5909,7 @@ class Selenium::WebDriver::ShadowRoot
   # source://selenium-webdriver//lib/selenium/webdriver/common/shadow_root.rb#77
   def as_json(*_arg0); end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/common/shadow_root.rb#42
+  # source://selenium-webdriver//lib/selenium/webdriver/common/shadow_root.rb#45
   def eql?(other); end
 
   # source://selenium-webdriver//lib/selenium/webdriver/common/shadow_root.rb#47
@@ -6084,7 +6164,7 @@ class Selenium::WebDriver::Support::Color
   # source://selenium-webdriver//lib/selenium/webdriver/support/color.rb#48
   def blue; end
 
-  # source://selenium-webdriver//lib/selenium/webdriver/support/color.rb#119
+  # source://selenium-webdriver//lib/selenium/webdriver/support/color.rb#125
   def eql?(other); end
 
   # Returns the value of attribute green.
@@ -6518,14 +6598,14 @@ class Selenium::WebDriver::Timeouts
   # Gets the amount of time to wait for an asynchronous script to finish
   # execution before throwing an error.
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/timeouts.rb#48
+  # source://selenium-webdriver//lib/selenium/webdriver/common/timeouts.rb#51
   def script_timeout; end
 
   # Sets the amount of time to wait for an asynchronous script to finish
   # execution before throwing an error. If the timeout is negative, then the
   # script will be allowed to run indefinitely.
   #
-  # source://selenium-webdriver//lib/selenium/webdriver/common/timeouts.rb#59
+  # source://selenium-webdriver//lib/selenium/webdriver/common/timeouts.rb#62
   def script_timeout=(seconds); end
 end
 

@@ -7,3 +7,4 @@
 --ignore=coverage/
 --ignore=node_modules/
 --ignore=ignore/
+--suppress-payload-superclass-redefinition-for=RDoc::Markup::Heading

@@ -12,6 +12,9 @@ OmniAuth.config.logger = Logger.new("/dev/null")
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # Rails 7.2 requires secret_key_base to be an explicit non-empty String.
+  config.secret_key_base = ENV["SECRET_KEY_BASE"].presence || "test_only_secret_key_base_not_for_production"
+
   # Turn false under Spring and add config.action_view.cache_template_loading = true.
   config.cache_classes = true
 
@@ -32,7 +35,7 @@ Rails.application.configure do
   config.cache_store = :null_store
 
   # Raise exceptions instead of rendering exception templates.
-  config.action_dispatch.show_exceptions = false
+  config.action_dispatch.show_exceptions = :none
 
   # Disable request forgery protection in test environment.
   config.action_controller.allow_forgery_protection = false

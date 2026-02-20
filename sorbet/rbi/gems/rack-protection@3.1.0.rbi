@@ -6,15 +6,7 @@
 
 
 # source://rack-protection//lib/rack/protection/version.rb#3
-module Rack
-  class << self
-    # source://rack/2.2.20/lib/rack/version.rb#26
-    def release; end
-
-    # source://rack/2.2.20/lib/rack/version.rb#19
-    def version; end
-  end
-end
+module Rack; end
 
 # source://rack-protection//lib/rack/protection/version.rb#4
 module Rack::Protection
@@ -118,7 +110,7 @@ class Rack::Protection::AuthenticityToken < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/authenticity_token.rb#112
   def accepts?(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/authenticity_token.rb#100
   def default_options; end
 
   # source://rack-protection//lib/rack/protection/authenticity_token.rb#124
@@ -228,7 +220,7 @@ class Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/base.rb#31
   def default_options; end
 
-  # source://rack-protection//lib/rack/protection/base.rb#75
+  # source://rack-protection//lib/rack/protection/base.rb#131
   def default_reaction(env); end
 
   # source://rack-protection//lib/rack/protection/base.rb#75
@@ -338,7 +330,7 @@ class Rack::Protection::ContentSecurityPolicy < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/content_security_policy.rb#53
   def csp_policy; end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/content_security_policy.rb#40
   def default_options; end
 end
 
@@ -375,7 +367,7 @@ class Rack::Protection::CookieTossing < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/cookie_tossing.rb#61
   def cookie_paths(path); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#75
+  # source://rack-protection//lib/rack/protection/cookie_tossing.rb#20
   def default_reaction(env); end
 
   # source://rack-protection//lib/rack/protection/cookie_tossing.rb#68
@@ -441,7 +433,7 @@ end
 #     }.new
 #   })
 #
-# source://rack-protection//lib/rack/protection/encrypted_cookie.rb#65
+# source://rack-protection//lib/rack/protection/encrypted_cookie.rb#64
 class Rack::Protection::EncryptedCookie < ::Rack::Session::Abstract::Persisted
   # @return [EncryptedCookie] a new instance of EncryptedCookie
   #
@@ -598,7 +590,7 @@ class Rack::Protection::EscapedParams < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/escaped_params.rb#50
   def call(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/escaped_params.rb#33
   def default_options; end
 
   # source://rack-protection//lib/rack/protection/escaped_params.rb#70
@@ -614,12 +606,12 @@ class Rack::Protection::EscapedParams < ::Rack::Protection::Base
   def handle(hash); end
 
   class << self
-    # source://rack/2.2.20/lib/rack/utils.rb#185
+    # source://rack-protection//lib/rack/protection/escaped_params.rb#30
     def escape_html(string); end
 
     private
 
-    # source://rack/2.2.20/lib/rack/utils.rb#39
+    # source://rack-protection//lib/rack/protection/escaped_params.rb#29
     def escape_url(s); end
   end
 end
@@ -663,7 +655,7 @@ class Rack::Protection::FrameOptions < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/frame_options.rb#32
   def call(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/frame_options.rb#22
   def default_options; end
 
   # source://rack-protection//lib/rack/protection/frame_options.rb#24
@@ -694,10 +686,10 @@ class Rack::Protection::HttpOrigin < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/http_origin.rb#26
   def base_url(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/http_origin.rb#24
   def default_options; end
 
-  # source://rack-protection//lib/rack/protection/base.rb#75
+  # source://rack-protection//lib/rack/protection/http_origin.rb#23
   def default_reaction(env); end
 end
 
@@ -717,7 +709,7 @@ class Rack::Protection::IPSpoofing < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/ip_spoofing.rb#16
   def accepts?(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#75
+  # source://rack-protection//lib/rack/protection/ip_spoofing.rb#14
   def default_reaction(env); end
 end
 
@@ -743,7 +735,7 @@ class Rack::Protection::JsonCsrf < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/json_csrf.rb#55
   def close_body(body); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/json_csrf.rb#22
   def default_options; end
 
   # @return [Boolean]
@@ -751,7 +743,7 @@ class Rack::Protection::JsonCsrf < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/json_csrf.rb#39
   def has_vector?(request, headers); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#75
+  # source://rack-protection//lib/rack/protection/json_csrf.rb#24
   def react(env); end
 
   # source://rack-protection//lib/rack/protection/json_csrf.rb#47
@@ -789,7 +781,7 @@ class Rack::Protection::ReferrerPolicy < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/referrer_policy.rb#20
   def call(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/referrer_policy.rb#18
   def default_options; end
 end
 
@@ -807,7 +799,7 @@ class Rack::Protection::RemoteReferrer < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/remote_referrer.rb#17
   def accepts?(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#75
+  # source://rack-protection//lib/rack/protection/remote_referrer.rb#15
   def default_reaction(env); end
 end
 
@@ -827,7 +819,7 @@ class Rack::Protection::RemoteToken < ::Rack::Protection::AuthenticityToken
   # source://rack-protection//lib/rack/protection/remote_token.rb#19
   def accepts?(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#75
+  # source://rack-protection//lib/rack/protection/remote_token.rb#17
   def default_reaction(env); end
 end
 
@@ -847,10 +839,10 @@ class Rack::Protection::SessionHijacking < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/session_hijacking.rb#21
   def accepts?(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/session_hijacking.rb#18
   def default_options; end
 
-  # source://rack-protection//lib/rack/protection/base.rb#95
+  # source://rack-protection//lib/rack/protection/session_hijacking.rb#17
   def default_reaction(env); end
 
   # source://rack-protection//lib/rack/protection/session_hijacking.rb#32
@@ -876,7 +868,7 @@ class Rack::Protection::StrictTransport < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/strict_transport.rb#34
   def call(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/strict_transport.rb#23
   def default_options; end
 
   # source://rack-protection//lib/rack/protection/strict_transport.rb#25
@@ -900,6 +892,6 @@ class Rack::Protection::XSSHeader < ::Rack::Protection::Base
   # source://rack-protection//lib/rack/protection/xss_header.rb#19
   def call(env); end
 
-  # source://rack-protection//lib/rack/protection/base.rb#24
+  # source://rack-protection//lib/rack/protection/xss_header.rb#17
   def default_options; end
 end

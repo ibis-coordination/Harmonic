@@ -19,15 +19,7 @@
 #   Rack::Attack.safelist("localhost") {|req| req.localhost? }
 #
 # source://rack-attack//lib/rack/attack/cache.rb#3
-module Rack
-  class << self
-    # source://rack/2.2.20/lib/rack/version.rb#26
-    def release; end
-
-    # source://rack/2.2.20/lib/rack/version.rb#19
-    def version; end
-  end
-end
+module Rack; end
 
 # source://rack-attack//lib/rack/attack/cache.rb#4
 class Rack::Attack
@@ -45,25 +37,25 @@ class Rack::Attack
   def configuration; end
 
   class << self
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def blocklist(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def blocklist_ip(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def blocklisted_responder(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def blocklisted_responder=(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def blocklisted_response(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def blocklisted_response=(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def blocklists(*args, **_arg1, &block); end
 
     # source://rack-attack//lib/rack/attack.rb#47
@@ -72,7 +64,7 @@ class Rack::Attack
     # source://rack-attack//lib/rack/attack.rb#51
     def clear!; end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def clear_configuration(*args, **_arg1, &block); end
 
     # Returns the value of attribute configuration.
@@ -110,16 +102,16 @@ class Rack::Attack
     # source://rack-attack//lib/rack/attack.rb#56
     def reset!; end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def safelist(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def safelist_ip(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def safelists(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def throttle(*args, **_arg1, &block); end
 
     # Returns the value of attribute throttle_discriminator_normalizer.
@@ -134,31 +126,31 @@ class Rack::Attack
     # source://rack-attack//lib/rack/attack.rb#34
     def throttle_discriminator_normalizer=(_arg0); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def throttled_responder(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def throttled_responder=(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def throttled_response(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def throttled_response=(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def throttled_response_retry_after_header(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def throttled_response_retry_after_header=(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def throttles(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def track(*args, **_arg1, &block); end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://rack-attack//lib/rack/attack.rb#61
     def tracks(*args, **_arg1, &block); end
   end
 end

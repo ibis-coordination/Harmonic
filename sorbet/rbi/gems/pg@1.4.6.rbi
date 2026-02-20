@@ -103,7 +103,7 @@ end
 #   # The format of the parameter is set to 0 (text) and the OID of this parameter is set to 20 (int8).
 #   res = conn.exec_params( "SELECT $1", [5] )
 #
-# source://pg//lib/pg/basic_type_map_for_queries.rb#36
+# source://pg//lib/pg/basic_type_map_for_queries.rb#24
 class PG::BasicTypeMapForQueries < ::PG::TypeMapByClass
   include ::PG::BasicTypeRegistry::Checker
 
@@ -296,7 +296,7 @@ class PG::BasicTypeRegistry
 
   # Populate the registry with all builtin types of ruby-pg
   #
-  # source://pg//lib/pg/basic_type_registry.rb#214
+  # source://pg//lib/pg/basic_type_registry.rb#287
   def define_default_types; end
 
   # Register an encoder or decoder instance for casting a PostgreSQL type.
@@ -701,7 +701,7 @@ class PG::Connection
   # Returns +nil+ on success, or a string containing the
   # error message if a failure occurs.
   #
-  # source://pg//lib/pg/connection.rb#519
+  # source://pg//lib/pg/connection.rb#572
   def async_cancel; end
 
   def async_describe_portal(_arg0); end
@@ -728,7 +728,7 @@ class PG::Connection
   # Available since PostgreSQL-10.
   # See also corresponding {libpq function}[https://www.postgresql.org/docs/current/libpq-misc.html#LIBPQ-PQENCRYPTPASSWORDCONN].
   #
-  # source://pg//lib/pg/connection.rb#492
+  # source://pg//lib/pg/connection.rb#496
   def async_encrypt_password(password, username, algorithm = T.unsafe(nil)); end
 
   def async_exec(*_arg0); end
@@ -753,7 +753,7 @@ class PG::Connection
   #
   # See also #copy_data.
   #
-  # source://pg//lib/pg/connection.rb#360
+  # source://pg//lib/pg/connection.rb#371
   def async_get_copy_data(async = T.unsafe(nil), decoder = T.unsafe(nil)); end
 
   def async_get_last_result; end
@@ -773,7 +773,7 @@ class PG::Connection
   # and the PG::Result object will  automatically be cleared when the block terminates.
   # In this instance, <code>conn.exec</code> returns the value of the block.
   #
-  # source://pg//lib/pg/connection.rb#337
+  # source://pg//lib/pg/connection.rb#341
   def async_get_result; end
 
   # call-seq:
@@ -782,7 +782,7 @@ class PG::Connection
   # Returns the blocking status of the database connection.
   # Returns +true+ if the connection is set to nonblocking mode and +false+ if blocking.
   #
-  # source://pg//lib/pg/connection.rb#408
+  # source://pg//lib/pg/connection.rb#411
   def async_isnonblocking; end
 
   def async_prepare(*_arg0); end
@@ -805,7 +805,7 @@ class PG::Connection
   #
   # See also #copy_data.
   #
-  # source://pg//lib/pg/connection.rb#432
+  # source://pg//lib/pg/connection.rb#448
   def async_put_copy_data(buffer, encoder = T.unsafe(nil)); end
 
   # call-seq:
@@ -821,7 +821,7 @@ class PG::Connection
   # not sent (*false* is only possible if the connection
   # is in nonblocking mode, and this command would block).
   #
-  # source://pg//lib/pg/connection.rb#462
+  # source://pg//lib/pg/connection.rb#469
   def async_put_copy_end(*args); end
 
   def async_query(*_arg0); end
@@ -832,7 +832,7 @@ class PG::Connection
   # Resets the backend connection. This method closes the
   # backend connection and tries to re-connect.
   #
-  # source://pg//lib/pg/connection.rb#504
+  # source://pg//lib/pg/connection.rb#509
   def async_reset; end
 
   def async_set_client_encoding(_arg0); end
@@ -853,7 +853,7 @@ class PG::Connection
   #
   # Returns +nil+.
   #
-  # source://pg//lib/pg/connection.rb#394
+  # source://pg//lib/pg/connection.rb#399
   def async_setnonblocking(enabled); end
 
   def backend_key; end
@@ -872,7 +872,9 @@ class PG::Connection
   # source://pg//lib/pg/connection.rb#519
   def cancel; end
 
+  # source://pg//lib/pg/connection.rb#869
   def client_encoding=(_arg0); end
+
   def close; end
 
   # Returns an array of Hashes with connection defaults. See ::conndefaults
@@ -978,8 +980,13 @@ class PG::Connection
   def db; end
   def decoder_for_get_copy_data; end
   def decoder_for_get_copy_data=(_arg0); end
+
+  # source://pg//lib/pg/connection.rb#869
   def describe_portal(_arg0); end
+
+  # source://pg//lib/pg/connection.rb#869
   def describe_prepared(_arg0); end
+
   def discard_results; end
   def encoder_for_put_copy_data; end
   def encoder_for_put_copy_data=(_arg0); end
@@ -1015,16 +1022,26 @@ class PG::Connection
   def escape_identifier(_arg0); end
   def escape_literal(_arg0); end
   def escape_string(_arg0); end
+
+  # source://pg//lib/pg/connection.rb#869
   def exec(*_arg0); end
+
+  # source://pg//lib/pg/connection.rb#869
   def exec_params(*_arg0); end
+
+  # source://pg//lib/pg/connection.rb#869
   def exec_prepared(*_arg0); end
+
   def exit_pipeline_mode; end
   def external_encoding; end
   def field_name_type; end
   def field_name_type=(_arg0); end
   def finish; end
   def finished?; end
+
+  # source://pg//lib/pg/connection.rb#845
   def flush; end
+
   def get_client_encoding; end
 
   # call-seq:
@@ -1047,6 +1064,7 @@ class PG::Connection
   # source://pg//lib/pg/connection.rb#360
   def get_copy_data(async = T.unsafe(nil), decoder = T.unsafe(nil)); end
 
+  # source://pg//lib/pg/connection.rb#869
   def get_last_result; end
 
   # call-seq:
@@ -1122,7 +1140,7 @@ class PG::Connection
   # Returns the blocking status of the database connection.
   # Returns +true+ if the connection is set to nonblocking mode and +false+ if blocking.
   #
-  # source://pg//lib/pg/connection.rb#408
+  # source://pg//lib/pg/connection.rb#412
   def nonblocking?; end
 
   def notifies; end
@@ -1133,7 +1151,10 @@ class PG::Connection
   def pipeline_status; end
   def pipeline_sync; end
   def port; end
+
+  # source://pg//lib/pg/connection.rb#869
   def prepare(*_arg0); end
+
   def protocol_version; end
 
   # call-seq:
@@ -1173,7 +1194,9 @@ class PG::Connection
   # source://pg//lib/pg/connection.rb#462
   def put_copy_end(*args); end
 
+  # source://pg//lib/pg/connection.rb#869
   def query(*_arg0); end
+
   def quote_ident(_arg0); end
 
   # call-seq:
@@ -1195,7 +1218,10 @@ class PG::Connection
   def send_query_params(*_arg0); end
   def send_query_prepared(*_arg0); end
   def server_version; end
+
+  # source://pg//lib/pg/connection.rb#869
   def set_client_encoding(_arg0); end
+
   def set_default_encoding; end
   def set_error_context_visibility(_arg0); end
   def set_error_verbosity(_arg0); end
@@ -1362,7 +1388,7 @@ class PG::Connection
     #
     # Raises a PG::Error if the connection fails.
     #
-    # source://pg//lib/pg/connection.rb#695
+    # source://pg//lib/pg/connection.rb#707
     def async_connect(*args); end
 
     # call-seq:
@@ -1384,7 +1410,7 @@ class PG::Connection
     # [+PQPING_NO_ATTEMPT+]
     #   connection not attempted (bad params)
     #
-    # source://pg//lib/pg/connection.rb#790
+    # source://pg//lib/pg/connection.rb#799
     def async_ping(*args); end
 
     # source://pg//lib/pg/connection.rb#842
@@ -1452,7 +1478,7 @@ class PG::Connection
     #
     # Raises a PG::Error if the connection fails.
     #
-    # source://pg//lib/pg/connection.rb#695
+    # source://pg//lib/pg/connection.rb#708
     def connect(*args); end
 
     # Convert Hash options to connection String
@@ -1468,6 +1494,8 @@ class PG::Connection
     def escape(_arg0); end
     def escape_bytea(_arg0); end
     def escape_string(_arg0); end
+
+    # source://pg//lib/pg/connection.rb#249
     def isthreadsafe; end
 
     # call-seq:
@@ -1577,7 +1605,7 @@ class PG::Connection
     #
     # Raises a PG::Error if the connection fails.
     #
-    # source://pg//lib/pg/connection.rb#695
+    # source://pg//lib/pg/connection.rb#709
     def open(*args); end
 
     # Parse the connection +args+ into a connection-parameter string.
@@ -1677,7 +1705,7 @@ class PG::Connection
     #
     # Raises a PG::Error if the connection fails.
     #
-    # source://pg//lib/pg/connection.rb#695
+    # source://pg//lib/pg/connection.rb#710
     def setdb(*args); end
 
     # call-seq:
@@ -1732,7 +1760,7 @@ class PG::Connection
     #
     # Raises a PG::Error if the connection fails.
     #
-    # source://pg//lib/pg/connection.rb#695
+    # source://pg//lib/pg/connection.rb#711
     def setdblogin(*args); end
 
     def sync_connect(*_arg0); end
@@ -2472,7 +2500,7 @@ class PG::Tuple
 
   # @return [Boolean]
   #
-  # source://pg//lib/pg/tuple.rb#14
+  # source://pg//lib/pg/tuple.rb#17
   def key?(key); end
 
   # source://pg//lib/pg/tuple.rb#19

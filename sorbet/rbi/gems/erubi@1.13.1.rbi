@@ -9,12 +9,12 @@
 module Erubi
   private
 
-  # source://erubi//lib/erubi.rb#32
-  def h(value); end
+  # source://erubi//lib/erubi.rb#22
+  def h(_arg0); end
 
   class << self
-    # source://erubi//lib/erubi.rb#32
-    def h(value); end
+    # source://erubi//lib/erubi.rb#49
+    def h(_arg0); end
   end
 end
 

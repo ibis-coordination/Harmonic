@@ -86,7 +86,7 @@ class Thor
     #
     # Then it is required either only one of "--one" or "--two".
     #
-    # source://thor//lib/thor.rb#246
+    # source://thor//lib/thor.rb#250
     def at_least_one(*args, &block); end
 
     # Extend check unknown options to accept a hash of conditions.
@@ -139,7 +139,7 @@ class Thor
     # ==== Parameters
     # meth<Symbol>:: name of the default command
     #
-    # source://thor//lib/thor.rb#21
+    # source://thor//lib/thor.rb#28
     def default_task(meth = T.unsafe(nil)); end
 
     # source://thor//lib/thor/base.rb#27
@@ -196,7 +196,7 @@ class Thor
     # If you give "--one" and "--two" at the same time ExclusiveArgumentsError
     # will be raised.
     #
-    # source://thor//lib/thor.rb#203
+    # source://thor//lib/thor.rb#207
     def exclusive(*args, &block); end
 
     # Prints help information for this class.
@@ -372,7 +372,7 @@ class Thor
     # :banner   - String to show on usage notes.
     # :hide     - If you want to hide this option from the help.
     #
-    # source://thor//lib/thor.rb#163
+    # source://thor//lib/thor.rb#175
     def option(name, options = T.unsafe(nil)); end
 
     # Declares the options for the next command to be declared.
@@ -382,7 +382,7 @@ class Thor
     # is the type of the option. Can be :string, :array, :hash, :boolean, :numeric
     # or :required (string). If you give a value, the type of the value is used.
     #
-    # source://thor//lib/thor.rb#129
+    # source://thor//lib/thor.rb#135
     def options(options = T.unsafe(nil)); end
 
     # Allows for custom "Command" package naming.
@@ -401,7 +401,7 @@ class Thor
 
     # Returns commands ready to be printed.
     #
-    # source://thor//lib/thor.rb#309
+    # source://thor//lib/thor.rb#318
     def printable_tasks(all = T.unsafe(nil), subcommand = T.unsafe(nil)); end
 
     # Registers another Thor subclass as a command.
@@ -470,10 +470,10 @@ class Thor
     # source://thor//lib/thor.rb#320
     def subcommands; end
 
-    # source://thor//lib/thor.rb#329
+    # source://thor//lib/thor.rb#344
     def subtask(subcommand, subcommand_class); end
 
-    # source://thor//lib/thor.rb#320
+    # source://thor//lib/thor.rb#323
     def subtasks; end
 
     # Prints help information for the given command.
@@ -482,7 +482,7 @@ class Thor
     # shell<Thor::Shell>
     # command_name<String>
     #
-    # source://thor//lib/thor.rb#258
+    # source://thor//lib/thor.rb#281
     def task_help(shell, command_name); end
 
     protected
@@ -501,7 +501,7 @@ class Thor
     # source://thor//lib/thor.rb#560
     def create_command(meth); end
 
-    # source://thor//lib/thor.rb#560
+    # source://thor//lib/thor.rb#584
     def create_task(meth); end
 
     # help command has the required check disabled by default.
@@ -530,7 +530,7 @@ class Thor
     # and determines whether it is an unambiguous substrings of a command or
     # alias name.
     #
-    # source://thor//lib/thor.rb#626
+    # source://thor//lib/thor.rb#639
     def find_task_possibilities(meth); end
 
     # source://thor//lib/thor.rb#586
@@ -575,7 +575,7 @@ class Thor
     #
     # @raise [AmbiguousTaskError]
     #
-    # source://thor//lib/thor.rb#605
+    # source://thor//lib/thor.rb#621
     def normalize_task_name(meth); end
 
     # source://thor//lib/thor.rb#493
@@ -591,7 +591,7 @@ class Thor
 
     # Retrieve the command name from given args.
     #
-    # source://thor//lib/thor.rb#592
+    # source://thor//lib/thor.rb#596
     def retrieve_task_name(args); end
 
     # Sort the commands, lexicographically by default.
@@ -608,7 +608,7 @@ class Thor
     # source://thor//lib/thor.rb#641
     def subcommand_help(cmd); end
 
-    # source://thor//lib/thor.rb#641
+    # source://thor//lib/thor.rb#647
     def subtask_help(cmd); end
   end
 end
@@ -651,7 +651,7 @@ module Thor::Actions
   #
   #   create_file "config/apache.conf", "your apache config"
   #
-  # source://thor//lib/thor/actions/create_file.rb#22
+  # source://thor//lib/thor/actions/create_file.rb#27
   def add_file(destination, *args, &block); end
 
   # Create a new file relative to the destination root from the given source.
@@ -666,7 +666,7 @@ module Thor::Actions
   #
   #   create_link "config/apache.conf", "/etc/apache.conf"
   #
-  # source://thor//lib/thor/actions/create_link.rb#17
+  # source://thor//lib/thor/actions/create_link.rb#22
   def add_link(destination, *args); end
 
   # Append text to a file. Since it depends on insert_into_file, it's reversible.
@@ -684,7 +684,7 @@ module Thor::Actions
   #     'config.gem "rspec"'
   #   end
   #
-  # source://thor//lib/thor/actions/file_manipulation.rb#192
+  # source://thor//lib/thor/actions/file_manipulation.rb#197
   def append_file(path, *args, &block); end
 
   # Append text to a file. Since it depends on insert_into_file, it's reversible.
@@ -1004,7 +1004,7 @@ module Thor::Actions
   #     gems.split(" ").map{ |gem| "  config.gem :#{gem}" }.join("\n")
   #   end
   #
-  # source://thor//lib/thor/actions/inject_into_file.rb#56
+  # source://thor//lib/thor/actions/inject_into_file.rb#64
   def inject_into_file(destination, *args, &block); end
 
   # Injects the given content into a file, raising an error if the contents of
@@ -1026,7 +1026,7 @@ module Thor::Actions
   #     gems.split(" ").map{ |gem| "  config.gem :#{gem}" }.join("\n")
   #   end
   #
-  # source://thor//lib/thor/actions/inject_into_file.rb#26
+  # source://thor//lib/thor/actions/inject_into_file.rb#35
   def inject_into_file!(destination, *args, &block); end
 
   # Injects text right after the module definition. Since it depends on
@@ -1139,7 +1139,7 @@ module Thor::Actions
   #     'config.gem "rspec"'
   #   end
   #
-  # source://thor//lib/thor/actions/file_manipulation.rb#170
+  # source://thor//lib/thor/actions/file_manipulation.rb#175
   def prepend_file(path, *args, &block); end
 
   # Prepend text to a file. Since it depends on insert_into_file, it's reversible.
@@ -1177,7 +1177,7 @@ module Thor::Actions
   #   remove_file 'README'
   #   remove_file 'app/controllers/application_controller.rb'
   #
-  # source://thor//lib/thor/actions/file_manipulation.rb#350
+  # source://thor//lib/thor/actions/file_manipulation.rb#360
   def remove_dir(path, config = T.unsafe(nil)); end
 
   # Removes a file at the given location.
@@ -1663,7 +1663,7 @@ class Thor::Argument
 
   # Returns the value of attribute name.
   #
-  # source://thor//lib/thor/parser/argument.rb#5
+  # source://thor//lib/thor/parser/argument.rb#6
   def human_name; end
 
   # Returns the value of attribute name.
@@ -1947,7 +1947,7 @@ module Thor::Base::ClassMethods
   # Hash:: An ordered hash with commands names as keys and Thor::Command
   #        objects as values.
   #
-  # source://thor//lib/thor/base.rb#483
+  # source://thor//lib/thor/base.rb#487
   def all_tasks; end
 
   # If you want to use defaults that don't match the type of an option,
@@ -2185,7 +2185,7 @@ module Thor::Base::ClassMethods
 
   # @raise [UndefinedCommandError]
   #
-  # source://thor//lib/thor/base.rb#614
+  # source://thor//lib/thor/base.rb#617
   def handle_no_task_error(command, has_namespace = T.unsafe(nil)); end
 
   # Sets the namespace for the Thor or Thor::Group class. By default the
@@ -2262,7 +2262,7 @@ module Thor::Base::ClassMethods
   #     remove_command :this_is_not_a_command
   #   end
   #
-  # source://thor//lib/thor/base.rb#531
+  # source://thor//lib/thor/base.rb#535
   def no_tasks(&block); end
 
   # Allows to use private methods from parent in child classes as commands.
@@ -2288,7 +2288,7 @@ module Thor::Base::ClassMethods
   #   public_command :foo
   #   public_command :foo, :bar, :baz
   #
-  # source://thor//lib/thor/base.rb#607
+  # source://thor//lib/thor/base.rb#612
   def public_task(*names); end
 
   # Removes a previous defined argument. If :undefine is given, undefine
@@ -2345,7 +2345,7 @@ module Thor::Base::ClassMethods
   # options<Hash>:: You can give :undefine => true if you want commands the method
   #                 to be undefined from the class as well.
   #
-  # source://thor//lib/thor/base.rb#501
+  # source://thor//lib/thor/base.rb#510
   def remove_task(*names); end
 
   # Parses the command and options from the given args, instantiate the class
@@ -2389,7 +2389,7 @@ module Thor::Base::ClassMethods
   # Hash:: An ordered hash with commands names as keys and Thor::Command
   #        objects as values.
   #
-  # source://thor//lib/thor/base.rb#472
+  # source://thor//lib/thor/base.rb#475
   def tasks; end
 
   protected
@@ -2452,7 +2452,7 @@ module Thor::Base::ClassMethods
   # SIGNATURE: Creates a new command if valid_command? is true. This method is
   # called when a new method is added to the class.
   #
-  # source://thor//lib/thor/base.rb#783
+  # source://thor//lib/thor/base.rb#785
   def create_task(meth); end
 
   # SIGNATURE: The hook invoked by start.
@@ -2473,7 +2473,7 @@ module Thor::Base::ClassMethods
   # class, just return it, otherwise dup it and add the fresh copy to the
   # current command hash.
   #
-  # source://thor//lib/thor/base.rb#709
+  # source://thor//lib/thor/base.rb#718
   def find_and_refresh_task(name); end
 
   # Retrieves a value from superclass. If it reaches the baseclass,
@@ -2851,7 +2851,7 @@ class Thor::Group
 
     # Returns commands ready to be printed.
     #
-    # source://thor//lib/thor/group.rb#199
+    # source://thor//lib/thor/group.rb#205
     def printable_tasks(*_arg0); end
 
     # Remove a previously added invocation.
@@ -2877,7 +2877,7 @@ class Thor::Group
     # source://thor//lib/thor/group.rb#263
     def create_command(meth); end
 
-    # source://thor//lib/thor/group.rb#263
+    # source://thor//lib/thor/group.rb#267
     def create_task(meth); end
 
     # The method responsible for dispatching given the args.
@@ -2894,7 +2894,7 @@ class Thor::Group
 
     # Represents the whole class as a command.
     #
-    # source://thor//lib/thor/group.rb#254
+    # source://thor//lib/thor/group.rb#257
     def self_task; end
   end
 end
@@ -3014,7 +3014,7 @@ module Thor::Invocation
 
   # Invoke the given command if the given args.
   #
-  # source://thor//lib/thor/invocation.rb#122
+  # source://thor//lib/thor/invocation.rb#130
   def invoke_task(command, *args); end
 
   # Invokes using shell padding.
@@ -3042,7 +3042,7 @@ module Thor::Invocation
   # use the given name and return self as class. Otherwise, call
   # prepare_for_invocation in the current class.
   #
-  # source://thor//lib/thor/invocation.rb#153
+  # source://thor//lib/thor/invocation.rb#163
   def _retrieve_class_and_task(name, sent_command = T.unsafe(nil)); end
 
   # Configuration values that are shared between invocations.
@@ -3223,10 +3223,10 @@ class Thor::Option < ::Thor::Argument
   # source://thor//lib/thor/parser/option.rb#99
   def aliases_for_usage; end
 
-  # source://thor//lib/thor/parser/option.rb#118
+  # source://thor//lib/thor/parser/option.rb#117
   def array?; end
 
-  # source://thor//lib/thor/parser/option.rb#118
+  # source://thor//lib/thor/parser/option.rb#117
   def boolean?; end
 
   # Returns the value of attribute group.
@@ -3234,7 +3234,7 @@ class Thor::Option < ::Thor::Argument
   # source://thor//lib/thor/parser/option.rb#3
   def group; end
 
-  # source://thor//lib/thor/parser/option.rb#118
+  # source://thor//lib/thor/parser/option.rb#117
   def hash?; end
 
   # Returns the value of attribute hide.
@@ -3250,7 +3250,7 @@ class Thor::Option < ::Thor::Argument
   # source://thor//lib/thor/parser/option.rb#3
   def lazy_default; end
 
-  # source://thor//lib/thor/parser/option.rb#118
+  # source://thor//lib/thor/parser/option.rb#117
   def numeric?; end
 
   # Returns the value of attribute repeatable.
@@ -3263,7 +3263,7 @@ class Thor::Option < ::Thor::Argument
   # source://thor//lib/thor/parser/option.rb#107
   def show_default?; end
 
-  # source://thor//lib/thor/parser/option.rb#118
+  # source://thor//lib/thor/parser/option.rb#117
   def string?; end
 
   # source://thor//lib/thor/parser/option.rb#75
@@ -3516,37 +3516,37 @@ module Thor::Shell
   # source://thor//lib/thor/shell.rb#44
   def initialize(args = T.unsafe(nil), options = T.unsafe(nil), config = T.unsafe(nil)); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def ask(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def error(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def file_collision(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def no?(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def print_in_columns(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def print_table(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def print_wrapped(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def say(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def say_error(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def say_status(*args, &block); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def set_color(*args, &block); end
 
   # Holds the shell for the given Thor instance. If no shell is given,
@@ -3562,7 +3562,7 @@ module Thor::Shell
   # source://thor//lib/thor/shell.rb#25
   def shell=(_arg0); end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def terminal_width(*args, &block); end
 
   # Yields the given block with padding.
@@ -3570,7 +3570,7 @@ module Thor::Shell
   # source://thor//lib/thor/shell.rb#66
   def with_padding; end
 
-  # source://thor//lib/thor/shell.rb#59
+  # source://thor//lib/thor/shell.rb#58
   def yes?(*args, &block); end
 
   protected
@@ -4390,7 +4390,7 @@ module Thor::Util
     # ==== Parameters
     # namespace<String>
     #
-    # source://thor//lib/thor/util.rb#131
+    # source://thor//lib/thor/util.rb#148
     def find_class_and_task_by_namespace(namespace, fallback = T.unsafe(nil)); end
 
     # Where to look for Thor files.

@@ -11,7 +11,7 @@ module ChildProcess
     # source://childprocess//lib/childprocess.rb#131
     def arch; end
 
-    # source://childprocess//lib/childprocess.rb#15
+    # source://childprocess//lib/childprocess.rb#31
     def build(*args); end
 
     # By default, a child process will inherit open file descriptors from the

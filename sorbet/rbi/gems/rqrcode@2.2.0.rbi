@@ -193,7 +193,7 @@ class RQRCode::QRCode
   # source://rqrcode//lib/rqrcode/qrcode/qrcode.rb#13
   def initialize(string, *args); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://rqrcode//lib/rqrcode/qrcode/qrcode.rb#9
   def modules(*args, **_arg1, &block); end
 
   # Returns the value of attribute qrcode.
@@ -201,7 +201,7 @@ class RQRCode::QRCode
   # source://rqrcode//lib/rqrcode/qrcode/qrcode.rb#11
   def qrcode; end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://rqrcode//lib/rqrcode/qrcode/qrcode.rb#8
   def to_s(*args, **_arg1, &block); end
 end
 

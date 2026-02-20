@@ -59,10 +59,12 @@ class ApiHelper
   # Check if the current user has the capability to perform an action.
   sig { returns(T.any(Note, Decision, Commitment)) }
   def create
-    case @current_resource_model
-    when Note then create_note
-    when Decision then create_decision
-    when Commitment then create_commitment
+    if @current_resource_model == Note
+      create_note
+    elsif @current_resource_model == Decision
+      create_decision
+    elsif @current_resource_model == Commitment
+      create_commitment
     else
       raise "Create action for resource model #{@current_resource_model} is not implemented"
     end

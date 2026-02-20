@@ -67,7 +67,7 @@ docker compose exec js npm test
 
 ## Architecture Overview
 
-**Tech stack**: Rails 7.0, Ruby 3.1.7, PostgreSQL, Redis/Sidekiq, Hotwire (Turbo + Stimulus)
+**Tech stack**: Rails 7.2, Ruby 3.3.7, PostgreSQL, Redis/Sidekiq, Hotwire (Turbo + Stimulus)
 
 ### Multi-Tenancy Pattern
 

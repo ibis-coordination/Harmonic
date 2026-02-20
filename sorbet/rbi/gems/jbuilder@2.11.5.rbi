@@ -180,7 +180,7 @@ class Jbuilder < ::ActiveSupport::ProxyObject
 
   # Returns the nil JSON.
   #
-  # source://jbuilder//lib/jbuilder.rb#261
+  # source://jbuilder//lib/jbuilder.rb#265
   def null!; end
 
   # source://jbuilder//lib/jbuilder.rb#33
@@ -298,7 +298,7 @@ module Jbuilder::CollectionRenderable
   def json; end
 end
 
-# source://jbuilder//lib/jbuilder/collection_renderer.rb#0
+# source://jbuilder//lib/jbuilder/collection_renderer.rb#15
 module Jbuilder::CollectionRenderable::ClassMethods
   # source://jbuilder//lib/jbuilder/collection_renderer.rb#16
   def supported?; end
@@ -306,8 +306,8 @@ end
 
 # source://jbuilder//lib/jbuilder/collection_renderer.rb#35
 class Jbuilder::CollectionRenderable::ScopedIterator < ::SimpleDelegator
-  include ::Enumerable
   include ::ActiveSupport::ToJsonWithActiveSupportEncoder
+  include ::Enumerable
 
   # @return [ScopedIterator] a new instance of ScopedIterator
   #

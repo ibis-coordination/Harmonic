@@ -170,7 +170,7 @@ class BCrypt::Errors::InvalidSecret < ::BCrypt::Error; end
 #   @db_password == "my grand secret" #=> true
 #   @db_password == "a paltry guess"  #=> false
 #
-# source://bcrypt//lib/bcrypt/password.rb#24
+# source://bcrypt//lib/bcrypt/password.rb#23
 class BCrypt::Password < ::String
   # Initializes a BCrypt::Password instance with the data from a stored hash.
   #
@@ -218,7 +218,7 @@ class BCrypt::Password < ::String
   #    @password.to_s == @password      # => True
   #    @password.to_s == @password.to_s # => True
   #
-  # source://bcrypt//lib/bcrypt/password.rb#76
+  # source://bcrypt//lib/bcrypt/password.rb#79
   def is_password?(secret); end
 
   # The salt of the store password hash (including version and cost).

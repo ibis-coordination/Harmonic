@@ -6,33 +6,7 @@
 
 
 # source://aws-sdk-s3//lib/aws-sdk-s3/customizations.rb#3
-module Aws
-  class << self
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#94
-    def config; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#97
-    def config=(config); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#156
-    def eager_autoload!(*args); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#149
-    def empty_connection_pools!; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#106
-    def partition(partition_name); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#111
-    def partitions; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#87
-    def shared_config; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#126
-    def use_bundled_cert!; end
-  end
-end
+module Aws; end
 
 # This module provides support for Amazon Simple Storage Service. This module is available in the
 # `aws-sdk-s3` gem.
@@ -403,7 +377,7 @@ class Aws::S3::Bucket
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket.rb#509
   def delete_objects(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket.rb#1613
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket.rb#1616
   def deprecated_identifiers; end
 
   # @param options [Hash] ({})
@@ -415,7 +389,7 @@ class Aws::S3::Bucket
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket.rb#1613
   def identifiers(*args, &block); end
 
   # @return [BucketLifecycle]
@@ -430,7 +404,7 @@ class Aws::S3::Bucket
 
   # @api private
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/bucket.rb#136
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket.rb#78
   def load; end
 
   # @return [BucketLogging]
@@ -675,7 +649,7 @@ class Aws::S3::Bucket
   # @api private
   # @raise [NotImplementedError]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket.rb#78
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket.rb#82
   def reload; end
 
   # @return [BucketRequestPayment]
@@ -884,7 +858,7 @@ class Aws::S3::BucketAcl
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_acl.rb#82
   def data_loaded?; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_acl.rb#291
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_acl.rb#294
   def deprecated_identifiers; end
 
   # A list of grants.
@@ -897,7 +871,7 @@ class Aws::S3::BucketAcl
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_acl.rb#291
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketAcl}.
@@ -971,7 +945,7 @@ class Aws::S3::BucketAcl
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_acl.rb#62
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_acl.rb#69
   def reload; end
 
   # Waiter polls an API operation until a resource enters a desired
@@ -1121,13 +1095,13 @@ class Aws::S3::BucketCors
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_cors.rb#193
   def delete(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_cors.rb#282
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_cors.rb#285
   def deprecated_identifiers; end
 
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_cors.rb#282
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketCors}.
@@ -1176,7 +1150,7 @@ class Aws::S3::BucketCors
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_cors.rb#57
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_cors.rb#64
   def reload; end
 
   # Waiter polls an API operation until a resource enters a desired
@@ -1318,13 +1292,13 @@ class Aws::S3::BucketLifecycle
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle.rb#197
   def delete(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle.rb#289
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle.rb#292
   def deprecated_identifiers; end
 
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle.rb#289
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketLifecycle}.
@@ -1392,7 +1366,7 @@ class Aws::S3::BucketLifecycle
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle.rb#56
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle.rb#63
   def reload; end
 
   # Container for a lifecycle rule.
@@ -1541,13 +1515,13 @@ class Aws::S3::BucketLifecycleConfiguration
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle_configuration.rb#222
   def delete(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle_configuration.rb#361
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle_configuration.rb#364
   def deprecated_identifiers; end
 
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle_configuration.rb#361
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketLifecycleConfiguration}.
@@ -1639,7 +1613,7 @@ class Aws::S3::BucketLifecycleConfiguration
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle_configuration.rb#81
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_lifecycle_configuration.rb#88
   def reload; end
 
   # Container for a lifecycle rule.
@@ -1802,13 +1776,13 @@ class Aws::S3::BucketLogging
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_logging.rb#82
   def data_loaded?; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_logging.rb#268
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_logging.rb#271
   def deprecated_identifiers; end
 
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_logging.rb#268
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketLogging}.
@@ -1883,7 +1857,7 @@ class Aws::S3::BucketLogging
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_logging.rb#62
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_logging.rb#69
   def reload; end
 
   # Waiter polls an API operation until a resource enters a desired
@@ -2013,7 +1987,7 @@ class Aws::S3::BucketNotification
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_notification.rb#97
   def data_loaded?; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_notification.rb#296
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_notification.rb#299
   def deprecated_identifiers; end
 
   # Enables delivery of events to Amazon EventBridge.
@@ -2026,7 +2000,7 @@ class Aws::S3::BucketNotification
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_notification.rb#296
   def identifiers(*args, &block); end
 
   # Describes the Lambda functions to invoke and the events for which to
@@ -2132,7 +2106,7 @@ class Aws::S3::BucketNotification
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_notification.rb#77
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_notification.rb#84
   def reload; end
 
   # The topic to which notifications are sent and the events for which
@@ -2282,13 +2256,13 @@ class Aws::S3::BucketPolicy
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_policy.rb#198
   def delete(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_policy.rb#306
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_policy.rb#309
   def deprecated_identifiers; end
 
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_policy.rb#306
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketPolicy}.
@@ -2335,7 +2309,7 @@ class Aws::S3::BucketPolicy
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_policy.rb#56
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_policy.rb#63
   def reload; end
 
   # Waiter polls an API operation until a resource enters a desired
@@ -2489,7 +2463,7 @@ class Aws::S3::BucketRegionCache
 
   # @return [Hash] Returns a hash of cached bucket names and region names.
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_region_cache.rb#76
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_region_cache.rb#81
   def to_h; end
 
   # @return [Hash] Returns a hash of cached bucket names and region names.
@@ -2536,13 +2510,13 @@ class Aws::S3::BucketRequestPayment
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_request_payment.rb#76
   def data_loaded?; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_request_payment.rb#246
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_request_payment.rb#249
   def deprecated_identifiers; end
 
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_request_payment.rb#246
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketRequestPayment}.
@@ -2589,7 +2563,7 @@ class Aws::S3::BucketRequestPayment
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_request_payment.rb#56
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_request_payment.rb#63
   def reload; end
 
   # Waiter polls an API operation until a resource enters a desired
@@ -2731,13 +2705,13 @@ class Aws::S3::BucketTagging
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_tagging.rb#192
   def delete(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_tagging.rb#270
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_tagging.rb#273
   def deprecated_identifiers; end
 
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_tagging.rb#270
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketTagging}.
@@ -2782,7 +2756,7 @@ class Aws::S3::BucketTagging
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_tagging.rb#56
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_tagging.rb#63
   def reload; end
 
   # Contains the tag set.
@@ -2919,7 +2893,7 @@ class Aws::S3::BucketVersioning
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_versioning.rb#85
   def data_loaded?; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_versioning.rb#410
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_versioning.rb#413
   def deprecated_identifiers; end
 
   # @example Request syntax with placeholder values
@@ -2943,7 +2917,7 @@ class Aws::S3::BucketVersioning
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_versioning.rb#410
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {BucketVersioning}.
@@ -2996,7 +2970,7 @@ class Aws::S3::BucketVersioning
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_versioning.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_versioning.rb#72
   def reload; end
 
   # The versioning state of the bucket.
@@ -3163,7 +3137,7 @@ class Aws::S3::BucketWebsite
   # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_website.rb#214
   def delete(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_website.rb#311
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_website.rb#314
   def deprecated_identifiers; end
 
   # The object key name of the website error document to use for 4XX class
@@ -3177,7 +3151,7 @@ class Aws::S3::BucketWebsite
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_website.rb#311
   def identifiers(*args, &block); end
 
   # The name of the index document for the website (for example
@@ -3257,7 +3231,7 @@ class Aws::S3::BucketWebsite
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_website.rb#78
+  # source://aws-sdk-s3//lib/aws-sdk-s3/bucket_website.rb#85
   def reload; end
 
   # Rules that define when a redirect is applied and the redirect
@@ -3414,7 +3388,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - For information about
   #     permissions required to use the multipart upload, see [Multipart
   #     Upload and Permissions][4] in the *Amazon S3 User Guide*.
   #
@@ -3435,7 +3408,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `AbortMultipartUpload`:
@@ -3572,7 +3544,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - For information about
   #     permissions required to use the multipart upload API, see
   #     [Multipart Upload and Permissions][7] in the *Amazon S3 User
   #     Guide*.
@@ -3603,7 +3574,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     identity-based policies and KMS key policies for the KMS key.
   #
   # Special errors
-  # : * Error Code: `EntityTooSmall`
   #
   #     * Description: Your proposed upload is smaller than the minimum
   #       allowed object size. Each part must be at least 5 MB in size,
@@ -3633,7 +3603,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `CompleteMultipartUpload`:
@@ -3853,7 +3822,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Authentication and authorization
   #
-  # : All `CopyObject` requests must be authenticated and signed by using
   #   IAM credentials (access key ID and secret access key for the IAM
   #   identities). All headers with the `x-amz-` prefix, including
   #   `x-amz-copy-source`, must be signed. For more information, see [REST
@@ -3869,7 +3837,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : You must have *read* access to the source object and *write* access
   #   to the destination bucket.
   #
   #   * **General purpose bucket permissions** - You must have permissions
@@ -3911,7 +3878,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Response and special errors
   #
-  # : When the request is an HTTP 1.1 request, the response is chunk
   #   encoded. When the request is not an HTTP 1.1 request, the response
   #   would not contain the `Content-Length`. You always need to read the
   #   entire response body to check if the copy succeeds.
@@ -3949,7 +3915,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Charge
   #
-  # : The copy request charge is based on the storage class and Region
   #   that you specify for the destination object. The request can also
   #   result in a data retrieval charge for the source if the source
   #   storage class bills for data retrieval. If the copy source is in a
@@ -3957,7 +3922,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   account. For pricing information, see [Amazon S3 pricing][10].
   #
   # HTTP Host header syntax
-  # : * <b>Directory buckets </b> - The HTTP Host header syntax is `
   #     Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   #   * **Amazon S3 on Outposts** - When you use this action with S3 on
@@ -4180,7 +4144,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - In addition to the
   #     `s3:CreateBucket` permission, the following permissions are
   #     required in a policy when your `CreateBucket` request includes
   #     specific headers:
@@ -4253,7 +4216,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region-code.amazonaws.com`.
   #
   # The following operations are related to `CreateBucket`:
@@ -4282,6 +4244,18 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # [12]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
   # [13]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucket.html
   #
+  # @example Example: To create a bucket
+  #
+  #   # The following example creates a bucket.
+  #
+  #   resp = client.create_bucket({
+  #   bucket: "examplebucket",
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   location: "/examplebucket",
+  #   }
   # @example Example: To create a bucket in a specific region
   #
   #   # The following example creates a bucket. The request specifies an AWS region where to create the bucket.
@@ -4296,18 +4270,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   resp.to_h outputs the following:
   #   {
   #   location: "http://examplebucket.<Region>.s3.amazonaws.com/",
-  #   }
-  # @example Example: To create a bucket
-  #
-  #   # The following example creates a bucket.
-  #
-  #   resp = client.create_bucket({
-  #   bucket: "examplebucket",
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   location: "/examplebucket",
   #   }
   # @example Request syntax with placeholder values
   #
@@ -4370,7 +4332,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have the following permissions. For
   #   more information, see [Setting up permissions for configuring
   #   metadata tables][2] in the *Amazon S3 User Guide*.
   #
@@ -4494,7 +4455,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have the following permissions. For
   #   more information, see [Setting up permissions for configuring
   #   metadata tables][3] in the *Amazon S3 User Guide*.
   #
@@ -4622,7 +4582,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Request signing
   #
-  # : For request signing, multipart upload is just a series of regular
   #   requests. You initiate a multipart upload, send one or more requests
   #   to upload parts, and then complete the multipart upload process. You
   #   sign each request individually. There is nothing special about
@@ -4631,7 +4590,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   Version 4)][6] in the *Amazon S3 User Guide*.
   #
   # Permissions
-  # : * **General purpose bucket permissions** - To perform a multipart
   #     upload with encryption using an Key Management Service (KMS) KMS
   #     key, the requester must have permission to the `kms:Decrypt` and
   #     `kms:GenerateDataKey` actions on the key. The requester must also
@@ -4661,7 +4619,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     authorization, see [ `CreateSession` ][9].
   #
   # Encryption
-  # : * **General purpose buckets** - Server-side encryption is for data
   #     encryption at rest. Amazon S3 encrypts your data as it writes it
   #     to disks in its data centers and decrypts it when you access it.
   #     Amazon S3 automatically encrypts all new objects that are uploaded
@@ -4798,7 +4755,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `CreateMultipartUpload`:
@@ -5025,7 +4981,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To obtain temporary security credentials, you must create a bucket
   #   policy or an IAM identity-based policy that grants
   #   `s3express:CreateSession` permission to the bucket. In a policy, you
   #   can have the `s3express:SessionMode` condition key to control who
@@ -5046,7 +5001,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Encryption
   #
-  # : For directory buckets, there are only two supported options for
   #   server-side encryption: server-side encryption with Amazon S3
   #   managed keys (SSE-S3) (`AES256`) and server-side encryption with KMS
   #   keys (SSE-KMS) (`aws:kms`). We recommend that the bucket's default
@@ -5104,7 +5058,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # You must URL encode any signed header values that contain spaces. For
@@ -5192,7 +5145,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - You must have the
   #     `s3:DeleteBucket` permission on the specified bucket in a policy.
   #
   #   * **Directory bucket permissions** - You must have the
@@ -5207,7 +5159,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region-code.amazonaws.com`.
   #
   # The following operations are related to `DeleteBucket`:
@@ -5377,7 +5328,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - The
   #     `s3:PutEncryptionConfiguration` permission is required in a
   #     policy. The bucket owner has this permission by default. The
   #     bucket owner can grant this permission to others. For more
@@ -5398,7 +5348,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region-code.amazonaws.com`.
   #
   # The following operations are related to `DeleteBucketEncryption`:
@@ -5564,7 +5513,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # rules contained in the deleted lifecycle configuration.
   #
   # Permissions
-  # : * **General purpose bucket permissions** - By default, all Amazon S3
   #     resources are private, including buckets, objects, and related
   #     subresources (for example, lifecycle configuration and website
   #     configuration). Only the resource owner (that is, the Amazon Web
@@ -5605,7 +5553,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region.amazonaws.com`.
   #
   # For more information about the object expiration, see [Elements to
@@ -5668,7 +5615,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have the
   #   `s3:DeleteBucketMetadataTableConfiguration` permission. For more
   #   information, see [Setting up permissions for configuring metadata
   #   tables][2] in the *Amazon S3 User Guide*.
@@ -5748,7 +5694,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have the
   #   `s3:DeleteBucketMetadataTableConfiguration` permission. For more
   #   information, see [Setting up permissions for configuring metadata
   #   tables][4] in the *Amazon S3 User Guide*.
@@ -5910,7 +5855,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : If you are using an identity other than the root user of the Amazon
   #   Web Services account that owns the bucket, the calling identity must
   #   both have the `DeleteBucketPolicy` permissions on the specified
   #   bucket and belong to the bucket owner's account in order to use
@@ -5949,7 +5893,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region-code.amazonaws.com`.
   #
   # The following operations are related to `DeleteBucketPolicy`
@@ -6242,7 +6185,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - The following permissions
   #     are required in your policies when your `DeleteObjects` request
   #     includes specific headers.
   #
@@ -6275,7 +6217,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following action is related to `DeleteObject`:
@@ -6306,14 +6247,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # [8]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateSession.html
   # [9]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
   #
-  # @example Example: To delete an object (from a non-versioned bucket)
-  #
-  #   # The following example deletes an object from a non-versioned bucket.
-  #
-  #   resp = client.delete_object({
-  #   bucket: "ExampleBucket",
-  #   key: "HappyFace.jpg",
-  #   })
   # @example Example: To delete an object
   #
   #   # The following example deletes an object from an S3 bucket.
@@ -6326,6 +6259,14 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   resp.to_h outputs the following:
   #   {
   #   }
+  # @example Example: To delete an object (from a non-versioned bucket)
+  #
+  #   # The following example deletes an object from a non-versioned bucket.
+  #
+  #   resp = client.delete_object({
+  #   bucket: "ExampleBucket",
+  #   key: "HappyFace.jpg",
+  #   })
   # @example Request syntax with placeholder values
   #
   #   resp = client.delete_object({
@@ -6504,7 +6445,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - The following permissions
   #     are required in your policies when your `DeleteObjects` request
   #     includes specific headers.
   #
@@ -6537,7 +6477,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     authorization, see [ `CreateSession` ][4].
   #
   # Content-MD5 request header
-  # : * **General purpose bucket** - The Content-MD5 request header is
   #     required for all Multi-Object Delete requests. Amazon S3 uses the
   #     header value to ensure that your request body has not been altered
   #     in transit.
@@ -6550,7 +6489,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `DeleteObjects`:
@@ -6581,41 +6519,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # [8]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListParts.html
   # [9]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_AbortMultipartUpload.html
   #
-  # @example Example: To delete multiple objects from a versioned bucket
-  #
-  #   # The following example deletes objects from a bucket. The bucket is versioned, and the request does not specify the
-  #   # object version to delete. In this case, all versions remain in the bucket and S3 adds a delete marker.
-  #
-  #   resp = client.delete_objects({
-  #   bucket: "examplebucket",
-  #   delete: {
-  #   objects: [
-  #   {
-  #   key: "objectkey1",
-  #   },
-  #   {
-  #   key: "objectkey2",
-  #   },
-  #   ],
-  #   quiet: false,
-  #   },
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   deleted: [
-  #   {
-  #   delete_marker: true,
-  #   delete_marker_version_id: "A._w1z6EFiCF5uhtQMDal9JDkID9tQ7F",
-  #   key: "objectkey1",
-  #   },
-  #   {
-  #   delete_marker: true,
-  #   delete_marker_version_id: "iOd_ORxhkKe_e8G8_oSGxt2PjsCZKlkt",
-  #   key: "objectkey2",
-  #   },
-  #   ],
-  #   }
   # @example Example: To delete multiple object versions from a versioned bucket
   #
   #   # The following example deletes objects from a bucket. The request specifies object versions. S3 deletes specific object
@@ -6648,6 +6551,41 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   {
   #   key: "HappyFace.jpg",
   #   version_id: "2LWg7lQLnY41.maGB5Z6SWW.dcq0vx7b",
+  #   },
+  #   ],
+  #   }
+  # @example Example: To delete multiple objects from a versioned bucket
+  #
+  #   # The following example deletes objects from a bucket. The bucket is versioned, and the request does not specify the
+  #   # object version to delete. In this case, all versions remain in the bucket and S3 adds a delete marker.
+  #
+  #   resp = client.delete_objects({
+  #   bucket: "examplebucket",
+  #   delete: {
+  #   objects: [
+  #   {
+  #   key: "objectkey1",
+  #   },
+  #   {
+  #   key: "objectkey2",
+  #   },
+  #   ],
+  #   quiet: false,
+  #   },
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   deleted: [
+  #   {
+  #   delete_marker: true,
+  #   delete_marker_version_id: "A._w1z6EFiCF5uhtQMDal9JDkID9tQ7F",
+  #   key: "objectkey1",
+  #   },
+  #   {
+  #   delete_marker: true,
+  #   delete_marker_version_id: "iOd_ORxhkKe_e8G8_oSGxt2PjsCZKlkt",
+  #   key: "objectkey2",
   #   },
   #   ],
   #   }
@@ -7127,7 +7065,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - The
   #     `s3:GetEncryptionConfiguration` permission is required in a
   #     policy. The bucket owner has this permission by default. The
   #     bucket owner can grant this permission to others. For more
@@ -7148,7 +7085,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region-code.amazonaws.com`.
   #
   # The following operations are related to `GetBucketEncryption`:
@@ -7481,7 +7417,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - By default, all Amazon S3
   #     resources are private, including buckets, objects, and related
   #     subresources (for example, lifecycle configuration and website
   #     configuration). Only the resource owner (that is, the Amazon Web
@@ -7521,7 +7456,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region.amazonaws.com`.
   #
   # `GetBucketLifecycleConfiguration` has the following special error:
@@ -7783,7 +7717,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have the
   #   `s3:GetBucketMetadataTableConfiguration` permission. For more
   #   information, see [Setting up permissions for configuring metadata
   #   tables][2] in the *Amazon S3 User Guide*.
@@ -7883,7 +7816,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have the
   #   `s3:GetBucketMetadataTableConfiguration` permission. For more
   #   information, see [Setting up permissions for configuring metadata
   #   tables][4] in the *Amazon S3 User Guide*.
@@ -8285,7 +8217,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : If you are using an identity other than the root user of the Amazon
   #   Web Services account that owns the bucket, the calling identity must
   #   both have the `GetBucketPolicy` permissions on the specified bucket
   #   and belong to the bucket owner's account in order to use this
@@ -8323,7 +8254,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Example bucket policies
   #
-  # : **General purpose buckets example bucket policies** - See [Bucket
   #   policy examples][5] in the *Amazon S3 User Guide*.
   #
   #   **Directory bucket example bucket policies** - See [Example bucket
@@ -8331,7 +8261,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region-code.amazonaws.com`.
   #
   # The following action is related to `GetBucketPolicy`:
@@ -8879,7 +8808,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # User Guide*.
   #
   # Permissions
-  # : * **General purpose bucket permissions** - You must have the
   #     required permissions in a policy. To use `GetObject`, you must
   #     have the `READ` access to the object (or version). If you grant
   #     `READ` access to the anonymous user, the `GetObject` operation
@@ -8927,7 +8855,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Storage classes
   #
-  # : If the object you are retrieving is stored in the S3 Glacier
   #   Flexible Retrieval storage class, the S3 Glacier Deep Archive
   #   storage class, the S3 Intelligent-Tiering Archive Access tier, or
   #   the S3 Intelligent-Tiering Deep Archive Access tier, before you can
@@ -8946,7 +8873,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Encryption
   #
-  # : Encryption request headers, like `x-amz-server-side-encryption`,
   #   should not be sent for the `GetObject` requests, if your object uses
   #   server-side encryption with Amazon S3 managed encryption keys
   #   (SSE-S3), server-side encryption with Key Management Service (KMS)
@@ -8962,7 +8888,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Overriding response header values through the request
   #
-  # : There are times when you want to override certain response header
   #   values of a `GetObject` response. For example, you might override
   #   the `Content-Disposition` response header value through your
   #   `GetObject` request.
@@ -9002,7 +8927,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `GetObject`:
@@ -9028,6 +8952,23 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # [9]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListBuckets.html
   # [10]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObjectAcl.html
   #
+  # @example Download an object to disk
+  #   # stream object directly to disk
+  #   resp = s3.get_object(
+  #   response_target: '/path/to/file',
+  #   bucket: 'bucket-name',
+  #   key: 'object-key')
+  #
+  #   # you can still access other response data
+  #   resp.metadata #=> { ... }
+  #   resp.etag #=> "..."
+  # @example Download object into memory
+  #   # omit :response_target to download to a StringIO in memory
+  #   resp = s3.get_object(bucket: 'bucket-name', key: 'object-key')
+  #
+  #   # call #read or #string on the response body
+  #   resp.body.read
+  #   #=> '...'
   # @example Example: To retrieve a byte range of an object
   #
   #   # The following example retrieves an object for an S3 bucket. The request specifies the range header to retrieve a
@@ -9072,32 +9013,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   tag_count: 2,
   #   version_id: "null",
   #   }
-  # @example Download an object to disk
-  #   # stream object directly to disk
-  #   resp = s3.get_object(
-  #   response_target: '/path/to/file',
-  #   bucket: 'bucket-name',
-  #   key: 'object-key')
-  #
-  #   # you can still access other response data
-  #   resp.metadata #=> { ... }
-  #   resp.etag #=> "..."
-  # @example Download object into memory
-  #   # omit :response_target to download to a StringIO in memory
-  #   resp = s3.get_object(bucket: 'bucket-name', key: 'object-key')
-  #
-  #   # call #read or #string on the response body
-  #   resp.body.read
-  #   #=> '...'
-  # @example Streaming data to a block
-  #   # WARNING: yielding data to a block disables retries of networking errors
-  #   # However truncation of the body will be retried automatically using a range request
-  #   File.open('/path/to/file', 'wb') do |file|
-  #   s3.get_object(bucket: 'bucket-name', key: 'object-key') do |chunk, headers|
-  #   # headers['content-length']
-  #   file.write(chunk)
-  #   end
-  #   end
   # @example Request syntax with placeholder values
   #
   #   resp = client.get_object({
@@ -9165,6 +9080,15 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   resp.object_lock_mode #=> String, one of "GOVERNANCE", "COMPLIANCE"
   #   resp.object_lock_retain_until_date #=> Time
   #   resp.object_lock_legal_hold_status #=> String, one of "ON", "OFF"
+  # @example Streaming data to a block
+  #   # WARNING: yielding data to a block disables retries of networking errors
+  #   # However truncation of the body will be retried automatically using a range request
+  #   File.open('/path/to/file', 'wb') do |file|
+  #   s3.get_object(bucket: 'bucket-name', key: 'object-key') do |chunk, headers|
+  #   # headers['content-length']
+  #   file.write(chunk)
+  #   end
+  #   end
   # @option params
   # @option params
   # @option params
@@ -9392,7 +9316,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - To use
   #     `GetObjectAttributes`, you must have READ access to the object.
   #
   #     The other permissions that you need to use this operation depend
@@ -9439,7 +9362,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     identity-based policies and KMS key policies for the KMS key.
   #
   # Encryption
-  # : <note markdown="1"> Encryption request headers, like `x-amz-server-side-encryption`,
   #   should not be sent for `HEAD` requests if your object uses
   #   server-side encryption with Key Management Service (KMS) keys
   #   (SSE-KMS), dual-layer server-side encryption with Amazon Web
@@ -9489,14 +9411,12 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Versioning
   #
-  # : **Directory buckets** - S3 Versioning isn't enabled and supported
   #   for directory buckets. For this API operation, only the `null` value
   #   of the version ID is supported by directory buckets. You can only
   #   specify `null` to the `versionId` query parameter in the request.
   #
   # Conditional request headers
   #
-  # : Consider the following when using request headers:
   #
   #   * If both of the `If-Match` and `If-Unmodified-Since` headers are
   #     present in the request as follows, then Amazon S3 returns the HTTP
@@ -9520,7 +9440,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following actions are related to `GetObjectAttributes`:
@@ -10061,7 +9980,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Authentication and authorization
   #
-  # : **General purpose buckets** - Request to public buckets that grant
   #   the s3:ListBucket permission publicly do not need to be signed. All
   #   other `HeadBucket` requests must be authenticated and signed by
   #   using IAM credentials (access key ID and secret access key for the
@@ -10103,7 +10021,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   #   <note markdown="1"> You must make requests for this API operation to the Zonal endpoint.
@@ -10235,7 +10152,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     retrieve the checksum of the object.
   #
   # Encryption
-  # : <note markdown="1"> Encryption request headers, like `x-amz-server-side-encryption`,
   #   should not be sent for `HEAD` requests if your object uses
   #   server-side encryption with Key Management Service (KMS) keys
   #   (SSE-KMS), dual-layer server-side encryption with Amazon Web
@@ -10275,7 +10191,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #    </note>
   #
   # Versioning
-  # : * If the current version of the object is a delete marker, Amazon S3
   #     behaves as if the object was deleted and includes
   #     `x-amz-delete-marker: true` in the response.
   #
@@ -10296,7 +10211,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   #   <note markdown="1"> For directory buckets, you must make requests for this API operation
@@ -10964,7 +10878,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : You must have the `s3express:ListAllMyDirectoryBuckets` permission
   #   in an IAM identity-based policy instead of a bucket policy.
   #   Cross-account access to this API operation isn't supported. This
   #   operation can only be performed by the Amazon Web Services account
@@ -10975,7 +10888,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region.amazonaws.com`.
   #
   # <note markdown="1"> The `BucketRegion` response element is not part of the
@@ -11078,7 +10990,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - For information about
   #     permissions required to use the multipart upload API, see
   #     [Multipart Upload and Permissions][4] in the *Amazon S3 User
   #     Guide*.
@@ -11099,7 +11010,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     authorization, see [ `CreateSession` ][5].
   #
   # Sorting of multipart uploads in response
-  # : * **General purpose bucket** - In the `ListMultipartUploads`
   #     response, the multipart uploads are sorted based on two criteria:
   #
   #     * Key-based sorting - Multipart uploads are initially sorted in
@@ -11116,7 +11026,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `ListMultipartUploads`:
@@ -11655,7 +11564,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - To use this operation,
   #     you must have READ access to the bucket. You must have permission
   #     to perform the `s3:ListBucket` action. The bucket owner has this
   #     permission by default and can grant this permission to others. For
@@ -11679,7 +11587,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     authorization, see [ `CreateSession` ][7].
   #
   # Sorting order of returned objects
-  # : * **General purpose bucket** - For general purpose buckets,
   #     `ListObjectsV2` returns objects in lexicographical order based on
   #     their key names.
   #
@@ -11688,7 +11595,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # This section describes the latest revision of this action. We
@@ -11869,7 +11775,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - For information about
   #     permissions required to use the multipart upload API, see
   #     [Multipart Upload and Permissions][5] in the *Amazon S3 User
   #     Guide*.
@@ -11897,7 +11802,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `ListParts`:
@@ -12212,7 +12116,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : You can set access permissions by using one of the following
   #   methods:
   #
   #   * Specify a canned ACL with the `x-amz-acl` request header. Amazon
@@ -12282,7 +12185,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Grantee Values
   #
-  # : You can specify the person (grantee) to whom you're assigning
   #   access rights (using request elements) in the following ways. For
   #   examples of how to specify these grantee values in JSON format, see
   #   the Amazon Web Services CLI example in [ Enabling Amazon S3 server
@@ -12765,7 +12667,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # Services Signature Version 4)][13].
   #
   # Permissions
-  # : * **General purpose bucket permissions** - The
   #     `s3:PutEncryptionConfiguration` permission is required in a
   #     policy. The bucket owner has this permission by default. The
   #     bucket owner can grant this permission to others. For more
@@ -12791,7 +12692,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region-code.amazonaws.com`.
   #
   # The following operations are related to `PutBucketEncryption`:
@@ -12907,20 +12807,17 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP 400 Bad Request Error
   #
-  # : *Code:* InvalidArgument
   #
   #   *Cause:* Invalid Argument
   #
   # HTTP 400 Bad Request Error
   #
-  # : *Code:* TooManyConfigurations
   #
   #   *Cause:* You are attempting to create a new configuration but have
   #   already reached the 1,000-configuration limit.
   #
   # HTTP 403 Forbidden Error
   #
-  # : *Cause:* You are not the owner of the specified bucket, or you do
   #   not have the `s3:PutIntelligentTieringConfiguration` bucket
   #   permission to set the configuration on the bucket.
   #
@@ -13009,7 +12906,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have permission to perform the
   #   `s3:PutInventoryConfiguration` action. The bucket owner has this
   #   permission by default and can grant this permission to others.
   #
@@ -13032,20 +12928,17 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP 400 Bad Request Error
   #
-  # : *Code:* InvalidArgument
   #
   #   *Cause:* Invalid Argument
   #
   # HTTP 400 Bad Request Error
   #
-  # : *Code:* TooManyConfigurations
   #
   #   *Cause:* You are attempting to create a new configuration but have
   #   already reached the 1,000-configuration limit.
   #
   # HTTP 403 Forbidden Error
   #
-  # : *Cause:* You are not the owner of the specified bucket, or you do
   #   not have the `s3:PutInventoryConfiguration` bucket permission to set
   #   the configuration on the bucket.
   #
@@ -13272,7 +13165,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # Permissions
   # HTTP Host header syntax
   #
-  # : You specify the lifecycle configuration in your request body. The
   #   lifecycle configuration is specified as XML consisting of one or
   #   more rules. An Amazon S3 Lifecycle configuration can have up to
   #   1,000 rules. This limit is not adjustable.
@@ -13309,7 +13201,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   #   For more information, see [Object Lifecycle Management][3] and
   #   [Lifecycle Configuration Elements][4].
-  # : * **General purpose bucket permissions** - By default, all Amazon S3
   #     resources are private, including buckets, objects, and related
   #     subresources (for example, lifecycle configuration and website
   #     configuration). Only the resource owner (that is, the Amazon Web
@@ -13358,7 +13249,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   #      </note>
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region.amazonaws.com`.
   #
   #   The following operations are related to
@@ -13527,7 +13417,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Grantee Values
   #
-  # : You can specify the person (grantee) to whom you're assigning
   #   access rights (by using request elements) in the following ways. For
   #   examples of how to specify these grantee values in JSON format, see
   #   the Amazon Web Services CLI example in [ Enabling Amazon S3 server
@@ -14047,7 +13936,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : If you are using an identity other than the root user of the Amazon
   #   Web Services account that owns the bucket, the calling identity must
   #   both have the `PutBucketPolicy` permissions on the specified bucket
   #   and belong to the bucket owner's account in order to use this
@@ -14085,7 +13973,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Example bucket policies
   #
-  # : **General purpose buckets example bucket policies** - See [Bucket
   #   policy examples][5] in the *Amazon S3 User Guide*.
   #
   #   **Directory bucket example bucket policies** - See [Example bucket
@@ -14093,7 +13980,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is
   #   `s3express-control.region-code.amazonaws.com`.
   #
   # The following operations are related to `PutBucketPolicy`:
@@ -14188,7 +14074,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Handling Replication of Encrypted Objects
   #
-  # : By default, Amazon S3 doesn't replicate objects that are stored at
   #   rest using server-side encryption with KMS keys. To replicate Amazon
   #   Web Services KMS-encrypted objects, add the following:
   #   `SourceSelectionCriteria`, `SseKmsEncryptedObjects`, `Status`,
@@ -14201,7 +14086,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To create a `PutBucketReplication` request, you must have
   #   `s3:PutReplicationConfiguration` permissions for the bucket.
   #
   #   By default, a resource owner, in this case the Amazon Web Services
@@ -14859,7 +14743,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #    </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - The following permissions
   #     are required in your policies when your `PutObject` request
   #     includes specific headers.
   #
@@ -14894,7 +14777,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     identity-based policies and KMS key policies for the KMS key.
   #
   # Data integrity with Content-MD5
-  # : * **General purpose bucket** - To ensure that data is not corrupted
   #     traversing the network, use the `Content-MD5` header. When you use
   #     this header, Amazon S3 checks the object against the provided MD5
   #     value and, if they do not match, Amazon S3 returns an error.
@@ -14907,7 +14789,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # For more information about related Amazon S3 APIs, see the following:
@@ -14933,22 +14814,20 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # [9]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CopyObject.html
   # [10]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html
   #
-  # @example Example: To upload an object and specify canned ACL.
+  # @example Example: To create an object.
   #
-  #   # The following example uploads and object. The request specifies optional canned ACL (access control list) to all READ
-  #   # access to authenticated users. If the bucket is versioning enabled, S3 returns version ID in response.
+  #   # The following example creates an object. If the bucket is versioning enabled, S3 returns version ID in response.
   #
   #   resp = client.put_object({
-  #   acl: "authenticated-read",
   #   body: "filetoupload",
   #   bucket: "examplebucket",
-  #   key: "exampleobject",
+  #   key: "objectkey",
   #   })
   #
   #   resp.to_h outputs the following:
   #   {
   #   etag: "\"6805f2cfc46c0f04559748bb039d69ae\"",
-  #   version_id: "Kirh.unyZwjQ69YxcQLA8z4F5j3kJJKr",
+  #   version_id: "Bvq0EDKxOcXLJXNo_Lkz37eM3R4pfzyQ",
   #   }
   # @example Example: To upload an object
   #
@@ -14984,6 +14863,23 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   etag: "\"6805f2cfc46c0f04559748bb039d69ae\"",
   #   server_side_encryption: "AES256",
   #   version_id: "CG612hodqujkf8FaaNfp8U..FIhLROcp",
+  #   }
+  # @example Example: To upload an object and specify canned ACL.
+  #
+  #   # The following example uploads and object. The request specifies optional canned ACL (access control list) to all READ
+  #   # access to authenticated users. If the bucket is versioning enabled, S3 returns version ID in response.
+  #
+  #   resp = client.put_object({
+  #   acl: "authenticated-read",
+  #   body: "filetoupload",
+  #   bucket: "examplebucket",
+  #   key: "exampleobject",
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   etag: "\"6805f2cfc46c0f04559748bb039d69ae\"",
+  #   version_id: "Kirh.unyZwjQ69YxcQLA8z4F5j3kJJKr",
   #   }
   # @example Example: To upload an object and specify optional tags
   #
@@ -15041,26 +14937,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   etag: "\"6805f2cfc46c0f04559748bb039d69ae\"",
   #   version_id: "pSKidl4pHBiNwukdbcPXAIs.sshFFOc0",
   #   }
-  # @example Example: To create an object.
-  #
-  #   # The following example creates an object. If the bucket is versioning enabled, S3 returns version ID in response.
-  #
-  #   resp = client.put_object({
-  #   body: "filetoupload",
-  #   bucket: "examplebucket",
-  #   key: "objectkey",
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   etag: "\"6805f2cfc46c0f04559748bb039d69ae\"",
-  #   version_id: "Bvq0EDKxOcXLJXNo_Lkz37eM3R4pfzyQ",
-  #   }
-  # @example Streaming a file from disk
-  #   # upload file from disk in a single request, may not exceed 5GB
-  #   File.open('/source/file/path', 'rb') do |file|
-  #   s3.put_object(bucket: 'bucket-name', key: 'object-key', body: file)
-  #   end
   # @example Request syntax with placeholder values
   #
   #   resp = client.put_object({
@@ -15127,6 +15003,11 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   resp.bucket_key_enabled #=> Boolean
   #   resp.size #=> Integer
   #   resp.request_charged #=> String, one of "requester"
+  # @example Streaming a file from disk
+  #   # upload file from disk in a single request, may not exceed 5GB
+  #   File.open('/source/file/path', 'rb') do |file|
+  #   s3.put_object(bucket: 'bucket-name', key: 'object-key', body: file)
+  #   end
   # @option params
   # @option params
   # @option params
@@ -15235,7 +15116,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : You can set access permissions using one of the following methods:
   #
   #   * Specify a canned ACL with the `x-amz-acl` request header. Amazon
   #     S3 supports a set of predefined ACLs, known as canned ACLs. Each
@@ -15302,7 +15182,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Grantee Values
   #
-  # : You can specify the person (grantee) to whom you're assigning
   #   access rights (using request elements) in the following ways. For
   #   examples of how to specify these grantee values in JSON format, see
   #   the Amazon Web Services CLI example in [ Enabling Amazon S3 server
@@ -15356,7 +15235,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Versioning
   #
-  # : The ACL of an object is set at the object version level. By default,
   #   PUT sets the ACL of the current version of an object. To set the ACL
   #   of a different version, use the `versionId` subresource.
   #
@@ -15857,7 +15735,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To grant access to the `RenameObject` operation on a directory
   #   bucket, we recommend that you use the `CreateSession` operation for
   #   session-based authorization. Specifically, you grant the
   #   `s3express:CreateSession` permission to the directory bucket in a
@@ -15880,7 +15757,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # You must URL encode any signed header values that contain spaces. For
@@ -15955,7 +15831,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have permissions to perform the
   #   `s3:RestoreObject` action. The bucket owner has this permission by
   #   default and can grant this permission to others. For more
   #   information about permissions, see [Permissions Related to Bucket
@@ -15964,7 +15839,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Restoring objects
   #
-  # : Objects that you archive to the S3 Glacier Flexible Retrieval or S3
   #   Glacier Deep Archive storage class, and S3 Intelligent-Tiering
   #   Archive or S3 Intelligent-Tiering Deep Archive tiers, are not
   #   accessible in real time. For objects in the S3 Glacier Flexible
@@ -16054,7 +15928,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Responses
   #
-  # : A successful action returns either the `200 OK` or `202 Accepted`
   #   status code.
   #
   #   * If the object is not previously restored, then Amazon S3 returns
@@ -16262,14 +16135,12 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : You must have the `s3:GetObject` permission for this
   #   operation. Amazon S3 Select does not support anonymous access. For
   #   more information about permissions, see [Specifying Permissions in a
   #   Policy][3] in the *Amazon S3 User Guide*.
   #
   # Object Data Formats
   #
-  # : You can use Amazon S3 Select to query objects that have the
   #   following format properties:
   #
   #   * *CSV, JSON, and Parquet* - Objects must be in CSV, JSON, or
@@ -16303,14 +16174,12 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Working with the Response Body
   #
-  # : Given the response size is unknown, Amazon S3 Select streams the
   #   response as a series of messages and includes a `Transfer-Encoding`
   #   header with `chunked` as its value in the response. For more
   #   information, see [Appendix: SelectObjectContent Response][7].
   #
   # GetObject Support
   #
-  # : The `SelectObjectContent` action does not support the following
   #   `GetObject` functionality. For more information, see [GetObject][4].
   #
   #   * `Range`: Although you can specify a scan range for an Amazon S3
@@ -16330,7 +16199,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Special Errors
   #
-  # : For a list of special errors for this operation, see [List of SELECT
   #   Object Content Error Codes][10]
   #
   # The following operations are related to `SelectObjectContent`:
@@ -16585,7 +16453,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have the following permissions. For
   #   more information, see [Setting up permissions for configuring
   #   metadata tables][2] in the *Amazon S3 User Guide*.
   #
@@ -16670,7 +16537,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : To use this operation, you must have the
   #   `s3:UpdateBucketMetadataJournalTableConfiguration` permission. For
   #   more information, see [Setting up permissions for configuring
   #   metadata tables][2] in the *Amazon S3 User Guide*.
@@ -16776,7 +16642,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #  </note>
   #
   # Permissions
-  # : * **General purpose bucket permissions** - To perform a multipart
   #     upload with encryption using an Key Management Service key, the
   #     requester must have permission to the `kms:Decrypt` and
   #     `kms:GenerateDataKey` actions on the key. The requester must also
@@ -16815,7 +16680,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Data integrity
   #
-  # : **General purpose bucket** - To ensure that data is not corrupted
   #   traversing the network, specify the `Content-MD5` header in the
   #   upload part request. Amazon S3 checks the part data against the
   #   provided MD5 value. If they do not match, Amazon S3 returns an
@@ -16831,7 +16695,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #    </note>
   #
   # Encryption
-  # : * **General purpose bucket** - Server-side encryption is for data
   #     encryption at rest. Amazon S3 encrypts your data as it writes it
   #     to disks in its data centers and decrypts it when you access it.
   #     You have mutually exclusive options to protect data using
@@ -16881,7 +16744,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     server-side encryption with KMS keys (SSE-KMS) (`aws:kms`).
   #
   # Special errors
-  # : * Error Code: `NoSuchUpload`
   #
   #     * Description: The specified multipart upload does not exist. The
   #       upload ID might be invalid, or the multipart upload might have
@@ -16893,7 +16755,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `UploadPart`:
@@ -17064,7 +16925,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Authentication and authorization
   #
-  # : All `UploadPartCopy` requests must be authenticated and signed by
   #   using IAM credentials (access key ID and secret access key for the
   #   IAM identities). All headers with the `x-amz-` prefix, including
   #   `x-amz-copy-source`, must be signed. For more information, see [REST
@@ -17080,7 +16940,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # Permissions
   #
-  # : You must have `READ` access to the source object and `WRITE` access
   #   to the destination bucket.
   #
   #   * **General purpose bucket permissions** - You must have the
@@ -17137,7 +16996,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     Zone][12] in the *Amazon S3 User Guide*.
   #
   # Encryption
-  # : * <b>General purpose buckets </b> - For information about using
   #     server-side encryption with customer-provided encryption keys with
   #     the `UploadPartCopy` operation, see [CopyObject][13] and
   #     [UploadPart][2].
@@ -17173,7 +17031,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #     KMS-encrypted object.
   #
   # Special errors
-  # : * Error Code: `NoSuchUpload`
   #
   #     * Description: The specified multipart upload does not exist. The
   #       upload ID might be invalid, or the multipart upload might have
@@ -17189,7 +17046,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #
   # HTTP Host header syntax
   #
-  # : <b>Directory buckets </b> - The HTTP Host header syntax is `
   #   Bucket-name.s3express-zone-id.region-code.amazonaws.com`.
   #
   # The following operations are related to `UploadPartCopy`:
@@ -17234,25 +17090,6 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # [20]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListParts.html
   # [21]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListMultipartUploads.html
   #
-  # @example Example: To upload a part by copying data from an existing object as data source
-  #
-  #   # The following example uploads a part of a multipart upload by copying data from an existing object as data source.
-  #
-  #   resp = client.upload_part_copy({
-  #   bucket: "examplebucket",
-  #   copy_source: "/bucketname/sourceobjectkey",
-  #   key: "examplelargeobject",
-  #   part_number: 1,
-  #   upload_id: "exampleuoh_10OhKhT7YukE9bjzTPRiuaCotmZM_pFngJFir9OZNrSr5cWa3cq3LZSUsfjI4FI7PkP91We7Nrw--",
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   copy_part_result: {
-  #   etag: "\"b0c6f0e7e054ab8fa2536a2677f8734d\"",
-  #   last_modified: Time.parse("2016-12-29T21:24:43.000Z"),
-  #   },
-  #   }
   # @example Example: To upload a part by copying byte range from an existing object as data source
   #
   #   # The following example uploads a part of a multipart upload by copying a specified byte range from an existing object as
@@ -17272,6 +17109,25 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   #   copy_part_result: {
   #   etag: "\"65d16d19e65a7508a51f043180edcc36\"",
   #   last_modified: Time.parse("2016-12-29T21:44:28.000Z"),
+  #   },
+  #   }
+  # @example Example: To upload a part by copying data from an existing object as data source
+  #
+  #   # The following example uploads a part of a multipart upload by copying data from an existing object as data source.
+  #
+  #   resp = client.upload_part_copy({
+  #   bucket: "examplebucket",
+  #   copy_source: "/bucketname/sourceobjectkey",
+  #   key: "examplelargeobject",
+  #   part_number: 1,
+  #   upload_id: "exampleuoh_10OhKhT7YukE9bjzTPRiuaCotmZM_pFngJFir9OZNrSr5cWa3cq3LZSUsfjI4FI7PkP91We7Nrw--",
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   copy_part_result: {
+  #   etag: "\"b0c6f0e7e054ab8fa2536a2677f8734d\"",
+  #   last_modified: Time.parse("2016-12-29T21:24:43.000Z"),
   #   },
   #   }
   # @example Request syntax with placeholder values
@@ -17411,20 +17267,14 @@ class Aws::S3::Client < ::Seahorse::Client::Base
   # The following table lists the valid waiter names, the operations they call,
   # and the default `:delay` and `:max_attempts` values.
   #
-  # | waiter_name       | params               | :delay   | :max_attempts |
-  # | ----------------- | -------------------- | -------- | ------------- |
-  # | bucket_exists     | {Client#head_bucket} | 5        | 20            |
-  # | bucket_not_exists | {Client#head_bucket} | 5        | 20            |
-  # | object_exists     | {Client#head_object} | 5        | 20            |
-  # | object_not_exists | {Client#head_object} | 5        | 20            |
   #
   # @option options
   # @option options
   # @option options
   # @option options
-  # @param waiter_name [Symbol]
-  # @param params [Hash] ({})
   # @param options [Hash] ({})
+  # @param params [Hash] ({})
+  # @param waiter_name [Symbol]
   # @raise [Errors::FailureStateError] Raised when the waiter terminates
   #   because the waiter has entered a state that it will not transition
   #   out of, preventing success.
@@ -17610,8 +17460,8 @@ class Aws::S3::Client < ::Seahorse::Client::Base
 
   private
 
-  # @param waiter_name [Symbol]
   # @param options [Hash] ({})
+  # @param waiter_name [Symbol]
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/client.rb#22397
   def waiter(waiter_name, options = T.unsafe(nil)); end
@@ -21319,10 +21169,10 @@ class Aws::S3::Encryption::Client
   # @param options [Hash] a customizable set of options
   # @return [Client] a new instance of Client
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#230
   def initialize(*args, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#190
   def build_request(*args, **_arg1, &block); end
 
   # @return [S3::Client]
@@ -21330,10 +21180,10 @@ class Aws::S3::Encryption::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#245
   def client; end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#190
   def config(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#190
   def delete_object(*args, **_arg1, &block); end
 
   # @return [Symbol<:metadata, :instruction_file>]
@@ -21417,7 +21267,7 @@ class Aws::S3::Encryption::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#291
   def get_object(params = T.unsafe(nil), &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#190
   def head_object(*args, **_arg1, &block); end
 
   # @return [String] When {#envelope_location} is `:instruction_file`,
@@ -21508,7 +21358,7 @@ class Aws::S3::Encryption::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#332
   def cipher_provider(options); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#230
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#236
   def deprecated_initialize(options = T.unsafe(nil)); end
 
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/client.rb#356
@@ -21996,26 +21846,26 @@ end
 module Aws::S3::Encryption::Utils
   class << self
     # @api private
-    # @param mode [String] "encrypt" or "decrypt"
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
+    # @param mode [String] "encrypt" or "decrypt"
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/utils.rb#83
     def aes_cipher(mode, block_mode, key, iv); end
 
     # @api private
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/utils.rb#75
     def aes_decryption_cipher(block_mode, key = T.unsafe(nil), iv = T.unsafe(nil)); end
 
     # @api private
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryption/utils.rb#68
     def aes_encryption_cipher(block_mode, key = T.unsafe(nil), iv = T.unsafe(nil)); end
@@ -22331,7 +22181,7 @@ class Aws::S3::EncryptionV2::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/client.rb#327
   def initialize(options = T.unsafe(nil)); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/client.rb#243
   def build_request(*args, **_arg1, &block); end
 
   # @return [S3::Client]
@@ -22346,10 +22196,10 @@ class Aws::S3::EncryptionV2::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/client.rb#369
   def commitment_policy; end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/client.rb#243
   def config(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/client.rb#243
   def delete_object(*args, **_arg1, &block); end
 
   # @return [Symbol<:metadata, :instruction_file>]
@@ -22367,9 +22217,9 @@ class Aws::S3::EncryptionV2::Client
   #
   # @note The `:range` request parameter is not supported.
   # @option options
-  # @option params
-  # @option params
   # @option options
+  # @option params
+  # @option params
   # @option params
   # @option params
   # @option params
@@ -22440,7 +22290,7 @@ class Aws::S3::EncryptionV2::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/client.rb#427
   def get_object(params = T.unsafe(nil), &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/client.rb#243
   def head_object(*args, **_arg1, &block); end
 
   # @return [String] When {#envelope_location} is `:instruction_file`,
@@ -23163,26 +23013,26 @@ end
 module Aws::S3::EncryptionV2::Utils
   class << self
     # @api private
-    # @param mode [String] "encrypt" or "decrypt"
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
+    # @param mode [String] "encrypt" or "decrypt"
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/utils.rb#82
     def aes_cipher(mode, block_mode, key, iv); end
 
     # @api private
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/utils.rb#74
     def aes_decryption_cipher(block_mode, key = T.unsafe(nil), iv = T.unsafe(nil)); end
 
     # @api private
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV2/utils.rb#67
     def aes_encryption_cipher(block_mode, key = T.unsafe(nil), iv = T.unsafe(nil)); end
@@ -23511,7 +23361,7 @@ class Aws::S3::EncryptionV3::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/client.rb#375
   def initialize(options = T.unsafe(nil)); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/client.rb#291
   def build_request(*args, **_arg1, &block); end
 
   # @return [S3::Client]
@@ -23525,10 +23375,10 @@ class Aws::S3::EncryptionV3::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/client.rb#429
   def commitment_policy; end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/client.rb#291
   def config(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/client.rb#291
   def delete_object(*args, **_arg1, &block); end
 
   # @return [Symbol<:metadata, :instruction_file>]
@@ -23546,9 +23396,9 @@ class Aws::S3::EncryptionV3::Client
   #
   # @note The `:range` request parameter is not supported.
   # @option options
-  # @option params
-  # @option params
   # @option options
+  # @option params
+  # @option params
   # @option params
   # @option params
   # @option params
@@ -23620,7 +23470,7 @@ class Aws::S3::EncryptionV3::Client
   # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/client.rb#521
   def get_object(params = T.unsafe(nil), &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/client.rb#291
   def head_object(*args, **_arg1, &block); end
 
   # @return [String] When {#envelope_location} is `:instruction_file`,
@@ -24386,26 +24236,26 @@ end
 module Aws::S3::EncryptionV3::Utils
   class << self
     # @api private
-    # @param mode [String] "encrypt" or "decrypt"
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
+    # @param mode [String] "encrypt" or "decrypt"
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/utils.rb#88
     def aes_cipher(mode, block_mode, key, iv); end
 
     # @api private
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/utils.rb#80
     def aes_decryption_cipher(block_mode, key = T.unsafe(nil), iv = T.unsafe(nil)); end
 
     # @api private
     # @param block_mode [String] "CBC" or "ECB"
-    # @param key [OpenSSL::PKey::RSA, String, nil]
     # @param iv [String, nil] The initialization vector
+    # @param key [OpenSSL::PKey::RSA, String, nil]
     #
     # source://aws-sdk-s3//lib/aws-sdk-s3/encryptionV3/utils.rb#73
     def aes_encryption_cipher(block_mode, key = T.unsafe(nil), iv = T.unsafe(nil)); end
@@ -24515,182 +24365,258 @@ class Aws::S3::EndpointParameters < ::Struct
   # When true, use S3 Accelerate. NOTE: Not all regions support S3 accelerate.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def accelerate; end
 
   # When true, use S3 Accelerate. NOTE: Not all regions support S3 accelerate.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def accelerate=(_); end
 
   # The S3 bucket used to send the request. This is an optional parameter that will be set automatically for operations that are scoped to an S3 bucket.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def bucket; end
 
   # The S3 bucket used to send the request. This is an optional parameter that will be set automatically for operations that are scoped to an S3 bucket.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def bucket=(_); end
 
   # The Copy Source used for Copy Object request. This is an optional parameter that will be set automatically for operations that are scoped to Copy Source.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def copy_source; end
 
   # The Copy Source used for Copy Object request. This is an optional parameter that will be set automatically for operations that are scoped to Copy Source.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def copy_source=(_); end
 
   # Internal parameter to disable Access Point Buckets
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def disable_access_points; end
 
   # Internal parameter to disable Access Point Buckets
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def disable_access_points=(_); end
 
   # Whether multi-region access points (MRAP) should be disabled.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def disable_multi_region_access_points; end
 
   # Whether multi-region access points (MRAP) should be disabled.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def disable_multi_region_access_points=(_); end
 
   # Parameter to indicate whether S3Express session auth should be disabled
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def disable_s3_express_session_auth; end
 
   # Parameter to indicate whether S3Express session auth should be disabled
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def disable_s3_express_session_auth=(_); end
 
   # Override the endpoint used to send this request
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def endpoint; end
 
   # Override the endpoint used to send this request
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def endpoint=(_); end
 
   # When true, force a path-style endpoint to be used where the bucket name is part of the path.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def force_path_style; end
 
   # When true, force a path-style endpoint to be used where the bucket name is part of the path.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def force_path_style=(_); end
 
   # The S3 Key used to send the request. This is an optional parameter that will be set automatically for operations that are scoped to an S3 Key.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def key; end
 
   # The S3 Key used to send the request. This is an optional parameter that will be set automatically for operations that are scoped to an S3 Key.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def key=(_); end
 
   # The S3 Prefix used to send the request. This is an optional parameter that will be set automatically for operations that are scoped to an S3 Prefix.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def prefix; end
 
   # The S3 Prefix used to send the request. This is an optional parameter that will be set automatically for operations that are scoped to an S3 Prefix.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def prefix=(_); end
 
   # The AWS region used to dispatch the request.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def region; end
 
   # The AWS region used to dispatch the request.
   #
   # @return [string]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def region=(_); end
 
   # When an Access Point ARN is provided and this flag is enabled, the SDK MUST use the ARN&#39;s region when constructing the endpoint instead of the client&#39;s configured region.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_arn_region; end
 
   # When an Access Point ARN is provided and this flag is enabled, the SDK MUST use the ARN&#39;s region when constructing the endpoint instead of the client&#39;s configured region.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_arn_region=(_); end
 
   # When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_dual_stack; end
 
   # When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_dual_stack=(_); end
 
   # When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_fips; end
 
   # When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_fips=(_); end
 
   # Whether the global endpoint should be used, rather then the regional endpoint for us-east-1.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_global_endpoint; end
 
   # Whether the global endpoint should be used, rather then the regional endpoint for us-east-1.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_global_endpoint=(_); end
 
   # Internal parameter to use object lambda endpoint for an operation (eg: WriteGetObjectResponse)
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_object_lambda_endpoint; end
 
   # Internal parameter to use object lambda endpoint for an operation (eg: WriteGetObjectResponse)
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_object_lambda_endpoint=(_); end
 
   # Internal parameter to indicate whether S3Express operation should use control plane, (ex. CreateBucket)
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_s3_express_control_endpoint; end
 
   # Internal parameter to indicate whether S3Express operation should use control plane, (ex. CreateBucket)
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
   def use_s3_express_control_endpoint=(_); end
 
   class << self
+    # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
     def [](*_arg0); end
 
     # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#168
     def create(config, options = T.unsafe(nil)); end
 
+    # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
     def inspect; end
+
+    # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
     def keyword_init?; end
+
+    # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
     def members; end
+
+    # source://aws-sdk-s3//lib/aws-sdk-s3/endpoint_parameters.rb#98
     def new(*_arg0); end
   end
 end
@@ -26078,8 +26004,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#50
 class Aws::S3::Errors::BucketAlreadyExists < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::BucketAlreadyExists]
+  # @param message [String]
   # @return [BucketAlreadyExists] a new instance of BucketAlreadyExists
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#55
@@ -26089,8 +26015,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#60
 class Aws::S3::Errors::BucketAlreadyOwnedByYou < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::BucketAlreadyOwnedByYou]
+  # @param message [String]
   # @return [BucketAlreadyOwnedByYou] a new instance of BucketAlreadyOwnedByYou
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#65
@@ -26100,8 +26026,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#70
 class Aws::S3::Errors::EncryptionTypeMismatch < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::EncryptionTypeMismatch]
+  # @param message [String]
   # @return [EncryptionTypeMismatch] a new instance of EncryptionTypeMismatch
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#75
@@ -26111,11 +26037,11 @@ end
 # Hijack PermanentRedirect (HeadBucket case - no body) dynamic error to
 # include the region.
 #
-# source://aws-sdk-s3//lib/aws-sdk-s3/customizations/errors.rb#31
+# source://aws-sdk-s3//lib/aws-sdk-s3/customizations/errors.rb#28
 class Aws::S3::Errors::Http301Error < ::Aws::S3::Errors::ServiceError
+  # @param _data [Aws::S3::Types::PermanentRedirect]
   # @param context [Seahorse::Client::RequestContext]
   # @param message [String]
-  # @param _data [Aws::S3::Types::PermanentRedirect]
   # @return [Http301Error] a new instance of Http301Error
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/errors.rb#32
@@ -26125,8 +26051,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#80
 class Aws::S3::Errors::IdempotencyParameterMismatch < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::IdempotencyParameterMismatch]
+  # @param message [String]
   # @return [IdempotencyParameterMismatch] a new instance of IdempotencyParameterMismatch
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#85
@@ -26136,8 +26062,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#90
 class Aws::S3::Errors::InvalidObjectState < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::InvalidObjectState]
+  # @param message [String]
   # @return [InvalidObjectState] a new instance of InvalidObjectState
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#95
@@ -26157,8 +26083,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#110
 class Aws::S3::Errors::InvalidRequest < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::InvalidRequest]
+  # @param message [String]
   # @return [InvalidRequest] a new instance of InvalidRequest
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#115
@@ -26168,8 +26094,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#120
 class Aws::S3::Errors::InvalidWriteOffset < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::InvalidWriteOffset]
+  # @param message [String]
   # @return [InvalidWriteOffset] a new instance of InvalidWriteOffset
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#125
@@ -26179,8 +26105,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#130
 class Aws::S3::Errors::NoSuchBucket < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::NoSuchBucket]
+  # @param message [String]
   # @return [NoSuchBucket] a new instance of NoSuchBucket
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#135
@@ -26190,8 +26116,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#140
 class Aws::S3::Errors::NoSuchKey < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::NoSuchKey]
+  # @param message [String]
   # @return [NoSuchKey] a new instance of NoSuchKey
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#145
@@ -26201,8 +26127,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#150
 class Aws::S3::Errors::NoSuchUpload < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::NoSuchUpload]
+  # @param message [String]
   # @return [NoSuchUpload] a new instance of NoSuchUpload
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#155
@@ -26212,8 +26138,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#160
 class Aws::S3::Errors::ObjectAlreadyInActiveTierError < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::ObjectAlreadyInActiveTierError]
+  # @param message [String]
   # @return [ObjectAlreadyInActiveTierError] a new instance of ObjectAlreadyInActiveTierError
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#165
@@ -26223,8 +26149,8 @@ end
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#170
 class Aws::S3::Errors::ObjectNotInActiveTierError < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::ObjectNotInActiveTierError]
+  # @param message [String]
   # @return [ObjectNotInActiveTierError] a new instance of ObjectNotInActiveTierError
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#175
@@ -26234,25 +26160,25 @@ end
 # Hijack PermanentRedirect dynamic error to include the bucket, region,
 # and endpoint.
 #
-# source://aws-sdk-s3//lib/aws-sdk-s3/customizations/errors.rb#11
+# source://aws-sdk-s3//lib/aws-sdk-s3/customizations/errors.rb#8
 class Aws::S3::Errors::PermanentRedirect < ::Aws::S3::Errors::ServiceError
+  # @param _data [Aws::S3::Types::PermanentRedirect]
   # @param context [Seahorse::Client::RequestContext]
   # @param message [String]
-  # @param _data [Aws::S3::Types::PermanentRedirect]
   # @return [PermanentRedirect] a new instance of PermanentRedirect
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/errors.rb#12
   def initialize(context, message, _data = T.unsafe(nil)); end
 end
 
-# source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#0
+# source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#48
 class Aws::S3::Errors::ServiceError < ::Aws::Errors::ServiceError; end
 
 # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#180
 class Aws::S3::Errors::TooManyParts < ::Aws::S3::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::S3::Types::TooManyParts]
+  # @param message [String]
   # @return [TooManyParts] a new instance of TooManyParts
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/errors.rb#185
@@ -26712,8 +26638,8 @@ class Aws::S3::FileUploader
   # @option options
   # @option options
   # @option options
-  # @param source [String, Pathname, File, Tempfile] The file to upload.
   # @param options [Hash] a customizable set of options
+  # @param source [String, Pathname, File, Tempfile] The file to upload.
   # @return [void]
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/file_uploader.rb#37
@@ -26883,8 +26809,8 @@ class Aws::S3::MultipartFileUploader
   # @option options
   # @option options
   # @option options
-  # @param source [String, Pathname, File, Tempfile] The file to upload.
   # @param options [Hash] a customizable set of options
+  # @param source [String, Pathname, File, Tempfile] The file to upload.
   # @raise [ArgumentError]
   # @return [Seahorse::Client::Response] - the CompleteMultipartUploadResponse
   #
@@ -27210,7 +27136,7 @@ class Aws::S3::MultipartUpload
   # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#291
   def abort(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#503
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/multipart_upload.rb#7
   def basic_complete(options = T.unsafe(nil)); end
 
   # @return [String]
@@ -27292,7 +27218,7 @@ class Aws::S3::MultipartUpload
   # @param options [Hash] ({})
   # @return [Object]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/multipart_upload.rb#27
+  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#503
   def complete(options = T.unsafe(nil)); end
 
   # @raise [NotImplementedError] Raises when {#data_loaded?} is `false`.
@@ -27307,7 +27233,7 @@ class Aws::S3::MultipartUpload
   # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#146
   def data_loaded?; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#642
+  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#649
   def deprecated_identifiers; end
 
   # @return [String]
@@ -27318,7 +27244,7 @@ class Aws::S3::MultipartUpload
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#642
   def identifiers(*args, &block); end
 
   # Date and time at which the multipart upload was initiated.
@@ -27400,7 +27326,7 @@ class Aws::S3::MultipartUpload
   # @api private
   # @raise [NotImplementedError]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#129
+  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload.rb#133
   def reload; end
 
   # The class of storage used to store the object.
@@ -27682,7 +27608,7 @@ class Aws::S3::MultipartUploadPart
   # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload_part.rb#172
   def data_loaded?; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload_part.rb#689
+  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload_part.rb#697
   def deprecated_identifiers; end
 
   # Entity tag returned when the part was uploaded.
@@ -27695,7 +27621,7 @@ class Aws::S3::MultipartUploadPart
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload_part.rb#689
   def identifiers(*args, &block); end
 
   # Date and time at which the part was uploaded.
@@ -27734,7 +27660,7 @@ class Aws::S3::MultipartUploadPart
   # @api private
   # @raise [NotImplementedError]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload_part.rb#155
+  # source://aws-sdk-s3//lib/aws-sdk-s3/multipart_upload_part.rb#159
   def reload; end
 
   # Size in bytes of the uploaded part data.
@@ -28181,7 +28107,7 @@ class Aws::S3::Object
   # @param options [Hash] ({})
   # @return [Types::CopyObjectOutput]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#78
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#1500
   def copy_from(source, options = T.unsafe(nil)); end
 
   # Copies this object to another object. Use `multipart_copy: true`
@@ -28267,16 +28193,16 @@ class Aws::S3::Object
   # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#53
   def delete_marker; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#541
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#551
   def deprecated_download_file(destination, options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#3470
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#3476
   def deprecated_identifiers; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#459
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#474
   def deprecated_upload_file(source, options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#385
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#400
   def deprecated_upload_stream(options = T.unsafe(nil), &block); end
 
   # Downloads a file in S3 to a path on disk.
@@ -28320,7 +28246,7 @@ class Aws::S3::Object
   # @see Client#get_object
   # @see Client#head_object
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#541
   def download_file(*args, &block); end
 
   # An entity tag (ETag) is an opaque identifier assigned by a web server
@@ -28469,7 +28395,7 @@ class Aws::S3::Object
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#3470
   def identifiers(*args, &block); end
 
   # @example Request syntax with placeholder values
@@ -28917,7 +28843,7 @@ class Aws::S3::Object
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#556
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#566
   def reload; end
 
   # Amazon S3 can return this header if your request involves a bucket
@@ -29135,7 +29061,7 @@ class Aws::S3::Object
   # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#334
   def server_side_encryption; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#134
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#6
   def size; end
 
   # If server-side encryption with a customer-provided encryption key was
@@ -29243,25 +29169,25 @@ class Aws::S3::Object
   # @option options
   # @option options
   # @option options
+  # @param options [Hash] Additional options for {Client#put_object} when file sizes below the multipart threshold.
+  #   For files larger than the multipart threshold, options for {Client#create_multipart_upload},
+  #   {Client#complete_multipart_upload}, and {Client#upload_part} can be provided.
   # @param source [String, Pathname, File, Tempfile] A file on the local file system that will be uploaded as
   #   this object. This can either be a String or Pathname to the file, an open File object, or an open
   #   Tempfile object. If you pass an open File or Tempfile object, then you are responsible for closing it
   #   after the upload completes. When using an open Tempfile, rewind it before uploading or else the object
   #   will be empty.
-  # @param options [Hash] Additional options for {Client#put_object} when file sizes below the multipart threshold.
-  #   For files larger than the multipart threshold, options for {Client#create_multipart_upload},
-  #   {Client#complete_multipart_upload}, and {Client#upload_part} can be provided.
   # @raise [MultipartUploadError] If an object is being uploaded in parts, and the upload can not be completed,
   #   then the upload is aborted and this error is raised.  The raised error has a `#errors` method that
   #   returns the failures that caused the upload to be aborted.
   # @return [Boolean] Returns `true` when the object is uploaded without any errors.
-  # @see Client#put_object
-  # @see Client#create_multipart_upload
   # @see Client#complete_multipart_upload
+  # @see Client#create_multipart_upload
+  # @see Client#put_object
   # @see Client#upload_part
   # @yield [response]
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#459
   def upload_file(*args, &block); end
 
   # Uploads a stream in a streaming fashion to the current object in S3.
@@ -29298,11 +29224,11 @@ class Aws::S3::Object
   #   aborted.
   # @return [Boolean] Returns `true` when the object is uploaded
   #   without any errors.
-  # @see Client#create_multipart_upload
   # @see Client#complete_multipart_upload
+  # @see Client#create_multipart_upload
   # @see Client#upload_part
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#385
   def upload_stream(*args, &block); end
 
   # @param id [String]
@@ -29474,10 +29400,10 @@ class Aws::S3::Object::Collection < ::Aws::Resources::Collection
   # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#3629
   def batch_delete!(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#554
   def delete(*args, &block); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object.rb#3629
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object.rb#556
   def deprecated_delete(options = T.unsafe(nil)); end
 end
 
@@ -29514,7 +29440,7 @@ class Aws::S3::ObjectAcl
   # source://aws-sdk-s3//lib/aws-sdk-s3/object_acl.rb#110
   def data_loaded?; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_acl.rb#360
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_acl.rb#366
   def deprecated_identifiers; end
 
   # A list of grants.
@@ -29527,7 +29453,7 @@ class Aws::S3::ObjectAcl
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_acl.rb#360
   def identifiers(*args, &block); end
 
   # Loads, or reloads {#data} for the current {ObjectAcl}.
@@ -29615,7 +29541,7 @@ class Aws::S3::ObjectAcl
   #
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_acl.rb#87
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_acl.rb#97
   def reload; end
 
   # If present, indicates that the requester was successfully charged for
@@ -30021,7 +29947,7 @@ class Aws::S3::ObjectSummary
   # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#153
   def client; end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#101
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object_summary.rb#7
   def content_length; end
 
   # @example Request syntax with placeholder values
@@ -30115,7 +30041,7 @@ class Aws::S3::ObjectSummary
   # @param options [Hash] ({})
   # @return [Types::CopyObjectOutput]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object_summary.rb#16
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#1097
   def copy_from(source, options = T.unsafe(nil)); end
 
   # @param target [S3::Object, String, Hash] Where to copy the object
@@ -30167,7 +30093,7 @@ class Aws::S3::ObjectSummary
   # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#1204
   def delete(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#2877
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#2883
   def deprecated_identifiers; end
 
   # @param destination [String, Pathname, File, Tempfile] Where to download the file to. This can either be a String or Pathname to the file, an open File object,
@@ -30274,7 +30200,7 @@ class Aws::S3::ObjectSummary
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#2877
   def identifiers(*args, &block); end
 
   # @example Request syntax with placeholder values
@@ -30532,7 +30458,7 @@ class Aws::S3::ObjectSummary
   # @api private
   # @raise [NotImplementedError]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#159
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#163
   def reload; end
 
   # @example Request syntax with placeholder values
@@ -30678,14 +30604,14 @@ class Aws::S3::ObjectSummary
   # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#114
   def storage_class; end
 
+  # @param options [Hash] Additional options for {Client#put_object} when file sizes below the multipart threshold.
+  #   For files larger than the multipart threshold, options for {Client#create_multipart_upload},
+  #   {Client#complete_multipart_upload}, and {Client#upload_part} can be provided.
   # @param source [String, Pathname, File, Tempfile] A file on the local file system that will be uploaded as
   #   this object. This can either be a String or Pathname to the file, an open File object, or an open
   #   Tempfile object. If you pass an open File or Tempfile object, then you are responsible for closing it
   #   after the upload completes. When using an open Tempfile, rewind it before uploading or else the object
   #   will be empty.
-  # @param options [Hash] Additional options for {Client#put_object} when file sizes below the multipart threshold.
-  #   For files larger than the multipart threshold, options for {Client#create_multipart_upload},
-  #   {Client#complete_multipart_upload}, and {Client#upload_part} can be provided.
   # @return [Boolean] Returns `true` when the object is uploaded without any errors.
   # @see Object#upload_file
   #
@@ -30844,10 +30770,10 @@ class Aws::S3::ObjectSummary::Collection < ::Aws::Resources::Collection
   # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#3036
   def batch_delete!(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object_summary.rb#84
   def delete(*args, &block); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_summary.rb#3036
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object_summary.rb#86
   def deprecated_delete(options = T.unsafe(nil)); end
 end
 
@@ -30928,7 +30854,7 @@ class Aws::S3::ObjectVersion
   # source://aws-sdk-s3//lib/aws-sdk-s3/object_version.rb#353
   def delete(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_version.rb#797
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_version.rb#804
   def deprecated_identifiers; end
 
   # The entity tag is an MD5 hash of that version of the object.
@@ -31038,7 +30964,7 @@ class Aws::S3::ObjectVersion
   # @api private
   # @deprecated
   #
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_version.rb#797
   def identifiers(*args, &block); end
 
   # Specifies whether the object is (true) or is not (false) the latest
@@ -31089,7 +31015,7 @@ class Aws::S3::ObjectVersion
   # @api private
   # @raise [NotImplementedError]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_version.rb#143
+  # source://aws-sdk-s3//lib/aws-sdk-s3/object_version.rb#147
   def reload; end
 
   # Specifies the restoration status of an object. Objects in certain
@@ -31242,10 +31168,10 @@ class Aws::S3::ObjectVersion::Collection < ::Aws::Resources::Collection
   # source://aws-sdk-s3//lib/aws-sdk-s3/object_version.rb#941
   def batch_delete!(options = T.unsafe(nil)); end
 
-  # source://aws-sdk-core/3.240.0/lib/aws-sdk-core/deprecations.rb#65
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object_version.rb#7
   def delete(*args, &block); end
 
-  # source://aws-sdk-s3//lib/aws-sdk-s3/object_version.rb#941
+  # source://aws-sdk-s3//lib/aws-sdk-s3/customizations/object_version.rb#9
   def deprecated_delete(options = T.unsafe(nil)); end
 end
 
@@ -31508,7 +31434,7 @@ end
 
 # @api private
 #
-# source://aws-sdk-s3//lib/aws-sdk-s3/plugins/express_session_auth.rb#9
+# source://aws-sdk-s3//lib/aws-sdk-s3/plugins/express_session_auth.rb#7
 class Aws::S3::Plugins::ExpressSessionAuth < ::Seahorse::Client::Plugin
   # Optimization - sets this client as the client to create sessions.
   #
@@ -31703,7 +31629,7 @@ class Aws::S3::Plugins::RetryableBlockIO
   # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#15
   def initialize(block_io); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#13
   def read(*args, **_arg1, &block); end
 
   # @api private
@@ -31711,7 +31637,7 @@ class Aws::S3::Plugins::RetryableBlockIO
   # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#21
   def rewind; end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#13
   def size(*args, **_arg1, &block); end
 
   # @api private
@@ -31719,7 +31645,7 @@ class Aws::S3::Plugins::RetryableBlockIO
   # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#19
   def truncate(_integer); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#13
   def write(*args, **_arg1, &block); end
 end
 
@@ -31737,13 +31663,13 @@ class Aws::S3::Plugins::RetryableManagedFile
   # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#30
   def initialize(managed_file); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#28
   def close(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#28
   def open?(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#28
   def read(*args, **_arg1, &block); end
 
   # @api private
@@ -31751,7 +31677,7 @@ class Aws::S3::Plugins::RetryableManagedFile
   # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#36
   def rewind; end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#28
   def size(*args, **_arg1, &block); end
 
   # @api private
@@ -31759,7 +31685,7 @@ class Aws::S3::Plugins::RetryableManagedFile
   # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#34
   def truncate(_integer); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://aws-sdk-s3//lib/aws-sdk-s3/plugins/streaming_retry.rb#28
   def write(*args, **_arg1, &block); end
 end
 
@@ -32233,10 +32159,10 @@ class Aws::S3::PresignedPost
   # @option options
   # @option options
   # @option options
+  # @param bucket_name [String] Name of the target bucket.
+  # @param bucket_region [String] Region of the target bucket.
   # @param credentials [Credentials] Security credentials for signing
   #   the post policy.
-  # @param bucket_region [String] Region of the target bucket.
-  # @param bucket_name [String] Name of the target bucket.
   # @param options [Hash] a customizable set of options
   # @return [PresignedPost] a new instance of PresignedPost
   #
@@ -32330,7 +32256,7 @@ class Aws::S3::PresignedPost
   # @param byte_range [Range<Integer>]
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#440
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def content_length_range(byte_range); end
 
   # A standard MIME type describing the format of the contents.
@@ -32357,14 +32283,14 @@ class Aws::S3::PresignedPost
   # @return [self]
   # @see http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.21
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#424
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def expires(time); end
 
   # @param prefix [String]
   # @return [self]
   # @see #expires
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#432
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def expires_starts_with(prefix); end
 
   # @return [Hash] A hash of fields to render in an HTML form
@@ -32385,7 +32311,7 @@ class Aws::S3::PresignedPost
   # @return [self]
   # @see http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html)
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#330
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def key(key); end
 
   # Specify a prefix the uploaded
@@ -32394,7 +32320,7 @@ class Aws::S3::PresignedPost
   # @return [self]
   # @see #key
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#340
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def key_starts_with(prefix); end
 
   # Metadata hash to store with the uploaded object. Hash keys will be
@@ -32403,7 +32329,7 @@ class Aws::S3::PresignedPost
   # @param hash [Hash<String,String>]
   # @return [self]
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#520
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def metadata(hash); end
 
   # Specify allowable prefix for each key in the metadata hash.
@@ -32412,7 +32338,7 @@ class Aws::S3::PresignedPost
   # @return [self]
   # @see #metadata
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#532
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def metadata_starts_with(hash); end
 
   # Specifies a server-side encryption algorithm to use when Amazon
@@ -32458,14 +32384,14 @@ class Aws::S3::PresignedPost
   # @return [self]
   # @see #server_side_encryption_customer_algorithm
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#591
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def server_side_encryption_customer_key(value); end
 
   # @param prefix [String]
   # @return [self]
   # @see #server_side_encryption_customer_key
   #
-  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#601
+  # source://aws-sdk-s3//lib/aws-sdk-s3/presigned_post.rb#301
   def server_side_encryption_customer_key_starts_with(prefix); end
 
   # Storage class to use for storing the object. Defaults to
@@ -32826,10 +32752,6 @@ Aws::S3::SUPPORTED_SECURITY_PROFILES = T.let(T.unsafe(nil), Array)
 #
 #   * `shutdown(timeout = nil)` - Gracefully shutdown the executor with optional timeout
 #
-# @example Using default executor (automatic creation and shutdown)
-#   tm = TransferManager.new # No executor provided
-#   # DefaultExecutor created, used, and shutdown automatically
-#   tm.download_file('/path/to/file', bucket: 'bucket', key: 'key')
 # @example Using custom executor (manual shutdown required)
 #   require 'concurrent-ruby'
 #
@@ -32837,6 +32759,10 @@ Aws::S3::SUPPORTED_SECURITY_PROFILES = T.let(T.unsafe(nil), Array)
 #   tm = TransferManager.new(executor: executor)
 #   tm.download_file('/path/to/file1', bucket: 'bucket', key: 'key1')
 #   executor.shutdown # You must shutdown custom executors
+# @example Using default executor (automatic creation and shutdown)
+#   tm = TransferManager.new # No executor provided
+#   # DefaultExecutor created, used, and shutdown automatically
+#   tm.download_file('/path/to/file', bucket: 'bucket', key: 'key')
 #
 # source://aws-sdk-s3//lib/aws-sdk-s3/transfer_manager.rb#51
 class Aws::S3::TransferManager
@@ -32881,6 +32807,7 @@ class Aws::S3::TransferManager
   # @option options
   # @option options
   # @option options
+  # @param bucket [String] The name of the S3 bucket to upload to.
   # @param destination [String, Pathname, File, Tempfile] Where to download the file to. This can either be a String or Pathname to the file, an open File object,
   #   or an open Tempfile object. If you pass an open File or Tempfile object, then you are responsible for
   #   closing it after the download completes. Download behavior varies by destination type:
@@ -32890,7 +32817,6 @@ class Aws::S3::TransferManager
   #   * **File/Tempfile objects**: Downloads directly to the file object without using temporary files.
   #   You are responsible for managing the file object's state and closing it after the download completes.
   #   If the download fails, the file object may contain partial data.
-  # @param bucket [String] The name of the S3 bucket to upload to.
   # @param key [String] The object key name in S3 bucket.
   # @param options [Hash] Additional options for {Client#get_object} and #{Client#head_object} may be provided.
   # @raise [MultipartDownloadError] Raised when an object validation fails outside of service errors.
@@ -32937,22 +32863,22 @@ class Aws::S3::TransferManager
   # @option options
   # @option options
   # @option options
-  # @param source [String, Pathname, File, Tempfile] A file on the local file system that will be uploaded. This can either be a `String` or `Pathname` to the
-  #   file, an open `File` object, or an open `Tempfile` object. If you pass an open `File` or `Tempfile` object,
-  #   then you are responsible for closing it after the upload completes. When using an open Tempfile, rewind it
-  #   before uploading or else the object will be empty.
   # @param bucket [String] The name of the S3 bucket to upload to.
   # @param key [String] The object key name for the uploaded file.
   # @param options [Hash] Additional options for {Client#put_object} when file sizes below the multipart threshold.
   #   For files larger than the multipart threshold, options for {Client#create_multipart_upload},
   #   {Client#complete_multipart_upload}, and {Client#upload_part} can be provided.
+  # @param source [String, Pathname, File, Tempfile] A file on the local file system that will be uploaded. This can either be a `String` or `Pathname` to the
+  #   file, an open `File` object, or an open `Tempfile` object. If you pass an open `File` or `Tempfile` object,
+  #   then you are responsible for closing it after the upload completes. When using an open Tempfile, rewind it
+  #   before uploading or else the object will be empty.
   # @raise [MultipartUploadError] If a file is being uploaded in parts, and the upload can not be completed,
   #   then the upload is aborted and this error is raised.  The raised error has a `#errors` method that
   #   returns the failures that caused the upload to be aborted.
   # @return [Boolean] Returns `true` when the file is uploaded without any errors.
-  # @see Client#put_object
-  # @see Client#create_multipart_upload
   # @see Client#complete_multipart_upload
+  # @see Client#create_multipart_upload
+  # @see Client#put_object
   # @see Client#upload_part
   # @yield [response]
   #
@@ -32990,8 +32916,8 @@ class Aws::S3::TransferManager
   #   then the upload is aborted and this error is raised. The raised error has a `#errors` method that returns
   #   the failures that caused the upload to be aborted.
   # @return [Boolean] Returns `true` when the object is uploaded without any errors.
-  # @see Client#create_multipart_upload
   # @see Client#complete_multipart_upload
+  # @see Client#create_multipart_upload
   # @see Client#upload_part
   #
   # source://aws-sdk-s3//lib/aws-sdk-s3/transfer_manager.rb#288
@@ -33192,7 +33118,6 @@ Aws::S3::Types::AnalyticsS3BucketDestination::SENSITIVE = T.let(T.unsafe(nil), A
 #
 # Permissions
 #
-# : You must have the `s3:PutEncryptionConfiguration` permission to
 #   block or unblock an encryption type for a bucket.
 #
 #   You must have the `s3:GetEncryptionConfiguration` permission to view
@@ -37491,12 +37416,6 @@ Aws::S3::Types::WriteGetObjectResponseRequest::SENSITIVE = T.let(T.unsafe(nil), 
 # The following table lists the valid waiter names, the operations they call,
 # and the default `:delay` and `:max_attempts` values.
 #
-# | waiter_name       | params               | :delay   | :max_attempts |
-# | ----------------- | -------------------- | -------- | ------------- |
-# | bucket_exists     | {Client#head_bucket} | 5        | 20            |
-# | bucket_not_exists | {Client#head_bucket} | 5        | 20            |
-# | object_exists     | {Client#head_object} | 5        | 20            |
-# | object_not_exists | {Client#head_object} | 5        | 20            |
 #
 # source://aws-sdk-s3//lib/aws-sdk-s3/waiters.rb#77
 module Aws::S3::Waiters; end

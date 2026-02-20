@@ -69,7 +69,7 @@ class OmniAuth::AuthHash::InfoHash < ::OmniAuth::KeyStore
 
   # @return [Boolean]
   #
-  # source://omniauth//lib/omniauth/auth_hash.rb#41
+  # source://omniauth//lib/omniauth/auth_hash.rb#44
   def valid?; end
 
   class << self
@@ -88,7 +88,7 @@ class OmniAuth::AuthenticityTokenProtection < ::Rack::Protection::AuthenticityTo
   # source://omniauth//lib/omniauth/authenticity_token_protection.rb#6
   def initialize(options = T.unsafe(nil)); end
 
-  # source://omniauth//lib/omniauth/authenticity_token_protection.rb#14
+  # source://omniauth//lib/omniauth/authenticity_token_protection.rb#21
   def call(env); end
 
   # source://omniauth//lib/omniauth/authenticity_token_protection.rb#14
@@ -98,7 +98,7 @@ class OmniAuth::AuthenticityTokenProtection < ::Rack::Protection::AuthenticityTo
 
   # @raise [AuthenticityError]
   #
-  # source://omniauth//lib/omniauth/authenticity_token_protection.rb#25
+  # source://omniauth//lib/omniauth/authenticity_token_protection.rb#30
   def default_reaction(_env); end
 
   # @raise [AuthenticityError]
@@ -153,8 +153,8 @@ class OmniAuth::Configuration
   # so that they can add special cases to the camelization utility
   # method that allows OmniAuth::Builder to work.
   #
-  # @param name [String] The underscored name, e.g. `oauth`
   # @param camelized [String] The properly camelized name, e.g. 'OAuth'
+  # @param name [String] The underscored name, e.g. `oauth`
   #
   # source://omniauth//lib/omniauth.rb#121
   def add_camelization(name, camelized); end
@@ -341,7 +341,10 @@ class OmniAuth::Configuration
 
     private
 
+    # source://omniauth//lib/omniauth.rb#25
     def allocate; end
+
+    # source://omniauth//lib/omniauth.rb#25
     def new(*_arg0); end
   end
 end
@@ -460,7 +463,7 @@ OmniAuth::Form::DEFAULT_CSS = T.let(T.unsafe(nil), String)
 
 # Generic helper hash that allows method access on deeply nested keys.
 #
-# source://omniauth//lib/omniauth/key_store.rb#6
+# source://omniauth//lib/omniauth/key_store.rb#5
 class OmniAuth::KeyStore < ::Hashie::Mash
   class << self
     # Disables warnings on Hashie 3.5.0+ for overwritten keys
@@ -782,6 +785,12 @@ module OmniAuth::Strategy::ClassMethods
   # This allows for more declarative subclassing of strategies by allowing
   # default options to be set using a simple configure call.
   #
+  # @example Using a hash to configure the default options.
+  #
+  #   class MyStrategy
+  #   include OmniAuth::Strategy
+  #   configure foo: 'bar'
+  #   end
   # @example Using a yield to configure the default options.
   #
   #   class MyStrategy
@@ -791,22 +800,16 @@ module OmniAuth::Strategy::ClassMethods
   #   c.foo = 'bar'
   #   end
   #   end
-  # @example Using a hash to configure the default options.
-  #
-  #   class MyStrategy
-  #   include OmniAuth::Strategy
-  #   configure foo: 'bar'
-  #   end
   # @param options [Hash] If supplied, these will be the default options (deep-merged into the superclass's default options).
   # @yield [Options] The options Mash that allows you to set your defaults as you'd like.
   #
   # source://omniauth//lib/omniauth/strategy.rb#52
   def configure(options = T.unsafe(nil)); end
 
-  # source://omniauth//lib/omniauth/strategy.rb#96
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def credentials(&block); end
 
-  # source://omniauth//lib/omniauth/strategy.rb#101
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def credentials_stack(context); end
 
   # Returns an inherited set of default options set at the class-level
@@ -815,16 +818,16 @@ module OmniAuth::Strategy::ClassMethods
   # source://omniauth//lib/omniauth/strategy.rb#24
   def default_options; end
 
-  # source://omniauth//lib/omniauth/strategy.rb#96
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def extra(&block); end
 
-  # source://omniauth//lib/omniauth/strategy.rb#101
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def extra_stack(context); end
 
-  # source://omniauth//lib/omniauth/strategy.rb#96
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def info(&block); end
 
-  # source://omniauth//lib/omniauth/strategy.rb#101
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def info_stack(context); end
 
   # Directly declare a default option for your class. This is a useful from
@@ -845,24 +848,24 @@ module OmniAuth::Strategy::ClassMethods
   # source://omniauth//lib/omniauth/strategy.rb#75
   def option(name, value = T.unsafe(nil)); end
 
-  # source://omniauth//lib/omniauth/strategy.rb#96
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def uid(&block); end
 
-  # source://omniauth//lib/omniauth/strategy.rb#101
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def uid_stack(context); end
 
   private
 
-  # source://omniauth//lib/omniauth/strategy.rb#93
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def credentials_proc; end
 
-  # source://omniauth//lib/omniauth/strategy.rb#93
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def extra_proc; end
 
-  # source://omniauth//lib/omniauth/strategy.rb#93
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def info_proc; end
 
-  # source://omniauth//lib/omniauth/strategy.rb#93
+  # source://omniauth//lib/omniauth/strategy.rb#92
   def uid_proc; end
 end
 

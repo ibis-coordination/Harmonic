@@ -57,7 +57,7 @@ module EtOrbi
     # source://et-orbi//lib/et-orbi/zones.rb#21
     def list_iso8601_zones(s); end
 
-    # source://et-orbi//lib/et-orbi/make.rb#51
+    # source://et-orbi//lib/et-orbi/make.rb#69
     def make(*a); end
 
     # source://et-orbi//lib/et-orbi/make.rb#51
@@ -95,7 +95,7 @@ module EtOrbi
     # source://et-orbi//lib/et-orbi/zones.rb#138
     def windows_zone_name(zone_name, time); end
 
-    # source://et-orbi//lib/et-orbi/zones.rb#53
+    # source://et-orbi//lib/et-orbi/zones.rb#87
     def zone; end
 
     # source://et-orbi//lib/et-orbi/zones.rb#164
@@ -252,19 +252,19 @@ class EtOrbi::EoTime
   # Returns this ::EtOrbi::EoTime as a ::Time instance
   # in the current UTC timezone.
   #
-  # source://et-orbi//lib/et-orbi/time.rb#141
+  # source://et-orbi//lib/et-orbi/time.rb#156
   def getgm; end
 
   # Returns this ::EtOrbi::EoTime as a ::Time instance
   # in the current UTC timezone.
   #
-  # source://et-orbi//lib/et-orbi/time.rb#141
+  # source://et-orbi//lib/et-orbi/time.rb#155
   def getutc; end
 
   # source://et-orbi//lib/et-orbi/time.rb#217
   def hour; end
 
-  # source://et-orbi//lib/et-orbi/time.rb#346
+  # source://et-orbi//lib/et-orbi/time.rb#352
   def in_time_zone(zone = T.unsafe(nil)); end
 
   # source://et-orbi//lib/et-orbi/time.rb#316
@@ -277,7 +277,7 @@ class EtOrbi::EoTime
 
   # @return [Boolean]
   #
-  # source://et-orbi//lib/et-orbi/time.rb#188
+  # source://et-orbi//lib/et-orbi/time.rb#192
   def isdst; end
 
   # source://et-orbi//lib/et-orbi/time.rb#291
@@ -356,7 +356,7 @@ class EtOrbi::EoTime
   #
   # Has a #to_t alias.
   #
-  # source://et-orbi//lib/et-orbi/time.rb#181
+  # source://et-orbi//lib/et-orbi/time.rb#186
   def to_t; end
 
   # source://et-orbi//lib/et-orbi/time.rb#311
@@ -371,7 +371,7 @@ class EtOrbi::EoTime
   # Returns this ::EtOrbi::EoTime as a ::Time instance
   # in the current UTC timezone.
   #
-  # source://et-orbi//lib/et-orbi/time.rb#141
+  # source://et-orbi//lib/et-orbi/time.rb#157
   def to_utc_time; end
 
   # source://et-orbi//lib/et-orbi/time.rb#286
@@ -382,7 +382,7 @@ class EtOrbi::EoTime
   # source://et-orbi//lib/et-orbi/time.rb#96
   def touch; end
 
-  # source://et-orbi//lib/et-orbi/time.rb#346
+  # source://et-orbi//lib/et-orbi/time.rb#351
   def translate(zone = T.unsafe(nil)); end
 
   # source://et-orbi//lib/et-orbi/time.rb#217

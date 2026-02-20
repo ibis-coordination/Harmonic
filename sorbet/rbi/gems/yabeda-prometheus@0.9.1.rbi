@@ -6,54 +6,7 @@
 
 
 # source://yabeda-prometheus//lib/yabeda/prometheus/version.rb#3
-module Yabeda
-  class << self
-    # source://yabeda/0.14.0/lib/yabeda.rb#34
-    def adapters; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#85
-    def already_configured?; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#52
-    def collect!; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#39
-    def collectors; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#43
-    def config; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#80
-    def configurators; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#93
-    def configure!; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#85
-    def configured?; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#116
-    def debug!; end
-
-    # source://forwardable/1.3.2/forwardable.rb#229
-    def debug?(*args, **_arg1, &block); end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#63
-    def default_tags; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#27
-    def groups; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#22
-    def metrics; end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#69
-    def register_adapter(name, instance); end
-
-    # source://yabeda/0.14.0/lib/yabeda.rb#139
-    def reset!; end
-  end
-end
+module Yabeda; end
 
 # source://yabeda-prometheus//lib/yabeda/prometheus/version.rb#4
 module Yabeda::Prometheus

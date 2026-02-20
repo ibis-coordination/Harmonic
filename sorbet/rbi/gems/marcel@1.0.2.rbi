@@ -36,7 +36,7 @@ class Marcel::Magic
   #
   # @return [Boolean]
   #
-  # source://marcel//lib/marcel/magic.rb#102
+  # source://marcel//lib/marcel/magic.rb#110
   def ==(other); end
 
   # @return [Boolean]

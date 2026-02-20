@@ -4,7 +4,7 @@
 
 The app has 62+ shared ERB partials in `app/views/shared/` with varying complexity. Some have significant inline Ruby logic, complex conditionals, and many local variables. There are no existing component abstractions — just partials and helper methods. Adding `view_component` will provide better encapsulation, explicit interfaces, and unit-testable view logic.
 
-**Key constraint**: Rails 7.0.8 requires `view_component ~> 3.24` (v4.x needs Rails 7.1+).
+**Key constraint**: ~~Rails 7.0.8 requires `view_component ~> 3.24` (v4.x needs Rails 7.1+).~~ Resolved — now on Rails 7.2 with ViewComponent 4.x.
 
 ## Design Decisions
 

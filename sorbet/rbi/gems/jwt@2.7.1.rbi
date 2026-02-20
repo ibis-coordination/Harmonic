@@ -224,7 +224,7 @@ module JWT::Algos::Hmac::SecurityUtils
   class << self
     # @raise [ArgumentError]
     #
-    # source://jwt//lib/jwt/algos/hmac.rb#43
+    # source://jwt//lib/jwt/algos/hmac.rb#57
     def fixed_length_secure_compare(a, b); end
 
     # Secure string comparison for strings of variable length.
@@ -234,7 +234,7 @@ module JWT::Algos::Hmac::SecurityUtils
     # the secret length. This should be considered when using secure_compare
     # to compare weak, short secrets to user input.
     #
-    # source://jwt//lib/jwt/algos/hmac.rb#65
+    # source://jwt//lib/jwt/algos/hmac.rb#68
     def secure_compare(a, b); end
   end
 end
@@ -784,10 +784,10 @@ module JWT::JWK
     # source://jwt//lib/jwt/jwk.rb#9
     def create_from(key, params = T.unsafe(nil), options = T.unsafe(nil)); end
 
-    # source://jwt//lib/jwt/jwk.rb#9
+    # source://jwt//lib/jwt/jwk.rb#30
     def import(key, params = T.unsafe(nil), options = T.unsafe(nil)); end
 
-    # source://jwt//lib/jwt/jwk.rb#9
+    # source://jwt//lib/jwt/jwk.rb#29
     def new(key, params = T.unsafe(nil), options = T.unsafe(nil)); end
 
     private
@@ -988,7 +988,7 @@ class JWT::JWK::KeyBase
   # source://jwt//lib/jwt/jwk/key_base.rb#36
   def []=(key, value); end
 
-  # source://jwt//lib/jwt/jwk/key_base.rb#40
+  # source://jwt//lib/jwt/jwk/key_base.rb#44
   def eql?(other); end
 
   # source://jwt//lib/jwt/jwk/key_base.rb#28
@@ -1103,7 +1103,7 @@ class JWT::JWK::RSA < ::JWT::JWK::KeyBase
   def rsa_key; end
 
   class << self
-    # source://jwt//lib/jwt/jwk/rsa.rb#141
+    # source://jwt//lib/jwt/jwk/rsa.rb#194
     def create_rsa_key(rsa_parameters); end
 
     # source://jwt//lib/jwt/jwk/rsa.rb#169
@@ -1164,10 +1164,10 @@ class JWT::JWK::Set
   # source://jwt//lib/jwt/jwk/set.rb#13
   def initialize(jwks = T.unsafe(nil), options = T.unsafe(nil)); end
 
-  # source://jwt//lib/jwt/jwk/set.rb#58
+  # source://jwt//lib/jwt/jwk/set.rb#76
   def +(enum); end
 
-  # source://jwt//lib/jwt/jwk/set.rb#62
+  # source://jwt//lib/jwt/jwk/set.rb#77
   def <<(key); end
 
   # source://jwt//lib/jwt/jwk/set.rb#67
@@ -1176,22 +1176,22 @@ class JWT::JWK::Set
   # source://jwt//lib/jwt/jwk/set.rb#62
   def add(key); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://jwt//lib/jwt/jwk/set.rb#35
   def delete(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://jwt//lib/jwt/jwk/set.rb#35
   def dig(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://jwt//lib/jwt/jwk/set.rb#35
   def each(*args, **_arg1, &block); end
 
-  # source://jwt//lib/jwt/jwk/set.rb#67
+  # source://jwt//lib/jwt/jwk/set.rb#71
   def eql?(other); end
 
   # source://jwt//lib/jwt/jwk/set.rb#31
   def export(options = T.unsafe(nil)); end
 
-  # source://jwt//lib/jwt/jwk/set.rb#37
+  # source://jwt//lib/jwt/jwk/set.rb#72
   def filter!(&block); end
 
   # Returns the value of attribute keys.
@@ -1199,7 +1199,7 @@ class JWT::JWK::Set
   # source://jwt//lib/jwt/jwk/set.rb#11
   def keys; end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://jwt//lib/jwt/jwk/set.rb#73
   def length(*args, **_arg1, &block); end
 
   # source://jwt//lib/jwt/jwk/set.rb#53
@@ -1211,7 +1211,7 @@ class JWT::JWK::Set
   # source://jwt//lib/jwt/jwk/set.rb#37
   def select!(&block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://jwt//lib/jwt/jwk/set.rb#35
   def size(*args, **_arg1, &block); end
 
   # source://jwt//lib/jwt/jwk/set.rb#58
@@ -1222,7 +1222,7 @@ class JWT::JWK::Set
 
   # For symbolic manipulation
   #
-  # source://jwt//lib/jwt/jwk/set.rb#58
+  # source://jwt//lib/jwt/jwk/set.rb#75
   def |(enum); end
 end
 
@@ -1243,7 +1243,7 @@ class JWT::JWK::Thumbprint
   # source://jwt//lib/jwt/jwk/thumbprint.rb#7
   def jwk; end
 
-  # source://jwt//lib/jwt/jwk/thumbprint.rb#13
+  # source://jwt//lib/jwt/jwk/thumbprint.rb#23
   def to_s; end
 end
 

@@ -8,63 +8,7 @@
 # Module to access Sidekiq config
 #
 # source://sidekiq-cron//lib/sidekiq/cron.rb#1
-module Sidekiq
-  class << self
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#134
-    def configure_client; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#122
-    def configure_embed(&block); end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#96
-    def configure_server(&block); end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#88
-    def default_configuration; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#84
-    def default_job_options; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#80
-    def default_job_options=(hash); end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#56
-    def dump_json(object); end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#64
-    def ent?; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#101
-    def freeze!; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#52
-    def load_json(string); end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#92
-    def logger; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#60
-    def pro?; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#72
-    def redis(&block); end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#68
-    def redis_pool; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#48
-    def server?; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#76
-    def strict_args!(mode = T.unsafe(nil)); end
-
-    # source://sidekiq/7.1.3/lib/sidekiq/transaction_aware_client.rb#33
-    def transactional_push!; end
-
-    # source://sidekiq/7.1.3/lib/sidekiq.rb#44
-    def ❨╯°□°❩╯︵┻━┻; end
-  end
-end
+module Sidekiq; end
 
 # source://sidekiq-cron//lib/sidekiq/cron.rb#2
 module Sidekiq::Cron

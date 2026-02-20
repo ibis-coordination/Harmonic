@@ -8,17 +8,27 @@
 # Top level module for TZInfo.
 #
 # source://tzinfo-data//lib/tzinfo/data.rb#2
-module TZInfo
-  class << self
-    # source://tzinfo/2.0.6/lib/tzinfo.rb#14
-    def eager_load!; end
-  end
-end
+module TZInfo; end
 
 # Top level module for TZInfo::Data.
 #
 # source://tzinfo-data//lib/tzinfo/data.rb#4
 module TZInfo::Data; end
+
+# source://tzinfo-data//lib/tzinfo/data/indexes/timezones.rb#8
+module TZInfo::Data::Indexes; end
+
+# source://tzinfo-data//lib/tzinfo/data/indexes/countries.rb#9
+module TZInfo::Data::Indexes::Countries
+  include ::TZInfo::Format1::CountryIndexDefinition
+  extend ::TZInfo::Format1::CountryIndexDefinition::ClassMethods
+end
+
+# source://tzinfo-data//lib/tzinfo/data/indexes/timezones.rb#9
+module TZInfo::Data::Indexes::Timezones
+  include ::TZInfo::Format1::TimezoneIndexDefinition
+  extend ::TZInfo::Format1::TimezoneIndexDefinition::ClassMethods
+end
 
 # TZInfo::Data version number.
 #

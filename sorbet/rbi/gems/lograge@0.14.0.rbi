@@ -90,7 +90,7 @@ module Lograge
   # source://lograge//lib/lograge.rb#90
   def ignore_nothing; end
 
-  # source://lograge//lib/lograge.rb#82
+  # source://lograge//lib/lograge.rb#28
   def ignore_tests; end
 
   # source://lograge//lib/lograge.rb#197
@@ -99,7 +99,7 @@ module Lograge
   # source://lograge//lib/lograge.rb#224
   def lograge_config; end
 
-  # source://lograge//lib/lograge.rb#238
+  # source://lograge//lib/lograge.rb#234
   def notification_listeners_for(name); end
 
   # source://lograge//lib/lograge.rb#207
@@ -200,7 +200,7 @@ module Lograge
     # source://lograge//lib/lograge.rb#90
     def ignore_nothing; end
 
-    # source://lograge//lib/lograge.rb#82
+    # source://lograge//lib/lograge.rb#28
     def ignore_tests; end
 
     # source://lograge//lib/lograge.rb#28
@@ -224,7 +224,7 @@ module Lograge
     # source://lograge//lib/lograge.rb#224
     def lograge_config; end
 
-    # source://lograge//lib/lograge.rb#238
+    # source://lograge//lib/lograge.rb#234
     def notification_listeners_for(name); end
 
     # source://lograge//lib/lograge.rb#109
@@ -501,7 +501,7 @@ class Lograge::LogSubscribers::Base < ::ActiveSupport::LogSubscriber
   # source://lograge//lib/lograge/log_subscribers/base.rb#41
   def extract_runtimes(*_arg); end
 
-  # source://lograge//lib/lograge/log_subscribers/base.rb#44
+  # source://lograge//lib/lograge/log_subscribers/base.rb#41
   def extract_status(payload); end
 
   # source://lograge//lib/lograge/log_subscribers/base.rb#41

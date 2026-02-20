@@ -34,12 +34,13 @@ class Hashie::Array < ::Array
   include ::Hashie::Extensions::RubyVersionCheck
   extend ::Hashie::Extensions::RubyVersionCheck::ClassMethods
 
+  # source://hashie//lib/hashie/array.rb#6
   def array_inspect; end
 
   # source://hashie//lib/hashie/array.rb#9
   def dig(*indexes); end
 
-  # source://hashie//lib/hashie/extensions/array/pretty_inspect.rb#10
+  # source://hashie//lib/hashie/array.rb#6
   def inspect; end
 end
 
@@ -149,10 +150,10 @@ class Hashie::Dash < ::Hashie::Hash
   # source://hashie//lib/hashie/dash.rb#131
   def []=(property, value); end
 
-  # source://hashie//lib/hashie/extensions/pretty_inspect.rb#9
+  # source://hashie//lib/hashie/dash.rb#16
   def hash_inspect; end
 
-  # source://hashie//lib/hashie/extensions/pretty_inspect.rb#9
+  # source://hashie//lib/hashie/dash.rb#16
   def inspect; end
 
   # source://hashie//lib/hashie/dash.rb#137
@@ -167,10 +168,10 @@ class Hashie::Dash < ::Hashie::Hash
   # source://hashie//lib/hashie/dash.rb#159
   def to_h; end
 
-  # source://hashie//lib/hashie/dash.rb#159
+  # source://hashie//lib/hashie/dash.rb#164
   def to_hash; end
 
-  # source://hashie//lib/hashie/extensions/pretty_inspect.rb#9
+  # source://hashie//lib/hashie/dash.rb#18
   def to_s; end
 
   # source://hashie//lib/hashie/dash.rb#166
@@ -178,7 +179,10 @@ class Hashie::Dash < ::Hashie::Hash
 
   private
 
+  # source://hashie//lib/hashie/dash.rb#111
   def _regular_reader(_arg0); end
+
+  # source://hashie//lib/hashie/dash.rb#112
   def _regular_writer(_arg0, _arg1); end
 
   # source://hashie//lib/hashie/dash.rb#203
@@ -347,8 +351,8 @@ module Hashie::Extensions::Coercion::ClassMethods
   #   include Hashie::Extensions::Coercion
   #   coerce_key :user, User
   #   end
-  # @param key [Object] the key or array of keys you would like to be coerced.
   # @param into [Class] the class into which you want the key(s) coerced.
+  # @param key [Object] the key or array of keys you would like to be coerced.
   #
   # source://hashie//lib/hashie/extensions/coercion.rb#82
   def coerce_key(*attrs); end
@@ -364,10 +368,10 @@ module Hashie::Extensions::Coercion::ClassMethods
   #   include Hashie::Extensions::Coercion
   #   coerce_key :user, User
   #   end
-  # @param key [Object] the key or array of keys you would like to be coerced.
   # @param into [Class] the class into which you want the key(s) coerced.
+  # @param key [Object] the key or array of keys you would like to be coerced.
   #
-  # source://hashie//lib/hashie/extensions/coercion.rb#82
+  # source://hashie//lib/hashie/extensions/coercion.rb#87
   def coerce_keys(*attrs); end
 
   # Set up a coercion rule such that any time a value of the
@@ -487,7 +491,7 @@ module Hashie::Extensions::Dash::IndifferentAccess
   # source://hashie//lib/hashie/extensions/dash/indifferent_access.rb#22
   def to_h; end
 
-  # source://hashie//lib/hashie/extensions/dash/indifferent_access.rb#22
+  # source://hashie//lib/hashie/extensions/dash/indifferent_access.rb#29
   def to_hash; end
 
   class << self
@@ -803,7 +807,7 @@ module Hashie::Extensions::DeepFind
   #  my_hash[:user] = {location: {address: '123 Street'}}
   #  my_hash.deep_find(:address) # => '123 Street'
   #
-  # source://hashie//lib/hashie/extensions/deep_find.rb#19
+  # source://hashie//lib/hashie/extensions/deep_find.rb#23
   def deep_detect(key); end
 
   # Performs a depth-first search on deeply nested data structures for
@@ -873,7 +877,7 @@ module Hashie::Extensions::DeepFind
   #  ]
   #  my_hash.deep_find_all(:address) # => ['123 Street', '234 Street']
   #
-  # source://hashie//lib/hashie/extensions/deep_find.rb#47
+  # source://hashie//lib/hashie/extensions/deep_find.rb#52
   def deep_select(key); end
 
   private
@@ -1950,9 +1954,10 @@ class Hashie::Hash < ::Hash
   include ::Hashie::Extensions::PrettyInspect
   include ::Hashie::Extensions::StringifyKeys
 
+  # source://hashie//lib/hashie/hash.rb#9
   def hash_inspect; end
 
-  # source://hashie//lib/hashie/extensions/pretty_inspect.rb#9
+  # source://hashie//lib/hashie/hash.rb#9
   def inspect; end
 
   # Converts a mash back to a hash (with stringified or symbolized keys)
@@ -2056,14 +2061,14 @@ class Hashie::Mash < ::Hashie::Hash
   #
   # @yield [value]
   #
-  # source://hashie//lib/hashie/mash.rb#125
+  # source://hashie//lib/hashie/mash.rb#140
   def [](key); end
 
   # Sets an attribute in the Mash. Symbol keys will be converted to
   # strings before being set, and Hashes will be converted into Mashes
   # for nesting purposes.
   #
-  # source://hashie//lib/hashie/mash.rb#135
+  # source://hashie//lib/hashie/mash.rb#141
   def []=(key, value, convert = T.unsafe(nil)); end
 
   # Assigns a value to a key
@@ -2098,7 +2103,7 @@ class Hashie::Mash < ::Hashie::Hash
   # Recursively merges this mash with the passed
   # in hash, merging each hash in the hierarchy.
   #
-  # source://hashie//lib/hashie/mash.rb#216
+  # source://hashie//lib/hashie/mash.rb#240
   def deep_merge!(*other_hashes, &blk); end
 
   # Recursively merges this mash with the passed
@@ -2133,12 +2138,12 @@ class Hashie::Mash < ::Hashie::Hash
 
   # @return [Boolean]
   #
-  # source://hashie//lib/hashie/mash.rb#200
+  # source://hashie//lib/hashie/mash.rb#203
   def has_key?(key); end
 
   # @return [Boolean]
   #
-  # source://hashie//lib/hashie/mash.rb#200
+  # source://hashie//lib/hashie/mash.rb#204
   def include?(key); end
 
   # This is the bang method reader, it will return a new Mash
@@ -2161,7 +2166,7 @@ class Hashie::Mash < ::Hashie::Hash
 
   # @return [Boolean]
   #
-  # source://hashie//lib/hashie/mash.rb#200
+  # source://hashie//lib/hashie/mash.rb#205
   def member?(key); end
 
   # Performs a deep_update on a duplicate of the
@@ -2169,13 +2174,13 @@ class Hashie::Mash < ::Hashie::Hash
   # Alias these lexically so they get the correctly defined
   # #deep_merge and #deep_update based on ruby version.
   #
-  # source://hashie//lib/hashie/mash.rb#210
+  # source://hashie//lib/hashie/mash.rb#239
   def merge(*other_hashes, &blk); end
 
   # Recursively merges this mash with the passed
   # in hash, merging each hash in the hierarchy.
   #
-  # source://hashie//lib/hashie/mash.rb#216
+  # source://hashie//lib/hashie/mash.rb#242
   def merge!(*other_hashes, &blk); end
 
   # source://hashie//lib/hashie/mash.rb#298
@@ -2186,9 +2191,16 @@ class Hashie::Mash < ::Hashie::Hash
   # source://hashie//lib/hashie/mash.rb#293
   def prefix_method?(method_name); end
 
+  # source://hashie//lib/hashie/mash.rb#193
   def regular_dup; end
+
+  # source://hashie//lib/hashie/mash.rb#199
   def regular_key?(_arg0); end
+
+  # source://hashie//lib/hashie/mash.rb#120
   def regular_reader(_arg0); end
+
+  # source://hashie//lib/hashie/mash.rb#121
   def regular_writer(_arg0, _arg1); end
 
   # Returns a new instance of the class it was called on, containing elements
@@ -2228,7 +2240,7 @@ class Hashie::Mash < ::Hashie::Hash
   # source://hashie//lib/hashie/mash.rb#81
   def to_module(mash_method_name = T.unsafe(nil)); end
 
-  # source://hashie//lib/hashie/extensions/pretty_inspect.rb#9
+  # source://hashie//lib/hashie/mash.rb#94
   def to_s; end
 
   # source://hashie//lib/hashie/mash.rb#349
@@ -2246,7 +2258,7 @@ class Hashie::Mash < ::Hashie::Hash
   # Recursively merges this mash with the passed
   # in hash, merging each hash in the hierarchy.
   #
-  # source://hashie//lib/hashie/mash.rb#216
+  # source://hashie//lib/hashie/mash.rb#241
   def update(*other_hashes, &blk); end
 
   # source://hashie//lib/hashie/mash.rb#170
@@ -2288,6 +2300,7 @@ class Hashie::Mash < ::Hashie::Hash
   def respond_to_missing?(method_name, *args); end
 
   class << self
+    # source://hashie//lib/hashie/mash.rb#118
     def [](*_arg0); end
 
     # @raise [ArgumentError]
@@ -2310,7 +2323,7 @@ end
 # source://hashie//lib/hashie/mash.rb#68
 Hashie::Mash::ALLOWED_SUFFIXES = T.let(T.unsafe(nil), Array)
 
-# source://hashie//lib/hashie/railtie.rb#6
+# source://hashie//lib/hashie/railtie.rb#5
 class Hashie::Railtie < ::Rails::Railtie; end
 
 # Rash is a Hash whose keys can be Regexps, or Ranges, which will

@@ -117,7 +117,7 @@ class SearchIndexer
     when Commitment
       @item.participant_count
     else
-      0
+      T.absurd(@item)
     end
   end
 

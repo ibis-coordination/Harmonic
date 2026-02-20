@@ -6,24 +6,7 @@
 
 
 # source://omniauth-identity//lib/omniauth-identity/version.rb#3
-module OmniAuth
-  class << self
-    # source://omniauth/2.1.1/lib/omniauth.rb#130
-    def config; end
-
-    # source://omniauth/2.1.1/lib/omniauth.rb#134
-    def configure; end
-
-    # source://omniauth/2.1.1/lib/omniauth.rb#138
-    def logger; end
-
-    # source://omniauth/2.1.1/lib/omniauth.rb#142
-    def mock_auth_for(provider); end
-
-    # source://omniauth/2.1.1/lib/omniauth.rb#20
-    def strategies; end
-  end
-end
+module OmniAuth; end
 
 # source://omniauth-identity//lib/omniauth-identity/version.rb#4
 module OmniAuth::Identity; end
@@ -209,20 +192,17 @@ class OmniAuth::Identity::Models::ActiveRecord < ::ActiveRecord::Base
   include ::OmniAuth::Identity::SecurePassword
   extend ::OmniAuth::Identity::Model::ClassMethods
 
-  # source://activemodel/7.0.8.7/lib/active_model/validations/confirmation.rb#22
-  def password_confirmation; end
-
   class << self
-    # source://activesupport/7.0.8.7/lib/active_support/callbacks.rb#68
+    # source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#16
     def __callbacks; end
 
-    # source://activemodel/7.0.8.7/lib/active_model/validations.rb#52
+    # source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#11
     def _validators; end
 
     # source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#18
     def auth_key=(key); end
 
-    # source://activerecord/7.0.8.7/lib/active_record/enum.rb#116
+    # source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#11
     def defined_enums; end
 
     # source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#23
@@ -230,10 +210,10 @@ class OmniAuth::Identity::Models::ActiveRecord < ::ActiveRecord::Base
   end
 end
 
-# source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#0
+# source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#11
 module OmniAuth::Identity::Models::ActiveRecord::GeneratedAssociationMethods; end
 
-# source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#0
+# source://omniauth-identity//lib/omniauth/identity/models/active_record.rb#11
 module OmniAuth::Identity::Models::ActiveRecord::GeneratedAttributeMethods; end
 
 # This is lightly edited from Rails 6.1 code and is used if
