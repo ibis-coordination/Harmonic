@@ -402,14 +402,14 @@ class Collective
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def build_identity_user(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Attachment) }
     def build_image_attachment(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Blob) }
     def build_image_blob(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def build_proxy_user(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
@@ -465,6 +465,12 @@ class Collective
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by!(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_identity_user(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_identity_user!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Attachment) }
     def create_image_attachment(*args, &blk); end
 
@@ -476,12 +482,6 @@ class Collective
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Blob) }
     def create_image_blob!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_proxy_user(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_proxy_user!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -556,6 +556,12 @@ class Collective
 
     sig { params(value: T::Enumerable[::Heartbeat]).void }
     def heartbeats=(value); end
+
+    sig { returns(T.nilable(::User)) }
+    def identity_user; end
+
+    sig { params(value: T.nilable(::User)).void }
+    def identity_user=(value); end
 
     sig { returns(T.nilable(::ActiveStorage::Attachment)) }
     def image_attachment; end
@@ -682,22 +688,16 @@ class Collective
     def options=(value); end
 
     sig { returns(T.nilable(::User)) }
-    def proxy_user; end
-
-    sig { params(value: T.nilable(::User)).void }
-    def proxy_user=(value); end
+    def reload_created_by; end
 
     sig { returns(T.nilable(::User)) }
-    def reload_created_by; end
+    def reload_identity_user; end
 
     sig { returns(T.nilable(::ActiveStorage::Attachment)) }
     def reload_image_attachment; end
 
     sig { returns(T.nilable(::ActiveStorage::Blob)) }
     def reload_image_blob; end
-
-    sig { returns(T.nilable(::User)) }
-    def reload_proxy_user; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -737,13 +737,13 @@ class Collective
     def reset_created_by; end
 
     sig { void }
+    def reset_identity_user; end
+
+    sig { void }
     def reset_image_attachment; end
 
     sig { void }
     def reset_image_blob; end
-
-    sig { void }
-    def reset_proxy_user; end
 
     sig { void }
     def reset_tenant; end
@@ -1302,6 +1302,51 @@ class Collective
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def identity_user_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def identity_user_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def identity_user_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def identity_user_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def identity_user_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def identity_user_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def identity_user_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def identity_user_id_change_to_be_saved; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def identity_user_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def identity_user_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def identity_user_id_previous_change; end
+
+    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    def identity_user_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def identity_user_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def identity_user_id_was; end
+
+    sig { void }
+    def identity_user_id_will_change!; end
+
     sig { returns(T::Boolean) }
     def internal; end
 
@@ -1392,51 +1437,6 @@ class Collective
     sig { void }
     def name_will_change!; end
 
-    sig { returns(T.nilable(::String)) }
-    def proxy_user_id; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def proxy_user_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def proxy_user_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def proxy_user_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def proxy_user_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def proxy_user_id_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def proxy_user_id_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def proxy_user_id_change_to_be_saved; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def proxy_user_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def proxy_user_id_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def proxy_user_id_previous_change; end
-
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
-    def proxy_user_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def proxy_user_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def proxy_user_id_was; end
-
-    sig { void }
-    def proxy_user_id_will_change!; end
-
     sig { void }
     def restore_collective_type!; end
 
@@ -1456,13 +1456,13 @@ class Collective
     def restore_id!; end
 
     sig { void }
+    def restore_identity_user_id!; end
+
+    sig { void }
     def restore_internal!; end
 
     sig { void }
     def restore_name!; end
-
-    sig { void }
-    def restore_proxy_user_id!; end
 
     sig { void }
     def restore_settings!; end
@@ -1512,6 +1512,12 @@ class Collective
     sig { returns(T::Boolean) }
     def saved_change_to_id?; end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_identity_user_id; end
+
+    sig { returns(T::Boolean) }
+    def saved_change_to_identity_user_id?; end
+
     sig { returns(T.nilable([T::Boolean, T::Boolean])) }
     def saved_change_to_internal; end
 
@@ -1523,12 +1529,6 @@ class Collective
 
     sig { returns(T::Boolean) }
     def saved_change_to_name?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_proxy_user_id; end
-
-    sig { returns(T::Boolean) }
-    def saved_change_to_proxy_user_id?; end
 
     sig { returns(T.nilable([T.untyped, T.untyped])) }
     def saved_change_to_settings; end
@@ -1753,13 +1753,13 @@ class Collective
     def will_save_change_to_id?; end
 
     sig { returns(T::Boolean) }
+    def will_save_change_to_identity_user_id?; end
+
+    sig { returns(T::Boolean) }
     def will_save_change_to_internal?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_name?; end
-
-    sig { returns(T::Boolean) }
-    def will_save_change_to_proxy_user_id?; end
 
     sig { returns(T::Boolean) }
     def will_save_change_to_settings?; end

@@ -12,6 +12,10 @@ class Tenant < ApplicationRecord
   # Admin controller handles this. Callbacks are buggy.
   # after_create :create_main_collective!
 
+  # Regenerate Caddyfile when tenants change (for subdomain routing)
+  after_commit :schedule_caddyfile_regeneration, on: [:create, :destroy]
+  after_commit :schedule_caddyfile_regeneration_if_subdomain_changed, on: :update
+
   tables = ActiveRecord::Base.connection.tables - [
     'tenants', 'users', 'oauth_identities',
     'tenant_users', # Explicitly defined above with through association
@@ -337,5 +341,15 @@ class Tenant < ApplicationRecord
   sig { params(id: T.nilable(String)).void }
   def self.current_main_collective_id=(id)
     Thread.current[:main_collective_id] = id
+  end
+
+  sig { void }
+  def schedule_caddyfile_regeneration
+    RegenerateCaddyfileJob.perform_later
+  end
+
+  sig { void }
+  def schedule_caddyfile_regeneration_if_subdomain_changed
+    schedule_caddyfile_regeneration if saved_change_to_subdomain?
   end
 end

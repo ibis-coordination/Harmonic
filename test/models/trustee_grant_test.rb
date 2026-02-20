@@ -36,9 +36,9 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       trustee_user: @trustee_user,
       permissions: {},
     )
-    # trustee_user is now the actual person (Bob), not a collective_proxy user
+    # trustee_user is now the actual person (Bob), not a collective_identity user
     assert_equal @trustee_user, permission.trustee_user
-    assert_not permission.trustee_user.collective_proxy?
+    assert_not permission.trustee_user.collective_identity?
     assert_equal "Bob", permission.trustee_user.name
   end
 
@@ -53,20 +53,20 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     assert_includes permission.errors[:trustee_user], "cannot be the same as the granting user"
   end
 
-  test "trustee_user cannot be a collective_proxy user" do
-    some_proxy = User.create!(
+  test "trustee_user cannot be a collective_identity user" do
+    identity_user = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
-      name: "Some Proxy",
-      user_type: "collective_proxy",
+      name: "Some Identity",
+      user_type: "collective_identity",
     )
     permission = TrusteeGrant.new(
       tenant: @tenant,
       granting_user: @granting_user,
-      trustee_user: some_proxy,
+      trustee_user: identity_user,
       permissions: {},
     )
     assert_not permission.valid?
-    assert_includes permission.errors[:trustee_user], "cannot be a collective proxy user"
+    assert_includes permission.errors[:trustee_user], "cannot be a collective identity user"
   end
 
   # =========================================================================

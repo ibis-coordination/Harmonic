@@ -188,7 +188,7 @@ Link
 
 | Entity | Purpose |
 |--------|---------|
-| `User` | User account (types: human, ai_agent, collective_proxy) |
+| `User` | User account (types: human, ai_agent, collective_identity) |
 | `Heartbeat` | Periodic presence signal for collective access |
 | `RepresentationSession` | When user acts on behalf of a collective |
 | `ApiToken` | Token for API authentication |

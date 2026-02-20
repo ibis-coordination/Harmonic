@@ -40,6 +40,7 @@ require "webmock/minitest"
 # Allow real connections to localhost for integration tests
 WebMock.disable_net_connect!(allow_localhost: true)
 
+
 # Check AUTH_MODE - Ruby tests require oauth mode
 if ENV["AUTH_MODE"] != "oauth"
   raise <<~ERROR
@@ -62,6 +63,9 @@ class ActiveSupport::TestCase
   # fixtures :all  # Removed - no fixture YAML files exist
 
   setup do
+    # Stub Caddy admin API - RegenerateCaddyfileJob fires on tenant create/destroy
+    stub_request(:post, %r{http://caddy:2019/load}).to_return(status: 200, body: "")
+
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
     @global_tenant = Tenant.create!(subdomain: "global", name: "Global Tenant")

@@ -115,40 +115,40 @@ class CollectiveMemberTest < ActiveSupport::TestCase
     assert_equal expected_path, @collective_member.path
   end
 
-  test "path returns collective path for proxy user" do
-    proxy = @collective.proxy_user
-    @collective.add_user!(proxy) rescue nil # May already be added
-    proxy_collective_member = CollectiveMember.unscoped.find_by(user: proxy, collective: @collective)
-    # Proxy user's path should be the collective path
-    if proxy_collective_member
-      assert_equal @collective.path, proxy_collective_member.path
+  test "path returns collective path for identity user" do
+    identity = @collective.identity_user
+    @collective.add_user!(identity) rescue nil # May already be added
+    identity_collective_member = CollectiveMember.unscoped.find_by(user: identity, collective: @collective)
+    # Identity user's path should be the collective path
+    if identity_collective_member
+      assert_equal @collective.path, identity_collective_member.path
     end
   end
 
-  # === Proxy User Validation Tests ===
+  # === Identity User Validation Tests ===
 
-  test "proxy user cannot be member of main collective" do
+  test "identity user cannot be member of main collective" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
-    proxy = @collective.proxy_user
+    identity = @collective.identity_user
 
     collective_member = CollectiveMember.new(
       tenant: @tenant,
       collective: main_collective,
-      user: proxy,
+      user: identity,
     )
     assert_not collective_member.valid?
-    assert_includes collective_member.errors[:user], "Collective proxy users cannot be members of the main collective"
+    assert_includes collective_member.errors[:user], "Collective identity users cannot be members of the main collective"
   end
 
-  test "proxy user can be member of non-main collective" do
-    proxy = @collective.proxy_user
+  test "identity user can be member of non-main collective" do
+    identity = @collective.identity_user
     other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
 
     collective_member = CollectiveMember.new(
       tenant: @tenant,
       collective: other_collective,
-      user: proxy,
+      user: identity,
     )
     assert collective_member.valid?
   end

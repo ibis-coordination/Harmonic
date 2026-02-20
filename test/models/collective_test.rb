@@ -41,18 +41,18 @@ class CollectiveTest < ActiveSupport::TestCase
     end
   end
 
-  test "Collective.creator_is_not_collective_proxy validation" do
+  test "Collective.creator_is_not_collective_identity validation" do
     tenant = create_tenant
-    proxy_user = create_user(user_type: "collective_proxy")
+    identity_user = create_user(user_type: "collective_identity")
     begin
       Collective.create!(
         tenant: tenant,
-        created_by: proxy_user,
+        created_by: identity_user,
         name: "Proxy Studio",
         handle: "proxy-studio"
       )
     rescue ActiveRecord::RecordInvalid => e
-      assert_match(/created by cannot be a collective proxy/, e.message.downcase)
+      assert_match(/created by cannot be a collective identity/, e.message.downcase)
     end
   end
 
@@ -87,7 +87,7 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_not Collective.handle_available?("existing-handle")
   end
 
-  test "Collective.create_proxy_user! creates a proxy user" do
+  test "Collective.create_identity_user! creates an identity user" do
     tenant = create_tenant
     user = create_user
     collective = Collective.create!(
@@ -96,8 +96,8 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Proxy Studio",
       handle: "proxy-studio"
     )
-    assert collective.proxy_user.present?
-    assert_equal "collective_proxy", collective.proxy_user.user_type
+    assert collective.identity_user.present?
+    assert_equal "collective_identity", collective.identity_user.user_type
   end
 
   test "Collective.within_file_upload_limit? returns true when usage is below limit" do
@@ -394,7 +394,7 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_not collective.accessible_by?(other_user)
   end
 
-  test "accessible_by? returns true for collective proxy accessing own collective" do
+  test "accessible_by? returns true for collective identity accessing own collective" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
@@ -405,14 +405,14 @@ class CollectiveTest < ActiveSupport::TestCase
       handle: "access-test-#{SecureRandom.hex(4)}"
     )
     collective.add_user!(user)
-    collective.create_proxy_user!
+    collective.create_identity_user!
 
-    proxy = collective.proxy_user
-    assert proxy.proxy_collective.present?
-    assert collective.accessible_by?(proxy)
+    identity = collective.identity_user
+    assert identity.identity_collective.present?
+    assert collective.accessible_by?(identity)
   end
 
-  test "accessible_by? returns false for collective proxy accessing different collective" do
+  test "accessible_by? returns false for collective identity accessing different collective" do
     tenant = create_tenant(subdomain: "accessible-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
@@ -423,7 +423,7 @@ class CollectiveTest < ActiveSupport::TestCase
       handle: "studio-1-#{SecureRandom.hex(4)}"
     )
     collective1.add_user!(user)
-    collective1.create_proxy_user!
+    collective1.create_identity_user!
 
     collective2 = Collective.create!(
       tenant: tenant,
@@ -433,10 +433,10 @@ class CollectiveTest < ActiveSupport::TestCase
     )
     collective2.add_user!(user)
 
-    proxy = collective1.proxy_user
-    assert proxy.proxy_collective.present?
-    # Proxy of collective1 should not have access to collective2
-    assert_not collective2.accessible_by?(proxy)
+    identity = collective1.identity_user
+    assert identity.identity_collective.present?
+    # Identity of collective1 should not have access to collective2
+    assert_not collective2.accessible_by?(identity)
   end
 
   test "accessible_by? returns false for non-member even with trustee grant" do

@@ -157,16 +157,19 @@ Self-hosters can run Harmonic with minimal setup:
 # Get the files
 mkdir harmonic && cd harmonic
 curl -O https://raw.githubusercontent.com/ibis-coordination/harmonic/main/docker-compose.production.yml
-curl -O https://raw.githubusercontent.com/ibis-coordination/harmonic/main/Caddyfile.example
 curl -O https://raw.githubusercontent.com/ibis-coordination/harmonic/main/.env.example
+mkdir -p scripts
+curl -o scripts/generate-caddyfile.sh https://raw.githubusercontent.com/ibis-coordination/harmonic/main/scripts/generate-caddyfile.sh
+chmod +x scripts/generate-caddyfile.sh
 
 # Configure
 cp .env.example .env
-cp Caddyfile.example Caddyfile
-# Edit .env and Caddyfile with your settings
+# Edit .env with your settings
 
-# Run
+# Run (Caddyfile is auto-generated from tenant subdomains after database setup)
 docker compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.production.yml exec web bundle exec rails db:create db:schema:load db:seed
+./scripts/generate-caddyfile.sh
 ```
 
 Requirements:
