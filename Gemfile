@@ -115,6 +115,10 @@ gem 'rqrcode', '~> 2.2'   # QR code generation for 2FA setup
 gem 'redcarpet'
 gem 'octicons_helper'
 
+# ViewComponent - component-based view architecture
+# Pinned to 3.x because 4.x requires Rails 7.1+
+gem "view_component", "~> 3.24"
+
 gem 'aws-sdk-s3', '~> 1.208'
 
 # Security gems

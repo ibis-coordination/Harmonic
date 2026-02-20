@@ -1,0 +1,17 @@
+<details class="pulse-accordion" <%= "open" if @open %>>
+  <summary class="pulse-accordion-header">
+    <span class="pulse-accordion-title"<%= " title=\"#{@tooltip}\"".html_safe if @tooltip.present? %> <%= data_attributes %>>
+      <% if @icon.present? %>
+        <span class="pulse-accordion-title-icon"><%= octicon @icon, height: 14 %></span>
+      <% end %>
+      <%= @title %>
+      <% if @count.present? %>
+        <span class="pulse-accordion-count">(<%= @count %>)</span>
+      <% end %>
+    </span>
+    <span class="pulse-accordion-icon"><%= octicon "chevron-right", height: 14 %></span>
+  </summary>
+  <div class="pulse-accordion-content">
+    <%= content %>
+  </div>
+</details>
