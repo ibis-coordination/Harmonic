@@ -3,7 +3,8 @@
 class ResourceLinkComponent < ViewComponent::Base
   extend T::Sig
 
-  sig { params(resource: T.untyped).void }
+  # Accepts a Hash (from search_result_to_hash) or a Linkable model
+  sig { params(resource: T.any(T::Hash[Symbol, T.untyped], Note, Decision, Commitment, RepresentationSession)).void }
   def initialize(resource:)
     super()
     @resource = resource
@@ -35,7 +36,7 @@ class ResourceLinkComponent < ViewComponent::Base
     if @resource.is_a?(Hash)
       @resource[:metric_value]
     elsif @resource.respond_to?(:metric_value)
-      @resource.metric_value
+      T.unsafe(@resource).metric_value
     end
   end
 
@@ -53,7 +54,7 @@ class ResourceLinkComponent < ViewComponent::Base
     if @resource.is_a?(Hash)
       @resource[:octicon_metric_icon_name]
     elsif @resource.respond_to?(:octicon_metric_icon_name)
-      @resource.octicon_metric_icon_name
+      T.unsafe(@resource).octicon_metric_icon_name
     end
   end
 end

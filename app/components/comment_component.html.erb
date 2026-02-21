@@ -1,0 +1,77 @@
+<div class="pulse-comment" id="n-<%= @comment.truncated_id %>">
+  <div class="pulse-comment-header">
+    <% if representation? %>
+      <%# Representation: show "Alice on behalf of Bob" %>
+      <%= render AvatarComponent.new(user: representative) %>
+      <a href="<%= representative.path %>" class="pulse-comment-author">
+        <%= representative.display_name %>
+      </a>
+      <span class="pulse-representation-label">on behalf of <%= helpers.link_to author.display_name, author.path %></span>
+    <% else %>
+      <%# Normal case: show created_by %>
+      <%= render AvatarComponent.new(user: author) %>
+      <a href="<%= author.path %>" class="pulse-comment-author">
+        <%= author.display_name %>
+      </a>
+      <% if author.ai_agent? && author.parent %>
+        <span class="pulse-ai-agent-label">(managed by <%= helpers.link_to author.parent.display_name, author.parent.path %>)</span>
+      <% end %>
+    <% end %>
+    <a href="<%= @comment.path %>" class="pulse-comment-timestamp"><%= helpers.timeago(@comment.created_at) %></a>
+    <%# Show task run link if the current user owns the ai_agent that created this comment %>
+    <% if show_task_run_link? && task_run %>
+      <span class="pulse-task-run-link-inline">
+        <%= helpers.link_to helpers.ai_agent_run_path(author.handle, task_run.id), title: "View task run" do %>
+          <%= helpers.octicon "workflow", height: 12 %>
+        <% end %>
+      </span>
+    <% end %>
+  </div>
+
+  <% if has_reply_context? %>
+    <div class="pulse-comment-reply-context">
+      <%= helpers.octicon "reply", height: 12 %>
+      Replying to
+      <a href="#n-<%= @comment.commentable.truncated_id %>">@<%= @comment.commentable.created_by.handle %></a>
+      <span class="pulse-reply-quote"><%= helpers.truncate(@comment.commentable.text, length: 60) %></span>
+    </div>
+  <% end %>
+
+  <div class="pulse-comment-body">
+    <%= helpers.markdown_inline(@comment.text) %>
+  </div>
+
+  <div class="pulse-comment-actions">
+    <% if @current_user %>
+      <% if confirmed? %>
+        <span class="pulse-comment-confirm-btn is-confirmed" title="You've confirmed reading this">
+          <%= helpers.octicon "book", height: 12 %>
+          <span class="pulse-confirm-count"><%= @comment.confirmed_reads %></span>
+        </span>
+      <% else %>
+        <button type="button"
+                class="pulse-comment-confirm-btn"
+                data-action="click->comment-thread#confirmRead"
+                data-comment-path="<%= @comment.path %>"
+                title="Confirm you've read this comment">
+          <%= helpers.octicon "book", height: 12 %>
+          <span class="pulse-confirm-count"><%= @comment.confirmed_reads %></span>
+        </button>
+      <% end %>
+    <% else %>
+      <span class="pulse-comment-confirm-display" title="Confirmed reads">
+        <%= helpers.octicon "book", height: 12 %>
+        <span class="pulse-confirm-count"><%= @comment.confirmed_reads %></span>
+      </span>
+    <% end %>
+    <% if @show_reply_button && @current_user %>
+      <button type="button"
+              class="pulse-comment-reply-btn"
+              data-action="click->comment-thread#showReplyForm"
+              data-comment-id="<%= @comment.truncated_id %>"
+              data-root-comment-id="<%= @root_comment_id %>">
+        Reply
+      </button>
+    <% end %>
+  </div>
+</div>

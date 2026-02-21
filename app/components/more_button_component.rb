@@ -5,11 +5,11 @@ class MoreButtonComponent < ViewComponent::Base
 
   sig do
     params(
-      resource: T.untyped,
+      resource: ApplicationRecord,
       options: T::Array[String],
-      studio: T.untyped,
+      studio: Collective,
       is_pinned: T::Boolean,
-      main_collective: T.untyped,
+      main_collective: T.nilable(Collective),
     ).void
   end
   def initialize(resource:, options:, studio:, is_pinned: false, main_collective: nil) # rubocop:disable Metrics/ParameterLists

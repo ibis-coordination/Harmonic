@@ -1,8 +1,11 @@
 # typed: false
 
 require "test_helper"
+require_relative "component_test_helper"
 
 class ResourceLinkComponentTest < ViewComponent::TestCase
+  include ComponentTestHelper
+
   test "renders link from hash resource" do
     resource = { type: "Note", path: "/n/abc123", title: "My Note" }
     render_inline(ResourceLinkComponent.new(resource: resource))
@@ -12,10 +15,10 @@ class ResourceLinkComponentTest < ViewComponent::TestCase
   end
 
   test "renders link from model-like object" do
-    resource = Struct.new(:path, :title, keyword_init: true).new(path: "/d/xyz789", title: "My Decision")
-    # stub class name
-    resource.define_singleton_method(:class) { Struct.new(:to_s).new("Decision") }
-    render_inline(ResourceLinkComponent.new(resource: resource))
+    decision = Decision.new(truncated_id: "xyz789")
+    decision.define_singleton_method(:title) { "My Decision" }
+    decision.define_singleton_method(:path) { "/d/xyz789" }
+    render_inline(ResourceLinkComponent.new(resource: decision))
     assert_selector "a.pulse-resource-title[href='/d/xyz789']", text: "My Decision"
     assert_selector "i.decision-icon"
   end

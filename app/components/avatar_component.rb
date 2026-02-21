@@ -5,7 +5,7 @@ class AvatarComponent < ViewComponent::Base
 
   sig do
     params(
-      user: T.untyped,
+      user: T.nilable(User),
       size: T.nilable(String),
       show_link: T::Boolean,
       title: T.nilable(String),
@@ -35,15 +35,16 @@ class AvatarComponent < ViewComponent::Base
 
     parts = name.to_s.split(/[\s\-_]+/)
     if parts.length >= 2
-      "#{parts[0][0]}#{parts[1][0]}".upcase
+      "#{T.must(parts[0])[0]}#{T.must(parts[1])[0]}".upcase
     else
-      name[0..1].upcase
+      T.must(name.to_s[0..1]).upcase
     end
   end
 
   sig { returns(T::Boolean) }
   def has_image?
-    @user&.image_url.present? && @user.image_url != "/placeholder.png"
+    url = @user&.image_url
+    url.present? && url != "/placeholder.png"
   end
 
   sig { returns(String) }

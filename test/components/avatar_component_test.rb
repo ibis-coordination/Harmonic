@@ -1,18 +1,13 @@
 # typed: false
 
 require "test_helper"
+require_relative "component_test_helper"
 
 class AvatarComponentTest < ViewComponent::TestCase
-  # Use a simple struct to test the component in isolation without needing
-  # tenant context or Active Storage for image_url
-  FakeUser = Struct.new(:display_name, :handle, :image_url, :path, keyword_init: true) do
-    def present?
-      true
-    end
-  end
+  include ComponentTestHelper
 
   setup do
-    @user = FakeUser.new(display_name: "Alice Smith", handle: "alice", image_url: nil, path: "/u/alice")
+    @user = build_user(display_name: "Alice Smith", handle: "alice")
   end
 
   test "renders initials from two-word name" do
@@ -21,7 +16,7 @@ class AvatarComponentTest < ViewComponent::TestCase
   end
 
   test "renders initials from single-word name" do
-    user = FakeUser.new(display_name: "Alice", handle: "alice", image_url: nil, path: "/u/alice")
+    user = build_user(display_name: "Alice", handle: "alice")
     render_inline(AvatarComponent.new(user: user))
     assert_selector ".pulse-avatar-initials", text: "AL"
   end
@@ -68,13 +63,13 @@ class AvatarComponentTest < ViewComponent::TestCase
   end
 
   test "renders image when user has image_url" do
-    user = FakeUser.new(display_name: "Alice Smith", handle: "alice", image_url: "https://example.com/avatar.jpg", path: "/u/alice")
+    user = build_user(display_name: "Alice Smith", handle: "alice", image_url: "https://example.com/avatar.jpg")
     render_inline(AvatarComponent.new(user: user))
     assert_selector "img.pulse-avatar-img[src='https://example.com/avatar.jpg']"
   end
 
   test "does not render image when image_url is placeholder" do
-    user = FakeUser.new(display_name: "Alice Smith", handle: "alice", image_url: "/placeholder.png", path: "/u/alice")
+    user = build_user(display_name: "Alice Smith", handle: "alice", image_url: "/placeholder.png")
     render_inline(AvatarComponent.new(user: user))
     assert_no_selector "img"
   end

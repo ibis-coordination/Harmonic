@@ -1,17 +1,14 @@
 # typed: false
 
 require "test_helper"
+require_relative "component_test_helper"
 
 class MoreButtonComponentTest < ViewComponent::TestCase
-  FakeStudio = Struct.new(:path, :is_scene, keyword_init: true) do
-    def is_scene? = is_scene
-  end
-
-  FakeResource = Struct.new(:path, :shareable_link, keyword_init: true)
+  include ComponentTestHelper
 
   setup do
-    @studio = FakeStudio.new(path: "/s/my-studio", is_scene: false)
-    @resource = FakeResource.new(path: "/n/abc123", shareable_link: "https://example.com/n/abc123")
+    @studio = build_collective(handle: "my-studio")
+    @resource = build_note(truncated_id: "abc123")
   end
 
   test "renders more-button Stimulus controller" do
@@ -27,7 +24,7 @@ class MoreButtonComponentTest < ViewComponent::TestCase
   end
 
   test "hides plus menu for scenes" do
-    scene = FakeStudio.new(path: "/s/scene", is_scene: true)
+    scene = build_collective(handle: "scene", is_scene: true)
     render_inline(MoreButtonComponent.new(resource: @resource, options: [], studio: scene))
     assert_selector "[data-more-button-target='plus'][style*='display:none']", visible: :all
   end
@@ -74,7 +71,7 @@ class MoreButtonComponentTest < ViewComponent::TestCase
   end
 
   test "renders pin label with 'your profile' for main collective" do
-    main = FakeStudio.new(path: "/s/main", is_scene: false)
+    main = build_collective(handle: "main")
     render_inline(MoreButtonComponent.new(resource: @resource, options: ["pin"], studio: main, is_pinned: false, main_collective: main))
     assert_text /Pin to your profile/
   end

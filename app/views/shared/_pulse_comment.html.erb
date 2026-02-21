@@ -1,84 +1,10 @@
-<%# Single comment display %>
-<%# locals: comment, show_reply_context (boolean), root_comment_id (string), show_reply_button (boolean, default true) %>
-<% show_reply_button = local_assigns.fetch(:show_reply_button, true) %>
-<div class="pulse-comment" id="n-<%= comment.truncated_id %>">
-  <div class="pulse-comment-header">
-    <% if comment.respond_to?(:created_via_representation?) && comment.created_via_representation? && comment.representative_user %>
-      <%# Representation: show "Alice on behalf of Bob" %>
-      <%= render "shared/avatar", user: comment.representative_user %>
-      <a href="<%= comment.representative_user.path %>" class="pulse-comment-author">
-        <%= comment.representative_user.display_name %>
-      </a>
-      <span class="pulse-representation-label">on behalf of <%= link_to comment.created_by.display_name, comment.created_by.path %></span>
-    <% else %>
-      <%# Normal case: show created_by %>
-      <%= render "shared/avatar", user: comment.created_by %>
-      <a href="<%= comment.created_by.path %>" class="pulse-comment-author">
-        <%= comment.created_by.display_name %>
-      </a>
-      <% if comment.created_by.ai_agent? && comment.created_by.parent %>
-        <span class="pulse-ai-agent-label">(managed by <%= link_to comment.created_by.parent.display_name, comment.created_by.parent.path %>)</span>
-      <% end %>
-    <% end %>
-    <a href="<%= comment.path %>" class="pulse-comment-timestamp"><%= timeago(comment.created_at) %></a>
-    <%# Show task run link if the current user owns the ai_agent that created this comment %>
-    <% if comment.created_by.ai_agent? && comment.created_by.parent == @current_user %>
-      <% task_run = AiAgentTaskRunResource.task_run_for(comment) %>
-      <% if task_run %>
-        <span class="pulse-task-run-link-inline">
-          <%= link_to ai_agent_run_path(comment.created_by.handle, task_run.id), title: "View task run" do %>
-            <%= octicon 'workflow', height: 12 %>
-          <% end %>
-        </span>
-      <% end %>
-    <% end %>
-  </div>
-
-  <% if show_reply_context && comment.commentable_type == "Note" && comment.commentable.present? %>
-    <div class="pulse-comment-reply-context">
-      <%= octicon "reply", height: 12 %>
-      Replying to
-      <a href="#n-<%= comment.commentable.truncated_id %>">@<%= comment.commentable.created_by.handle %></a>
-      <span class="pulse-reply-quote"><%= truncate(comment.commentable.text, length: 60) %></span>
-    </div>
-  <% end %>
-
-  <div class="pulse-comment-body">
-    <%= markdown_inline(comment.text) %>
-  </div>
-
-  <div class="pulse-comment-actions">
-    <% if @current_user %>
-      <% has_confirmed = comment.user_has_read?(@current_user) %>
-      <% if has_confirmed %>
-        <span class="pulse-comment-confirm-btn is-confirmed" title="You've confirmed reading this">
-          <%= octicon "book", height: 12 %>
-          <span class="pulse-confirm-count"><%= comment.confirmed_reads %></span>
-        </span>
-      <% else %>
-        <button type="button"
-                class="pulse-comment-confirm-btn"
-                data-action="click->comment-thread#confirmRead"
-                data-comment-path="<%= comment.path %>"
-                title="Confirm you've read this comment">
-          <%= octicon "book", height: 12 %>
-          <span class="pulse-confirm-count"><%= comment.confirmed_reads %></span>
-        </button>
-      <% end %>
-    <% else %>
-      <span class="pulse-comment-confirm-display" title="Confirmed reads">
-        <%= octicon "book", height: 12 %>
-        <span class="pulse-confirm-count"><%= comment.confirmed_reads %></span>
-      </span>
-    <% end %>
-    <% if show_reply_button && @current_user %>
-      <button type="button"
-              class="pulse-comment-reply-btn"
-              data-action="click->comment-thread#showReplyForm"
-              data-comment-id="<%= comment.truncated_id %>"
-              data-root-comment-id="<%= root_comment_id %>">
-        Reply
-      </button>
-    <% end %>
-  </div>
-</div>
+<%# Wrapper partial - delegates to CommentComponent. %>
+<%# Existing callers can continue using: render "shared/pulse_comment", comment: comment, ... %>
+<%# New code should use: render CommentComponent.new(comment: comment, ...) %>
+<%= render CommentComponent.new(
+  comment: comment,
+  show_reply_context: show_reply_context,
+  root_comment_id: root_comment_id,
+  show_reply_button: local_assigns.fetch(:show_reply_button, true),
+  current_user: @current_user,
+) %>
