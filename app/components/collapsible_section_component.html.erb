@@ -1,0 +1,37 @@
+<span
+  data-controller="collapseable-section"
+  >
+  <h<%= @header_level %> data-collapseable-section-target="header">
+    <% if @icon.present? %>
+      <%= helpers.octicon @icon, height: icon_height %>
+    <% end %>
+    <span <%= target_attributes %>>
+      <%= @title %>
+      <% if @title_superscript %>
+        <span class="header-superscript">
+          <% if @title_superscript.is_a?(Hash) %>
+            <% @title_superscript.each do |key, val| %>
+              <% if val.is_a?(Integer) && val > 0 %>
+                <strong><%= val %> <%= key %></strong>
+              <% else %>
+                <%= val %> <%= key %>
+              <% end %>
+            <% end %>
+          <% else %>
+            <%= @title_superscript %>
+          <% end %>
+        </span>
+      <% end %>
+    </span>
+    <span data-collapseable-section-target="triangleRight" style="display:<%= @hidden ? 'inline' : 'none' %>;">
+      <%= helpers.octicon 'triangle-right', height: 20 %>
+    </span>
+    <span data-collapseable-section-target="triangleDown" style="display:<%= @hidden ? 'none' : 'inline' %>;">
+      <%= helpers.octicon 'triangle-down', height: 20 %>
+    </span>
+  </h<%= @header_level %>>
+  <div data-collapseable-section-target="body" style="<%= body_style %>">
+    <%= content %>
+    <div data-collapseable-section-target="lazyLoad" data-url="<%= @lazy_load %>"></div>
+  </div>
+</span>

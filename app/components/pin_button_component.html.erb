@@ -1,0 +1,12 @@
+<span
+  data-controller="pin"
+  data-pin-url="<%= pin_url %>"
+  data-pin-target="pinButton"
+  data-is-pinned="<%= @is_pinned %>"
+  class="pulse-action-btn-secondary pulse-pin-btn"
+  title="<%= title %>"
+  >
+  <span data-pin-target="iconPin" style="<%= 'display:none;' if @is_pinned %>"><%= helpers.octicon 'pin', height: 14 %></span>
+  <span data-pin-target="iconUnpin" style="<%= 'display:none;' unless @is_pinned %>"><%= helpers.octicon 'pin-slash', height: 14 %></span>
+  <span data-pin-target="label"><%= label %></span>
+</span>
