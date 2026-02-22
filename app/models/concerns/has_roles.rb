@@ -10,8 +10,8 @@ module HasRoles # TenantUser, CollectiveMember, ...
   def add_roles!(roles)
     return if roles.blank?
     raise "Invalid roles: #{roles - self.class.valid_roles}" unless (roles - self.class.valid_roles).empty?
-    if roles.include?('representative') && self.user.collective_proxy?
-      raise "Collective proxy users cannot be representatives"
+    if roles.include?('representative') && self.user.collective_identity?
+      raise "Collective identity users cannot be representatives"
     end
     settings['roles'] ||= []
     settings['roles'] = settings['roles'] | roles

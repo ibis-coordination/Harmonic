@@ -48,7 +48,7 @@ class UserTest < ActiveSupport::TestCase
     user = User.new(user_type: "human")
     assert user.human?
     assert_not user.ai_agent?
-    assert_not user.collective_proxy?
+    assert_not user.collective_identity?
   end
 
   test "ai_agent? returns true for ai_agent user type" do
@@ -56,12 +56,12 @@ class UserTest < ActiveSupport::TestCase
     user = User.new(user_type: "ai_agent", parent_id: parent.id)
     assert user.ai_agent?
     assert_not user.human?
-    assert_not user.collective_proxy?
+    assert_not user.collective_identity?
   end
 
-  test "collective_proxy? returns true for collective_proxy user type" do
-    user = User.new(user_type: "collective_proxy")
-    assert user.collective_proxy?
+  test "collective_identity? returns true for collective_identity user type" do
+    user = User.new(user_type: "collective_identity")
+    assert user.collective_identity?
     assert_not user.human?
     assert_not user.ai_agent?
   end
@@ -258,36 +258,36 @@ class UserTest < ActiveSupport::TestCase
     assert_equal "github", external.first.provider
   end
 
-  # === Collective Proxy User Tests ===
+  # === Collective Identity User Tests ===
 
-  test "collective_proxy? returns true for collective's proxy user" do
-    proxy = @collective.proxy_user
-    assert proxy.collective_proxy?
+  test "collective_identity? returns true for collective's identity user" do
+    identity_user = @collective.identity_user
+    assert identity_user.collective_identity?
   end
 
-  test "proxy_collective returns associated collective" do
-    proxy = @collective.proxy_user
-    assert_equal @collective, proxy.proxy_collective
+  test "identity_collective returns associated collective" do
+    identity_user = @collective.identity_user
+    assert_equal @collective, identity_user.identity_collective
   end
 
-  test "proxy_collective returns nil for person user" do
-    assert_nil @user.proxy_collective
+  test "identity_collective returns nil for person user" do
+    assert_nil @user.identity_collective
   end
 
-  test "proxy_collective returns nil for collective_proxy without associated collective" do
-    proxy = User.create!(
+  test "identity_collective returns nil for collective_identity without associated collective" do
+    identity_user = User.create!(
       email: "#{SecureRandom.uuid}@not-a-real-email.com",
-      name: "Orphan Proxy",
-      user_type: "collective_proxy",
+      name: "Orphan Identity",
+      user_type: "collective_identity",
     )
-    assert_nil proxy.proxy_collective
+    assert_nil identity_user.identity_collective
   end
 
   # === Representation Authorization Tests ===
 
-  test "can_represent? returns true for proxy user representing their own studio" do
-    proxy = @collective.proxy_user
-    assert proxy.can_represent?(@collective)
+  test "can_represent? returns true for identity user representing their own studio" do
+    identity_user = @collective.identity_user
+    assert identity_user.can_represent?(@collective)
   end
 
   test "can_represent? returns true for user with representative role" do
@@ -332,29 +332,29 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.can_represent?(ai_agent)
   end
 
-  test "can_represent? returns true for representative representing studio proxy" do
+  test "can_represent? returns true for representative representing studio identity" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    proxy = @collective.proxy_user
-    assert @user.can_represent?(proxy)
+    identity_user = @collective.identity_user
+    assert @user.can_represent?(identity_user)
   end
 
-  test "can_represent? returns false for non-representative trying to represent studio proxy" do
-    proxy = @collective.proxy_user
-    assert_not @user.can_represent?(proxy)
+  test "can_represent? returns false for non-representative trying to represent studio identity" do
+    identity_user = @collective.identity_user
+    assert_not @user.can_represent?(identity_user)
   end
 
-  test "can_represent? returns true for studio proxy when any_member_can_represent is enabled" do
+  test "can_represent? returns true for studio identity when any_member_can_represent is enabled" do
     @collective.settings['any_member_can_represent'] = true
     @collective.save!
-    proxy = @collective.proxy_user
-    assert @user.can_represent?(proxy)
+    identity_user = @collective.identity_user
+    assert @user.can_represent?(identity_user)
   end
 
-  test "can_represent? returns false for non-member trying to represent studio proxy" do
+  test "can_represent? returns false for non-member trying to represent studio identity" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    proxy = @collective.proxy_user
-    assert_not other_user.can_represent?(proxy)
+    identity_user = @collective.identity_user
+    assert_not other_user.can_represent?(identity_user)
   end
 
   # === AiAgent Validation Tests ===
@@ -839,35 +839,35 @@ class UserTest < ActiveSupport::TestCase
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
 
-    # Regular users are not collective_proxy users
+    # Regular users are not collective_identity users
     assert_not @user.is_trusted_as?(other_user)
   end
 
-  test "is_trusted_as? returns true for collective proxy when user is representative" do
+  test "is_trusted_as? returns true for collective identity when user is representative" do
     # Create a studio and make @user a representative
     studio = create_collective(tenant: @tenant, created_by: @user, handle: "test-studio-#{SecureRandom.hex(4)}")
     studio.add_user!(@user, roles: ["representative"])
 
-    # Get the studio's proxy user
-    proxy = studio.proxy_user
-    assert proxy.collective_proxy?
-    assert proxy.proxy_collective.present?
+    # Get the studio's identity user
+    identity_user = studio.identity_user
+    assert identity_user.collective_identity?
+    assert identity_user.identity_collective.present?
 
-    # @user should be trusted as the collective proxy
-    assert @user.is_trusted_as?(proxy)
+    # @user should be trusted as the collective identity
+    assert @user.is_trusted_as?(identity_user)
   end
 
-  test "is_trusted_as? returns false for collective proxy when user is not representative" do
+  test "is_trusted_as? returns false for collective identity when user is not representative" do
     # Create a studio without @user as representative
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
     studio = create_collective(tenant: @tenant, created_by: other_user, handle: "test-studio-#{SecureRandom.hex(4)}")
 
     # @user is not a member of the studio
-    proxy = studio.proxy_user
+    identity_user = studio.identity_user
 
-    # @user should not be trusted as this studio's proxy
-    assert_not @user.is_trusted_as?(proxy)
+    # @user should not be trusted as this studio's identity
+    assert_not @user.is_trusted_as?(identity_user)
   end
 
   # === Auto-creation of TrusteeGrant for AiAgents (Phase 7) ===
@@ -885,9 +885,9 @@ class UserTest < ActiveSupport::TestCase
     assert permission.present?, "TrusteeGrant should be auto-created when ai_agent is created"
     assert permission.active?, "Auto-created permission should be pre-accepted (active)"
     assert permission.accepted_at.present?
-    # trustee_user is the parent (a regular person, not a collective_proxy type)
+    # trustee_user is the parent (a regular person, not a collective_identity type)
     assert_equal @user, permission.trustee_user
-    assert_not permission.trustee_user.collective_proxy?
+    assert_not permission.trustee_user.collective_identity?
   end
 
   test "parent can represent ai_agent via auto-created TrusteeGrant" do

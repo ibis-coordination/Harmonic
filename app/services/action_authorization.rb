@@ -161,11 +161,11 @@ module ActionAuthorization
       return CapabilityCheck.allowed?(T.must(grant.granting_user), action_name)
     end
 
-    # For studio representation: current_user is a collective_proxy user
-    return true unless user&.collective_proxy?
-    return true if user.proxy_collective.present?  # Collective proxies have full access
+    # For studio representation: current_user is a collective_identity user
+    return true unless user&.collective_identity?
+    return true if user.identity_collective.present?  # Collective identity users have full access
 
-    # No other collective_proxy types should exist
+    # No other collective_identity types should exist
     false
   end
 

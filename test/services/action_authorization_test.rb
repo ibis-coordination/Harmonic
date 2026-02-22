@@ -335,16 +335,16 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("create_ai_agent", ai_agent, {})
     refute ActionAuthorization.authorized?("create_api_token", ai_agent, {})
 
-    # Create a collective_proxy - proxy users also cannot create ai_agents or API tokens
-    proxy = User.create!(
-      email: "proxy-test@example.com",
-      name: "Test Proxy",
-      user_type: "collective_proxy"
+    # Create a collective_identity - identity users also cannot create ai_agents or API tokens
+    identity_user = User.create!(
+      email: "identity-test@example.com",
+      name: "Test Identity",
+      user_type: "collective_identity"
     )
-    @tenant.add_user!(proxy)
+    @tenant.add_user!(identity_user)
 
-    refute ActionAuthorization.authorized?("create_ai_agent", proxy, {})
-    refute ActionAuthorization.authorized?("create_api_token", proxy, {})
+    refute ActionAuthorization.authorized?("create_ai_agent", identity_user, {})
+    refute ActionAuthorization.authorized?("create_api_token", identity_user, {})
   end
 
   test "person-only actions with context check self or representative" do

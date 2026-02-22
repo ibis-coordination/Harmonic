@@ -161,19 +161,19 @@ class TrusteeGrant < ApplicationRecord
       errors.add(:trustee_user, "cannot be the same as the granting user")
     end
 
-    # Trustee user cannot be a collective_proxy (only real persons can be trustees)
-    if trustee_user&.collective_proxy?
-      errors.add(:trustee_user, "cannot be a collective proxy user")
+    # Trustee user cannot be a collective_identity (only real persons can be trustees)
+    if trustee_user&.collective_identity?
+      errors.add(:trustee_user, "cannot be a collective identity user")
     end
 
-    # If granting_user is a collective proxy, trustee_user must be a member of that collective
-    if granting_user&.collective_proxy? && granting_user&.proxy_collective.present?
-      unless granting_user&.proxy_collective&.users&.include?(trustee_user)
+    # If granting_user is a collective identity, trustee_user must be a member of that collective
+    if granting_user&.collective_identity? && granting_user&.identity_collective.present?
+      unless granting_user&.identity_collective&.users&.include?(trustee_user)
         errors.add(:trustee_user, "must be a member of the collective that the granting user represents")
       end
-    elsif granting_user&.collective_proxy?
-      # Collective proxies must have an associated collective to be granting users
-      errors.add(:granting_user, "must have an associated collective if the granting user is a collective proxy")
+    elsif granting_user&.collective_identity?
+      # Collective identity users must have an associated collective to be granting users
+      errors.add(:granting_user, "must have an associated collective if the granting user is a collective identity")
     end
   end
 

@@ -1,9 +1,10 @@
-# Maintenance mode Caddyfile
+# Maintenance mode Caddyfile (auto-generated)
 # Serves maintenance responses for all requests
 # Supports HTML, JSON, and Markdown based on Accept header
 # Health check returns 503 so load balancers know the app is down
 
-{$HOSTNAME}, *.{$HOSTNAME} {
+# Shared maintenance response configuration
+(maintenance_response) {
 	# Health check returns 503 Service Unavailable
 	@healthcheck path /healthcheck
 	respond @healthcheck 503
@@ -40,3 +41,5 @@ We're performing a quick update. Back shortly.
 		Cache-Control "no-cache, no-store, must-revalidate"
 	}
 }
+
+# Domain blocks (generated from Caddyfile)

@@ -41,6 +41,10 @@ wait_for_db
 echo -e "${GREEN}Setting up the database...${NC}"
 docker compose $COMPOSE_FILES exec web bundle exec rails db:create db:schema:load db:migrate db:seed
 
+# Generate Caddyfile from tenant subdomains in database
+echo -e "${GREEN}Generating Caddyfile...${NC}"
+docker compose $COMPOSE_FILES exec web bundle exec rake caddyfile:generate CADDYFILE_OUTPUT=/app/Caddyfile
+
 # Sorbet RBI files are committed to the repo.
 # To regenerate after gem/model changes, run:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec web bundle exec tapioca gems

@@ -10,8 +10,8 @@ class Collective < ApplicationRecord
   belongs_to :tenant
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
-  belongs_to :proxy_user, class_name: "User"
-  before_validation :create_proxy_user!
+  belongs_to :identity_user, class_name: "User"
+  before_validation :create_identity_user!
   before_create :set_defaults
   tables = ActiveRecord::Base.connection.tables - [
     "tenants", "users", "tenant_users",
@@ -27,7 +27,7 @@ class Collective < ApplicationRecord
   has_many :users, through: :collective_members
   validates :collective_type, inclusion: { in: ["studio", "scene"] }
   validate :handle_is_valid
-  validate :creator_is_not_collective_proxy, on: :create
+  validate :creator_is_not_collective_identity, on: :create
 
   # NOTE: This is commented out because there is a bug where
   # the corresponding note history event is not created
@@ -147,8 +147,8 @@ class Collective < ApplicationRecord
   end
 
   sig { void }
-  def creator_is_not_collective_proxy
-    errors.add(:created_by, "cannot be a collective proxy") if created_by&.collective_proxy?
+  def creator_is_not_collective_identity
+    errors.add(:created_by, "cannot be a collective identity") if created_by&.collective_identity?
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
@@ -361,21 +361,21 @@ class Collective < ApplicationRecord
   end
 
   sig { void }
-  def create_proxy_user!
-    return if proxy_user
+  def create_identity_user!
+    return if identity_user
 
-    proxy = User.create!(
+    identity = User.create!(
       name: name,
       email: SecureRandom.uuid + "@not-a-real-email.com",
-      user_type: "collective_proxy"
+      user_type: "collective_identity"
     )
     TenantUser.create!(
       tenant: tenant,
-      user: proxy,
-      display_name: proxy.name,
+      user: identity,
+      display_name: identity.name,
       handle: SecureRandom.hex(16)
     )
-    self.proxy_user = proxy
+    self.identity_user = identity
     save!
   end
 
@@ -466,7 +466,7 @@ class Collective < ApplicationRecord
   # Check if a user can access this collective.
   # Access requires either:
   # - Direct membership, OR
-  # - Being the collective's own proxy user
+  # - Being the collective's own identity user
   #
   # TrusteeGrants do NOT give direct access - they only work during
   # active representation sessions (handled elsewhere in controller/session logic).
@@ -475,9 +475,9 @@ class Collective < ApplicationRecord
     # Direct membership check
     return true if user_is_member?(user)
 
-    # Collective proxy accessing their own collective
-    if user.collective_proxy? && user.proxy_collective.present?
-      return user.proxy_collective == self
+    # Collective identity user accessing their own collective
+    if user.collective_identity? && user.identity_collective.present?
+      return user.identity_collective == self
     end
 
     false

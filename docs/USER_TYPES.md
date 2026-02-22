@@ -8,7 +8,7 @@ This document describes the three user types in Harmonic and their roles in the 
 |------|-----------|------------|---------|
 | `human` | Yes | No | Regular human users who authenticate via OAuth |
 | `ai_agent` | No | Yes (required) | AI agents or automated users managed by a parent |
-| `collective_proxy` | No | No | Synthetic users representing studios for collective agency |
+| `collective_identity` | No | No | Synthetic users representing studios for collective agency |
 
 ## User Type Details
 
@@ -44,9 +44,9 @@ A **ai_agent** is an automated user (typically an AI agent) that operates under 
 - Actions are attributed to the granting_user (linked to the ai_agent via TrusteeGrant)
 - Parent can stop representation at any time
 
-### Collective Proxy
+### Collective Identity
 
-A **collective_proxy** is a synthetic user that enables collective agency. Proxy users allow a collective (studio) to act as a unified entity.
+A **collective_identity** is a synthetic user that enables collective agency. Identity users allow a collective (studio) to act as a unified entity.
 
 **Characteristics:**
 - Created automatically when a collective is created (never by users directly)
@@ -56,10 +56,10 @@ A **collective_proxy** is a synthetic user that enables collective agency. Proxy
 - Cannot be the creator of content (validation enforced)
 
 **Usage:**
-- Every collective automatically creates a proxy user via `Collective#create_proxy_user!`
-- `Collective.proxy_user` points to this user
-- `User#collective_proxy?` returns true
-- `User#proxy_collective` returns the associated collective
+- Every collective automatically creates an identity user via `Collective#create_identity_user!`
+- `Collective.identity_user` points to this user
+- `User#collective_identity?` returns true
+- `User#identity_collective` returns the associated collective
 
 ## Relationship Diagram
 
@@ -75,14 +75,14 @@ A **collective_proxy** is a synthetic user that enables collective agency. Proxy
                       v                   v
 +-----------------------------+   +-----------------------------+
 |       SUBAGENT USER         |   |       COLLECTIVE            |
-|  - parent_id -> human      |   |  - has proxy_user           |
+|  - parent_id -> human      |   |  - has identity_user        |
 |  - No OAuth identity        |   |  - has representative role  |
 |  - Parent can represent     |   +--------------+--------------+
 +-----------------------------+                  |
                                                  | has
                                                  v
                                   +-----------------------------+
-                                  |   COLLECTIVE PROXY USER     |
+                                  | COLLECTIVE IDENTITY USER    |
                                   |  - Represents collective    |
                                   |  - Created automatically    |
                                   |  - Used in representation   |
@@ -94,7 +94,7 @@ A **collective_proxy** is a synthetic user that enables collective agency. Proxy
 ### `User#can_represent?(collective_or_user)`
 
 Returns true if this user can act on behalf of a collective or user:
-- Proxy user can represent their own collective
+- Identity user can represent their own collective
 - Collective member with `representative` role can represent
 - Collective member can represent if `collective.any_member_can_represent?` is true
 
@@ -117,8 +117,8 @@ Returns true if this user can add a ai_agent to a collective:
 | Human cannot have parent_id | `User#ai_agent_must_have_parent` |
 | AI Agent must have parent_id | `User#ai_agent_must_have_parent` |
 | User cannot be its own parent | `User#ai_agent_must_have_parent` |
-| Proxy user cannot be member of main collective | `CollectiveMember#proxy_users_not_member_of_main_collective` |
-| Proxy user cannot create content | `Collective#creator_is_not_collective_proxy` |
+| Identity user cannot be member of main collective | `CollectiveMember#identity_users_not_member_of_main_collective` |
+| Identity user cannot create content | `Collective#creator_is_not_collective_identity` |
 
 ## Related Documentation
 

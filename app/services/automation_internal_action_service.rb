@@ -2,7 +2,7 @@
 
 # Executes internal actions for studio automations.
 # Uses MarkdownUiService to dispatch actions through the full Rails stack,
-# acting as the studio's proxy user.
+# acting as the studio's identity user.
 #
 # Supported actions:
 # - create_note: Create a new note in the studio
@@ -88,19 +88,19 @@ class AutomationInternalActionService
       )
     end
 
-    # Get the studio's proxy user
-    proxy_user = @collective.proxy_user
-    unless proxy_user
+    # Get the studio's identity user
+    identity_user = @collective.identity_user
+    unless identity_user
       return Result.new(
         success: false,
         message: "Action executed",
-        error: "Studio does not have a proxy user configured"
+        error: "Studio does not have an identity user configured"
       )
     end
 
     # Execute with automation context so created resources are tracked
     AutomationContext.with_run(@run) do
-      execute_action_as_proxy(action_name, params, proxy_user)
+      execute_action_as_identity(action_name, params, identity_user)
     end
   rescue StandardError => e
     Rails.logger.error("AutomationInternalActionService error: #{e.message}")
@@ -113,8 +113,8 @@ class AutomationInternalActionService
 
   private
 
-  sig { params(action_name: String, params: T::Hash[String, T.untyped], proxy_user: User).returns(Result) }
-  def execute_action_as_proxy(action_name, params, proxy_user)
+  sig { params(action_name: String, params: T::Hash[String, T.untyped], identity_user: User).returns(Result) }
+  def execute_action_as_identity(action_name, params, identity_user)
     config = ACTION_CONFIG[action_name]
     return Result.new(success: false, message: "Action failed", error: "Unknown action config") unless config
 
@@ -123,11 +123,11 @@ class AutomationInternalActionService
     # Build the path to the action
     studio_path = "/studios/#{@collective&.handle}#{config[:path_suffix]}"
 
-    # Create the markdown UI service with the proxy user
+    # Create the markdown UI service with the identity user
     service = MarkdownUiService.new(
       tenant: T.must(tenant),
       collective: @collective,
-      user: proxy_user
+      user: identity_user
     )
 
     # Map params to the expected format

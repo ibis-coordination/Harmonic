@@ -26,7 +26,7 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert user.valid?
     assert user.human?
     assert_not user.ai_agent?
-    assert_not user.collective_proxy?
+    assert_not user.collective_identity?
   end
 
   test "ai_agent user type requires parent_id" do
@@ -67,10 +67,10 @@ class UserAuthorizationTest < ActiveSupport::TestCase
     assert_includes user.errors[:parent_id], "user cannot be its own parent"
   end
 
-  test "collective_proxy user type is valid" do
-    user = User.new(email: "proxy@example.com", name: "Proxy", user_type: "collective_proxy")
+  test "collective_identity user type is valid" do
+    user = User.new(email: "identity@example.com", name: "Identity", user_type: "collective_identity")
     assert user.valid?
-    assert user.collective_proxy?
+    assert user.collective_identity?
   end
 
   test "invalid user type is rejected" do

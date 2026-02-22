@@ -6,7 +6,7 @@ This document describes how users can act on behalf of studios or other users th
 
 Representation enables two distinct use cases:
 
-1. **Studio Representation (Collective Agency)**: A designated representative acts as the studio itself, with actions attributed to the studio's proxy user. Used when a studio needs to participate in other studios.
+1. **Studio Representation (Collective Agency)**: A designated representative acts as the studio itself, with actions attributed to the studio's identity user. Used when a studio needs to participate in other studios.
 
 2. **User Representation (Delegation)**: A trusted user acts on behalf of another user via a TrusteeGrant. Used when one person (e.g., a parent) needs to act for another (e.g., their ai_agent).
 
@@ -17,7 +17,7 @@ Both types use the same `RepresentationSession` model but with different configu
 ### Studio Representation
 
 When a user represents a studio:
-- They act through the studio's proxy user (`collective.proxy_user`)
+- They act through the studio's identity user (`collective.identity_user`)
 - Actions are attributed to the studio
 - The session has a `collective_id` but no `trustee_grant_id`
 - Used for collective agency (studio acting in other studios)
@@ -41,7 +41,7 @@ When a user represents another user:
 │  trustee_grant_id: nil          trustee_grant_id: present        │
 │                                                                  │
 │  effective_user:                effective_user:                  │
-│    collective.proxy_user          trustee_grant.granting_user    │
+│    collective.identity_user          trustee_grant.granting_user    │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -54,7 +54,7 @@ A user can represent a studio if any of these conditions are met:
 
 1. **Representative Role**: User has the `representative` role in the studio
 2. **Any Member Setting**: Studio has `any_member_can_represent?` enabled
-3. **Is Proxy**: User is the studio's proxy user itself
+3. **Is Proxy**: User is the studio's identity user itself
 
 Checked via `CollectiveMember#can_represent?`:
 ```ruby
@@ -145,7 +145,7 @@ return grant.present?
 
 While a session is active:
 
-- `current_user` returns the effective user (proxy user or granting user)
+- `current_user` returns the effective user (identity user or granting user)
 - Actions are attributed to the effective user
 - Every action creates a `RepresentationSessionEvent` record
 - Session is scoped to appropriate paths (`/representing`, `/studios/`, or `/scenes/`)
@@ -397,5 +397,5 @@ Tracks individual actions during a session:
 
 ## Related Documentation
 
-- [USER_TYPES.md](USER_TYPES.md) - User types including collective proxy users
+- [USER_TYPES.md](USER_TYPES.md) - User types including collective identity users
 - [PHILOSOPHY.md](../PHILOSOPHY.md) - Collective agency concepts

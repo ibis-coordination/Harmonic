@@ -26,7 +26,7 @@
 
 <p>Representation allows this studio (<%= @current_collective.name %>) to act as an individual member of other studios.</p>
 
-<% if @current_collective.proxy_user.collectives.empty? %>
+<% if @current_collective.identity_user.collectives.empty? %>
   <p class="pulse-muted">
     <%= @current_collective.name %> is not currently a member of any other studios.
   </p>
@@ -35,7 +35,7 @@
     <%= @current_collective.name %> is currently a member of the following studios:
   </p>
   <ul class="pulse-list">
-    <% @current_collective.proxy_user.collectives.each do |studio| %>
+    <% @current_collective.identity_user.collectives.each do |studio| %>
       <li class="pulse-list-item">
         <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
       </li>
