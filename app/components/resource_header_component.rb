@@ -8,7 +8,7 @@ class ResourceHeaderComponent < ViewComponent::Base
   sig do
     params(
       type_label: String,
-      title: String,
+      title: T.nilable(String),
       icon_name: T.nilable(String),
       icon_class: T.nilable(String),
       status: T.nilable(String)
