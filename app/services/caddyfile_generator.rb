@@ -17,7 +17,7 @@ class CaddyfileGenerator
     primary_subdomain = ENV.fetch("PRIMARY_SUBDOMAIN")
     auth_subdomain = ENV.fetch("AUTH_SUBDOMAIN")
 
-    tenant_subdomains = Tenant.unscoped_for_system_job.pluck(:subdomain)
+    tenant_subdomains = Tenant.pluck(:subdomain)
 
     lines = []
 
