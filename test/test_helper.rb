@@ -33,6 +33,7 @@ end
 
 ENV["RAILS_ENV"] ||= "test"
 ENV["MAILER_FROM_ADDRESS"] ||= "test@example.com"
+ENV["CADDYFILE_PATH"] ||= File.join(Dir.tmpdir, "Caddyfile.test")
 require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
