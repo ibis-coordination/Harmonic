@@ -1546,7 +1546,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     get "/admin", headers: @headers
     # /admin is now a chooser that redirects based on user's admin roles
     assert_equal 302, response.status, "Admin chooser should redirect"
-    assert_match(/tenant-admin|app-admin|system-admin|legacy-admin/, response.headers['Location'], "Should redirect to an admin section")
+    assert_match(/tenant-admin|app-admin|system-admin/, response.headers['Location'], "Should redirect to an admin section")
   ensure
     tu&.remove_role!('admin')
   end
