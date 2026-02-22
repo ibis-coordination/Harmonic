@@ -67,13 +67,13 @@ class MoreButtonComponentTest < ViewComponent::TestCase
 
   test "renders pin option with unpin label when pinned" do
     render_inline(MoreButtonComponent.new(resource: @resource, options: ["pin"], studio: @studio, is_pinned: true))
-    assert_text /Unpin from studio homepage/
+    assert_text(/Unpin from studio homepage/)
   end
 
   test "renders pin label with 'your profile' for main collective" do
     main = build_collective(handle: "main")
     render_inline(MoreButtonComponent.new(resource: @resource, options: ["pin"], studio: main, is_pinned: false, main_collective: main))
-    assert_text /Pin to your profile/
+    assert_text(/Pin to your profile/)
   end
 
   test "renders duplicate option" do

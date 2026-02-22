@@ -7,7 +7,7 @@ class CommentsListComponent < ViewComponent::Base
     params(
       commentable: T.any(Note, Decision, Commitment, RepresentationSession),
       current_user: T.nilable(User),
-      studio_path: String,
+      studio_path: String
     ).void
   end
   def initialize(commentable:, current_user: nil, studio_path: "")

@@ -71,10 +71,10 @@ class CommentsListComponentTest < ViewComponent::TestCase
     commentable.define_singleton_method(:comments_with_threads) { { top_level: [comment], threads: {} } }
 
     render_inline(CommentsListComponent.new(
-      commentable: commentable,
-      current_user: @user,
-      studio_path: "/s/my-studio",
-    ))
+                    commentable: commentable,
+                    current_user: @user,
+                    studio_path: "/s/my-studio"
+                  ))
     assert_selector ".pulse-reply-form-container", visible: :all
     assert_selector "textarea", visible: :all
   end
@@ -104,10 +104,10 @@ class CommentsListComponentTest < ViewComponent::TestCase
     commentable.define_singleton_method(:comments_with_threads) { { top_level: [comment], threads: {} } }
 
     render_inline(CommentsListComponent.new(
-      commentable: commentable,
-      current_user: @user,
-      studio_path: "/s/my-studio",
-    ))
+                    commentable: commentable,
+                    current_user: @user,
+                    studio_path: "/s/my-studio"
+                  ))
     assert_selector "[data-mention-autocomplete-studio-path-value='/s/my-studio']", visible: :all
   end
 end

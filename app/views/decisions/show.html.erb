@@ -5,30 +5,23 @@
 ] %>
 
 <article class="pulse-resource-detail">
-  <header class="pulse-resource-header">
-    <div class="pulse-resource-header-top">
-      <span class="pulse-resource-type-label">
-        <i class="decision-icon icon-sm"></i>
-        Decision
-        <% if @decision.closed? %>
-          <span class="pulse-status-badge pulse-status-closed">Closed</span>
-        <% else %>
-          <span class="pulse-status-badge pulse-status-open">Open</span>
+  <%= render ResourceHeaderComponent.new(
+    type_label: "Decision",
+    title: @decision.question,
+    icon_class: "decision-icon",
+    status: @decision.closed? ? "closed" : "open",
+  ) do |header|
+    header.with_actions do %>
+      <%= render 'shared/copy_to_clipboard', text: request.original_url %>
+      <%= render 'shared/pulse_pin_button', resource: @decision, is_pinned: @is_pinned %>
+      <% if @decision.can_edit_settings?(@current_user) %>
+        <%= link_to "#{@decision.path}/settings", class: 'pulse-action-btn' do %>
+          <%= octicon 'gear', height: 14 %>
+          Settings
         <% end %>
-      </span>
-      <div class="pulse-resource-actions">
-        <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-        <%= render 'shared/pulse_pin_button', resource: @decision, is_pinned: @is_pinned %>
-        <% if @decision.can_edit_settings?(@current_user) %>
-          <%= link_to "#{@decision.path}/settings", class: 'pulse-action-btn' do %>
-            <%= octicon 'gear', height: 14 %>
-            Settings
-          <% end %>
-        <% end %>
-      </div>
-    </div>
-    <h1 class="pulse-resource-title"><%= @decision.question %></h1>
-  </header>
+      <% end %>
+    <% end
+  end %>
 
   <div class="pulse-resource-meta">
     <%= render 'shared/pulse_author', resource: @decision %>

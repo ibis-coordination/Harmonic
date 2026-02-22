@@ -1,0 +1,83 @@
+<%= render 'shared/pulse_breadcrumb', items: breadcrumb_items %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'people', height: 24 %> <%= page_title %>
+  </h1>
+</div>
+
+<div class="pulse-home-section-intro">
+  <p><%= intro_html %></p>
+</div>
+
+<form method="get" action="<%= base_path %>" style="margin-bottom: 16px;">
+  <div style="display: flex; gap: 8px;">
+    <input
+      type="text"
+      name="q"
+      value="<%= search_query %>"
+      placeholder="Search by email..."
+      class="pulse-form-input"
+      style="flex: 1; max-width: 400px;"
+    >
+    <button type="submit" class="pulse-action-btn">
+      <%= octicon 'search', height: 14 %> Search
+    </button>
+    <% if search_query.present? %>
+      <a href="<%= base_path %>" class="pulse-action-btn pulse-action-btn-secondary">Clear</a>
+    <% end %>
+  </div>
+</form>
+
+<% if search_query.present? %>
+  <p class="pulse-body-text-muted" style="margin-bottom: 16px;">
+    Showing results for "<strong><%= search_query %></strong>" (<%= total_users %> total)
+  </p>
+<% else %>
+  <p class="pulse-body-text-muted" style="margin-bottom: 16px;">
+    <%= total_users %> users total
+  </p>
+<% end %>
+
+<% type_labels = defined?(user_type_labels) ? user_type_labels : { 'human' => 'People', 'ai_agent' => 'AI Agents' } %>
+<% type_icons = { 'human' => 'person', 'ai_agent' => 'command-palette' } %>
+
+<% ['human', 'ai_agent'].each do |user_type| %>
+  <% users = users_by_type[user_type] || [] %>
+  <% total_count = counts_by_type[user_type] || 0 %>
+  <%= render 'shared/pulse_accordion',
+    title: type_labels[user_type] || user_type.titleize,
+    icon: type_icons[user_type] || 'person',
+    count: total_count,
+    open: users.any? do %>
+    <% if users.any? %>
+      <div class="pulse-home-list">
+        <% users.each do |user| %>
+          <div class="pulse-home-list-item<%= ' pulse-home-list-item-muted' if user.suspended? %>">
+            <a href="<%= user_path.call(user) %>" class="pulse-home-list-link">
+              <div class="pulse-default-icon pulse-home-list-icon">
+                <%= octicon type_icons[user_type] || 'person', height: 14 %>
+              </div>
+              <span class="pulse-home-list-name"><%= user.display_name || user.name %></span>
+              <% unless user.ai_agent? %>
+                <code class="pulse-code"><%= user.email %></code>
+              <% end %>
+              <%= yield(user) %>
+              <% if user.suspended? %>
+                <span class="pulse-badge pulse-badge-danger">SUSPENDED</span>
+              <% end %>
+            </a>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="pulse-empty-message">No <%= type_labels[user_type]&.downcase || user_type.pluralize %> found.</p>
+    <% end %>
+  <% end %>
+<% end %>
+
+<%= render PaginationComponent.new(
+  page: page,
+  total_pages: total_pages,
+  base_url: search_query.present? ? "#{base_path}?q=#{CGI.escape(search_query)}&" : "#{base_path}?",
+) %>

@@ -9,7 +9,7 @@ class AvatarComponent < ViewComponent::Base
       size: T.nilable(String),
       show_link: T::Boolean,
       title: T.nilable(String),
-      css_class: String,
+      css_class: String
     ).void
   end
   def initialize(user:, size: nil, show_link: false, title: nil, css_class: "pulse-author-avatar")

@@ -12,7 +12,7 @@ class CollapsibleSectionComponent < ViewComponent::Base
       icon: T.nilable(String),
       target: T.nilable(T::Hash[String, String]),
       indent: T::Boolean,
-      lazy_load: T.nilable(String),
+      lazy_load: T.nilable(String)
     ).void
   end
   def initialize(title:, header_level: 1, hidden: false, title_superscript: nil, icon: nil, target: nil, indent: false, lazy_load: nil) # rubocop:disable Metrics/ParameterLists
@@ -43,7 +43,7 @@ class CollapsibleSectionComponent < ViewComponent::Base
 
   sig { returns(String) }
   def body_style
-    style = "display:#{@hidden ? 'none' : 'block'};"
+    style = "display:#{@hidden ? "none" : "block"};"
     style += "padding-left:16px;border-left:1px solid var(--color-border-default);" if @indent
     style
   end

@@ -1281,6 +1281,25 @@ h1.pulse-resource-title {
   fill: currentColor;
 }
 
+/* Pagination */
+.pulse-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 16px 0;
+}
+
+.pulse-pagination-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pulse-pagination-label {
+  margin: 0 8px;
+}
+
 /* Results Section */
 .pulse-results-section {
   padding: 16px 0;

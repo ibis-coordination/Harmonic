@@ -7,7 +7,7 @@ class AuthorComponent < ViewComponent::Base
     params(
       resource: T.any(Note, Decision, Commitment),
       verb: T.nilable(String),
-      current_user: T.nilable(User),
+      current_user: T.nilable(User)
     ).void
   end
   def initialize(resource:, verb: nil, current_user: nil)

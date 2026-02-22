@@ -9,7 +9,7 @@ class CommentComponent < ViewComponent::Base
       show_reply_context: T::Boolean,
       root_comment_id: String,
       show_reply_button: T::Boolean,
-      current_user: T.nilable(User),
+      current_user: T.nilable(User)
     ).void
   end
   def initialize(comment:, show_reply_context:, root_comment_id:, show_reply_button: true, current_user: nil)

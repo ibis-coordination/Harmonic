@@ -12,7 +12,7 @@ class CommentComponentTest < ViewComponent::TestCase
       truncated_id: "abc12345",
       text: "Hello world",
       created_at: 1.hour.ago,
-      created_by: @user,
+      created_by: @user
     )
     @comment.define_singleton_method(:commentable_type) { "Decision" }
     @comment.define_singleton_method(:commentable) { nil }
@@ -20,92 +20,92 @@ class CommentComponentTest < ViewComponent::TestCase
 
   test "renders comment with author" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123"
+                  ))
     assert_selector ".pulse-comment"
     assert_selector ".pulse-comment-author", text: "Alice"
   end
 
   test "renders comment id anchor" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123"
+                  ))
     assert_selector "#n-abc12345"
   end
 
   test "renders comment body" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123"
+                  ))
     assert_text "Hello world"
   end
 
   test "renders timestamp link" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123"
+                  ))
     assert_selector "a.pulse-comment-timestamp[href='/n/abc12345']"
   end
 
   test "renders confirmed reads display when no current user" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-      current_user: nil,
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123",
+                    current_user: nil
+                  ))
     assert_selector ".pulse-comment-confirm-display"
     assert_no_selector ".pulse-comment-confirm-btn"
   end
 
   test "renders confirm button when current user has not confirmed" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-      current_user: @user,
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123",
+                    current_user: @user
+                  ))
     assert_selector "button.pulse-comment-confirm-btn"
   end
 
   test "renders reply button when show_reply_button and current_user" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-      show_reply_button: true,
-      current_user: @user,
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123",
+                    show_reply_button: true,
+                    current_user: @user
+                  ))
     assert_selector ".pulse-comment-reply-btn", text: "Reply"
   end
 
   test "hides reply button when show_reply_button is false" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-      show_reply_button: false,
-      current_user: @user,
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123",
+                    show_reply_button: false,
+                    current_user: @user
+                  ))
     assert_no_selector ".pulse-comment-reply-btn"
   end
 
   test "hides reply button when no current user" do
     render_inline(CommentComponent.new(
-      comment: @comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-      show_reply_button: true,
-      current_user: nil,
-    ))
+                    comment: @comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123",
+                    show_reply_button: true,
+                    current_user: nil
+                  ))
     assert_no_selector ".pulse-comment-reply-btn"
   end
 
@@ -115,7 +115,7 @@ class CommentComponentTest < ViewComponent::TestCase
       truncated_id: "rep12345",
       text: "On behalf comment",
       created_at: 1.hour.ago,
-      created_by: @user,
+      created_by: @user
     )
     comment.define_singleton_method(:commentable_type) { "Decision" }
     comment.define_singleton_method(:commentable) { nil }
@@ -123,10 +123,10 @@ class CommentComponentTest < ViewComponent::TestCase
     comment.define_singleton_method(:created_via_representation?) { true }
 
     render_inline(CommentComponent.new(
-      comment: comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-    ))
+                    comment: comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123"
+                  ))
     assert_selector ".pulse-comment-author", text: "Bob"
     assert_selector ".pulse-representation-label", text: /on behalf of/
   end
@@ -138,16 +138,16 @@ class CommentComponentTest < ViewComponent::TestCase
       truncated_id: "ai12345",
       text: "AI comment",
       created_at: 1.hour.ago,
-      created_by: agent,
+      created_by: agent
     )
     comment.define_singleton_method(:commentable_type) { "Decision" }
     comment.define_singleton_method(:commentable) { nil }
 
     render_inline(CommentComponent.new(
-      comment: comment,
-      show_reply_context: false,
-      root_comment_id: "root123",
-    ))
+                    comment: comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123"
+                  ))
     assert_selector ".pulse-ai-agent-label", text: /managed by/
   end
 
@@ -158,16 +158,16 @@ class CommentComponentTest < ViewComponent::TestCase
       truncated_id: "reply123",
       text: "Reply text",
       created_at: 1.hour.ago,
-      created_by: @user,
+      created_by: @user
     )
     reply.define_singleton_method(:commentable_type) { "Note" }
     reply.define_singleton_method(:commentable) { parent_comment }
 
     render_inline(CommentComponent.new(
-      comment: reply,
-      show_reply_context: true,
-      root_comment_id: "root123",
-    ))
+                    comment: reply,
+                    show_reply_context: true,
+                    root_comment_id: "root123"
+                  ))
     assert_selector ".pulse-comment-reply-context"
     assert_text "Replying to"
     assert_text "@dan"
@@ -180,16 +180,16 @@ class CommentComponentTest < ViewComponent::TestCase
       truncated_id: "reply123",
       text: "Reply text",
       created_at: 1.hour.ago,
-      created_by: @user,
+      created_by: @user
     )
     reply.define_singleton_method(:commentable_type) { "Note" }
     reply.define_singleton_method(:commentable) { parent_comment }
 
     render_inline(CommentComponent.new(
-      comment: reply,
-      show_reply_context: false,
-      root_comment_id: "root123",
-    ))
+                    comment: reply,
+                    show_reply_context: false,
+                    root_comment_id: "root123"
+                  ))
     assert_no_selector ".pulse-comment-reply-context"
   end
 end

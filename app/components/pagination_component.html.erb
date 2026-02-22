@@ -1,0 +1,25 @@
+<div class="pulse-pagination">
+  <% if has_previous? %>
+    <a href="<%= previous_url %>" class="pulse-action-btn pulse-action-btn-small">
+      <%= helpers.octicon 'chevron-left', height: 12 %> Previous
+    </a>
+  <% else %>
+    <span class="pulse-action-btn pulse-action-btn-small pulse-pagination-disabled">
+      <%= helpers.octicon 'chevron-left', height: 12 %> Previous
+    </span>
+  <% end %>
+
+  <span class="pulse-body-text-muted pulse-pagination-label">
+    Page <%= @page %> of <%= @total_pages %>
+  </span>
+
+  <% if has_next? %>
+    <a href="<%= next_url %>" class="pulse-action-btn pulse-action-btn-small">
+      Next <%= helpers.octicon 'chevron-right', height: 12 %>
+    </a>
+  <% else %>
+    <span class="pulse-action-btn pulse-action-btn-small pulse-pagination-disabled">
+      Next <%= helpers.octicon 'chevron-right', height: 12 %>
+    </span>
+  <% end %>
+</div>

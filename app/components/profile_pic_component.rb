@@ -8,7 +8,7 @@ class ProfilePicComponent < ViewComponent::Base
       user: User,
       size: Integer,
       style: String,
-      show_parent: T::Boolean,
+      show_parent: T::Boolean
     ).void
   end
   def initialize(user:, size: 30, style: "", show_parent: false)

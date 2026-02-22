@@ -1,0 +1,121 @@
+<article class="pulse-feed-item<%= " pulse-feed-item-#{item_status}" if item_status %>" data-pulse-filter-target="feedItem" data-item-type="<%= @type %>">
+  <div class="pulse-feed-item-header">
+    <div class="pulse-feed-item-type">
+      <% if is_comment? %>
+        <%= helpers.octicon 'comment', height: 16 %>
+      <% else %>
+        <i class="<%= @type.downcase %>-icon icon-sm"></i>
+      <% end %>
+      <span><%= display_type %></span>
+    </div>
+    <div class="pulse-feed-item-meta">
+      <% if display_author %>
+        <a href="<%= display_author.path %>" class="pulse-feed-item-author">
+          <%= render "shared/avatar", user: display_author %>
+          <span><%= display_author.display_name %></span>
+        </a>
+        <% if representation? %>
+          <span class="pulse-representation-label">on behalf of <%= helpers.link_to @created_by.display_name, @created_by.path %></span>
+        <% end %>
+      <% else %>
+        <span>Anonymous</span>
+      <% end %>
+      &middot; <%= helpers.time_ago_in_words(@created_at) %> ago
+    </div>
+  </div>
+  <div class="pulse-feed-item-body">
+    <% if is_comment? %>
+      <div class="pulse-feed-item-reply">
+        <%= helpers.octicon 'reply' %>
+        <span>Replying to</span>
+        <%= render 'shared/inline_resource_item', resource: T.unsafe(@item).commentable %>
+      </div>
+    <% end %>
+    <% if show_title? %>
+      <div class="pulse-feed-item-title">
+        <a href="<%= @item.path %>"><%= helpers.strip_tags(helpers.markdown(item_title)).presence || "(Untitled)" %></a>
+      </div>
+    <% end %>
+    <% if item_content.present? %>
+      <div class="pulse-feed-item-content<%= ' pulse-feed-item-content-clickable' unless show_title? %>"<% unless show_title? %> onclick="if (event.target.tagName !== 'A') window.location.href='<%= @item.path %>'"<% end %>>
+        <%= helpers.truncate(helpers.sanitize(helpers.markdown(item_content), tags: %w[a strong em]), length: 200) %>
+      </div>
+    <% end %>
+
+    <%# Type-specific content %>
+    <% case @type %>
+    <% when 'Decision' %>
+      <% results = T.unsafe(@item).results %>
+      <% if results.any? %>
+        <div class="pulse-decision-options">
+          <% results.first(5).each_with_index do |result, index| %>
+            <div class="pulse-decision-option<%= ' pulse-decision-option-winner' if index == 0 && @item.closed? %>">
+              <span><%= result.option_title %></span>
+              <span class="pulse-option-votes"><%= result.accepted_yes %> accept &middot; <%= result.preferred %> prefer</span>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    <% when 'Commitment' %>
+      <div class="pulse-commitment-progress">
+        <div class="pulse-progress-bar">
+          <div class="pulse-progress-fill" style="width: <%= progress_percent %>%"></div>
+        </div>
+        <div class="pulse-progress-label">
+          <span><%= participant_count %> of <%= critical_mass %> committed</span>
+          <% if remaining > 0 %>
+            <span><%= remaining %> more needed</span>
+          <% else %>
+            <span>Critical mass reached!</span>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+  <div class="pulse-feed-item-footer">
+    <% case @type %>
+    <% when 'Note' %>
+      <% if user_has_read? %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'book' %> Confirmed</button>
+      <% else %>
+        <div data-controller="pulse-action" data-pulse-action-url-value="<%= @item.path %>/actions/confirm_read" data-pulse-action-loading-text-value="Confirming..." data-pulse-action-confirmed-text-value="Confirmed">
+          <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= helpers.octicon 'book' %> Confirm read</button>
+        </div>
+      <% end %>
+      <% if read_count > 0 %>
+        <div class="pulse-confirmed-reads">
+          <div class="pulse-confirmed-avatars">
+            <% read_confirmations_scope.includes(:user).select(:user_id).distinct.limit(3).each do |event| %>
+              <%= render "shared/avatar", user: event.user, css_class: "pulse-confirmed-avatar" %>
+            <% end %>
+            <% if read_count > 3 %>
+              <div class="pulse-confirmed-avatar">+<%= read_count - 3 %></div>
+            <% end %>
+          </div>
+          <span><%= read_count %> confirmed</span>
+        </div>
+      <% end %>
+      <a href="<%= @item.path %>" class="pulse-feed-action-link">View →</a>
+    <% when 'Decision' %>
+      <% if @item.closed? %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check-circle' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
+      <% else %>
+        <a href="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'check-circle' %> Vote</a>
+      <% end %>
+      <a href="<%= @item.path %>" class="pulse-feed-action-link">View →</a>
+    <% when 'Commitment' %>
+      <% if @item.closed? %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'person' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
+      <% else %>
+        <% if user_has_joined? %>
+          <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'person' %> Joined</button>
+        <% else %>
+          <div data-controller="pulse-action" data-pulse-action-url-value="<%= @item.path %>/actions/join_commitment" data-pulse-action-loading-text-value="Joining..." data-pulse-action-confirmed-text-value="Joined">
+            <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= helpers.octicon 'person-add' %> Join</button>
+          </div>
+        <% end %>
+      <% end %>
+      <a href="<%= @item.path %>" class="pulse-feed-action-link">View →</a>
+    <% end %>
+  </div>
+</article>

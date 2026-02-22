@@ -10,7 +10,7 @@ class AccordionComponent < ViewComponent::Base
       count: T.nilable(T.any(Integer, String)),
       icon: T.nilable(String),
       tooltip: T.nilable(String),
-      title_data: T::Hash[String, String],
+      title_data: T::Hash[String, String]
     ).void
   end
   def initialize(title:, open: false, count: nil, icon: nil, tooltip: nil, title_data: {}) # rubocop:disable Metrics/ParameterLists
