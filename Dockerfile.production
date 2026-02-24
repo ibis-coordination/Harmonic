@@ -17,6 +17,7 @@ RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
     libpq-dev \
     libxml2-dev \
     libxslt-dev \
+    libyaml-dev \
     curl \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
