@@ -29,6 +29,9 @@ end
 # and doesn't start/end with quote or curly braces
 Anyway::AutoCast::ARRAY_RXP = T.let(T.unsafe(nil), Regexp)
 
+# Base config class
+# Provides `attr_config` method to describe
+# configuration parameters and set defaults
 class Anyway::Config
   include ::Anyway::Rails::Config
   include ::Anyway::OptparseConfig
@@ -38,15 +41,32 @@ class Anyway::Config
   extend ::Anyway::RBSGenerator
   extend ::Anyway::Rails::Config::ClassMethods
 
+  # Instantiate config instance.
+  #
+  # Example:
+  #
+  #   my_config = Anyway::Config.new()
+  #
+  #   # provide some values explicitly
+  #   my_config = Anyway::Config.new({some: :value})
+  #
+  # @raise [ArgumentError]
+  # @return [Config] a new instance of Config
   def initialize(overrides = T.unsafe(nil)); end
 
   def as_env; end
   def clear; end
+
+  # Returns the value of attribute config_name.
   def config_name; end
+
   def deconstruct_keys(keys); end
-  def dig(*__rest__); end
+  def dig(*_arg0); end
   def dup; end
+
+  # Returns the value of attribute env_prefix.
   def env_prefix; end
+
   def inspect; end
   def load(overrides = T.unsafe(nil)); end
   def load_from_sources(base_config, **opts); end
@@ -58,11 +78,19 @@ class Anyway::Config
 
   private
 
+  # Returns the value of attribute __trace__.
   def __trace__; end
+
   def __type_caster__; end
+
+  # @raise [ValidationError]
   def raise_validation_error(msg); end
+
   def validate_required_attributes!; end
+
+  # Returns the value of attribute values.
   def values; end
+
   def write_config_attr(key, val); end
 
   class << self
@@ -75,16 +103,21 @@ class Anyway::Config
     def disable_auto_cast!; end
     def env_prefix(val = T.unsafe(nil)); end
     def explicit_config_name; end
+
+    # @return [Boolean]
     def explicit_config_name?; end
+
     def fallback_type_caster(val = T.unsafe(nil)); end
     def load_callbacks; end
     def loader_options(val = T.unsafe(nil)); end
-
-    # source://anyway_config//lib/anyway/rails/config.rb#14
     def new_empty_config; end
 
+    # @raise [ArgumentError]
     def on_load(*names, &block); end
+
+    # @raise [ArgumentError]
     def required(*names, env: T.unsafe(nil), **nested); end
+
     def required_attributes; end
     def type_caster(val = T.unsafe(nil)); end
 
@@ -93,28 +126,40 @@ class Anyway::Config
     def accessors_module; end
     def build_config_name; end
     def define_config_accessor(*names); end
+
+    # @raise [ArgumentError]
     def validate_param_names!(names); end
   end
 end
 
 class Anyway::Config::BlockCallback
+  # @return [BlockCallback] a new instance of BlockCallback
   def initialize(block); end
 
   def apply_to(config); end
+
+  # Returns the value of attribute block.
   def block; end
 end
 
 class Anyway::Config::Error < ::StandardError; end
 
 class Anyway::Config::NamedCallback
+  # @return [NamedCallback] a new instance of NamedCallback
   def initialize(name); end
 
   def apply_to(config); end
+
+  # Returns the value of attribute name.
   def name; end
 end
 
 Anyway::Config::PARAM_NAME = T.let(T.unsafe(nil), Regexp)
+
+# List of names that couldn't be used as config names
+# (the class instance methods we use)
 Anyway::Config::RESERVED_NAMES = T.let(T.unsafe(nil), Array)
+
 class Anyway::Config::ValidationError < ::Anyway::Config::Error; end
 
 # source://anyway_config//lib/anyway/railtie.rb#4
@@ -243,15 +288,23 @@ module Anyway::Ext::Hash; end
 # source://anyway_config//lib/anyway/loaders.rb#6
 module Anyway::Loaders; end
 
+# source://anyway_config//lib/anyway/loaders/base.rb#5
 class Anyway::Loaders::Base
   include ::Anyway::Tracing
 
+  # @return [Base] a new instance of Base
+  #
+  # source://anyway_config//lib/anyway/loaders/base.rb#14
   def initialize(local:); end
 
+  # @return [Boolean]
+  #
+  # source://anyway_config//lib/anyway/loaders/base.rb#18
   def use_local?; end
 
   class << self
-    def call(local: T.unsafe(nil), **__kwrest__); end
+    # source://anyway_config//lib/anyway/loaders/base.rb#9
+    def call(local: T.unsafe(nil), **_arg1); end
   end
 end
 
@@ -402,10 +455,10 @@ class Anyway::Loaders::YAML < ::Anyway::Loaders::Base
   # source://anyway_config//lib/anyway/loaders/yaml.rb#34
   def environmental?(parsed_yml); end
 
-  # source://anyway_config//lib/anyway/loaders/yaml.rb#53
+  # source://anyway_config//lib/anyway/loaders/yaml.rb#75
   def load_base_yml(path); end
 
-  # source://anyway_config//lib/anyway/loaders/yaml.rb#53
+  # source://anyway_config//lib/anyway/loaders/yaml.rb#76
   def load_local_yml(path); end
 
   # source://anyway_config//lib/anyway/loaders/yaml.rb#78
@@ -564,7 +617,7 @@ class Anyway::Railtie < ::Rails::Railtie; end
 # source://anyway_config//lib/anyway/settings.rb#9
 class Anyway::Settings
   class << self
-    # source://anyway_config//lib/anyway/rails/settings.rb#72
+    # source://anyway_config//lib/anyway/settings.rb#79
     def app_root; end
 
     # Returns the value of attribute autoload_static_config_path.
@@ -596,7 +649,7 @@ class Anyway::Settings
     # Define whether to load data from
     # *.yml.local (or credentials/local.yml.enc)
     #
-    # source://anyway_config//lib/anyway/rails/settings.rb#68
+    # source://anyway_config//lib/anyway/settings.rb#50
     def current_environment; end
 
     # Define whether to load data from
@@ -719,17 +772,18 @@ class Anyway::Settings::Future
   end
 end
 
+# Provides method to trace values association
 module Anyway::Tracing
   private
 
-  def trace!(type, *path, **__kwrest__); end
+  def trace!(type, *path, **_arg2); end
 
   class << self
     def capture; end
     def current_trace; end
     def current_trace_source; end
     def source_stack; end
-    def trace!(type, *path, **__kwrest__); end
+    def trace!(type, *path, **_arg2); end
     def trace_stack; end
     def tracing?; end
     def with_trace_source(src); end
@@ -741,21 +795,36 @@ module Anyway::Tracing
 end
 
 class Anyway::Tracing::Trace
+  # @return [Trace] a new instance of Trace
   def initialize(type = T.unsafe(nil), value = T.unsafe(nil), **source); end
 
   def clear; end
   def dig(*_arg0, **_arg1, &_arg2); end
   def dup; end
+
+  # @raise [ArgumentError]
   def keep_if(*_arg0, **_arg1, &_arg2); end
+
+  # @raise [ArgumentError]
   def merge!(another_trace); end
+
   def merge_values(hash, **opts); end
   def pretty_print(q); end
   def record_key(key, key_trace); end
   def record_value(val, *path, **opts); end
+
+  # Returns the value of attribute source.
   def source; end
+
   def to_h; end
+
+  # @return [Boolean]
   def trace?; end
+
+  # Returns the value of attribute type.
   def type; end
+
+  # Returns the value of attribute value.
   def value; end
 end
 

@@ -12,7 +12,7 @@ Harmonic is a Ruby on Rails social media application focused on social agency ov
 
 ## Tech Stack
 
-- **Framework**: Rails 7.0 with Ruby 3.1.7
+- **Framework**: Rails 7.2 with Ruby 3.3.7
 - **Database**: PostgreSQL
 - **Background Jobs**: Sidekiq with Redis
 - **Frontend**: Hotwire (Turbo + Stimulus), TypeScript with esbuild

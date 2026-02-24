@@ -452,7 +452,7 @@ end
 # or response sizes) and counts them in configurable buckets. It also
 # provides a total count and sum of all observed values.
 #
-# source://prometheus-client//lib/prometheus/client/histogram.rb#13
+# source://prometheus-client//lib/prometheus/client/histogram.rb#10
 class Prometheus::Client::Histogram < ::Prometheus::Client::Metric
   # Offer a way to manually specify buckets
   #

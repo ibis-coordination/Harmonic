@@ -424,7 +424,7 @@ class WebConsole::Template
   end
 end
 
-# source://web-console//lib/web_console/view.rb#8
+# source://web-console//lib/web_console/view.rb#4
 class WebConsole::View < ::ActionView::Base
   # Execute a block only on error pages.
   #

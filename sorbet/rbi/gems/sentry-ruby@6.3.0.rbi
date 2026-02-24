@@ -18,191 +18,6 @@ end
 # source://sentry-ruby//lib/sentry/rake.rb#27
 class Rake::Application
   include ::Sentry::Rake::Application
-
-  # source://rake/13.1.0/lib/rake/application.rb#49
-  def initialize; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#801
-  def add_import(fn); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#161
-  def add_loader(ext, loader); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#782
-  def collect_command_line_tasks(args); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#796
-  def default_task_name; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#282
-  def deprecate(old_usage, new_usage, call_site); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#244
-  def display_cause_details(ex); end
-
-  # source://sentry-ruby//lib/sentry/rake.rb#10
-  def display_error_message(ex); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#269
-  def display_exception_backtrace(ex); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#236
-  def display_exception_details(ex); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#251
-  def display_exception_details_seen; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#259
-  def display_exception_message_details(ex); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#405
-  def display_prerequisites; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#322
-  def display_tasks_and_comments; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#373
-  def dynamic_width; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#377
-  def dynamic_width_stty; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#381
-  def dynamic_width_tput; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#223
-  def exit_because_of_exception(ex); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#702
-  def find_rakefile_location; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#668
-  def handle_options(argv); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#255
-  def has_cause?(ex); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#298
-  def have_rakefile; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#88
-  def init(app_name = T.unsafe(nil), argv = T.unsafe(nil)); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#179
-  def invoke_task(task_string); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#806
-  def load_imports; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#124
-  def load_rakefile; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#24
-  def name; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#167
-  def options; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#27
-  def original_dir; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#185
-  def parse_task_string(string); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#714
-  def print_rakefile_directory(location); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#688
-  def rake_require(file_name, paths = T.unsafe(nil), loaded = T.unsafe(nil)); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#30
-  def rakefile; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#822
-  def rakefile_location(backtrace = T.unsafe(nil)); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#719
-  def raw_load_rakefile; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#79
-  def run(argv = T.unsafe(nil)); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#144
-  def run_with_threads; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#831
-  def set_default_options; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#207
-  def standard_exception_handling; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#426
-  def standard_rake_options; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#751
-  def system_dir; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#33
-  def terminal_columns; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#33
-  def terminal_columns=(_arg0); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#361
-  def terminal_width; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#172
-  def thread_pool; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#131
-  def top_level; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#36
-  def top_level_tasks; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#412
-  def trace(*strings); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#394
-  def truncate(string, width); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#317
-  def truncate_output?; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#39
-  def tty_output=(_arg0); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#311
-  def tty_output?; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#385
-  def unix?; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#390
-  def windows?; end
-
-  private
-
-  # source://rake/13.1.0/lib/rake/application.rb#745
-  def glob(path, &block); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#291
-  def has_chain?(exception); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#102
-  def load_debug_at_stop_feature; end
-
-  # source://rake/13.1.0/lib/rake/application.rb#644
-  def select_tasks_to_show(options, show_tasks, value); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#651
-  def select_trace_output(options, trace_option, value); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#417
-  def sort_options(options); end
-
-  # source://rake/13.1.0/lib/rake/application.rb#768
-  def standard_system_dir; end
 end
 
 # Based on ActionDispatch::RemoteIp. All security-related precautions from that
@@ -263,9 +78,9 @@ module Sentry
     # @option options
     # @option options
     # @option options
+    # @param options [Hash] extra check-in options
     # @param slug [String] identifier of this monitor
     # @param status [Symbol] status of this check-in, one of {CheckInEvent::VALID_STATUSES}
-    # @param options [Hash] extra check-in options
     # @return [String, nil] The {CheckInEvent#check_in_id} to use for later updates on the same slug
     #
     # source://sentry-ruby//lib/sentry-ruby.rb#478
@@ -473,17 +288,17 @@ module Sentry
     #
     # This logger is only available when logs are enabled in the configuration.
     #
-    # @example Enable logs in configuration
-    #   Sentry.init do |config|
-    #   config.dsn = "YOUR_DSN"
-    #   config.enable_logs = true
-    #   end
     # @example Basic usage
     #   Sentry.logger.info("User logged in successfully", user_id: 123)
     #   Sentry.logger.error("Failed to process payment",
     #   transaction_id: "tx_123",
     #   error_code: "PAYMENT_FAILED"
     #   )
+    # @example Enable logs in configuration
+    #   Sentry.init do |config|
+    #   config.dsn = "YOUR_DSN"
+    #   config.enable_logs = true
+    #   end
     # @return [StructuredLogger] The structured logger instance or nil if logs are disabled
     # @see https://develop.sentry.dev/sdk/telemetry/logs/ Sentry SDK Telemetry Logs Protocol
     #
@@ -505,15 +320,6 @@ module Sentry
     #
     # source://sentry-ruby//lib/sentry-ruby.rb#645
     def metrics; end
-
-    # source://railties/7.0.8.7/lib/rails/engine.rb#405
-    def railtie_helpers_paths; end
-
-    # source://railties/7.0.8.7/lib/rails/engine.rb#394
-    def railtie_namespace; end
-
-    # source://railties/7.0.8.7/lib/rails/engine.rb#409
-    def railtie_routes_url_helpers(include_path_helpers = T.unsafe(nil)); end
 
     # Registers the SDK integration with its name and version.
     #
@@ -564,12 +370,6 @@ module Sentry
 
     # source://sentry-ruby//lib/sentry-ruby.rb#652
     def sys_command(command); end
-
-    # source://railties/7.0.8.7/lib/rails/engine.rb#397
-    def table_name_prefix; end
-
-    # source://railties/7.0.8.7/lib/rails/engine.rb#401
-    def use_relative_model_naming?; end
 
     # source://sentry-ruby//lib/sentry-ruby.rb#670
     def utc_now; end
@@ -827,6 +627,11 @@ class Sentry::Backtrace
   class << self
     # @api private
     #
+    # source://sentry-ruby//lib/sentry/backtrace.rb#58
+    def line_cache; end
+
+    # @api private
+    #
     # source://sentry-ruby//lib/sentry/backtrace.rb#13
     def parse(backtrace, project_root, app_dirs_pattern, &backtrace_cleanup_callback); end
 
@@ -836,8 +641,8 @@ class Sentry::Backtrace
     #
     # @api private
     #
-    # source://sentry-ruby//lib/sentry/backtrace.rb#65
-    def source_location(*_arg0); end
+    # source://sentry-ruby//lib/sentry/backtrace.rb#34
+    def source_location(&backtrace_cleaner); end
   end
 end
 
@@ -913,8 +718,8 @@ class Sentry::Backtrace::Line
     # This is more efficient than converting to string and parsing with regex
     #
     # @api private
-    # @param location [Thread::Backtrace::Location] The location object
     # @param in_app_pattern [Regexp, nil] Optional pattern to determine if the line is in-app
+    # @param location [Thread::Backtrace::Location] The location object
     # @return [Line] The backtrace line
     #
     # source://sentry-ruby//lib/sentry/backtrace/line.rb#55
@@ -1015,9 +820,9 @@ Sentry::Baggage::SENTRY_PREFIX_REGEX = T.let(T.unsafe(nil), Regexp)
 class Sentry::Breadcrumb
   # @param category [String, nil]
   # @param data [Hash, nil]
+  # @param level [String, nil]
   # @param message [String, nil]
   # @param timestamp [Time, Integer, nil]
-  # @param level [String, nil]
   # @param type [String, nil]
   # @return [Breadcrumb] a new instance of Breadcrumb
   #
@@ -1299,8 +1104,8 @@ class Sentry::Client
   # Applies the given scope's data to the event and sends it to Sentry.
   #
   # @param event [Event] the event to be sent.
-  # @param scope [Scope] the scope with contextual data that'll be applied to the event before it's sent.
   # @param hint [Hash] the hint data that'll be passed to `before_send` callback and the scope's event processors.
+  # @param scope [Scope] the scope with contextual data that'll be applied to the event before it's sent.
   # @return [Event, nil]
   #
   # source://sentry-ruby//lib/sentry/client.rb#65
@@ -1313,12 +1118,12 @@ class Sentry::Client
 
   # Initializes a CheckInEvent object with the given options.
   #
+  # @param check_in_id [String, nil] for updating the status of an existing monitor
+  # @param duration [Integer, nil] seconds elapsed since this monitor started
+  # @param hint [Hash] the hint data that'll be passed to `before_send` callback and the scope's event processors.
+  # @param monitor_config [Cron::MonitorConfig, nil] configuration for this monitor
   # @param slug [String] identifier of this monitor
   # @param status [Symbol] status of this check-in, one of {CheckInEvent::VALID_STATUSES}
-  # @param hint [Hash] the hint data that'll be passed to `before_send` callback and the scope's event processors.
-  # @param duration [Integer, nil] seconds elapsed since this monitor started
-  # @param monitor_config [Cron::MonitorConfig, nil] configuration for this monitor
-  # @param check_in_id [String, nil] for updating the status of an existing monitor
   # @return [Event]
   #
   # source://sentry-ruby//lib/sentry/client.rb#184
@@ -1336,8 +1141,8 @@ class Sentry::Client
   # Initializes a LogEvent object with the given message and options
   #
   # @option options
-  # @param message [String] the log message
   # @param level [Symbol] the log level (:trace, :debug, :info, :warn, :error, :fatal)
+  # @param message [String] the log message
   # @param options [Hash] additional options
   # @return [LogEvent] the created log event
   #
@@ -1346,8 +1151,8 @@ class Sentry::Client
 
   # Initializes an Event object with the given message.
   #
-  # @param message [String] the message to be reported.
   # @param hint [Hash] the hint data that'll be passed to `before_send` callback and the scope's event processors.
+  # @param message [String] the message to be reported.
   # @return [Event]
   #
   # source://sentry-ruby//lib/sentry/client.rb#164
@@ -1884,7 +1689,7 @@ class Sentry::Configuration
   #
   # @return [Boolean]
   #
-  # source://sentry-ruby//lib/sentry/configuration.rb#165
+  # source://sentry-ruby//lib/sentry/configuration.rb#166
   def inspect_exception_causes_for_exclusion?; end
 
   # The instrumenter to use, :sentry or :otel
@@ -2050,9 +1855,6 @@ class Sentry::Configuration
   # source://sentry-ruby//lib/sentry/configuration.rb#212
   def rack_env_whitelist=(_arg0); end
 
-  # source://sentry-rails/6.3.0/lib/sentry/rails/configuration.rb#13
-  def rails; end
-
   # Release tag to be passed with every event sent to Sentry.
   # We automatically try to set this to a git SHA or Capistrano release.
   #
@@ -2181,7 +1983,7 @@ class Sentry::Configuration
   # source://sentry-ruby//lib/sentry/configuration.rb#672
   def sending_to_dsn_allowed?; end
 
-  # source://sentry-ruby//lib/sentry/configuration.rb#572
+  # source://sentry-ruby//lib/sentry/configuration.rb#576
   def server=(value); end
 
   # @return [String]
@@ -2198,9 +2000,6 @@ class Sentry::Configuration
   #
   # source://sentry-ruby//lib/sentry/configuration.rb#684
   def session_tracking?; end
-
-  # source://sentry-sidekiq/6.3.0/lib/sentry/sidekiq/configuration.rb#5
-  def sidekiq; end
 
   # Allow to skip Sentry emails within rake tasks
   #
@@ -3117,7 +2916,7 @@ class Sentry::Error < ::StandardError; end
 
 # ErrorEvent represents error or normal message events.
 #
-# source://sentry-ruby//lib/sentry/error_event.rb#6
+# source://sentry-ruby//lib/sentry/error_event.rb#5
 class Sentry::ErrorEvent < ::Sentry::Event
   # source://sentry-ruby//lib/sentry/error_event.rb#30
   def add_exception_interface(exception, mechanism:); end
@@ -3361,7 +3160,7 @@ Sentry::Event::TYPE = T.let(T.unsafe(nil), String)
 # source://sentry-ruby//lib/sentry/event.rb#27
 Sentry::Event::WRITER_ATTRIBUTES = T.let(T.unsafe(nil), Array)
 
-# source://sentry-ruby//lib/sentry/interfaces/exception.rb#7
+# source://sentry-ruby//lib/sentry/interfaces/exception.rb#6
 class Sentry::ExceptionInterface < ::Sentry::Interface
   # @param exceptions [Array<SingleExceptionInterface>]
   # @return [ExceptionInterface] a new instance of ExceptionInterface
@@ -3383,8 +3182,8 @@ class Sentry::ExceptionInterface < ::Sentry::Interface
     # Builds ExceptionInterface with given exception and stacktrace_builder.
     #
     # @param exception [Exception]
-    # @param stacktrace_builder [StacktraceBuilder]
     # @param mechanism [Mechanism]
+    # @param stacktrace_builder [StacktraceBuilder]
     # @return [ExceptionInterface]
     # @see SingleExceptionInterface#build_with_stacktrace
     # @see SingleExceptionInterface#initialize
@@ -3546,11 +3345,11 @@ class Sentry::Hub
 
   # Captures a metric and sends it to Sentry
   #
+  # @param attributes [Hash, nil] (optional) additional attributes for the metric
   # @param name [String] the metric name
   # @param type [Symbol] the metric type (:counter, :gauge, :distribution)
-  # @param value [Numeric] the metric value
   # @param unit [String, nil] (optional) the metric unit
-  # @param attributes [Hash, nil] (optional) additional attributes for the metric
+  # @param value [Numeric] the metric value
   # @return [void]
   #
   # source://sentry-ruby//lib/sentry/hub.rb#238
@@ -3959,7 +3758,7 @@ Sentry::META = T.let(T.unsafe(nil), Hash)
 # source://sentry-ruby//lib/sentry-ruby.rb#55
 Sentry::MUTEX = T.let(T.unsafe(nil), Thread::Mutex)
 
-# source://sentry-ruby//lib/sentry/interfaces/mechanism.rb#6
+# source://sentry-ruby//lib/sentry/interfaces/mechanism.rb#4
 class Sentry::Mechanism < ::Sentry::Interface
   # @return [Mechanism] a new instance of Mechanism
   #
@@ -4101,9 +3900,9 @@ module Sentry::Metrics
   class << self
     # Increments a counter metric
     #
+    # @param attributes [Hash, nil] additional attributes for the metric (optional)
     # @param name [String] the metric name
     # @param value [Numeric] the value to increment by (default: 1)
-    # @param attributes [Hash, nil] additional attributes for the metric (optional)
     # @return [void]
     #
     # source://sentry-ruby//lib/sentry/metrics.rb#13
@@ -4111,10 +3910,10 @@ module Sentry::Metrics
 
     # Records a distribution metric
     #
-    # @param name [String] the metric name
-    # @param value [Numeric] the distribution value
-    # @param unit [String, nil] the metric unit (optional)
     # @param attributes [Hash, nil] additional attributes for the metric (optional)
+    # @param name [String] the metric name
+    # @param unit [String, nil] the metric unit (optional)
+    # @param value [Numeric] the distribution value
     # @return [void]
     #
     # source://sentry-ruby//lib/sentry/metrics.rb#48
@@ -4122,10 +3921,10 @@ module Sentry::Metrics
 
     # Records a gauge metric
     #
-    # @param name [String] the metric name
-    # @param value [Numeric] the gauge value
-    # @param unit [String, nil] the metric unit (optional)
     # @param attributes [Hash, nil] additional attributes for the metric (optional)
+    # @param name [String] the metric name
+    # @param unit [String, nil] the metric unit (optional)
+    # @param value [Numeric] the gauge value
     # @return [void]
     #
     # source://sentry-ruby//lib/sentry/metrics.rb#30
@@ -4590,11 +4389,11 @@ end
 # source://sentry-ruby//lib/sentry/interfaces/request.rb#4
 class Sentry::RequestInterface < ::Sentry::Interface
   # @param env [Hash]
-  # @param send_default_pii [Boolean]
   # @param rack_env_whitelist [Array]
+  # @param send_default_pii [Boolean]
   # @return [RequestInterface] a new instance of RequestInterface
-  # @see Configuration#send_default_pii
   # @see Configuration#rack_env_whitelist
+  # @see Configuration#send_default_pii
   #
   # source://sentry-ruby//lib/sentry/interfaces/request.rb#44
   def initialize(env:, send_default_pii:, rack_env_whitelist:); end
@@ -4945,13 +4744,13 @@ class Sentry::Scope
 
   # Updates the scope's data from the given options.
   #
+  # @param attachments [Array<Attachment>]
   # @param contexts [Hash]
   # @param extras [Hash]
+  # @param fingerprint [Array]
+  # @param level [String, Symbol]
   # @param tags [Hash]
   # @param user [Hash]
-  # @param level [String, Symbol]
-  # @param fingerprint [Array]
-  # @param attachments [Array<Attachment>]
   # @return [Array]
   #
   # source://sentry-ruby//lib/sentry/scope.rb#176
@@ -5111,7 +4910,7 @@ class Sentry::SessionFlusher < ::Sentry::ThreadedPeriodicWorker
   # source://sentry-ruby//lib/sentry/session_flusher.rb#18
   def flush; end
 
-  # source://sentry-ruby//lib/sentry/session_flusher.rb#18
+  # source://sentry-ruby//lib/sentry/session_flusher.rb#24
   def run; end
 
   private
@@ -5556,18 +5355,18 @@ Sentry::SpotlightTransport::MAX_FAILED_REQUESTS = T.let(T.unsafe(nil), Integer)
 
 # source://sentry-ruby//lib/sentry/interfaces/stacktrace_builder.rb#4
 class Sentry::StacktraceBuilder
-  # @param project_root [String]
   # @param app_dirs_pattern [Regexp, nil]
-  # @param linecache [LineCache]
-  # @param context_lines [Integer, nil]
   # @param backtrace_cleanup_callback [Proc, nil]
+  # @param context_lines [Integer, nil]
+  # @param linecache [LineCache]
+  # @param project_root [String]
   # @param strip_backtrace_load_path [Boolean]
   # @return [StacktraceBuilder] a new instance of StacktraceBuilder
-  # @see Configuration#project_root
   # @see Configuration#app_dirs_pattern
-  # @see Configuration#linecache
-  # @see Configuration#context_lines
   # @see Configuration#backtrace_cleanup_callback
+  # @see Configuration#context_lines
+  # @see Configuration#linecache
+  # @see Configuration#project_root
   # @see Configuration#strip_backtrace_load_path
   #
   # source://sentry-ruby//lib/sentry/interfaces/stacktrace_builder.rb#35
@@ -5831,12 +5630,6 @@ Sentry::StdLibLogger::SEVERITY_MAP = T.let(T.unsafe(nil), Hash)
 #
 # @example Basic usage
 #   Sentry.logger.info("User logged in", user_id: 123)
-# @example With structured data
-#   Sentry.logger.warn("API request failed",
-#   status_code: 404,
-#   endpoint: "/api/users",
-#   request_id: "abc-123"
-#   )
 # @example With a message template
 #   # Using positional parameters
 #   Sentry.logger.info("User %s logged in", ["Jane Doe"])
@@ -5846,6 +5639,12 @@ Sentry::StdLibLogger::SEVERITY_MAP = T.let(T.unsafe(nil), Hash)
 #
 #   # Using hash parameters and extra attributes
 #   Sentry.logger.info("User %{name} logged in", name: "Jane Doe", user_id: 312)
+# @example With structured data
+#   Sentry.logger.warn("API request failed",
+#   status_code: 404,
+#   endpoint: "/api/users",
+#   request_id: "abc-123"
+#   )
 # @see https://develop.sentry.dev/sdk/telemetry/logs/ Sentry SDK Telemetry Logs Protocol
 #
 # source://sentry-ruby//lib/sentry/structured_logger.rb#32
@@ -5865,9 +5664,9 @@ class Sentry::StructuredLogger
 
   # Logs a message at DEBUG level
   #
+  # @param attributes [Hash] Additional attributes to include with the log
   # @param message [String] The log message
   # @param parameters [Array] Array of values to replace template parameters in the message
-  # @param attributes [Hash] Additional attributes to include with the log
   # @return [LogEvent, nil] The created log event or nil if logging is disabled
   #
   # source://sentry-ruby//lib/sentry/structured_logger.rb#73
@@ -5875,9 +5674,9 @@ class Sentry::StructuredLogger
 
   # Logs a message at ERROR level
   #
+  # @param attributes [Hash] Additional attributes to include with the log
   # @param message [String] The log message
   # @param parameters [Array] Array of values to replace template parameters in the message
-  # @param attributes [Hash] Additional attributes to include with the log
   # @return [LogEvent, nil] The created log event or nil if logging is disabled
   #
   # source://sentry-ruby//lib/sentry/structured_logger.rb#106
@@ -5885,9 +5684,9 @@ class Sentry::StructuredLogger
 
   # Logs a message at FATAL level
   #
+  # @param attributes [Hash] Additional attributes to include with the log
   # @param message [String] The log message
   # @param parameters [Array] Array of values to replace template parameters in the message
-  # @param attributes [Hash] Additional attributes to include with the log
   # @return [LogEvent, nil] The created log event or nil if logging is disabled
   #
   # source://sentry-ruby//lib/sentry/structured_logger.rb#117
@@ -5895,9 +5694,9 @@ class Sentry::StructuredLogger
 
   # Logs a message at INFO level
   #
+  # @param attributes [Hash] Additional attributes to include with the log
   # @param message [String] The log message
   # @param parameters [Array] Array of values to replace template parameters in the message
-  # @param attributes [Hash] Additional attributes to include with the log
   # @return [LogEvent, nil] The created log event or nil if logging is disabled
   #
   # source://sentry-ruby//lib/sentry/structured_logger.rb#84
@@ -5905,10 +5704,10 @@ class Sentry::StructuredLogger
 
   # Logs a message at the specified level
   #
+  # @param attributes [Hash] Additional attributes to include with the log
   # @param level [Symbol] The log level (:trace, :debug, :info, :warn, :error, :fatal)
   # @param message [String] The log message
   # @param parameters [Array, Hash] Array or Hash of values to replace template parameters in the message
-  # @param attributes [Hash] Additional attributes to include with the log
   # @return [LogEvent, nil] The created log event or nil if logging is disabled
   #
   # source://sentry-ruby//lib/sentry/structured_logger.rb#129
@@ -5916,9 +5715,9 @@ class Sentry::StructuredLogger
 
   # Logs a message at TRACE level
   #
+  # @param attributes [Hash] Additional attributes to include with the log
   # @param message [String] The log message
   # @param parameters [Array] Array of values to replace template parameters in the message
-  # @param attributes [Hash] Additional attributes to include with the log
   # @return [LogEvent, nil] The created log event or nil if logging is disabled
   #
   # source://sentry-ruby//lib/sentry/structured_logger.rb#62
@@ -5926,9 +5725,9 @@ class Sentry::StructuredLogger
 
   # Logs a message at WARN level
   #
+  # @param attributes [Hash] Additional attributes to include with the log
   # @param message [String] The log message
   # @param parameters [Array] Array of values to replace template parameters in the message
-  # @param attributes [Hash] Additional attributes to include with the log
   # @return [LogEvent, nil] The created log event or nil if logging is disabled
   #
   # source://sentry-ruby//lib/sentry/structured_logger.rb#95
@@ -6022,7 +5821,7 @@ class Sentry::TelemetryEventBuffer < ::Sentry::ThreadedPeriodicWorker
   # source://sentry-ruby//lib/sentry/telemetry_event_buffer.rb#17
   def pending_items; end
 
-  # source://sentry-ruby//lib/sentry/telemetry_event_buffer.rb#39
+  # source://sentry-ruby//lib/sentry/telemetry_event_buffer.rb#50
   def run; end
 
   # source://sentry-ruby//lib/sentry/telemetry_event_buffer.rb#73
@@ -6079,8 +5878,8 @@ class Sentry::ThreadsInterface
     # Patch this method if you want to change a threads interface's stacktrace frames.
     #
     # @param backtrace [Array]
-    # @param stacktrace_builder [StacktraceBuilder]
     # @param crashed [Hash]
+    # @param stacktrace_builder [StacktraceBuilder]
     # @return [ThreadsInterface]
     # @see StacktraceBuilder.build
     #
@@ -6199,8 +5998,8 @@ class Sentry::Transaction < ::Sentry::Span
   # Sets a custom measurement on the transaction.
   #
   # @param name [String] name of the measurement
-  # @param value [Float] value of the measurement
   # @param unit [String] unit of the measurement
+  # @param value [Float] value of the measurement
   # @return [void]
   #
   # source://sentry-ruby//lib/sentry/transaction.rb#123

@@ -12,9 +12,39 @@ module Kernel
   # source://zeitwerk//lib/zeitwerk/kernel.rb#23
   def require(path); end
 
+  # Zeitwerk's main idea is to define autoloads for project constants, and then
+  # intercept them when triggered in this thin `Kernel#require` wrapper.
+  #
+  # That allows us to complete the circle, invoke callbacks, autovivify modules,
+  # define autoloads for just autoloaded namespaces, update internal state, etc.
+  #
+  # On the other hand, if you publish a new version of a gem that is now managed
+  # by Zeitwerk, client code can reference directly your classes and modules and
+  # should not require anything. But if someone has legacy require calls around,
+  # they will work as expected, and in a compatible way. This feature is by now
+  # EXPERIMENTAL and UNDOCUMENTED.
+  #
+  # source://zeitwerk//lib/zeitwerk/kernel.rb#17
+  def zeitwerk_original_require(path); end
+
   class << self
     # source://zeitwerk//lib/zeitwerk/kernel.rb#23
     def require(path); end
+
+    # Zeitwerk's main idea is to define autoloads for project constants, and then
+    # intercept them when triggered in this thin `Kernel#require` wrapper.
+    #
+    # That allows us to complete the circle, invoke callbacks, autovivify modules,
+    # define autoloads for just autoloaded namespaces, update internal state, etc.
+    #
+    # On the other hand, if you publish a new version of a gem that is now managed
+    # by Zeitwerk, client code can reference directly your classes and modules and
+    # should not require anything. But if someone has legacy require calls around,
+    # they will work as expected, and in a compatible way. This feature is by now
+    # EXPERIMENTAL and UNDOCUMENTED.
+    #
+    # source://zeitwerk//lib/zeitwerk/kernel.rb#19
+    def zeitwerk_original_require(path); end
   end
 end
 
@@ -88,7 +118,7 @@ module Zeitwerk::ExplicitNamespace
   end
 end
 
-# source://zeitwerk//lib/zeitwerk/gem_inflector.rb#5
+# source://zeitwerk//lib/zeitwerk/gem_inflector.rb#4
 class Zeitwerk::GemInflector < ::Zeitwerk::Inflector
   # @return [GemInflector] a new instance of GemInflector
   #
@@ -124,6 +154,7 @@ class Zeitwerk::GemLoader < ::Zeitwerk::Loader
 
     private
 
+    # source://zeitwerk//lib/zeitwerk/gem_loader.rb#10
     def new(*_arg0); end
   end
 end
@@ -189,22 +220,22 @@ class Zeitwerk::Loader
   # source://zeitwerk//lib/zeitwerk/loader.rb#99
   def initialize; end
 
-  # source://zeitwerk//lib/zeitwerk/loader.rb#43
+  # source://zeitwerk//lib/zeitwerk/loader.rb#44
   def __autoloaded_dirs; end
 
-  # source://zeitwerk//lib/zeitwerk/loader.rb#33
+  # source://zeitwerk//lib/zeitwerk/loader.rb#34
   def __autoloads; end
 
-  # source://zeitwerk//lib/zeitwerk/loader.rb#77
+  # source://zeitwerk//lib/zeitwerk/loader.rb#78
   def __namespace_dirs; end
 
   # source://zeitwerk//lib/zeitwerk/loader.rb#310
   def __shadowed_file?(file); end
 
-  # source://zeitwerk//lib/zeitwerk/loader.rb#88
+  # source://zeitwerk//lib/zeitwerk/loader.rb#89
   def __shadowed_files; end
 
-  # source://zeitwerk//lib/zeitwerk/loader.rb#59
+  # source://zeitwerk//lib/zeitwerk/loader.rb#60
   def __to_unload; end
 
   # @raise [Zeitwerk::Error]
@@ -488,6 +519,7 @@ module Zeitwerk::Loader::Config
   # source://zeitwerk//lib/zeitwerk/loader/config.rb#296
   def __ignores?(abspath); end
 
+  # source://zeitwerk//lib/zeitwerk/loader/config.rb#30
   def __roots; end
 
   # Configure directories or glob patterns to be collapsed.

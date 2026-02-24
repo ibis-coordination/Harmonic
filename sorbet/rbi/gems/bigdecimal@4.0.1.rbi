@@ -170,7 +170,7 @@ module BigMath
   end
 end
 
-# source://bigdecimal//lib/bigdecimal/util.rb#163
+# source://bigdecimal//lib/bigdecimal/util.rb#141
 class Complex < ::Numeric
   # call-seq:
   #     cmp.to_d             -> bigdecimal
@@ -198,7 +198,7 @@ class Complex < ::Numeric
   def to_d(precision = T.unsafe(nil)); end
 end
 
-# source://bigdecimal//lib/bigdecimal/util.rb#134
+# source://bigdecimal//lib/bigdecimal/util.rb#116
 class Rational < ::Numeric
   # call-seq:
   #     rat.to_d(precision)  -> bigdecimal

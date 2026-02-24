@@ -20,7 +20,7 @@ module Yabeda
 
     # @return [Boolean] Whether +Yabeda.configure!+ has been already called
     #
-    # source://yabeda//lib/yabeda.rb#85
+    # source://yabeda//lib/yabeda.rb#88
     def already_configured?; end
 
     # Execute all collector blocks for periodical retrieval of metrics
@@ -61,7 +61,7 @@ module Yabeda
     # source://yabeda//lib/yabeda.rb#116
     def debug!; end
 
-    # source://forwardable/1.3.2/forwardable.rb#229
+    # source://yabeda//lib/yabeda.rb#47
     def debug?(*args, **_arg1, &block); end
 
     # @return [Hash<Symbol, Symbol>] All added global default tags
@@ -79,8 +79,8 @@ module Yabeda
     # source://yabeda//lib/yabeda.rb#22
     def metrics; end
 
-    # @param name [Symbol]
     # @param instance [BaseAdapter]
+    # @param name [Symbol]
     #
     # source://yabeda//lib/yabeda.rb#69
     def register_adapter(name, instance); end
@@ -168,6 +168,8 @@ end
 # source://yabeda//lib/yabeda/config.rb#7
 class Yabeda::Config < ::Anyway::Config
   # Implement predicate method from AnywayConfig 2.x to support AnywayConfig 1.x users
+  #
+  # source://yabeda//lib/yabeda/config.rb#11
   def debug?; end
 end
 
@@ -176,7 +178,7 @@ class Yabeda::ConfigurationError < ::StandardError; end
 
 # Growing-only counter
 #
-# source://yabeda//lib/yabeda/counter.rb#9
+# source://yabeda//lib/yabeda/counter.rb#5
 class Yabeda::Counter < ::Yabeda::Metric
   # @overload increment
   #
@@ -369,10 +371,10 @@ end
 class Yabeda::GlobalGroup < ::Yabeda::Group
   extend ::Forwardable
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://yabeda//lib/yabeda/global_group.rb#11
   def default_tag(*args, **_arg1, &block); end
 
-  # source://forwardable/1.3.2/forwardable.rb#229
+  # source://yabeda//lib/yabeda/global_group.rb#11
   def default_tags(*args, **_arg1, &block); end
 end
 
@@ -446,41 +448,15 @@ class Yabeda::Metric
 end
 
 # source://yabeda//lib/yabeda/railtie.rb#4
-module Yabeda::Rails
-  class << self
-    # source://yabeda-rails/0.11.0/lib/yabeda/rails.rb#78
-    def config; end
-
-    # source://yabeda-rails/0.11.0/lib/yabeda/rails.rb#19
-    def controller_handlers; end
-
-    # source://yabeda-rails/0.11.0/lib/yabeda/rails.rb#29
-    def install!; end
-
-    # source://yabeda-rails/0.11.0/lib/yabeda/rails.rb#23
-    def on_controller_action(&block); end
-  end
-end
+module Yabeda::Rails; end
 
 # source://yabeda//lib/yabeda/railtie.rb#5
-class Yabeda::Rails::Railtie < ::Rails::Railtie
-  # source://yabeda-rails/0.11.0/lib/yabeda/rails/railtie.rb#22
-  def passenger_server?; end
-
-  # source://yabeda-rails/0.11.0/lib/yabeda/rails/railtie.rb#14
-  def puma_server?; end
-
-  # source://yabeda-rails/0.11.0/lib/yabeda/rails/railtie.rb#10
-  def rails_server?; end
-
-  # source://yabeda-rails/0.11.0/lib/yabeda/rails/railtie.rb#18
-  def unicorn_server?; end
-end
+class Yabeda::Rails::Railtie < ::Rails::Railtie; end
 
 # Base class for complex metric for measuring time values that allow to
 # calculate averages, percentiles, and so on.
 #
-# source://yabeda//lib/yabeda/summary.rb#7
+# source://yabeda//lib/yabeda/summary.rb#6
 class Yabeda::Summary < ::Yabeda::Metric
   # source://yabeda//lib/yabeda/summary.rb#8
   def observe(tags = T.unsafe(nil), value = T.unsafe(nil)); end

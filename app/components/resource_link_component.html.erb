@@ -1,0 +1,9 @@
+<span class="pulse-resource-link">
+  <i class="<%= resource_type %>-icon icon-sm"></i>
+  <a href="<%= resource_path %>" class="pulse-resource-title"><%= resource_title %></a>
+  <% if metric_value.present? %>
+    <span class="pulse-resource-metric" title="<%= metric_value %> <%= metric_name %>">
+      <%= helpers.octicon metric_icon, height: 12 %> <%= metric_value %>
+    </span>
+  <% end %>
+</span>

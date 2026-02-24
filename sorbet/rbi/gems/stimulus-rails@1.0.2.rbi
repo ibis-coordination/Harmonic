@@ -9,12 +9,7 @@
 module Stimulus; end
 
 # source://stimulus-rails//lib/stimulus/engine.rb#2
-class Stimulus::Engine < ::Rails::Engine
-  class << self
-    # source://activesupport/7.0.8.7/lib/active_support/callbacks.rb#68
-    def __callbacks; end
-  end
-end
+class Stimulus::Engine < ::Rails::Engine; end
 
 # source://stimulus-rails//lib/stimulus/version.rb#2
 Stimulus::VERSION = T.let(T.unsafe(nil), String)

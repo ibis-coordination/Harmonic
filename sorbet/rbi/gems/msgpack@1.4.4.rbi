@@ -16,8 +16,6 @@ class Array
   def to_msgpack_with_packer(packer); end
 end
 
-Bignum = Integer
-
 # source://msgpack//lib/msgpack/core_ext.rb#37
 class FalseClass
   include ::MessagePack::CoreExt
@@ -67,7 +65,7 @@ Integer::GMP_VERSION = T.let(T.unsafe(nil), String)
 module MessagePack
   private
 
-  # source://msgpack//lib/msgpack.rb#39
+  # source://msgpack//lib/msgpack.rb#44
   def dump(v, *rest); end
 
   # source://msgpack//lib/msgpack.rb#22
@@ -76,20 +74,20 @@ module MessagePack
   # source://msgpack//lib/msgpack.rb#39
   def pack(v, *rest); end
 
-  # source://msgpack//lib/msgpack.rb#22
+  # source://msgpack//lib/msgpack.rb#34
   def unpack(src, param = T.unsafe(nil)); end
 
   class << self
-    # source://msgpack//lib/msgpack.rb#39
+    # source://msgpack//lib/msgpack.rb#47
     def dump(v, *rest); end
 
-    # source://msgpack//lib/msgpack.rb#22
+    # source://msgpack//lib/msgpack.rb#36
     def load(src, param = T.unsafe(nil)); end
 
-    # source://msgpack//lib/msgpack.rb#39
+    # source://msgpack//lib/msgpack.rb#46
     def pack(v, *rest); end
 
-    # source://msgpack//lib/msgpack.rb#22
+    # source://msgpack//lib/msgpack.rb#37
     def unpack(src, param = T.unsafe(nil)); end
   end
 end
@@ -121,7 +119,7 @@ class MessagePack::Factory
   # source://msgpack//lib/msgpack/factory.rb#60
   def load(src, param = T.unsafe(nil)); end
 
-  # source://msgpack//lib/msgpack/factory.rb#74
+  # source://msgpack//lib/msgpack/factory.rb#79
   def pack(v, *rest); end
 
   # [ {type: id, class: Class(or nil), packer: arg, unpacker: arg}, ... ]
@@ -134,7 +132,7 @@ class MessagePack::Factory
   # source://msgpack//lib/msgpack/factory.rb#47
   def type_registered?(klass_or_type, selector = T.unsafe(nil)); end
 
-  # source://msgpack//lib/msgpack/factory.rb#60
+  # source://msgpack//lib/msgpack/factory.rb#72
   def unpack(src, param = T.unsafe(nil)); end
 end
 
@@ -169,8 +167,8 @@ MessagePack::Time::Unpacker = T.let(T.unsafe(nil), Proc)
 #
 # source://msgpack//lib/msgpack/timestamp.rb#4
 class MessagePack::Timestamp
-  # @param sec [Integer]
   # @param nsec [Integer]
+  # @param sec [Integer]
   # @return [Timestamp] a new instance of Timestamp
   #
   # source://msgpack//lib/msgpack/timestamp.rb#24
@@ -255,6 +253,9 @@ end
 class Symbol
   include ::Comparable
   include ::MessagePack::CoreExt
+
+  # source://msgpack//lib/msgpack/symbol.rb#7
+  def to_msgpack_ext; end
 
   private
 

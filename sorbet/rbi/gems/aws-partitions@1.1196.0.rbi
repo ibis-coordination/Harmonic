@@ -6,33 +6,7 @@
 
 
 # source://aws-partitions//lib/aws-partitions/endpoint_provider.rb#3
-module Aws
-  class << self
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#94
-    def config; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#97
-    def config=(config); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#156
-    def eager_autoload!(*args); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#149
-    def empty_connection_pools!; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#106
-    def partition(partition_name); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#111
-    def partitions; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#87
-    def shared_config; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#126
-    def use_bundled_cert!; end
-  end
-end
+module Aws; end
 
 # A {Partition} is a group of AWS {Region} and {Service} objects. You
 # can use a partition to determine what services are available in a region,

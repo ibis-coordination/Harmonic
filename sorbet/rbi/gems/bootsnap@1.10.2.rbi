@@ -497,7 +497,7 @@ module Bootsnap::LoadPathCache::ChangeObserver::ArrayMixin
   # source://bootsnap//lib/bootsnap/load_path_cache/change_observer.rb#51
   def []=(*args, &block); end
 
-  # source://bootsnap//lib/bootsnap/load_path_cache/change_observer.rb#15
+  # source://bootsnap//lib/bootsnap/load_path_cache/change_observer.rb#19
   def append(*entries); end
 
   # source://bootsnap//lib/bootsnap/load_path_cache/change_observer.rb#51
@@ -539,7 +539,7 @@ module Bootsnap::LoadPathCache::ChangeObserver::ArrayMixin
   # source://bootsnap//lib/bootsnap/load_path_cache/change_observer.rb#51
   def pop(*args, &block); end
 
-  # source://bootsnap//lib/bootsnap/load_path_cache/change_observer.rb#21
+  # source://bootsnap//lib/bootsnap/load_path_cache/change_observer.rb#25
   def prepend(*entries); end
 
   # source://bootsnap//lib/bootsnap/load_path_cache/change_observer.rb#15
@@ -906,21 +906,30 @@ module Kernel
   # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#46
   def load(path, wrap = T.unsafe(nil)); end
 
+  # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#45
+  def load_without_bootsnap(*_arg0); end
+
+  # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#8
+  def require(path); end
+
   # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#37
   def require_relative(path); end
 
-  # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#8
-  def zeitwerk_original_require(path); end
+  # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#36
+  def require_relative_without_bootsnap(_arg0); end
+
+  # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#6
+  def require_without_bootsnap(name); end
 
   class << self
     # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#46
     def load(path, wrap = T.unsafe(nil)); end
 
+    # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#8
+    def require(path); end
+
     # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#37
     def require_relative(path); end
-
-    # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#8
-    def zeitwerk_original_require(path); end
   end
 end
 
@@ -928,6 +937,9 @@ end
 class Module
   # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#57
   def autoload(const, path); end
+
+  # source://bootsnap//lib/bootsnap/load_path_cache/core_ext/kernel_require.rb#56
+  def autoload_without_bootsnap(const_name, path); end
 end
 
 module Psych
@@ -935,5 +947,6 @@ module Psych
 end
 
 class RubyVM::InstructionSequence
+  extend ::RequireHooks::LoadIseq
   extend ::Bootsnap::CompileCache::ISeq::InstructionSequenceMixin
 end

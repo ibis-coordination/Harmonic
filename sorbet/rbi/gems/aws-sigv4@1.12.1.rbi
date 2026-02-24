@@ -6,33 +6,7 @@
 
 
 # source://aws-sigv4//lib/aws-sigv4/asymmetric_credentials.rb#3
-module Aws
-  class << self
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#94
-    def config; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#97
-    def config=(config); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#156
-    def eager_autoload!(*args); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#149
-    def empty_connection_pools!; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#106
-    def partition(partition_name); end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#111
-    def partitions; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#87
-    def shared_config; end
-
-    # source://aws-sdk-core/3.240.0/lib/aws-sdk-core.rb#126
-    def use_bundled_cert!; end
-  end
-end
+module Aws; end
 
 # source://aws-sigv4//lib/aws-sigv4/asymmetric_credentials.rb#4
 module Aws::Sigv4; end

@@ -247,7 +247,7 @@ class Net::SMTP < ::Net::Protocol
   # Disables SMTP/TLS for this object.  Must be called before the
   # connection is established to have any effect.
   #
-  # source://net-smtp//lib/net/smtp.rb#355
+  # source://net-smtp//lib/net/smtp.rb#360
   def disable_ssl; end
 
   # Disables SMTP/TLS (STARTTLS) for this object.  Must be called
@@ -271,7 +271,7 @@ class Net::SMTP < ::Net::Protocol
   #
   # @raise [ArgumentError]
   #
-  # source://net-smtp//lib/net/smtp.rb#344
+  # source://net-smtp//lib/net/smtp.rb#351
   def enable_ssl(context = T.unsafe(nil)); end
 
   # Enables SMTP/TLS (STARTTLS) for this object.
@@ -324,7 +324,7 @@ class Net::SMTP < ::Net::Protocol
   # retry (but not vice versa).
   # +true+ if the SMTP object uses ESMTP (which it does by default).
   #
-  # source://net-smtp//lib/net/smtp.rb#281
+  # source://net-smtp//lib/net/smtp.rb#284
   def esmtp?; end
 
   # Finishes the SMTP session and closes TCP connection.
@@ -490,7 +490,7 @@ class Net::SMTP < ::Net::Protocol
   #
   # @raise [IOError]
   #
-  # source://net-smtp//lib/net/smtp.rb#818
+  # source://net-smtp//lib/net/smtp.rb#826
   def ready(from_addr, *to_addrs, &block); end
 
   # Aborts the current mail transaction
@@ -535,7 +535,7 @@ class Net::SMTP < ::Net::Protocol
   #
   # @raise [IOError]
   #
-  # source://net-smtp//lib/net/smtp.rb#763
+  # source://net-smtp//lib/net/smtp.rb#771
   def send_mail(msgstr, from_addr, *to_addrs); end
 
   # Sends +msgstr+ as a message.  Single CR ("\r") and LF ("\n") found
@@ -616,7 +616,7 @@ class Net::SMTP < ::Net::Protocol
   #
   # @raise [IOError]
   #
-  # source://net-smtp//lib/net/smtp.rb#763
+  # source://net-smtp//lib/net/smtp.rb#772
   def sendmail(msgstr, from_addr, *to_addrs); end
 
   # WARNING: This method causes serious security holes.
@@ -632,14 +632,14 @@ class Net::SMTP < ::Net::Protocol
   #     ....
   #   end
   #
-  # source://net-smtp//lib/net/smtp.rb#441
+  # source://net-smtp//lib/net/smtp.rb#445
   def set_debug_output(arg); end
 
   # true if this object uses SMTP/TLS (SMTPS).
   #
   # @return [Boolean]
   #
-  # source://net-smtp//lib/net/smtp.rb#335
+  # source://net-smtp//lib/net/smtp.rb#339
   def ssl?; end
 
   # Hash for additional SSLContext parameters.
@@ -846,7 +846,7 @@ class Net::SMTP < ::Net::Protocol
 
     # The default SMTPS port number, 465.
     #
-    # source://net-smtp//lib/net/smtp.rb#203
+    # source://net-smtp//lib/net/smtp.rb#208
     def default_ssl_port; end
 
     # The default mail submission port number, 587.
@@ -1125,6 +1125,8 @@ end
 # source://net-smtp//lib/net/smtp.rb#190
 Net::SMTP::VERSION = T.let(T.unsafe(nil), String)
 
+# Represents an SMTP authentication error.
+#
 # source://net-smtp//lib/net/smtp.rb#49
 class Net::SMTPAuthenticationError < ::Net::ProtoAuthError
   include ::Net::SMTPError
@@ -1147,11 +1149,15 @@ module Net::SMTPError
   def response; end
 end
 
+# Represents a fatal SMTP error (error code 5xx, except for 500)
+#
 # source://net-smtp//lib/net/smtp.rb#64
 class Net::SMTPFatalError < ::Net::ProtoFatalError
   include ::Net::SMTPError
 end
 
+# Represents SMTP error code 4xx, a temporary error.
+#
 # source://net-smtp//lib/net/smtp.rb#54
 class Net::SMTPServerBusy < ::Net::ProtoServerError
   include ::Net::SMTPError
@@ -1162,16 +1168,22 @@ end
 # source://net-smtp//lib/net/smtp.rb#1133
 Net::SMTPSession = Net::SMTP
 
+# Represents an SMTP command syntax error (error code 500)
+#
 # source://net-smtp//lib/net/smtp.rb#59
 class Net::SMTPSyntaxError < ::Net::ProtoSyntaxError
   include ::Net::SMTPError
 end
 
+# Unexpected reply code returned from server.
+#
 # source://net-smtp//lib/net/smtp.rb#69
 class Net::SMTPUnknownError < ::Net::ProtoUnknownError
   include ::Net::SMTPError
 end
 
+# Command is not supported on server.
+#
 # source://net-smtp//lib/net/smtp.rb#74
 class Net::SMTPUnsupportedCommand < ::Net::ProtocolError
   include ::Net::SMTPError

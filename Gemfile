@@ -4,7 +4,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 ruby "3.3.7"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem "rails", "~> 7.0.8"
+gem "rails", "~> 7.2"
 
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
 gem "sprockets-rails"
@@ -13,7 +13,7 @@ gem "sprockets-rails"
 gem "pg"
 
 # Use the Puma web server [https://github.com/puma/puma]
-gem "puma", "~> 5.6"
+gem "puma", "~> 6.0"
 
 # Bundle and transpile JavaScript [https://github.com/rails/jsbundling-rails]
 gem "jsbundling-rails"
@@ -74,8 +74,8 @@ group :development do
   gem "rails-erd"
 
   # Sorbet type checking
-  gem 'sorbet', '~> 0.5.11', require: false
-  gem 'tapioca', '~> 0.15.0', require: false
+  gem 'sorbet', require: false
+  gem 'tapioca', '~> 0.17.0', require: false
   gem 'spoom', '~> 1.4', require: false
 end
 
@@ -114,6 +114,9 @@ gem 'rqrcode', '~> 2.2'   # QR code generation for 2FA setup
 
 gem 'redcarpet'
 gem 'octicons_helper'
+
+# ViewComponent - component-based view architecture
+gem "view_component", "~> 4.0"
 
 gem 'aws-sdk-s3', '~> 1.208'
 

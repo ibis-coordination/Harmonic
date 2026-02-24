@@ -713,7 +713,7 @@ class Zip::Entry
   # source://rubyzip//lib/zip/entry.rb#9
   def local_header_offset=(_arg0); end
 
-  # source://rubyzip//lib/zip/entry.rb#84
+  # source://rubyzip//lib/zip/entry.rb#96
   def mtime; end
 
   # Returns the value of attribute name.
@@ -1038,13 +1038,13 @@ class Zip::EntrySet
   # source://rubyzip//lib/zip/entry_set.rb#12
   def include?(entry); end
 
-  # source://rubyzip//lib/zip/entry_set.rb#26
+  # source://rubyzip//lib/zip/entry_set.rb#30
   def length; end
 
   # source://rubyzip//lib/zip/entry_set.rb#57
   def parent(entry); end
 
-  # source://rubyzip//lib/zip/entry_set.rb#20
+  # source://rubyzip//lib/zip/entry_set.rb#24
   def push(entry); end
 
   # source://rubyzip//lib/zip/entry_set.rb#26
@@ -1089,7 +1089,7 @@ class Zip::ExtraField < ::Hash
   # source://rubyzip//lib/zip/extra_field.rb#19
   def extra_field_type_unknown(binstr, len, index); end
 
-  # source://rubyzip//lib/zip/extra_field.rb#84
+  # source://rubyzip//lib/zip/extra_field.rb#88
   def length; end
 
   # source://rubyzip//lib/zip/extra_field.rb#84
@@ -1104,7 +1104,7 @@ class Zip::ExtraField < ::Hash
   # source://rubyzip//lib/zip/extra_field.rb#64
   def ordered_values; end
 
-  # source://rubyzip//lib/zip/extra_field.rb#84
+  # source://rubyzip//lib/zip/extra_field.rb#89
   def size; end
 
   # source://rubyzip//lib/zip/extra_field.rb#76
@@ -1113,7 +1113,7 @@ class Zip::ExtraField < ::Hash
   # source://rubyzip//lib/zip/extra_field.rb#70
   def to_local_bin; end
 
-  # source://rubyzip//lib/zip/extra_field.rb#70
+  # source://rubyzip//lib/zip/extra_field.rb#74
   def to_s; end
 end
 
@@ -1797,14 +1797,14 @@ end
 #
 # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#6
 module Zip::IOExtras::AbstractInputStream
-  include ::Enumerable
   include ::ActiveSupport::ToJsonWithActiveSupportEncoder
+  include ::Enumerable
   include ::Zip::IOExtras::FakeIO
 
   # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#10
   def initialize; end
 
-  # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#107
+  # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#113
   def each(a_sep_string = T.unsafe(nil)); end
 
   # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#107
@@ -1813,7 +1813,7 @@ module Zip::IOExtras::AbstractInputStream
   # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#115
   def eof; end
 
-  # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#115
+  # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#119
   def eof?; end
 
   # source://rubyzip//lib/zip/ioextras/abstract_input_stream.rb#94
@@ -1903,7 +1903,7 @@ class Zip::Inflater < ::Zip::Decompressor
   # source://rubyzip//lib/zip/inflater.rb#22
   def eof; end
 
-  # source://rubyzip//lib/zip/inflater.rb#22
+  # source://rubyzip//lib/zip/inflater.rb#26
   def eof?; end
 
   # source://rubyzip//lib/zip/inflater.rb#10
@@ -2070,7 +2070,10 @@ class Zip::NullCompressor < ::Zip::Compressor
   class << self
     private
 
+    # source://rubyzip//lib/zip/null_compressor.rb#3
     def allocate; end
+
+    # source://rubyzip//lib/zip/null_compressor.rb#3
     def new(*_arg0); end
   end
 end
@@ -2082,7 +2085,7 @@ module Zip::NullDecompressor
   # source://rubyzip//lib/zip/null_decompressor.rb#9
   def eof; end
 
-  # source://rubyzip//lib/zip/null_decompressor.rb#9
+  # source://rubyzip//lib/zip/null_decompressor.rb#13
   def eof?; end
 
   # source://rubyzip//lib/zip/null_decompressor.rb#5
@@ -2137,8 +2140,8 @@ end
 # source://rubyzip//lib/zip/null_input_stream.rb#2
 module Zip::NullInputStream
   include ::Zip::NullDecompressor
-  include ::Enumerable
   include ::ActiveSupport::ToJsonWithActiveSupportEncoder
+  include ::Enumerable
   include ::Zip::IOExtras::FakeIO
   include ::Zip::IOExtras::AbstractInputStream
 end
@@ -2280,7 +2283,7 @@ class Zip::PassThruDecompressor < ::Zip::Decompressor
   # source://rubyzip//lib/zip/pass_thru_decompressor.rb#19
   def eof; end
 
-  # source://rubyzip//lib/zip/pass_thru_decompressor.rb#19
+  # source://rubyzip//lib/zip/pass_thru_decompressor.rb#23
   def eof?; end
 
   # source://rubyzip//lib/zip/pass_thru_decompressor.rb#8

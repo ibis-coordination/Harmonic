@@ -19,6 +19,7 @@ if ENV['COVERAGE'] || ENV['CI']
     add_group 'Helpers', 'app/helpers'
     add_group 'Jobs', 'app/jobs'
     add_group 'Mailers', 'app/mailers'
+    add_group 'Components', 'app/components'
 
     # Generate JSON for CI parsing
     SimpleCov.formatters = SimpleCov::Formatter::MultiFormatter.new([

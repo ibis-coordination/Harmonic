@@ -94,25 +94,6 @@ module ApplicationHelper
     MarkdownRenderer.render_inline(text).html_safe
   end
 
-  def backlinks(record)
-    return "" if record.backlinks.empty?
-    # For RepresentationSession we need to put a space between the n and the S
-    item_name = record.class.name.gsub(/([a-z])([A-Z])/, '\1 \2').downcase
-    html =  "<h2>Backlinks</h2>" +
-            "<p>Items that link back to this #{item_name}:</p>" +
-            "<ul>" +
-              record.backlinks.map do |r|
-                model_name = r.class.name.downcase
-                icon = "<i class='#{model_name}-icon'></i>"
-                created_or_updated = r.updated_at == r.created_at ? "created" : "last updated"
-                created_or_updated_at = r.updated_at
-                hover_message = "#{r.title}\nCreated #{time_ago_in_words(r.created_at)} ago"
-                "<li><a style='font-weight:bold;' href='#{r.path}' title='#{hover_message}'>#{icon} #{r.title}</a></li>"
-              end.join +
-            "</ul>"
-    html.html_safe
-  end
-
   # Render a user link in markdown format, with parent attribution for ai_agents
   def user_link_md(user, include_parent: true)
     return "" unless user
@@ -124,22 +105,10 @@ module ApplicationHelper
     end
   end
 
-  def profile_pic(user, size: 30, style: '', show_parent: false)
-    title = user.ai_agent? && user.parent ? "#{user.display_name} (ai_agent of #{user.parent.display_name})" : user.display_name
-    if user.image_url
-      main_img = image_tag user.image_url, class: 'profile-pic', width: size, height: size, title: title, style: "width:#{size}px;height:#{size}px;line-height:#{size}px;" + style
-      if show_parent && user.ai_agent? && user.parent&.image_url
-        parent_size = (size * 0.4).to_i
-        parent_img = image_tag user.parent.image_url, class: 'profile-pic-parent', width: parent_size, height: parent_size, title: "Managed by #{user.parent.display_name}", style: "position:absolute;bottom:-2px;right:-2px;width:#{parent_size}px;height:#{parent_size}px;border:1px solid var(--color-border-default);border-radius:50%;"
-        "<span style='position:relative;display:inline-block;#{style}'>#{main_img}#{parent_img}</span>".html_safe
-      else
-        main_img
-      end
-    else
-      return ""
-      initials = user.display_name.split.map(&:first).join
-      "<div class='profile-pic' title='#{title}' style='display:inline-block;width:#{size}px;height:#{size}px;line-height:#{size}px;color:var(--color-fg-default);#{style}'><span>#{initials}</span></div>".html_safe
-    end
+  # Delegates to ProfilePicComponent. Existing callers can continue using this helper.
+  # New code should use: render ProfilePicComponent.new(user: user, size: 30)
+  def profile_pic(user, size: 30, style: "", show_parent: false)
+    render ProfilePicComponent.new(user: user, size: size, style: style, show_parent: show_parent)
   end
 
   # Convert a SearchIndex record to a hash for pulse_resource_link partial

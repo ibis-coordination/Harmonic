@@ -77,7 +77,7 @@ class ConnectionPool
   # source://connection_pool//lib/connection_pool.rb#164
   def size; end
 
-  # source://connection_pool//lib/connection_pool.rb#105
+  # source://connection_pool//lib/connection_pool.rb#117
   def then(options = T.unsafe(nil)); end
 
   # source://connection_pool//lib/connection_pool.rb#105
@@ -137,7 +137,7 @@ class ConnectionPool::TimedStack
   # Returns +obj+ to the stack.  +options+ is ignored in TimedStack but may be
   # used by subclasses that extend TimedStack.
   #
-  # source://connection_pool//lib/connection_pool/timed_stack.rb#41
+  # source://connection_pool//lib/connection_pool/timed_stack.rb#52
   def <<(obj, options = T.unsafe(nil)); end
 
   # Returns +true+ if there are no available connections.
@@ -271,5 +271,5 @@ ConnectionPool::Wrapper::METHODS = T.let(T.unsafe(nil), Array)
 module Process
   extend ::ConnectionPool::ForkTracker
   extend ::RedisClient::PIDCache::CoreExt
-  extend ::ActiveSupport::ForkTracker::ModernCoreExt
+  extend ::ActiveSupport::ForkTracker::CoreExt
 end

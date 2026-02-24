@@ -1,0 +1,19 @@
+<header class="pulse-resource-header">
+  <div class="pulse-resource-header-top">
+    <span class="pulse-resource-type-label">
+      <% if @icon_name %>
+        <%= helpers.octicon @icon_name, height: 14, class: 'pulse-resource-icon' %>
+      <% elsif @icon_class %>
+        <i class="<%= @icon_class %> icon-sm"></i>
+      <% end %>
+      <%= @type_label %>
+      <% if @status %>
+        <span class="pulse-status-badge pulse-status-<%= @status %>"><%= status_label %></span>
+      <% end %>
+    </span>
+    <div class="pulse-resource-actions">
+      <%= actions %>
+    </div>
+  </div>
+  <h1 class="pulse-resource-title"><%= @title %></h1>
+</header>

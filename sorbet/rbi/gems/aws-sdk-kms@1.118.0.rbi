@@ -689,7 +689,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #
   # Symmetric encryption KMS key
   #
-  # : By default, `CreateKey` creates a symmetric encryption KMS key with
   #   key material that KMS generates. This is the basic and most widely
   #   used type of KMS key, and provides the best performance.
   #
@@ -712,7 +711,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #
   # Asymmetric KMS keys
   #
-  # : To create an asymmetric KMS key, use the `KeySpec` parameter to
   #   specify the type of key material in the KMS key. Then, use the
   #   `KeyUsage` parameter to determine whether the KMS key will be used
   #   to encrypt and decrypt or sign and verify. You can't change these
@@ -739,7 +737,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #
   # HMAC KMS key
   #
-  # : To create an HMAC KMS key, set the `KeySpec` parameter to a key spec
   #   value for HMAC KMS keys. Then set the `KeyUsage` parameter to
   #   `GENERATE_VERIFY_MAC`. You must set the key usage even though
   #   `GENERATE_VERIFY_MAC` is the only valid key usage value for HMAC KMS
@@ -755,7 +752,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   # Multi-Region primary keys
   # Imported key material
   #
-  # : To create a multi-Region *primary key* in the local Amazon Web
   #   Services Region, use the `MultiRegion` parameter with a value of
   #   `True`. To create a multi-Region *replica key*, that is, a KMS key
   #   with the same key ID and key material as a primary key, but in a
@@ -781,7 +777,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #
   #
   #
-  # : To import your own key material into a KMS key, begin by creating a
   #   KMS key with no key material. To do this, use the `Origin` parameter
   #   of `CreateKey` with a value of `EXTERNAL`. Next, use
   #   GetParametersForImport operation to get a public key and import
@@ -809,7 +804,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #
   # Custom key store
   #
-  # : A [custom key store][6] lets you protect your Amazon Web Services
   #   resources using keys in a backing key store that you own and manage.
   #   When you request a cryptographic operation with a KMS key in a
   #   custom key store, the operation is performed in the backing key
@@ -922,171 +916,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   origin: "AWS_KMS",
   #   }, # Detailed information about the KMS key that this operation creates.
   #   }
-  # @example Example: To create an asymmetric RSA KMS key for encryption and decryption
-  #
-  #   # This example creates a KMS key that contains an asymmetric RSA key pair for encryption and decryption. The key spec and
-  #   # key usage can't be changed after the key is created.
-  #
-  #   resp = client.create_key({
-  #   key_spec: "RSA_4096", # Describes the type of key material in the KMS key.
-  #   key_usage: "ENCRYPT_DECRYPT", # The cryptographic operations for which you can use the KMS key.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   key_metadata: {
-  #   aws_account_id: "111122223333",
-  #   arn: "arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   creation_date: Time.parse("2021-04-05T14:04:55-07:00"),
-  #   customer_master_key_spec: "RSA_4096",
-  #   description: "",
-  #   enabled: true,
-  #   encryption_algorithms: [
-  #   "RSAES_OAEP_SHA_1",
-  #   "RSAES_OAEP_SHA_256",
-  #   ],
-  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   key_manager: "CUSTOMER",
-  #   key_spec: "RSA_4096",
-  #   key_state: "Enabled",
-  #   key_usage: "ENCRYPT_DECRYPT",
-  #   multi_region: false,
-  #   origin: "AWS_KMS",
-  #   }, # Detailed information about the KMS key that this operation creates.
-  #   }
-  # @example Example: To create an asymmetric elliptic curve KMS key for signing and verification
-  #
-  #   # This example creates a KMS key that contains an asymmetric elliptic curve (ECC) key pair for signing and verification.
-  #   # The key spec and key usage can't be changed after the key is created.
-  #
-  #   resp = client.create_key({
-  #   key_spec: "ECC_NIST_P521", # Describes the type of key material in the KMS key.
-  #   key_usage: "SIGN_VERIFY", # The cryptographic operations for which you can use the KMS key.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   key_metadata: {
-  #   aws_account_id: "111122223333",
-  #   arn: "arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   creation_date: Time.parse("2019-12-02T07:48:55-07:00"),
-  #   customer_master_key_spec: "ECC_NIST_P521",
-  #   description: "",
-  #   enabled: true,
-  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   key_manager: "CUSTOMER",
-  #   key_spec: "ECC_NIST_P521",
-  #   key_state: "Enabled",
-  #   key_usage: "SIGN_VERIFY",
-  #   multi_region: false,
-  #   origin: "AWS_KMS",
-  #   signing_algorithms: [
-  #   "ECDSA_SHA_512",
-  #   ],
-  #   }, # Detailed information about the KMS key that this operation creates.
-  #   }
-  # @example Example: To create an HMAC KMS key
-  #
-  #   # This example creates a 384-bit symmetric HMAC KMS key. The GENERATE_VERIFY_MAC key usage value is required even though
-  #   # it's the only valid value for HMAC KMS keys. The key spec and key usage can't be changed after the key is created.
-  #
-  #   resp = client.create_key({
-  #   key_spec: "HMAC_384", # Describes the type of key material in the KMS key.
-  #   key_usage: "GENERATE_VERIFY_MAC", # The cryptographic operations for which you can use the KMS key.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   key_metadata: {
-  #   aws_account_id: "111122223333",
-  #   arn: "arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   creation_date: Time.parse("2022-04-05T14:04:55-07:00"),
-  #   customer_master_key_spec: "HMAC_384",
-  #   description: "",
-  #   enabled: true,
-  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   key_manager: "CUSTOMER",
-  #   key_spec: "HMAC_384",
-  #   key_state: "Enabled",
-  #   key_usage: "GENERATE_VERIFY_MAC",
-  #   mac_algorithms: [
-  #   "HMAC_SHA_384",
-  #   ],
-  #   multi_region: false,
-  #   origin: "AWS_KMS",
-  #   }, # Detailed information about the KMS key that this operation creates.
-  #   }
-  # @example Example: To create an asymmetric ML-DSA KMS key for signing and verification
-  #
-  #   # This example creates a module-lattice digital signature algorithm (ML-DSA) key for signing and verification. The
-  #   # key-usage parameter is required even though SIGN_VERIFY is the only valid value for ML-DSA keys.
-  #
-  #   resp = client.create_key({
-  #   key_spec: "ML_DSA_65", # Describes the type of key material in the KMS key.
-  #   key_usage: "SIGN_VERIFY", # The cryptographic operations for which you can use the KMS key.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   key_metadata: {
-  #   aws_account_id: "111122223333",
-  #   arn: "arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   creation_date: Time.parse(1748371316.734),
-  #   customer_master_key_spec: "ML_DSA_65",
-  #   description: "",
-  #   enabled: true,
-  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   key_manager: "CUSTOMER",
-  #   key_spec: "ML_DSA_65",
-  #   key_state: "Enabled",
-  #   key_usage: "SIGN_VERIFY",
-  #   multi_region: false,
-  #   origin: "AWS_KMS",
-  #   signing_algorithms: [
-  #   "ML_DSA_SHAKE_256",
-  #   ],
-  #   }, # Detailed information about the KMS key that this operation creates.
-  #   }
-  # @example Example: To create a multi-Region primary KMS key
-  #
-  #   # This example creates a multi-Region primary symmetric encryption key. Because the default values for all parameters
-  #   # create a symmetric encryption key, only the MultiRegion parameter is required for this KMS key.
-  #
-  #   resp = client.create_key({
-  #   multi_region: true, # Indicates whether the KMS key is a multi-Region (True) or regional (False) key.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   key_metadata: {
-  #   aws_account_id: "111122223333",
-  #   arn: "arn:aws:kms:us-west-2:111122223333:key/mrk-1234abcd12ab34cd56ef12345678990ab",
-  #   creation_date: Time.parse("2021-09-02T016:15:21-09:00"),
-  #   current_key_material_id: "0b7fd7ddbac6eef27907413567cad8c810e2883dc8a7534067a82ee1142fc1e6",
-  #   customer_master_key_spec: "SYMMETRIC_DEFAULT",
-  #   description: "",
-  #   enabled: true,
-  #   encryption_algorithms: [
-  #   "SYMMETRIC_DEFAULT",
-  #   ],
-  #   key_id: "mrk-1234abcd12ab34cd56ef12345678990ab",
-  #   key_manager: "CUSTOMER",
-  #   key_spec: "SYMMETRIC_DEFAULT",
-  #   key_state: "Enabled",
-  #   key_usage: "ENCRYPT_DECRYPT",
-  #   multi_region: true,
-  #   multi_region_configuration: {
-  #   multi_region_key_type: "PRIMARY",
-  #   primary_key: {
-  #   arn: "arn:aws:kms:us-west-2:111122223333:key/mrk-1234abcd12ab34cd56ef12345678990ab",
-  #   region: "us-west-2",
-  #   },
-  #   replica_keys: [
-  #   ],
-  #   },
-  #   origin: "AWS_KMS",
-  #   }, # Detailed information about the KMS key that this operation creates.
-  #   }
   # @example Example: To create a KMS key for imported key material
   #
   #   # This example creates a symmetric KMS key with no key material. When the operation is complete, you can import your own
@@ -1186,6 +1015,171 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   xks_key_configuration: {
   #   id: "bb8562717f809024",
   #   },
+  #   }, # Detailed information about the KMS key that this operation creates.
+  #   }
+  # @example Example: To create a multi-Region primary KMS key
+  #
+  #   # This example creates a multi-Region primary symmetric encryption key. Because the default values for all parameters
+  #   # create a symmetric encryption key, only the MultiRegion parameter is required for this KMS key.
+  #
+  #   resp = client.create_key({
+  #   multi_region: true, # Indicates whether the KMS key is a multi-Region (True) or regional (False) key.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   key_metadata: {
+  #   aws_account_id: "111122223333",
+  #   arn: "arn:aws:kms:us-west-2:111122223333:key/mrk-1234abcd12ab34cd56ef12345678990ab",
+  #   creation_date: Time.parse("2021-09-02T016:15:21-09:00"),
+  #   current_key_material_id: "0b7fd7ddbac6eef27907413567cad8c810e2883dc8a7534067a82ee1142fc1e6",
+  #   customer_master_key_spec: "SYMMETRIC_DEFAULT",
+  #   description: "",
+  #   enabled: true,
+  #   encryption_algorithms: [
+  #   "SYMMETRIC_DEFAULT",
+  #   ],
+  #   key_id: "mrk-1234abcd12ab34cd56ef12345678990ab",
+  #   key_manager: "CUSTOMER",
+  #   key_spec: "SYMMETRIC_DEFAULT",
+  #   key_state: "Enabled",
+  #   key_usage: "ENCRYPT_DECRYPT",
+  #   multi_region: true,
+  #   multi_region_configuration: {
+  #   multi_region_key_type: "PRIMARY",
+  #   primary_key: {
+  #   arn: "arn:aws:kms:us-west-2:111122223333:key/mrk-1234abcd12ab34cd56ef12345678990ab",
+  #   region: "us-west-2",
+  #   },
+  #   replica_keys: [
+  #   ],
+  #   },
+  #   origin: "AWS_KMS",
+  #   }, # Detailed information about the KMS key that this operation creates.
+  #   }
+  # @example Example: To create an HMAC KMS key
+  #
+  #   # This example creates a 384-bit symmetric HMAC KMS key. The GENERATE_VERIFY_MAC key usage value is required even though
+  #   # it's the only valid value for HMAC KMS keys. The key spec and key usage can't be changed after the key is created.
+  #
+  #   resp = client.create_key({
+  #   key_spec: "HMAC_384", # Describes the type of key material in the KMS key.
+  #   key_usage: "GENERATE_VERIFY_MAC", # The cryptographic operations for which you can use the KMS key.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   key_metadata: {
+  #   aws_account_id: "111122223333",
+  #   arn: "arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   creation_date: Time.parse("2022-04-05T14:04:55-07:00"),
+  #   customer_master_key_spec: "HMAC_384",
+  #   description: "",
+  #   enabled: true,
+  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   key_manager: "CUSTOMER",
+  #   key_spec: "HMAC_384",
+  #   key_state: "Enabled",
+  #   key_usage: "GENERATE_VERIFY_MAC",
+  #   mac_algorithms: [
+  #   "HMAC_SHA_384",
+  #   ],
+  #   multi_region: false,
+  #   origin: "AWS_KMS",
+  #   }, # Detailed information about the KMS key that this operation creates.
+  #   }
+  # @example Example: To create an asymmetric ML-DSA KMS key for signing and verification
+  #
+  #   # This example creates a module-lattice digital signature algorithm (ML-DSA) key for signing and verification. The
+  #   # key-usage parameter is required even though SIGN_VERIFY is the only valid value for ML-DSA keys.
+  #
+  #   resp = client.create_key({
+  #   key_spec: "ML_DSA_65", # Describes the type of key material in the KMS key.
+  #   key_usage: "SIGN_VERIFY", # The cryptographic operations for which you can use the KMS key.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   key_metadata: {
+  #   aws_account_id: "111122223333",
+  #   arn: "arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   creation_date: Time.parse(1748371316.734),
+  #   customer_master_key_spec: "ML_DSA_65",
+  #   description: "",
+  #   enabled: true,
+  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   key_manager: "CUSTOMER",
+  #   key_spec: "ML_DSA_65",
+  #   key_state: "Enabled",
+  #   key_usage: "SIGN_VERIFY",
+  #   multi_region: false,
+  #   origin: "AWS_KMS",
+  #   signing_algorithms: [
+  #   "ML_DSA_SHAKE_256",
+  #   ],
+  #   }, # Detailed information about the KMS key that this operation creates.
+  #   }
+  # @example Example: To create an asymmetric RSA KMS key for encryption and decryption
+  #
+  #   # This example creates a KMS key that contains an asymmetric RSA key pair for encryption and decryption. The key spec and
+  #   # key usage can't be changed after the key is created.
+  #
+  #   resp = client.create_key({
+  #   key_spec: "RSA_4096", # Describes the type of key material in the KMS key.
+  #   key_usage: "ENCRYPT_DECRYPT", # The cryptographic operations for which you can use the KMS key.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   key_metadata: {
+  #   aws_account_id: "111122223333",
+  #   arn: "arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   creation_date: Time.parse("2021-04-05T14:04:55-07:00"),
+  #   customer_master_key_spec: "RSA_4096",
+  #   description: "",
+  #   enabled: true,
+  #   encryption_algorithms: [
+  #   "RSAES_OAEP_SHA_1",
+  #   "RSAES_OAEP_SHA_256",
+  #   ],
+  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   key_manager: "CUSTOMER",
+  #   key_spec: "RSA_4096",
+  #   key_state: "Enabled",
+  #   key_usage: "ENCRYPT_DECRYPT",
+  #   multi_region: false,
+  #   origin: "AWS_KMS",
+  #   }, # Detailed information about the KMS key that this operation creates.
+  #   }
+  # @example Example: To create an asymmetric elliptic curve KMS key for signing and verification
+  #
+  #   # This example creates a KMS key that contains an asymmetric elliptic curve (ECC) key pair for signing and verification.
+  #   # The key spec and key usage can't be changed after the key is created.
+  #
+  #   resp = client.create_key({
+  #   key_spec: "ECC_NIST_P521", # Describes the type of key material in the KMS key.
+  #   key_usage: "SIGN_VERIFY", # The cryptographic operations for which you can use the KMS key.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   key_metadata: {
+  #   aws_account_id: "111122223333",
+  #   arn: "arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   creation_date: Time.parse("2019-12-02T07:48:55-07:00"),
+  #   customer_master_key_spec: "ECC_NIST_P521",
+  #   description: "",
+  #   enabled: true,
+  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   key_manager: "CUSTOMER",
+  #   key_spec: "ECC_NIST_P521",
+  #   key_state: "Enabled",
+  #   key_usage: "SIGN_VERIFY",
+  #   multi_region: false,
+  #   origin: "AWS_KMS",
+  #   signing_algorithms: [
+  #   "ECDSA_SHA_512",
+  #   ],
   #   }, # Detailed information about the KMS key that this operation creates.
   #   }
   # @example Request syntax with placeholder values
@@ -1363,6 +1357,27 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   # [9]: https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html
   # [10]: https://docs.aws.amazon.com/kms/latest/developerguide/accessing-kms.html#programming-eventual-consistency
   #
+  # @example Example: To decrypt data for a Nitro enclave or NitroTPM
+  #
+  #   # The following Decrypt example includes the Recipient parameter with a signed attestation document from an AWS Nitro
+  #   # enclave or NitroTPM. Instead of returning the decrypted data in plaintext (Plaintext), the operation returns the
+  #   # decrypted data encrypted by the public key from the attestation document (CiphertextForRecipient).
+  #
+  #   resp = client.decrypt({
+  #   ciphertext_blob: "<binary data>", # The encrypted data. This ciphertext was encrypted with the KMS key
+  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The KMS key to use to decrypt the ciphertext
+  #   recipient: {
+  #   attestation_document: "<attestation document>",
+  #   key_encryption_algorithm: "RSAES_OAEP_SHA_256",
+  #   }, # Specifies the attestation document from the Nitro enclave or NitroTPM and the encryption algorithm to use with the public key from the attestation document
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   ciphertext_for_recipient: "<binary data>", # The decrypted CiphertextBlob encrypted with the public key from the attestation document
+  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The KMS key that was used to decrypt the encrypted data (CiphertextBlob)
+  #   plaintext: "", # This field is null or empty
+  #   }
   # @example Example: To decrypt data with a symmetric encryption KMS key
   #
   #   # The following example decrypts data that was encrypted with a symmetric encryption KMS key. The KeyId is not required
@@ -1396,27 +1411,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   encryption_algorithm: "RSAES_OAEP_SHA_256", # The encryption algorithm that was used to decrypt the ciphertext.
   #   key_id: "arn:aws:kms:us-west-2:111122223333:key/0987dcba-09fe-87dc-65ba-ab0987654321", # The Amazon Resource Name (ARN) of the KMS key that was used to decrypt the data.
   #   plaintext: "<binary data>", # The decrypted (plaintext) data.
-  #   }
-  # @example Example: To decrypt data for a Nitro enclave or NitroTPM
-  #
-  #   # The following Decrypt example includes the Recipient parameter with a signed attestation document from an AWS Nitro
-  #   # enclave or NitroTPM. Instead of returning the decrypted data in plaintext (Plaintext), the operation returns the
-  #   # decrypted data encrypted by the public key from the attestation document (CiphertextForRecipient).
-  #
-  #   resp = client.decrypt({
-  #   ciphertext_blob: "<binary data>", # The encrypted data. This ciphertext was encrypted with the KMS key
-  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The KMS key to use to decrypt the ciphertext
-  #   recipient: {
-  #   attestation_document: "<attestation document>",
-  #   key_encryption_algorithm: "RSAES_OAEP_SHA_256",
-  #   }, # Specifies the attestation document from the Nitro enclave or NitroTPM and the encryption algorithm to use with the public key from the attestation document
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   ciphertext_for_recipient: "<binary data>", # The decrypted CiphertextBlob encrypted with the public key from the attestation document
-  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The KMS key that was used to decrypt the encrypted data (CiphertextBlob)
-  #   plaintext: "", # This field is null or empty
   #   }
   # @example Request syntax with placeholder values
   #
@@ -1946,19 +1940,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #
   # The returned {Seahorse::Client::Response response} is a pageable response and is Enumerable. For details on usage see {Aws::PageableResponse PageableResponse}.
   #
-  # @example Example: To get detailed information about custom key stores in the account and Region
-  #
-  #   # This example gets detailed information about all AWS KMS custom key stores in an AWS account and Region. To get all key
-  #   # stores, do not enter a custom key store name or ID.
-  #
-  #   resp = client.describe_custom_key_stores({
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   custom_key_stores: [
-  #   ], # Details about each custom key store in the account and Region.
-  #   }
   # @example Example: To get detailed information about an AWS CloudHSM key store by specifying its friendly name
   #
   #   # This example gets detailed information about a particular AWS CloudHSM key store by specifying its friendly name. To
@@ -1979,33 +1960,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   custom_key_store_name: "ExampleKeyStore",
   #   custom_key_store_type: "AWS_CLOUDHSM",
   #   trust_anchor_certificate: "<certificate appears here>",
-  #   },
-  #   ], # Detailed information about the specified custom key store.
-  #   }
-  # @example Example: To get detailed information about an external key store by specifying its ID
-  #
-  #   # This example gets detailed information about an external key store by specifying its ID.  The example external key store
-  #   # proxy uses public endpoint connectivity.
-  #
-  #   resp = client.describe_custom_key_stores({
-  #   custom_key_store_id: "cks-9876543210fedcba9", # The ID of the custom key store.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   custom_key_stores: [
-  #   {
-  #   connection_state: "CONNECTED",
-  #   creation_date: Time.parse("1.599288695918E9"),
-  #   custom_key_store_id: "cks-9876543210fedcba9",
-  #   custom_key_store_name: "ExampleExternalKeyStore",
-  #   custom_key_store_type: "EXTERNAL_KEY_STORE",
-  #   xks_proxy_configuration: {
-  #   access_key_id: "ABCDE12345670EXAMPLE",
-  #   connectivity: "PUBLIC_ENDPOINT",
-  #   uri_endpoint: "https://myproxy.xks.example.com",
-  #   uri_path: "/kms/xks/v1",
-  #   },
   #   },
   #   ], # Detailed information about the specified custom key store.
   #   }
@@ -2038,6 +1992,46 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   },
   #   },
   #   ], # Detailed information about the specified custom key store.
+  #   }
+  # @example Example: To get detailed information about an external key store by specifying its ID
+  #
+  #   # This example gets detailed information about an external key store by specifying its ID.  The example external key store
+  #   # proxy uses public endpoint connectivity.
+  #
+  #   resp = client.describe_custom_key_stores({
+  #   custom_key_store_id: "cks-9876543210fedcba9", # The ID of the custom key store.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   custom_key_stores: [
+  #   {
+  #   connection_state: "CONNECTED",
+  #   creation_date: Time.parse("1.599288695918E9"),
+  #   custom_key_store_id: "cks-9876543210fedcba9",
+  #   custom_key_store_name: "ExampleExternalKeyStore",
+  #   custom_key_store_type: "EXTERNAL_KEY_STORE",
+  #   xks_proxy_configuration: {
+  #   access_key_id: "ABCDE12345670EXAMPLE",
+  #   connectivity: "PUBLIC_ENDPOINT",
+  #   uri_endpoint: "https://myproxy.xks.example.com",
+  #   uri_path: "/kms/xks/v1",
+  #   },
+  #   },
+  #   ], # Detailed information about the specified custom key store.
+  #   }
+  # @example Example: To get detailed information about custom key stores in the account and Region
+  #
+  #   # This example gets detailed information about all AWS KMS custom key stores in an AWS account and Region. To get all key
+  #   # stores, do not enter a custom key store name or ID.
+  #
+  #   resp = client.describe_custom_key_stores({
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   custom_key_stores: [
+  #   ], # Details about each custom key store in the account and Region.
   #   }
   # @example Request syntax with placeholder values
   #
@@ -2186,38 +2180,68 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   origin: "AWS_KMS",
   #   }, # An object that contains information about the specified KMS key.
   #   }
-  # @example Example: To get details about an RSA asymmetric KMS key
+  # @example Example: To get details about a KMS key in an AWS CloudHSM key store
   #
-  #   # The following example gets metadata for an asymmetric RSA KMS key used for signing and verification.
+  #   # The following example gets the metadata of a KMS key in an AWS CloudHSM key store.
   #
   #   resp = client.describe_key({
-  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab", # An identifier for the KMS key. You can use the key ID, key ARN, alias name, alias ARN of the KMS key.
+  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # An identifier for the KMS key. You can use the key ID, key ARN, alias name, alias ARN of the KMS key.
   #   })
   #
   #   resp.to_h outputs the following:
   #   {
   #   key_metadata: {
-  #   aws_account_id: "111122223333",
-  #   arn: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   creation_date: Time.parse(1571767572.317),
-  #   customer_master_key_spec: "RSA_2048",
-  #   description: "",
-  #   enabled: false,
+  #   aws_account_id: "123456789012",
+  #   arn: "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   cloud_hsm_cluster_id: "cluster-234abcdefABC",
+  #   creation_date: Time.parse(1646160362.664),
+  #   custom_key_store_id: "cks-1234567890abcdef0",
+  #   customer_master_key_spec: "SYMMETRIC_DEFAULT",
+  #   description: "CloudHSM key store test key",
+  #   enabled: true,
+  #   encryption_algorithms: [
+  #   "SYMMETRIC_DEFAULT",
+  #   ],
   #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
   #   key_manager: "CUSTOMER",
-  #   key_spec: "RSA_2048",
-  #   key_state: "Disabled",
-  #   key_usage: "SIGN_VERIFY",
+  #   key_spec: "SYMMETRIC_DEFAULT",
+  #   key_state: "Enabled",
+  #   key_usage: "ENCRYPT_DECRYPT",
   #   multi_region: false,
-  #   origin: "AWS_KMS",
-  #   signing_algorithms: [
-  #   "RSASSA_PKCS1_V1_5_SHA_256",
-  #   "RSASSA_PKCS1_V1_5_SHA_384",
-  #   "RSASSA_PKCS1_V1_5_SHA_512",
-  #   "RSASSA_PSS_SHA_256",
-  #   "RSASSA_PSS_SHA_384",
-  #   "RSASSA_PSS_SHA_512",
+  #   origin: "AWS_CLOUDHSM",
+  #   }, # An object that contains information about the specified KMS key.
+  #   }
+  # @example Example: To get details about a KMS key in an external key store
+  #
+  #   # The following example gets the metadata of a KMS key in an external key store.
+  #
+  #   resp = client.describe_key({
+  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # An identifier for the KMS key. You can use the key ID, key ARN, alias name, alias ARN of the KMS key.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   key_metadata: {
+  #   aws_account_id: "123456789012",
+  #   arn: "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   creation_date: Time.parse(1646160362.664),
+  #   custom_key_store_id: "cks-1234567890abcdef0",
+  #   customer_master_key_spec: "SYMMETRIC_DEFAULT",
+  #   description: "External key store test key",
+  #   enabled: true,
+  #   encryption_algorithms: [
+  #   "SYMMETRIC_DEFAULT",
   #   ],
+  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   key_manager: "CUSTOMER",
+  #   key_spec: "SYMMETRIC_DEFAULT",
+  #   key_state: "Enabled",
+  #   key_usage: "ENCRYPT_DECRYPT",
+  #   multi_region: false,
+  #   origin: "EXTERNAL_KEY_STORE",
+  #   xks_key_configuration: {
+  #   id: "bb8562717f809024",
+  #   },
   #   }, # An object that contains information about the specified KMS key.
   #   }
   # @example Example: To get details about a multi-Region key
@@ -2299,68 +2323,38 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   origin: "AWS_KMS",
   #   }, # An object that contains information about the specified KMS key.
   #   }
-  # @example Example: To get details about a KMS key in an AWS CloudHSM key store
+  # @example Example: To get details about an RSA asymmetric KMS key
   #
-  #   # The following example gets the metadata of a KMS key in an AWS CloudHSM key store.
+  #   # The following example gets metadata for an asymmetric RSA KMS key used for signing and verification.
   #
   #   resp = client.describe_key({
-  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # An identifier for the KMS key. You can use the key ID, key ARN, alias name, alias ARN of the KMS key.
+  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab", # An identifier for the KMS key. You can use the key ID, key ARN, alias name, alias ARN of the KMS key.
   #   })
   #
   #   resp.to_h outputs the following:
   #   {
   #   key_metadata: {
-  #   aws_account_id: "123456789012",
-  #   arn: "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   cloud_hsm_cluster_id: "cluster-234abcdefABC",
-  #   creation_date: Time.parse(1646160362.664),
-  #   custom_key_store_id: "cks-1234567890abcdef0",
-  #   customer_master_key_spec: "SYMMETRIC_DEFAULT",
-  #   description: "CloudHSM key store test key",
-  #   enabled: true,
-  #   encryption_algorithms: [
-  #   "SYMMETRIC_DEFAULT",
-  #   ],
+  #   aws_account_id: "111122223333",
+  #   arn: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  #   creation_date: Time.parse(1571767572.317),
+  #   customer_master_key_spec: "RSA_2048",
+  #   description: "",
+  #   enabled: false,
   #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
   #   key_manager: "CUSTOMER",
-  #   key_spec: "SYMMETRIC_DEFAULT",
-  #   key_state: "Enabled",
-  #   key_usage: "ENCRYPT_DECRYPT",
+  #   key_spec: "RSA_2048",
+  #   key_state: "Disabled",
+  #   key_usage: "SIGN_VERIFY",
   #   multi_region: false,
-  #   origin: "AWS_CLOUDHSM",
-  #   }, # An object that contains information about the specified KMS key.
-  #   }
-  # @example Example: To get details about a KMS key in an external key store
-  #
-  #   # The following example gets the metadata of a KMS key in an external key store.
-  #
-  #   resp = client.describe_key({
-  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # An identifier for the KMS key. You can use the key ID, key ARN, alias name, alias ARN of the KMS key.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   key_metadata: {
-  #   aws_account_id: "123456789012",
-  #   arn: "arn:aws:kms:us-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   creation_date: Time.parse(1646160362.664),
-  #   custom_key_store_id: "cks-1234567890abcdef0",
-  #   customer_master_key_spec: "SYMMETRIC_DEFAULT",
-  #   description: "External key store test key",
-  #   enabled: true,
-  #   encryption_algorithms: [
-  #   "SYMMETRIC_DEFAULT",
+  #   origin: "AWS_KMS",
+  #   signing_algorithms: [
+  #   "RSASSA_PKCS1_V1_5_SHA_256",
+  #   "RSASSA_PKCS1_V1_5_SHA_384",
+  #   "RSASSA_PKCS1_V1_5_SHA_512",
+  #   "RSASSA_PSS_SHA_256",
+  #   "RSASSA_PSS_SHA_384",
+  #   "RSASSA_PSS_SHA_512",
   #   ],
-  #   key_id: "1234abcd-12ab-34cd-56ef-1234567890ab",
-  #   key_manager: "CUSTOMER",
-  #   key_spec: "SYMMETRIC_DEFAULT",
-  #   key_state: "Enabled",
-  #   key_usage: "ENCRYPT_DECRYPT",
-  #   multi_region: false,
-  #   origin: "EXTERNAL_KEY_STORE",
-  #   xks_key_configuration: {
-  #   id: "bb8562717f809024",
-  #   },
   #   }, # An object that contains information about the specified KMS key.
   #   }
   # @example Request syntax with placeholder values
@@ -3244,25 +3238,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   # [8]: https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html
   # [9]: https://docs.aws.amazon.com/kms/latest/developerguide/accessing-kms.html#programming-eventual-consistency
   #
-  # @example Example: To generate an RSA key pair for encryption and decryption
-  #
-  #   # This example generates an RSA data key pair for encryption and decryption. The operation returns a plaintext public key
-  #   # and private key, and a copy of the private key that is encrypted under a symmetric encryption KMS key that you specify.
-  #
-  #   resp = client.generate_data_key_pair({
-  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The key ID of the symmetric encryption KMS key that encrypts the private RSA key in the data key pair.
-  #   key_pair_spec: "RSA_3072", # The requested key spec of the RSA data key pair.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The key ARN of the symmetric encryption KMS key that was used to encrypt the private key.
-  #   key_material_id: "0b7fd7ddbac6eef27907413567cad8c810e2883dc8a7534067a82ee1142fc1e6", # The identifier of the key material used to encrypt the private key.
-  #   key_pair_spec: "RSA_3072", # The actual key spec of the RSA data key pair.
-  #   private_key_ciphertext_blob: "<binary data>", # The encrypted private key of the RSA data key pair.
-  #   private_key_plaintext: "<binary data>", # The plaintext private key of the RSA data key pair.
-  #   public_key: "<binary data>", # The public key (plaintext) of the RSA data key pair.
-  #   }
   # @example Example: To generate a data key pair for a Nitro enclave or NitroTPM
   #
   #   # The following example includes the Recipient parameter with a signed attestation document from an AWS Nitro enclave or
@@ -3288,6 +3263,25 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   key_pair_spec: "RSA_3072", # The actual key spec of the RSA data key pair.
   #   private_key_ciphertext_blob: "<binary data>", # The private key of the RSA data key pair encrypted by the KMS key.
   #   private_key_plaintext: "", # This field is null or empty
+  #   public_key: "<binary data>", # The public key (plaintext) of the RSA data key pair.
+  #   }
+  # @example Example: To generate an RSA key pair for encryption and decryption
+  #
+  #   # This example generates an RSA data key pair for encryption and decryption. The operation returns a plaintext public key
+  #   # and private key, and a copy of the private key that is encrypted under a symmetric encryption KMS key that you specify.
+  #
+  #   resp = client.generate_data_key_pair({
+  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The key ID of the symmetric encryption KMS key that encrypts the private RSA key in the data key pair.
+  #   key_pair_spec: "RSA_3072", # The requested key spec of the RSA data key pair.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   key_id: "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The key ARN of the symmetric encryption KMS key that was used to encrypt the private key.
+  #   key_material_id: "0b7fd7ddbac6eef27907413567cad8c810e2883dc8a7534067a82ee1142fc1e6", # The identifier of the key material used to encrypt the private key.
+  #   key_pair_spec: "RSA_3072", # The actual key spec of the RSA data key pair.
+  #   private_key_ciphertext_blob: "<binary data>", # The encrypted private key of the RSA data key pair.
+  #   private_key_plaintext: "<binary data>", # The plaintext private key of the RSA data key pair.
   #   public_key: "<binary data>", # The public key (plaintext) of the RSA data key pair.
   #   }
   # @example Request syntax with placeholder values
@@ -4074,6 +4068,24 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   parameters_valid_to: Time.parse("2023-02-01T14:52:17-08:00"), # The date and time when the import token and public key expire. After this time, call GetParametersForImport again.
   #   public_key: "<binary data>", # The public key to use to encrypt the key material before importing it.
   #   }
+  # @example Example: To download the public key and import token for an HMAC KMS key
+  #
+  #   # The following example downloads a public key and import token to import an HMAC key. It uses the RSAES_OAEP_SHA_256
+  #   # wrapping algorithm and an RSA_4096 private key.
+  #
+  #   resp = client.get_parameters_for_import({
+  #   key_id: "2468abcd-12ab-34cd-56ef-1234567890ab", # The identifier of the KMS key that will be associated with the imported key material. You can use the key ID or the Amazon Resource Name (ARN) of the KMS key.
+  #   wrapping_algorithm: "RSAES_OAEP_SHA_256", # The algorithm that you will use to encrypt the key material before importing it.
+  #   wrapping_key_spec: "RSA_4096", # The type of wrapping key (public key) to return in the response.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   import_token: "<binary data>", # The import token to send with a subsequent ImportKeyMaterial request.
+  #   key_id: "arn:aws:kms:us-east-2:111122223333:key/2468abcd-12ab-34cd-56ef-1234567890ab", # The ARN of the KMS key that will be associated with the imported key material.
+  #   parameters_valid_to: Time.parse("2023-04-02T13:02:02-07:00"), # The date and time when the import token and public key expire. After this time, call GetParametersForImport again.
+  #   public_key: "<binary data>", # The public key to use to encrypt the key material before importing it.
+  #   }
   # @example Example: To download the public key and import token for an RSA asymmetric KMS key
   #
   #   # The following example downloads a public key and import token to import an RSA private key. It uses a required RSA_AES
@@ -4110,24 +4122,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   import_token: "<binary data>", # The import token to send with a subsequent ImportKeyMaterial request.
   #   key_id: "arn:aws:kms:us-east-2:111122223333:key/9876abcd-12ab-34cd-56ef-1234567890ab", # The ARN of the KMS key that will be associated with the imported key material.
   #   parameters_valid_to: Time.parse("2023-09-12T03:15:01-20:00"), # The date and time when the import token and public key expire. After this time, call GetParametersForImport again.
-  #   public_key: "<binary data>", # The public key to use to encrypt the key material before importing it.
-  #   }
-  # @example Example: To download the public key and import token for an HMAC KMS key
-  #
-  #   # The following example downloads a public key and import token to import an HMAC key. It uses the RSAES_OAEP_SHA_256
-  #   # wrapping algorithm and an RSA_4096 private key.
-  #
-  #   resp = client.get_parameters_for_import({
-  #   key_id: "2468abcd-12ab-34cd-56ef-1234567890ab", # The identifier of the KMS key that will be associated with the imported key material. You can use the key ID or the Amazon Resource Name (ARN) of the KMS key.
-  #   wrapping_algorithm: "RSAES_OAEP_SHA_256", # The algorithm that you will use to encrypt the key material before importing it.
-  #   wrapping_key_spec: "RSA_4096", # The type of wrapping key (public key) to return in the response.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   import_token: "<binary data>", # The import token to send with a subsequent ImportKeyMaterial request.
-  #   key_id: "arn:aws:kms:us-east-2:111122223333:key/2468abcd-12ab-34cd-56ef-1234567890ab", # The ARN of the KMS key that will be associated with the imported key material.
-  #   parameters_valid_to: Time.parse("2023-04-02T13:02:02-07:00"), # The date and time when the import token and public key expire. After this time, call GetParametersForImport again.
   #   public_key: "<binary data>", # The public key to use to encrypt the key material before importing it.
   #   }
   # @example Request syntax with placeholder values
@@ -6171,24 +6165,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   # [4]: https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html
   # [5]: https://docs.aws.amazon.com/kms/latest/developerguide/accessing-kms.html#programming-eventual-consistency
   #
-  # @example Example: To digitally sign a message with an asymmetric KMS key.
-  #
-  #   # This operation uses the private key in an asymmetric elliptic curve (ECC) KMS key to generate a digital signature for a
-  #   # given message.
-  #
-  #   resp = client.sign({
-  #   key_id: "alias/ECC_signing_key", # The asymmetric KMS key to be used to generate the digital signature. This example uses an alias of the KMS key.
-  #   message: "<message to be signed>", # Message to be signed. Use Base-64 for the CLI.
-  #   message_type: "RAW", # Indicates whether the message is RAW or a DIGEST.
-  #   signing_algorithm: "ECDSA_SHA_384", # The requested signing algorithm. This must be an algorithm that the KMS key supports.
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   key_id: "arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The key ARN of the asymmetric KMS key that was used to sign the message.
-  #   signature: "<binary data>", # The digital signature of the message.
-  #   signing_algorithm: "ECDSA_SHA_384", # The actual signing algorithm that was used to generate the signature.
-  #   }
   # @example Example: To digitally sign a message digest with an asymmetric KMS key.
   #
   #   # This operation uses the private key in an asymmetric RSA signing KMS key to generate a digital signature for a message
@@ -6207,6 +6183,24 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   key_id: "arn:aws:kms:us-east-2:111122223333:key/0987dcba-09fe-87dc-65ba-ab0987654321", # The key ARN of the asymmetric KMS key that was used to sign the message.
   #   signature: "<binary data>", # The digital signature of the message.
   #   signing_algorithm: "RSASSA_PKCS1_V1_5_SHA_256", # The actual signing algorithm that was used to generate the signature.
+  #   }
+  # @example Example: To digitally sign a message with an asymmetric KMS key.
+  #
+  #   # This operation uses the private key in an asymmetric elliptic curve (ECC) KMS key to generate a digital signature for a
+  #   # given message.
+  #
+  #   resp = client.sign({
+  #   key_id: "alias/ECC_signing_key", # The asymmetric KMS key to be used to generate the digital signature. This example uses an alias of the KMS key.
+  #   message: "<message to be signed>", # Message to be signed. Use Base-64 for the CLI.
+  #   message_type: "RAW", # Indicates whether the message is RAW or a DIGEST.
+  #   signing_algorithm: "ECDSA_SHA_384", # The requested signing algorithm. This must be an algorithm that the KMS key supports.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   key_id: "arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", # The key ARN of the asymmetric KMS key that was used to sign the message.
+  #   signature: "<binary data>", # The digital signature of the message.
+  #   signing_algorithm: "ECDSA_SHA_384", # The actual signing algorithm that was used to generate the signature.
   #   }
   # @example Request syntax with placeholder values
   #
@@ -6606,6 +6600,20 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   # [1]: https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html
   # [2]: https://docs.aws.amazon.com/kms/latest/developerguide/accessing-kms.html#programming-eventual-consistency
   #
+  # @example Example: To associate the custom key store with a different, but related, AWS CloudHSM cluster.
+  #
+  #   # This example changes the AWS CloudHSM cluster that is associated with an AWS CloudHSM key store to a related cluster,
+  #   # such as a different backup of the same cluster. This operation does not return any data. To verify that the operation
+  #   # worked, use the DescribeCustomKeyStores operation.
+  #
+  #   resp = client.update_custom_key_store({
+  #   cloud_hsm_cluster_id: "cluster-234abcdefABC", # The ID of the AWS CloudHSM cluster that you want to associate with the custom key store. This cluster must be related to the original CloudHSM cluster for this key store.
+  #   custom_key_store_id: "cks-1234567890abcdef0", # The ID of the custom key store that you are updating.
+  #   })
+  #
+  #   resp.to_h outputs the following:
+  #   {
+  #   }
   # @example Example: To edit the friendly name of a custom key store
   #
   #   # This example changes the friendly name of the AWS KMS custom key store to the name that you specify. This operation does
@@ -6633,15 +6641,13 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   resp.to_h outputs the following:
   #   {
   #   }
-  # @example Example: To associate the custom key store with a different, but related, AWS CloudHSM cluster.
+  # @example Example: To edit the proxy URI path of an external key store.
   #
-  #   # This example changes the AWS CloudHSM cluster that is associated with an AWS CloudHSM key store to a related cluster,
-  #   # such as a different backup of the same cluster. This operation does not return any data. To verify that the operation
-  #   # worked, use the DescribeCustomKeyStores operation.
+  #   # This example updates the proxy URI path for an external key store
   #
   #   resp = client.update_custom_key_store({
-  #   cloud_hsm_cluster_id: "cluster-234abcdefABC", # The ID of the AWS CloudHSM cluster that you want to associate with the custom key store. This cluster must be related to the original CloudHSM cluster for this key store.
-  #   custom_key_store_id: "cks-1234567890abcdef0", # The ID of the custom key store that you are updating.
+  #   custom_key_store_id: "cks-1234567890abcdef0", # The ID of the custom key store that you are updating
+  #   xks_proxy_uri_path: "/new-path/kms/xks/v1", # The URI path to the external key store proxy APIs
   #   })
   #
   #   resp.to_h outputs the following:
@@ -6660,18 +6666,6 @@ class Aws::KMS::Client < ::Seahorse::Client::Base
   #   access_key_id: "ABCDE12345670EXAMPLE",
   #   raw_secret_access_key: "DXjSUawnel2fr6SKC7G25CNxTyWKE5PF9XX6H/u9pSo=",
   #   }, # Specifies the values in the proxy authentication credential
-  #   })
-  #
-  #   resp.to_h outputs the following:
-  #   {
-  #   }
-  # @example Example: To edit the proxy URI path of an external key store.
-  #
-  #   # This example updates the proxy URI path for an external key store
-  #
-  #   resp = client.update_custom_key_store({
-  #   custom_key_store_id: "cks-1234567890abcdef0", # The ID of the custom key store that you are updating
-  #   xks_proxy_uri_path: "/new-path/kms/xks/v1", # The URI path to the external key store proxy APIs
   #   })
   #
   #   resp.to_h outputs the following:
@@ -8372,52 +8366,76 @@ class Aws::KMS::EndpointParameters < ::Struct
   # Override the endpoint used to send this request
   #
   # @return [string]
+  #
+  # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
   def endpoint; end
 
   # Override the endpoint used to send this request
   #
   # @return [string]
+  #
+  # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
   def endpoint=(_); end
 
   # The AWS region used to dispatch the request.
   #
   # @return [string]
+  #
+  # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
   def region; end
 
   # The AWS region used to dispatch the request.
   #
   # @return [string]
+  #
+  # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
   def region=(_); end
 
   # When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
   def use_dual_stack; end
 
   # When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
   def use_dual_stack=(_); end
 
   # When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
   def use_fips; end
 
   # When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.
   #
   # @return [boolean]
+  #
+  # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
   def use_fips=(_); end
 
   class << self
+    # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
     def [](*_arg0); end
 
     # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#60
     def create(config, options = T.unsafe(nil)); end
 
+    # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
     def inspect; end
+
+    # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
     def keyword_init?; end
+
+    # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
     def members; end
+
+    # source://aws-sdk-kms//lib/aws-sdk-kms/endpoint_parameters.rb#33
     def new(*_arg0); end
   end
 end
@@ -8520,8 +8538,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#85
 class Aws::KMS::Errors::AlreadyExistsException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::AlreadyExistsException]
+  # @param message [String]
   # @return [AlreadyExistsException] a new instance of AlreadyExistsException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#90
@@ -8536,8 +8554,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#100
 class Aws::KMS::Errors::CloudHsmClusterInUseException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CloudHsmClusterInUseException]
+  # @param message [String]
   # @return [CloudHsmClusterInUseException] a new instance of CloudHsmClusterInUseException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#105
@@ -8552,8 +8570,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#115
 class Aws::KMS::Errors::CloudHsmClusterInvalidConfigurationException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CloudHsmClusterInvalidConfigurationException]
+  # @param message [String]
   # @return [CloudHsmClusterInvalidConfigurationException] a new instance of CloudHsmClusterInvalidConfigurationException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#120
@@ -8568,8 +8586,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#130
 class Aws::KMS::Errors::CloudHsmClusterNotActiveException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CloudHsmClusterNotActiveException]
+  # @param message [String]
   # @return [CloudHsmClusterNotActiveException] a new instance of CloudHsmClusterNotActiveException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#135
@@ -8584,8 +8602,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#145
 class Aws::KMS::Errors::CloudHsmClusterNotFoundException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CloudHsmClusterNotFoundException]
+  # @param message [String]
   # @return [CloudHsmClusterNotFoundException] a new instance of CloudHsmClusterNotFoundException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#150
@@ -8600,8 +8618,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#160
 class Aws::KMS::Errors::CloudHsmClusterNotRelatedException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CloudHsmClusterNotRelatedException]
+  # @param message [String]
   # @return [CloudHsmClusterNotRelatedException] a new instance of CloudHsmClusterNotRelatedException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#165
@@ -8616,8 +8634,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#175
 class Aws::KMS::Errors::ConflictException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::ConflictException]
+  # @param message [String]
   # @return [ConflictException] a new instance of ConflictException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#180
@@ -8632,8 +8650,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#190
 class Aws::KMS::Errors::CustomKeyStoreHasCMKsException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CustomKeyStoreHasCMKsException]
+  # @param message [String]
   # @return [CustomKeyStoreHasCMKsException] a new instance of CustomKeyStoreHasCMKsException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#195
@@ -8648,8 +8666,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#205
 class Aws::KMS::Errors::CustomKeyStoreInvalidStateException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CustomKeyStoreInvalidStateException]
+  # @param message [String]
   # @return [CustomKeyStoreInvalidStateException] a new instance of CustomKeyStoreInvalidStateException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#210
@@ -8664,8 +8682,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#220
 class Aws::KMS::Errors::CustomKeyStoreNameInUseException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CustomKeyStoreNameInUseException]
+  # @param message [String]
   # @return [CustomKeyStoreNameInUseException] a new instance of CustomKeyStoreNameInUseException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#225
@@ -8680,8 +8698,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#235
 class Aws::KMS::Errors::CustomKeyStoreNotFoundException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::CustomKeyStoreNotFoundException]
+  # @param message [String]
   # @return [CustomKeyStoreNotFoundException] a new instance of CustomKeyStoreNotFoundException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#240
@@ -8696,8 +8714,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#250
 class Aws::KMS::Errors::DependencyTimeoutException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::DependencyTimeoutException]
+  # @param message [String]
   # @return [DependencyTimeoutException] a new instance of DependencyTimeoutException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#255
@@ -8712,8 +8730,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#265
 class Aws::KMS::Errors::DisabledException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::DisabledException]
+  # @param message [String]
   # @return [DisabledException] a new instance of DisabledException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#270
@@ -8728,8 +8746,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#280
 class Aws::KMS::Errors::DryRunOperationException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::DryRunOperationException]
+  # @param message [String]
   # @return [DryRunOperationException] a new instance of DryRunOperationException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#285
@@ -8744,8 +8762,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#295
 class Aws::KMS::Errors::ExpiredImportTokenException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::ExpiredImportTokenException]
+  # @param message [String]
   # @return [ExpiredImportTokenException] a new instance of ExpiredImportTokenException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#300
@@ -8760,8 +8778,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#310
 class Aws::KMS::Errors::IncorrectKeyException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::IncorrectKeyException]
+  # @param message [String]
   # @return [IncorrectKeyException] a new instance of IncorrectKeyException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#315
@@ -8776,8 +8794,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#325
 class Aws::KMS::Errors::IncorrectKeyMaterialException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::IncorrectKeyMaterialException]
+  # @param message [String]
   # @return [IncorrectKeyMaterialException] a new instance of IncorrectKeyMaterialException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#330
@@ -8792,8 +8810,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#340
 class Aws::KMS::Errors::IncorrectTrustAnchorException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::IncorrectTrustAnchorException]
+  # @param message [String]
   # @return [IncorrectTrustAnchorException] a new instance of IncorrectTrustAnchorException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#345
@@ -8808,8 +8826,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#355
 class Aws::KMS::Errors::InvalidAliasNameException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::InvalidAliasNameException]
+  # @param message [String]
   # @return [InvalidAliasNameException] a new instance of InvalidAliasNameException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#360
@@ -8824,8 +8842,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#370
 class Aws::KMS::Errors::InvalidArnException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::InvalidArnException]
+  # @param message [String]
   # @return [InvalidArnException] a new instance of InvalidArnException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#375
@@ -8840,8 +8858,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#385
 class Aws::KMS::Errors::InvalidCiphertextException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::InvalidCiphertextException]
+  # @param message [String]
   # @return [InvalidCiphertextException] a new instance of InvalidCiphertextException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#390
@@ -8856,8 +8874,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#400
 class Aws::KMS::Errors::InvalidGrantIdException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::InvalidGrantIdException]
+  # @param message [String]
   # @return [InvalidGrantIdException] a new instance of InvalidGrantIdException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#405
@@ -8872,8 +8890,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#415
 class Aws::KMS::Errors::InvalidGrantTokenException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::InvalidGrantTokenException]
+  # @param message [String]
   # @return [InvalidGrantTokenException] a new instance of InvalidGrantTokenException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#420
@@ -8888,8 +8906,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#430
 class Aws::KMS::Errors::InvalidImportTokenException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::InvalidImportTokenException]
+  # @param message [String]
   # @return [InvalidImportTokenException] a new instance of InvalidImportTokenException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#435
@@ -8904,8 +8922,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#445
 class Aws::KMS::Errors::InvalidKeyUsageException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::InvalidKeyUsageException]
+  # @param message [String]
   # @return [InvalidKeyUsageException] a new instance of InvalidKeyUsageException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#450
@@ -8920,8 +8938,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#460
 class Aws::KMS::Errors::InvalidMarkerException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::InvalidMarkerException]
+  # @param message [String]
   # @return [InvalidMarkerException] a new instance of InvalidMarkerException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#465
@@ -8936,8 +8954,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#475
 class Aws::KMS::Errors::KMSInternalException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::KMSInternalException]
+  # @param message [String]
   # @return [KMSInternalException] a new instance of KMSInternalException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#480
@@ -8952,8 +8970,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#490
 class Aws::KMS::Errors::KMSInvalidMacException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::KMSInvalidMacException]
+  # @param message [String]
   # @return [KMSInvalidMacException] a new instance of KMSInvalidMacException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#495
@@ -8968,8 +8986,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#505
 class Aws::KMS::Errors::KMSInvalidSignatureException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::KMSInvalidSignatureException]
+  # @param message [String]
   # @return [KMSInvalidSignatureException] a new instance of KMSInvalidSignatureException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#510
@@ -8984,8 +9002,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#520
 class Aws::KMS::Errors::KMSInvalidStateException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::KMSInvalidStateException]
+  # @param message [String]
   # @return [KMSInvalidStateException] a new instance of KMSInvalidStateException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#525
@@ -9000,8 +9018,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#535
 class Aws::KMS::Errors::KeyUnavailableException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::KeyUnavailableException]
+  # @param message [String]
   # @return [KeyUnavailableException] a new instance of KeyUnavailableException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#540
@@ -9016,8 +9034,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#550
 class Aws::KMS::Errors::LimitExceededException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::LimitExceededException]
+  # @param message [String]
   # @return [LimitExceededException] a new instance of LimitExceededException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#555
@@ -9032,8 +9050,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#565
 class Aws::KMS::Errors::MalformedPolicyDocumentException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::MalformedPolicyDocumentException]
+  # @param message [String]
   # @return [MalformedPolicyDocumentException] a new instance of MalformedPolicyDocumentException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#570
@@ -9048,8 +9066,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#580
 class Aws::KMS::Errors::NotFoundException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::NotFoundException]
+  # @param message [String]
   # @return [NotFoundException] a new instance of NotFoundException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#585
@@ -9061,14 +9079,14 @@ class Aws::KMS::Errors::NotFoundException < ::Aws::KMS::Errors::ServiceError
   def message; end
 end
 
-# source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#0
+# source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#83
 class Aws::KMS::Errors::ServiceError < ::Aws::Errors::ServiceError; end
 
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#595
 class Aws::KMS::Errors::TagException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::TagException]
+  # @param message [String]
   # @return [TagException] a new instance of TagException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#600
@@ -9083,8 +9101,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#610
 class Aws::KMS::Errors::UnsupportedOperationException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::UnsupportedOperationException]
+  # @param message [String]
   # @return [UnsupportedOperationException] a new instance of UnsupportedOperationException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#615
@@ -9099,8 +9117,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#625
 class Aws::KMS::Errors::XksKeyAlreadyInUseException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksKeyAlreadyInUseException]
+  # @param message [String]
   # @return [XksKeyAlreadyInUseException] a new instance of XksKeyAlreadyInUseException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#630
@@ -9115,8 +9133,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#640
 class Aws::KMS::Errors::XksKeyInvalidConfigurationException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksKeyInvalidConfigurationException]
+  # @param message [String]
   # @return [XksKeyInvalidConfigurationException] a new instance of XksKeyInvalidConfigurationException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#645
@@ -9131,8 +9149,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#655
 class Aws::KMS::Errors::XksKeyNotFoundException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksKeyNotFoundException]
+  # @param message [String]
   # @return [XksKeyNotFoundException] a new instance of XksKeyNotFoundException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#660
@@ -9147,8 +9165,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#670
 class Aws::KMS::Errors::XksProxyIncorrectAuthenticationCredentialException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyIncorrectAuthenticationCredentialException]
+  # @param message [String]
   # @return [XksProxyIncorrectAuthenticationCredentialException] a new instance of XksProxyIncorrectAuthenticationCredentialException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#675
@@ -9163,8 +9181,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#685
 class Aws::KMS::Errors::XksProxyInvalidConfigurationException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyInvalidConfigurationException]
+  # @param message [String]
   # @return [XksProxyInvalidConfigurationException] a new instance of XksProxyInvalidConfigurationException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#690
@@ -9179,8 +9197,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#700
 class Aws::KMS::Errors::XksProxyInvalidResponseException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyInvalidResponseException]
+  # @param message [String]
   # @return [XksProxyInvalidResponseException] a new instance of XksProxyInvalidResponseException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#705
@@ -9195,8 +9213,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#715
 class Aws::KMS::Errors::XksProxyUriEndpointInUseException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyUriEndpointInUseException]
+  # @param message [String]
   # @return [XksProxyUriEndpointInUseException] a new instance of XksProxyUriEndpointInUseException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#720
@@ -9211,8 +9229,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#730
 class Aws::KMS::Errors::XksProxyUriInUseException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyUriInUseException]
+  # @param message [String]
   # @return [XksProxyUriInUseException] a new instance of XksProxyUriInUseException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#735
@@ -9227,8 +9245,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#745
 class Aws::KMS::Errors::XksProxyUriUnreachableException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyUriUnreachableException]
+  # @param message [String]
   # @return [XksProxyUriUnreachableException] a new instance of XksProxyUriUnreachableException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#750
@@ -9243,8 +9261,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#760
 class Aws::KMS::Errors::XksProxyVpcEndpointServiceInUseException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyVpcEndpointServiceInUseException]
+  # @param message [String]
   # @return [XksProxyVpcEndpointServiceInUseException] a new instance of XksProxyVpcEndpointServiceInUseException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#765
@@ -9259,8 +9277,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#775
 class Aws::KMS::Errors::XksProxyVpcEndpointServiceInvalidConfigurationException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyVpcEndpointServiceInvalidConfigurationException]
+  # @param message [String]
   # @return [XksProxyVpcEndpointServiceInvalidConfigurationException] a new instance of XksProxyVpcEndpointServiceInvalidConfigurationException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#780
@@ -9275,8 +9293,8 @@ end
 # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#790
 class Aws::KMS::Errors::XksProxyVpcEndpointServiceNotFoundException < ::Aws::KMS::Errors::ServiceError
   # @param context [Seahorse::Client::RequestContext]
-  # @param message [String]
   # @param data [Aws::KMS::Types::XksProxyVpcEndpointServiceNotFoundException]
+  # @param message [String]
   # @return [XksProxyVpcEndpointServiceNotFoundException] a new instance of XksProxyVpcEndpointServiceNotFoundException
   #
   # source://aws-sdk-kms//lib/aws-sdk-kms/errors.rb#795

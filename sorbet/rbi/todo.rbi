@@ -7,6 +7,3 @@
 module ::DEBUGGER__::ForkInterceptor; end
 module ::DEBUGGER__::TrapInterceptor; end
 module DropStudioTrusteesAddAsColumn::StudioTrustee; end
-module Sidekiq::Process; end
-module Sidekiq::SortedEntry; end
-module Sidekiq::Workers; end

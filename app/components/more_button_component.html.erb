@@ -1,0 +1,100 @@
+<span data-controller="more-button" class="more-button">
+  <div
+    data-more-button-target="plus"
+    data-action="click->more-button#togglePlusMenu"
+    style="display:<%= @studio.is_scene? ? 'none' : 'inline-block' %>;float:none;width:36px;text-align:center;margin-right:12px;background-color:var(--color-fg-default);color:var(--color-canvas-default);border-radius:3px;padding:3px;"
+    >
+    <%= helpers.octicon 'plus' %><%= helpers.octicon 'triangle-down' %>
+    </div>
+    <div data-more-button-target="plusMenu" class="top-menu" style="display:none;">
+    <ul>
+      <li>
+        <i class="note-icon" style="height:1.5em;float:left;margin-right:12px"></i>
+        <a href="<%= @studio.path %>/note">New Note</a>
+      </li>
+      <li>
+        <i class="decision-icon" style="height:1.5em;float:left;margin-right:12px"></i>
+        <a href="<%= @studio.path %>/decide">New Decision</a>
+      </li>
+      <li>
+        <i class="commitment-icon" style="height:1.5em;float:left;margin-right:12px"></i>
+        <a href="<%= @studio.path %>/commit">New Commitment</a>
+      </li>
+    </ul>
+  </div>
+
+  <button
+    data-more-button-target="button"
+    data-action="click->more-button#toggleMenu"
+    >
+    <% if @options.any? %>
+      <%= helpers.octicon 'kebab-horizontal' %>
+    <% end %>
+  </button>
+  <div data-more-button-target="menu" class="more-button-menu">
+    <ul>
+      <% @options.each do |option| %>
+        <% if option == 'copy' %>
+          <li data-controller="clipboard">
+            <input type="text" value="<%= @resource.shareable_link %>" data-clipboard-target="source" style="display:none;"/>
+            <span data-action="click->clipboard#copy" data-clipboard-target="button">
+              <%= helpers.octicon 'copy' %>
+              Copy link to clipboard
+            </span>
+            <span data-clipboard-target="successMessage" style="display:none;">
+              <%= helpers.octicon 'copy' %>
+              Copied!
+            </span>
+          </li>
+        <% elsif option == 'pin' %>
+          <li>
+            <%= helpers.octicon 'pin' %>
+            <span data-action="click->more-button#pin" data-url="<%= pin_url %>">
+              <%= pin_label %>
+            </span>
+          </li>
+        <% elsif option == 'duplicate' %>
+          <li>
+            <%= helpers.octicon 'duplicate' %>
+            <span class="inline-form-container">
+              <%= helpers.button_to 'Duplicate', "#{@resource.path}/duplicate", method: :post, style: 'display:inline;float:none;' %>
+            </span>
+          </li>
+        <% elsif option == 'edit' %>
+          <li>
+            <%= helpers.octicon 'pencil' %>
+            <%= helpers.link_to 'Edit', "#{@resource.path}/edit" %>
+          </li>
+        <% elsif option == 'settings' %>
+          <li>
+            <%= helpers.octicon 'gear' %>
+            <%= helpers.link_to 'Settings', "#{@resource.path}/settings" %>
+          </li>
+        <% elsif option == 'manage_members' %>
+          <li>
+            <%= helpers.octicon 'people' %>
+            <%= helpers.link_to 'Members', "#{@resource.path}/members" %>
+          </li>
+        <% elsif option == 'invite' %>
+          <li>
+            <%= helpers.octicon 'person-add' %>
+            <%= helpers.link_to 'Invite Team Members', "#{@resource.path}/invite" %>
+          </li>
+        <% elsif option == 'representation' %>
+          <li>
+            <%= helpers.octicon 'feed-person' %>
+            <%= helpers.link_to 'Representation', "#{@resource.path}/representation" %>
+          </li>
+        <% elsif option == '---' %>
+          <li>
+            <hr style="height:1px;margin:0;" />
+          </li>
+        <% else %>
+          <li>
+            <%= option %>
+          </li>
+        <% end %>
+      <% end %>
+    </ul>
+  </div>
+</span>

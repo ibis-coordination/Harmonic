@@ -1,29 +1,13 @@
-<%# Pulse-styled accordion/collapsible section %>
-<%# Usage: render 'shared/pulse_accordion', title: 'Details', open: false do %>
-<%#   <p>Content here</p> %>
-<%# end %>
-<%# Optional: icon: 'eye' to add an octicon before the title %>
-<%# Optional: tooltip: 'Tooltip text' to add a title attribute to the title area %>
-<%# Optional: title_data: { 'decision-results-target': 'header' } to add data attributes to title %>
-<% open ||= false %>
-<% count ||= nil %>
-<% icon ||= nil %>
-<% tooltip ||= nil %>
-<% title_data ||= {} %>
-<details class="pulse-accordion" <%= 'open' if open %>>
-  <summary class="pulse-accordion-header">
-    <span class="pulse-accordion-title"<%= " title=\"#{tooltip}\"".html_safe if tooltip.present? %> <%= title_data.map { |k, v| "data-#{k}=\"#{v}\"" }.join(' ').html_safe %>>
-      <% if icon.present? %>
-        <span class="pulse-accordion-title-icon"><%= octicon icon, height: 14 %></span>
-      <% end %>
-      <%= title %>
-      <% if count.present? %>
-        <span class="pulse-accordion-count">(<%= count %>)</span>
-      <% end %>
-    </span>
-    <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
-  </summary>
-  <div class="pulse-accordion-content">
-    <%= yield %>
-  </div>
-</details>
+<%# Wrapper partial - delegates to AccordionComponent. %>
+<%# Existing callers can continue using: render 'shared/pulse_accordion', title: 'Details' do %>
+<%# New code should use: render AccordionComponent.new(title: 'Details') do %>
+<%= render AccordionComponent.new(
+  title: title,
+  open: local_assigns.fetch(:open, false),
+  count: local_assigns.fetch(:count, nil),
+  icon: local_assigns.fetch(:icon, nil),
+  tooltip: local_assigns.fetch(:tooltip, nil),
+  title_data: local_assigns.fetch(:title_data, {}),
+) do %>
+  <%= yield %>
+<% end %>

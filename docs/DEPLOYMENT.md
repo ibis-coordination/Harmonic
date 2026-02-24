@@ -12,15 +12,16 @@ Clone the repo or copy these files to your server:
 /opt/harmonic/
 ├── docker-compose.production.yml
 ├── .env                      # your configuration
-├── Caddyfile                 # reverse proxy config (auto-generated)
 ├── config/
 │   └── maintenance/
 │       ├── Caddyfile.template  # maintenance mode template
 │       └── maintenance.html    # maintenance page
 └── scripts/
-    ├── generate-caddyfile.sh # generate Caddyfile from tenant subdomains
+    ├── generate-caddyfile.sh # manual Caddyfile regeneration (delegates to rake task)
     └── maintenance.sh        # maintenance mode toggle script
 ```
+
+After initial setup, a `Caddyfile` will also be present - it is auto-generated from tenant subdomains by `RegenerateCaddyfileJob` (see [Caddyfile Management](#caddyfile-management) below).
 
 ### Release Workflow
 
@@ -42,9 +43,16 @@ docker compose -f docker-compose.production.yml exec web bundle exec rails db:mi
 
 ### Caddyfile Management
 
-The Caddyfile is auto-generated from tenant subdomains in the database. It is automatically regenerated whenever a tenant is created, destroyed, or has its subdomain changed (via `RegenerateCaddyfileJob`).
+The Caddyfile is auto-generated from tenant subdomains by the `CaddyfileGenerator` service. It produces reverse proxy entries for the bare domain (redirect), primary subdomain, auth subdomain, and each tenant subdomain.
 
-To manually regenerate (e.g., during initial setup or after a database restore):
+**Automatic regeneration:** The `RegenerateCaddyfileJob` runs automatically whenever a tenant is created, destroyed, or has its subdomain changed (via `after_commit` callbacks on the `Tenant` model). The job:
+1. Generates the Caddyfile content via `CaddyfileGenerator`
+2. Writes it to disk at `CADDYFILE_PATH` (default: `/app/Caddyfile`, bind-mounted from host)
+3. Reloads Caddy via its admin API (`POST /load` to `CADDY_ADMIN_URL`)
+
+If Caddy is unreachable when the job runs, the file is still written to disk and a warning is logged.
+
+**Manual regeneration** (e.g., during initial setup or after a database restore):
 
 ```bash
 # Preview changes without applying
@@ -54,11 +62,7 @@ To manually regenerate (e.g., during initial setup or after a database restore):
 ./scripts/generate-caddyfile.sh
 ```
 
-The script is idempotent - safe to run anytime. It:
-- Queries all tenant subdomains from the database
-- Generates a Caddyfile with entries for each tenant plus the primary/auth subdomains
-- Shows a diff if changes are detected
-- Reloads Caddy to apply changes
+The script is idempotent - safe to run anytime. It delegates to the `caddyfile:generate` rake task, then diffs, applies, and reloads Caddy.
 
 ### Maintenance Mode
 
@@ -125,6 +129,10 @@ See `.env.example` for all required variables. Key ones:
 | `REDIS_URL` | Redis connection string |
 | `SECRET_KEY_BASE` | Rails secret (generate with `openssl rand -hex 64`) |
 | `HOSTNAME` | Your domain (e.g., `harmonic.example.com`) |
+| `PRIMARY_SUBDOMAIN` | Main app subdomain (e.g., `app`) |
+| `AUTH_SUBDOMAIN` | Authentication subdomain (e.g., `auth`) |
+| `CADDYFILE_PATH` | Path to write generated Caddyfile (default: `/app/Caddyfile`) |
+| `CADDY_ADMIN_URL` | Caddy admin API URL (default: `http://caddy:2019`) |
 | `SENTRY_DSN` | Sentry error tracking DSN (optional, recommended) |
 | `SLACK_WEBHOOK_URL` | Slack webhook for security alerts (optional, recommended) |
 | `METRICS_AUTH_TOKEN` | Bearer token for `/metrics` endpoint (optional) |

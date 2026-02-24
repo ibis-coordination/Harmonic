@@ -31,7 +31,7 @@ Thank you for your interest in contributing to Harmonic! This document provides 
    - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
 
 2. **Understand the codebase**:
-   - This is a Rails 7.0 application with PostgreSQL
+   - This is a Rails 7.2 application with PostgreSQL
    - Multi-tenancy via subdomains is a core pattern
    - See `docs/` for detailed documentation
 

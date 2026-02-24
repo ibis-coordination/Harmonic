@@ -5,18 +5,15 @@
 ] %>
 
 <article class="pulse-resource-detail">
-  <header class="pulse-resource-header">
-    <div class="pulse-resource-header-top">
-      <span class="pulse-resource-type-label">
-        <%= octicon 'person', height: 14, class: 'pulse-resource-icon' %>
-        Representation Session
-      </span>
-      <div class="pulse-resource-actions">
-        <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      </div>
-    </div>
-    <h1 class="pulse-resource-title">Session <%= @representation_session.truncated_id %></h1>
-  </header>
+  <%= render ResourceHeaderComponent.new(
+    type_label: "Representation Session",
+    title: "Session #{@representation_session.truncated_id}",
+    icon_name: "person",
+  ) do |header|
+    header.with_actions do %>
+      <%= render 'shared/copy_to_clipboard', text: request.original_url %>
+    <% end
+  end %>
 
   <div class="pulse-resource-meta">
     <%= profile_pic(@representation_session.representative_user, size: 20) %>

@@ -221,44 +221,6 @@ Rails.application.routes.draw do
 
   get 'admin' => 'admin_chooser#index'
 
-  # ============================================================
-  # LEGACY ADMIN ROUTES (deprecated - use /system-admin, /app-admin, /tenant-admin instead)
-  # ============================================================
-
-  get 'legacy-admin' => 'admin#admin'
-  get 'legacy-admin/actions' => 'admin#actions_index'
-  get 'legacy-admin/settings' => 'admin#tenant_settings'
-  post 'legacy-admin/settings' => 'admin#update_tenant_settings'
-  get 'legacy-admin/settings/actions' => 'admin#actions_index_settings'
-  get 'legacy-admin/settings/actions/update_tenant_settings' => 'admin#describe_update_tenant_settings'
-  post 'legacy-admin/settings/actions/update_tenant_settings' => 'admin#execute_update_tenant_settings'
-  get 'legacy-admin/tenants' => 'admin#tenants'
-  get 'legacy-admin/tenants/new' => 'admin#new_tenant'
-  post 'legacy-admin/tenants' => 'admin#create_tenant'
-  get 'legacy-admin/tenants/new/actions' => 'admin#actions_index_new_tenant'
-  get 'legacy-admin/tenants/new/actions/create_tenant' => 'admin#describe_create_tenant'
-  post 'legacy-admin/tenants/new/actions/create_tenant' => 'admin#execute_create_tenant'
-  get 'legacy-admin/tenants/:subdomain/complete' => 'admin#complete_tenant_creation'
-  get 'legacy-admin/tenants/:subdomain' => 'admin#show_tenant'
-  get 'legacy-admin/sidekiq' => 'admin#sidekiq'
-  get 'legacy-admin/sidekiq/queues/:name' => 'admin#sidekiq_show_queue'
-  get 'legacy-admin/sidekiq/jobs/:jid' => 'admin#sidekiq_show_job'
-  post 'legacy-admin/sidekiq/jobs/:jid/retry' => 'admin#sidekiq_retry_job'
-  get 'legacy-admin/sidekiq/jobs/:jid/actions' => 'admin#actions_index_sidekiq_job'
-  get 'legacy-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#describe_retry_sidekiq_job'
-  post 'legacy-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'admin#execute_retry_sidekiq_job'
-  get 'legacy-admin/security' => 'admin#security_dashboard'
-  get 'legacy-admin/security/events/:line_number' => 'admin#security_event'
-
-  # Legacy admin user management
-  get 'legacy-admin/users' => 'admin#users'
-  get 'legacy-admin/users/:handle' => 'admin#show_user', as: 'legacy_admin_user'
-  get 'legacy-admin/users/:handle/actions' => 'admin#actions_index_user'
-  get 'legacy-admin/users/:handle/actions/suspend_user' => 'admin#describe_suspend_user'
-  post 'legacy-admin/users/:handle/actions/suspend_user' => 'admin#execute_suspend_user'
-  get 'legacy-admin/users/:handle/actions/unsuspend_user' => 'admin#describe_unsuspend_user'
-  post 'legacy-admin/users/:handle/actions/unsuspend_user' => 'admin#execute_unsuspend_user'
-
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
     post 'settings/profile' => 'users#update_profile', on: :member

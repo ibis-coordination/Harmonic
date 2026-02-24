@@ -1,11 +1,8 @@
-<% message ||= nil %>
-<% success_message ||= message %>
-<span data-controller="clipboard" title="Copy to clipboard">
-  <input type="text" value="<%= text %>" data-clipboard-target="source" style="display:none;"/>
-  <span class="text-only-button" data-action="click->clipboard#copy" data-clipboard-target="button">
-    <%= octicon 'copy' %> <%= message %>
-  </span>
-  <span class="text-only-button" data-clipboard-target="successMessage" style="display:none;">
-    <%= octicon 'check' %> <%= success_message %>
-  </span>
-</span>
+<%# Wrapper partial - delegates to CopyButtonComponent. %>
+<%# Existing callers can continue using: render "shared/copy_button", text: "..." %>
+<%# New code should use: render CopyButtonComponent.new(text: "...") %>
+<%= render CopyButtonComponent.new(
+  text: text,
+  message: local_assigns.fetch(:message, nil),
+  success_message: local_assigns.fetch(:success_message, nil),
+) %>

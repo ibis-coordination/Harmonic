@@ -49,7 +49,7 @@ ROTP::Base32::SHIFT = T.let(T.unsafe(nil), Integer)
 # source://rotp//lib/rotp/totp.rb#2
 ROTP::DEFAULT_INTERVAL = T.let(T.unsafe(nil), Integer)
 
-# source://rotp//lib/rotp/hotp.rb#5
+# source://rotp//lib/rotp/hotp.rb#2
 class ROTP::HOTP < ::ROTP::OTP
   # Generates the OTP for the given count
   #
@@ -62,8 +62,8 @@ class ROTP::HOTP < ::ROTP::OTP
   # This can then be encoded in a QR Code and used
   # to provision the Google Authenticator app
   #
-  # @param name [String] of the account
   # @param initial_count [Integer] starting counter value, defaults to 0
+  # @param name [String] of the account
   # @return [String] provisioning uri
   #
   # source://rotp//lib/rotp/hotp.rb#27
@@ -71,8 +71,8 @@ class ROTP::HOTP < ::ROTP::OTP
 
   # Verifies the OTP passed in against the current time OTP
   #
-  # @param otp [String/Integer] the OTP to check against
   # @param counter [Integer] the counter of the OTP
+  # @param otp [String/Integer] the OTP to check against
   # @param retries [Integer] number of counters to incrementally retry
   #
   # source://rotp//lib/rotp/hotp.rb#14
@@ -86,8 +86,8 @@ class ROTP::OTP
   # @option options
   # @option options
   # @option options
-  # @param secret [String] in the form of base32
   # @param options [Hash] a customizable set of options
+  # @param secret [String] in the form of base32
   # @return [OTP] a new instance of OTP
   #
   # source://rotp//lib/rotp/otp.rb#23
@@ -245,12 +245,12 @@ class ROTP::TOTP < ::ROTP::OTP
   # from `after` and earlier.  Returns time value of
   # matching OTP code for use in subsequent call.
   #
-  # @param otp [String] the one time password to verify
-  # @param drift_behind [Integer] how many seconds to look back
-  # @param drift_ahead [Integer] how many seconds to look ahead
   # @param after [Integer] prevent token reuse, last login timestamp
   # @param at [Time] time at which to generate and verify a particular
   #   otp. default Time.now
+  # @param drift_ahead [Integer] how many seconds to look ahead
+  # @param drift_behind [Integer] how many seconds to look back
+  # @param otp [String] the one time password to verify
   # @return [Integer, nil] the last successful timestamp
   #   interval
   #
