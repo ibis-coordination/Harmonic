@@ -5,7 +5,7 @@
       <img src="<%= u.image_url %>"/> <%= u.display_name %>
     </a>
     <% if u.ai_agent? %>
-      <span class="role-badge" title="ai_agent of <%= u.parent&.display_name %>">ai_agent</span>
+      <span class="role-badge" title="AI agent of <%= u.parent&.display_name %>">AI agent</span>
     <% end %>
     <% if u.collective_member.is_admin? %>
       <span class="role-badge">admin</span>

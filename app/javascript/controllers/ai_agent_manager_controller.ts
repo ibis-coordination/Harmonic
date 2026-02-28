@@ -30,7 +30,7 @@ export default class AiAgentManagerController extends Controller {
     })
       .then((response) => {
         if (response.ok) return response.json()
-        throw new Error("Failed to add ai_agent")
+        throw new Error("Failed to add AI agent")
       })
       .then((data: { ai_agent_id: string; ai_agent_name: string; ai_agent_path: string; parent_name: string; parent_path: string }) => {
         // Add row to the table
@@ -39,8 +39,8 @@ export default class AiAgentManagerController extends Controller {
         this.removeOptionFromSelect(ai_agentId)
       })
       .catch((error) => {
-        console.error("Error adding ai_agent:", error)
-        alert("Failed to add ai_agent")
+        console.error("Error adding AI agent:", error)
+        alert("Failed to add AI agent")
       })
   }
 
@@ -49,7 +49,7 @@ export default class AiAgentManagerController extends Controller {
 
     const button = event.currentTarget as HTMLButtonElement
     const ai_agentId = button.dataset.ai_agentId
-    const ai_agentName = button.dataset.ai_agentName || "this ai_agent"
+    const ai_agentName = button.dataset.ai_agentName || "this AI agent"
     const url = button.dataset.removeUrl
 
     if (!ai_agentId || !url) return
@@ -65,7 +65,7 @@ export default class AiAgentManagerController extends Controller {
     })
       .then((response) => {
         if (response.ok) return response.json()
-        throw new Error("Failed to remove ai_agent")
+        throw new Error("Failed to remove AI agent")
       })
       .then((data: { ai_agent_id: string; ai_agent_name: string; can_readd: boolean }) => {
         // Remove row from table
@@ -76,8 +76,8 @@ export default class AiAgentManagerController extends Controller {
         }
       })
       .catch((error) => {
-        console.error("Error removing ai_agent:", error)
-        alert("Failed to remove ai_agent")
+        console.error("Error removing AI agent:", error)
+        alert("Failed to remove AI agent")
       })
   }
 
@@ -122,7 +122,7 @@ export default class AiAgentManagerController extends Controller {
 
       const emptyP = document.createElement("p")
       emptyP.className = "empty-message"
-      emptyP.innerHTML = "<em>No ai_agents in this collective.</em>"
+      emptyP.innerHTML = "<em>No AI agents in this collective.</em>"
       this.listTarget.appendChild(emptyP)
     }
   }

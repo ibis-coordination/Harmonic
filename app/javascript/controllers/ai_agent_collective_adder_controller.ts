@@ -55,7 +55,7 @@ export default class AiAgentCollectiveAdderController extends Controller {
 
     if (!collectiveId || !url) return
 
-    if (!confirm(`Remove this ai_agent from ${collectiveName}?`)) return
+    if (!confirm(`Remove this AI agent from ${collectiveName}?`)) return
 
     fetchWithCsrf(url, {
       method: "DELETE",

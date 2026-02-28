@@ -36,7 +36,7 @@ describe("AiAgentManagerController", () => {
         </div>
         <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="/collective/settings/add_ai_agent">
           <select data-ai_agent-manager-target="select">
-            <option value="">Select a ai_agent...</option>
+            <option value="">Select an AI agent...</option>
             <option value="2">AiAgent Two</option>
           </select>
           <button type="submit">Add</button>
