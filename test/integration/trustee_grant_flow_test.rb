@@ -20,7 +20,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(@bob)
     # Create main collective (required for sign_in_as to work)
     @tenant.create_main_collective!(created_by: @alice)
-    @collective = create_collective(tenant: @tenant, created_by: @alice, handle: "trustee-grant-studio-#{SecureRandom.hex(4)}")
+    @collective = create_collective(tenant: @tenant, created_by: @alice, handle: "trustee-grant-collective-#{SecureRandom.hex(4)}")
     @collective.add_user!(@alice)
     @collective.add_user!(@bob)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -194,13 +194,13 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
   end
 
   # =========================================================================
-  # STUDIO SCOPING
+  # COLLECTIVE SCOPING
   # =========================================================================
 
-  test "studio scope enforcement - include mode" do
-    other_studio = create_collective(tenant: @tenant, created_by: @alice, handle: "other-studio-#{SecureRandom.hex(4)}")
-    other_studio.add_user!(@alice)
-    other_studio.add_user!(@bob)
+  test "collective scope enforcement - include mode" do
+    other_collective = create_collective(tenant: @tenant, created_by: @alice, handle: "other-collective-#{SecureRandom.hex(4)}")
+    other_collective.add_user!(@alice)
+    other_collective.add_user!(@bob)
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
@@ -211,26 +211,26 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     )
     permission.accept!
 
-    assert permission.allows_studio?(@collective)
-    assert_not permission.allows_studio?(other_studio)
+    assert permission.allows_collective?(@collective)
+    assert_not permission.allows_collective?(other_collective)
   end
 
-  test "studio scope enforcement - exclude mode" do
-    excluded_studio = create_collective(tenant: @tenant, created_by: @alice, handle: "excluded-studio-#{SecureRandom.hex(4)}")
-    excluded_studio.add_user!(@alice)
-    excluded_studio.add_user!(@bob)
+  test "collective scope enforcement - exclude mode" do
+    excluded_collective = create_collective(tenant: @tenant, created_by: @alice, handle: "excluded-collective-#{SecureRandom.hex(4)}")
+    excluded_collective.add_user!(@alice)
+    excluded_collective.add_user!(@bob)
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_note" => true },
-      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
+      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_collective.id] }
     )
     permission.accept!
 
-    assert permission.allows_studio?(@collective)
-    assert_not permission.allows_studio?(excluded_studio)
+    assert permission.allows_collective?(@collective)
+    assert_not permission.allows_collective?(excluded_collective)
   end
 
   # =========================================================================
@@ -359,17 +359,17 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
   # =========================================================================
   # HTTP ACCESS VALIDATION DURING USER REPRESENTATION SESSIONS
-  # These tests verify that the controller properly validates access to studios
+  # These tests verify that the controller properly validates access to collectives
   # during user representation sessions, checking both:
-  # 1. The granting user's membership in the studio
-  # 2. The grant's studio scope configuration
+  # 1. The granting user's membership in the collective
+  # 2. The grant's collective scope configuration
   # =========================================================================
 
-  test "user representation session denies access to studio where granting user is not a member" do
-    # Create a studio that only Bob is a member of (not Alice)
-    bobs_studio = create_collective(tenant: @tenant, created_by: @bob, handle: "bobs-studio-#{SecureRandom.hex(4)}")
-    bobs_studio.add_user!(@bob)
-    # Alice is NOT a member of bobs_studio
+  test "user representation session denies access to collective where granting user is not a member" do
+    # Create a collective that only Bob is a member of (not Alice)
+    bobs_collective = create_collective(tenant: @tenant, created_by: @bob, handle: "bobs-collective-#{SecureRandom.hex(4)}")
+    bobs_collective.add_user!(@bob)
+    # Alice is NOT a member of bobs_collective
 
     # Alice grants Bob permission to act on her behalf
     grant = TrusteeGrant.create!(
@@ -377,7 +377,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "all" } # Grant allows all studios
+      studio_scope: { "mode" => "all" } # Grant allows all collectives
     )
     grant.accept!
 
@@ -391,40 +391,40 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Verify representation session started (should redirect to /representing)
     assert_redirected_to "/representing"
 
-    # Now Bob (as trustee) tries to access bobs_studio
+    # Now Bob (as trustee) tries to access bobs_collective
     # Since Alice is not a member, this should be denied
-    get bobs_studio.path
+    get bobs_collective.path
 
     # This test documents expected behavior:
-    # Access should be denied because Alice (granting_user) is not a member of bobs_studio.
-    # The trustee shouldn't be able to access studios the granting user can't access.
+    # Access should be denied because Alice (granting_user) is not a member of bobs_collective.
+    # The trustee shouldn't be able to access collectives the granting user can't access.
     #
-    # If response is 200 and shows studio content, the validation is broken.
+    # If response is 200 and shows collective content, the validation is broken.
     # Expected: either redirect to /representing, 403, or redirect to join page.
-    assert response.status != 200 || !response.body.include?(bobs_studio.name),
-           "User representation session should not allow access to studios where granting user is not a member. " \
+    assert response.status != 200 || !response.body.include?(bobs_collective.name),
+           "User representation session should not allow access to collectives where granting user is not a member. " \
            "Got status #{response.status}"
   end
 
-  test "user representation session denies access to studio excluded by grant scope" do
-    # Create another studio that both Alice and Bob are members of
-    excluded_studio = create_collective(tenant: @tenant, created_by: @alice, handle: "excluded-studio-#{SecureRandom.hex(4)}")
-    excluded_studio.add_user!(@alice)
-    excluded_studio.add_user!(@bob)
+  test "user representation session denies access to collective excluded by grant scope" do
+    # Create another collective that both Alice and Bob are members of
+    excluded_collective = create_collective(tenant: @tenant, created_by: @alice, handle: "excluded-collective-#{SecureRandom.hex(4)}")
+    excluded_collective.add_user!(@alice)
+    excluded_collective.add_user!(@bob)
 
-    # Alice grants Bob permission, but excludes this studio
+    # Alice grants Bob permission, but excludes this collective
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_studio.id] }
+      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_collective.id] }
     )
     grant.accept!
 
     # Verify grant scope configuration
-    assert grant.allows_studio?(@collective)
-    assert_not grant.allows_studio?(excluded_studio)
+    assert grant.allows_collective?(@collective)
+    assert_not grant.allows_collective?(excluded_collective)
 
     # Sign in as Bob
     sign_in_as(@bob, tenant: @tenant)
@@ -436,17 +436,17 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Verify representation session started
     assert_redirected_to "/representing"
 
-    # Now Bob (as trustee) tries to access the excluded studio
-    # Since the grant excludes this studio, access should be denied
-    get excluded_studio.path
+    # Now Bob (as trustee) tries to access the excluded collective
+    # Since the grant excludes this collective, access should be denied
+    get excluded_collective.path
 
-    # Expected behavior: Should deny access because the grant's studio_scope excludes this studio
-    assert response.status != 200 || !response.body.include?(excluded_studio.name),
-           "User representation session should not allow access to studios excluded by grant scope. " \
+    # Expected behavior: Should deny access because the grant's studio_scope excludes this collective
+    assert response.status != 200 || !response.body.include?(excluded_collective.name),
+           "User representation session should not allow access to collectives excluded by grant scope. " \
            "Got status #{response.status}"
   end
 
-  test "user representation session allows access to studio in grant scope where granting user is member" do
+  test "user representation session allows access to collective in grant scope where granting user is member" do
     # This is the positive case - access should work
     grant = TrusteeGrant.create!(
       tenant: @tenant,
@@ -459,7 +459,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     # Alice is already a member of @collective (from setup)
     assert @collective.collective_members.exists?(user: @alice)
-    assert grant.allows_studio?(@collective)
+    assert grant.allows_collective?(@collective)
 
     # Sign in as Bob
     sign_in_as(@bob, tenant: @tenant)
@@ -474,12 +474,12 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Follow the redirect to /representing first
     follow_redirect!
 
-    # Now Bob (as trustee) accesses the allowed studio
+    # Now Bob (as trustee) accesses the allowed collective
     get @collective.path
 
-    # Access should be allowed - we should see the studio content, not a redirect to join
+    # Access should be allowed - we should see the collective content, not a redirect to join
     assert_response :success,
-                    "User representation session should allow access to studios in grant scope where granting user is a member. " \
+                    "User representation session should allow access to collectives in grant scope where granting user is a member. " \
                     "Got status #{response.status}"
   end
 end

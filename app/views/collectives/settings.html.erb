@@ -1,0 +1,217 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, @current_tenant.path],
+  [@current_collective.name, @current_collective.path],
+  'Settings'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'gear', height: 14, class: 'pulse-resource-icon' %>
+        Settings
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Collective Settings</h1>
+  </header>
+
+  <div class="pulse-settings-form">
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Collective Image</h2>
+      <%= render 'shared/profile_image_upload', resource: @current_collective, size: 83 %>
+    </section>
+
+    <%= form_with(url: "#{@current_collective.path}/settings", id: "collective-settings-form", class: "pulse-form", data: { controller: "form-tracker", action: "change->form-tracker#trackChange input->form-tracker#trackChange" }) do |form| %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Collective Name</h2>
+        <div class="pulse-form-group">
+          <%= form.text_field :name, placeholder: 'Collective Name', value: @current_collective.name, class: 'pulse-form-input' %>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Collective Description</h2>
+        <div class="pulse-form-group">
+          <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_collective.description, class: 'pulse-form-textarea', rows: 4 %>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Time Zone</h2>
+        <p class="pulse-section-description">
+          The collective time zone determines when cycles begin and end.
+        </p>
+        <div class="pulse-form-group">
+          <%= form.time_zone_select :timezone, ActiveSupport::TimeZone.all, { default: @current_collective.timezone.name }, class: 'pulse-form-select' %>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Tempo</h2>
+        <p class="pulse-section-description">
+          How frequently should collective members check in (approximately)?
+          This determines the primary cycle duration.
+        </p>
+        <div class="pulse-form-group">
+          <%= form.select :tempo, [['Daily', 'daily'], ['Weekly', 'weekly'], ['Monthly', 'monthly']], { selected: @current_collective.tempo }, class: 'pulse-form-select' %>
+        </div>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Synchronization Mode</h2>
+        <p class="pulse-section-description">
+          Which metaphor best describes how this collective is organized?
+        </p>
+        <fieldset class="pulse-radio-group">
+          <label class="pulse-radio-label">
+            <%= form.radio_button :synchronization_mode, 'improv', checked: @current_collective.improv?, class: 'pulse-radio-input' %>
+            <span><strong>Improv</strong> (no formal leadership roles)</span>
+          </label>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :synchronization_mode, 'orchestra', checked: @current_collective.orchestra?, class: 'pulse-radio-input' %>
+            <span><strong>Orchestra</strong> (has formal leadership roles)</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Invitations</h2>
+        <fieldset class="pulse-radio-group">
+          <legend class="pulse-fieldset-legend">Who can invite new members?</legend>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :invitations, 'all_members', checked: @current_collective.all_members_can_invite?, class: 'pulse-radio-input' %>
+            <span>All members can invite</span>
+          </label>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :invitations, 'only_admins', checked: !@current_collective.all_members_can_invite?, class: 'pulse-radio-input' %>
+            <span>Only admins can invite</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Representation</h2>
+        <fieldset class="pulse-radio-group">
+          <legend class="pulse-fieldset-legend">Who can act as a representative of <%= @current_collective.name %> within other collectives?</legend>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :representation, 'any_member', checked: @current_collective.any_member_can_represent?, class: 'pulse-radio-input' %>
+            <span>Any member can represent the collective</span>
+          </label>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :representation, 'only_representatives', checked: !@current_collective.any_member_can_represent?, class: 'pulse-radio-input' %>
+            <span>Only designated representatives can represent the collective</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) } %>
+      <% if available_flags.any? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Features Enabled</h2>
+          <% available_flags.each do |flag_name| %>
+            <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
+            <% collective_enabled_locally = @current_collective.feature_flag_enabled_locally?(flag_name) %>
+
+            <div class="pulse-feature-flag-item">
+              <strong><%= metadata['name'] %></strong>
+              <label class="pulse-checkbox-label">
+                <%= form.check_box "feature_#{flag_name}", checked: collective_enabled_locally, id: "feature_#{flag_name}", class: 'pulse-checkbox-input' %>
+                <span><%= metadata['description'] %></span>
+              </label>
+              <% if flag_name == 'file_attachments' && collective_enabled_locally %>
+                <p class="pulse-feature-usage">
+                  Current usage:
+                  <%= @current_collective.file_storage_usage_in_human_size %> of <%= @current_collective.file_storage_limit_in_human_size %>
+                  <% if ENV['SAAS_MODE'] == 'true' %>
+                    <%= link_to 'Purchase more space', '/billing', class: 'pulse-action-btn-small' %>
+                  <% else %>
+                    <br/>
+                    Increase limit: <%= form.number_field :file_storage_limit, value: @current_collective.file_storage_limit / 1.megabyte, class: 'pulse-form-input pulse-form-input-small' %> MB
+                  <% end %>
+                </p>
+              <% end %>
+            </div>
+          <% end %>
+        </section>
+      <% end %>
+
+      <div class="pulse-form-actions pulse-form-actions-sticky">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-disabled" disabled data-form-tracker-target="submit">Save Settings</button>
+      </div>
+    <% end %>
+
+    <% if @current_collective.feature_enabled?('api') %>
+      <section class="pulse-settings-section" data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="<%= @current_collective.path %>/settings/remove_ai_agent">
+        <h2 class="pulse-section-title">AI Agents in this Collective</h2>
+        <p class="pulse-section-description">
+          AI Agents are virtual identities managed by their parent user.
+          Actions taken by ai_agents are the responsibility of their parent.
+        </p>
+        <div data-ai_agent-manager-target="list">
+          <table class="pulse-table"<%= @collective_ai_agents.empty? ? ' style="display:none;"'.html_safe : '' %>>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Managed by</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @collective_ai_agents.each do |ai_agent| %>
+                <tr data-ai_agent-id="<%= ai_agent.id %>">
+                  <td><%= link_to ai_agent.display_name, ai_agent.path %></td>
+                  <td>
+                    <% if ai_agent.parent %>
+                      <%= link_to ai_agent.parent.display_name, ai_agent.parent.path %>
+                    <% else %>
+                      <em>Unknown</em>
+                    <% end %>
+                  </td>
+                  <td>
+                    <button type="button" class="pulse-action-btn-danger"
+                            data-action="ai_agent-manager#remove"
+                            data-ai_agent-id="<%= ai_agent.id %>"
+                            data-ai_agent-name="<%= ai_agent.display_name %>"
+                            data-remove-url="<%= @current_collective.path %>/settings/remove_ai_agent">
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+          <% if @collective_ai_agents.empty? %>
+            <p class="pulse-empty-message"><em>No ai_agents in this collective.</em></p>
+          <% end %>
+        </div>
+
+        <% if @addable_ai_agents.any? %>
+          <h3 class="pulse-subsection-title">Add your ai_agents to this collective</h3>
+          <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="<%= @current_collective.path %>/settings/add_ai_agent" method="post" class="pulse-inline-form">
+            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+            <select name="ai_agent_id" data-ai_agent-manager-target="select" class="pulse-form-select">
+              <option value="">Select a ai_agent...</option>
+              <% @addable_ai_agents.each do |s| %>
+                <option value="<%= s.id %>"><%= s.display_name %></option>
+              <% end %>
+            </select>
+            <button type="submit" class="pulse-action-btn">Add to Collective</button>
+          </form>
+        <% end %>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title"><%= octicon 'zap', height: 16 %> Automations</h2>
+        <p class="pulse-section-description">
+          Automations run actions (webhooks, internal actions) in response to events or on a schedule.
+          <% if @total_automations_count > 0 %>
+            <br><%= @enabled_automations_count %> automation<%= @enabled_automations_count == 1 ? '' : 's' %> currently enabled.
+          <% end %>
+        </p>
+        <a href="<%= @current_collective.path %>/settings/automations" class="pulse-action-btn">
+          <%= octicon 'gear', height: 14 %> Manage Automations
+        </a>
+      </section>
+    <% end %>
+  </div>
+</article>

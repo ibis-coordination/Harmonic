@@ -4,7 +4,7 @@ require "test_helper"
 
 class SearchIndexTest < ActiveSupport::TestCase
   setup do
-    @tenant, @collective, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_collective_user
   end
 
   test "creates search index record with valid attributes" do

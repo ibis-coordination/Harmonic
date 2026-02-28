@@ -1,9 +1,9 @@
-# <%= @current_collective.collective_type.titleize %>: <%= @current_collective.name %>
+# Collective: <%= @current_collective.name %>
 
 <% if !@current_collective.is_main_collective? && @current_user && @current_heartbeat.nil? -%>
 ## Heartbeat Required
 
-You must send a heartbeat to access this <%= @current_collective.collective_type %> for the current cycle.
+You must send a heartbeat to access this collective for the current cycle.
 <% elsif @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil? -%>
 ## Heartbeat Required
 

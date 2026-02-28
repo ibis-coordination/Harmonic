@@ -2,7 +2,7 @@
 base_path = "/u/#{@target_user.handle}/settings/trustee-grants/#{@grant.truncated_id}"
 is_granting = @grant.granting_user == @target_user
 is_trustee = @grant.trustee_user == @target_user
-scope = @grant.studio_scope || { "mode" => "all" }
+scope = @grant.collective_scope || { "mode" => "all" }
 -%>
 # Trustee Grant: <%= @grant.display_name %>
 
@@ -15,7 +15,7 @@ scope = @grant.studio_scope || { "mode" => "all" }
 | Granting User | [<%= @grant.granting_user.display_name || @grant.granting_user.handle %>](/u/<%= @grant.granting_user.handle %>)<%= is_granting ? " (You)" : "" %> |
 | Trustee | [<%= @grant.trustee_user.display_name || @grant.trustee_user.handle %>](/u/<%= @grant.trustee_user.handle %>)<%= is_trustee ? " (You)" : "" %> |
 | Capabilities | <%= @grant.permissions&.select { |_k, v| v }&.keys&.join(", ") || "None" %> |
-| Studio Scope | <%= scope["mode"] == "all" ? "All studios" : scope["mode"] == "include" ? "Only specific studios (#{scope["studio_ids"]&.count || 0})" : "All except specific studios (#{scope["studio_ids"]&.count || 0})" %> |
+| Collective Scope | <%= scope["mode"] == "all" ? "All collectives" : scope["mode"] == "include" ? "Only specific collectives (#{scope["collective_ids"]&.count || 0})" : "All except specific collectives (#{scope["collective_ids"]&.count || 0})" %> |
 | Created | <%= @grant.created_at.strftime("%Y-%m-%d %H:%M") %> |
 <% if @grant.accepted_at -%>
 | Accepted | <%= @grant.accepted_at.strftime("%Y-%m-%d %H:%M") %> |

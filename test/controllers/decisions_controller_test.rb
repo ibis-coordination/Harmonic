@@ -30,13 +30,13 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
   test "authenticated user can access new decision form" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/decide"
+    get "/collectives/#{@collective.handle}/decide"
     assert_response :success
     assert_select "form"
   end
 
   test "unauthenticated user is redirected from new decision form" do
-    get "/studios/#{@collective.handle}/decide"
+    get "/collectives/#{@collective.handle}/decide"
     assert_redirected_to "/login"
   end
 
@@ -47,7 +47,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     initial_count = Decision.unscoped.where(collective: @collective).count
 
-    post "/studios/#{@collective.handle}/decide", params: {
+    post "/collectives/#{@collective.handle}/decide", params: {
       decision: {
         question: "Should we do this?",
         description: "Description of the decision",
@@ -70,7 +70,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     deadline_time = (Time.current + 1.week).strftime('%Y-%m-%dT%H:%M')
 
-    post "/studios/#{@collective.handle}/decide", params: {
+    post "/collectives/#{@collective.handle}/decide", params: {
       decision: {
         question: "Deadline decision test?",
         description: "Testing deadline",
@@ -90,7 +90,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     # The controller may or may not validate empty questions depending on model validations
     # This test verifies the expected behavior
-    post "/studios/#{@collective.handle}/decide", params: {
+    post "/collectives/#{@collective.handle}/decide", params: {
       decision: {
         question: "",
         description: "Description"
@@ -106,13 +106,13 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
   test "authenticated user can view decision" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/d/#{@decision.truncated_id}"
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
     assert_response :success
     assert_match @decision.question, response.body
   end
 
   test "unauthenticated user is redirected to login from decision" do
-    get "/studios/#{@collective.handle}/d/#{@decision.truncated_id}"
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
     assert_response :redirect
     assert_match %r{/login}, response.location
   end
@@ -122,7 +122,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     # The app may raise RecordNotFound or render 404
     begin
-      get "/studios/#{@collective.handle}/d/nonexistent123"
+      get "/collectives/#{@collective.handle}/d/nonexistent123"
       assert_response :not_found
     rescue ActiveRecord::RecordNotFound
       # This is also acceptable behavior
@@ -134,7 +134,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
   test "creator can access decision settings" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/d/#{@decision.truncated_id}/settings"
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings"
     assert_response :success
   end
 
@@ -149,16 +149,16 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     @collective.add_user!(other_user)
 
     sign_in_as(other_user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/d/#{@decision.truncated_id}/settings"
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings"
     assert_response :forbidden
   end
 
   test "creator can update decision settings" do
     sign_in_as(@user, tenant: @tenant)
 
-    post "/studios/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
       params: { decision: { question: "Updated Question?" } },
-      headers: { 'Referer' => "/studios/#{@collective.handle}/d/#{@decision.truncated_id}" }
+      headers: { 'Referer' => "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}" }
 
     @decision.reload
     assert_equal "Updated Question?", @decision.question
@@ -172,7 +172,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     initial_count = Decision.unscoped.where(collective: @collective).count
 
-    post "/studios/#{@collective.handle}/d/#{@decision.truncated_id}/duplicate"
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/duplicate"
 
     final_count = Decision.unscoped.where(collective: @collective).count
     assert_equal initial_count + 1, final_count
@@ -194,7 +194,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     assert_difference "Option.count", 1 do
-      post "/studios/#{@collective.handle}/d/#{@decision.truncated_id}/options.html",
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/options.html",
         params: { title: "Option A" }
     end
 
@@ -220,7 +220,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    post "/studios/#{@collective.handle}/d/#{@decision.truncated_id}/actions/vote",
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/vote",
       params: { votes: [{ option_title: option.title, accept: true, prefer: false }] }
 
     assert_response :success

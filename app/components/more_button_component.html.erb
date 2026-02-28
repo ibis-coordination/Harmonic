@@ -2,7 +2,7 @@
   <div
     data-more-button-target="plus"
     data-action="click->more-button#togglePlusMenu"
-    style="display:<%= @studio.is_scene? ? 'none' : 'inline-block' %>;float:none;width:36px;text-align:center;margin-right:12px;background-color:var(--color-fg-default);color:var(--color-canvas-default);border-radius:3px;padding:3px;"
+    style="display:inline-block;float:none;width:36px;text-align:center;margin-right:12px;background-color:var(--color-fg-default);color:var(--color-canvas-default);border-radius:3px;padding:3px;"
     >
     <%= helpers.octicon 'plus' %><%= helpers.octicon 'triangle-down' %>
     </div>
@@ -10,15 +10,15 @@
     <ul>
       <li>
         <i class="note-icon" style="height:1.5em;float:left;margin-right:12px"></i>
-        <a href="<%= @studio.path %>/note">New Note</a>
+        <a href="<%= @collective.path %>/note">New Note</a>
       </li>
       <li>
         <i class="decision-icon" style="height:1.5em;float:left;margin-right:12px"></i>
-        <a href="<%= @studio.path %>/decide">New Decision</a>
+        <a href="<%= @collective.path %>/decide">New Decision</a>
       </li>
       <li>
         <i class="commitment-icon" style="height:1.5em;float:left;margin-right:12px"></i>
-        <a href="<%= @studio.path %>/commit">New Commitment</a>
+        <a href="<%= @collective.path %>/commit">New Commitment</a>
       </li>
     </ul>
   </div>

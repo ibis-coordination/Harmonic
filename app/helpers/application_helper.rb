@@ -161,7 +161,7 @@ module ApplicationHelper
   end
 
   def search_collective_header(collective)
-    type_label = collective.is_scene? ? "Scene" : "Studio"
+    type_label = "Collective"
     initial = collective.name.to_s.first&.upcase || "?"
 
     avatar = content_tag(:span, class: "pulse-group-avatar") do
@@ -207,7 +207,7 @@ module ApplicationHelper
   def search_group_header_markdown(group_key)
     case group_key
     when Collective
-      type_label = group_key.is_scene? ? "Scene" : "Studio"
+      type_label = "Collective"
       "#{type_label}: [#{group_key.name}](#{group_key.path})"
     when User
       handle_text = group_key.handle.present? ? " (@#{group_key.handle})" : ""

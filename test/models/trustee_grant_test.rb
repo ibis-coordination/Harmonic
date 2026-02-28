@@ -7,7 +7,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     @trustee_user = create_user(email: "trusted_#{SecureRandom.hex(4)}@example.com", name: "Bob")
     @tenant.add_user!(@granting_user)
     @tenant.add_user!(@trustee_user)
-    @collective = create_collective(tenant: @tenant, created_by: @granting_user, handle: "trustee-perm-studio-#{SecureRandom.hex(4)}")
+    @collective = create_collective(tenant: @tenant, created_by: @granting_user, handle: "trustee-perm-collective-#{SecureRandom.hex(4)}")
     @collective.add_user!(@granting_user)
     @collective.add_user!(@trustee_user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -300,10 +300,10 @@ class TrusteeGrantTest < ActiveSupport::TestCase
   end
 
   # =========================================================================
-  # STUDIO SCOPING
+  # COLLECTIVE SCOPING
   # =========================================================================
 
-  test "allows_studio? returns true when mode is 'all'" do
+  test "allows_collective? returns true when mode is 'all'" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
@@ -312,10 +312,10 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       studio_scope: { "mode" => "all" },
     )
 
-    assert permission.allows_studio?(@collective)
+    assert permission.allows_collective?(@collective)
   end
 
-  test "allows_studio? returns true when studio is in include list" do
+  test "allows_collective? returns true when collective is in include list" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
@@ -324,25 +324,25 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       studio_scope: { "mode" => "include", "studio_ids" => [@collective.id] },
     )
 
-    assert permission.allows_studio?(@collective)
+    assert permission.allows_collective?(@collective)
   end
 
-  test "allows_studio? returns false when studio is not in include list" do
-    other_studio = create_collective(tenant: @tenant, created_by: @granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
+  test "allows_collective? returns false when collective is not in include list" do
+    other_collective = create_collective(tenant: @tenant, created_by: @granting_user, handle: "other-collective-#{SecureRandom.hex(4)}")
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "include", "studio_ids" => [other_studio.id] },
+      studio_scope: { "mode" => "include", "studio_ids" => [other_collective.id] },
     )
 
-    assert_not permission.allows_studio?(@collective)
-    assert permission.allows_studio?(other_studio)
+    assert_not permission.allows_collective?(@collective)
+    assert permission.allows_collective?(other_collective)
   end
 
-  test "allows_studio? returns false when studio is in exclude list" do
+  test "allows_collective? returns false when collective is in exclude list" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
@@ -351,25 +351,25 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       studio_scope: { "mode" => "exclude", "studio_ids" => [@collective.id] },
     )
 
-    assert_not permission.allows_studio?(@collective)
+    assert_not permission.allows_collective?(@collective)
   end
 
-  test "allows_studio? returns true when studio is not in exclude list" do
-    other_studio = create_collective(tenant: @tenant, created_by: @granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
+  test "allows_collective? returns true when collective is not in exclude list" do
+    other_collective = create_collective(tenant: @tenant, created_by: @granting_user, handle: "other-collective-#{SecureRandom.hex(4)}")
 
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "exclude", "studio_ids" => [other_studio.id] },
+      studio_scope: { "mode" => "exclude", "studio_ids" => [other_collective.id] },
     )
 
-    assert permission.allows_studio?(@collective)
-    assert_not permission.allows_studio?(other_studio)
+    assert permission.allows_collective?(@collective)
+    assert_not permission.allows_collective?(other_collective)
   end
 
-  test "allows_studio? defaults to mode 'all' when studio_scope is nil" do
+  test "allows_collective? defaults to mode 'all' when studio_scope is nil" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
@@ -378,7 +378,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       studio_scope: nil,
     )
 
-    assert permission.allows_studio?(@collective)
+    assert permission.allows_collective?(@collective)
   end
 
   # =========================================================================

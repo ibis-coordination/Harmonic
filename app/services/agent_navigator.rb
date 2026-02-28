@@ -7,7 +7,7 @@
 # to create an autonomous agent that can complete tasks in the app.
 #
 # @example Run an agent to create a note
-#   agent = AgentNavigator.new(user: ai_agent, tenant: tenant, collective: studio)
+#   agent = AgentNavigator.new(user: ai_agent, tenant: tenant, collective: collective)
 #   result = agent.run(task: "Create a note saying hello to the team")
 #   result[:steps].each { |step| puts step[:type] }
 #
@@ -463,11 +463,11 @@ class AgentNavigator
   def system_prompt
     starting_context = if @starting_collective
                          <<~CONTEXT
-                           **Starting context**: You started in the "#{@starting_collective.name}" studio (handle: #{@starting_collective.handle}).
-                           You can navigate to other studios if needed for your task.
+                           **Starting context**: You started in the "#{@starting_collective.name}" collective (handle: #{@starting_collective.handle}).
+                           You can navigate to other collectives if needed for your task.
                          CONTEXT
                        else
-                         "**Starting context**: You have access to all studios the user is a member of."
+                         "**Starting context**: You have access to all collectives the user is a member of."
                        end
 
     <<~PROMPT
@@ -488,15 +488,14 @@ class AgentNavigator
 
       ## Harmonic Concepts
 
-      - **Scenes** — Public collaboration spaces → /scenes/{handle}
-      - **Studios** — Private collaboration spaces → /studios/{handle}
+      - **Collectives** — Private collaboration spaces → /collectives/{handle}
       - **Notes** — Posts/content → create at …/note, view at …/n/{id}
       - **Decisions** — Group choices via acceptance voting (filter acceptable options, then select preferred)
       - **Commitments** — Conditional action pledges that activate when critical mass is reached
       - **Cycles** — Repeating time windows (days, weeks, months)
-      - **Heartbeats** — Presence signals required to access studios each cycle
+      - **Heartbeats** — Presence signals required to access collectives each cycle
 
-      Useful paths: / (home), /whoami (your context), /studios/{handle} (studio home)
+      Useful paths: / (home), /whoami (your context), /collectives/{handle} (collective home)
 
       ## Response Format
 

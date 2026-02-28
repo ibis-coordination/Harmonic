@@ -108,11 +108,17 @@ class TrusteeGrant < ApplicationRecord
   end
 
   # =========================================================================
-  # STUDIO SCOPING METHODS
+  # COLLECTIVE SCOPING METHODS
   # =========================================================================
 
+  # Alias for the studio_scope DB column (to be renamed in a future migration)
+  def collective_scope
+    studio_scope
+  end
+
   sig { params(collective: Collective).returns(T::Boolean) }
-  def allows_studio?(collective)
+  def allows_collective?(collective)
+    # Note: reads from studio_scope DB column (to be renamed in a future migration)
     scope = studio_scope || { "mode" => "all" }
     case scope["mode"]
     when "all"

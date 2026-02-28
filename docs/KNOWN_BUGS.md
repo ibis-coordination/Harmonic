@@ -50,61 +50,61 @@ This file tracks known bugs discovered during testing. Each bug includes a descr
 
 ---
 
-### 4. StudiosController typo: references 'note' instead of 'studio'
+### 4. CollectivesController typo: references 'note' instead of 'collective'
 
-**Location:** `app/controllers/api/v1/studios_controller.rb`, line 28
+**Location:** `app/controllers/api/v1/collectives_controller.rb`, line 28
 
-**Description:** In the `update` method, there's a check `return render json: { error: 'Studio not found' }, status: 404 unless note` - should be `unless studio`.
+**Description:** In the `update` method, there's a check `return render json: { error: 'Collective not found' }, status: 404 unless note` - should be `unless collective`.
 
 **Affected endpoints:**
-- `PUT /api/v1/studios/:id`
+- `PUT /api/v1/collectives/:id`
 
 **Test references:**
-- `test/integration/api_studios_test.rb`: `test_update_updates_a_studio`
-- `test/integration/api_studios_test.rb`: `test_update_can_change_tempo`
-- `test/integration/api_studios_test.rb`: `test_update_handle_without_force_update_returns_error`
+- `test/integration/api_collectives_test.rb`: `test_update_updates_a_collective`
+- `test/integration/api_collectives_test.rb`: `test_update_can_change_tempo`
+- `test/integration/api_collectives_test.rb`: `test_update_handle_without_force_update_returns_error`
 
 ---
 
-### 5. StudiosController destroy typo: references 'studio' column
+### 5. CollectivesController destroy typo: references 'studio' column
 
-**Location:** `app/controllers/api/v1/studios_controller.rb`, line 52
+**Location:** `app/controllers/api/v1/collectives_controller.rb`, line 52
 
 **Description:** The destroy method has `find_by(studio: params[:id])` which should be `find_by(handle: params[:id])`.
 
 **Affected endpoints:**
-- `DELETE /api/v1/studios/:id`
+- `DELETE /api/v1/collectives/:id`
 
 **Test references:**
-- `test/integration/api_studios_test.rb`: `test_delete_returns_404_for_non-existent_studio`
+- `test/integration/api_collectives_test.rb`: `test_delete_returns_404_for_non-existent_collective`
 
 ---
 
-### 6. Studio#delete! not implemented
+### 6. Collective#delete! not implemented
 
-**Location:** `app/models/studio.rb`, line ~390
+**Location:** `app/models/collective.rb`, line ~390
 
 **Description:** The `delete!` method raises `RuntimeError: Delete not implemented`.
 
 **Affected endpoints:**
-- `DELETE /api/v1/studios/:id`
+- `DELETE /api/v1/collectives/:id`
 
 **Test references:**
-- `test/integration/api_studios_test.rb`: `test_delete_deletes_a_studio`
+- `test/integration/api_collectives_test.rb`: `test_delete_deletes_a_collective`
 
 ---
 
-### 7. ApiToken scope validation doesn't recognize 'studios' resource
+### 7. ApiToken scope validation doesn't recognize 'collectives' resource
 
 **Location:** `app/models/api_token.rb`, line 117
 
-**Description:** The `can?` method raises `RuntimeError: Invalid resource: studios` because 'studios' is not in the `valid_resources` list.
+**Description:** The `can?` method raises `RuntimeError: Invalid resource: collectives` because 'collectives' is not in the `valid_resources` list.
 
 **Affected endpoints:**
-- `POST /api/v1/studios` (with read-only token)
+- `POST /api/v1/collectives` (with read-only token)
 
 **Test references:**
-- `test/integration/api_studios_test.rb`: `test_create_with_read-only_token_returns_forbidden`
+- `test/integration/api_collectives_test.rb`: `test_create_with_read-only_token_returns_forbidden`
 
 ---
 
@@ -151,14 +151,14 @@ This file tracks known bugs discovered during testing. Each bug includes a descr
 
 ---
 
-### 11. LinkParser fails when studio is main studio
+### 11. LinkParser fails when collective is main collective
 
 **Location:** `app/services/link_parser.rb` or `app/models/concerns/linkable.rb`
 
-**Description:** Creating decisions with options fails when the studio is the main studio, due to link parsing issues.
+**Description:** Creating decisions with options fails when the collective is the main collective, due to link parsing issues.
 
 **Affected endpoints:**
-- `POST /api/v1/decisions` (with options, in main studio context)
+- `POST /api/v1/decisions` (with options, in main collective context)
 
 **Test references:**
 - `test/integration/api_decisions_test.rb`: `test_create_with_options_creates_decision_and_options`
@@ -172,9 +172,9 @@ This file tracks known bugs discovered during testing. Each bug includes a descr
 | 1 | High | Tenant model | Open |
 | 2 | Medium | Option model | Open |
 | 3 | Medium | CommitmentParticipant model | Open |
-| 4 | High | StudiosController | Open |
-| 5 | Medium | StudiosController | Open |
-| 6 | Medium | Studio model | Open |
+| 4 | High | CollectivesController | Open |
+| 5 | Medium | CollectivesController | Open |
+| 6 | Medium | Collective model | Open |
 | 7 | Medium | ApiToken model | Open |
 | 8 | Medium | ApiToken model | Open |
 | 9 | Medium | Routes | Open |

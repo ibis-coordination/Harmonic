@@ -187,7 +187,7 @@ class CommitmentTest < ActiveSupport::TestCase
   test "User can leave commitment by updating participant" do
     tenant = create_tenant
     user = create_user
-    collective = create_collective(tenant: tenant, created_by: user, handle: "leave-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "leave-collective-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,
@@ -255,7 +255,7 @@ class CommitmentTest < ActiveSupport::TestCase
   test "Commitment.participant_count returns correct count" do
     tenant = create_tenant
     user = create_user
-    collective = create_collective(tenant: tenant, created_by: user, handle: "count-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "count-collective-#{SecureRandom.hex(4)}")
 
     commitment = Commitment.create!(
       tenant: tenant,

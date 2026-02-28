@@ -76,14 +76,14 @@ Documentation and context for using Harmonic. AI clients should read this resour
 Navigate to a URL in Harmonic and see its content and available actions.
 
 **Parameters:**
-- `url` (string, required): Relative URL path (e.g., `/studios/team/n/abc123`)
+- `url` (string, required): Relative URL path (e.g., `/collectives/team/n/abc123`)
 
 **Example:**
 ```json
 {
   "name": "navigate",
   "arguments": {
-    "url": "/studios/my-team"
+    "url": "/collectives/my-team"
   }
 }
 ```

@@ -6,22 +6,22 @@ class AiAgentsHelperTest < ActionView::TestCase
 
   test "strip_trailing_json_action removes fenced JSON block at end" do
     response = <<~RESPONSE
-      I will go to the studio to create a note.
+      I will go to the collective to create a note.
 
       Let me check the available actions first.
 
       ```json
-      {"type": "navigate", "path": "/studios/test"}
+      {"type": "navigate", "path": "/collectives/test"}
       ```
     RESPONSE
 
     result = strip_trailing_json_action(response)
 
-    assert_includes result, "I will go to the studio"
+    assert_includes result, "I will go to the collective"
     assert_includes result, "Let me check the available actions first."
     assert_not_includes result, "```json"
     assert_not_includes result, '"type"'
-    assert_not_includes result, '"/studios/test"'
+    assert_not_includes result, '"/collectives/test"'
   end
 
   test "strip_trailing_json_action removes fenced JSON with nested objects" do

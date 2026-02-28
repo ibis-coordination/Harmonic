@@ -65,19 +65,19 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not FeatureFlagService.collective_enabled?(@collective, "api")
   end
 
-  test "collective_enabled? returns true when tenant and studio are enabled" do
+  test "collective_enabled? returns true when tenant and collective are enabled" do
     @tenant.set_feature_flag!("api", true)
     @collective.set_feature_flag!("api", true)
     assert FeatureFlagService.collective_enabled?(@collective, "api")
   end
 
-  test "collective_enabled? returns false when studio is disabled even if tenant is enabled" do
+  test "collective_enabled? returns false when collective is disabled even if tenant is enabled" do
     @tenant.set_feature_flag!("api", true)
     @collective.set_feature_flag!("api", false)
     assert_not FeatureFlagService.collective_enabled?(@collective, "api")
   end
 
-  test "enabled? with no tenant or studio checks app level" do
+  test "enabled? with no tenant or collective checks app level" do
     assert FeatureFlagService.enabled?("api")
   end
 
@@ -89,7 +89,7 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not FeatureFlagService.enabled?("api", tenant: @tenant)
   end
 
-  test "enabled? with studio checks studio level" do
+  test "enabled? with collective checks collective level" do
     @tenant.set_feature_flag!("api", true)
     @collective.set_feature_flag!("api", true)
     assert FeatureFlagService.enabled?("api", tenant: @tenant, collective: @collective)
@@ -98,11 +98,11 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not FeatureFlagService.enabled?("api", tenant: @tenant, collective: @collective)
   end
 
-  test "cascade: tenant disabled overrides studio enabled" do
+  test "cascade: tenant disabled overrides collective enabled" do
     @tenant.set_feature_flag!("api", false)
     @collective.set_feature_flag!("api", true)
 
-    # Studio has it enabled locally, but tenant is disabled
+    # Collective has it enabled locally, but tenant is disabled
     assert @collective.feature_flag_enabled_locally?("api")
     # But effective check returns false due to cascade
     assert_not FeatureFlagService.collective_enabled?(@collective, "api")
@@ -118,11 +118,11 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
   end
 
   test "default_for_collective returns config default" do
-    # api default_studio is false in config
+    # api default_collective is false in config
     assert_not FeatureFlagService.default_for_collective("api")
-    # file_attachments default_studio is true in config
+    # file_attachments default_collective is true in config
     assert FeatureFlagService.default_for_collective("file_attachments")
-    # trio default_studio is true in config
+    # trio default_collective is true in config
     assert FeatureFlagService.default_for_collective("trio")
   end
 

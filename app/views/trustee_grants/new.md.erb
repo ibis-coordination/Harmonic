@@ -11,8 +11,8 @@ Grant another user authority to act on your behalf. They will need to accept the
 |-----------|------|----------|-------------|
 | trustee_user_id | string | yes | The ID of the user to grant authority to |
 | permissions | array | yes | Array of action names to grant |
-| studio_scope_mode | string | no | Studio scope: "all" (default), "include", or "exclude" |
-| studio_ids | array | no | Array of studio IDs for include/exclude modes |
+| collective_scope_mode | string | no | Collective scope: "all" (default), "include", or "exclude" |
+| collective_ids | array | no | Array of collective IDs for include/exclude modes |
 | expires_at | datetime | no | When the trustee grant expires |
 
 ## Grantable Actions
@@ -34,24 +34,24 @@ Grant another user authority to act on your behalf. They will need to accept the
 *No users available for trustee grants.*
 <% end -%>
 
-## Studio Scope Modes
+## Collective Scope Modes
 
 | Mode | Description |
 |------|-------------|
-| `all` | All studios where you are a member (default) |
-| `include` | Only the specified studios |
-| `exclude` | All studios except the specified ones |
+| `all` | All collectives where you are a member (default) |
+| `include` | Only the specified collectives |
+| `exclude` | All collectives except the specified ones |
 
-## Available Studios
+## Available Collectives
 
-<% if @available_studios.any? -%>
+<% if @available_collectives.any? -%>
 | ID | Name |
 |----|------|
-<% @available_studios.each do |studio| -%>
-| `<%= studio.id %>` | <%= studio.name %> |
+<% @available_collectives.each do |collective| -%>
+| `<%= collective.id %>` | <%= collective.name %> |
 <% end -%>
 <% else -%>
-*No studios available.*
+*No collectives available.*
 <% end -%>
 
 ## Navigation

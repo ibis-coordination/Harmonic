@@ -1,10 +1,10 @@
 <%# Wrapper partial - delegates to MoreButtonComponent. %>
 <%# Existing callers can continue using: render "shared/more_button", resource: resource, options: options %>
-<%# New code should use: render MoreButtonComponent.new(resource: resource, options: options, studio: studio) %>
+<%# New code should use: render MoreButtonComponent.new(resource: resource, options: options, collective: collective) %>
 <%= render MoreButtonComponent.new(
   resource: resource,
   options: options,
-  studio: local_assigns.fetch(:studio, @current_collective),
+  collective: local_assigns.fetch(:collective, @current_collective),
   is_pinned: @is_pinned || false,
   main_collective: @current_tenant&.main_collective,
 ) %>

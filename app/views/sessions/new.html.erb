@@ -9,7 +9,7 @@
     Log in to <code class="pulse-code"><%= @original_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>
     <% if @redirect_to_resource %>
       <br>to view <code class="pulse-code"><%= @redirect_to_resource %></code>
-    <% elsif @studio_invite_code %>
+    <% elsif @collective_invite_code %>
       <br>to accept this invite.
     <% end %>
   </p>

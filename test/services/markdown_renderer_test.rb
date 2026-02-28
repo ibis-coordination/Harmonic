@@ -323,7 +323,7 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     # Create a note to link to
     user = @global_user
     note = create_note(tenant: @tenant, collective: @collective, created_by: user, title: "Target", text: "Content")
-    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}"
 
     markdown = "[#{link_url}](#{link_url})"
     html = MarkdownRenderer.render(markdown, display_references: true)
@@ -335,7 +335,7 @@ class MarkdownRendererTest < ActiveSupport::TestCase
   test "render with display_references false does not process internal links" do
     user = @global_user
     note = create_note(tenant: @tenant, collective: @collective, created_by: user, title: "Target", text: "Content")
-    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    link_url = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}"
 
     markdown = "[Click here](#{link_url})"
     html = MarkdownRenderer.render(markdown, display_references: false)

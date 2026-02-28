@@ -16,9 +16,9 @@ class TenantTest < ActiveSupport::TestCase
     assert_equal "test", tenant.subdomain
   end
 
-  test "Tenant.default_studio_settings are applied" do
+  test "Tenant.default_collective_settings are applied" do
     tenant = create_tenant
-    default_settings = tenant.default_studio_settings
+    default_settings = tenant.default_collective_settings
 
     assert_equal "daily", default_settings["tempo"]
     assert_equal "improv", default_settings["synchronization_mode"]
@@ -41,11 +41,11 @@ class TenantTest < ActiveSupport::TestCase
     user = create_user
 
     tenant.create_main_collective!(created_by: user)
-    main_studio = tenant.main_collective
+    main_collective = tenant.main_collective
 
-    assert main_studio.present?
-    assert_equal tenant, main_studio.tenant
-    assert_equal user, main_studio.created_by
+    assert main_collective.present?
+    assert_equal tenant, main_collective.tenant
+    assert_equal user, main_collective.created_by
   end
 
   test "Tenant.api_enabled? returns false by default" do
@@ -129,9 +129,9 @@ class TenantTest < ActiveSupport::TestCase
     assert_not tenant.allow_file_uploads?
   end
 
-  test "Tenant.allow_main_studio_items? returns false by default" do
+  test "Tenant.allow_main_collective_items? returns false by default" do
     tenant = create_tenant
-    assert_not tenant.allow_main_studio_items?
+    assert_not tenant.allow_main_collective_items?
   end
 
   test "Tenant.valid_auth_provider? validates provider" do

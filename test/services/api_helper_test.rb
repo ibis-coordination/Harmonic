@@ -5,7 +5,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     @tenant = @global_tenant
     @collective = @global_collective
     @user = @global_user
-    # Collective.scope_thread_to_collective sets the current studio and tenant.
+    # Collective.scope_thread_to_collective sets the current collective and tenant.
     # In controller actions, this is handled by ApplicationController
     Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
@@ -13,11 +13,11 @@ class ApiHelperTest < ActiveSupport::TestCase
     )
   end
 
-  test "ApiHelper.create_studio creates a collective" do
+  test "ApiHelper.create_collective creates a collective" do
     params = {
-      name: "Studio Name",
-      handle: "studio-handle",
-      description: "This is a test studio.",
+      name: "Collective Name",
+      handle: "collective-handle",
+      description: "This is a test collective.",
       timezone: "Pacific Time (US & Canada)",
       tempo: "daily",
       synchronization_mode: "improv"
@@ -32,7 +32,7 @@ class ApiHelperTest < ActiveSupport::TestCase
       params: params,
       request: {}
     )
-    collective = api_helper.create_studio
+    collective = api_helper.create_collective
     assert collective.persisted?
     assert_equal params[:name], collective.name
     assert_equal params[:handle], collective.handle

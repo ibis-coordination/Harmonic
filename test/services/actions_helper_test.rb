@@ -177,7 +177,7 @@ class ActionsHelperTest < ActiveSupport::TestCase
   # ==========================================================================
 
   test "actions_for_route returns config for valid route" do
-    config = ActionsHelper.actions_for_route("/studios/:studio_handle")
+    config = ActionsHelper.actions_for_route("/collectives/:collective_handle")
     assert_not_nil config
     assert config.key?(:actions)
     assert config.key?(:controller_actions)
@@ -188,12 +188,12 @@ class ActionsHelperTest < ActiveSupport::TestCase
     assert_nil config
   end
 
-  test "actions_for_route returns expected actions for studio join route" do
-    config = ActionsHelper.actions_for_route("/studios/:studio_handle/join")
+  test "actions_for_route returns expected actions for collective join route" do
+    config = ActionsHelper.actions_for_route("/collectives/:collective_handle/join")
     action_names = config[:actions].map { |a| a[:name] }
 
-    # Studio join route should have join_studio action
-    assert_includes action_names, "join_studio"
+    # Collective join route should have join_collective action
+    assert_includes action_names, "join_collective"
   end
 
   # ==========================================================================
@@ -202,7 +202,7 @@ class ActionsHelperTest < ActiveSupport::TestCase
 
   test "route_pattern_for returns route for valid controller action" do
     route = ActionsHelper.route_pattern_for("notes#show")
-    assert_equal "/studios/:studio_handle/n/:note_id", route
+    assert_equal "/collectives/:collective_handle/n/:note_id", route
   end
 
   test "route_pattern_for returns nil for unknown controller action" do
@@ -249,7 +249,7 @@ class ActionsHelperTest < ActiveSupport::TestCase
     # Some routes may still be visible (public actions), but most should be filtered
     # At minimum, authenticated-only actions should be excluded
     action_names = routes.flat_map { |r| r[:actions].map { |a| a[:name] } }
-    refute_includes action_names, "create_studio"
+    refute_includes action_names, "create_collective"
   end
 
   # ==========================================================================

@@ -35,7 +35,7 @@
   <% if available_flags.any? %>
     <%= render 'shared/pulse_accordion', title: 'Feature Flags', icon: 'beaker', count: available_flags.count, open: true do %>
       <p class="pulse-form-hint" style="margin-bottom:16px;">
-        Features must be enabled here for studios to use them. When disabled, the feature is unavailable for all studios in this tenant.
+        Features must be enabled here for collectives to use them. When disabled, the feature is unavailable for all collectives in this tenant.
       </p>
 
       <% available_flags.each do |flag_name| %>

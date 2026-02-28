@@ -16,7 +16,7 @@ describe("AiProvider helpers", () => {
             type: "tool_use",
             id: "tool-1",
             name: "navigate",
-            input: { path: "/studios/test" },
+            input: { path: "/collectives/test" },
           },
         ],
         stopReason: "tool_use",
@@ -29,7 +29,7 @@ describe("AiProvider helpers", () => {
       expect(toolUses[0]).toEqual({
         id: "tool-1",
         name: "navigate",
-        input: { path: "/studios/test" },
+        input: { path: "/collectives/test" },
       });
     });
 

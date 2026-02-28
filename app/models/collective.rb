@@ -25,7 +25,7 @@ class Collective < ApplicationRecord
     has_many table.to_sym
   end
   has_many :users, through: :collective_members
-  validates :collective_type, inclusion: { in: ["studio", "scene"] }
+
   validate :handle_is_valid
   validate :creator_is_not_collective_identity, on: :create
 
@@ -110,7 +110,7 @@ class Collective < ApplicationRecord
         api: false,
       },
     }.merge(
-      T.must(tenant).default_studio_settings
+      T.must(tenant).default_collective_settings
     ).merge(
       settings || {}
     )
@@ -121,30 +121,6 @@ class Collective < ApplicationRecord
     T.must(tenant).main_collective_id == id
   end
 
-  sig { returns(T::Boolean) }
-  def is_scene?
-    collective_type == "scene"
-  end
-
-  sig { params(value: T::Boolean).void }
-  def open_scene=(value)
-    if [true, false].include?(value)
-      self.settings = (settings || {}).merge("open_scene" => value)
-    else
-      errors.add(:settings, "'open_scene' must be a boolean")
-    end
-  end
-
-  sig { returns(T::Boolean) }
-  def scene_is_open?
-    # An open scene is a scene that does not require an invite to join
-    is_scene? && settings["open_scene"] == true
-  end
-
-  sig { returns(T::Boolean) }
-  def scene_is_invite_only?
-    is_scene? && !scene_is_open?
-  end
 
   sig { void }
   def creator_is_not_collective_identity
@@ -416,7 +392,7 @@ class Collective < ApplicationRecord
 
   sig { returns(String) }
   def path_prefix
-    "#{collective_type}s"
+    "collectives"
   end
 
   sig { returns(T.nilable(String)) }

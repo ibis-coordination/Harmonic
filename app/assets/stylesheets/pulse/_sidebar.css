@@ -1,5 +1,5 @@
 /* Pulse Sidebar Components
- * Studio info, cycle, heartbeats, navigation, pinned items, links
+ * Collective info, cycle, heartbeats, navigation, pinned items, links
  */
 
 /* Sidebar Sections */
@@ -18,20 +18,20 @@
   box-sizing: border-box;
 }
 
-/* Studio Info */
-.pulse-studio-info {
+/* Collective Info */
+.pulse-collective-info {
   padding: 16px;
   border-bottom: 1px solid var(--color-border-default);
 }
 
-/* Studio Header (avatar + details layout) */
-.pulse-studio-header {
+/* Collective Header (avatar + details layout) */
+.pulse-collective-header {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.pulse-studio-avatar {
+.pulse-collective-avatar {
   width: 48px;
   height: 48px;
   border-radius: 6px;
@@ -45,16 +45,16 @@
   flex-shrink: 0;
 }
 
-.pulse-studio-details {
+.pulse-collective-details {
   flex: 1;
   min-width: 0;
 }
 
-.pulse-studio-details .pulse-studio-name {
+.pulse-collective-details .pulse-collective-name {
   margin-bottom: 4px;
 }
 
-.pulse-studio-name {
+.pulse-collective-name {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -63,8 +63,8 @@
   margin-bottom: 8px;
 }
 
-/* Sidebar studio name as a link */
-.pulse-sidebar-studio-name {
+/* Sidebar collective name as a link */
+.pulse-sidebar-collective-name {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -75,28 +75,28 @@
   text-decoration: none;
 }
 
-.pulse-sidebar-studio-name:hover {
+.pulse-sidebar-collective-name:hover {
   color: var(--color-accent-fg);
 }
 
-.pulse-sidebar-studio-name .pulse-visibility-icon .octicon,
-.pulse-studio-name .pulse-visibility-icon .octicon {
+.pulse-sidebar-collective-name .pulse-visibility-icon .octicon,
+.pulse-collective-name .pulse-visibility-icon .octicon {
   width: 14px;
   height: 14px;
 }
 
-.pulse-studio-meta {
+.pulse-collective-meta {
   font-size: 13px;
   color: var(--color-fg-muted);
 }
 
-.pulse-studio-info-row {
+.pulse-collective-info-row {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.pulse-studio-image {
+.pulse-collective-image {
   width: 56px;
   height: 56px;
   border-radius: 6px;
@@ -104,7 +104,7 @@
   flex-shrink: 0;
 }
 
-.pulse-studio-info-text {
+.pulse-collective-info-text {
   flex: 1;
   min-width: 0;
 }

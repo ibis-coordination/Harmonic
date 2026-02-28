@@ -6,7 +6,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   setup do
-    @tenant, @collective, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_collective_user
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
 
@@ -113,13 +113,13 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     end
   end
 
-  test "rate limits studio rule execution at 10 per minute" do
-    # Create a studio rule (not an agent rule)
+  test "rate limits collective rule execution at 10 per minute" do
+    # Create a collective rule (not an agent rule)
     rule = AutomationRule.create!(
       tenant: @tenant,
       collective: @collective,
       created_by: @user,
-      name: "Studio Webhook Rule",
+      name: "Collective Webhook Rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
       actions: [{ "type" => "webhook", "url" => "https://example.com/hook" }],
@@ -144,13 +144,13 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     end
   end
 
-  test "allows studio rule execution up to rate limit" do
-    # Create a studio rule (not an agent rule)
+  test "allows collective rule execution up to rate limit" do
+    # Create a collective rule (not an agent rule)
     rule = AutomationRule.create!(
       tenant: @tenant,
       collective: @collective,
       created_by: @user,
-      name: "Studio Webhook Rule",
+      name: "Collective Webhook Rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
       actions: [{ "type" => "webhook", "url" => "https://example.com/hook" }],
@@ -547,15 +547,15 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     AutomationContext.clear_chain!
   end
 
-  test "chain limits apply equally to studio and agent rules" do
+  test "chain limits apply equally to collective and agent rules" do
     event = create_event_with_subject(event_type: "note.created")
 
-    # Create a studio rule (has collective, uses webhook actions)
-    studio_rule = AutomationRule.create!(
+    # Create a collective rule (has collective, uses webhook actions)
+    collective_rule = AutomationRule.create!(
       tenant: @tenant,
       collective: @collective,
       created_by: @user,
-      name: "Studio Rule",
+      name: "Collective Rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
       actions: [{ "type" => "webhook", "url" => "https://example.com" }],
@@ -575,24 +575,24 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       enabled: true
     )
 
-    # Mix of studio and agent rules in the chain
-    AutomationContext.record_rule_execution!(studio_rule, event)
+    # Mix of collective and agent rules in the chain
+    AutomationContext.record_rule_execution!(collective_rule, event)
     AutomationContext.record_rule_execution!(agent_rule_1, event)
     AutomationContext.record_rule_execution!(agent_rule_2, event)
 
-    # At depth 3, another rule (whether studio or agent) should be blocked
-    another_studio_rule = AutomationRule.create!(
+    # At depth 3, another rule (whether collective or agent) should be blocked
+    another_collective_rule = AutomationRule.create!(
       tenant: @tenant,
       collective: @collective,
       created_by: @user,
-      name: "Another Studio Rule",
+      name: "Another Collective Rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
       actions: [{ "type" => "webhook", "url" => "https://example.com/2" }],
       enabled: true
     )
-    assert_not AutomationContext.can_execute_rule?(another_studio_rule),
-      "Studio rule should be blocked at max depth even when mixed with agent rules"
+    assert_not AutomationContext.can_execute_rule?(another_collective_rule),
+      "Collective rule should be blocked at max depth even when mixed with agent rules"
   ensure
     AutomationContext.clear_chain!
   end
@@ -723,8 +723,8 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     # Create a second collective
     other_collective = Collective.create!(
       tenant: @tenant,
-      handle: "other-studio-#{SecureRandom.hex(4)}",
-      name: "Other Studio",
+      handle: "other-collective-#{SecureRandom.hex(4)}",
+      name: "Other Collective",
       created_by: @user
     )
 
@@ -737,7 +737,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       tenant: @tenant,
       collective: other_collective,
       created_by: @user,
-      text: "Note in other studio"
+      text: "Note in other collective"
     )
     event = Event.create!(
       tenant: @tenant,
@@ -756,8 +756,8 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     # Create a second collective
     other_collective = Collective.create!(
       tenant: @tenant,
-      handle: "context-studio-#{SecureRandom.hex(4)}",
-      name: "Context Studio",
+      handle: "context-collective-#{SecureRandom.hex(4)}",
+      name: "Context Collective",
       created_by: @user
     )
 
@@ -770,7 +770,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       tenant: @tenant,
       collective: @collective,
       created_by: @user,
-      text: "Note in original studio"
+      text: "Note in original collective"
     )
     event = Event.create!(
       tenant: @tenant,

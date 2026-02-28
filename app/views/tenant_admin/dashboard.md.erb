@@ -27,9 +27,9 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 <%= JSON.pretty_generate(@current_tenant.settings) %>
 ```
 
-## Main Studio
+## Main Collective
 
-The main studio is the default studio at the base path (i.e. `<%= @current_tenant.domain %>/`).
+The main collective is the default collective at the base path (i.e. `<%= @current_tenant.domain %>/`).
 
 | Property | Value |
 |----------|-------|
@@ -39,10 +39,10 @@ The main studio is the default studio at the base path (i.e. `<%= @current_tenan
 | Decisions | <%= @current_tenant.main_collective.decisions.count %> |
 | Commitments | <%= @current_tenant.main_collective.commitments.count %> |
 
-### Other Studios
+### Other Collectives
 
-<% @current_tenant.collectives.order(created_at: :desc).each do |studio| %>
-<% next if studio == @current_tenant.main_collective %>
-* [<%= studio.name %>](<%= studio.path %>) - created <%= time_ago_in_words(studio.created_at) %> ago
+<% @current_tenant.collectives.order(created_at: :desc).each do |collective| %>
+<% next if collective == @current_tenant.main_collective %>
+* [<%= collective.name %>](<%= collective.path %>) - created <%= time_ago_in_words(collective.created_at) %> ago
 <% end %>
 

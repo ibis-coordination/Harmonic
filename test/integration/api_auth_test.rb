@@ -94,19 +94,18 @@ class ApiTest < ActionDispatch::IntegrationTest
     assert_match /API not enabled/, JSON.parse(response.body)["error"]
   end
 
-  test "denies access when API is disabled at studio level" do
-    # Create a non-main studio since main studios always have API enabled
+  test "denies access when API is disabled at collective level" do
+    # Create a non-main collective since main collectives always have API enabled
     non_main_collective = Collective.create!(
-      name: "Test Studio",
-      handle: "test-studio-#{SecureRandom.hex(4)}",
+      name: "Test Collective",
+      handle: "test-collective-#{SecureRandom.hex(4)}",
       tenant: @tenant,
-      collective_type: "studio",
       created_by: @user,
       updated_by: @user
     )
     non_main_collective.enable_api!
 
-    # Use the non-main studio's API endpoint
+    # Use the non-main collective's API endpoint
     non_main_api_endpoint = "#{non_main_collective.path}/api/v1/cycles"
 
     # Verify it works when enabled
@@ -135,13 +134,12 @@ class ApiTest < ActionDispatch::IntegrationTest
 
   # === Internal Token Bypass Tests ===
 
-  test "internal token bypasses studio-level API check" do
-    # Create a non-main studio with API disabled
+  test "internal token bypasses collective-level API check" do
+    # Create a non-main collective with API disabled
     non_main_collective = Collective.create!(
-      name: "Internal Test Studio",
+      name: "Internal Test Collective",
       handle: "internal-test-#{SecureRandom.hex(4)}",
       tenant: @tenant,
-      collective_type: "studio",
       created_by: @user,
       updated_by: @user
     )
@@ -157,7 +155,7 @@ class ApiTest < ActionDispatch::IntegrationTest
       "Content-Type" => "application/json",
     }
 
-    # Internal token should bypass the studio API check
+    # Internal token should bypass the collective API check
     non_main_api_endpoint = "#{non_main_collective.path}/api/v1/cycles"
     get non_main_api_endpoint, headers: internal_headers
     assert_response :success

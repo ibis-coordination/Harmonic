@@ -1,11 +1,10 @@
 <div class="top-right-display" data-controller="notification-badge" data-notification-badge-poll-interval-value="30000">
 <% if @current_user %>
-  <%# Only auto-populate search filter for non-main collectives (studios/scenes) %>
+  <%# Only auto-populate search filter for non-main collectives %>
   <% search_collective = @current_collective&.id != @current_tenant&.main_collective_id ? @current_collective : nil %>
   <div style="display:inline-block;vertical-align:top;margin-right:12px;"
        data-controller="header-search"
        data-header-search-collective-handle-value="<%= search_collective&.handle %>"
-       data-header-search-collective-type-value="<%= search_collective&.collective_type %>"
        data-header-search-collective-name-value="<%= search_collective&.name %>">
     <form action="/search" method="get" class="header-search-form" data-header-search-target="form">
       <span class="header-search-icon" data-action="click->header-search#focusInput">

@@ -12,7 +12,7 @@ require "test_helper"
 # Design: API representation requires:
 # 1. X-Representation-Session-ID header containing the ID of an active RepresentationSession
 # 2. For user representation: X-Representing-User header with the granting user's handle
-# 3. For studio representation: X-Representing-Studio header with the studio's handle
+# 3. For collective representation: X-Representing-Collective header with the collective's handle
 #
 # The X-Representing-* headers add an extra layer of security by requiring the API client
 # to know exactly who/what they are representing. This prevents accidental use of the
@@ -30,7 +30,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(@bob)
     @tenant.enable_api!
     @tenant.create_main_collective!(created_by: @alice)
-    @collective = create_collective(tenant: @tenant, created_by: @alice, handle: "api-rep-studio-#{SecureRandom.hex(4)}")
+    @collective = create_collective(tenant: @tenant, created_by: @alice, handle: "api-rep-collective-#{SecureRandom.hex(4)}")
     @collective.add_user!(@alice)
     @collective.add_user!(@bob)
     @collective.enable_api!
@@ -141,8 +141,8 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle
     )
 
-    # Use studio-specific path to ensure note is created in the correct studio
-    post "/studios/#{@collective.handle}/note/actions/create_note",
+    # Use collective-specific path to ensure note is created in the correct collective
+    post "/collectives/#{@collective.handle}/note/actions/create_note",
          params: { title: "Test Note", text: "Created via API as trustee" },
          headers: headers_with_representation
     assert_response :success
@@ -328,8 +328,8 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle
     )
 
-    # Create a note via API using studio-specific path
-    post "/studios/#{@collective.handle}/note/actions/create_note",
+    # Create a note via API using collective-specific path
+    post "/collectives/#{@collective.handle}/note/actions/create_note",
          params: { title: "Logged Note", text: "This should be logged" },
          headers: headers_with_representation
     assert_response :success
@@ -366,7 +366,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   end
 
   # =========================================================================
-  # X-REPRESENTING-USER / X-REPRESENTING-STUDIO HEADER TESTS
+  # X-REPRESENTING-USER / X-REPRESENTING-COLLECTIVE HEADER TESTS
   # These headers add an extra layer of security by requiring the API client
   # to explicitly know who/what they are representing.
   # =========================================================================
@@ -445,11 +445,11 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "acting on behalf of"
   end
 
-  test "studio representation requires X-Representing-Studio header" do
-    # Set up Bob as a representative for the studio
+  test "collective representation requires X-Representing-Collective header" do
+    # Set up Bob as a representative for the collective
     @collective.collective_members.find_by(user: @bob).add_role!("representative")
 
-    # Create a studio representation session (no trustee_grant, has collective)
+    # Create a collective representation session (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
       collective: @collective,
@@ -458,21 +458,21 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       began_at: Time.current,
     )
 
-    # Request WITH session ID but WITHOUT X-Representing-Studio header
-    headers_without_representing_studio = @headers.merge(
+    # Request WITH session ID but WITHOUT X-Representing-Collective header
+    headers_without_representing_collective = @headers.merge(
       "X-Representation-Session-ID" => session.id
     )
 
-    get @collective.path, headers: headers_without_representing_studio
+    get @collective.path, headers: headers_without_representing_collective
 
     assert_response :forbidden
-    assert_includes response.body, "X-Representing-Studio header required"
+    assert_includes response.body, "X-Representing-Collective header required"
   end
 
-  test "studio representation rejects wrong X-Representing-Studio header" do
+  test "collective representation rejects wrong X-Representing-Collective header" do
     @collective.collective_members.find_by(user: @bob).add_role!("representative")
 
-    # Create a studio representation session (no trustee_grant, has collective)
+    # Create a collective representation session (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
       collective: @collective,
@@ -481,22 +481,22 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       began_at: Time.current,
     )
 
-    # Request with WRONG X-Representing-Studio header
-    headers_with_wrong_studio = @headers.merge(
+    # Request with WRONG X-Representing-Collective header
+    headers_with_wrong_collective = @headers.merge(
       "X-Representation-Session-ID" => session.id,
-      "X-Representing-Studio" => "wrong-studio-handle"
+      "X-Representing-Collective" => "wrong-collective-handle"
     )
 
-    get @collective.path, headers: headers_with_wrong_studio
+    get @collective.path, headers: headers_with_wrong_collective
 
     assert_response :forbidden
-    assert_includes response.body, "does not match the represented studio"
+    assert_includes response.body, "does not match the represented collective"
   end
 
-  test "studio representation succeeds with correct X-Representing-Studio header" do
+  test "collective representation succeeds with correct X-Representing-Collective header" do
     @collective.collective_members.find_by(user: @bob).add_role!("representative")
 
-    # Create a studio representation session (no trustee_grant, has collective)
+    # Create a collective representation session (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
       collective: @collective,
@@ -505,13 +505,13 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       began_at: Time.current,
     )
 
-    # Request with CORRECT X-Representing-Studio header
-    headers_with_correct_studio = @headers.merge(
+    # Request with CORRECT X-Representing-Collective header
+    headers_with_correct_collective = @headers.merge(
       "X-Representation-Session-ID" => session.id,
-      "X-Representing-Studio" => @collective.handle
+      "X-Representing-Collective" => @collective.handle
     )
 
-    get @collective.path, headers: headers_with_correct_studio
+    get @collective.path, headers: headers_with_correct_collective
 
     assert_response :success
     assert_includes response.body, "acting on behalf of"
@@ -546,10 +546,10 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     assert session.ended?, "Session should be ended after DELETE request"
   end
 
-  test "ending studio representation session does not require X-Representing-Studio header" do
+  test "ending collective representation session does not require X-Representing-Collective header" do
     @collective.collective_members.find_by(user: @bob).add_role!("representative")
 
-    # Studio representation sessions don't have an API start action yet,
+    # Collective representation sessions don't have an API start action yet,
     # so we create directly for this test (no trustee_grant, has collective)
     session = RepresentationSession.create!(
       tenant: @tenant,
@@ -559,16 +559,16 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       began_at: Time.current,
     )
 
-    # DELETE request with session ID but WITHOUT X-Representing-Studio header should work
+    # DELETE request with session ID but WITHOUT X-Representing-Collective header should work
     headers_for_end = @headers.merge(
       "X-Representation-Session-ID" => session.id
     )
 
-    delete "/studios/#{@collective.handle}/represent", headers: headers_for_end
+    delete "/collectives/#{@collective.handle}/represent", headers: headers_for_end
 
     # Should not get a 403 about missing header
     assert_not_equal 403, response.status,
-                     "Ending session should not require X-Representing-Studio header"
+                     "Ending session should not require X-Representing-Collective header"
 
     # Verify session was actually ended
     session.reload
@@ -601,7 +601,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representing-User" => @alice.handle
     )
 
-    post "/studios/#{@collective.handle}/note/actions/create_note",
+    post "/collectives/#{@collective.handle}/note/actions/create_note",
          params: { title: "E2E Test Note", text: "Created in end-to-end test" },
          headers: headers_with_representation
     assert_response :success

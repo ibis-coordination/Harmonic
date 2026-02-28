@@ -41,7 +41,7 @@ class Api::V1::BaseController < ApplicationController
   end
 
   CONTROLLER_MODEL_MAPPING = {
-    "Studio" => Collective,
+    "Collective" => Collective,
   }.freeze
 
   def current_resource_model

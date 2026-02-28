@@ -242,26 +242,21 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal false, result[:critical_mass_achieved]
   end
 
-  # studio: and scene: operators
+  # collective: operator
 
-  test "studio:my-studio sets studio_handle" do
-    result = SearchQueryParser.new("studio:my-studio").parse
-    assert_equal "my-studio", result[:studio_handle]
+  test "collective:my-collective sets collective_handle" do
+    result = SearchQueryParser.new("collective:my-collective").parse
+    assert_equal "my-collective", result[:collective_handle]
   end
 
-  test "scene:planning sets scene_handle" do
-    result = SearchQueryParser.new("scene:planning").parse
-    assert_equal "planning", result[:scene_handle]
+  test "collective: operator accepts alphanumeric with dashes" do
+    result = SearchQueryParser.new("collective:test-collective-123").parse
+    assert_equal "test-collective-123", result[:collective_handle]
   end
 
-  test "studio: operator accepts alphanumeric with dashes" do
-    result = SearchQueryParser.new("studio:test-studio-123").parse
-    assert_equal "test-studio-123", result[:studio_handle]
-  end
-
-  test "studio: operator is case insensitive for value" do
-    result = SearchQueryParser.new("studio:My-Studio").parse
-    assert_equal "my-studio", result[:studio_handle]
+  test "collective: operator is case insensitive for value" do
+    result = SearchQueryParser.new("collective:My-Collective").parse
+    assert_equal "my-collective", result[:collective_handle]
   end
 
   # sort: operator
@@ -566,20 +561,20 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal "note", result[:type]
   end
 
-  # Studio operator with other operators
+  # Collective operator with other operators
 
-  test "studio: operator with other operators" do
-    result = SearchQueryParser.new("budget type:note studio:team-alpha sort:newest").parse
+  test "collective: operator with other operators" do
+    result = SearchQueryParser.new("budget type:note collective:team-alpha sort:newest").parse
     assert_equal "budget", result[:q]
     assert_equal "note", result[:type]
-    assert_equal "team-alpha", result[:studio_handle]
+    assert_equal "team-alpha", result[:collective_handle]
     assert_equal "created_at-desc", result[:sort_by]
   end
 
-  test "invalid studio: value is treated as search text" do
-    result = SearchQueryParser.new("studio:has spaces").parse
-    # "studio:has" would be valid as a handle, but "spaces" becomes search text
-    assert_equal "has", result[:studio_handle]
+  test "invalid collective: value is treated as search text" do
+    result = SearchQueryParser.new("collective:has spaces").parse
+    # "collective:has" would be valid as a handle, but "spaces" becomes search text
+    assert_equal "has", result[:collective_handle]
     assert_equal "spaces", result[:q]
   end
 end

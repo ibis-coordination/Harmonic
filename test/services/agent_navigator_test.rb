@@ -43,12 +43,12 @@ class AgentNavigatorTest < ActiveSupport::TestCase
 
   test "parses navigate action from JSON response" do
     stub_llm_responses([
-                         '{"type": "navigate", "path": "/studios/test"}',
+                         '{"type": "navigate", "path": "/collectives/test"}',
                          '{"type": "done", "message": "Navigated successfully"}',
                        ])
 
     agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
-    agent.run(task: "Navigate to test studio", max_steps: 5)
+    agent.run(task: "Navigate to test collective", max_steps: 5)
 
     # Should have navigate steps (whoami + test) plus done
     navigate_steps = agent.steps.select { |s| s.type == "navigate" }

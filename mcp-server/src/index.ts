@@ -29,9 +29,9 @@ server.registerTool(
       "Navigate to a URL in Harmonic and see its content and available actions. " +
       "Returns markdown content plus a list of actions you can take on this page. " +
       "URLs can be shared with humans—they see the same page in their browser. " +
-      "Examples: '/studios/team', '/studios/team/d/abc123', '/studios/team/cycles/today'",
+      "Examples: '/collectives/team', '/collectives/team/d/abc123', '/collectives/team/cycles/today'",
     inputSchema: {
-      path: z.string().describe("Relative path (e.g., '/studios/team/n/abc123')"),
+      path: z.string().describe("Relative path (e.g., '/collectives/team/n/abc123')"),
     },
   },
   async ({ path }) => handleNavigate(path, config, state)

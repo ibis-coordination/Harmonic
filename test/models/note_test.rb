@@ -160,7 +160,7 @@ class NoteTest < ActiveSupport::TestCase
   test "Note with deadline in the future is open" do
     tenant = create_tenant
     user = create_user
-    collective = create_collective(tenant: tenant, created_by: user, handle: "deadline-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "deadline-collective-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
@@ -198,7 +198,7 @@ class NoteTest < ActiveSupport::TestCase
   test "Note can be pinned" do
     tenant = create_tenant
     user = create_user
-    collective = create_collective(tenant: tenant, created_by: user, handle: "pin-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "pin-collective-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
@@ -216,7 +216,7 @@ class NoteTest < ActiveSupport::TestCase
   test "Note can be unpinned" do
     tenant = create_tenant
     user = create_user
-    collective = create_collective(tenant: tenant, created_by: user, handle: "unpin-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "unpin-collective-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
@@ -237,7 +237,7 @@ class NoteTest < ActiveSupport::TestCase
   test "Note can have backlinks" do
     tenant = create_tenant
     user = create_user
-    collective = create_collective(tenant: tenant, created_by: user, handle: "link-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "link-collective-#{SecureRandom.hex(4)}")
 
     note1 = Note.create!(
       tenant: tenant,
@@ -274,7 +274,7 @@ class NoteTest < ActiveSupport::TestCase
   test "Multiple updates create multiple history events" do
     tenant = create_tenant
     user = create_user
-    collective = create_collective(tenant: tenant, created_by: user, handle: "history-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: tenant, created_by: user, handle: "history-collective-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,

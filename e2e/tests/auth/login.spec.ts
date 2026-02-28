@@ -49,8 +49,8 @@ test.describe("Authentication", () => {
 
     const baseUrl = buildBaseUrl()
 
-    // Try to access protected page (studios list requires auth)
-    await page.goto(`${baseUrl}/studios`)
+    // Try to access protected page (collectives list requires auth)
+    await page.goto(`${baseUrl}/collectives`)
 
     // Should be redirected to login (may end up on auth subdomain)
     await expect(page).toHaveURL(/\/login/)

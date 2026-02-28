@@ -19,7 +19,7 @@
       to access <strong><%= @current_collective.name %></strong> <%= @cycle.display_name.downcase %>.
     </span>
     <%= render 'shared/tooltip' do %>
-      <p>Every studio has a tempo (daily, weekly, or monthly) that defines how frequently members of the studio should check in to keep everyone in sync.</p>
+      <p>Every collective has a tempo (daily, weekly, or monthly) that defines how frequently members of the collective should check in to keep everyone in sync.</p>
       <p><strong><%= @current_collective.name %></strong>'s tempo is set to <code><%= @current_collective.tempo %></code>.</p>
       <p style="margin-bottom:0;">Sending a heartbeat each <%= @cycle.unit %> signals your continuing presence to the group.</p>
     <% end %>

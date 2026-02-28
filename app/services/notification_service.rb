@@ -60,7 +60,7 @@ class NotificationService
 
   sig { params(user: User, tenant: Tenant, collective_id: String).returns(Integer) }
   def self.dismiss_all_for_collective(user, tenant:, collective_id:)
-    # Dismiss all notifications for a specific collective (studio)
+    # Dismiss all notifications for a specific collective
     # We bypass the collective scope on Event by using tenant_scoped_only
     event_ids = Event.tenant_scoped_only(tenant.id).where(collective_id: collective_id).pluck(:id)
     notification_ids = Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)

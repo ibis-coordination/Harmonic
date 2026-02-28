@@ -24,7 +24,7 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert_not @user.reload.nil?
   end
 
-  test "DataDeletionManager deletes studio with correct confirmation_token" do
+  test "DataDeletionManager deletes collective with correct confirmation_token" do
     confirmation_token = @ddm.confirmation_token
     assert_difference -> { Collective.count }, -1 do
       @ddm.delete_collective!(collective: @collective, confirmation_token: confirmation_token)

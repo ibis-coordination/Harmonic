@@ -95,7 +95,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     # Access a page that shows current user info (non-home pages work normally)
-    get "/studios/#{@collective.handle}"
+    get "/collectives/#{@collective.handle}"
 
     assert_response :success
   end
@@ -105,7 +105,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     # Create a note while representing
-    post "/studios/#{@collective.handle}/note", params: {
+    post "/collectives/#{@collective.handle}/note", params: {
       note: {
         title: "Note from representation",
         text: "This should be attributed to the ai_agent (the person being represented)",
@@ -128,7 +128,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     assert_difference "Note.count", 1 do
-      post "/studios/#{@collective.handle}/note", params: {
+      post "/collectives/#{@collective.handle}/note", params: {
         note: {
           title: "Note created while representing",
           text: "Created by parent representing ai_agent",
@@ -165,7 +165,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     # Now represent and vote
     start_representing
 
-    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/actions/vote", params: {
+    post "/collectives/#{@collective.handle}/d/#{decision.truncated_id}/actions/vote", params: {
       votes: [{ option_title: option.title, accept: true, prefer: false }],
     }
 
@@ -192,7 +192,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     # Create a note while representing
-    post "/studios/#{@collective.handle}/note", params: {
+    post "/collectives/#{@collective.handle}/note", params: {
       note: { title: "Before stop", text: "Representing" },
     }
     note_while_representing = Note.last
@@ -200,7 +200,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     assert_equal @effective_user.id, note_while_representing.created_by_id
 
     # Stop representing
-    delete "/u/#{@ai_agent.handle}/represent", headers: { "HTTP_REFERER" => "/studios/#{@collective.handle}" }
+    delete "/u/#{@ai_agent.handle}/represent", headers: { "HTTP_REFERER" => "/collectives/#{@collective.handle}" }
 
     # The stop_representing action should end the representation session
     rep_session = RepresentationSession.unscoped.find_by(trustee_grant: @grant, representative_user: @parent)
@@ -210,7 +210,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     # Create another note after stopping
-    post "/studios/#{@collective.handle}/note", params: {
+    post "/collectives/#{@collective.handle}/note", params: {
       note: { title: "After stop", text: "No longer representing" },
     }
     note_after_stopping = Note.last
@@ -230,7 +230,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     @ai_agent.archive!
 
     # Access a page - should no longer be representing
-    get "/studios/#{@collective.handle}"
+    get "/collectives/#{@collective.handle}"
 
     assert_response :success
     # The session should have cleared the representation since can_represent? returns false for archived users
@@ -244,7 +244,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     @grant.revoke!
 
     # Access a page - representation should be cleared
-    get "/studios/#{@collective.handle}"
+    get "/collectives/#{@collective.handle}"
 
     assert_response :success
     # Session should clear representation since the grant is revoked
@@ -263,14 +263,14 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     start_representing
 
     # Make multiple requests
-    get "/studios/#{@collective.handle}"
+    get "/collectives/#{@collective.handle}"
     assert_response :success
 
-    get "/studios/#{@collective.handle}/cycles/today"
+    get "/collectives/#{@collective.handle}/cycles/today"
     assert_response :success
 
     # Create content on third request
-    post "/studios/#{@collective.handle}/note", params: {
+    post "/collectives/#{@collective.handle}/note", params: {
       note: { title: "Third request note", text: "Still representing" },
     }
 

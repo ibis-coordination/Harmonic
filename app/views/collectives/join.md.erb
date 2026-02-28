@@ -1,0 +1,11 @@
+# Join <%= @current_collective.name %>
+
+<% if @current_user_is_member %>
+You are already a member of this collective.
+
+[Go to collective homepage](<%= @current_collective.path %>)
+<% elsif @invite %>
+You have been invited to join this collective.
+<% else %>
+You need an invite code to join this collective.
+<% end %>

@@ -13,7 +13,7 @@
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      <% unless @current_collective.is_scene? %>
+      <% unless @current_collective.is_main_collective? %>
         <%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %>
       <% end %>
       <% if @note.user_can_edit?(@current_user) %>

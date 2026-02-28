@@ -1,0 +1,12 @@
+<div class="homepage-collective-section">
+  <%= render 'shared/more_button_collective', collective: collective %>
+  <div>
+    <a href="<%= collective.path %>">
+      <img src="<%= collective.image_path %>" id="collective-image" style="height:33px; border-radius:10%;float:left;border:1px solid var(--color-border-default);"/>
+      <h3 style="padding-top:4px;padding-left:46px;"><%= collective.name %></h3>
+    </a>
+  </div>
+  <% if collective.description.present? %>
+    <%= markdown(collective.description) %>
+  <% end %>
+</div>

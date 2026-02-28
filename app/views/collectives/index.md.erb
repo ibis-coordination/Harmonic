@@ -1,0 +1,12 @@
+# Collectives
+
+<% if @collectives.any? -%>
+<% @collectives.each do |collective| -%>
+* [<%= collective.name %>](<%= collective.path %>)
+<% end -%>
+<% elsif current_user -%>
+You are not a member of any collectives yet.
+<% else -%>
+[Log in](/login) to see your collectives.
+<% end -%>
+

@@ -1,12 +1,12 @@
 # Representation System
 
-This document describes how users can act on behalf of studios or other users through representation sessions.
+This document describes how users can act on behalf of collectives or other users through representation sessions.
 
 ## Overview
 
 Representation enables two distinct use cases:
 
-1. **Studio Representation (Collective Agency)**: A designated representative acts as the studio itself, with actions attributed to the studio's identity user. Used when a studio needs to participate in other studios.
+1. **Collective Representation (Collective Agency)**: A designated representative acts as the collective itself, with actions attributed to the collective's identity user. Used when a collective needs to participate in other collectives.
 
 2. **User Representation (Delegation)**: A trusted user acts on behalf of another user via a TrusteeGrant. Used when one person (e.g., a parent) needs to act for another (e.g., their ai_agent).
 
@@ -14,13 +14,13 @@ Both types use the same `RepresentationSession` model but with different configu
 
 ## Types of Representation
 
-### Studio Representation
+### Collective Representation
 
-When a user represents a studio:
-- They act through the studio's identity user (`collective.identity_user`)
-- Actions are attributed to the studio
+When a user represents a collective:
+- They act through the collective's identity user (`collective.identity_user`)
+- Actions are attributed to the collective
 - The session has a `collective_id` but no `trustee_grant_id`
-- Used for collective agency (studio acting in other studios)
+- Used for collective agency (collective acting in other collectives)
 
 ### User Representation
 
@@ -35,8 +35,8 @@ When a user represents another user:
 │                    RepresentationSession                         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  Studio Representation          User Representation              │
-│  ─────────────────────          ───────────────────              │
+│  Collective Representation      User Representation              │
+│  ────────────────────────       ───────────────────              │
 │  collective_id: present         collective_id: nil               │
 │  trustee_grant_id: nil          trustee_grant_id: present        │
 │                                                                  │
@@ -48,13 +48,13 @@ When a user represents another user:
 
 ## Key Concepts
 
-### Who Can Represent a Studio?
+### Who Can Represent a Collective?
 
-A user can represent a studio if any of these conditions are met:
+A user can represent a collective if any of these conditions are met:
 
-1. **Representative Role**: User has the `representative` role in the studio
-2. **Any Member Setting**: Studio has `any_member_can_represent?` enabled
-3. **Is Proxy**: User is the studio's identity user itself
+1. **Representative Role**: User has the `representative` role in the collective
+2. **Any Member Setting**: Collective has `any_member_can_represent?` enabled
+3. **Is Proxy**: User is the collective's identity user itself
 
 Checked via `CollectiveMember#can_represent?`:
 ```ruby
@@ -112,19 +112,19 @@ return grant.present?
 | Ended | false | true | User explicitly stopped representing |
 | Expired | false | true | 24 hours elapsed without ending |
 
-### Starting a Studio Representation Session
+### Starting a Collective Representation Session
 
-**Route:** `POST /studios/:studio_handle/represent`
+**Route:** `POST /collectives/:collective_handle/represent`
 
 **Requirements:**
-- User must have `can_represent?` permission on the studio
+- User must have `can_represent?` permission on the collective
 - User must not have an active session already
 - User must confirm understanding (checkbox)
 
 **What happens:**
 1. Creates `RepresentationSession` record with `collective_id`
 2. Calls `begin!` to set `began_at`
-3. Sets session cookies: `representation_session_id`, `representing_studio`
+3. Sets session cookies: `representation_session_id`, `representing_collective`
 4. Redirects to `/representing` dashboard
 
 ### Starting a User Representation Session
@@ -148,7 +148,7 @@ While a session is active:
 - `current_user` returns the effective user (identity user or granting user)
 - Actions are attributed to the effective user
 - Every action creates a `RepresentationSessionEvent` record
-- Session is scoped to appropriate paths (`/representing`, `/studios/`, or `/scenes/`)
+- Session is scoped to appropriate paths (`/representing`, `/collectives/`)
 
 ### Recording Activity
 
@@ -189,7 +189,7 @@ Events are stored in the `representation_session_events` table as individual rec
 ### Stopping a Session
 
 **Routes:**
-- Studio: `DELETE /studios/:studio_handle/represent`
+- Collective: `DELETE /collectives/:collective_handle/represent`
 - User: `DELETE /representing`
 
 **What happens:**
@@ -206,7 +206,7 @@ Representation is also supported via API tokens using headers:
 | Header | Description |
 |--------|-------------|
 | `X-Representation-Session-ID` | Session ID (full UUID or 8-char truncated) |
-| `X-Representing-Studio` | Studio handle (required for studio representation) |
+| `X-Representing-Collective` | Collective handle (required for collective representation) |
 | `X-Representing-User` | User handle (required for user representation) |
 
 ### Flow
@@ -246,15 +246,15 @@ TrusteeGrant::GRANTABLE_ACTIONS = [
 ]
 ```
 
-### Studio Scoping
+### Collective Scoping
 
-Grants can restrict which studios the trustee can act in:
+Grants can restrict which collectives the trustee can act in:
 
 | Mode | Description |
 |------|-------------|
-| `all` | All studios (default) |
-| `include` | Only listed studios |
-| `exclude` | All except listed studios |
+| `all` | All collectives (default) |
+| `include` | Only listed collectives |
+| `exclude` | All except listed collectives |
 
 ### Parent-AI Agent Grants
 
@@ -262,15 +262,15 @@ When a ai_agent is created, an auto-accepted TrusteeGrant is created:
 - Granting user: the ai_agent
 - Trustee user: the parent
 - Permissions: all actions
-- Studio scope: all studios
+- Collective scope: all collectives
 
 ## Viewing Representation Sessions
 
-### Studio Session Record
+### Collective Session Record
 
-Each studio representation session has a permanent record at:
+Each collective representation session has a permanent record at:
 ```
-/studios/{studio_handle}/r/{truncated_id}
+/collectives/{collective_handle}/r/{truncated_id}
 ```
 
 ### User Session Record
@@ -284,16 +284,16 @@ User representation sessions are viewed via the trustee grant:
 
 The `human_readable_events_log` method groups events by request_id:
 
-| Time | Action | Resource | Studio | Count |
-|------|--------|----------|--------|-------|
+| Time | Action | Resource | Collective | Count |
+|------|--------|----------|------------|-------|
 | 2:30 PM | created | Test Note | Engineering | 1 |
 | 2:35 PM | voted on | Q4 Budget | Engineering | 3 |
 
 ### Representatives View
 
-Studios can view their representatives at:
+Collectives can view their representatives at:
 ```
-/studios/{studio_handle}/representation
+/collectives/{collective_handle}/representation
 ```
 
 This shows:
@@ -329,18 +329,18 @@ If a TrusteeGrant is revoked while a session is active:
 
 Permission changes on a TrusteeGrant take immediate effect:
 - If an action permission is removed, the next attempt fails
-- If studio scope is changed, access is updated immediately
+- If collective scope is changed, access is updated immediately
 
 ### Accessing Pages Outside Scope
 
 During representation, users are confined to appropriate paths. Attempting to access other areas:
 - Redirects to `/representing` dashboard
 
-### Studio Scope Enforcement
+### Collective Scope Enforcement
 
-For user representation, access to a studio requires both:
-1. The grant's `studio_scope` must allow the studio
-2. The granting user must be a member of the studio
+For user representation, access to a collective requires both:
+1. The grant's `studio_scope` must allow the collective
+2. The granting user must be a member of the collective
 
 ## Database Schema
 
@@ -351,8 +351,8 @@ For user representation, access to a studio requires both:
 | `id` | uuid | Primary key |
 | `truncated_id` | string | 8-char ID for URLs |
 | `tenant_id` | uuid | FK to tenant |
-| `collective_id` | uuid | FK to studio (null for user representation) |
-| `trustee_grant_id` | uuid | FK to grant (null for studio representation) |
+| `collective_id` | uuid | FK to collective (null for user representation) |
+| `trustee_grant_id` | uuid | FK to grant (null for collective representation) |
 | `representative_user_id` | uuid | The person doing the representing |
 | `began_at` | timestamp | When session started |
 | `ended_at` | timestamp | When session ended (null if active) |
@@ -375,7 +375,7 @@ Tracks individual actions during a session:
 | `resource_id` | uuid | Polymorphic resource ID |
 | `context_resource_type` | string | Optional parent resource type |
 | `context_resource_id` | uuid | Optional parent resource ID |
-| `resource_collective_id` | uuid | Studio where resource exists |
+| `resource_collective_id` | uuid | Collective where resource exists |
 | `request_id` | string | Groups events from same request |
 | `created_at` | timestamp | When event occurred |
 
@@ -389,7 +389,7 @@ Tracks individual actions during a session:
 | `granting_user_id` | uuid | User granting permission |
 | `trustee_user_id` | uuid | User receiving permission |
 | `permissions` | jsonb | Hash of action_name => boolean |
-| `studio_scope` | jsonb | Studio access configuration |
+| `studio_scope` | jsonb | Collective access configuration |
 | `accepted_at` | timestamp | When grant was accepted |
 | `declined_at` | timestamp | When grant was declined |
 | `revoked_at` | timestamp | When grant was revoked |

@@ -3,7 +3,7 @@
 <% if @search.raw_query.present? -%>
 Query: `<%= @search.raw_query %>`
 <% if @search.collective.present? -%>
-<%= @search.collective.collective_type.capitalize %>: [<%= @search.collective.name %>](<%= @search.collective.path %>)
+Collective: [<%= @search.collective.name %>](<%= @search.collective.path %>)
 <% end -%>
 <% if @end_position < @total_count || @start_position > 1 -%>
 Showing <%= @start_position %>-<%= @end_position %> of <%= @total_count %> results
@@ -51,8 +51,7 @@ Use operators to filter, sort, and group results. Plain text searches content. U
 | `type:` | note, decision, commitment |
 | `subtype:` | comment |
 | `status:` | open, closed |
-| `studio:` | studio handle |
-| `scene:` | scene handle |
+| `collective:` | collective handle |
 | `creator:` | @handle |
 | `read-by:` | @handle |
 | `voter:` | @handle |

@@ -128,7 +128,7 @@ class User < ApplicationRecord
   # Check if this user is authorized to use the given identity user.
   # Used to validate that an identity_user_id in the session is legitimate.
   #
-  # Collective identity users represent studios for collective agency.
+  # Collective identity users represent collectives for collective agency.
   # TrusteeGrants authorize users to act on behalf of other users (a separate concept).
   sig { params(identity_user: User).returns(T::Boolean) }
   def is_trusted_as?(identity_user)
@@ -301,7 +301,7 @@ class User < ApplicationRecord
   def handle
     if collective_identity?
       collective = Collective.where(identity_user: self).first
-      collective ? "studios/" + T.must(collective.handle) : nil
+      collective ? "collectives/" + T.must(collective.handle) : nil
     else
       tenant_user&.handle
     end
@@ -475,7 +475,7 @@ class User < ApplicationRecord
       trustee_user: parent_user,        # The parent is the trustee
       accepted_at: Time.current,        # Pre-accepted
       permissions: all_permissions,     # All actions allowed
-      studio_scope: { "mode" => "all" } # All studios
+      studio_scope: { "mode" => "all" } # All collectives
     )
   end
 

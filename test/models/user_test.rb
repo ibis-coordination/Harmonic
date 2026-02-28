@@ -185,7 +185,7 @@ class UserTest < ActiveSupport::TestCase
     new_collective = Collective.create!(
       tenant: @tenant,
       created_by: @user,
-      name: "Invite Studio",
+      name: "Invite Collective",
       handle: "invite-collective-#{SecureRandom.hex(4)}"
     )
     invite = Invite.create!(
@@ -230,9 +230,9 @@ class UserTest < ActiveSupport::TestCase
       main_collective = @tenant.main_collective
       main_collective.add_user!(@user)
 
-      studios = @user.collectives_minus_main
-      assert_not_includes studios, main_collective
-      assert_includes studios, @collective
+      collectives = @user.collectives_minus_main
+      assert_not_includes collectives, main_collective
+      assert_includes collectives, @collective
     end
   end
 
@@ -285,7 +285,7 @@ class UserTest < ActiveSupport::TestCase
 
   # === Representation Authorization Tests ===
 
-  test "can_represent? returns true for identity user representing their own studio" do
+  test "can_represent? returns true for identity user representing their own collective" do
     identity_user = @collective.identity_user
     assert identity_user.can_represent?(@collective)
   end
@@ -305,7 +305,7 @@ class UserTest < ActiveSupport::TestCase
     assert @user.can_represent?(@collective)
   end
 
-  test "can_represent? returns false for non-member of studio" do
+  test "can_represent? returns false for non-member of collective" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User For Rep")
     @tenant.add_user!(other_user)
     assert_not other_user.can_represent?(@collective)
@@ -332,25 +332,25 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.can_represent?(ai_agent)
   end
 
-  test "can_represent? returns true for representative representing studio identity" do
+  test "can_represent? returns true for representative representing collective identity" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
     identity_user = @collective.identity_user
     assert @user.can_represent?(identity_user)
   end
 
-  test "can_represent? returns false for non-representative trying to represent studio identity" do
+  test "can_represent? returns false for non-representative trying to represent collective identity" do
     identity_user = @collective.identity_user
     assert_not @user.can_represent?(identity_user)
   end
 
-  test "can_represent? returns true for studio identity when any_member_can_represent is enabled" do
+  test "can_represent? returns true for collective identity when any_member_can_represent is enabled" do
     @collective.settings['any_member_can_represent'] = true
     @collective.save!
     identity_user = @collective.identity_user
     assert @user.can_represent?(identity_user)
   end
 
-  test "can_represent? returns false for non-member trying to represent studio identity" do
+  test "can_represent? returns false for non-member trying to represent collective identity" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
     identity_user = @collective.identity_user
@@ -832,7 +832,7 @@ class UserTest < ActiveSupport::TestCase
   end
 
   # === is_trusted_as? Tests ===
-  # Note: is_trusted_as? now only applies to collective proxies (studio representation),
+  # Note: is_trusted_as? now only applies to collective proxies (collective representation),
   # not user-to-user grants. User-to-user grants use can_represent? directly.
 
   test "is_trusted_as? returns false for regular users" do
@@ -844,12 +844,12 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "is_trusted_as? returns true for collective identity when user is representative" do
-    # Create a studio and make @user a representative
-    studio = create_collective(tenant: @tenant, created_by: @user, handle: "test-studio-#{SecureRandom.hex(4)}")
-    studio.add_user!(@user, roles: ["representative"])
+    # Create a collective and make @user a representative
+    collective = create_collective(tenant: @tenant, created_by: @user, handle: "test-collective-#{SecureRandom.hex(4)}")
+    collective.add_user!(@user, roles: ["representative"])
 
-    # Get the studio's identity user
-    identity_user = studio.identity_user
+    # Get the collective's identity user
+    identity_user = collective.identity_user
     assert identity_user.collective_identity?
     assert identity_user.identity_collective.present?
 
@@ -858,15 +858,15 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "is_trusted_as? returns false for collective identity when user is not representative" do
-    # Create a studio without @user as representative
+    # Create a collective without @user as representative
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
-    studio = create_collective(tenant: @tenant, created_by: other_user, handle: "test-studio-#{SecureRandom.hex(4)}")
+    collective = create_collective(tenant: @tenant, created_by: other_user, handle: "test-collective-#{SecureRandom.hex(4)}")
 
-    # @user is not a member of the studio
-    identity_user = studio.identity_user
+    # @user is not a member of the collective
+    identity_user = collective.identity_user
 
-    # @user should not be trusted as this studio's identity
+    # @user should not be trusted as this collective's identity
     assert_not @user.is_trusted_as?(identity_user)
   end
 
@@ -920,7 +920,7 @@ class UserTest < ActiveSupport::TestCase
     end
   end
 
-  test "auto-created TrusteeGrant allows all studios" do
+  test "auto-created TrusteeGrant allows all collectives" do
     ai_agent = User.create!(
       email: "ai_agent_#{SecureRandom.hex(4)}@example.com",
       name: "Test AiAgent",
@@ -930,7 +930,7 @@ class UserTest < ActiveSupport::TestCase
 
     permission = TrusteeGrant.find_by(granting_user: ai_agent, trustee_user: @user)
     assert permission.present?
-    assert permission.allows_studio?(@collective)
+    assert permission.allows_collective?(@collective)
   end
 end
 

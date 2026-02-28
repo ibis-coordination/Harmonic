@@ -73,7 +73,7 @@ class CommentsListComponentTest < ViewComponent::TestCase
     render_inline(CommentsListComponent.new(
                     commentable: commentable,
                     current_user: @user,
-                    studio_path: "/s/my-studio"
+                    collective_path: "/s/my-collective"
                   ))
     assert_selector ".pulse-reply-form-container", visible: :all
     assert_selector "textarea", visible: :all
@@ -93,7 +93,7 @@ class CommentsListComponentTest < ViewComponent::TestCase
     assert_no_selector ".pulse-reply-form-container", visible: :all
   end
 
-  test "passes studio_path to mention autocomplete" do
+  test "passes collective_path to mention autocomplete" do
     comment = build_note(truncated_id: "abc12345", text: "Comment", created_by: @user, created_at: 1.hour.ago)
     comment.define_singleton_method(:id) { 1 }
     comment.define_singleton_method(:commentable_type) { "Decision" }
@@ -106,8 +106,8 @@ class CommentsListComponentTest < ViewComponent::TestCase
     render_inline(CommentsListComponent.new(
                     commentable: commentable,
                     current_user: @user,
-                    studio_path: "/s/my-studio"
+                    collective_path: "/s/my-collective"
                   ))
-    assert_selector "[data-mention-autocomplete-studio-path-value='/s/my-studio']", visible: :all
+    assert_selector "[data-mention-autocomplete-collective-path-value='/s/my-collective']", visible: :all
   end
 end

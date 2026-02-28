@@ -31,13 +31,13 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
 
   test "authenticated user can access new commitment form" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/commit"
+    get "/collectives/#{@collective.handle}/commit"
     assert_response :success
     assert_select "form"
   end
 
   test "unauthenticated user is redirected from new commitment form" do
-    get "/studios/#{@collective.handle}/commit"
+    get "/collectives/#{@collective.handle}/commit"
     assert_response :redirect
     assert_match %r{/login}, response.location
   end
@@ -49,7 +49,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
 
     initial_count = Commitment.unscoped.where(collective: @collective).count
 
-    post "/studios/#{@collective.handle}/commit", params: {
+    post "/collectives/#{@collective.handle}/commit", params: {
       commitment: {
         title: "New Test Commitment",
         description: "Testing commitment creation",
@@ -69,7 +69,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
   test "create commitment with close at critical mass deadline" do
     sign_in_as(@user, tenant: @tenant)
 
-    post "/studios/#{@collective.handle}/commit", params: {
+    post "/collectives/#{@collective.handle}/commit", params: {
       commitment: {
         title: "Critical Mass Commitment",
         description: "Testing critical mass",
@@ -87,13 +87,13 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
 
   test "authenticated user can view commitment" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}"
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}"
     assert_response :success
     assert_match @commitment.title, response.body
   end
 
   test "unauthenticated user is redirected to login from commitment" do
-    get "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}"
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}"
     assert_response :redirect
     assert_match %r{/login}, response.location
   end
@@ -102,7 +102,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
 
   test "creator can access commitment settings" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}/settings"
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/settings"
     assert_response :success
   end
 
@@ -117,16 +117,16 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     @collective.add_user!(other_user)
 
     sign_in_as(other_user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}/settings"
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/settings"
     assert_response :forbidden
   end
 
   test "creator can update commitment settings" do
     sign_in_as(@user, tenant: @tenant)
 
-    post "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}/settings",
+    post "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/settings",
       params: { commitment: { title: "Updated Commitment Title" } },
-      headers: { 'Referer' => "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}" }
+      headers: { 'Referer' => "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}" }
 
     @commitment.reload
     assert_equal "Updated Commitment Title", @commitment.title
@@ -140,7 +140,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
 
     initial_participant_count = CommitmentParticipant.unscoped.where(commitment: @commitment).count
 
-    post "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}/join.html",
+    post "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/join.html",
       params: { name: "Test Participant" }
 
     # User becomes a participant
@@ -155,7 +155,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
 
   test "can get commitment status partial" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}/status.html"
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/status.html"
     assert_response :success
   end
 
@@ -163,7 +163,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
 
   test "can get participants list partial" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/c/#{@commitment.truncated_id}/participants.html", params: { limit: 10 }
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/participants.html", params: { limit: 10 }
     assert_response :success
   end
 end

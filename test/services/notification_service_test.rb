@@ -198,26 +198,26 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_nil recipient2.dismissed_at, "Tenant2 notification should not have dismissed_at set"
   end
 
-  # === Studio Grouping Tests ===
+  # === Collective Grouping Tests ===
 
-  test "dismiss_all_for_collective only dismisses notifications for that studio" do
+  test "dismiss_all_for_collective only dismisses notifications for that collective" do
     tenant, collective1, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective1.handle)
 
-    # Create a second studio
-    collective2 = Collective.create!(tenant: tenant, name: "Second Studio", handle: "second-studio", created_by: user)
+    # Create a second collective
+    collective2 = Collective.create!(tenant: tenant, name: "Second Collective", handle: "second-collective", created_by: user)
 
-    # Create notifications in studio 1
+    # Create notifications in collective 1
     event1 = Event.create!(tenant: tenant, collective: collective1, event_type: "note.created", actor: user)
-    notification1 = Notification.create!(tenant: tenant, event: event1, notification_type: "mention", title: "Studio1 notification")
+    notification1 = Notification.create!(tenant: tenant, event: event1, notification_type: "mention", title: "Collective1 notification")
     recipient1 = NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "pending", tenant: tenant)
 
-    # Create notifications in studio 2
+    # Create notifications in collective 2
     event2 = Event.create!(tenant: tenant, collective: collective2, event_type: "note.created", actor: user)
-    notification2 = Notification.create!(tenant: tenant, event: event2, notification_type: "mention", title: "Studio2 notification")
+    notification2 = Notification.create!(tenant: tenant, event: event2, notification_type: "mention", title: "Collective2 notification")
     recipient2 = NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "pending", tenant: tenant)
 
-    # Dismiss all for studio 1
+    # Dismiss all for collective 1
     count = NotificationService.dismiss_all_for_collective(user, tenant: tenant, collective_id: collective1.id)
 
     assert_equal 1, count, "Should have dismissed 1 notification"
@@ -225,11 +225,11 @@ class NotificationServiceTest < ActiveSupport::TestCase
     recipient1.reload
     recipient2.reload
 
-    # Studio 1 notification should be dismissed
+    # Collective 1 notification should be dismissed
     assert_equal "dismissed", recipient1.status
     assert recipient1.dismissed_at.present?
 
-    # Studio 2 notification should still be pending
+    # Collective 2 notification should still be pending
     assert_equal "pending", recipient2.status
     assert_nil recipient2.dismissed_at
   end

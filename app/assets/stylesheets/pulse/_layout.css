@@ -20,7 +20,7 @@
 
 /* Sidebar variants via data attribute */
 .pulse-sidebar[data-mode="minimal"] {
-  /* Hide studio-specific sections in minimal mode */
+  /* Hide collective-specific sections in minimal mode */
 }
 
 .pulse-sidebar[data-mode="minimal"] .pulse-cycle-box,

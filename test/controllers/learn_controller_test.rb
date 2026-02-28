@@ -108,12 +108,11 @@ class LearnControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "unified agent"
   end
 
-  test "superagency page mentions studios and scenes" do
+  test "superagency page mentions collectives" do
     sign_in_as(@user, tenant: @tenant)
     get "/learn/superagency"
     assert_response :success
-    assert_includes response.body, "studios"
-    assert_includes response.body, "Scenes"
+    assert_includes response.body.downcase, "collectives"
   end
 
   test "superagency page explains representation" do

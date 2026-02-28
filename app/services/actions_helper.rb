@@ -29,19 +29,19 @@ class ActionsHelper
   )
 
   # Context-aware webhook authorization.
-  # - Studio webhooks require collective_admin
+  # - Collective webhooks require collective_admin
   # - User webhooks require self or representative access
   # - For listing (no context), allows authenticated users to see the action
   WEBHOOK_AUTHORIZATION = T.let(
     lambda { |user, context|
       return false unless user
 
-      studio = context[:studio]
+      collective = context[:collective]
       target_user = context[:target_user]
 
-      # If studio context exists and it's not the main collective, check collective_admin
-      if studio && !studio.is_main_collective?
-        member = user.collective_members.find_by(collective_id: studio.id)
+      # If collective context exists and it's not the main collective, check collective_admin
+      if collective && !collective.is_main_collective?
+        member = user.collective_members.find_by(collective_id: collective.id)
         return member&.is_admin? || false
       end
 
@@ -63,7 +63,7 @@ class ActionsHelper
   # and authorization (who can see/execute this action).
   #
   # Authorization can be:
-  # - A symbol (e.g., :authenticated, :studio_member, :app_admin)
+  # - A symbol (e.g., :authenticated, :collective_member, :app_admin)
   # - An array of symbols (OR logic - any authorization suffices)
   # - A Proc for custom logic: ->(user, context) { ... }
   #
@@ -71,58 +71,58 @@ class ActionsHelper
   #
   # @see ActionAuthorization for the authorization checker
   ACTION_DEFINITIONS = {
-    # Studio actions
-    "create_studio" => {
-      description: "Create a new studio",
+    # Collective actions
+    "create_collective" => {
+      description: "Create a new collective",
       params_string: "(name, handle, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)",
       params: [
-        { name: "name", type: "string", description: "The name of the studio" },
-        { name: "handle", type: "string", description: "The handle of the studio (used in the URL)" },
-        { name: "description", type: "string", description: "A description of the studio that will appear on the studio homepage" },
-        { name: "timezone", type: "string", description: "The timezone of the studio" },
-        { name: "tempo", type: "string", description: 'The tempo of the studio: "daily", "weekly", or "monthly"' },
+        { name: "name", type: "string", description: "The name of the collective" },
+        { name: "handle", type: "string", description: "The handle of the collective (used in the URL)" },
+        { name: "description", type: "string", description: "A description of the collective that will appear on the collective homepage" },
+        { name: "timezone", type: "string", description: "The timezone of the collective" },
+        { name: "tempo", type: "string", description: 'The tempo of the collective: "daily", "weekly", or "monthly"' },
         { name: "synchronization_mode", type: "string", description: 'The synchronization mode: "improv" or "orchestra"' },
         { name: "invitations", type: "string", description: 'Who can invite new members: "all_members" or "only_admins" (optional)' },
-        { name: "representation", type: "string", description: 'Who can represent the studio: "any_member" or "only_representatives" (optional)' },
+        { name: "representation", type: "string", description: 'Who can represent the collective: "any_member" or "only_representatives" (optional)' },
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed (optional)" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (optional)" },
       ],
       authorization: :authenticated,
     },
-    "join_studio" => {
-      description: "Join the studio",
+    "join_collective" => {
+      description: "Join the collective",
       params_string: "()",
       params: [
-        { name: "code", type: "string", required: false, description: "Invite code (optional for scenes)" },
+        { name: "code", type: "string", required: false, description: "Invite code" },
       ],
       authorization: :authenticated,
     },
-    "update_studio_settings" => {
-      description: "Update studio settings",
+    "update_collective_settings" => {
+      description: "Update collective settings",
       params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)",
       params: [
-        { name: "name", type: "string", description: "The name of the studio" },
-        { name: "description", type: "string", description: "A description of the studio" },
-        { name: "timezone", type: "string", description: "The timezone of the studio" },
-        { name: "tempo", type: "string", description: 'The tempo of the studio: "daily", "weekly", or "monthly"' },
+        { name: "name", type: "string", description: "The name of the collective" },
+        { name: "description", type: "string", description: "A description of the collective" },
+        { name: "timezone", type: "string", description: "The timezone of the collective" },
+        { name: "tempo", type: "string", description: 'The tempo of the collective: "daily", "weekly", or "monthly"' },
         { name: "synchronization_mode", type: "string", description: 'The synchronization mode: "improv" or "orchestra"' },
         { name: "invitations", type: "string", description: 'Who can invite new members: "all_members" or "only_admins"' },
-        { name: "representation", type: "string", description: 'Who can represent the studio: "any_member" or "only_representatives"' },
+        { name: "representation", type: "string", description: 'Who can represent the collective: "any_member" or "only_representatives"' },
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (not changeable via API - use HTML UI to modify)" },
       ],
       authorization: :collective_admin,
     },
-    "add_ai_agent_to_studio" => {
-      description: "Add one of your AI agents to this studio",
+    "add_ai_agent_to_collective" => {
+      description: "Add one of your AI agents to this collective",
       params_string: "(ai_agent_id)",
       params: [
         { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to add" },
       ],
       authorization: :collective_admin,
     },
-    "remove_ai_agent_from_studio" => {
-      description: "Remove an AI agent from this studio",
+    "remove_ai_agent_from_collective" => {
+      description: "Remove an AI agent from this collective",
       params_string: "(ai_agent_id)",
       params: [
         { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to remove" },
@@ -130,7 +130,7 @@ class ActionsHelper
       authorization: :collective_admin,
     },
     "send_heartbeat" => {
-      description: "Send a heartbeat to confirm your presence in the studio for this cycle",
+      description: "Send a heartbeat to confirm your presence in the collective for this cycle",
       params_string: "()",
       params: [],
       authorization: :collective_member,
@@ -162,13 +162,13 @@ class ActionsHelper
       authorization: :collective_member,
     },
     "pin_note" => {
-      description: "Pin this note to the studio homepage",
+      description: "Pin this note to the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
     },
     "unpin_note" => {
-      description: "Unpin this note from the studio homepage",
+      description: "Unpin this note from the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
@@ -214,13 +214,13 @@ class ActionsHelper
       authorization: :collective_member,
     },
     "pin_decision" => {
-      description: "Pin this decision to the studio homepage",
+      description: "Pin this decision to the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
     },
     "unpin_decision" => {
-      description: "Unpin this decision from the studio homepage",
+      description: "Unpin this decision from the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
@@ -256,13 +256,13 @@ class ActionsHelper
       authorization: :collective_member,
     },
     "pin_commitment" => {
-      description: "Pin this commitment to the studio homepage",
+      description: "Pin this commitment to the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
     },
     "unpin_commitment" => {
-      description: "Unpin this commitment from the studio homepage",
+      description: "Unpin this commitment from the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
@@ -386,7 +386,7 @@ class ActionsHelper
           name: "q",
           type: "string",
           required: true,
-          description: "The search query. Supports operators: type:, status:, cycle:, creator:, studio:, etc.",
+          description: "The search query. Supports operators: type:, status:, cycle:, creator:, collective:, etc.",
         },
       ],
       authorization: :authenticated,
@@ -407,11 +407,11 @@ class ActionsHelper
       params: [],
       authorization: :authenticated,
     },
-    "dismiss_for_studio" => {
-      description: "Dismiss all notifications for a specific studio",
-      params_string: "(studio_id)",
+    "dismiss_for_collective" => {
+      description: "Dismiss all notifications for a specific collective",
+      params_string: "(collective_id)",
       params: [
-        { name: "studio_id", type: "string", description: "The ID of the studio, or 'reminders' to dismiss due reminders" },
+        { name: "collective_id", type: "string", description: "The ID of the collective, or 'reminders' to dismiss due reminders" },
       ],
       authorization: :authenticated,
     },
@@ -438,8 +438,8 @@ class ActionsHelper
     },
 
     # Webhook actions
-    # Webhooks can be created for studios (requires collective_admin) or users (requires self/representative).
-    # Authorization is context-aware: checks studio context first, then falls back to user context.
+    # Webhooks can be created for collectives (requires collective_admin) or users (requires self/representative).
+    # Authorization is context-aware: checks collective context first, then falls back to user context.
     "create_webhook" => {
       description: "Create a new webhook",
       params_string: "(name, url, events, enabled)",
@@ -508,12 +508,12 @@ class ActionsHelper
     # Trustee Grant actions
     "create_trustee_grant" => {
       description: "Grant another user authority to act on your behalf",
-      params_string: "(trustee_user_id, permissions, studio_scope_mode, studio_ids, expires_at)",
+      params_string: "(trustee_user_id, permissions, collective_scope_mode, collective_ids, expires_at)",
       params: [
         { name: "trustee_user_id", type: "string", required: true, description: "The ID of the user to grant trustee authority to" },
         { name: "permissions", type: "array", required: true, description: "Array of capability names to grant (e.g., create_notes, vote, commit)" },
-        { name: "studio_scope_mode", type: "string", description: 'Studio scope mode: "all" (default), "include", or "exclude"' },
-        { name: "studio_ids", type: "array", description: "Array of studio IDs for include/exclude modes" },
+        { name: "collective_scope_mode", type: "string", description: 'Collective scope mode: "all" (default), "include", or "exclude"' },
+        { name: "collective_ids", type: "array", description: "Array of collective IDs for include/exclude modes" },
         { name: "expires_at", type: "datetime", description: "When the trustee grant expires (optional)" },
       ],
       authorization: :self,
@@ -555,7 +555,7 @@ class ActionsHelper
   #
   # Each entry includes:
   # - controller_actions: Array of "controller#action" strings that map to this route pattern.
-  #   Multiple controller#actions can map to the same route pattern (e.g., studios#show and studios#cycles).
+  #   Multiple controller#actions can map to the same route pattern (e.g., collectives#show and collectives#cycles).
   # - actions: Array of action definitions available at this route.
   #
   # The controller_actions mapping is the single source of truth for route pattern resolution.
@@ -571,17 +571,17 @@ class ActionsHelper
         { name: "update_scratchpad", params_string: ACTION_DEFINITIONS["update_scratchpad"][:params_string], description: ACTION_DEFINITIONS["update_scratchpad"][:description] },
       ],
     },
-    "/studios" => {
-      controller_actions: ["studios#index"],
+    "/collectives" => {
+      controller_actions: ["collectives#index"],
       actions: [],
     },
-    "/studios/new" => {
-      controller_actions: ["studios#new"],
+    "/collectives/new" => {
+      controller_actions: ["collectives#new"],
       actions: [
-        { name: "create_studio", params_string: ACTION_DEFINITIONS["create_studio"][:params_string], description: ACTION_DEFINITIONS["create_studio"][:description] },
+        { name: "create_collective", params_string: ACTION_DEFINITIONS["create_collective"][:params_string], description: ACTION_DEFINITIONS["create_collective"][:description] },
       ],
     },
-    "/studios/:studio_handle" => {
+    "/collectives/:collective_handle" => {
       controller_actions: ["pulse#show"],
       actions: [],
       conditional_actions: [
@@ -595,7 +595,7 @@ class ActionsHelper
         },
       ],
     },
-    "/studios/:studio_handle/actions" => {
+    "/collectives/:collective_handle/actions" => {
       controller_actions: ["pulse#actions_index"],
       actions: [],
       conditional_actions: [
@@ -609,21 +609,21 @@ class ActionsHelper
         },
       ],
     },
-    "/studios/:studio_handle/join" => {
-      controller_actions: ["studios#join"],
+    "/collectives/:collective_handle/join" => {
+      controller_actions: ["collectives#join"],
       actions: [
-        { name: "join_studio", params_string: ACTION_DEFINITIONS["join_studio"][:params_string], description: ACTION_DEFINITIONS["join_studio"][:description] },
+        { name: "join_collective", params_string: ACTION_DEFINITIONS["join_collective"][:params_string], description: ACTION_DEFINITIONS["join_collective"][:description] },
       ],
     },
-    "/studios/:studio_handle/settings" => {
-      controller_actions: ["studios#settings"],
+    "/collectives/:collective_handle/settings" => {
+      controller_actions: ["collectives#settings"],
       actions: [
-        { name: "update_studio_settings", params_string: ACTION_DEFINITIONS["update_studio_settings"][:params_string], description: ACTION_DEFINITIONS["update_studio_settings"][:description] },
-        { name: "add_ai_agent_to_studio", params_string: ACTION_DEFINITIONS["add_ai_agent_to_studio"][:params_string], description: ACTION_DEFINITIONS["add_ai_agent_to_studio"][:description] },
-        { name: "remove_ai_agent_from_studio", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_studio"][:params_string], description: ACTION_DEFINITIONS["remove_ai_agent_from_studio"][:description] },
+        { name: "update_collective_settings", params_string: ACTION_DEFINITIONS["update_collective_settings"][:params_string], description: ACTION_DEFINITIONS["update_collective_settings"][:description] },
+        { name: "add_ai_agent_to_collective", params_string: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:params_string], description: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:description] },
+        { name: "remove_ai_agent_from_collective", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:params_string], description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description] },
       ],
     },
-    "/studios/:studio_handle/cycles" => {
+    "/collectives/:collective_handle/cycles" => {
       controller_actions: ["cycles#index"],
       actions: [],
       conditional_actions: [
@@ -637,51 +637,51 @@ class ActionsHelper
         },
       ],
     },
-    "/studios/:studio_handle/backlinks" => {
-      controller_actions: ["studios#backlinks"],
+    "/collectives/:collective_handle/backlinks" => {
+      controller_actions: ["collectives#backlinks"],
       actions: [],
     },
-    "/studios/:studio_handle/members" => {
-      controller_actions: ["studios#members"],
+    "/collectives/:collective_handle/members" => {
+      controller_actions: ["collectives#members"],
       actions: [],
     },
-    "/studios/:studio_handle/note" => {
+    "/collectives/:collective_handle/note" => {
       controller_actions: ["notes#new"],
       actions: [
         { name: "create_note", params_string: ACTION_DEFINITIONS["create_note"][:params_string], description: ACTION_DEFINITIONS["create_note"][:description] },
       ],
     },
-    "/studios/:studio_handle/n/:note_id" => {
+    "/collectives/:collective_handle/n/:note_id" => {
       controller_actions: ["notes#show"],
       actions: [
         { name: "confirm_read", params_string: ACTION_DEFINITIONS["confirm_read"][:params_string], description: ACTION_DEFINITIONS["confirm_read"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
     },
-    "/studios/:studio_handle/n/:note_id/attachments/:attachment_id" => {
+    "/collectives/:collective_handle/n/:note_id/attachments/:attachment_id" => {
       controller_actions: ["attachments#show"],
       actions: [
         { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
       ],
     },
-    "/studios/:studio_handle/n/:note_id/edit" => {
+    "/collectives/:collective_handle/n/:note_id/edit" => {
       controller_actions: ["notes#edit"],
       actions: [
         { name: "update_note", params_string: ACTION_DEFINITIONS["update_note"][:params_string], description: ACTION_DEFINITIONS["update_note"][:description] },
         { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: ACTION_DEFINITIONS["add_attachment"][:description] },
       ],
     },
-    "/studios/:studio_handle/n/:note_id/settings" => {
+    "/collectives/:collective_handle/n/:note_id/settings" => {
       controller_actions: ["notes#settings"],
       actions: [],
     },
-    "/studios/:studio_handle/decide" => {
+    "/collectives/:collective_handle/decide" => {
       controller_actions: ["decisions#new"],
       actions: [
         { name: "create_decision", params_string: ACTION_DEFINITIONS["create_decision"][:params_string], description: ACTION_DEFINITIONS["create_decision"][:description] },
       ],
     },
-    "/studios/:studio_handle/d/:decision_id" => {
+    "/collectives/:collective_handle/d/:decision_id" => {
       controller_actions: ["decisions#show"],
       actions: [
         { name: "add_options", params_string: ACTION_DEFINITIONS["add_options"][:params_string], description: ACTION_DEFINITIONS["add_options"][:description] },
@@ -689,39 +689,39 @@ class ActionsHelper
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
     },
-    "/studios/:studio_handle/d/:decision_id/attachments/:attachment_id" => {
+    "/collectives/:collective_handle/d/:decision_id/attachments/:attachment_id" => {
       controller_actions: ["attachments#show"],
       actions: [
         { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
       ],
     },
-    "/studios/:studio_handle/d/:decision_id/settings" => {
+    "/collectives/:collective_handle/d/:decision_id/settings" => {
       controller_actions: ["decisions#settings"],
       actions: [
         { name: "update_decision_settings", params_string: ACTION_DEFINITIONS["update_decision_settings"][:params_string], description: ACTION_DEFINITIONS["update_decision_settings"][:description] },
         { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: ACTION_DEFINITIONS["add_attachment"][:description] },
       ],
     },
-    "/studios/:studio_handle/commit" => {
+    "/collectives/:collective_handle/commit" => {
       controller_actions: ["commitments#new"],
       actions: [
         { name: "create_commitment", params_string: ACTION_DEFINITIONS["create_commitment"][:params_string], description: ACTION_DEFINITIONS["create_commitment"][:description] },
       ],
     },
-    "/studios/:studio_handle/c/:commitment_id" => {
+    "/collectives/:collective_handle/c/:commitment_id" => {
       controller_actions: ["commitments#show"],
       actions: [
         { name: "join_commitment", params_string: ACTION_DEFINITIONS["join_commitment"][:params_string], description: ACTION_DEFINITIONS["join_commitment"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
     },
-    "/studios/:studio_handle/c/:commitment_id/attachments/:attachment_id" => {
+    "/collectives/:collective_handle/c/:commitment_id/attachments/:attachment_id" => {
       controller_actions: ["attachments#show"],
       actions: [
         { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
       ],
     },
-    "/studios/:studio_handle/c/:commitment_id/settings" => {
+    "/collectives/:collective_handle/c/:commitment_id/settings" => {
       controller_actions: ["commitments#settings"],
       actions: [
         { name: "update_commitment_settings", params_string: ACTION_DEFINITIONS["update_commitment_settings"][:params_string], description: ACTION_DEFINITIONS["update_commitment_settings"][:description] },
@@ -794,7 +794,7 @@ class ActionsHelper
       actions: [
         { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
         { name: "dismiss_all", params_string: ACTION_DEFINITIONS["dismiss_all"][:params_string], description: ACTION_DEFINITIONS["dismiss_all"][:description] },
-        { name: "dismiss_for_studio", params_string: ACTION_DEFINITIONS["dismiss_for_studio"][:params_string], description: ACTION_DEFINITIONS["dismiss_for_studio"][:description] },
+        { name: "dismiss_for_collective", params_string: ACTION_DEFINITIONS["dismiss_for_collective"][:params_string], description: ACTION_DEFINITIONS["dismiss_for_collective"][:description] },
         { name: "create_reminder", params_string: ACTION_DEFINITIONS["create_reminder"][:params_string], description: ACTION_DEFINITIONS["create_reminder"][:description] },
         { name: "delete_reminder", params_string: ACTION_DEFINITIONS["delete_reminder"][:params_string], description: ACTION_DEFINITIONS["delete_reminder"][:description] },
       ],
@@ -805,17 +805,17 @@ class ActionsHelper
         { name: "search", params_string: ACTION_DEFINITIONS["search"][:params_string], description: ACTION_DEFINITIONS["search"][:description] },
       ],
     },
-    "/studios/:studio_handle/settings/webhooks" => {
+    "/collectives/:collective_handle/settings/webhooks" => {
       controller_actions: ["webhooks#index"],
       actions: [],
     },
-    "/studios/:studio_handle/settings/webhooks/new" => {
+    "/collectives/:collective_handle/settings/webhooks/new" => {
       controller_actions: ["webhooks#new"],
       actions: [
         { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string], description: ACTION_DEFINITIONS["create_webhook"][:description] },
       ],
     },
-    "/studios/:studio_handle/settings/webhooks/:id" => {
+    "/collectives/:collective_handle/settings/webhooks/:id" => {
       controller_actions: ["webhooks#show"],
       actions: [
         { name: "update_webhook", params_string: ACTION_DEFINITIONS["update_webhook"][:params_string], description: ACTION_DEFINITIONS["update_webhook"][:description] },
@@ -960,7 +960,7 @@ class ActionsHelper
   # Only returns actions the user is authorized to see/execute.
   #
   # @param user [User, nil] The user to filter actions for
-  # @param context [Hash] Additional context for authorization checks (studio, resource, etc.)
+  # @param context [Hash] Additional context for authorization checks (collective, resource, etc.)
   # @return [Array<Hash>] Routes and their filtered actions, excluding routes with no visible actions
   sig do
     params(
@@ -986,7 +986,7 @@ class ActionsHelper
   # This is the single source of truth for mapping controller actions to route patterns.
   #
   # @param controller_action [String] The controller#action string (e.g., "notes#show")
-  # @return [String, nil] The route pattern (e.g., "/studios/:studio_handle/n/:note_id")
+  # @return [String, nil] The route pattern (e.g., "/collectives/:collective_handle/n/:note_id")
   sig { params(controller_action: String).returns(T.nilable(String)) }
   def self.route_pattern_for(controller_action)
     @@controller_action_to_route[controller_action]

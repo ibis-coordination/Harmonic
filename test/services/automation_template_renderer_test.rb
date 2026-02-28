@@ -126,7 +126,7 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     assert_equal note.path, context["subject"]["path"]
   end
 
-  test "context_from_event builds studio context" do
+  test "context_from_event builds collective context" do
     note = create_note
     event = Event.create!(
       tenant: @tenant,
@@ -138,9 +138,9 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
 
     context = AutomationTemplateRenderer.context_from_event(event)
 
-    assert_equal @collective.id, context["studio"]["id"]
-    assert_equal @collective.handle, context["studio"]["handle"]
-    assert_equal @collective.name, context["studio"]["name"]
+    assert_equal @collective.id, context["collective"]["id"]
+    assert_equal @collective.handle, context["collective"]["handle"]
+    assert_equal @collective.name, context["collective"]["name"]
   end
 
   test "context_from_event handles nil actor" do
@@ -178,7 +178,7 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
     assert_includes result, note.path
   end
 
-  test "renders template with studio info" do
+  test "renders template with collective info" do
     note = create_note
     event = Event.create!(
       tenant: @tenant,
@@ -188,7 +188,7 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
       subject: note
     )
 
-    template = "Activity in {{studio.name}} ({{studio.handle}})"
+    template = "Activity in {{collective.name}} ({{collective.handle}})"
     context = AutomationTemplateRenderer.context_from_event(event)
     result = AutomationTemplateRenderer.render(template, context)
 

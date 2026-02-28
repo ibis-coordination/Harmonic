@@ -70,16 +70,16 @@ is_trustee = @grant.trustee_user == @target_user
           </td>
         </tr>
         <tr>
-          <th>Studio Scope</th>
+          <th>Collective Scope</th>
           <td>
-            <% scope = @grant.studio_scope || { "mode" => "all" } %>
+            <% scope = @grant.collective_scope || { "mode" => "all" } %>
             <% case scope["mode"] %>
             <% when "all" %>
-              All studios where granting user is a member
+              All collectives where granting user is a member
             <% when "include" %>
-              Only specific studios (<%= scope["studio_ids"]&.count || 0 %>)
+              Only specific collectives (<%= scope["collective_ids"]&.count || 0 %>)
             <% when "exclude" %>
-              All studios except specific ones (<%= scope["studio_ids"]&.count || 0 %>)
+              All collectives except specific ones (<%= scope["collective_ids"]&.count || 0 %>)
             <% end %>
           </td>
         </tr>

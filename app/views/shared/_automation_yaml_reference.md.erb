@@ -1,7 +1,7 @@
 <%# Shared YAML reference for automation forms (Markdown version) %>
 <%# Local variables: %>
-<%#   automation_type: :agent or :studio (default: :studio) %>
-<% automation_type ||= :studio %>
+<%#   automation_type: :agent or :collective (default: :collective) %>
+<% automation_type ||= :collective %>
 
 ## YAML Reference
 
@@ -126,10 +126,10 @@ trigger:
 
 Access input values via `{{inputs.report_date}}`.
 
-<% if automation_type == :studio %>
+<% if automation_type == :collective %>
 ### Action Types
 - `webhook` - Send an HTTP request to an external URL
-- `internal_action` - Create content in the studio
+- `internal_action` - Create content in the collective
 - `trigger_agent` - Trigger an AI agent with a task
 
 ### Webhook Action
@@ -148,7 +148,7 @@ actions:
 
 ### Internal Actions
 
-Create content directly in the studio. Resources created are tracked with automation attribution.
+Create content directly in the collective. Resources created are tracked with automation attribution.
 
 | Action | Required Param | Optional Params |
 |--------|----------------|-----------------|
@@ -210,8 +210,8 @@ actions:
 - `{{subject.path}}` - URL path to the subject
 - `{{subject.title}}` - Title of the subject
 - `{{subject.text}}` - Text content of the subject
-- `{{studio.name}}` - Name of the studio
-- `{{studio.handle}}` - Handle of the studio
+- `{{collective.name}}` - Name of the collective
+- `{{collective.handle}}` - Handle of the collective
 
 **Webhook triggers:**
 - `{{payload.*}}` - Access webhook JSON (e.g., `{{payload.data.value}}`)

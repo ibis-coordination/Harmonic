@@ -289,7 +289,7 @@ class JobTenantContextTest < ActiveJob::TestCase
     tenant2 = create_tenant(subdomain: "system-job-test")
     user2 = create_user
     tenant2.add_user!(user2)
-    collective2 = create_collective(tenant: tenant2, created_by: user2, handle: "system-studio")
+    collective2 = create_collective(tenant: tenant2, created_by: user2, handle: "system-collective")
     collective2.add_user!(user2)
 
     Collective.scope_thread_to_collective(subdomain: tenant2.subdomain, handle: collective2.handle)

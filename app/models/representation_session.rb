@@ -18,13 +18,13 @@ class RepresentationSession < ApplicationRecord
   validates :confirmed_understanding, inclusion: { in: [true] }
   validate :collective_presence_matches_session_type
 
-  # Studio representation requires collective_id; user representation must NOT have collective_id
+  # Collective representation requires collective_id; user representation must NOT have collective_id
   sig { void }
   def collective_presence_matches_session_type
     if trustee_grant_id.present? && collective_id.present?
       errors.add(:collective_id, "must be nil for user representation sessions")
     elsif trustee_grant_id.nil? && collective_id.nil?
-      errors.add(:collective_id, "is required for studio representation sessions")
+      errors.add(:collective_id, "is required for collective representation sessions")
     end
   end
 
@@ -89,9 +89,9 @@ class RepresentationSession < ApplicationRecord
     ended? || Time.current > T.must(began_at) + 24.hours
   end
 
-  # Returns true if this is a studio representation session (no trustee_grant)
+  # Returns true if this is a collective representation session (no trustee_grant)
   sig { returns(T::Boolean) }
-  def studio_representation?
+  def collective_representation?
     trustee_grant_id.nil?
   end
 
@@ -101,7 +101,7 @@ class RepresentationSession < ApplicationRecord
     trustee_grant_id.present?
   end
 
-  # Returns the user being represented (for user representation) or nil (for studio)
+  # Returns the user being represented (for user representation) or nil (for collective)
   sig { returns(T.nilable(User)) }
   def represented_user
     return nil unless user_representation?
@@ -111,7 +111,7 @@ class RepresentationSession < ApplicationRecord
 
   # Returns the user identity to use as current_user during this session.
   # For user representation: returns the granting_user (the person being represented)
-  # For studio representation: returns the studio's identity_user
+  # For collective representation: returns the collective's identity_user
   sig { returns(User) }
   def effective_user
     if user_representation?
@@ -127,7 +127,7 @@ class RepresentationSession < ApplicationRecord
     if user_representation?
       represented_user&.display_name || "User"
     else
-      collective&.name || "Studio"
+      collective&.name || "Collective"
     end
   end
 
@@ -187,8 +187,8 @@ class RepresentationSession < ApplicationRecord
   sig { returns(String) }
   def path
     if collective
-      # Studio representation session - path is studio-relative
-      "/studios/#{T.must(collective).handle}/r/#{truncated_id}"
+      # Collective representation session - path is collective-relative
+      "/collectives/#{T.must(collective).handle}/r/#{truncated_id}"
     else
       # User representation session - path is via trustee grant
       grant = trustee_grant
@@ -222,7 +222,7 @@ class RepresentationSession < ApplicationRecord
         events = representation_session_events.order(created_at: :asc).to_a
 
         # Preload resources unscoped to bypass default collective scope
-        # (events may reference resources in different studios)
+        # (events may reference resources in different collectives)
         preload_polymorphic_unscoped(events, :resource)
         preload_polymorphic_unscoped(events, :context_resource)
 

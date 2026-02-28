@@ -1,0 +1,15 @@
+<div>
+  <img src="<%= @current_collective.image_path %>" id="collective-image" style="margin-top:3px; height:83px; min-width:50px; border-radius:10%;float:left;"/>
+  <div style="padding-top:30px;">
+    <h4 style="padding-left:92px;margin-top:0px;margin-bottom:0;">
+      <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
+      Collective <code><%= @current_collective.handle %></code>
+      <span title="Collectives are private. Only other members can see your activity within this collective.">
+        <%= octicon 'lock' %>
+      </span>
+    </h4>
+    <h1 style="padding-left:92px;margin-top:0;">
+      <%= @current_collective.name %>
+    </h1>
+  </div>
+</div>

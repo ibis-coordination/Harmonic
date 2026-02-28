@@ -7,16 +7,16 @@ class MoreButtonComponent < ViewComponent::Base
     params(
       resource: ApplicationRecord,
       options: T::Array[String],
-      studio: Collective,
+      collective: Collective,
       is_pinned: T::Boolean,
       main_collective: T.nilable(Collective)
     ).void
   end
-  def initialize(resource:, options:, studio:, is_pinned: false, main_collective: nil)
+  def initialize(resource:, options:, collective:, is_pinned: false, main_collective: nil)
     super()
     @resource = resource
     @options = options
-    @studio = studio
+    @collective = collective
     @is_pinned = is_pinned
     @main_collective = main_collective
   end
@@ -25,7 +25,7 @@ class MoreButtonComponent < ViewComponent::Base
 
   sig { returns(String) }
   def pin_label
-    location = @studio == @main_collective ? "your profile" : "studio homepage"
+    location = @collective == @main_collective ? "your profile" : "collective homepage"
     "#{@is_pinned ? "Unpin from" : "Pin to"} #{location}"
   end
 

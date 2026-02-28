@@ -5,13 +5,13 @@ import { getCsrfToken } from "../utils/csrf"
  * NotificationActionsController handles AJAX actions for notifications:
  * - Dismiss individual notification
  * - Dismiss all notifications
- * - Dismiss all notifications for a specific studio
+ * - Dismiss all notifications for a specific collective
  *
  * Usage:
  * <div data-controller="notification-actions">
  *   <button data-action="click->notification-actions#dismiss" data-notification-id="123">Dismiss</button>
  *   <button data-action="click->notification-actions#dismissAll">Dismiss all</button>
- *   <button data-action="click->notification-actions#dismissForStudio" data-studio-id="456">Dismiss all for studio</button>
+ *   <button data-action="click->notification-actions#dismissForCollective" data-collective-id="456">Dismiss all for collective</button>
  * </div>
  */
 export default class NotificationActionsController extends Controller<HTMLElement> {
@@ -30,7 +30,7 @@ export default class NotificationActionsController extends Controller<HTMLElemen
     if (!notificationId) return
 
     const notificationItem = this.findNotificationItem(notificationId)
-    const studioId = notificationItem?.dataset.studioId
+    const collectiveId = notificationItem?.dataset.collectiveId
 
     // Disable button while loading
     button.disabled = true
@@ -53,8 +53,8 @@ export default class NotificationActionsController extends Controller<HTMLElemen
         }
 
         // Check if the accordion group is now empty and remove it
-        if (studioId) {
-          const groupElement = this.element.querySelector(`[data-collective-group="${studioId}"]`)
+        if (collectiveId) {
+          const groupElement = this.element.querySelector(`[data-collective-group="${collectiveId}"]`)
           if (groupElement) {
             const remainingItems = groupElement.querySelectorAll("[data-notification-item]")
             if (remainingItems.length === 0) {
@@ -130,13 +130,13 @@ export default class NotificationActionsController extends Controller<HTMLElemen
     }
   }
 
-  async dismissForStudio(event: Event): Promise<void> {
+  async dismissForCollective(event: Event): Promise<void> {
     event.preventDefault()
     event.stopPropagation() // Prevent accordion toggle
 
     const button = event.currentTarget as HTMLButtonElement
-    const studioId = button.dataset.studioId
-    if (!studioId) return
+    const collectiveId = button.dataset.collectiveId
+    if (!collectiveId) return
 
     const originalText = button.textContent
 
@@ -145,22 +145,22 @@ export default class NotificationActionsController extends Controller<HTMLElemen
     button.textContent = "Dismissing..."
 
     try {
-      const response = await fetch("/notifications/actions/dismiss_for_studio", {
+      const response = await fetch("/notifications/actions/dismiss_for_collective", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "X-CSRF-Token": getCsrfToken(),
           Accept: "application/json",
         },
-        body: `studio_id=${encodeURIComponent(studioId)}`,
+        body: `collective_id=${encodeURIComponent(collectiveId)}`,
       })
 
       if (response.ok) {
         const data = (await response.json()) as { count?: number }
         const dismissedCount = data.count ?? 0
 
-        // Remove all notification items in this studio group
-        const groupElement = this.element.querySelector(`[data-collective-group="${studioId}"]`)
+        // Remove all notification items in this collective group
+        const groupElement = this.element.querySelector(`[data-collective-group="${collectiveId}"]`)
         if (groupElement) {
           groupElement.remove()
         }

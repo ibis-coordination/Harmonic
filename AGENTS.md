@@ -27,8 +27,8 @@ The app uses subdomain-based multi-tenancy. Key patterns:
 - `Tenant.current_id` and `Collective.current_id` are set via thread-local variables
 - Models use `default_scope { where(tenant_id: Tenant.current_id, collective_id: Collective.current_id) }` pattern in `ApplicationRecord`
 - New records auto-populate `tenant_id` and `collective_id` via `before_validation`
-- Routes are duplicated for `/studios/:studio_id/...` and `/scenes/:scene_id/...` paths
-- The `Tenant` model represents a community; `Studio` can be type "studio" or "scene"
+- Routes use `/collectives/:collective_handle/...` paths
+- The `Tenant` model represents a community; `Collective` can be private or public
 
 ### Authentication Modes
 
@@ -48,7 +48,7 @@ Configured via `AUTH_MODE` environment variable:
 |-------|---------|
 | `User` | User accounts (types: human, ai_agent, collective_identity). See [docs/USER_TYPES.md](docs/USER_TYPES.md) |
 | `Tenant` | A community/instance of the app |
-| `Studio` | Workspaces/groups within a tenant |
+| `Collective` | Workspaces/groups within a tenant |
 | `Note` | Posts/content items |
 | `Decision` | Voting items with Options |
 | `Commitment` | Group pledges with critical mass thresholds |

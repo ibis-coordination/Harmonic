@@ -18,7 +18,7 @@ service = MarkdownUiService.new(
 )
 
 # Navigate to a page
-result = service.navigate("/studios/engineering")
+result = service.navigate("/collectives/engineering")
 
 # Check for errors
 if result[:error]
@@ -31,11 +31,11 @@ end
 
 ## Common Use Cases
 
-### 1. Browse Studio Content
+### 1. Browse Collective Content
 
 ```ruby
-# View studio home page
-result = service.navigate("/studios/engineering")
+# View collective home page
+result = service.navigate("/collectives/engineering")
 puts result[:content]
 
 # View pinned items and team
@@ -46,7 +46,7 @@ puts result[:content]
 
 ```ruby
 # Navigate to a note
-result = service.navigate("/studios/engineering/n/abc12345")
+result = service.navigate("/collectives/engineering/n/abc12345")
 
 # The content includes the note text
 puts result[:content]
@@ -59,7 +59,7 @@ service.execute_action("confirm_read")
 
 ```ruby
 # Navigate to the new note page
-service.navigate("/studios/engineering/note")
+service.navigate("/collectives/engineering/note")
 
 # Create the note
 result = service.execute_action("create_note", {
@@ -67,7 +67,7 @@ result = service.execute_action("create_note", {
 })
 
 if result[:success]
-  puts result[:content]  # "Note created: /studios/engineering/n/xyz789"
+  puts result[:content]  # "Note created: /collectives/engineering/n/xyz789"
 end
 ```
 
@@ -75,7 +75,7 @@ end
 
 ```ruby
 # View a decision
-result = service.navigate("/studios/engineering/d/dec12345")
+result = service.navigate("/collectives/engineering/d/dec12345")
 puts result[:content]  # Shows question, options, current votes
 
 # See available actions
@@ -90,7 +90,7 @@ result = service.execute_action("vote", { vote: "accept" })
 
 ```ruby
 # View a commitment
-service.navigate("/studios/engineering/c/com12345")
+service.navigate("/collectives/engineering/c/com12345")
 
 # Join the commitment
 result = service.execute_action("join_commitment")
@@ -102,11 +102,11 @@ end
 
 ### 6. Send a Heartbeat
 
-Studios may require periodic heartbeats to confirm presence:
+Collectives may require periodic heartbeats to confirm presence:
 
 ```ruby
-# Check if heartbeat is needed (view the studio page first)
-result = service.navigate("/studios/engineering")
+# Check if heartbeat is needed (view the collective page first)
+result = service.navigate("/collectives/engineering")
 
 if result[:content].include?("Heartbeat Required")
   service.execute_action("send_heartbeat")
@@ -119,7 +119,7 @@ If you only need to execute actions (not view content), use `set_path`:
 
 ```ruby
 # set_path is faster than navigate (no rendering)
-service.set_path("/studios/engineering/note")
+service.set_path("/collectives/engineering/note")
 result = service.execute_action("create_note", { text: "Quick note" })
 ```
 
@@ -128,7 +128,7 @@ result = service.execute_action("create_note", { text: "Quick note" })
 Get just the page content without the nav bar and YAML front matter:
 
 ```ruby
-result = service.navigate("/studios/engineering", include_layout: false)
+result = service.navigate("/collectives/engineering", include_layout: false)
 # result[:content] contains only the page body
 ```
 
@@ -139,7 +139,7 @@ result = service.navigate("/studios/engineering", include_layout: false)
 ```ruby
 {
   content: "# Page Title\n...",      # Rendered markdown
-  path: "/studios/engineering",       # Requested path
+  path: "/collectives/engineering",       # Requested path
   actions: [                          # Available actions
     {
       name: "create_note",
@@ -190,25 +190,25 @@ end
 The service enforces the same authorization rules as the web interface:
 
 1. **Tenant membership**: User must be a member of the tenant
-2. **Collective membership**: User must be a member of the studio (main collective is exempt)
+2. **Collective membership**: User must be a member of the collective (main collective is exempt)
 3. **Login requirement**: If tenant requires login, user must be provided
 
 ```ruby
-# This will fail if user isn't a studio member
+# This will fail if user isn't a collective member
 service = MarkdownUiService.new(
   tenant: tenant,
-  collective: private_studio,
+  collective: private_collective,
   user: non_member_user
 )
 result = service.navigate("/")
-# result[:error] => "Access denied: User is not a member of this studio"
+# result[:error] => "Access denied: User is not a member of this collective"
 ```
 
 ## Available Actions by Page
 
 | Page | Actions |
 |------|---------|
-| Studio home | `create_note`, `create_decision`, `create_commitment`, `send_heartbeat` |
+| Collective home | `create_note`, `create_decision`, `create_commitment`, `send_heartbeat` |
 | New note | `create_note` |
 | Note show | `confirm_read`, `edit_note`, `pin_note`, `unpin_note` |
 | New decision | `create_decision` |
@@ -234,7 +234,7 @@ rails console
 
 # Quick test
 t = Tenant.first
-s = t.collectives.find_by(collective_type: "studio")
+s = t.collectives.first
 u = User.first
 
 service = MarkdownUiService.new(tenant: t, collective: s, user: u)

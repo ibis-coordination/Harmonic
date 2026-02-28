@@ -19,21 +19,21 @@
 ```
 <% end %>
 
-<% if @ai_agent_studios.any? %>
-## Studio Memberships
+<% if @ai_agent_collectives.any? %>
+## Collective Memberships
 
-<% @ai_agent_studios.each do |studio| %>
-* [<%= studio.name %>](<%= studio.path %>)
+<% @ai_agent_collectives.each do |collective| %>
+* [<%= collective.name %>](<%= collective.path %>)
 <% end %>
 <% end %>
 
-<% if @available_studios.any? %>
-## Add to Studio
+<% if @available_collectives.any? %>
+## Add to Collective
 
-Add this agent (ID: `<%= @ai_agent.id %>`) to one of your studios:
+Add this agent (ID: `<%= @ai_agent.id %>`) to one of your collectives:
 
-<% @available_studios.each do |studio| %>
-* [<%= studio.name %>](<%= studio.path %>/settings/actions/add_ai_agent_to_studio) - use `ai_agent_id: <%= @ai_agent.id %>`
+<% @available_collectives.each do |collective| %>
+* [<%= collective.name %>](<%= collective.path %>/settings/actions/add_ai_agent_to_collective) - use `ai_agent_id: <%= @ai_agent.id %>`
 <% end %>
 <% end %>
 

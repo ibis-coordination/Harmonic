@@ -4,7 +4,7 @@
 # by Collective.current_id in the default scope. This is used for models like:
 #
 # - RepresentationSession: User representation sessions have NULL collective_id
-#   because they can span multiple studios
+#   because they can span multiple collectives
 # - RepresentationSessionEvent: Inherits collective_id from its session,
 #   so user representation events also have NULL collective_id
 #

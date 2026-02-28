@@ -36,7 +36,7 @@ class AutomationTemplateRenderer
     }
 
     collective = event.collective
-    context["studio"] = build_studio_context(collective) if collective
+    context["collective"] = build_collective_context(collective) if collective
 
     context
   end
@@ -109,7 +109,7 @@ class AutomationTemplateRenderer
   end
 
   sig { params(collective: Collective).returns(T::Hash[String, T.untyped]) }
-  def self.build_studio_context(collective)
+  def self.build_collective_context(collective)
     {
       "id" => collective.id,
       "handle" => collective.handle,

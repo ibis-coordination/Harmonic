@@ -8,10 +8,10 @@ describe("MentionAutocompleteController", () => {
   beforeEach(() => {
     vi.useFakeTimers()
 
-    // Set up DOM with studio path value
+    // Set up DOM with collective path value
     document.body.innerHTML = `
       <div data-controller="mention-autocomplete"
-           data-mention-autocomplete-studio-path-value="/studios/test-studio"
+           data-mention-autocomplete-collective-path-value="/collectives/test-collective"
            class="mention-autocomplete-container">
         <textarea data-mention-autocomplete-target="input"></textarea>
         <div data-mention-autocomplete-target="dropdown" class="mention-dropdown" style="display: none;"></div>
@@ -64,7 +64,7 @@ describe("MentionAutocompleteController", () => {
     await vi.advanceTimersByTimeAsync(200)
 
     await vi.waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/studios/test-studio/autocomplete/users?q=al", expect.any(Object))
+      expect(mockFetch).toHaveBeenCalledWith("/collectives/test-collective/autocomplete/users?q=al", expect.any(Object))
       expect(dropdownElement.style.display).toBe("block")
       expect(dropdownElement.innerHTML).toContain("alice")
       expect(dropdownElement.innerHTML).toContain("alex")

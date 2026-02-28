@@ -17,7 +17,7 @@ test.describe("Decisions", () => {
   test("decision page shows voting options", async ({ authenticatedPage }) => {
     const page = authenticatedPage
 
-    // Navigate to home or studio to find decisions
+    // Navigate to home or collective to find decisions
     await page.goto("/")
 
     // Look for any decision link

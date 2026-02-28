@@ -1,8 +1,8 @@
 # typed: false
 
-# TODO: Bug - representatives can perform actions within the studio they are representing AS the studio
+# TODO: Bug - representatives can perform actions within the collective they are representing AS the collective
 # (identity user), which doesn't make sense. Representatives should only be able to act on behalf of
-# the studio in OTHER studios, not within the studio itself. Need to investigate what changed.
+# the collective in OTHER collectives, not within the collective itself. Need to investigate what changed.
 
 class RepresentationSessionsController < ApplicationController
   before_action :set_sidebar_mode, only: [:index, :show, :represent, :representing]
@@ -34,11 +34,11 @@ class RepresentationSessionsController < ApplicationController
   end
 
   def represent
-    # Studio representation page - only shows option to represent the studio itself.
+    # Collective representation page - only shows option to represent the collective itself.
     # User representation is initiated from the trustee grants settings page instead.
-    @can_represent_studio = @current_user.collective_member&.can_represent?
+    @can_represent_collective = @current_user.collective_member&.can_represent?
 
-    if @can_represent_studio
+    if @can_represent_collective
       @page_title = "Represent"
     else
       # TODO: - design a better solution for this
@@ -47,7 +47,7 @@ class RepresentationSessionsController < ApplicationController
     end
   end
 
-  # Start a studio representation session
+  # Start a collective representation session
   def start_representing
     # Block nested representation sessions - a user can only represent one entity at a time
     if current_representation_session
@@ -69,9 +69,9 @@ class RepresentationSessionsController < ApplicationController
       began_at: Time.current
     )
     rep_session.begin!
-    # Set session cookies (matches API headers: X-Representation-Session-ID, X-Representing-Studio)
+    # Set session cookies (matches API headers: X-Representation-Session-ID, X-Representing-Collective)
     session[:representation_session_id] = rep_session.id
-    session[:representing_studio] = current_collective.handle
+    session[:representing_collective] = current_collective.handle
     redirect_to "/representing"
   end
 
@@ -94,9 +94,9 @@ class RepresentationSessionsController < ApplicationController
       return redirect_to request.referer || root_path
     end
 
-    # Verify the grant allows the current studio context
-    unless grant.allows_studio?(current_collective)
-      flash[:alert] = "This trustee grant does not include this studio."
+    # Verify the grant allows the current collective context
+    unless grant.allows_collective?(current_collective)
+      flash[:alert] = "This trustee grant does not include this collective."
       return redirect_to request.referer || root_path
     end
 
@@ -120,10 +120,10 @@ class RepresentationSessionsController < ApplicationController
     @representation_session = current_representation_session
     return redirect_to root_path unless @representation_session
 
-    @studio = @representation_session.collective
-    # For user representation, use the represented user's (granting_user/ai_agent) studios, not the parent's
-    studios_user = @representation_session.user_representation? ? @representation_session.represented_user : current_user
-    @other_studios = studios_user.collectives.where.not(id: @current_tenant.main_collective_id)
+    @collective = @representation_session.collective
+    # For user representation, use the represented user's (granting_user/ai_agent) collectives, not the parent's
+    collectives_user = @representation_session.user_representation? ? @representation_session.represented_user : current_user
+    @other_collectives = collectives_user.collectives.where.not(id: @current_tenant.main_collective_id)
   end
 
   def stop_representing
@@ -145,7 +145,7 @@ class RepresentationSessionsController < ApplicationController
       @current_representation_session.end!
       session.delete(:representation_session_id)
       session.delete(:representing_user)
-      session.delete(:representing_studio)
+      session.delete(:representing_collective)
 
       respond_to do |format|
         format.html do
@@ -181,7 +181,7 @@ class RepresentationSessionsController < ApplicationController
       @current_representation_session.end!
       session.delete(:representation_session_id)
       session.delete(:representing_user)
-      session.delete(:representing_studio)
+      session.delete(:representing_collective)
 
       respond_to do |format|
         format.html do

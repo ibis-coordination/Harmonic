@@ -17,7 +17,7 @@ interface UserResult {
  *
  * Usage:
  * <div data-controller="mention-autocomplete"
- *      data-mention-autocomplete-studio-path-value="/studios/my-studio">
+ *      data-mention-autocomplete-collective-path-value="/collectives/my-collective">
  *   <textarea data-mention-autocomplete-target="input"></textarea>
  *   <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
  * </div>
@@ -25,14 +25,14 @@ interface UserResult {
 export default class MentionAutocompleteController extends Controller<HTMLElement> {
   static targets = ["input", "dropdown"]
   static values = {
-    studioPath: { type: String, default: "" },
+    collectivePath: { type: String, default: "" },
   }
 
   declare readonly inputTarget: HTMLTextAreaElement | HTMLInputElement
   declare readonly dropdownTarget: HTMLElement
   declare readonly hasInputTarget: boolean
   declare readonly hasDropdownTarget: boolean
-  declare studioPathValue: string
+  declare collectivePathValue: string
 
   private results: UserResult[] = []
   private cachedUsers: UserResult[] = []
@@ -209,7 +209,7 @@ export default class MentionAutocompleteController extends Controller<HTMLElemen
     this.pendingFetch = new AbortController()
 
     try {
-      const basePath = this.studioPathValue || ""
+      const basePath = this.collectivePathValue || ""
       const url = `${basePath}/autocomplete/users?q=${encodeURIComponent(query)}`
 
       const response = await fetch(url, {

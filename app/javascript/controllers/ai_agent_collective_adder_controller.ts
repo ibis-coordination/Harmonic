@@ -31,17 +31,17 @@ export default class AiAgentCollectiveAdderController extends Controller {
     })
       .then((response) => {
         if (response.ok) return response.json()
-        throw new Error("Failed to add to studio")
+        throw new Error("Failed to add to collective")
       })
       .then((data: { collective_id: number; collective_name: string; collective_path: string }) => {
-        // Add studio to the list
+        // Add collective to the list
         this.addCollectiveToList(data)
         // Remove option from select
         this.removeOptionFromSelect(String(data.collective_id))
       })
       .catch((error) => {
-        console.error("Error adding to studio:", error)
-        alert("Failed to add to studio")
+        console.error("Error adding to collective:", error)
+        alert("Failed to add to collective")
       })
   }
 
@@ -50,7 +50,7 @@ export default class AiAgentCollectiveAdderController extends Controller {
 
     const button = event.currentTarget as HTMLButtonElement
     const collectiveId = button.dataset.collectiveId
-    const collectiveName = button.dataset.collectiveName || "this studio"
+    const collectiveName = button.dataset.collectiveName || "this collective"
     const url = this.removeUrlValue
 
     if (!collectiveId || !url) return
@@ -66,10 +66,10 @@ export default class AiAgentCollectiveAdderController extends Controller {
     })
       .then((response) => {
         if (response.ok) return response.json()
-        throw new Error("Failed to remove from studio")
+        throw new Error("Failed to remove from collective")
       })
       .then((data: { collective_id: number; collective_name: string }) => {
-        // Remove studio from list
+        // Remove collective from list
         this.removeCollectiveFromList(String(data.collective_id))
         // Add option back to select if it exists
         if (this.hasSelectTarget) {
@@ -77,8 +77,8 @@ export default class AiAgentCollectiveAdderController extends Controller {
         }
       })
       .catch((error) => {
-        console.error("Error removing from studio:", error)
-        alert("Failed to remove from studio")
+        console.error("Error removing from collective:", error)
+        alert("Failed to remove from collective")
       })
   }
 
@@ -87,28 +87,28 @@ export default class AiAgentCollectiveAdderController extends Controller {
     const noneMessage = this.collectiveListTarget.querySelector(".none-message")
     if (noneMessage) noneMessage.remove()
 
-    // Create new studio item as <li>
+    // Create new collective item as <li>
     const item = document.createElement("li")
-    item.className = "studio-item"
+    item.className = "collective-item"
     item.dataset.collectiveId = String(data.collective_id)
-    item.innerHTML = `<a href="${data.collective_path}">${data.collective_name}</a> <button type="button" class="button-small button-danger" data-action="ai_agent-collective-adder#remove" data-collective-id="${data.collective_id}" data-collective-name="${data.collective_name}">Remove from studio</button>`
+    item.innerHTML = `<a href="${data.collective_path}">${data.collective_name}</a> <button type="button" class="button-small button-danger" data-action="ai_agent-collective-adder#remove" data-collective-id="${data.collective_id}" data-collective-name="${data.collective_name}">Remove from collective</button>`
 
     // Add to the list
     this.collectiveListTarget.appendChild(item)
   }
 
   private removeCollectiveFromList(collectiveId: string): void {
-    const item = this.collectiveListTarget.querySelector(`.studio-item[data-collective-id="${collectiveId}"]`)
+    const item = this.collectiveListTarget.querySelector(`.collective-item[data-collective-id="${collectiveId}"]`)
     if (item) {
       item.remove()
     }
 
-    // Show "None" if no studios left
-    const remainingItems = this.collectiveListTarget.querySelectorAll(".studio-item")
+    // Show "None" if no collectives left
+    const remainingItems = this.collectiveListTarget.querySelectorAll(".collective-item")
     if (remainingItems.length === 0) {
       const noneMessage = document.createElement("li")
       noneMessage.className = "none-message"
-      noneMessage.innerHTML = "<em>Not a member of any studios</em>"
+      noneMessage.innerHTML = "<em>Not a member of any collectives</em>"
       this.collectiveListTarget.appendChild(noneMessage)
     }
 

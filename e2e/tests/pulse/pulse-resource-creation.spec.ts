@@ -1,11 +1,11 @@
 import { test, expect } from "../../fixtures/test-fixtures"
 import { buildBaseUrl } from "../../helpers/auth"
 
-// Cache studio path across all tests - fetched once in beforeAll
-let cachedStudioPath: string | null = null
+// Cache collective path across all tests - fetched once in beforeAll
+let cachedCollectivePath: string | null = null
 
 test.describe("Pulse Resource Creation Forms", () => {
-  // Get studio path once before all tests
+  // Get collective path once before all tests
   test.beforeAll(async ({ browser }) => {
     const baseUrl = buildBaseUrl()
     const context = await browser.newContext({
@@ -13,33 +13,33 @@ test.describe("Pulse Resource Creation Forms", () => {
     })
     const page = await context.newPage()
 
-    await page.goto(`${baseUrl}/studios`)
+    await page.goto(`${baseUrl}/collectives`)
     await page.waitForLoadState("domcontentloaded")
 
-    const studioLink = page.locator('a[href*="/studios/"]').first()
-    if ((await studioLink.count()) > 0) {
-      const href = await studioLink.getAttribute("href")
-      const match = href?.match(/\/studios\/[^/]+/)
-      cachedStudioPath = match ? match[0] : null
+    const collectiveLink = page.locator('a[href*="/collectives/"]').first()
+    if ((await collectiveLink.count()) > 0) {
+      const href = await collectiveLink.getAttribute("href")
+      const match = href?.match(/\/collectives\/[^/]+/)
+      cachedCollectivePath = match ? match[0] : null
     }
 
     await context.close()
   })
   test.describe("Note Creation", () => {
-    test("can navigate to note creation from studio", async ({
+    test("can navigate to note creation from collective", async ({
       authenticatedPage,
     }) => {
       const page = authenticatedPage
 
-      if (!cachedStudioPath) {
+      if (!cachedCollectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
 
-      // Navigate to studio page (Pulse)
-      await page.goto(`${baseUrl}${cachedStudioPath}`)
+      // Navigate to collective page (Pulse)
+      await page.goto(`${baseUrl}${cachedCollectivePath}`)
       await page.waitForLoadState("domcontentloaded")
 
       // Click the "+ New" button in the header
@@ -58,14 +58,14 @@ test.describe("Pulse Resource Creation Forms", () => {
     test("note form has required elements", async ({ authenticatedPage }) => {
       const page = authenticatedPage
 
-      if (!cachedStudioPath) {
+      if (!cachedCollectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
       // Route is /note, not /notes/new
-      await page.goto(`${baseUrl}${cachedStudioPath}/note`)
+      await page.goto(`${baseUrl}${cachedCollectivePath}/note`)
       await page.waitForLoadState("domcontentloaded")
 
       // Check for form elements
@@ -92,22 +92,22 @@ test.describe("Pulse Resource Creation Forms", () => {
     }) => {
       const page = authenticatedPage
 
-      if (!cachedStudioPath) {
+      if (!cachedCollectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${cachedStudioPath}/note`)
+      await page.goto(`${baseUrl}${cachedCollectivePath}/note`)
       await page.waitForLoadState("domcontentloaded")
 
       // Check breadcrumb (use nav element to be specific about which one)
       const breadcrumb = page.locator("nav.pulse-breadcrumb")
       await expect(breadcrumb).toBeVisible()
 
-      // Should have studio link and "New Note" text
-      const studioLink = breadcrumb.locator("a").first()
-      await expect(studioLink).toBeVisible()
+      // Should have collective link and "New Note" text
+      const collectiveLink = breadcrumb.locator("a").first()
+      await expect(collectiveLink).toBeVisible()
 
       await expect(breadcrumb).toContainText("New Note")
     })
@@ -115,13 +115,13 @@ test.describe("Pulse Resource Creation Forms", () => {
     test("can create a note", async ({ authenticatedPage }) => {
       const page = authenticatedPage
 
-      if (!cachedStudioPath) {
+      if (!cachedCollectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${cachedStudioPath}/note`)
+      await page.goto(`${baseUrl}${cachedCollectivePath}/note`)
       await page.waitForLoadState("domcontentloaded")
 
       const noteText = `E2E Pulse Note Test ${Date.now()}`
@@ -149,39 +149,39 @@ test.describe("Pulse Resource Creation Forms", () => {
     }) => {
       const page = authenticatedPage
 
-      if (!cachedStudioPath) {
+      if (!cachedCollectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${cachedStudioPath}/note`)
+      await page.goto(`${baseUrl}${cachedCollectivePath}/note`)
       await page.waitForLoadState("domcontentloaded")
 
       // Sidebar should be in resource mode (minimal with back link)
       const sidebar = page.locator('.pulse-sidebar[data-mode="resource"]')
       await expect(sidebar).toBeVisible()
 
-      // Should have back link to studio
+      // Should have back link to collective
       const backLink = sidebar.locator('.pulse-nav-item:has-text("Back to")')
       await expect(backLink).toBeVisible()
     })
   })
 
   test.describe("Decision Creation", () => {
-    test("can navigate to decision creation from studio", async ({
+    test("can navigate to decision creation from collective", async ({
       authenticatedPage,
     }) => {
       const page = authenticatedPage
 
-      if (!cachedStudioPath) {
+      if (!cachedCollectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
       // Route is /decide, not /decisions/new
-      await page.goto(`${baseUrl}${cachedStudioPath}/decide`)
+      await page.goto(`${baseUrl}${cachedCollectivePath}/decide`)
       await page.waitForLoadState("domcontentloaded")
 
       // Page should show decision form with Pulse styling
@@ -193,15 +193,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/decide`)
+      await page.goto(`${baseUrl}${collectivePath}/decide`)
       await page.waitForLoadState("domcontentloaded")
 
       // Check for form elements
@@ -248,15 +248,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/decide`)
+      await page.goto(`${baseUrl}${collectivePath}/decide`)
       await page.waitForLoadState("domcontentloaded")
 
       // Check breadcrumb
@@ -269,15 +269,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/decide`)
+      await page.goto(`${baseUrl}${collectivePath}/decide`)
       await page.waitForLoadState("domcontentloaded")
 
       // Check deadline radio options
@@ -302,15 +302,15 @@ test.describe("Pulse Resource Creation Forms", () => {
 
     test("can create a decision", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/decide`)
+      await page.goto(`${baseUrl}${collectivePath}/decide`)
       await page.waitForLoadState("domcontentloaded")
 
       const questionText = `E2E Decision Test ${Date.now()}?`
@@ -343,15 +343,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/decide`)
+      await page.goto(`${baseUrl}${collectivePath}/decide`)
       await page.waitForLoadState("domcontentloaded")
 
       // Sidebar should be in resource mode
@@ -361,20 +361,20 @@ test.describe("Pulse Resource Creation Forms", () => {
   })
 
   test.describe("Commitment Creation", () => {
-    test("can navigate to commitment creation from studio", async ({
+    test("can navigate to commitment creation from collective", async ({
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
       // Route is /commit, not /commitments/new
-      await page.goto(`${baseUrl}${studioPath}/commit`)
+      await page.goto(`${baseUrl}${collectivePath}/commit`)
       await page.waitForLoadState("domcontentloaded")
 
       // Page should show commitment form with Pulse styling
@@ -386,15 +386,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/commit`)
+      await page.goto(`${baseUrl}${collectivePath}/commit`)
       await page.waitForLoadState("domcontentloaded")
 
       // Check for form elements
@@ -442,15 +442,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/commit`)
+      await page.goto(`${baseUrl}${collectivePath}/commit`)
       await page.waitForLoadState("domcontentloaded")
 
       // Check breadcrumb
@@ -463,15 +463,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/commit`)
+      await page.goto(`${baseUrl}${collectivePath}/commit`)
       await page.waitForLoadState("domcontentloaded")
 
       // Check for close at critical mass radio option (unique to commitments)
@@ -487,15 +487,15 @@ test.describe("Pulse Resource Creation Forms", () => {
 
     test("can adjust critical mass value", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/commit`)
+      await page.goto(`${baseUrl}${collectivePath}/commit`)
       await page.waitForLoadState("domcontentloaded")
 
       const criticalMassInput = page.locator('input[name="critical_mass"]')
@@ -513,15 +513,15 @@ test.describe("Pulse Resource Creation Forms", () => {
 
     test("can create a commitment", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/commit`)
+      await page.goto(`${baseUrl}${collectivePath}/commit`)
       await page.waitForLoadState("domcontentloaded")
 
       const titleText = `E2E Commitment Test ${Date.now()}`
@@ -554,15 +554,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
 
       const baseUrl = buildBaseUrl()
-      await page.goto(`${baseUrl}${studioPath}/commit`)
+      await page.goto(`${baseUrl}${collectivePath}/commit`)
       await page.waitForLoadState("domcontentloaded")
 
       // Sidebar should be in resource mode
@@ -576,9 +576,9 @@ test.describe("Pulse Resource Creation Forms", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
@@ -591,7 +591,7 @@ test.describe("Pulse Resource Creation Forms", () => {
       ]
 
       for (const formConfig of forms) {
-        await page.goto(`${baseUrl}${studioPath}${formConfig.path}`)
+        await page.goto(`${baseUrl}${collectivePath}${formConfig.path}`)
         await page.waitForLoadState("domcontentloaded")
 
         // All should have pulse-form class
@@ -616,9 +616,9 @@ test.describe("Pulse Resource Creation Forms", () => {
 
     test("forms show resource type icons", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioPath = cachedStudioPath
+      const collectivePath = cachedCollectivePath
 
-      if (!studioPath) {
+      if (!collectivePath) {
         test.skip()
         return
       }
@@ -631,7 +631,7 @@ test.describe("Pulse Resource Creation Forms", () => {
       ]
 
       for (const formConfig of forms) {
-        await page.goto(`${baseUrl}${studioPath}${formConfig.path}`)
+        await page.goto(`${baseUrl}${collectivePath}${formConfig.path}`)
         await page.waitForLoadState("domcontentloaded")
 
         // Should have resource type label

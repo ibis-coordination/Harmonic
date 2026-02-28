@@ -4,5 +4,5 @@
 <%= render CommentsListComponent.new(
   commentable: commentable,
   current_user: @current_user,
-  studio_path: @current_collective&.path || "",
+  collective_path: @current_collective&.path || "",
 ) %>

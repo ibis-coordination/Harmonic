@@ -99,7 +99,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
         params: {
           trustee_user_id: @other_user.id,
           permissions: ["create_note", "vote"],
-          studio_scope_mode: "all",
+          collective_scope_mode: "all",
         }.to_json,
         headers: @headers
     end
@@ -140,13 +140,13 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     assert permission.expires_at.present?
   end
 
-  test "create_trustee_grant can set studio scope" do
+  test "create_trustee_grant can set collective scope" do
     post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
       params: {
         trustee_user_id: @other_user.id,
         permissions: ["create_note"],
-        studio_scope_mode: "include",
-        studio_ids: [@collective.id],
+        collective_scope_mode: "include",
+        collective_ids: [@collective.id],
       }.to_json,
       headers: @headers
 

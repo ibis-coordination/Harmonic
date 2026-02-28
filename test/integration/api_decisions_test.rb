@@ -95,7 +95,7 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   end
 
   test "create with options creates decision and options" do
-    skip "Bug: LinkParser fails when studio is main studio"
+    skip "Bug: LinkParser fails when collective is main collective"
     decision_params = {
       question: "Pick one",
       deadline: (Time.current + 1.week).iso8601,

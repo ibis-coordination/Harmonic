@@ -4,7 +4,7 @@ require "test_helper"
 
 class SearchIndexerTest < ActiveSupport::TestCase
   setup do
-    @tenant, @collective, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_collective_user
   end
 
   test "reindex creates search index for a note" do

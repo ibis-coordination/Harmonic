@@ -4,7 +4,7 @@ class AutomationDispatcher
   extend T::Sig
 
   # Tenant-level rate limit to prevent system overload
-  # Individual rules have their own limits (3/min for agents, 10/min for studio rules)
+  # Individual rules have their own limits (3/min for agents, 10/min for collective rules)
   # but this ensures no single tenant can overwhelm the system
   TENANT_RUNS_PER_MINUTE = 100
 
@@ -59,7 +59,7 @@ class AutomationDispatcher
   sig { params(rule: AutomationRule, event: Event).void }
   def self.queue_rule_execution(rule, event)
     # Chain protection: prevent infinite loops and cascade explosions
-    # This applies to ALL rules (agent and studio)
+    # This applies to ALL rules (agent and collective)
     unless AutomationContext.can_execute_rule?(rule)
       # Logging is handled inside can_execute_rule?
       return
@@ -81,7 +81,7 @@ class AutomationDispatcher
 
     # Rate limit for all rules to prevent runaway execution
     # Agent rules: 3/min (conservative, agents can do lots of work)
-    # Studio rules: 10/min (more lenient, typically just webhook/internal actions)
+    # Collective rules: 10/min (more lenient, typically just webhook/internal actions)
     max_per_minute = rule.agent_rule? ? 3 : 10
 
     recent_runs = AutomationRuleRun
@@ -153,7 +153,7 @@ class AutomationDispatcher
   # Get rule type string for metrics
   sig { params(rule: AutomationRule).returns(String) }
   def self.rule_type_for_metrics(rule)
-    rule.agent_rule? ? "agent" : "studio"
+    rule.agent_rule? ? "agent" : "collective"
   end
   private_class_method :rule_type_for_metrics
 end

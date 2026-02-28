@@ -28,7 +28,7 @@ This document compares the patterns in this codebase to common patterns seen in 
 
 **Critical mass/quorum**: `Commitment` (see `app/models/commitment.rb`) requiring a threshold before activation addresses the collective action problem - this isn't commonly baked into a social app's core model.
 
-**Representation sessions**: Users acting on behalf of studios with nested representation (`RepresentationSession`, `RepresentationSessionAssociation`) is a sophisticated collective agency pattern that's rare. Most apps have simple user-owns-content models.
+**Representation sessions**: Users acting on behalf of collectives with nested representation (`RepresentationSession`, `RepresentationSessionAssociation`) is a sophisticated collective agency pattern that's rare. Most apps have simple user-owns-content models.
 
 **Bidirectional links as first-class**: The `Link` model (see `app/models/link.rb`) creating an explicit knowledge graph with automatic backlink tracking is more like Obsidian/Roam than typical social apps.
 

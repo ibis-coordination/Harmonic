@@ -71,11 +71,11 @@ class ApiHelper
   end
 
   sig { returns(Collective) }
-  def create_studio
-    studio = T.let(nil, T.nilable(Collective))
+  def create_collective
+    collective = T.let(nil, T.nilable(Collective))
     note = nil
     ActiveRecord::Base.transaction do
-      studio = Collective.create!(
+      collective = Collective.create!(
         name: params[:name],
         handle: params[:handle],
         description: params[:description],
@@ -87,51 +87,28 @@ class ApiHelper
 
       # Apply optional settings
       if params.has_key?(:invitations)
-        studio.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+        collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
       end
       if params.has_key?(:representation)
-        studio.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+        collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
       end
       if params.has_key?(:file_uploads)
-        studio.settings['allow_file_uploads'] = params[:file_uploads] == true || params[:file_uploads] == 'true' || params[:file_uploads] == '1'
+        collective.settings['allow_file_uploads'] = params[:file_uploads] == true || params[:file_uploads] == 'true' || params[:file_uploads] == '1'
       end
       if params.has_key?(:api_enabled)
-        studio.settings['feature_flags'] ||= {}
-        studio.settings['feature_flags']['api'] = params[:api_enabled] == true || params[:api_enabled] == 'true' || params[:api_enabled] == '1'
+        collective.settings['feature_flags'] ||= {}
+        collective.settings['feature_flags']['api'] = params[:api_enabled] == true || params[:api_enabled] == 'true' || params[:api_enabled] == '1'
       end
-      studio.save! if studio.settings_changed?
+      collective.save! if collective.settings_changed?
 
       # This is needed to ensure that all the models created in this transaction
-      # are associated with the correct tenant and studio
-      Collective.scope_thread_to_collective(handle: studio.handle, subdomain: T.must(studio.tenant).subdomain)
-      studio.add_user!(current_user, roles: ['admin', 'representative'])
+      # are associated with the correct tenant and collective
+      Collective.scope_thread_to_collective(handle: collective.handle, subdomain: T.must(collective.tenant).subdomain)
+      collective.add_user!(current_user, roles: ['admin', 'representative'])
     end
-    T.must(studio)
+    T.must(collective)
   end
 
-  sig { returns(Collective) }
-  def create_scene
-    scene = T.let(nil, T.nilable(Collective))
-    note = nil
-    ActiveRecord::Base.transaction do
-      scene = Collective.create!(
-        collective_type: 'scene',
-        name: params[:name],
-        handle: params[:handle],
-        description: params[:description],
-        created_by: current_user,
-        open_scene: (params[:open_scene].to_s == 'true') || (params[:invitation_mode] == 'open'),
-        # timezone: params[:timezone],
-        # tempo: params[:tempo],
-        # synchronization_mode: params[:synchronization_mode],
-      )
-      # This is needed to ensure that all the models created in this transaction
-      # are associated with the correct tenant and scene
-      Collective.scope_thread_to_collective(handle: scene.handle, subdomain: T.must(scene.tenant).subdomain)
-      scene.add_user!(current_user, roles: ['admin', 'representative'])
-    end
-    T.must(scene)
-  end
 
   sig { returns(Heartbeat) }
   def create_heartbeat
@@ -552,21 +529,17 @@ class ApiHelper
   end
 
   sig { params(invite: T.nilable(Invite)).returns(CollectiveMember) }
-  def join_studio(invite: nil)
-    raise 'User is already a member of this studio' if current_user.collectives.include?(current_collective)
+  def join_collective(invite: nil)
+    raise 'User is already a member of this collective' if current_user.collectives.include?(current_collective)
 
     collective_member = T.let(nil, T.nilable(CollectiveMember))
     ActiveRecord::Base.transaction do
       if invite
-        raise 'Invite does not match studio' unless invite.collective == current_collective
+        raise 'Invite does not match collective' unless invite.collective == current_collective
         current_user.accept_invite!(invite)
         collective_member = current_user.collective_members.find_by(collective: current_collective)
-      elsif current_collective.is_scene?
-        # Scenes allow direct join without invite
-        current_collective.add_user!(current_user)
-        collective_member = current_user.collective_members.find_by(collective: current_collective)
       else
-        raise 'Valid invite required to join this studio'
+        raise 'Valid invite required to join this collective'
       end
 
     end
@@ -574,7 +547,7 @@ class ApiHelper
   end
 
   sig { returns(Collective) }
-  def update_studio_settings
+  def update_collective_settings
     raise 'Unauthorized: must be admin' unless current_user.collective_member&.is_admin?
 
     ActiveRecord::Base.transaction do

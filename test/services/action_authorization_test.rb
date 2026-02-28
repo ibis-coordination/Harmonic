@@ -65,7 +65,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
 
   # Test: Collective admin authorization
   test "collective_admin authorization checks collective_member admin role" do
-    context = { studio: @collective }
+    context = { collective: @collective }
     refute ActionAuthorization.check_authorization(:collective_admin, @user, context)
 
     sm = @user.collective_members.find_by(collective_id: @collective.id)
@@ -73,9 +73,9 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     assert ActionAuthorization.check_authorization(:collective_admin, @user, context)
   end
 
-  # Test: Studio member authorization
-  test "collective_member authorization checks studio membership" do
-    context = { studio: @collective }
+  # Test: Collective member authorization
+  test "collective_member authorization checks collective membership" do
+    context = { collective: @collective }
 
     # User is already a member (from setup)
     assert ActionAuthorization.check_authorization(:collective_member, @user, context)
@@ -177,12 +177,12 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
   # Test: Authenticated actions are visible to logged-in users
   test "authenticated actions are visible to logged-in users" do
     assert ActionAuthorization.authorized?("search", @user, {})
-    assert ActionAuthorization.authorized?("create_studio", @user, {})
+    assert ActionAuthorization.authorized?("create_collective", @user, {})
     assert ActionAuthorization.authorized?("dismiss", @user, {})
   end
 
-  # Test: Studio member actions are permissive for listing, strict for execution
-  test "studio member actions are permissive without context, strict with context" do
+  # Test: Collective member actions are permissive for listing, strict for execution
+  test "collective member actions are permissive without context, strict with context" do
     # Without context (for listing), should be permissive for authenticated users
     assert ActionAuthorization.authorized?("send_heartbeat", @user, {})
 
@@ -190,7 +190,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("send_heartbeat", nil, {})
 
     # With context where user is member, should pass
-    context = { studio: @collective }
+    context = { collective: @collective }
     assert ActionAuthorization.authorized?("send_heartbeat", @user, context)
 
     # With context where user is NOT a member, should fail
@@ -267,15 +267,15 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("create_webhook", nil, {})
   end
 
-  test "webhook authorization requires collective_admin for studio webhooks" do
-    context = { studio: @collective }
+  test "webhook authorization requires collective_admin for collective webhooks" do
+    context = { collective: @collective }
 
-    # Regular member cannot manage studio webhooks
+    # Regular member cannot manage collective webhooks
     refute ActionAuthorization.authorized?("create_webhook", @user, context)
     refute ActionAuthorization.authorized?("update_webhook", @user, context)
     refute ActionAuthorization.authorized?("delete_webhook", @user, context)
 
-    # Studio admin can manage studio webhooks
+    # Collective admin can manage collective webhooks
     sm = @user.collective_members.find_by(collective_id: @collective.id)
     sm.add_role!("admin")
     assert ActionAuthorization.authorized?("create_webhook", @user, context)

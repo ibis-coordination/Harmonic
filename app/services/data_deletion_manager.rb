@@ -118,7 +118,7 @@ class DataDeletionManager
       NoteHistoryEvent.where(note_id: note.id).each do |event|
         event.destroy!
       end
-      # Links can be cross-collective (for scenes), so query tenant-wide
+      # Links can be cross-collective, so query tenant-wide
       Link.tenant_scoped_only(note.tenant_id).where(from_linkable: note).or(
         Link.tenant_scoped_only(note.tenant_id).where(to_linkable: note)
       ).each do |link|
@@ -149,7 +149,7 @@ class DataDeletionManager
       DecisionParticipant.where(decision_id: decision.id).each do |participant|
         participant.destroy!
       end
-      # Links can be cross-collective (for scenes), so query tenant-wide
+      # Links can be cross-collective, so query tenant-wide
       Link.tenant_scoped_only(decision.tenant_id).where(from_linkable: decision).or(
         Link.tenant_scoped_only(decision.tenant_id).where(to_linkable: decision)
       ).each do |link|
@@ -174,7 +174,7 @@ class DataDeletionManager
       CommitmentParticipant.where(commitment_id: commitment.id).each do |participant|
         participant.destroy!
       end
-      # Links can be cross-collective (for scenes), so query tenant-wide
+      # Links can be cross-collective, so query tenant-wide
       Link.tenant_scoped_only(commitment.tenant_id).where(from_linkable: commitment).or(
         Link.tenant_scoped_only(commitment.tenant_id).where(to_linkable: commitment)
       ).each do |link|

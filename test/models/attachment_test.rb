@@ -6,7 +6,7 @@ class AttachmentTest < ActiveSupport::TestCase
   def setup
     @tenant = Tenant.create!(subdomain: "attach-test-#{SecureRandom.hex(4)}", name: "Test Tenant")
     @user = User.create!(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
-    @collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Test Studio", handle: "test-studio-#{SecureRandom.hex(4)}")
+    @collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Test Collective", handle: "test-collective-#{SecureRandom.hex(4)}")
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.set_thread_context(@collective)
     @note = Note.create!(

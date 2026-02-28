@@ -54,7 +54,7 @@ class FeatureFlagService
     metadata = flag_metadata(flag_name)
     return false if metadata.nil?
 
-    metadata["default_studio"] == true
+    metadata["default_collective"] == true
   end
 
   # Check if a flag is enabled at the tenant level (considering cascade from app)

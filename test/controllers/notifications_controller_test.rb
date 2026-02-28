@@ -541,45 +541,45 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "delete_reminder"
   end
 
-  # === Dismiss For Studio Tests ===
+  # === Dismiss For Collective Tests ===
 
-  test "dismiss_for_studio dismisses notifications for specific studio" do
+  test "dismiss_for_collective dismisses notifications for specific collective" do
     sign_in_as(@user, tenant: @tenant)
 
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
-    # Create a second studio
-    collective2 = Collective.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+    # Create a second collective
+    collective2 = Collective.create!(tenant: @tenant, name: "Second Collective", handle: "second-collective", created_by: @user)
 
-    # Create notifications in first studio
+    # Create notifications in first collective
     event1 = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
-    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
+    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Collective1 Notification")
     recipient1 = NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
 
-    # Create notifications in second studio
+    # Create notifications in second collective
     event2 = Event.create!(tenant: @tenant, collective: collective2, event_type: "test.created")
-    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
+    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Collective2 Notification")
     recipient2 = NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
 
     Collective.clear_thread_scope
 
-    # Dismiss only first studio's notifications
-    post "/notifications/actions/dismiss_for_studio", params: { studio_id: @collective.id }
+    # Dismiss only first collective's notifications
+    post "/notifications/actions/dismiss_for_collective", params: { collective_id: @collective.id }
     assert_response :success
 
     recipient1.reload
     recipient2.reload
 
-    # First studio notification should be dismissed
+    # First collective notification should be dismissed
     assert_equal "dismissed", recipient1.status
     assert recipient1.dismissed_at.present?
 
-    # Second studio notification should still be pending
+    # Second collective notification should still be pending
     assert_equal "pending", recipient2.status
     assert_nil recipient2.dismissed_at
   end
 
-  test "dismiss_for_studio with reminders dismisses due reminders only" do
+  test "dismiss_for_collective with reminders dismisses due reminders only" do
     sign_in_as(@user, tenant: @tenant)
 
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
@@ -596,8 +596,8 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
 
     Collective.clear_thread_scope
 
-    # Dismiss reminders using "reminders" as studio_id
-    post "/notifications/actions/dismiss_for_studio", params: { studio_id: "reminders" }
+    # Dismiss reminders using "reminders" as collective_id
+    post "/notifications/actions/dismiss_for_collective", params: { collective_id: "reminders" }
     assert_response :success
 
     reminder_recipient.reload
@@ -610,18 +610,18 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "pending", normal_recipient.status
   end
 
-  test "dismiss_for_studio returns error for invalid studio" do
+  test "dismiss_for_collective returns error for invalid collective" do
     sign_in_as(@user, tenant: @tenant)
 
-    post "/notifications/actions/dismiss_for_studio", params: { studio_id: 99999 }
+    post "/notifications/actions/dismiss_for_collective", params: { collective_id: 99999 }
     assert_response :not_found
 
     json_response = JSON.parse(response.body)
     assert_equal false, json_response["success"]
-    assert_equal "Studio not found.", json_response["error"]
+    assert_equal "Collective not found.", json_response["error"]
   end
 
-  test "dismiss_for_studio returns count in JSON response" do
+  test "dismiss_for_collective returns count in JSON response" do
     sign_in_as(@user, tenant: @tenant)
 
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
@@ -636,7 +636,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
 
     Collective.clear_thread_scope
 
-    post "/notifications/actions/dismiss_for_studio", params: { studio_id: @collective.id }
+    post "/notifications/actions/dismiss_for_collective", params: { collective_id: @collective.id }
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -644,24 +644,24 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 3, json_response["count"]
   end
 
-  # === Notifications Grouped by Studio Tests ===
+  # === Notifications Grouped by Collective Tests ===
 
-  test "index groups notifications by studio in HTML" do
+  test "index groups notifications by collective in HTML" do
     sign_in_as(@user, tenant: @tenant)
 
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
-    # Create a second studio
-    collective2 = Collective.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+    # Create a second collective
+    collective2 = Collective.create!(tenant: @tenant, name: "Second Collective", handle: "second-collective", created_by: @user)
 
-    # Create notifications in first studio
+    # Create notifications in first collective
     event1 = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
-    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
+    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Collective1 Notification")
     NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
 
-    # Create notifications in second studio
+    # Create notifications in second collective
     event2 = Event.create!(tenant: @tenant, collective: collective2, event_type: "test.created")
-    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
+    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Collective2 Notification")
     NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
 
     Collective.clear_thread_scope
@@ -669,29 +669,29 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     get "/notifications"
     assert_response :success
 
-    # Should show both studio names in accordion headers
+    # Should show both collective names in accordion headers
     assert_includes response.body, @collective.name
-    assert_includes response.body, "Second Studio"
+    assert_includes response.body, "Second Collective"
     assert_includes response.body, "pulse-accordion"
     assert_includes response.body, "data-collective-group"
   end
 
-  test "index groups notifications by studio in markdown" do
+  test "index groups notifications by collective in markdown" do
     sign_in_as(@user, tenant: @tenant)
 
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
-    # Create a second studio
-    collective2 = Collective.create!(tenant: @tenant, name: "Second Studio", handle: "second-studio", created_by: @user)
+    # Create a second collective
+    collective2 = Collective.create!(tenant: @tenant, name: "Second Collective", handle: "second-collective", created_by: @user)
 
-    # Create notifications in first studio
+    # Create notifications in first collective
     event1 = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
-    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Studio1 Notification")
+    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Collective1 Notification")
     NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "pending")
 
-    # Create notifications in second studio
+    # Create notifications in second collective
     event2 = Event.create!(tenant: @tenant, collective: collective2, event_type: "test.created")
-    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Studio2 Notification")
+    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Collective2 Notification")
     NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "pending")
 
     Collective.clear_thread_scope
@@ -699,9 +699,9 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     get "/notifications", headers: { "Accept" => "text/markdown" }
     assert_response :success
 
-    # Should show studio names as markdown headers
+    # Should show collective names as markdown headers
     assert_includes response.body, "### #{@collective.name}"
-    assert_includes response.body, "### Second Studio"
-    assert_includes response.body, "dismiss_for_studio"
+    assert_includes response.body, "### Second Collective"
+    assert_includes response.body, "dismiss_for_collective"
   end
 end

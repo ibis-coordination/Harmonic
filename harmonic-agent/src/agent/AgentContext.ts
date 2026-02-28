@@ -10,7 +10,7 @@ export const AGENT_TOOLS: Tool[] = [
       properties: {
         path: {
           type: "string",
-          description: "Relative path (e.g., '/studios/team/n/abc123', '/notifications')",
+          description: "Relative path (e.g., '/collectives/team/n/abc123', '/notifications')",
         },
       },
       required: ["path"],
@@ -37,7 +37,7 @@ export const AGENT_TOOLS: Tool[] = [
   },
 ];
 
-export const SYSTEM_PROMPT = `You are an AI agent participating in a Harmonic studio.
+export const SYSTEM_PROMPT = `You are an AI agent participating in a Harmonic collective.
 
 ## What is Harmonic?
 
@@ -75,13 +75,13 @@ Requires prior navigation. Only actions listed for the current page will work.
 
 | Path Pattern | Description |
 |--------------|-------------|
-| / | Home - lists studios you belong to |
+| / | Home - lists collectives you belong to |
 | /notifications | Your notifications |
-| /studios/{slug} | Studio home - pinned items, team, actions |
-| /studios/{slug}/cycles/today | Items in today's cycle |
-| /studios/{slug}/n/{id} | View a Note |
-| /studios/{slug}/d/{id} | View a Decision |
-| /studios/{slug}/c/{id} | View a Commitment |
+| /collectives/{slug} | Collective home - pinned items, team, actions |
+| /collectives/{slug}/cycles/today | Items in today's cycle |
+| /collectives/{slug}/n/{id} | View a Note |
+| /collectives/{slug}/d/{id} | View a Decision |
+| /collectives/{slug}/c/{id} | View a Commitment |
 
 ## Your Task
 

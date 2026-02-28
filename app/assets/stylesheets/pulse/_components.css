@@ -1611,13 +1611,13 @@ a.pulse-activity-title:hover {
   margin: 4px 0 0 0;
 }
 
-/* Studios List */
-.pulse-studios-list {
+/* Collectives List */
+.pulse-collectives-list {
   display: flex;
   flex-direction: column;
 }
 
-.pulse-studio-item {
+.pulse-collective-item {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1625,28 +1625,28 @@ a.pulse-activity-title:hover {
   border-bottom: 1px solid var(--color-border-default);
 }
 
-.pulse-studio-item:last-child {
+.pulse-collective-item:last-child {
   border-bottom: none;
 }
 
-.pulse-studio-item .pulse-studio-info {
+.pulse-collective-item .pulse-collective-info {
   flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.pulse-studio-name {
+.pulse-collective-name {
   font-size: 14px;
   color: var(--color-fg-default);
   text-decoration: none;
 }
 
-.pulse-studio-name:hover {
+.pulse-collective-name:hover {
   color: var(--color-accent-fg);
 }
 
-.pulse-studio-role {
+.pulse-collective-role {
   font-size: 12px;
   color: var(--color-fg-muted);
 }
@@ -2588,18 +2588,18 @@ a.pulse-activity-title:hover {
   flex-shrink: 0;
 }
 
-.pulse-ai-agent-studios {
+.pulse-ai-agent-collectives {
   padding-top: 16px;
   border-top: 1px solid var(--color-border-default);
 }
 
-.pulse-studio-membership-list {
+.pulse-collective-membership-list {
   list-style: none;
   padding: 0;
   margin: 8px 0 12px 0;
 }
 
-.pulse-studio-membership-item {
+.pulse-collective-membership-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2607,25 +2607,25 @@ a.pulse-activity-title:hover {
   border-bottom: 1px solid var(--color-border-muted);
 }
 
-.pulse-studio-membership-item:last-child {
+.pulse-collective-membership-item:last-child {
   border-bottom: none;
 }
 
-.pulse-studio-membership-item a {
+.pulse-collective-membership-item a {
   color: var(--color-fg-default);
   text-decoration: none;
 }
 
-.pulse-studio-membership-item a:hover {
+.pulse-collective-membership-item a:hover {
   color: var(--color-accent-fg);
 }
 
-.pulse-studio-membership-empty {
+.pulse-collective-membership-empty {
   padding: 8px 0;
   color: var(--color-fg-muted);
 }
 
-.pulse-add-studio-form {
+.pulse-add-collective-form {
   display: flex;
   gap: 8px;
   align-items: center;

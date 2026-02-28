@@ -54,7 +54,7 @@ export default class AiAgentManagerController extends Controller {
 
     if (!ai_agentId || !url) return
 
-    if (!confirm(`Remove ${ai_agentName} from this studio?`)) return
+    if (!confirm(`Remove ${ai_agentName} from this collective?`)) return
 
     fetchWithCsrf(url, {
       method: "DELETE",
@@ -122,7 +122,7 @@ export default class AiAgentManagerController extends Controller {
 
       const emptyP = document.createElement("p")
       emptyP.className = "empty-message"
-      emptyP.innerHTML = "<em>No ai_agents in this studio.</em>"
+      emptyP.innerHTML = "<em>No ai_agents in this collective.</em>"
       this.listTarget.appendChild(emptyP)
     }
   }
