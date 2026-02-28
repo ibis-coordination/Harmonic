@@ -40,17 +40,10 @@
               </a>
             </li>
           <% end %>
-          <li class="pulse-home-list-item pulse-home-list-item-explore" style="list-style-type: none;">
-            <a href="/collectives" class="pulse-home-list-link pulse-home-list-link-muted">
-              <%= octicon 'telescope', height: 16 %>
-              <span>Explore other collectives on <code><%= @current_tenant.subdomain %></code></span>
-            </a>
-          </li>
         </ul>
       <% else %>
         <div class="pulse-empty-state-action">
           <p>You're not a member of any collectives yet.</p>
-          <p><a href="/collectives" class="pulse-link"><%= octicon 'telescope', height: 14 %> Explore collectives on <code><%= @current_tenant.subdomain %></code></a></p>
           <% unless @current_representation_session %>
             <a href="/collectives/new" class="pulse-action-btn-secondary">
               <%= octicon 'plus', height: 14 %>
