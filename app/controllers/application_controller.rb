@@ -103,7 +103,7 @@ class ApplicationController < ActionController::Base
     # Internal tokens bypass API enabled checks - they are system-managed
     # and used for internal operations like agent runners
     unless current_token&.internal? || (current_collective.api_enabled? && current_tenant.api_enabled?)
-      collective_or_tenant = current_tenant.api_enabled? ? "studio" : "tenant"
+      collective_or_tenant = current_tenant.api_enabled? ? "collective" : "tenant"
       return render json: { error: "API not enabled for this #{collective_or_tenant}" }, status: :forbidden
     end
     return render json: { error: "API only supports JSON or Markdown formats" }, status: :forbidden unless json_or_markdown_request?
@@ -128,8 +128,8 @@ class ApplicationController < ActionController::Base
   # 2. Browser session authentication (cookie-based)
   #
   # Both paths support representation sessions:
-  # - API: via X-Representation-Session-ID + X-Representing-User/Studio headers
-  # - Browser: via representation_session_id + representing_user/studio cookies
+  # - API: via X-Representation-Session-ID + X-Representing-User/Collective headers
+  # - Browser: via representation_session_id + representing_user/collective cookies
   #
   # The effective current_user is either the base human user or the trustee user
   # from an active representation session.
@@ -173,7 +173,7 @@ class ApplicationController < ActionController::Base
   #
   # Requires additional security headers for non-DELETE requests:
   # - User representation: X-Representing-User header with granting user's handle
-  # - Studio representation: X-Representing-Studio header with studio's handle
+  # - Collective representation: X-Representing-Collective header with collective's handle
   #
   # @param user [User] The token's user (representative)
   # @param session_id [String] The representation session ID from header (full UUID or truncated_id)
@@ -226,7 +226,7 @@ class ApplicationController < ActionController::Base
     rep_session.effective_user
   end
 
-  # Validates the X-Representing-User or X-Representing-Studio header based on session type.
+  # Validates the X-Representing-User or X-Representing-Collective header based on session type.
   # This adds an extra layer of security by requiring the API client to know exactly
   # who or what they are representing.
   #
@@ -248,17 +248,17 @@ class ApplicationController < ActionController::Base
         return false
       end
     else
-      # Studio representation requires X-Representing-Studio header
-      representing_studio_header = request.headers["X-Representing-Studio"]
+      # Collective representation requires X-Representing-Collective header
+      representing_collective_header = request.headers["X-Representing-Collective"]
       expected_handle = session.collective&.handle
 
-      unless representing_studio_header.present?
-        render json: { error: "X-Representing-Studio header required for studio representation" }, status: :forbidden
+      unless representing_collective_header.present?
+        render json: { error: "X-Representing-Collective header required for collective representation" }, status: :forbidden
         return false
       end
 
-      unless representing_studio_header == expected_handle
-        render json: { error: "X-Representing-Studio header does not match the represented studio" }, status: :forbidden
+      unless representing_collective_header == expected_handle
+        render json: { error: "X-Representing-Collective header does not match the represented collective" }, status: :forbidden
         return false
       end
     end
@@ -274,15 +274,11 @@ class ApplicationController < ActionController::Base
     return false unless request.delete?
 
     # DELETE /representing - end user representation
-    # DELETE /studios/:handle/represent - end studio representation
-    # DELETE /studios/:handle/r/:id - end specific session
-    # DELETE /scenes/:handle/represent - end studio representation (scenes)
-    # DELETE /scenes/:handle/r/:id - end specific session (scenes)
+    # DELETE /collectives/:handle/represent - end collective representation
+    # DELETE /collectives/:handle/r/:id - end specific session
     request.path == "/representing" ||
-      request.path.match?(%r{^/studios/[^/]+/represent$}) ||
-      request.path.match?(%r{^/studios/[^/]+/r/[^/]+$}) ||
-      request.path.match?(%r{^/scenes/[^/]+/represent$}) ||
-      request.path.match?(%r{^/scenes/[^/]+/r/[^/]+$})
+      request.path.match?(%r{^/collectives/[^/]+/represent$}) ||
+      request.path.match?(%r{^/collectives/[^/]+/r/[^/]+$})
   end
 
   # Checks if the user has any active representation sessions when no header is provided.
@@ -315,7 +311,7 @@ class ApplicationController < ActionController::Base
   # Uses cookies that mirror the API header structure:
   # - representation_session_id: ID of the RepresentationSession
   # - representing_user: handle of the user being represented
-  # - representing_studio: handle of the studio being represented
+  # - representing_collective: handle of the collective being represented
   def resolve_browser_session_user
     load_session_user
     resolve_browser_representation
@@ -336,7 +332,7 @@ class ApplicationController < ActionController::Base
   #
   # Mirrors the API header validation logic:
   # - Validates representation_session_id exists and is active
-  # - Validates representing_user/studio cookie matches session target
+  # - Validates representing_user/collective cookie matches session target
   # - Sets @current_user to the trustee user if valid
   def resolve_browser_representation
     return unless session[:representation_session_id].present?
@@ -390,7 +386,7 @@ class ApplicationController < ActionController::Base
     @current_user = rep_session.effective_user
   end
 
-  # Validates the representing_user or representing_studio cookie matches the session.
+  # Validates the representing_user or representing_collective cookie matches the session.
   #
   # @param rep_session [RepresentationSession] The representation session
   # @return [Boolean] true if valid, false otherwise
@@ -401,10 +397,10 @@ class ApplicationController < ActionController::Base
       expected_handle = rep_session.trustee_grant&.granting_user&.handle
       representing_user.present? && representing_user == expected_handle
     else
-      # Studio representation requires representing_studio cookie
-      representing_studio = session[:representing_studio]
+      # Collective representation requires representing_collective cookie
+      representing_collective = session[:representing_collective]
       expected_handle = rep_session.collective&.handle
-      representing_studio.present? && representing_studio == expected_handle
+      representing_collective.present? && representing_collective == expected_handle
     end
   end
 
@@ -451,11 +447,11 @@ class ApplicationController < ActionController::Base
       @current_user.tenant_user = tu
     end
 
-    # Check grant studio scope for user representation sessions
+    # Check grant collective scope for user representation sessions
     if @current_representation_session&.user_representation? && !current_collective.is_main_collective?
       grant = @current_representation_session.trustee_grant
-      unless grant&.allows_studio?(current_collective)
-        flash[:alert] = "This studio is not included in your representation grant."
+      unless grant&.allows_collective?(current_collective)
+        flash[:alert] = "This collective is not included in your representation grant."
         redirect_to "/representing"
         return
       end
@@ -480,7 +476,7 @@ class ApplicationController < ActionController::Base
       end
     else
       # TODO: Add last_seen_at to CollectiveMember instead of touch
-      sm.touch if controller_name != "sessions" && controller_name != "studios"
+      sm.touch if controller_name != "sessions" && controller_name != "collectives"
       @current_user.collective_member = sm
     end
   end
@@ -496,8 +492,8 @@ class ApplicationController < ActionController::Base
     if current_resource
       path = current_resource.path
       query_string = "?redirect_to_resource=#{path}"
-    elsif params[:code] && controller_name == "studios"
-      # Studio invite code
+    elsif params[:code] && controller_name == "collectives"
+      # Collective invite code
       query_string = "?code=#{params[:code]}"
     end
     redirect_to "/login" + (query_string || "")
@@ -516,11 +512,11 @@ class ApplicationController < ActionController::Base
   # Cookie keys cleared:
   # - representation_session_id: The session ID
   # - representing_user: Handle of user being represented
-  # - representing_studio: Handle of studio being represented
+  # - representing_collective: Handle of collective being represented
   def clear_representation!
     session.delete(:representation_session_id)
     session.delete(:representing_user)
-    session.delete(:representing_studio)
+    session.delete(:representing_collective)
     @current_user = @current_human_user
     @current_representation_session&.end!
     @current_representation_session = nil
@@ -535,11 +531,10 @@ class ApplicationController < ActionController::Base
     # For API requests, it's set by resolve_api_representation
     # This method handles path validation for active sessions
     if @current_representation_session&.active?
-      # Representation session should always be scoped to a studio or the /representing page.
+      # Representation session should always be scoped to a collective or the /representing page.
       # The one exception is when ending representation via DELETE /u/:handle/represent.
       unless request.path.starts_with?("/representing") ||
-             request.path.starts_with?("/studios/") ||
-             request.path.starts_with?("/scenes/")
+             request.path.starts_with?("/collectives/")
         ending_representation = request.path.ends_with?("/represent") && request.delete?
         unless ending_representation
           redirect_to "/representing"
@@ -574,7 +569,7 @@ class ApplicationController < ActionController::Base
                                  end
   end
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "studios"].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "collectives"].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
@@ -793,7 +788,7 @@ class ApplicationController < ActionController::Base
 
   def set_pin_vars
     @pinnable = current_resource
-    pin_destination = current_collective == current_tenant.main_collective ? "your profile" : "the studio homepage"
+    pin_destination = current_collective == current_tenant.main_collective ? "your profile" : "the collective homepage"
     @is_pinned = current_resource.is_pinned?(tenant: @current_tenant, collective: @current_collective, user: @current_user)
     @pin_click_title = "Click to " + (@is_pinned ? "unpin from " : "pin to ") + pin_destination
   end
@@ -904,7 +899,7 @@ class ApplicationController < ActionController::Base
     # This should be overridden in child classes.
 
     @page_title = "Actions | #{current_collective.name}"
-    render "shared/actions_index_studio", locals: {
+    render "shared/actions_index_collective", locals: {
       base_path: request.path.split("/actions")[0],
     }
   end

@@ -73,7 +73,7 @@ describe("AgentLoop", () => {
         Effect.succeed({ content: "# Notifications\n\n- New note", path: "/notifications" })
       )
       .mockReturnValueOnce(
-        Effect.succeed({ content: "# Note Content", path: "/studios/test/n/abc123" })
+        Effect.succeed({ content: "# Note Content", path: "/collectives/test/n/abc123" })
       );
 
     const executeActionMock = vi.fn().mockReturnValue(
@@ -83,7 +83,7 @@ describe("AgentLoop", () => {
     const McpClientTest = Layer.succeed(McpClient, {
       navigate: navigateMock,
       executeAction: executeActionMock,
-      getCurrentPath: Effect.succeed("/studios/test/n/abc123"),
+      getCurrentPath: Effect.succeed("/collectives/test/n/abc123"),
     });
 
     let chatCallCount = 0;
@@ -98,7 +98,7 @@ describe("AgentLoop", () => {
               type: "tool_use",
               id: "tool-1",
               name: "navigate",
-              input: { path: "/studios/test/n/abc123" },
+              input: { path: "/collectives/test/n/abc123" },
             },
           ],
           stopReason: "tool_use",

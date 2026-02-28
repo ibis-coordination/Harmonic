@@ -14,7 +14,7 @@ describe("AiAgentManagerController", () => {
 
     // Set up DOM
     document.body.innerHTML = `
-      <div data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="/studio/settings/remove_ai_agent">
+      <div data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="/collective/settings/remove_ai_agent">
         <div data-ai_agent-manager-target="list">
           <table>
             <tbody>
@@ -26,7 +26,7 @@ describe("AiAgentManagerController", () => {
                           data-action="ai_agent-manager#remove"
                           data-ai_agent-id="1"
                           data-ai_agent-name="AiAgent One"
-                          data-remove-url="/studio/settings/remove_ai_agent">
+                          data-remove-url="/collective/settings/remove_ai_agent">
                     Remove
                   </button>
                 </td>
@@ -34,9 +34,9 @@ describe("AiAgentManagerController", () => {
             </tbody>
           </table>
         </div>
-        <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="/studio/settings/add_ai_agent">
+        <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="/collective/settings/add_ai_agent">
           <select data-ai_agent-manager-target="select">
-            <option value="">Select a ai_agent...</option>
+            <option value="">Select an AI agent...</option>
             <option value="2">AiAgent Two</option>
           </select>
           <button type="submit">Add</button>
@@ -76,7 +76,7 @@ describe("AiAgentManagerController", () => {
       form.dispatchEvent(new Event("submit", { bubbles: true }))
 
       expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/studio/settings/add_ai_agent"),
+        expect.stringContaining("/collective/settings/add_ai_agent"),
         expect.objectContaining({
           method: "POST",
           headers: {
@@ -159,7 +159,7 @@ describe("AiAgentManagerController", () => {
       const button = document.querySelector("button[data-action='ai_agent-manager#remove']") as HTMLButtonElement
       button.click()
 
-      expect(confirmSpy).toHaveBeenCalledWith("Remove AiAgent One from this studio?")
+      expect(confirmSpy).toHaveBeenCalledWith("Remove AiAgent One from this collective?")
       expect(fetch).not.toHaveBeenCalled()
     })
 
@@ -178,7 +178,7 @@ describe("AiAgentManagerController", () => {
       const button = document.querySelector("button[data-action='ai_agent-manager#remove']") as HTMLButtonElement
       button.click()
 
-      expect(fetch).toHaveBeenCalledWith("/studio/settings/remove_ai_agent", {
+      expect(fetch).toHaveBeenCalledWith("/collective/settings/remove_ai_agent", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

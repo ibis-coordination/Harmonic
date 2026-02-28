@@ -10,19 +10,19 @@ Verifies that files can be uploaded to notes, decisions, and commitments through
 
 ## Prerequisites
 
-- Access to a studio where file uploads are enabled (both tenant and studio `allow_file_uploads` settings must be true)
+- Access to a collective where file uploads are enabled (both tenant and collective `allow_file_uploads` settings must be true)
 - Edit permissions on the resource you want to attach files to
-- For notes: any studio member can edit their own notes
+- For notes: any collective member can edit their own notes
 - For decisions/commitments: requires settings access
 
 ## Test 1: Upload File to Note
 
 ### Steps
 
-1. Navigate to a studio: `/studios/{studio_handle}`
+1. Navigate to a collective: `/collectives/{collective_handle}`
 2. Send a heartbeat if required
-3. Create a new note: navigate to `/studios/{studio_handle}/note` and execute `create_note(text: "Test note for attachments")`
-4. Navigate to the note's edit page: `/studios/{studio_handle}/n/{note_id}/edit`
+3. Create a new note: navigate to `/collectives/{collective_handle}/note` and execute `create_note(text: "Test note for attachments")`
+4. Navigate to the note's edit page: `/collectives/{collective_handle}/n/{note_id}/edit`
 5. Verify the `add_attachment(file)` action is listed
 6. Execute the action with base64 encoded file data:
    ```json
@@ -34,7 +34,7 @@ Verifies that files can be uploaded to notes, decisions, and commitments through
      }
    }
    ```
-7. Navigate to the note: `/studios/{studio_handle}/n/{note_id}`
+7. Navigate to the note: `/collectives/{collective_handle}/n/{note_id}`
 8. Verify the attachment appears in the Attachments section
 
 ### Checklist
@@ -111,7 +111,7 @@ Verifies that files can be uploaded to notes, decisions, and commitments through
 
 ### Steps
 
-1. Create a decision and navigate to its settings page: `/studios/{studio_handle}/d/{decision_id}/settings`
+1. Create a decision and navigate to its settings page: `/collectives/{collective_handle}/d/{decision_id}/settings`
 2. Verify `add_attachment(file)` action is listed
 3. Upload a file using base64 encoded data
 4. Navigate to the decision show page
@@ -130,7 +130,7 @@ Verifies that files can be uploaded to notes, decisions, and commitments through
 
 ### Steps
 
-1. Create a commitment and navigate to its settings page: `/studios/{studio_handle}/c/{commitment_id}/settings`
+1. Create a commitment and navigate to its settings page: `/collectives/{collective_handle}/c/{commitment_id}/settings`
 2. Verify `add_attachment(file)` action is listed
 3. Upload a file using base64 encoded data
 4. Navigate to the commitment show page
@@ -165,14 +165,14 @@ Verifies that files can be uploaded to notes, decisions, and commitments through
 
 ### Steps
 
-1. Disable file uploads at tenant or studio level
+1. Disable file uploads at tenant or collective level
 2. Navigate to a note's edit page
 3. Verify `add_attachment` action is NOT listed
 
 ### Checklist
 
 - [x] When tenant `allow_file_uploads` is false, action is hidden *(verified by code review)*
-- [x] When studio `allow_file_uploads` is false, action is hidden *(verified by code review)*
+- [x] When collective `allow_file_uploads` is false, action is hidden *(verified by code review)*
 - [x] Direct POST to add_attachment returns 403 when uploads disabled *(verified by automated tests)*
 
 ## Notes

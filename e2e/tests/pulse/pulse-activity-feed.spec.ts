@@ -2,66 +2,66 @@ import { test, expect } from "../../fixtures/test-fixtures"
 import { buildBaseUrl } from "../../helpers/auth"
 
 /**
- * Helper to navigate to the first available studio's pulse page
+ * Helper to navigate to the first available collective's pulse page
  */
 async function navigateToPulse(
   page: import("@playwright/test").Page,
 ): Promise<string | null> {
   const baseUrl = buildBaseUrl()
 
-  // Go to studios list
-  await page.goto(`${baseUrl}/studios`)
+  // Go to collectives list
+  await page.goto(`${baseUrl}/collectives`)
 
-  // Wait for studios list to load
-  await page.locator('a[href*="/studios/"]').first().waitFor({ state: "visible", timeout: 5000 }).catch(() => {})
+  // Wait for collectives list to load
+  await page.locator('a[href*="/collectives/"]').first().waitFor({ state: "visible", timeout: 5000 }).catch(() => {})
 
-  // Find the first studio link
-  const studioLink = page.locator('a[href*="/studios/"]').first()
+  // Find the first collective link
+  const collectiveLink = page.locator('a[href*="/collectives/"]').first()
 
-  if ((await studioLink.count()) === 0) {
+  if ((await collectiveLink.count()) === 0) {
     return null
   }
 
-  // Extract the studio handle from the link
-  const href = await studioLink.getAttribute("href")
-  const match = href?.match(/\/studios\/([^/]+)/)
+  // Extract the collective handle from the link
+  const href = await collectiveLink.getAttribute("href")
+  const match = href?.match(/\/collectives\/([^/]+)/)
   if (!match) {
     return null
   }
 
-  const studioHandle = match[1]
+  const collectiveHandle = match[1]
 
-  // Navigate to studio page (Pulse is now the default homepage)
-  await page.goto(`${baseUrl}/studios/${studioHandle}`)
+  // Navigate to collective page (Pulse is now the default homepage)
+  await page.goto(`${baseUrl}/collectives/${collectiveHandle}`)
 
   // Wait for pulse page to load
   await page.locator(".pulse-feed").waitFor({ state: "visible", timeout: 5000 }).catch(() => {})
 
-  return studioHandle
+  return collectiveHandle
 }
 
 test.describe("Pulse Activity Feed", () => {
   test.describe("Page Structure", () => {
-    test("pulse page renders with studio name", async ({
+    test("pulse page renders with collective name", async ({
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
 
-      // Check studio name is visible in sidebar
-      await expect(page.locator(".pulse-sidebar-studio-name")).toBeVisible()
+      // Check collective name is visible in sidebar
+      await expect(page.locator(".pulse-sidebar-collective-name")).toBeVisible()
     })
 
     test("pulse page shows visibility icon", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -73,9 +73,9 @@ test.describe("Pulse Activity Feed", () => {
 
     test("pulse page shows new button", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -91,9 +91,9 @@ test.describe("Pulse Activity Feed", () => {
 
     test("sidebar navigation is visible", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -121,14 +121,14 @@ test.describe("Pulse Activity Feed", () => {
 
     test("sidebar shows members link", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
 
-      // Check for members link in studio meta section
+      // Check for members link in collective meta section
       const membersLink = page.locator('.pulse-member-link')
       await expect(membersLink).toBeVisible()
 
@@ -143,9 +143,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -162,9 +162,9 @@ test.describe("Pulse Activity Feed", () => {
 
     test("feed item has type indicator", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -191,9 +191,9 @@ test.describe("Pulse Activity Feed", () => {
 
     test("feed item has author with avatar", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -231,9 +231,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -252,9 +252,9 @@ test.describe("Pulse Activity Feed", () => {
 
     test("feed item has view link", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -274,9 +274,9 @@ test.describe("Pulse Activity Feed", () => {
 
     test("feed item title links to resource", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -301,9 +301,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -351,9 +351,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -391,9 +391,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -431,9 +431,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -463,9 +463,9 @@ test.describe("Pulse Activity Feed", () => {
 
     test("clicking X button removes filter", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -491,9 +491,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -520,9 +520,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -549,9 +549,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -577,9 +577,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -619,9 +619,9 @@ test.describe("Pulse Activity Feed", () => {
   test.describe("Decision Display", () => {
     test("open decision shows vote link", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -646,9 +646,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -672,9 +672,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -700,9 +700,9 @@ test.describe("Pulse Activity Feed", () => {
 
     test("join button performs AJAX action", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -742,9 +742,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -768,9 +768,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -795,9 +795,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -826,9 +826,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -859,9 +859,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -901,9 +901,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -931,9 +931,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -967,9 +967,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -1008,9 +1008,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -1045,9 +1045,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -1070,9 +1070,9 @@ test.describe("Pulse Activity Feed", () => {
   test.describe("Navigation", () => {
     test("view link navigates to resource", async ({ authenticatedPage }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -1095,9 +1095,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }
@@ -1113,9 +1113,9 @@ test.describe("Pulse Activity Feed", () => {
       authenticatedPage,
     }) => {
       const page = authenticatedPage
-      const studioHandle = await navigateToPulse(page)
+      const collectiveHandle = await navigateToPulse(page)
 
-      if (!studioHandle) {
+      if (!collectiveHandle) {
         test.skip()
         return
       }

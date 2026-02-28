@@ -14,7 +14,7 @@ class LinkParserTest < ActiveSupport::TestCase
 
   test "parse extracts note links from text" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "Check out https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id} for details."
+    text = "Check out https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id} for details."
 
     found_records = []
     LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
@@ -27,7 +27,7 @@ class LinkParserTest < ActiveSupport::TestCase
 
   test "parse extracts decision links from text" do
     decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "Vote here: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/d/#{decision.truncated_id}"
+    text = "Vote here: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/d/#{decision.truncated_id}"
 
     found_records = []
     LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
@@ -40,7 +40,7 @@ class LinkParserTest < ActiveSupport::TestCase
 
   test "parse extracts commitment links from text" do
     commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "Join us: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/c/#{commitment.truncated_id}"
+    text = "Join us: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/c/#{commitment.truncated_id}"
 
     found_records = []
     LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
@@ -56,8 +56,8 @@ class LinkParserTest < ActiveSupport::TestCase
     decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     text = <<~TEXT
-      Check the note: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}
-      And vote here: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/d/#{decision.truncated_id}
+      Check the note: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}
+      And vote here: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/d/#{decision.truncated_id}
     TEXT
 
     found_records = []
@@ -72,7 +72,7 @@ class LinkParserTest < ActiveSupport::TestCase
 
   test "parse does not duplicate records when same link appears multiple times" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    link = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    link = "https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}"
     text = "First: #{link}\nSecond: #{link}\nThird: #{link}"
 
     found_records = []
@@ -85,7 +85,7 @@ class LinkParserTest < ActiveSupport::TestCase
 
   test "parse ignores links from different subdomains" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "Check out https://other-tenant.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    text = "Check out https://other-tenant.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}"
 
     found_records = []
     LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
@@ -95,9 +95,9 @@ class LinkParserTest < ActiveSupport::TestCase
     assert_equal 0, found_records.length
   end
 
-  test "parse ignores links from different studios" do
+  test "parse ignores links from different collectives" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "Check out https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/other-studio/n/#{note.truncated_id}"
+    text = "Check out https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/other-collective/n/#{note.truncated_id}"
 
     found_records = []
     LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
@@ -109,7 +109,7 @@ class LinkParserTest < ActiveSupport::TestCase
 
   test "parse handles full UUIDs" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "Check out https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.id}"
+    text = "Check out https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.id}"
 
     found_records = []
     LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
@@ -133,7 +133,7 @@ class LinkParserTest < ActiveSupport::TestCase
 
   test "parse extracts links from markdown with path-only URLs" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "Check out [this note](/studios/#{@collective.handle}/n/#{note.truncated_id}) for details."
+    text = "Check out [this note](/collectives/#{@collective.handle}/n/#{note.truncated_id}) for details."
 
     found_records = []
     LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
@@ -149,8 +149,8 @@ class LinkParserTest < ActiveSupport::TestCase
     decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
 
     text = <<~TEXT
-      Full URL: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}
-      Path-only: [vote here](/studios/#{@collective.handle}/d/#{decision.truncated_id})
+      Full URL: https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}
+      Path-only: [vote here](/collectives/#{@collective.handle}/d/#{decision.truncated_id})
     TEXT
 
     found_records = []
@@ -163,34 +163,15 @@ class LinkParserTest < ActiveSupport::TestCase
     assert_includes found_records.map(&:id), decision.id
   end
 
-  test "parse handles path-only markdown links with scenes prefix" do
+  test "parse handles path-only markdown links with collectives prefix" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "See [the note](/scenes/#{@collective.handle}/n/#{note.truncated_id})"
+    text = "See [the note](/collectives/#{@collective.handle}/n/#{note.truncated_id})"
 
     found_records = []
     LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
       found_records << record
     end
 
-    assert_equal 1, found_records.length
-    assert_equal note.id, found_records.first.id
-  end
-
-  test "parse handles scene URLs" do
-    # Scene URLs follow the pattern /scenes/handle/...
-    # The LinkParser regex handles both /studios/ and /scenes/
-    # Test with an existing note but using a scenes/ URL pattern
-    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-
-    # Manually construct URL with scenes instead of studios
-    text = "Check https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/scenes/#{@collective.handle}/n/#{note.truncated_id}"
-
-    found_records = []
-    LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
-      found_records << record
-    end
-
-    # Should find the note since the regex allows both studios and scenes paths
     assert_equal 1, found_records.length
     assert_equal note.id, found_records.first.id
   end
@@ -199,20 +180,20 @@ class LinkParserTest < ActiveSupport::TestCase
 
   test "parse_path extracts record from path" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    path = "/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    path = "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
 
     record = LinkParser.parse_path(path)
     assert_equal note.id, record.id
   end
 
   test "parse_path returns nil for invalid path" do
-    record = LinkParser.parse_path("/studios/#{@collective.handle}/n/nonexistent-id")
+    record = LinkParser.parse_path("/collectives/#{@collective.handle}/n/nonexistent-id")
     assert_nil record
   end
 
   test "parse_path handles full UUID" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    path = "/studios/#{@collective.handle}/n/#{note.id}"
+    path = "/collectives/#{@collective.handle}/n/#{note.id}"
 
     record = LinkParser.parse_path(path)
     assert_equal note.id, record.id
@@ -226,7 +207,7 @@ class LinkParserTest < ActiveSupport::TestCase
     assert_not_nil parser
   end
 
-  test "can be initialized with subdomain and studio_handle" do
+  test "can be initialized with subdomain and collective_handle" do
     parser = LinkParser.new(subdomain: @tenant.subdomain, collective_handle: @collective.handle)
     assert_not_nil parser
   end
@@ -237,7 +218,7 @@ class LinkParserTest < ActiveSupport::TestCase
     end
   end
 
-  test "raises error when only subdomain provided without studio_handle" do
+  test "raises error when only subdomain provided without collective_handle" do
     assert_raises ArgumentError do
       LinkParser.new(subdomain: @tenant.subdomain)
     end
@@ -259,7 +240,7 @@ class LinkParserTest < ActiveSupport::TestCase
       collective: @collective,
       created_by: @user,
       title: "Note 2",
-      text: "References https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note1.truncated_id}"
+      text: "References https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note1.truncated_id}"
     )
 
     parser = LinkParser.new(from_record: note2)
@@ -293,7 +274,7 @@ class LinkParserTest < ActiveSupport::TestCase
   test "instance parse with subdomain requires text" do
     parser = LinkParser.new(subdomain: @tenant.subdomain, collective_handle: @collective.handle)
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    text = "See https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    text = "See https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}"
 
     found_records = []
     parser.parse(text) do |record|
@@ -319,7 +300,7 @@ class LinkParserTest < ActiveSupport::TestCase
 
     # Now update the text to include a link - Linkable concern will handle it in after_save
     # So we manually call parse_and_create_link_records to test the service directly
-    new_text = "References https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note1.truncated_id}"
+    new_text = "References https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note1.truncated_id}"
     note2.update_column(:text, new_text)  # bypass callbacks
 
     parser = LinkParser.new(from_record: note2)
@@ -340,7 +321,7 @@ class LinkParserTest < ActiveSupport::TestCase
       created_by: @user,
       updated_by: @user,
       title: "Note 2",
-      text: "References https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note1.truncated_id}"
+      text: "References https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note1.truncated_id}"
     )
 
     parser = LinkParser.new(from_record: note2)
@@ -360,7 +341,7 @@ class LinkParserTest < ActiveSupport::TestCase
       created_by: @user,
       updated_by: @user,
       title: "Note 2",
-      text: "References https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note1.truncated_id}"
+      text: "References https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note1.truncated_id}"
     )
 
     parser = LinkParser.new(from_record: note2)
@@ -399,7 +380,7 @@ class LinkParserTest < ActiveSupport::TestCase
       description: "Initial description",
       deadline: 1.week.from_now
     )
-    new_desc = "See https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    new_desc = "See https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}"
     decision.update_column(:description, new_desc)  # bypass callbacks
 
     parser = LinkParser.new(from_record: decision)
@@ -425,7 +406,7 @@ class LinkParserTest < ActiveSupport::TestCase
       critical_mass: 5,
       deadline: 1.week.from_now
     )
-    new_desc = "See https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    new_desc = "See https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/n/#{note.truncated_id}"
     commitment.update_column(:description, new_desc)  # bypass callbacks
 
     parser = LinkParser.new(from_record: commitment)

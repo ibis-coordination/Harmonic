@@ -33,7 +33,7 @@ Metrics/ClassLength:
   Exclude:
     - 'app/controllers/application_controller.rb'
     - 'app/services/api_helper.rb'
-    - 'app/models/studio.rb'
+    - 'app/models/collective.rb'
 
 Metrics/MethodLength:
   Max: 30

@@ -1,11 +1,11 @@
 # typed: true
 
-# Executes internal actions for studio automations.
+# Executes internal actions for collective automations.
 # Uses MarkdownUiService to dispatch actions through the full Rails stack,
-# acting as the studio's identity user.
+# acting as the collective's identity user.
 #
 # Supported actions:
-# - create_note: Create a new note in the studio
+# - create_note: Create a new note in the collective
 # - create_decision: Create a new decision
 # - create_commitment: Create a new commitment
 #
@@ -79,22 +79,22 @@ class AutomationInternalActionService
       )
     end
 
-    # Validate collective exists for studio rules
+    # Validate collective exists
     unless @collective
       return Result.new(
         success: false,
         message: "Action executed",
-        error: "Internal actions require a studio context"
+        error: "Internal actions require a collective context"
       )
     end
 
-    # Get the studio's identity user
+    # Get the collective's identity user
     identity_user = @collective.identity_user
     unless identity_user
       return Result.new(
         success: false,
         message: "Action executed",
-        error: "Studio does not have an identity user configured"
+        error: "Collective does not have an identity user configured"
       )
     end
 
@@ -121,7 +121,7 @@ class AutomationInternalActionService
     tenant = @rule.tenant
 
     # Build the path to the action
-    studio_path = "/studios/#{@collective&.handle}#{config[:path_suffix]}"
+    collective_path = "/collectives/#{@collective&.handle}#{config[:path_suffix]}"
 
     # Create the markdown UI service with the identity user
     service = MarkdownUiService.new(
@@ -136,7 +136,7 @@ class AutomationInternalActionService
     # Execute the action
     service.with_internal_token do
       # First, navigate to set up context
-      service.set_path(studio_path)
+      service.set_path(collective_path)
 
       # Execute the action
       result = service.execute_action(config[:action_name].to_s, action_params)
@@ -179,7 +179,7 @@ class AutomationInternalActionService
 
     # Look for truncated IDs in the response (8 characters)
     id_match = content.match(%r{/[ndc]/([a-f0-9]{8})}i)
-    path_match = content.match(%r{(/studios/[^/]+/[ndc]/[a-f0-9]{8})}i)
+    path_match = content.match(%r{(/collectives/[^/]+/[ndc]/[a-f0-9]{8})}i)
 
     {
       id: id_match&.[](1),

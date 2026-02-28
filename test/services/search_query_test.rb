@@ -4,7 +4,7 @@ require "test_helper"
 
 class SearchQueryTest < ActiveSupport::TestCase
   setup do
-    @tenant, @collective, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_collective_user
     # For Notes, searchable_text uses body (text) only since title is derived from text
     @note = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "Budget proposal details")
     @decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user, question: "Approve budget?")
@@ -117,10 +117,10 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_equal 2, results.count
   end
 
-  test "exclude_types works with studio scope via raw_query" do
+  test "exclude_types works with collective scope via raw_query" do
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "studio:#{@collective.handle} -type:note cycle:all"
+      raw_query: "collective:#{@collective.handle} -type:note cycle:all"
     )
 
     results = search.results
@@ -394,7 +394,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     other_tenant = create_tenant(subdomain: "other")
     other_user = create_user(email: "other_tenant@example.com")
     other_tenant.add_user!(other_user)
-    other_collective = create_collective(tenant: other_tenant, created_by: other_user, handle: "other-studio")
+    other_collective = create_collective(tenant: other_tenant, created_by: other_user, handle: "other-collective")
     other_note = create_note(tenant: other_tenant, collective: other_collective, created_by: other_user, title: "Other tenant note")
     SearchIndexer.reindex(other_note)
 
@@ -536,35 +536,15 @@ class SearchQueryTest < ActiveSupport::TestCase
 
   # Tenant-wide search tests
 
-  test "tenant-wide search includes items from scenes (public)" do
-    # Create a scene
-    scene = Collective.create!(
+  test "tenant-wide search includes items from collectives user is member of" do
+    # Create a collective and add user as member
+    member_collective = Collective.create!(
       tenant: @tenant, created_by: @user,
-      name: "Public Scene", handle: "public-scene",
-      collective_type: "scene"
+      name: "Member Collective", handle: "member-collective"
     )
-    scene_note = create_note(tenant: @tenant, collective: scene, created_by: @user, text: "scene content")
-    SearchIndexer.reindex(scene_note)
-
-    # Tenant-wide search (no collective specified)
-    search = SearchQuery.new(
-      tenant: @tenant, current_user: @user,
-      raw_query: "cycle:all"
-    )
-
-    assert_includes search.results.pluck(:item_id), scene_note.id
-  end
-
-  test "tenant-wide search includes items from studios user is member of" do
-    # Create a studio and add user as member
-    studio = Collective.create!(
-      tenant: @tenant, created_by: @user,
-      name: "Member Studio", handle: "member-studio",
-      collective_type: "studio"
-    )
-    studio.add_user!(@user)
-    studio_note = create_note(tenant: @tenant, collective: studio, created_by: @user, text: "studio member content")
-    SearchIndexer.reindex(studio_note)
+    member_collective.add_user!(@user)
+    member_note = create_note(tenant: @tenant, collective: member_collective, created_by: @user, text: "member collective content")
+    SearchIndexer.reindex(member_note)
 
     # Tenant-wide search
     search = SearchQuery.new(
@@ -572,25 +552,24 @@ class SearchQueryTest < ActiveSupport::TestCase
       raw_query: "cycle:all"
     )
 
-    assert_includes search.results.pluck(:item_id), studio_note.id
+    assert_includes search.results.pluck(:item_id), member_note.id
   end
 
-  test "tenant-wide search excludes items from studios user is NOT member of" do
-    # Create another user who owns a studio
+  test "tenant-wide search excludes items from collectives user is NOT member of" do
+    # Create another user who owns a collective
     other_user = User.create!(name: "Other User", email: "other-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_user)
 
-    # Create a private studio that @user is NOT a member of
-    private_studio = Collective.create!(
+    # Create a private collective that @user is NOT a member of
+    private_collective = Collective.create!(
       tenant: @tenant, created_by: other_user,
-      name: "Private Studio", handle: "private-studio",
-      collective_type: "studio"
+      name: "Private Collective", handle: "private-collective"
     )
-    private_studio.add_user!(other_user)
-    private_note = create_note(tenant: @tenant, collective: private_studio, created_by: other_user, text: "private studio content")
+    private_collective.add_user!(other_user)
+    private_note = create_note(tenant: @tenant, collective: private_collective, created_by: other_user, text: "private collective content")
     SearchIndexer.reindex(private_note)
 
-    # Tenant-wide search as @user (who is NOT a member of private_studio)
+    # Tenant-wide search as @user (who is NOT a member of private_collective)
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
       raw_query: "cycle:all"
@@ -599,36 +578,25 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes search.results.pluck(:item_id), private_note.id
   end
 
-  test "tenant-wide search combines scenes and member studios" do
-    # Create a scene
-    scene = Collective.create!(
+  test "tenant-wide search combines member collectives and excludes non-member" do
+    # Create a collective user is member of
+    member_collective = Collective.create!(
       tenant: @tenant, created_by: @user,
-      name: "Test Scene", handle: "test-scene-combo",
-      collective_type: "scene"
+      name: "Member Collective", handle: "member-collective-combo"
     )
-    scene_note = create_note(tenant: @tenant, collective: scene, created_by: @user, text: "scene combo")
-    SearchIndexer.reindex(scene_note)
+    member_collective.add_user!(@user)
+    member_note = create_note(tenant: @tenant, collective: member_collective, created_by: @user, text: "member combo")
+    SearchIndexer.reindex(member_note)
 
-    # Create a studio user is member of
-    member_studio = Collective.create!(
-      tenant: @tenant, created_by: @user,
-      name: "Member Studio", handle: "member-studio-combo",
-      collective_type: "studio"
-    )
-    member_studio.add_user!(@user)
-    studio_note = create_note(tenant: @tenant, collective: member_studio, created_by: @user, text: "studio combo")
-    SearchIndexer.reindex(studio_note)
-
-    # Create another user's private studio
+    # Create another user's private collective
     other_user = User.create!(name: "Other", email: "other-combo-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_user)
-    private_studio = Collective.create!(
+    private_collective = Collective.create!(
       tenant: @tenant, created_by: other_user,
-      name: "Private", handle: "private-combo",
-      collective_type: "studio"
+      name: "Private", handle: "private-combo"
     )
-    private_studio.add_user!(other_user)
-    private_note = create_note(tenant: @tenant, collective: private_studio, created_by: other_user, text: "private combo")
+    private_collective.add_user!(other_user)
+    private_note = create_note(tenant: @tenant, collective: private_collective, created_by: other_user, text: "private combo")
     SearchIndexer.reindex(private_note)
 
     # Tenant-wide search
@@ -639,112 +607,85 @@ class SearchQueryTest < ActiveSupport::TestCase
     )
 
     result_ids = search.results.pluck(:item_id)
-    assert_includes result_ids, scene_note.id, "Should include scene items"
-    assert_includes result_ids, studio_note.id, "Should include member studio items"
-    assert_not_includes result_ids, private_note.id, "Should exclude non-member studio items"
+    assert_includes result_ids, member_note.id, "Should include member collective items"
+    assert_not_includes result_ids, private_note.id, "Should exclude non-member collective items"
   end
 
   # Security: explicit collective access control
 
   test "search with explicit collective the user has NO access to returns no results" do
-    # Create another user who owns a private studio
-    other_user = User.create!(name: "Studio Owner", email: "owner-#{SecureRandom.hex(4)}@example.com")
+    # Create another user who owns a private collective
+    other_user = User.create!(name: "Collective Owner", email: "owner-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_user)
 
-    private_studio = Collective.create!(
+    private_collective = Collective.create!(
       tenant: @tenant, created_by: other_user,
-      name: "Private Studio", handle: "private-explicit",
-      collective_type: "studio"
+      name: "Private Collective", handle: "private-explicit"
     )
-    private_studio.add_user!(other_user)
-    private_note = create_note(tenant: @tenant, collective: private_studio, created_by: other_user, text: "secret content")
+    private_collective.add_user!(other_user)
+    private_note = create_note(tenant: @tenant, collective: private_collective, created_by: other_user, text: "secret content")
     SearchIndexer.reindex(private_note)
 
     # Attempt to search with explicit collective the user does NOT have access to
     # This simulates a malicious or buggy caller passing a collective without checking access
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      collective: private_studio,
+      collective: private_collective,
       raw_query: "cycle:all"
     )
 
-    # Should return NO results because user doesn't have access to this studio
-    assert_empty search.results.pluck(:item_id), "Should not expose items from studios user has no access to"
+    # Should return NO results because user doesn't have access to this collective
+    assert_empty search.results.pluck(:item_id), "Should not expose items from collectives user has no access to"
   end
 
   test "search with explicit collective the user HAS access to returns results" do
-    # Create a studio and add user as member
-    member_studio = Collective.create!(
+    # Create a collective and add user as member
+    member_collective = Collective.create!(
       tenant: @tenant, created_by: @user,
-      name: "Member Studio", handle: "member-explicit",
-      collective_type: "studio"
+      name: "Member Collective", handle: "member-explicit"
     )
-    member_studio.add_user!(@user)
-    studio_note = create_note(tenant: @tenant, collective: member_studio, created_by: @user, text: "accessible content")
-    SearchIndexer.reindex(studio_note)
+    member_collective.add_user!(@user)
+    collective_note = create_note(tenant: @tenant, collective: member_collective, created_by: @user, text: "accessible content")
+    SearchIndexer.reindex(collective_note)
 
     # Search with explicit collective the user has access to
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      collective: member_studio,
+      collective: member_collective,
       raw_query: "cycle:all"
     )
 
-    assert_includes search.results.pluck(:item_id), studio_note.id
+    assert_includes search.results.pluck(:item_id), collective_note.id
   end
 
-  test "search with explicit scene returns results for any user" do
-    # Scenes are public, so anyone can search them
-    scene = Collective.create!(
+  # collective: operator - collective handle resolution
+
+  test "collective: operator resolves collective by handle" do
+    # Create a collective
+    target_collective = Collective.create!(
       tenant: @tenant, created_by: @user,
-      name: "Public Scene", handle: "public-explicit",
-      collective_type: "scene"
+      name: "Target Collective", handle: "target-collective"
     )
-    scene_note = create_note(tenant: @tenant, collective: scene, created_by: @user, text: "public content")
-    SearchIndexer.reindex(scene_note)
+    target_collective.add_user!(@user)
+    collective_note = create_note(tenant: @tenant, collective: target_collective, created_by: @user, text: "target content")
+    SearchIndexer.reindex(collective_note)
 
-    # Different user searching the scene
-    other_user = User.create!(name: "Random User", email: "random-#{SecureRandom.hex(4)}@example.com")
-    @tenant.add_user!(other_user)
-
-    search = SearchQuery.new(
-      tenant: @tenant, current_user: other_user,
-      collective: scene,
-      raw_query: "cycle:all"
-    )
-
-    assert_includes search.results.pluck(:item_id), scene_note.id
-  end
-
-  # studio: operator - collective handle resolution
-
-  test "studio: operator resolves collective by handle" do
-    # Create a studio
-    target_studio = Collective.create!(
-      tenant: @tenant, created_by: @user,
-      name: "Target Studio", handle: "target-studio",
-      collective_type: "studio"
-    )
-    target_studio.add_user!(@user)
-    studio_note = create_note(tenant: @tenant, collective: target_studio, created_by: @user, text: "target content")
-    SearchIndexer.reindex(studio_note)
-
-    # Search using studio: operator
+    # Search using collective: operator
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "content studio:target-studio cycle:all"
+      raw_query: "content collective:target-collective cycle:all"
     )
 
-    assert_equal target_studio, search.collective
-    assert_includes search.results.pluck(:item_id), studio_note.id
+    assert_equal target_collective, search.collective
+    assert_includes search.results.pluck(:item_id), collective_note.id
     # Should NOT include items from other collectives
     assert_not_includes search.results.pluck(:item_id), @note.id
   end
 
-  test "studio: operator with invalid handle returns empty results" do
+  test "collective: operator with invalid handle returns empty results" do
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "content studio:nonexistent-studio cycle:all"
+      raw_query: "content collective:nonexistent-collective cycle:all"
     )
 
     # Invalid handle means no collective resolved, falls back to tenant-wide
@@ -752,27 +693,111 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_nil search.collective
   end
 
-  test "studio: operator respects access control" do
-    # Create another user's private studio
-    other_user = User.create!(name: "Other", email: "other-in-#{SecureRandom.hex(4)}@example.com")
-    @tenant.add_user!(other_user)
-    private_studio = Collective.create!(
-      tenant: @tenant, created_by: other_user,
-      name: "Private", handle: "private-in-test",
-      collective_type: "studio"
-    )
-    private_studio.add_user!(other_user)
-    private_note = create_note(tenant: @tenant, collective: private_studio, created_by: other_user, text: "private in test")
-    SearchIndexer.reindex(private_note)
+  test "collective:main resolves to tenant main collective" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "main collective content")
+    SearchIndexer.reindex(main_note)
 
-    # Try to search in the private studio as @user (not a member)
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "private studio:private-in-test cycle:all"
+      raw_query: "collective:main cycle:all"
+    )
+
+    assert_equal main_collective, search.collective
+    assert_includes search.results.pluck(:item_id), main_note.id
+    # Should NOT include items from other collectives
+    assert_not_includes search.results.pluck(:item_id), @note.id
+  end
+
+  # scope: operator tests
+
+  test "scope:public restricts search to main collective only" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user)
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public main content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "scope:public cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_includes result_ids, main_note.id
+    # Should NOT include items from non-main collectives
+    assert_not_includes result_ids, @note.id
+  end
+
+  test "scope:private excludes main collective results" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user)
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public main content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "scope:private cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_not_includes result_ids, main_note.id
+    # Should include items from non-main collectives the user is a member of
+    assert_includes result_ids, @note.id
+  end
+
+  test "scope:public for unauthenticated user returns main collective results" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public unauthenticated content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: nil,
+      raw_query: "scope:public cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_includes result_ids, main_note.id
+  end
+
+  test "authenticated user always has access to main collective in search" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    # Don't explicitly add user as member — test that main collective is always accessible
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "always accessible content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "cycle:all"
+    )
+
+    assert_includes search.results.pluck(:item_id), main_note.id
+  end
+
+  test "collective: operator respects access control" do
+    # Create another user's private collective
+    other_user = User.create!(name: "Other", email: "other-in-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    private_collective = Collective.create!(
+      tenant: @tenant, created_by: other_user,
+      name: "Private", handle: "private-in-test"
+    )
+    private_collective.add_user!(other_user)
+    private_note = create_note(tenant: @tenant, collective: private_collective, created_by: other_user, text: "private in test")
+    SearchIndexer.reindex(private_note)
+
+    # Try to search in the private collective as @user (not a member)
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "private collective:private-in-test cycle:all"
     )
 
     # Collective is resolved (exists) but user doesn't have access
-    assert_equal private_studio, search.collective
+    assert_equal private_collective, search.collective
     # No results because access control prevents it
     assert_empty search.results.pluck(:item_id)
   end

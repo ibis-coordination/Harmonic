@@ -295,13 +295,13 @@ class AutomationExecutor
       return { "authorized" => true }
     end
 
-    # For studio rules: check if the agent is a member of the same studio
-    if @rule.studio_rule? && @rule.collective_id.present?
-      agent_is_studio_member = CollectiveMember
+    # For collective rules: check if the agent is a member of the same collective
+    if @rule.collective_rule? && @rule.collective_id.present?
+      agent_is_collective_member = CollectiveMember
         .where(collective_id: @rule.collective_id, user_id: agent.id)
         .exists?
 
-      if agent_is_studio_member
+      if agent_is_collective_member
         return { "authorized" => true }
       end
     end
@@ -309,7 +309,7 @@ class AutomationExecutor
     # Not authorized
     {
       "status" => "failed",
-      "error" => "Not authorized to trigger agent '#{agent.display_name}'. You can only trigger agents you own or agents that are members of this studio.",
+      "error" => "Not authorized to trigger agent '#{agent.display_name}'. You can only trigger agents you own or agents that are members of this collective.",
     }
   end
 end

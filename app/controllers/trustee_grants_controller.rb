@@ -58,7 +58,7 @@ class TrusteeGrantsController < ApplicationController
     @page_title = "Create Trustee Grant"
     @grant = TrusteeGrant.new
     @available_users = available_users_for_grant
-    @available_studios = @target_user.collectives
+    @available_collectives = @target_user.collectives
     @grantable_actions = TrusteeGrant::GRANTABLE_ACTIONS
   end
 
@@ -111,8 +111,8 @@ class TrusteeGrantsController < ApplicationController
     # Build permissions hash from params
     permissions = build_permissions_hash(params[:permissions])
 
-    # Build studio scope
-    studio_scope = build_studio_scope(params[:studio_scope_mode], params[:studio_ids])
+    # Build collective scope
+    collective_scope = build_collective_scope(params[:collective_scope_mode], params[:collective_ids])
 
     # Parse expiration
     expires_at = parse_expires_at(params[:expires_at])
@@ -122,7 +122,7 @@ class TrusteeGrantsController < ApplicationController
       granting_user: @target_user,
       trustee_user: trustee,
       permissions: permissions,
-      studio_scope: studio_scope,
+      studio_scope: collective_scope,
       expires_at: expires_at
     )
 
@@ -497,30 +497,31 @@ class TrusteeGrantsController < ApplicationController
     end
   end
 
-  def build_studio_scope(mode, studio_ids)
+  def build_collective_scope(mode, collective_ids)
     mode = mode.presence || "all"
 
     case mode
     when "all"
       { "mode" => "all" }
     when "include"
-      ids = parse_studio_ids(studio_ids)
+      ids = parse_collective_ids(collective_ids)
+      # Note: stored as "studio_ids" in JSONB column (to be renamed in a future migration)
       { "mode" => "include", "studio_ids" => ids }
     when "exclude"
-      ids = parse_studio_ids(studio_ids)
+      ids = parse_collective_ids(collective_ids)
       { "mode" => "exclude", "studio_ids" => ids }
     else
       { "mode" => "all" }
     end
   end
 
-  def parse_studio_ids(studio_ids_param)
-    return [] if studio_ids_param.blank?
+  def parse_collective_ids(collective_ids_param)
+    return [] if collective_ids_param.blank?
 
-    if studio_ids_param.is_a?(Array)
-      studio_ids_param
-    elsif studio_ids_param.is_a?(String)
-      studio_ids_param.split(",").map(&:strip)
+    if collective_ids_param.is_a?(Array)
+      collective_ids_param
+    elsif collective_ids_param.is_a?(String)
+      collective_ids_param.split(",").map(&:strip)
     else
       []
     end

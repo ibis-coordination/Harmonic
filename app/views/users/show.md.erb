@@ -10,24 +10,21 @@ Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.
 <% end %>
 <% if @showing_user.human? && @ai_agent_count && @ai_agent_count > 0 %>
 
-Has <%= @ai_agent_count %> ai_agent<%= @ai_agent_count == 1 ? "" : "s" %>
+Has <%= @ai_agent_count %> AI agent<%= @ai_agent_count == 1 ? "" : "s" %>
 <% end %>
-<% if @current_user != @showing_user && (@common_studio_count > 0 || @common_scene_count > 0) %>
-<% parts = [] %>
-<% parts << "#{@common_scene_count} common scene#{'s' unless @common_scene_count == 1}" if @common_scene_count > 0 %>
-<% parts << "#{@common_studio_count} common studio#{'s' unless @common_studio_count == 1}" if @common_studio_count > 0 %>
+<% if @current_user != @showing_user && @common_collective_count > 0 %>
 
-<%= parts.join(', ') %>
+<%= @common_collective_count %> common collective<%= 's' unless @common_collective_count == 1 %>
 <% end %>
 
-<% if @current_user != @showing_user && @common_studios.length > 0 %>
-## Common Studios
+<% if @current_user != @showing_user && @common_collectives.length > 0 %>
+## Common Collectives
 
-<% @common_studios.each do |studio| %>
-* [<%= studio.name %>](<%= studio.path %>)
+<% @common_collectives.each do |collective| %>
+* [<%= collective.name %>](<%= collective.path %>)
 <% end %>
-<% if @additional_common_studio_count > 0 %>
-And <%= @additional_common_studio_count %> more...
+<% if @additional_common_collective_count > 0 %>
+And <%= @additional_common_collective_count %> more...
 <% end %>
 <% end %>
 <% if @proximity_users.present? %>

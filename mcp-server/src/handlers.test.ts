@@ -21,18 +21,18 @@ describe("handleNavigate", () => {
 
   it("returns error when API token is not set", async () => {
     config.apiToken = undefined;
-    const result = await handleNavigate("/studios/team", config, state);
+    const result = await handleNavigate("/collectives/team", config, state);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HARMONIC_API_TOKEN");
   });
 
   it("fetches markdown from the server", async () => {
-    const mockFn = mockFetch(200, "# Studio Page\n\nWelcome!");
-    const result = await handleNavigate("/studios/team", config, state, mockFn);
+    const mockFn = mockFetch(200, "# Collective Page\n\nWelcome!");
+    const result = await handleNavigate("/collectives/team", config, state, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
-      "http://localhost:3000/studios/team",
+      "http://localhost:3000/collectives/team",
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({
@@ -42,29 +42,29 @@ describe("handleNavigate", () => {
       })
     );
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toBe("# Studio Page\n\nWelcome!");
+    expect(result.content[0].text).toBe("# Collective Page\n\nWelcome!");
   });
 
   it("normalizes paths without leading slash", async () => {
     const mockFn = mockFetch(200, "content");
-    await handleNavigate("studios/team", config, state, mockFn);
+    await handleNavigate("collectives/team", config, state, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
-      "http://localhost:3000/studios/team",
+      "http://localhost:3000/collectives/team",
       expect.anything()
     );
   });
 
   it("updates state.currentPath on success", async () => {
     const mockFn = mockFetch(200, "content");
-    await handleNavigate("/studios/team", config, state, mockFn);
+    await handleNavigate("/collectives/team", config, state, mockFn);
 
-    expect(state.currentPath).toBe("/studios/team");
+    expect(state.currentPath).toBe("/collectives/team");
   });
 
   it("returns error on HTTP failure", async () => {
     const mockFn = mockFetch(404, "Not found");
-    const result = await handleNavigate("/studios/nonexistent", config, state, mockFn);
+    const result = await handleNavigate("/collectives/nonexistent", config, state, mockFn);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HTTP 404");
@@ -72,7 +72,7 @@ describe("handleNavigate", () => {
 
   it("returns error on network failure", async () => {
     const mockFn = vi.fn().mockRejectedValue(new Error("Network error"));
-    const result = await handleNavigate("/studios/team", config, state, mockFn);
+    const result = await handleNavigate("/collectives/team", config, state, mockFn);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Network error");
@@ -86,7 +86,7 @@ describe("handleExecuteAction", () => {
   beforeEach(() => {
     config = { baseUrl: "http://localhost:3000", apiToken: "test-token" };
     state = createState();
-    state.currentPath = "/studios/team";
+    state.currentPath = "/collectives/team";
   });
 
   it("returns error when no current path", async () => {
@@ -111,7 +111,7 @@ describe("handleExecuteAction", () => {
     const result = await handleExecuteAction("create_note", params, config, state, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
-      "http://localhost:3000/studios/team/actions/create_note",
+      "http://localhost:3000/collectives/team/actions/create_note",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -169,13 +169,13 @@ describe("handleExecuteAction", () => {
   });
 
   it("handles action execution from nested action path", async () => {
-    // When on /studios/team/note/actions/create_note, executing create_note should work
-    state.currentPath = "/studios/team/note/actions/create_note";
+    // When on /collectives/team/note/actions/create_note, executing create_note should work
+    state.currentPath = "/collectives/team/note/actions/create_note";
     const mockFn = mockFetch(200, "Note created");
     await handleExecuteAction("create_note", { text: "test" }, config, state, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
-      "http://localhost:3000/studios/team/note/actions/create_note",
+      "http://localhost:3000/collectives/team/note/actions/create_note",
       expect.anything()
     );
   });

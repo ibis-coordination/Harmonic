@@ -41,7 +41,7 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
             {
               message: {
                 role: "assistant",
-                content: "To create a note, click the 'New Note' button in your studio.",
+                content: "To create a note, click the 'New Note' button in your collective.",
               },
             },
           ],
@@ -80,7 +80,7 @@ class TrioControllerTest < ActionDispatch::IntegrationTest
             {
               message: {
                 role: "assistant",
-                content: "To create a note, click the 'New Note' button in your studio.",
+                content: "To create a note, click the 'New Note' button in your collective.",
               },
             },
           ],

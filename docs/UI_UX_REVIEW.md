@@ -59,27 +59,27 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 **Screenshot:** `01-home-page.png`
 
 #### Positive
-- Clear sectioning with "Your Scenes" and "Your Studios" headings
-- Action buttons (New Scene, New Studio) are prominently placed
+- Clear sectioning with "Your Collectives" headings
+- Action buttons (New Collective) are prominently placed
 - Good use of icons to differentiate content types
 - Footer motto adds personality
 
 #### Issues
 - **Visual monotony**: The page is very text-heavy with little visual variation
-- **Empty state for Studios**: "No studios yet." feels abrupt and unhelpful
+- **Empty state for Collectives**: "No collectives yet." feels abrupt and unhelpful
 - **Other Subdomains section**: May confuse new users; purpose isn't immediately clear
 - **Heading hierarchy**: Using `<code>` tags for "app" in headings creates visual noise
 - **Heartbeat indicator**: The warning icon for "heartbeats not yet sent" lacks context
 
 #### Recommendations
 1. Add illustrations or larger icons for empty states
-2. Provide actionable guidance in empty states (e.g., "Create your first studio to get started")
+2. Provide actionable guidance in empty states (e.g., "Create your first collective to get started")
 3. Consider hiding "Other Subdomains" section for users with only one subdomain
 4. Add subtle background colors or cards to differentiate sections
 
 ---
 
-### 3. Scenes List Page
+### 3. Collectives List Page
 
 **Screenshot:** `02-scenes-list.png`
 
@@ -89,18 +89,18 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 
 #### Issues
 - **Extremely sparse**: Empty list shows nothing but the heading
-- **No empty state guidance**: Users see no indication of what scenes are or how to create one
-- **No "New Scene" button**: Users must go back to home to create a scene
+- **No empty state guidance**: Users see no indication of what collectives are or how to create one
+- **No "New Collective" button**: Users must go back to home to create a collective
 - **Footer floats too high**: Large empty space above footer
 
 #### Recommendations
-1. Add "New Scene" button on this page
+1. Add "New Collective" button on this page
 2. Create an informative empty state with illustration and call-to-action
-3. Add description text explaining what scenes are
+3. Add description text explaining what collectives are
 
 ---
 
-### 4. New Scene Form
+### 4. New Collective Form (Public)
 
 **Screenshot:** `03-new-scene-form.png`
 
@@ -124,7 +124,7 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 
 ---
 
-### 5. New Studio Form
+### 5. New Collective Form (Private)
 
 **Screenshot:** `04-new-studio-form.png`
 
@@ -136,9 +136,9 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 
 #### Issues
 - **Long form**: Many fields may overwhelm users; could benefit from sections/steps
-- **Same "already taken" issue** as Scene form
+- **Same "already taken" issue** as public collective form
 - **Timezone defaults to wrong value**: Shows International Date Line West instead of detecting user's timezone
-- **Radio button styling**: Same dated fieldset styling as Scene form
+- **Radio button styling**: Same dated fieldset styling as public collective form
 - **No progress indicator**: Long form without sense of progress
 
 #### Recommendations
@@ -238,12 +238,12 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 
 ---
 
-### 10. Studio Home Page
+### 10. Collective Home Page
 
 **Screenshot:** `10-studio-home.png`
 
 #### Positive
-- Welcome banner is helpful for new studios
+- Welcome banner is helpful for new collectives
 - Clear cycle-based organization
 - Collapsible sections for different time periods
 - Good visual hierarchy with cycle dates
@@ -259,7 +259,7 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 1. Hide empty sections or collapse them by default
 2. Add onboarding tooltips explaining Heartbeats and cycles
 3. Improve contrast on muted text
-4. Consider a "Quick Start" guide for new studios
+4. Consider a "Quick Start" guide for new collectives
 
 ---
 
@@ -276,7 +276,7 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 #### Issues
 - **No formatting toolbar**: Users can't easily add markdown formatting
 - **No preview**: Can't see how markdown will render
-- **Welcome banner**: Still showing after navigating to new note (should dismiss contextually)
+- **Welcome banner**: Still showing after navigating to new form (should dismiss contextually)
 - **File attachment**: Not visible (mentioned in code but not apparent in UI)
 
 #### Recommendations
@@ -331,7 +331,7 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 
 ---
 
-### 14. Studio Settings Page
+### 14. Collective Settings Page
 
 **Screenshot:** `14-studio-settings.png`
 
@@ -344,7 +344,7 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 - **Very long page**: Requires significant scrolling
 - **No section navigation**: Hard to find specific settings
 - **Fieldset borders**: Dated styling for radio groups
-- **Same image upload UX issue** as user settings
+- **Same image upload UX issue** as user settings page
 - **Timezone selector**: Shows disabled separator option "-------------"
 
 #### Recommendations
@@ -360,7 +360,7 @@ The Harmonic application has a clean, functional UI with a GitHub-inspired desig
 ### 1. Inconsistent Form Patterns
 
 Forms vary between:
-- Heading-based labels (h3) with `<p>` content → Studio/Scene creation
+- Heading-based labels (h3) with `<p>` content → Collective creation
 - Inline labels → Some settings forms
 - No labels, just placeholders → Note/Decision/Commitment forms
 
@@ -419,7 +419,7 @@ Areas to verify:
 5. Standardize form patterns across all forms
 6. Add section navigation to long settings pages
 7. Improve radio button and fieldset styling
-8. Create proper default avatars for users/studios
+8. Create proper default avatars for users/collectives
 
 ### Low Priority (Nice to Have)
 9. Add markdown preview to text areas
@@ -434,17 +434,17 @@ Areas to verify:
 | # | Page | File |
 |---|------|------|
 | 1 | Home/Dashboard | `01-home-page.png` |
-| 2 | Scenes List | `02-scenes-list.png` |
-| 3 | New Scene Form | `03-new-scene-form.png` |
-| 4 | New Studio Form | `04-new-studio-form.png` |
+| 2 | Collectives List | `02-scenes-list.png` |
+| 3 | New Collective Form (Public) | `03-new-scene-form.png` |
+| 4 | New Collective Form (Private) | `04-new-studio-form.png` |
 | 5 | Notifications | `05-notifications.png` |
 | 6 | New Reminder Form | `06-new-reminder-form.png` |
 | 7 | User Dropdown Menu | `07-user-dropdown-menu.png` |
 | 8 | User Profile | `08-user-profile.png` |
 | 9 | User Settings | `09-settings-page.png` |
-| 10 | Studio Home | `10-studio-home.png` |
+| 10 | Collective Home | `10-studio-home.png` |
 | 11 | New Note Form | `11-new-note-form.png` |
 | 12 | New Decision Form | `12-new-decision-form.png` |
 | 13 | New Commitment Form | `13-new-commitment-form.png` |
-| 14 | Studio Settings | `14-studio-settings.png` |
+| 14 | Collective Settings | `14-studio-settings.png` |
 | 15 | Login Page | `15-login-page.png` |

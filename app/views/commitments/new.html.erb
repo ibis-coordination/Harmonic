@@ -18,7 +18,7 @@
 
     <div class="pulse-form-group">
       <label class="pulse-form-label">Description <span class="pulse-form-label-optional">(optional)</span></label>
-      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-studio-path-value="<%= @current_collective.path %>">
+      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
         <%= form.text_area :description,
             placeholder: "Describe what participants are committing to... (markdown supported, use @ to mention users)",
             class: "pulse-form-textarea",
@@ -53,13 +53,8 @@
     <div class="pulse-form-actions">
       <%= form.submit 'Start Commitment', class: 'pulse-action-btn' %>
       <span class="pulse-visibility-hint">
-        <% if @current_collective.is_scene? %>
-          <%= octicon 'eye', height: 14 %>
-          Commitments posted in scenes are publicly visible.
-        <% else %>
-          <%= octicon 'lock', height: 14 %>
-          Only members of this studio can access this commitment.
-        <% end %>
+        <%= octicon 'lock', height: 14 %>
+        Only members of this collective can access this commitment.
       </span>
     </div>
   <% end %>

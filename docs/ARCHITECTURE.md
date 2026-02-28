@@ -61,7 +61,7 @@ Harmonic uses **subdomain-based multi-tenancy**. Each tenant is an independent c
 | Class | Responsibility |
 |-------|---------------|
 | `Tenant` | Community/instance. Has subdomain, settings, users |
-| `Collective` | Group within tenant. Can be "studio" (private) or "scene" (public) |
+| `Collective` | Group within tenant. Can be private or public |
 | `TenantUser` | User membership in a tenant |
 | `CollectiveMember` | User membership in a collective (with roles) |
 
@@ -132,7 +132,7 @@ Posts/content items. Maps to "Observe" in OODA.
 
 ```ruby
 Note
-├── belongs_to :tenant, :studio, :created_by, :updated_by
+├── belongs_to :tenant, :collective, :created_by, :updated_by
 ├── has_many :note_history_events  # read confirmations, edits
 ├── includes Linkable, Pinnable, Attachable, Commentable
 └── has truncated_id for short URLs (e.g., /n/a1b2c3d4)
@@ -143,7 +143,7 @@ Group decisions via acceptance voting. Maps to "Decide" in OODA.
 
 ```ruby
 Decision
-├── belongs_to :tenant, :studio, :created_by, :updated_by
+├── belongs_to :tenant, :collective, :created_by, :updated_by
 ├── has_many :options              # choices to vote on
 ├── has_many :decision_participants
 ├── has_many :votes                # votes (through participants/options)
@@ -155,7 +155,7 @@ Action pledges with critical mass thresholds. Maps to "Act" in OODA.
 
 ```ruby
 Commitment
-├── belongs_to :tenant, :studio, :created_by, :updated_by
+├── belongs_to :tenant, :collective, :created_by, :updated_by
 ├── has_many :participants (CommitmentParticipant)
 ├── critical_mass: integer         # threshold to activate
 ├── limit: integer                 # optional max participants
@@ -170,7 +170,7 @@ Cycle  # Not a database table - computed from dates
 ├── name: string (e.g., "today", "this-week", "this-month")
 ├── start_date, end_date
 ├── computed notes, decisions, commitments within window
-└── scoped to studio tempo setting
+└── scoped to collective tempo setting
 ```
 
 #### Link
@@ -181,7 +181,7 @@ Link
 ├── belongs_to :from_linkable, polymorphic: true
 ├── belongs_to :to_linkable, polymorphic: true
 ├── created automatically when content references other content
-└── scoped to same tenant and studio
+└── scoped to same tenant and collective
 ```
 
 ### Supporting Entities
@@ -238,10 +238,10 @@ For programmatic access:
 
 ### HTML Request
 ```
-1. Request: GET /studios/myteam/n/a1b2c3d4
+1. Request: GET /collectives/myteam/n/a1b2c3d4
 2. ApplicationController before_actions:
    ├── current_tenant (set Thread.current[:tenant_id])
-   ├── current_studio (set Thread.current[:studio_id])
+   ├── current_collective (set Thread.current[:collective_id])
    ├── current_user (authenticate)
    └── current_resource (load note)
 3. NotesController#show
@@ -260,7 +260,7 @@ For programmatic access:
 
 ### Markdown/LLM Request
 ```
-1. Request: GET /studios/myteam/n/a1b2c3d4
+1. Request: GET /collectives/myteam/n/a1b2c3d4
    Headers: Authorization: Bearer <token>, Accept: text/markdown
 2. Same flow as HTML, but renders .md.erb template
 3. Response includes available API actions
@@ -273,14 +273,14 @@ Central business logic for creating/updating resources.
 
 ```ruby
 ApiHelper.new(
-  current_user:, current_studio:, current_tenant:,
+  current_user:, current_collective:, current_tenant:,
   current_resource_model:, params:, request:
 )
 ```
 
 Methods:
 - `create` - creates Note, Decision, or Commitment
-- `create_studio`, `create_scene`
+- `create_collective`
 - `create_heartbeat`
 - `confirm_read!` (for notes)
 - `join_commitment!`
@@ -297,7 +297,7 @@ Enables AI agents to navigate the app internally from chat sessions.
 
 ```ruby
 service = MarkdownUiService.new(tenant: tenant, collective: collective, user: user)
-result = service.navigate("/studios/team")
+result = service.navigate("/collectives/team")
 result = service.execute_action("create_note", { text: "Hello" })
 ```
 
@@ -433,7 +433,7 @@ See [AUTOMATIONS.md](AUTOMATIONS.md) for full user documentation.
 ┌─────────────────────────────────────────────────────────────────────┐
 │  AutomationExecutor                                                  │
 │  ├── Agent rules → Create AiAgentTaskRun                            │
-│  └── Studio rules → Execute actions array                           │
+│  └── Collective rules → Execute actions array                       │
 │      ├── webhook → Create WebhookDelivery + queue job               │
 │      ├── trigger_agent → Create AiAgentTaskRun + queue job          │
 │      └── internal_action → (not yet implemented)                    │
@@ -461,7 +461,7 @@ Rules can be scoped to different levels:
 | Scope | Field Set | Use Case |
 |-------|-----------|----------|
 | Agent | `ai_agent_id` | AI agent behaviors (respond to @mentions) |
-| Studio | `collective_id` | Studio-wide workflows |
+| Collective | `collective_id` | Collective-wide workflows |
 | User | `user_id` | Personal automations (future) |
 
 ### Integration Points
@@ -483,7 +483,7 @@ Currently minimal job usage. Webhook delivery (stubbed) would use jobs.
 
 **Active Storage** with S3-compatible backend:
 - Config: `config/storage.yml`
-- Used for: user avatars, studio images, attachments
+- Used for: user avatars, collective images, attachments
 - Local storage in development (`storage/`)
 
 ## Database
@@ -497,7 +497,7 @@ Currently minimal job usage. Webhook delivery (stubbed) would use jobs.
 Key patterns:
 - All IDs are UUIDs
 - `tenant_id` on most tables (except users, oauth_identities)
-- `studio_id` on content tables
+- `collective_id` on content tables
 - `created_by_id`, `updated_by_id` for audit trail
 
 ## Directory Structure
@@ -539,23 +539,14 @@ db/
 
 ## Routes Structure
 
-Routes are duplicated for studios and scenes:
-
-```ruby
-['studios','scenes'].each do |studios_or_scenes|
-  get "#{studios_or_scenes}/:studio_handle" => "#{studios_or_scenes}#show"
-  # ... more routes
-end
-```
-
 Content routes use prefixes:
-- `/studios/:studio_handle/n/:id` - Notes
-- `/studios/:studio_handle/d/:id` - Decisions
-- `/studios/:studio_handle/c/:id` - Commitments
+- `/collectives/:collective_handle/n/:id` - Notes
+- `/collectives/:collective_handle/d/:id` - Decisions
+- `/collectives/:collective_handle/c/:id` - Commitments
 
 API routes:
 - `/api/v1/` - Top-level API
-- `/studios/:collective_handle/api/v1/` - Collective-scoped API
+- `/collectives/:collective_handle/api/v1/` - Collective-scoped API
 
 ## Environment Variables
 

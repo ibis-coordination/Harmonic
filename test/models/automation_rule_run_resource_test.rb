@@ -4,7 +4,7 @@ require "test_helper"
 
 class AutomationRuleRunResourceTest < ActiveSupport::TestCase
   setup do
-    @tenant, @collective, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_collective_user
 
     # Set thread context for queries that use default_scope
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -143,8 +143,8 @@ class AutomationRuleRunResourceTest < ActiveSupport::TestCase
   test "validates resource_collective matches resource" do
     other_collective = Collective.create!(
       tenant: @tenant,
-      name: "Other Studio",
-      handle: "other-studio-#{SecureRandom.hex(4)}",
+      name: "Other Collective",
+      handle: "other-collective-#{SecureRandom.hex(4)}",
       created_by: @user
     )
 

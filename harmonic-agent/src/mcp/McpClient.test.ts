@@ -44,14 +44,14 @@ describe("McpClient", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const client = yield* McpClient;
-          return yield* client.navigate("/studios/test");
+          return yield* client.navigate("/collectives/test");
         }).pipe(Effect.provide(McpClientTestLayer))
       );
 
       expect(result.content).toBe(mockMarkdown);
-      expect(result.path).toBe("/studios/test");
+      expect(result.path).toBe("/collectives/test");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "https://test.harmonic.example/studios/test",
+        "https://test.harmonic.example/collectives/test",
         expect.objectContaining({
           method: "GET",
           headers: {
@@ -71,11 +71,11 @@ describe("McpClient", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const client = yield* McpClient;
-          return yield* client.navigate("studios/test");
+          return yield* client.navigate("collectives/test");
         }).pipe(Effect.provide(McpClientTestLayer))
       );
 
-      expect(result.path).toBe("/studios/test");
+      expect(result.path).toBe("/collectives/test");
     });
 
     it("should fail on HTTP error", async () => {
@@ -133,7 +133,7 @@ describe("McpClient", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const client = yield* McpClient;
-          yield* client.navigate("/studios/test/n/abc123");
+          yield* client.navigate("/collectives/test/n/abc123");
           return yield* client.executeAction("confirm_read", {});
         }).pipe(Effect.provide(McpClientTestLayer))
       );
@@ -141,7 +141,7 @@ describe("McpClient", () => {
       expect(result.content).toBe(actionResponse);
       expect(globalThis.fetch).toHaveBeenNthCalledWith(
         2,
-        "https://test.harmonic.example/studios/test/n/abc123/actions/confirm_read",
+        "https://test.harmonic.example/collectives/test/n/abc123/actions/confirm_read",
         expect.objectContaining({
           method: "POST",
           headers: {
@@ -169,14 +169,14 @@ describe("McpClient", () => {
       await Effect.runPromise(
         Effect.gen(function* () {
           const client = yield* McpClient;
-          yield* client.navigate("/studios/test/actions");
+          yield* client.navigate("/collectives/test/actions");
           return yield* client.executeAction("some_action");
         }).pipe(Effect.provide(McpClientTestLayer))
       );
 
       expect(globalThis.fetch).toHaveBeenNthCalledWith(
         2,
-        "https://test.harmonic.example/studios/test/actions/some_action",
+        "https://test.harmonic.example/collectives/test/actions/some_action",
         expect.anything()
       );
     });
@@ -203,12 +203,12 @@ describe("McpClient", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const client = yield* McpClient;
-          yield* client.navigate("/studios/test");
+          yield* client.navigate("/collectives/test");
           return yield* client.getCurrentPath;
         }).pipe(Effect.provide(McpClientTestLayer))
       );
 
-      expect(result).toBe("/studios/test");
+      expect(result).toBe("/collectives/test");
     });
   });
 });

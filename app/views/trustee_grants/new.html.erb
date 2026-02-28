@@ -54,30 +54,30 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
       </section>
 
       <section class="pulse-settings-section">
-        <label class="pulse-label">Which studios?</label>
-        <p class="pulse-text-muted">Choose which studios this trustee grant applies to.</p>
+        <label class="pulse-label">Which collectives?</label>
+        <p class="pulse-text-muted">Choose which collectives this trustee grant applies to.</p>
 
         <div class="pulse-radio-group">
           <label class="pulse-radio-label">
-            <input type="radio" name="studio_scope_mode" value="all" checked class="pulse-radio" data-toggle-target="studio-ids">
-            All studios where you are a member
+            <input type="radio" name="collective_scope_mode" value="all" checked class="pulse-radio" data-toggle-target="collective-ids">
+            All collectives where you are a member
           </label>
           <label class="pulse-radio-label">
-            <input type="radio" name="studio_scope_mode" value="include" class="pulse-radio" data-toggle-target="studio-ids">
-            Only specific studios
+            <input type="radio" name="collective_scope_mode" value="include" class="pulse-radio" data-toggle-target="collective-ids">
+            Only specific collectives
           </label>
           <label class="pulse-radio-label">
-            <input type="radio" name="studio_scope_mode" value="exclude" class="pulse-radio" data-toggle-target="studio-ids">
-            All studios except specific ones
+            <input type="radio" name="collective_scope_mode" value="exclude" class="pulse-radio" data-toggle-target="collective-ids">
+            All collectives except specific ones
           </label>
         </div>
 
-        <div id="studio-ids" class="pulse-conditional-section" style="display: none; margin-top: 1rem;">
-          <label class="pulse-label">Select studios:</label>
-          <% @available_studios.each do |studio| %>
+        <div id="collective-ids" class="pulse-conditional-section" style="display: none; margin-top: 1rem;">
+          <label class="pulse-label">Select collectives:</label>
+          <% @available_collectives.each do |collective| %>
             <label class="pulse-checkbox-label">
-              <input type="checkbox" name="studio_ids[]" value="<%= studio.id %>" class="pulse-checkbox">
-              <%= studio.name %>
+              <input type="checkbox" name="collective_ids[]" value="<%= collective.id %>" class="pulse-checkbox">
+              <%= collective.name %>
             </label>
           <% end %>
         </div>
@@ -98,14 +98,14 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
 </article>
 
 <script>
-  // Toggle studio selection visibility based on scope mode
-  document.querySelectorAll('input[name="studio_scope_mode"]').forEach(function(radio) {
+  // Toggle collective selection visibility based on scope mode
+  document.querySelectorAll('input[name="collective_scope_mode"]').forEach(function(radio) {
     radio.addEventListener('change', function() {
-      var studioIds = document.getElementById('studio-ids');
+      var collectiveIds = document.getElementById('collective-ids');
       if (this.value === 'all') {
-        studioIds.style.display = 'none';
+        collectiveIds.style.display = 'none';
       } else {
-        studioIds.style.display = 'block';
+        collectiveIds.style.display = 'block';
       }
     });
   });

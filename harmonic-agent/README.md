@@ -36,7 +36,7 @@ You'll need the following from your Harmonic administrator or the Harmonic setti
 2. **Webhook Secret** - Created when setting up a webhook that points to your agent
 
 To set up the webhook in Harmonic:
-- Navigate to your studio's settings or admin panel
+- Navigate to your collective's settings or admin panel
 - Create a new webhook pointing to your agent's URL (e.g., `https://your-agent.example.com/webhook`)
 - Select the events you want to subscribe to (e.g., `note.created`, `decision.created`, or `*` for all)
 - Copy the webhook secret
@@ -141,7 +141,7 @@ Create activity in Harmonic (e.g., create a note or mention the agent) and watch
 When triggered by a webhook, the agent:
 
 1. **Navigates to `/notifications`** to see what needs attention
-2. **Explores** studios, cycles, notes, decisions, and commitments
+2. **Explores** collectives, cycles, notes, decisions, and commitments
 3. **Takes actions** like:
    - Confirming read on notes
    - Voting on decisions
@@ -161,14 +161,14 @@ The agent responds to any webhook event, but typically you'll want to subscribe 
 - `vote.created` - Votes cast on decisions
 - `*` - All events
 
-## Multiple Studios
+## Multiple Collectives
 
-To have the agent respond to events in multiple studios:
+To have the agent respond to events in multiple collectives:
 
-1. **Create one webhook per studio** - Each scoped to a specific studio
-2. **Create one global webhook** - Scoped to receive events from all studios
+1. **Create one webhook per collective** - Each scoped to a specific collective
+2. **Create one global webhook** - Scoped to receive events from all collectives
 
-The agent will explore all studios it has access to (those with API enabled for your token) regardless of which studio triggered the webhook.
+The agent will explore all collectives it has access to (those with API enabled for your token) regardless of which collective triggered the webhook.
 
 ## Troubleshooting
 
@@ -179,9 +179,9 @@ The agent will explore all studios it has access to (those with API enabled for 
 3. Confirm the webhook URL matches your agent's `/webhook` endpoint
 4. Check your agent logs for incoming requests
 
-### Agent can't access studio
+### Agent can't access collective
 
-Your API token may not have access to the studio, or the studio may not have API access enabled. Contact your Harmonic administrator.
+Your API token may not have access to the collective, or the collective may not have API access enabled. Contact your Harmonic administrator.
 
 ### Signature verification failed
 

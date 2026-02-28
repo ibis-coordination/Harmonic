@@ -93,7 +93,7 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "resource_collective must match resource collective" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-collective-#{SecureRandom.hex(4)}")
 
     resource = AiAgentTaskRunResource.new(
       tenant: @tenant,
@@ -146,7 +146,7 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "default scope only filters by tenant not collective" do
     # AiAgentTaskRunResource only scopes by tenant, not by collective
-    # This allows a single task run to track resources across multiple studios
+    # This allows a single task run to track resources across multiple collectives
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
     resource = AiAgentTaskRunResource.create!(
@@ -343,14 +343,14 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "display_title handles cross-collective vote correctly" do
     # Create vote in different collective
-    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "vote-studio-#{SecureRandom.hex(4)}")
+    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "vote-collective-#{SecureRandom.hex(4)}")
     other_collective.add_user!(@user)
 
     decision = Decision.create!(
       tenant: @tenant,
       collective: other_collective,
       created_by: @user,
-      question: "Cross-studio decision?",
+      question: "Cross-collective decision?",
       description: "Test",
       deadline: 1.week.from_now,
       options_open: true,
@@ -366,7 +366,7 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
       collective: other_collective,
       decision: decision,
       decision_participant: decision_participant,
-      title: "Cross-Studio Option",
+      title: "Cross-Collective Option",
     )
     vote = Vote.create!(
       tenant: @tenant,
@@ -387,7 +387,7 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
     )
 
     # display_title should work because it uses unscoped queries to fetch related resources
-    assert_equal "Vote on: Cross-Studio Option", resource.display_title(vote)
+    assert_equal "Vote on: Cross-Collective Option", resource.display_title(vote)
   end
 
   # === set_tenant_id Tests ===

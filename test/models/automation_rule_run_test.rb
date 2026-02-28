@@ -4,7 +4,7 @@ require "test_helper"
 
 class AutomationRuleRunTest < ActiveSupport::TestCase
   setup do
-    @tenant, @collective, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_collective_user
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
@@ -20,11 +20,11 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
       enabled: true
     )
 
-    @studio_rule = AutomationRule.create!(
+    @collective_rule = AutomationRule.create!(
       tenant: @tenant,
       collective: @collective,
       created_by: @user,
-      name: "Studio Rule",
+      name: "Collective Rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
       actions: [{ "type" => "webhook", "url" => "https://example.com" }],
@@ -46,7 +46,7 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
 
   test "automatically sets collective_id from rule" do
     run = AutomationRuleRun.create!(
-      automation_rule: @studio_rule,
+      automation_rule: @collective_rule,
       trigger_source: "event",
       status: "pending"
     )
@@ -99,7 +99,7 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
     run = AutomationRuleRun.new(
       tenant: @tenant,
       collective: other_collective,
-      automation_rule: @studio_rule,
+      automation_rule: @collective_rule,
       trigger_source: "event",
       status: "pending"
     )
@@ -112,7 +112,7 @@ class AutomationRuleRunTest < ActiveSupport::TestCase
     run = AutomationRuleRun.new(
       tenant: @tenant,
       collective: @collective,
-      automation_rule: @studio_rule,
+      automation_rule: @collective_rule,
       trigger_source: "event",
       status: "pending"
     )

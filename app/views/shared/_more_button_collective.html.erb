@@ -1,0 +1,11 @@
+<% options = [] %>
+<% # collective_member = @current_user.collective_members.find_by(collective: collective) %>
+<% # invite = collective_user.can_invite? ? 'invite' : nil %>
+<% # representation = 'representation' %>
+<% # options << invite if invite %>
+<% # options << representation if representation %>
+<% # settings = collective_user.is_admin? ? 'settings' : nil %>
+<% # options << '---' if settings %>
+<% # options << settings if settings %>
+<% # options << 'manage_members' if collective_user.is_admin? %>
+<%= render 'shared/more_button', collective: collective, resource: collective, options: options %>

@@ -18,9 +18,9 @@ No notifications.
 ## Recent Notifications
 
 <% @notifications_by_collective.each do |collective, recipients| -%>
-<% studio_id = collective&.id || 'reminders' -%>
-<% studio_name = collective&.name || 'Other' -%>
-### <%= studio_name %> (<%= recipients.size %>) - [dismiss_for_studio](/notifications/actions/dismiss_for_studio?studio_id=<%= studio_id %>)
+<% collective_id = collective&.id || 'reminders' -%>
+<% collective_name = collective&.name || 'Other' -%>
+### <%= collective_name %> (<%= recipients.size %>) - [dismiss_for_collective](/notifications/actions/dismiss_for_collective?collective_id=<%= collective_id %>)
 
 | Title | Time | Actions |
 |-------|------|---------|

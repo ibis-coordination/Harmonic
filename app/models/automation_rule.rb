@@ -35,7 +35,7 @@ class AutomationRule < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def studio_rule?
+  def collective_rule?
     collective_id.present? && ai_agent_id.nil?
   end
 
@@ -139,7 +139,7 @@ class AutomationRule < ApplicationRecord
       "/ai-agents/#{agent_tu&.handle}/automations/#{truncated_id}"
     elsif collective_id.present?
       c = Collective.tenant_scoped_only(tenant_id).find_by(id: collective_id)
-      "/studios/#{c&.handle}/settings/automations/#{truncated_id}"
+      "/collectives/#{c&.handle}/settings/automations/#{truncated_id}"
     else
       tu = TenantUser.find_by(tenant_id: tenant_id, user_id: user_id)
       "/u/#{tu&.handle}/settings/automations/#{truncated_id}"
@@ -159,12 +159,12 @@ class AutomationRule < ApplicationRecord
     return unless scopes_set > 1
 
     # Agent rules can have ai_agent_id set alongside others being nil
-    # Studio rules have collective_id set
+    # Collective rules have collective_id set
     # User rules have user_id set
     if ai_agent_id.present? && (collective_id.present? || user_id.present?)
       errors.add(:base, "Agent rules cannot have collective or user scope set")
     elsif collective_id.present? && user_id.present?
-      errors.add(:base, "Rule cannot be both studio-level and user-level")
+      errors.add(:base, "Rule cannot be both collective-level and user-level")
     end
   end
 

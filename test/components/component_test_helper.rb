@@ -71,11 +71,10 @@ module ComponentTestHelper
     commitment
   end
 
-  # Build a Collective instance usable as a studio.
-  def build_collective(name: "My Studio", handle: "my-studio", is_scene: false)
+  # Build a Collective instance.
+  def build_collective(name: "My Collective", handle: "my-collective")
     collective = Collective.new(name: name)
     collective.define_singleton_method(:path) { "/s/#{handle}" }
-    collective.define_singleton_method(:is_scene?) { is_scene }
     collective
   end
 end

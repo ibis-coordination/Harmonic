@@ -12,20 +12,20 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
   # =========================================================================
 
   test "users in same small collective have high proximity" do
-    # Create a small 3-person studio
+    # Create a small 3-person collective
     user1 = create_user(email: "prox_user1@example.com")
     user2 = create_user(email: "prox_user2@example.com")
     user3 = create_user(email: "prox_user3@example.com")
 
-    small_studio = create_collective(
+    small_collective = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Small Studio",
-      handle: "small-studio-#{SecureRandom.hex(4)}"
+      name: "Small Collective",
+      handle: "small-collective-#{SecureRandom.hex(4)}"
     )
 
     [user1, user2, user3].each do |u|
-      CollectiveMember.create!(tenant: @tenant, collective: small_studio, user: u)
+      CollectiveMember.create!(tenant: @tenant, collective: small_collective, user: u)
     end
 
     calculator = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
@@ -41,47 +41,47 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "large_prox1@example.com")
     user2 = create_user(email: "large_prox2@example.com")
 
-    # Create small studio (3 members)
-    small_studio = create_collective(
+    # Create small collective (3 members)
+    small_collective = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Small Studio",
-      handle: "small-studio-large-#{SecureRandom.hex(4)}"
+      name: "Small Collective",
+      handle: "small-collective-large-#{SecureRandom.hex(4)}"
     )
     [user1, user2].each do |u|
-      CollectiveMember.create!(tenant: @tenant, collective: small_studio, user: u)
+      CollectiveMember.create!(tenant: @tenant, collective: small_collective, user: u)
     end
     user3 = create_user(email: "small_member@example.com")
-    CollectiveMember.create!(tenant: @tenant, collective: small_studio, user: user3)
+    CollectiveMember.create!(tenant: @tenant, collective: small_collective, user: user3)
 
-    # Calculate proximity through small studio
+    # Calculate proximity through small collective
     calc_small = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
     scores_small = calc_small.compute
 
-    # Now create large studio (20 members)
+    # Now create large collective (20 members)
     user4 = create_user(email: "large_user4@example.com")
     user5 = create_user(email: "large_user5@example.com")
 
-    large_scene = create_collective(
+    large_collective = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Large Scene",
-      handle: "large-scene-#{SecureRandom.hex(4)}"
+      name: "Large Collective",
+      handle: "large-collective-#{SecureRandom.hex(4)}"
     )
     [user4, user5].each do |u|
-      CollectiveMember.create!(tenant: @tenant, collective: large_scene, user: u)
+      CollectiveMember.create!(tenant: @tenant, collective: large_collective, user: u)
     end
     # Add 18 more users to make it large
     18.times do |i|
       u = create_user(email: "large_member_#{i}@example.com")
-      CollectiveMember.create!(tenant: @tenant, collective: large_scene, user: u)
+      CollectiveMember.create!(tenant: @tenant, collective: large_collective, user: u)
     end
 
-    # Calculate proximity through large scene
+    # Calculate proximity through large collective
     calc_large = SocialProximityCalculator.new(user4, tenant_id: @tenant.id)
     scores_large = calc_large.compute
 
-    # Small group proximity should be higher than large group proximity
+    # Small collective proximity should be higher than large collective proximity
     # (due to Adamic-Adar weighting 1/log(size))
     small_proximity = scores_small[user2.id] || 0.0
     large_proximity = scores_large[user5.id] || 0.0
@@ -232,23 +232,23 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user2 = create_user(email: "heartbeat2@example.com")
 
     # Create a dedicated collective for heartbeat testing
-    heartbeat_studio = create_collective(
+    heartbeat_collective = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Heartbeat Studio",
-      handle: "heartbeat-studio-#{SecureRandom.hex(4)}"
+      name: "Heartbeat Collective",
+      handle: "heartbeat-collective-#{SecureRandom.hex(4)}"
     )
 
     # Create heartbeats within the current cycle
     heartbeat1 = Heartbeat.create!(
       tenant: @tenant,
-      collective: heartbeat_studio,
+      collective: heartbeat_collective,
       user: user1,
       expires_at: 1.day.from_now
     )
     heartbeat2 = Heartbeat.create!(
       tenant: @tenant,
-      collective: heartbeat_studio,
+      collective: heartbeat_collective,
       user: user2,
       expires_at: 1.day.from_now
     )
@@ -272,16 +272,16 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "multi1@example.com")
     user2 = create_user(email: "multi2@example.com")
 
-    studio = create_collective(
+    multi_collective = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Multi Studio",
-      handle: "multi-studio-#{SecureRandom.hex(4)}"
+      name: "Multi Collective",
+      handle: "multi-collective-#{SecureRandom.hex(4)}"
     )
 
     # Both in same collective
-    CollectiveMember.create!(tenant: @tenant, collective: studio, user: user1)
-    CollectiveMember.create!(tenant: @tenant, collective: studio, user: user2)
+    CollectiveMember.create!(tenant: @tenant, collective: multi_collective, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: multi_collective, user: user2)
 
     # Calculate baseline proximity with just collective
     calc_baseline = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
@@ -289,10 +289,10 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     baseline_proximity = baseline_scores[user2.id] || 0.0
 
     # Now add shared note reading
-    note = create_note(tenant: @tenant, collective: studio, created_by: @user)
+    note = create_note(tenant: @tenant, collective: multi_collective, created_by: @user)
     NoteHistoryEvent.create!(
       tenant: @tenant,
-      collective: studio,
+      collective: multi_collective,
       note: note,
       user: user1,
       event_type: "read_confirmation",
@@ -300,7 +300,7 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     )
     NoteHistoryEvent.create!(
       tenant: @tenant,
-      collective: studio,
+      collective: multi_collective,
       note: note,
       user: user2,
       event_type: "read_confirmation",
@@ -321,37 +321,37 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
   end
 
   test "transitive connections are captured" do
-    # User A in Studio 1
-    # User B in Studio 1 and Studio 2
-    # User C in Studio 2 only
+    # User A in Collective 1
+    # User B in Collective 1 and Collective 2
+    # User C in Collective 2 only
     # Assert A has some proximity to C (via B)
 
     user_a = create_user(email: "transitive_a@example.com")
     user_b = create_user(email: "transitive_b@example.com")
     user_c = create_user(email: "transitive_c@example.com")
 
-    studio1 = create_collective(
+    collective1 = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Studio 1",
-      handle: "transitive-studio1-#{SecureRandom.hex(4)}"
+      name: "Collective 1",
+      handle: "transitive-collective1-#{SecureRandom.hex(4)}"
     )
-    studio2 = create_collective(
+    collective2 = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Studio 2",
-      handle: "transitive-studio2-#{SecureRandom.hex(4)}"
+      name: "Collective 2",
+      handle: "transitive-collective2-#{SecureRandom.hex(4)}"
     )
 
-    # User A in Studio 1 only
-    CollectiveMember.create!(tenant: @tenant, collective: studio1, user: user_a)
+    # User A in Collective 1 only
+    CollectiveMember.create!(tenant: @tenant, collective: collective1, user: user_a)
 
-    # User B in both studios (the bridge)
-    CollectiveMember.create!(tenant: @tenant, collective: studio1, user: user_b)
-    CollectiveMember.create!(tenant: @tenant, collective: studio2, user: user_b)
+    # User B in both collectives (the bridge)
+    CollectiveMember.create!(tenant: @tenant, collective: collective1, user: user_b)
+    CollectiveMember.create!(tenant: @tenant, collective: collective2, user: user_b)
 
-    # User C in Studio 2 only
-    CollectiveMember.create!(tenant: @tenant, collective: studio2, user: user_c)
+    # User C in Collective 2 only
+    CollectiveMember.create!(tenant: @tenant, collective: collective2, user: user_c)
 
     calculator = SocialProximityCalculator.new(user_a, tenant_id: @tenant.id)
     scores = calculator.compute
@@ -372,22 +372,22 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "isolated1@example.com")
     user2 = create_user(email: "isolated2@example.com")
 
-    # Put them in different studios with no overlap
-    studio1 = create_collective(
+    # Put them in different collectives with no overlap
+    isolated1 = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Isolated Studio 1",
-      handle: "isolated-studio1-#{SecureRandom.hex(4)}"
+      name: "Isolated Collective 1",
+      handle: "isolated-collective1-#{SecureRandom.hex(4)}"
     )
-    studio2 = create_collective(
+    isolated2 = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Isolated Studio 2",
-      handle: "isolated-studio2-#{SecureRandom.hex(4)}"
+      name: "Isolated Collective 2",
+      handle: "isolated-collective2-#{SecureRandom.hex(4)}"
     )
 
-    CollectiveMember.create!(tenant: @tenant, collective: studio1, user: user1)
-    CollectiveMember.create!(tenant: @tenant, collective: studio2, user: user2)
+    CollectiveMember.create!(tenant: @tenant, collective: isolated1, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: isolated2, user: user2)
 
     calculator = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
     scores = calculator.compute
@@ -407,13 +407,13 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     CollectiveMember.create!(tenant: @tenant, collective: @collective, user: user1)
 
     # Create collective in tenant2
-    studio2 = create_collective(
+    collective2 = create_collective(
       tenant: tenant2,
       created_by: @user,
-      name: "Tenant 2 Studio",
-      handle: "tenant2-studio-#{SecureRandom.hex(4)}"
+      name: "Tenant 2 Collective",
+      handle: "tenant2-collective-#{SecureRandom.hex(4)}"
     )
-    CollectiveMember.create!(tenant: tenant2, collective: studio2, user: user2)
+    CollectiveMember.create!(tenant: tenant2, collective: collective2, user: user2)
 
     # Calculate proximity scoped to tenant1
     calculator = SocialProximityCalculator.new(user1, tenant_id: @tenant.id)
@@ -440,15 +440,15 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     user1 = create_user(email: "determinism1@example.com")
     user2 = create_user(email: "determinism2@example.com")
 
-    studio = create_collective(
+    determinism_collective = create_collective(
       tenant: @tenant,
       created_by: @user,
-      name: "Determinism Studio",
-      handle: "determinism-studio-#{SecureRandom.hex(4)}"
+      name: "Determinism Collective",
+      handle: "determinism-collective-#{SecureRandom.hex(4)}"
     )
 
-    CollectiveMember.create!(tenant: @tenant, collective: studio, user: user1)
-    CollectiveMember.create!(tenant: @tenant, collective: studio, user: user2)
+    CollectiveMember.create!(tenant: @tenant, collective: determinism_collective, user: user1)
+    CollectiveMember.create!(tenant: @tenant, collective: determinism_collective, user: user2)
 
     # Run multiple times
     scores1 = SocialProximityCalculator.new(user1, tenant_id: @tenant.id).compute

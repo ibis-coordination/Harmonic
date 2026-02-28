@@ -47,14 +47,14 @@ body {
   width: 270px;
 }
 
-.homepage .homepage-studio-section {
+.homepage .homepage-collective-section {
   background-color: var(--color-canvas-default);
   border: 1px solid var(--color-border-default);
   padding: 16px;
   margin-bottom: 16px;
 }
 
-.homepage .homepage-studio-section h2, .homepage .homepage-studio-section h3 {
+.homepage .homepage-collective-section h2, .homepage .homepage-collective-section h3 {
   margin-top: 0;
 }
 
@@ -646,13 +646,13 @@ ul.attachments-list {
   display: inline-block;
 }
 
-.studio-membership-list {
+.collective-membership-list {
   list-style: none;
   padding: 0;
   margin: 0 0 12px 0;
 }
 
-.studio-membership-list li {
+.collective-membership-list li {
   padding: 8px 0;
   border-bottom: 1px solid var(--color-border-muted);
   display: flex;
@@ -661,19 +661,19 @@ ul.attachments-list {
   gap: 12px;
 }
 
-.studio-membership-list li:last-child {
+.collective-membership-list li:last-child {
   border-bottom: none;
 }
 
-.studio-membership-list li.none-message {
+.collective-membership-list li.none-message {
   color: var(--color-fg-muted);
 }
 
-.studio-membership-list li a {
+.collective-membership-list li a {
   flex-grow: 1;
 }
 
-.add-to-studio-form {
+.add-to-collective-form {
   margin-top: 8px;
 }
 

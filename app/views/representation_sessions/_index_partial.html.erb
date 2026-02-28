@@ -24,20 +24,20 @@
   </p>
 <% end %>
 
-<p>Representation allows this studio (<%= @current_collective.name %>) to act as an individual member of other studios.</p>
+<p>Representation allows this collective (<%= @current_collective.name %>) to act as an individual member of other collectives.</p>
 
 <% if @current_collective.identity_user.collectives.empty? %>
   <p class="pulse-muted">
-    <%= @current_collective.name %> is not currently a member of any other studios.
+    <%= @current_collective.name %> is not currently a member of any other collectives.
   </p>
 <% else %>
   <p>
-    <%= @current_collective.name %> is currently a member of the following studios:
+    <%= @current_collective.name %> is currently a member of the following collectives:
   </p>
   <ul class="pulse-list">
-    <% @current_collective.identity_user.collectives.each do |studio| %>
+    <% @current_collective.identity_user.collectives.each do |collective| %>
       <li class="pulse-list-item">
-        <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
+        <a href="<%= collective.path %>" class="pulse-link"><%= collective.name %></a>
       </li>
     <% end %>
   </ul>
@@ -50,7 +50,7 @@
   <p>Representatives act on behalf of <%= @current_collective.name %> through sessions during which their actions are recorded and made visible here.</p>
 
   <% if @current_collective.any_member_can_represent? %>
-    <p><%= @current_collective.name %> is configured to allow any member to represent the studio.</p>
+    <p><%= @current_collective.name %> is configured to allow any member to represent the collective.</p>
   <% else %>
     <p><%= @current_collective.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.</p>
 

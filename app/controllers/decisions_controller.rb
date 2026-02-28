@@ -29,7 +29,7 @@ class DecisionsController < ApplicationController
         @decision.attach!(params[:files])
       end
       # Handle pinning (HTML form specific)
-      if params[:pinned] == '1' && current_collective.id != current_tenant.main_studio_id
+      if params[:pinned] == '1' && current_collective.id != current_tenant.main_collective_id
         api_helper.pin_resource(@decision)
       end
       redirect_to @decision.path
@@ -260,12 +260,12 @@ class DecisionsController < ApplicationController
 
   def actions_index_new
     @page_title = 'Actions | Decide'
-    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/decide'))
+    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/decide'))
   end
 
   def actions_index_show
     @page_title = "Actions | #{current_decision.question}"
-    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/d/:decision_id'))
+    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/d/:decision_id'))
   end
 
   def describe_create_decision

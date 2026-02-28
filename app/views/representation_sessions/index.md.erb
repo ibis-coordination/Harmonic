@@ -10,15 +10,15 @@
 <% end %>
 <% end %>
 
-Representation allows this studio (<%= @current_collective.name %>) to act as an individual member of other studios.
+Representation allows this collective (<%= @current_collective.name %>) to act as an individual member of other collectives.
 
 <% if @current_collective.identity_user.collectives.empty? %>
-<%= @current_collective.name %> is not currently a member of any other studios.
+<%= @current_collective.name %> is not currently a member of any other collectives.
 <% else %>
-<%= @current_collective.name %> is currently a member of the following studios:
+<%= @current_collective.name %> is currently a member of the following collectives:
 
-<% @current_collective.identity_user.collectives.each do |studio| %>
-* [<%= studio.name %>](<%= studio.path %>)
+<% @current_collective.identity_user.collectives.each do |collective| %>
+* [<%= collective.name %>](<%= collective.path %>)
 <% end %>
 <% end %>
 
@@ -27,7 +27,7 @@ Representation allows this studio (<%= @current_collective.name %>) to act as an
 Representatives act on behalf of <%= @current_collective.name %> through sessions during which their actions are recorded and made visible here.
 
 <% if @current_collective.any_member_can_represent? %>
-<%= @current_collective.name %> is configured to allow any member to represent the studio.
+<%= @current_collective.name %> is configured to allow any member to represent the collective.
 <% else %>
 <%= @current_collective.name %> currently has <%= @representatives.count %> representative<%= @representatives.count == 1 ? '' : 's' %>.
 

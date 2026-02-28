@@ -5,7 +5,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     @tenant = create_tenant(subdomain: "rep-session-#{SecureRandom.hex(4)}")
     @user = create_user(email: "rep_#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(@user)
-    @collective = create_collective(tenant: @tenant, created_by: @user, handle: "rep-studio-#{SecureRandom.hex(4)}")
+    @collective = create_collective(tenant: @tenant, created_by: @user, handle: "rep-collective-#{SecureRandom.hex(4)}")
     @collective.add_user!(@user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
@@ -36,8 +36,8 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_includes session.errors[:began_at], "can't be blank"
   end
 
-  test "studio representation session requires collective" do
-    # Studio representation (no trustee_grant) requires collective_id
+  test "collective representation session requires collective" do
+    # Collective representation (no trustee_grant) requires collective_id
     session = RepresentationSession.new(
       tenant: @tenant,
       collective: nil,
@@ -47,7 +47,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       began_at: Time.current,
     )
     assert_not session.valid?
-    assert_includes session.errors[:collective_id], "is required for studio representation sessions"
+    assert_includes session.errors[:collective_id], "is required for collective representation sessions"
   end
 
   test "user representation session must not have collective" do
@@ -79,7 +79,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     )
     assert session.persisted?
     assert_equal @user, session.representative_user
-    # effective_user returns the studio trustee for studio representation
+    # effective_user returns the collective identity for collective representation
     assert_equal @collective.identity_user, session.effective_user
   end
 
@@ -315,13 +315,13 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_match(/Representation Session \w+/, session.title)
   end
 
-  test "path returns studio-scoped path" do
+  test "path returns collective-scoped path" do
     session = create_representation_session(
       tenant: @tenant,
       collective: @collective,
       representative: @user,
     )
-    assert_equal "/studios/#{@collective.handle}/r/#{session.truncated_id}", session.path
+    assert_equal "/collectives/#{@collective.handle}/r/#{session.truncated_id}", session.path
   end
 
   test "url returns full URL with tenant subdomain" do
@@ -442,7 +442,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
 
     # For user representation, effective_user is the granting_user (who is being represented)
     assert_equal granting_user, session.effective_user
-    # This is different from studio representation where effective_user is the studio trustee
+    # This is different from collective representation where effective_user is the collective identity
   end
 
   test "user representation session can record events" do
@@ -483,7 +483,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   # === Single Session Constraint ===
 
   test "user cannot have multiple active representation sessions" do
-    # First, create a studio representation session
+    # First, create a collective representation session
     first_session = create_representation_session(
       tenant: @tenant,
       collective: @collective,
@@ -491,8 +491,8 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     )
     assert first_session.active?
 
-    # Create another studio
-    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    # Create another collective
+    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-collective-#{SecureRandom.hex(4)}")
     other_collective.add_user!(@user)
 
     # Attempting to create a second session should fail (or be prevented by business logic)
@@ -536,13 +536,13 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert session.user_representation?
   end
 
-  test "user representation session can record events in different studios" do
+  test "user representation session can record events in different collectives" do
     granting_user = create_user(email: "granting_#{SecureRandom.hex(4)}@example.com", name: "Granting User")
     @tenant.add_user!(granting_user)
     @collective.add_user!(granting_user)
 
-    # Create a second studio
-    other_collective = create_collective(tenant: @tenant, created_by: granting_user, handle: "other-studio-#{SecureRandom.hex(4)}")
+    # Create a second collective
+    other_collective = create_collective(tenant: @tenant, created_by: granting_user, handle: "other-collective-#{SecureRandom.hex(4)}")
     other_collective.add_user!(@user)
     other_collective.add_user!(granting_user)
 
@@ -564,7 +564,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       began_at: Time.current,
     )
 
-    # Record event in the first studio
+    # Record event in the first collective
     note1 = create_note(tenant: @tenant, collective: @collective, created_by: granting_user)
     mock_request = OpenStruct.new(request_id: 'req-123')
     session.record_event!(
@@ -573,7 +573,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       resource: note1
     )
 
-    # Record event in a different studio (within the same session)
+    # Record event in a different collective (within the same session)
     note2 = create_note(tenant: @tenant, collective: other_collective, created_by: granting_user)
     session.record_event!(
       request: mock_request,
@@ -623,11 +623,11 @@ class RepresentationSessionTest < ActiveSupport::TestCase
   end
 
   # =========================================================================
-  # STUDIO REPRESENTATION REGRESSION TESTS
-  # These tests protect the existing studio representation behavior.
+  # COLLECTIVE REPRESENTATION REGRESSION TESTS
+  # These tests protect the existing collective representation behavior.
   # =========================================================================
 
-  test "studio representation session gets correct collective_id" do
+  test "collective representation session gets correct collective_id" do
     session = create_representation_session(
       tenant: @tenant,
       collective: @collective,
@@ -635,10 +635,10 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     )
 
     assert_equal @collective.id, session.collective_id,
-                 "Studio representation session must have correct collective_id"
+                 "Collective representation session must have correct collective_id"
   end
 
-  test "studio representation session events get correct collective_id" do
+  test "collective representation session events get correct collective_id" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
@@ -659,7 +659,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
                  "Event must have correct resource_collective_id"
   end
 
-  test "studio representation session is findable via has_many association" do
+  test "collective representation session is findable via has_many association" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     session = create_representation_session(
       tenant: @tenant,
@@ -679,7 +679,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert_equal note, session.representation_session_events.first.resource
   end
 
-  test "multiple event recordings in studio session all get correct collective_id" do
+  test "multiple event recordings in collective session all get correct collective_id" do
     note1 = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     note2 = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)

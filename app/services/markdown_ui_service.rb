@@ -87,7 +87,7 @@ class MarkdownUiService
   # Dispatches an internal GET request through the Rails stack with Accept: text/markdown.
   # Returns the rendered content along with actions parsed from YAML frontmatter.
   #
-  # @param path [String] The URL path to navigate to (e.g., "/studios/team/n/abc123")
+  # @param path [String] The URL path to navigate to (e.g., "/collectives/team/n/abc123")
   # @param include_layout [Boolean] Ignored in V2 - layout is always included from the server
   # @return [Hash] Navigation result with :content, :path, :actions, and :error keys
   sig { params(path: String, include_layout: T::Boolean).returns(NavigateResult) }

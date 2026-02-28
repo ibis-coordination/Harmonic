@@ -29,8 +29,8 @@ class BreadcrumbComponentTest < ViewComponent::TestCase
   end
 
   test "renders multiple link items" do
-    render_inline(BreadcrumbComponent.new(items: [["Home", "/"], ["Studio", "/s/abc"], "Note"]))
+    render_inline(BreadcrumbComponent.new(items: [["Home", "/"], ["Collective", "/s/abc"], "Note"]))
     assert_selector "a", count: 2
-    assert_selector "a[href='/s/abc']", text: "Studio"
+    assert_selector "a[href='/s/abc']", text: "Collective"
   end
 end

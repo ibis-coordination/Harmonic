@@ -4,7 +4,7 @@ require "test_helper"
 
 class AutomationInternalActionServiceTest < ActiveSupport::TestCase
   setup do
-    @tenant, @collective, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_collective_user
     # Ensure collective has an identity user
     @collective.create_identity_user! unless @collective.identity_user
 
@@ -68,7 +68,7 @@ class AutomationInternalActionServiceTest < ActiveSupport::TestCase
     result = service.execute("create_note", { "text" => "Test" })
 
     assert_not result.success
-    assert_includes result.error, "studio context"
+    assert_includes result.error, "collective context"
   end
 
   test "execute creates note with automation context" do

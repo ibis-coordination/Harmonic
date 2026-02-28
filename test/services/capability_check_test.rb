@@ -25,7 +25,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
   test "non-ai_agent users have no restrictions" do
     assert CapabilityCheck.allowed?(@user, "create_note")
     assert CapabilityCheck.allowed?(@user, "vote")
-    assert CapabilityCheck.allowed?(@user, "create_studio")
+    assert CapabilityCheck.allowed?(@user, "create_collective")
     assert CapabilityCheck.allowed?(@user, "update_profile")
   end
 
@@ -92,9 +92,9 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     end
 
     # Even if explicitly listed in capabilities (would be invalid config)
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_studio", "update_profile"] })
+    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_collective", "update_profile"] })
 
-    refute CapabilityCheck.allowed?(@ai_agent, "create_studio")
+    refute CapabilityCheck.allowed?(@ai_agent, "create_collective")
     refute CapabilityCheck.allowed?(@ai_agent, "update_profile")
   end
 
@@ -173,16 +173,16 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Allowed capability
-    assert ActionAuthorization.authorized?("create_note", @ai_agent, { studio: @collective })
+    assert ActionAuthorization.authorized?("create_note", @ai_agent, { collective: @collective })
 
     # Disallowed capability (vote is grantable but not in config)
-    refute ActionAuthorization.authorized?("vote", @ai_agent, { studio: @collective })
+    refute ActionAuthorization.authorized?("vote", @ai_agent, { collective: @collective })
 
     # Infrastructure action (always allowed)
     assert ActionAuthorization.authorized?("search", @ai_agent, {})
 
     # Blocked action (never allowed for ai_agents)
-    refute ActionAuthorization.authorized?("create_studio", @ai_agent, {})
+    refute ActionAuthorization.authorized?("create_collective", @ai_agent, {})
   end
 
   # Test: All grantable actions are valid action names

@@ -28,12 +28,12 @@ module CapabilityCheck
   # Actions that AI agents can never perform
   # These are sensitive operations that should only be done by humans
   AI_AGENT_ALWAYS_BLOCKED = [
-    "create_studio",
-    "join_studio",
-    "update_studio_settings",
+    "create_collective",
+    "join_collective",
+    "update_collective_settings",
     "create_ai_agent",
-    "add_ai_agent_to_studio",
-    "remove_ai_agent_from_studio",
+    "add_ai_agent_to_collective",
+    "remove_ai_agent_from_collective",
     "create_api_token",
     "update_profile",
     "create_webhook",

@@ -72,9 +72,9 @@
 
       <div class="pulse-notifications-grouped">
         <% @notifications_by_collective.each do |collective, recipients| %>
-          <% studio_id = collective&.id || 'reminders' %>
-          <% studio_name = collective&.name || 'Other' %>
-          <details class="pulse-accordion" open data-collective-group="<%= studio_id %>">
+          <% collective_id = collective&.id || 'reminders' %>
+          <% collective_name = collective&.name || 'Other' %>
+          <details class="pulse-accordion" open data-collective-group="<%= collective_id %>">
             <summary class="pulse-accordion-header">
               <span class="pulse-accordion-title">
                 <% if collective %>
@@ -82,14 +82,14 @@
                 <% else %>
                   <%= octicon 'bell', height: 14 %>
                 <% end %>
-                <%= studio_name %>
+                <%= collective_name %>
                 <span class="pulse-accordion-count">(<%= recipients.size %>)</span>
               </span>
               <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button"
                         class="pulse-action-btn-small pulse-action-btn-secondary"
-                        data-action="click->notification-actions#dismissForStudio"
-                        data-studio-id="<%= studio_id %>"
+                        data-action="click->notification-actions#dismissForCollective"
+                        data-collective-id="<%= collective_id %>"
                         style="font-size: 12px; padding: 4px 8px;">
                   Dismiss all
                 </button>
@@ -100,7 +100,7 @@
               <div class="pulse-notifications-list">
                 <% recipients.each do |recipient| %>
                   <div data-notification-item="<%= recipient.id %>"
-                       data-studio-id="<%= studio_id %>"
+                       data-collective-id="<%= collective_id %>"
                        class="pulse-notification pulse-notification-unread">
                     <div class="pulse-notification-indicator"></div>
                     <div class="pulse-notification-content">

@@ -106,28 +106,29 @@ class Tenant < ApplicationRecord
   def set_defaults
     return unless self.respond_to?(:settings)
     self.settings = ({
-      timezone: 'UTC',
-      require_login: true,
-      require_invite: true,
-      auth_providers: ['github'],
-      allow_file_uploads: false,
-      allow_main_studio_items: false,
-      api_enabled: false,
-      default_studio_settings: {
-        tempo: 'daily',
-        synchronization_mode: 'improv',
-        all_members_can_invite: false,
-        any_member_can_represent: false,
-        api_enabled: false,
-        allow_file_uploads: true,
-        file_upload_limit: 100.megabytes,
-      }
+      "timezone" => "UTC",
+      "require_login" => true,
+      "require_invite" => true,
+      "auth_providers" => ["github"],
+      "allow_file_uploads" => false,
+      "allow_main_collective_items" => false,
+      "api_enabled" => false,
+      "default_collective_settings" => {
+        "tempo" => "daily",
+        "synchronization_mode" => "improv",
+        "all_members_can_invite" => false,
+        "any_member_can_represent" => false,
+        "api_enabled" => false,
+        "allow_file_uploads" => true,
+        "file_upload_limit" => 100.megabytes,
+      },
     }).merge(self.settings || {})
   end
 
   sig { returns(T::Hash[String, T.untyped]) }
-  def default_studio_settings
-    self.settings['default_studio_settings'] || {}
+  def default_collective_settings
+    # Check both new and old key names for backward compatibility
+    self.settings['default_collective_settings'] || self.settings['default_studio_settings'] || {}
   end
 
   sig { returns(T::Array[String]) }
@@ -168,8 +169,9 @@ class Tenant < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def allow_main_studio_items?
-    settings['allow_main_studio_items'].to_s == 'true'
+  def allow_main_collective_items?
+    # Check both new and old key names for backward compatibility
+    (settings['allow_main_collective_items'] || settings['allow_main_studio_items']).to_s == 'true'
   end
 
   sig { returns(T::Boolean) }

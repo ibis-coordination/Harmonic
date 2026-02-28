@@ -27,7 +27,7 @@ Verifies that the admin panel is accessible via the markdown API and that all se
 
 ### Checklist
 
-- [x] `/admin` returns markdown with tenant info, studios, and admin users
+- [x] `/admin` returns markdown with tenant info, collectives, and admin users
 - [x] `/admin/settings` shows current tenant name, timezone, and settings
 - [x] `/admin/settings` shows the `update_tenant_settings` action
 - [x] Action description at `/admin/settings/actions/update_tenant_settings` shows parameter info

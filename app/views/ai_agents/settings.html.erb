@@ -75,28 +75,28 @@
       </section>
     </form>
 
-    <% if @ai_agent_studios.any? %>
+    <% if @ai_agent_collectives.any? %>
       <section class="pulse-settings-section">
-        <h3>Studio Memberships</h3>
+        <h3>Collective Memberships</h3>
         <ul class="pulse-list">
-          <% @ai_agent_studios.each do |studio| %>
+          <% @ai_agent_collectives.each do |collective| %>
             <li class="pulse-list-item">
-              <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
+              <a href="<%= collective.path %>" class="pulse-link"><%= collective.name %></a>
             </li>
           <% end %>
         </ul>
       </section>
     <% end %>
 
-    <% if @available_studios.any? %>
+    <% if @available_collectives.any? %>
       <section class="pulse-settings-section">
-        <h3>Add to Studio</h3>
-        <p class="pulse-hint">Add this agent to one of your studios</p>
+        <h3>Add to Collective</h3>
+        <p class="pulse-hint">Add this agent to one of your collectives</p>
         <ul class="pulse-list">
-          <% @available_studios.each do |studio| %>
+          <% @available_collectives.each do |collective| %>
             <li class="pulse-list-item" style="display: flex; align-items: center; justify-content: space-between;">
-              <a href="<%= studio.path %>" class="pulse-link"><%= studio.name %></a>
-              <%= form_with url: "#{studio.path}/settings/add_ai_agent", method: :post, local: true, style: "margin: 0;" do %>
+              <a href="<%= collective.path %>" class="pulse-link"><%= collective.name %></a>
+              <%= form_with url: "#{collective.path}/settings/add_ai_agent", method: :post, local: true, style: "margin: 0;" do %>
                 <%= hidden_field_tag :ai_agent_id, @ai_agent.id %>
                 <%= hidden_field_tag :return_to, "/ai-agents/#{@ai_agent.handle}/settings" %>
                 <%= submit_tag "Add", class: "pulse-action-btn-small" %>

@@ -1,0 +1,33 @@
+# Collective: <%= @current_collective.name %>
+
+<% if !@current_collective.is_main_collective? && @current_user && !@current_heartbeat -%>
+## Heartbeat Required
+
+You must send a heartbeat to access this collective for the current cycle.
+<% else -%>
+## Explore
+
+* [Cycles](<%= @current_collective.path %>/cycles)
+* [Backlinks](<%= @current_collective.path %>/backlinks)
+
+## Pinned
+
+<% if @pinned_items.length > 0 -%>
+<% @pinned_items.each do |item| -%>
+* <%= item[:item].class.to_s %>: [<%= item[:item].title %>](<%= item[:item].path %>) pinned <%= time_ago_in_words(item[:pinned_at]) %> ago
+<% end -%>
+<% else -%>
+No pinned items yet.
+<% end -%>
+
+## Team
+
+<% if @current_collective.users.length > 0 -%>
+<% @current_collective.users.each do |user| -%>
+* <%= user_link_md(user) %>
+<% end -%>
+<% else -%>
+No team members yet.
+<% end -%>
+
+<% end -%>

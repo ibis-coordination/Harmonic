@@ -4,7 +4,7 @@ require "test_helper"
 
 class AutomationRuleTest < ActiveSupport::TestCase
   setup do
-    @tenant, @collective, @user = create_tenant_studio_user
+    @tenant, @collective, @user = create_tenant_collective_user
     @ai_agent = create_ai_agent(parent: @user)
   end
 
@@ -21,11 +21,11 @@ class AutomationRuleTest < ActiveSupport::TestCase
 
     assert rule.persisted?
     assert rule.agent_rule?
-    assert_not rule.studio_rule?
+    assert_not rule.collective_rule?
     assert_not rule.user_rule?
   end
 
-  test "creates studio automation rule with valid attributes" do
+  test "creates collective automation rule with valid attributes" do
     rule = AutomationRule.create!(
       tenant: @tenant,
       collective: @collective,
@@ -37,7 +37,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
     )
 
     assert rule.persisted?
-    assert rule.studio_rule?
+    assert rule.collective_rule?
     assert_not rule.agent_rule?
     assert_not rule.user_rule?
   end
@@ -91,7 +91,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
     )
 
     assert_not rule.valid?
-    assert_includes rule.errors[:base], "Rule cannot be both studio-level and user-level"
+    assert_includes rule.errors[:base], "Rule cannot be both collective-level and user-level"
   end
 
   test "generates webhook_path for webhook triggers" do

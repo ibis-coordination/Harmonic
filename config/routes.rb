@@ -139,8 +139,8 @@ Rails.application.routes.draw do
   post 'notifications/actions/dismiss' => 'notifications#execute_dismiss'
   get 'notifications/actions/dismiss_all' => 'notifications#describe_dismiss_all'
   post 'notifications/actions/dismiss_all' => 'notifications#execute_dismiss_all'
-  get 'notifications/actions/dismiss_for_studio' => 'notifications#describe_dismiss_for_studio'
-  post 'notifications/actions/dismiss_for_studio' => 'notifications#execute_dismiss_for_studio'
+  get 'notifications/actions/dismiss_for_collective' => 'notifications#describe_dismiss_for_collective'
+  post 'notifications/actions/dismiss_for_collective' => 'notifications#execute_dismiss_for_collective'
   get 'notifications/actions/create_reminder' => 'notifications#describe_create_reminder'
   post 'notifications/actions/create_reminder' => 'notifications#execute_create_reminder'
   get 'notifications/actions/delete_reminder' => 'notifications#describe_delete_reminder'
@@ -160,7 +160,7 @@ Rails.application.routes.draw do
   post 'whoami/actions/update_scratchpad' => 'whoami#execute_update_scratchpad'
   get 'motto' => 'motto#index'
 
-  # Global search (tenant-level, searches across all accessible studios/scenes)
+  # Global search (tenant-level, searches across all accessible collectives)
   get 'search' => 'search#show'
   get 'search/actions' => 'search#actions_index'
   get 'search/actions/search' => 'search#describe_search'
@@ -231,8 +231,8 @@ Rails.application.routes.draw do
     # Representation routes
     post 'represent' => 'users#represent', on: :member
     delete 'represent' => 'users#stop_representing', on: :member
-    post 'add_to_studio' => 'users#add_ai_agent_to_studio', on: :member
-    delete 'remove_from_studio' => 'users#remove_ai_agent_from_studio', on: :member
+    post 'add_to_collective' => 'users#add_ai_agent_to_collective', on: :member
+    delete 'remove_from_collective' => 'users#remove_ai_agent_from_collective', on: :member
     # User settings actions
     get 'settings/actions' => 'users#actions_index', on: :member
     get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member
@@ -263,95 +263,94 @@ Rails.application.routes.draw do
     post 'settings/trustee-grants/:grant_id/represent' => 'trustee_grants#start_representing', on: :member
   end
 
-  # Representation session routes (not scoped to a specific studio)
+  # Representation session routes (not scoped to a specific collective)
   get '/representing' => 'representation_sessions#representing'
   delete '/representing' => 'representation_sessions#stop_representing_user'
 
-  ['studios','scenes'].each do |studios_or_scenes|
-    get "#{studios_or_scenes}" => "#{studios_or_scenes}#index"
-    get "#{studios_or_scenes}/actions" => "#{studios_or_scenes}#actions_index"
-    get "#{studios_or_scenes}/new" => "#{studios_or_scenes}#new"
-    get "#{studios_or_scenes}/new/actions" => 'studios#actions_index_new'
-    get "#{studios_or_scenes}/new/actions/create_studio" => 'studios#describe_create_studio'
-    post "#{studios_or_scenes}/new/actions/create_studio" => 'studios#create_studio'
-    get "#{studios_or_scenes}/available" => 'studios#handle_available'
-    post "#{studios_or_scenes}" => "#{studios_or_scenes}#create"
-    get "#{studios_or_scenes}/:collective_handle" => 'pulse#show'
-    get "#{studios_or_scenes}/:collective_handle/actions" => 'pulse#actions_index'
-    get "#{studios_or_scenes}/:collective_handle/actions/send_heartbeat" => 'studios#describe_send_heartbeat'
-    post "#{studios_or_scenes}/:collective_handle/actions/send_heartbeat" => 'studios#send_heartbeat'
-    get "#{studios_or_scenes}/:collective_handle/pinned.html" => 'studios#pinned_items_partial'
-    get "#{studios_or_scenes}/:collective_handle/members.html" => 'studios#members_partial'
-    get "#{studios_or_scenes}/:collective_handle/cycles" => 'cycles#index'
-    get "#{studios_or_scenes}/:collective_handle/cycles/actions" => 'cycles#actions_index_default'
-    get "#{studios_or_scenes}/:collective_handle/cycles/:cycle" => 'cycles#show'
-    get "#{studios_or_scenes}/:collective_handle/cycle/:cycle" => 'cycles#redirect_to_show'
-    get "#{studios_or_scenes}/:collective_handle/classic" => 'studios#show'
-    get "#{studios_or_scenes}/:collective_handle/views" => 'studios#views'
-    get "#{studios_or_scenes}/:collective_handle/view" => 'studios#view'
-    get "#{studios_or_scenes}/:collective_handle/members" => 'studios#members'
-    get "#{studios_or_scenes}/:collective_handle/settings" => 'studios#settings'
-    post "#{studios_or_scenes}/:collective_handle/settings" => 'studios#update_settings'
-    post "#{studios_or_scenes}/:collective_handle/settings/add_ai_agent" => 'studios#add_ai_agent'
-    delete "#{studios_or_scenes}/:collective_handle/settings/remove_ai_agent" => 'studios#remove_ai_agent'
-    get "#{studios_or_scenes}/:collective_handle/settings/actions" => 'studios#actions_index_settings'
-    get "#{studios_or_scenes}/:collective_handle/settings/actions/update_studio_settings" => 'studios#describe_update_studio_settings'
-    post "#{studios_or_scenes}/:collective_handle/settings/actions/update_studio_settings" => 'studios#update_studio_settings_action'
-    get "#{studios_or_scenes}/:collective_handle/settings/actions/add_ai_agent_to_studio" => 'studios#describe_add_ai_agent_to_studio'
-    post "#{studios_or_scenes}/:collective_handle/settings/actions/add_ai_agent_to_studio" => 'studios#execute_add_ai_agent_to_studio'
-    get "#{studios_or_scenes}/:collective_handle/settings/actions/remove_ai_agent_from_studio" => 'studios#describe_remove_ai_agent_from_studio'
-    post "#{studios_or_scenes}/:collective_handle/settings/actions/remove_ai_agent_from_studio" => 'studios#execute_remove_ai_agent_from_studio'
-    # Studio Automations
-    get "#{studios_or_scenes}/:collective_handle/settings/automations" => 'studio_automations#index'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/new" => 'studio_automations#new'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/new/actions" => 'studio_automations#actions_index_new'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/new/actions/create_automation_rule" => 'studio_automations#describe_create'
-    post "#{studios_or_scenes}/:collective_handle/settings/automations/new/actions/create_automation_rule" => 'studio_automations#execute_create'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id" => 'studio_automations#show'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/edit" => 'studio_automations#edit'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/runs" => 'studio_automations#runs'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/runs/:run_id" => 'studio_automations#run_show'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions" => 'studio_automations#actions_index_show'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/update_automation_rule" => 'studio_automations#describe_update'
-    post "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/update_automation_rule" => 'studio_automations#execute_update'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/delete_automation_rule" => 'studio_automations#describe_delete'
-    post "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/delete_automation_rule" => 'studio_automations#execute_delete'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/toggle_automation_rule" => 'studio_automations#describe_toggle'
-    post "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/toggle_automation_rule" => 'studio_automations#execute_toggle'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/test_automation_rule" => 'studio_automations#describe_test'
-    post "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/test_automation_rule" => 'studio_automations#execute_test'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/run_automation_rule" => 'studio_automations#describe_run'
-    post "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/actions/run_automation_rule" => 'studio_automations#execute_run'
-    get "#{studios_or_scenes}/:collective_handle/settings/automations/:automation_id/edit/actions" => 'studio_automations#actions_index_edit'
-    patch "#{studios_or_scenes}/:collective_handle/image" => 'studios#update_image'
-    get "#{studios_or_scenes}/:collective_handle/invite" => 'studios#invite'
-    get "#{studios_or_scenes}/:collective_handle/join" => 'studios#join'
-    post "#{studios_or_scenes}/:collective_handle/join" => 'studios#accept_invite'
-    get "#{studios_or_scenes}/:collective_handle/join/actions" => 'studios#actions_index_join'
-    get "#{studios_or_scenes}/:collective_handle/join/actions/join_studio" => 'studios#describe_join_studio'
-    post "#{studios_or_scenes}/:collective_handle/join/actions/join_studio" => 'studios#join_studio_action'
-    get "#{studios_or_scenes}/:collective_handle/represent" => 'representation_sessions#represent'
-    post "#{studios_or_scenes}/:collective_handle/represent" => 'representation_sessions#start_representing'
-    post "#{studios_or_scenes}/:collective_handle/represent_user" => 'representation_sessions#start_representing_user'
-    delete "#{studios_or_scenes}/:collective_handle/represent" => 'representation_sessions#stop_representing'
-    delete "#{studios_or_scenes}/:collective_handle/r/:representation_session_id" => 'representation_sessions#stop_representing'
-    get "#{studios_or_scenes}/:collective_handle/representation.html" => 'representation_sessions#index_partial'
-    get "#{studios_or_scenes}/:collective_handle/representation" => 'representation_sessions#index'
-    get "#{studios_or_scenes}/:collective_handle/r/:id" => 'representation_sessions#show'
-    post "#{studios_or_scenes}/:collective_handle/r/:representation_session_id/comments" => 'representation_sessions#create_comment'
-    get "#{studios_or_scenes}/:collective_handle/r/:representation_session_id/comments.html" => 'representation_sessions#comments_partial'
-    get "#{studios_or_scenes}/:collective_handle/u/:handle" => 'users#show'
-    # Autocomplete endpoints (scoped to studio members)
-    get "#{studios_or_scenes}/:collective_handle/autocomplete/users" => 'autocomplete#users'
-    get "#{studios_or_scenes}/:collective_handle/backlinks" => 'studios#backlinks'
-    get "#{studios_or_scenes}/:collective_handle/backlinks/actions" => 'studios#actions_index_default'
-    get "#{studios_or_scenes}/:collective_handle/heartbeats" => 'heartbeats#index'
-    post "#{studios_or_scenes}/:collective_handle/heartbeats" => 'heartbeats#create'
-    get "#{studios_or_scenes}/:collective_handle/heartbeats/actions" => 'heartbeats#actions_index_default'
-    post "#{studios_or_scenes}/:collective_handle/heartbeats/actions/create_heartbeat" => 'heartbeats#create_heartbeat'
-  end
+  # Collective routes
+  get "collectives" => "collectives#index"
+  get "collectives/actions" => "collectives#actions_index"
+  get "collectives/new" => "collectives#new"
+  get "collectives/new/actions" => 'collectives#actions_index_new'
+  get "collectives/new/actions/create_collective" => 'collectives#describe_create_collective'
+  post "collectives/new/actions/create_collective" => 'collectives#create_collective'
+  get "collectives/available" => 'collectives#handle_available'
+  post "collectives" => "collectives#create"
+  get "collectives/:collective_handle" => 'pulse#show'
+  get "collectives/:collective_handle/actions" => 'pulse#actions_index'
+  get "collectives/:collective_handle/actions/send_heartbeat" => 'collectives#describe_send_heartbeat'
+  post "collectives/:collective_handle/actions/send_heartbeat" => 'collectives#send_heartbeat'
+  get "collectives/:collective_handle/pinned.html" => 'collectives#pinned_items_partial'
+  get "collectives/:collective_handle/members.html" => 'collectives#members_partial'
+  get "collectives/:collective_handle/cycles" => 'cycles#index'
+  get "collectives/:collective_handle/cycles/actions" => 'cycles#actions_index_default'
+  get "collectives/:collective_handle/cycles/:cycle" => 'cycles#show'
+  get "collectives/:collective_handle/cycle/:cycle" => 'cycles#redirect_to_show'
+  get "collectives/:collective_handle/classic" => 'collectives#show'
+  get "collectives/:collective_handle/views" => 'collectives#views'
+  get "collectives/:collective_handle/view" => 'collectives#view'
+  get "collectives/:collective_handle/members" => 'collectives#members'
+  get "collectives/:collective_handle/settings" => 'collectives#settings'
+  post "collectives/:collective_handle/settings" => 'collectives#update_settings'
+  post "collectives/:collective_handle/settings/add_ai_agent" => 'collectives#add_ai_agent'
+  delete "collectives/:collective_handle/settings/remove_ai_agent" => 'collectives#remove_ai_agent'
+  get "collectives/:collective_handle/settings/actions" => 'collectives#actions_index_settings'
+  get "collectives/:collective_handle/settings/actions/update_collective_settings" => 'collectives#describe_update_collective_settings'
+  post "collectives/:collective_handle/settings/actions/update_collective_settings" => 'collectives#update_collective_settings_action'
+  get "collectives/:collective_handle/settings/actions/add_ai_agent_to_collective" => 'collectives#describe_add_ai_agent_to_collective'
+  post "collectives/:collective_handle/settings/actions/add_ai_agent_to_collective" => 'collectives#execute_add_ai_agent_to_collective'
+  get "collectives/:collective_handle/settings/actions/remove_ai_agent_from_collective" => 'collectives#describe_remove_ai_agent_from_collective'
+  post "collectives/:collective_handle/settings/actions/remove_ai_agent_from_collective" => 'collectives#execute_remove_ai_agent_from_collective'
+  # Collective Automations
+  get "collectives/:collective_handle/settings/automations" => 'collective_automations#index'
+  get "collectives/:collective_handle/settings/automations/new" => 'collective_automations#new'
+  get "collectives/:collective_handle/settings/automations/new/actions" => 'collective_automations#actions_index_new'
+  get "collectives/:collective_handle/settings/automations/new/actions/create_automation_rule" => 'collective_automations#describe_create'
+  post "collectives/:collective_handle/settings/automations/new/actions/create_automation_rule" => 'collective_automations#execute_create'
+  get "collectives/:collective_handle/settings/automations/:automation_id" => 'collective_automations#show'
+  get "collectives/:collective_handle/settings/automations/:automation_id/edit" => 'collective_automations#edit'
+  get "collectives/:collective_handle/settings/automations/:automation_id/runs" => 'collective_automations#runs'
+  get "collectives/:collective_handle/settings/automations/:automation_id/runs/:run_id" => 'collective_automations#run_show'
+  get "collectives/:collective_handle/settings/automations/:automation_id/actions" => 'collective_automations#actions_index_show'
+  get "collectives/:collective_handle/settings/automations/:automation_id/actions/update_automation_rule" => 'collective_automations#describe_update'
+  post "collectives/:collective_handle/settings/automations/:automation_id/actions/update_automation_rule" => 'collective_automations#execute_update'
+  get "collectives/:collective_handle/settings/automations/:automation_id/actions/delete_automation_rule" => 'collective_automations#describe_delete'
+  post "collectives/:collective_handle/settings/automations/:automation_id/actions/delete_automation_rule" => 'collective_automations#execute_delete'
+  get "collectives/:collective_handle/settings/automations/:automation_id/actions/toggle_automation_rule" => 'collective_automations#describe_toggle'
+  post "collectives/:collective_handle/settings/automations/:automation_id/actions/toggle_automation_rule" => 'collective_automations#execute_toggle'
+  get "collectives/:collective_handle/settings/automations/:automation_id/actions/test_automation_rule" => 'collective_automations#describe_test'
+  post "collectives/:collective_handle/settings/automations/:automation_id/actions/test_automation_rule" => 'collective_automations#execute_test'
+  get "collectives/:collective_handle/settings/automations/:automation_id/actions/run_automation_rule" => 'collective_automations#describe_run'
+  post "collectives/:collective_handle/settings/automations/:automation_id/actions/run_automation_rule" => 'collective_automations#execute_run'
+  get "collectives/:collective_handle/settings/automations/:automation_id/edit/actions" => 'collective_automations#actions_index_edit'
+  patch "collectives/:collective_handle/image" => 'collectives#update_image'
+  get "collectives/:collective_handle/invite" => 'collectives#invite'
+  get "collectives/:collective_handle/join" => 'collectives#join'
+  post "collectives/:collective_handle/join" => 'collectives#accept_invite'
+  get "collectives/:collective_handle/join/actions" => 'collectives#actions_index_join'
+  get "collectives/:collective_handle/join/actions/join_collective" => 'collectives#describe_join_collective'
+  post "collectives/:collective_handle/join/actions/join_collective" => 'collectives#join_collective_action'
+  get "collectives/:collective_handle/represent" => 'representation_sessions#represent'
+  post "collectives/:collective_handle/represent" => 'representation_sessions#start_representing'
+  post "collectives/:collective_handle/represent_user" => 'representation_sessions#start_representing_user'
+  delete "collectives/:collective_handle/represent" => 'representation_sessions#stop_representing'
+  delete "collectives/:collective_handle/r/:representation_session_id" => 'representation_sessions#stop_representing'
+  get "collectives/:collective_handle/representation.html" => 'representation_sessions#index_partial'
+  get "collectives/:collective_handle/representation" => 'representation_sessions#index'
+  get "collectives/:collective_handle/r/:id" => 'representation_sessions#show'
+  post "collectives/:collective_handle/r/:representation_session_id/comments" => 'representation_sessions#create_comment'
+  get "collectives/:collective_handle/r/:representation_session_id/comments.html" => 'representation_sessions#comments_partial'
+  get "collectives/:collective_handle/u/:handle" => 'users#show'
+  # Autocomplete endpoints (scoped to collective members)
+  get "collectives/:collective_handle/autocomplete/users" => 'autocomplete#users'
+  get "collectives/:collective_handle/backlinks" => 'collectives#backlinks'
+  get "collectives/:collective_handle/backlinks/actions" => 'collectives#actions_index_default'
+  get "collectives/:collective_handle/heartbeats" => 'heartbeats#index'
+  post "collectives/:collective_handle/heartbeats" => 'heartbeats#create'
+  get "collectives/:collective_handle/heartbeats/actions" => 'heartbeats#actions_index_default'
+  post "collectives/:collective_handle/heartbeats/actions/create_heartbeat" => 'heartbeats#create_heartbeat'
 
-  ['', 'scenes/:collective_handle', 'studios/:collective_handle'].each do |prefix|
+  ['', 'collectives/:collective_handle'].each do |prefix|
     get "#{prefix}/note" => 'notes#new'
     post "#{prefix}/note" => 'notes#create'
     get "#{prefix}/note/actions" => 'notes#actions_index_new'
@@ -482,12 +481,12 @@ Rails.application.routes.draw do
           post :join, to: 'commitments#join'
           resources :participants
         end
-        if prefix == 'studios/:collective_handle'
-          # Cycles must be scoped to a studio
+        if prefix == 'collectives/:collective_handle'
+          # Cycles must be scoped to a collective
           resources :cycles
         else
-          # Studios must not be scoped to a studio (doesn't make sense)
-          resources :studios
+          # Collectives must not be scoped to a collective (doesn't make sense)
+          resources :collectives
         end
       end
     end

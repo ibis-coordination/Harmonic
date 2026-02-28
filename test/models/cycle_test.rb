@@ -5,7 +5,7 @@ class CycleTest < ActiveSupport::TestCase
     @tenant = create_tenant(subdomain: "cycle-test-#{SecureRandom.hex(4)}")
     @user = create_user(email: "cycletest_#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(@user)
-    @collective = create_collective(tenant: @tenant, created_by: @user, handle: "cycle-studio-#{SecureRandom.hex(4)}")
+    @collective = create_collective(tenant: @tenant, created_by: @user, handle: "cycle-collective-#{SecureRandom.hex(4)}")
     @collective.settings["timezone"] = "UTC"
     @collective.save!
   end
@@ -181,7 +181,7 @@ class CycleTest < ActiveSupport::TestCase
 
   # === Path Tests ===
 
-  test "path returns studio path with cycle name" do
+  test "path returns collective path with cycle name" do
     cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     assert_equal "#{@collective.path}/cycles/today", cycle.path
   end
@@ -397,7 +397,7 @@ class CycleTest < ActiveSupport::TestCase
     end
   end
 
-  test "initialize requires studio" do
+  test "initialize requires collective" do
     # Sorbet runtime type checking raises TypeError before our manual nil check
     assert_raises TypeError do
       Cycle.new(name: "today", tenant: @tenant, collective: nil)

@@ -29,8 +29,8 @@
       <div class="pulse-ai-agents-list">
         <% @ai_agents.each do |ai_agent| %>
           <% active_collective_members = ai_agent.collective_members.reject(&:archived?) %>
-          <% all_ai_agent_studios = active_collective_members.map(&:collective) %>
-          <% ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_collective } %>
+          <% all_ai_agent_collectives = active_collective_members.map(&:collective) %>
+          <% ai_agent_collectives = all_ai_agent_collectives.reject { |s| s == @current_tenant.main_collective } %>
 
           <div class="pulse-ai-agent-card">
             <div class="pulse-ai-agent-header">
@@ -86,12 +86,12 @@
               </div>
             </div>
 
-            <% if ai_agent_studios.any? %>
-              <div class="pulse-ai-agent-studios">
-                <label class="pulse-form-label">Studio Memberships</label>
-                <ul class="pulse-studio-membership-list">
-                  <% ai_agent_studios.each do |s| %>
-                    <li class="pulse-studio-membership-item">
+            <% if ai_agent_collectives.any? %>
+              <div class="pulse-ai-agent-collectives">
+                <label class="pulse-form-label">Collective Memberships</label>
+                <ul class="pulse-collective-membership-list">
+                  <% ai_agent_collectives.each do |s| %>
+                    <li class="pulse-collective-membership-item">
                       <a href="<%= s.path %>"><%= s.name %></a>
                     </li>
                   <% end %>

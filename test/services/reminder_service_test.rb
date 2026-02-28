@@ -68,10 +68,10 @@ class ReminderServiceTest < ActiveSupport::TestCase
       user: @user,
       title: "Check this out",
       scheduled_for: 1.day.from_now,
-      url: "/studios/test/n/abc123",
+      url: "/collectives/test/n/abc123",
     )
 
-    assert_equal "/studios/test/n/abc123", notification.url
+    assert_equal "/collectives/test/n/abc123", notification.url
   end
 
   # === Scheduled For Tests ===

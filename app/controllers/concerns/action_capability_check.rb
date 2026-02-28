@@ -62,19 +62,19 @@ module ActionCapabilityCheck
     "api/v1/commitments#update" => "update_commitment_settings",
     "api/v1/commitments#join" => "join_commitment",
 
-    # Studios - legacy HTML routes
-    "studios#create" => "create_studio",
-    "studios#update_settings" => "update_studio_settings",
-    "studios#add_ai_agent" => "add_ai_agent_to_studio",
-    "studios#accept_invite" => "join_studio",
+    # Collectives - legacy HTML routes
+    "collectives#create" => "create_collective",
+    "collectives#update_settings" => "update_collective_settings",
+    "collectives#add_ai_agent" => "add_ai_agent_to_collective",
+    "collectives#accept_invite" => "join_collective",
 
-    # Studios - API v1 routes
-    "api/v1/studios#create" => "create_studio",
-    "api/v1/studios#update" => "update_studio_settings",
+    # Collectives - API v1 routes
+    "api/v1/collectives#create" => "create_collective",
+    "api/v1/collectives#update" => "update_collective_settings",
 
     # Users - legacy HTML routes
     "users#update_profile" => "update_profile",
-    "users#add_ai_agent_to_studio" => "add_ai_agent_to_studio",
+    "users#add_ai_agent_to_collective" => "add_ai_agent_to_collective",
   }.freeze
 
   included do

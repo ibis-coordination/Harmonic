@@ -2,7 +2,7 @@
 
 This document explains the values and motivations behind Harmonic's design. AI agents and contributors should read this to understand the "why" behind implementation decisions.
 
-**TL;DR**: Harmonic is a social agency platform, not an engagement platform. It enables individuals and collectives to coordinate and act together. The design draws from music (rhythm, harmony, studios, scenes) and biology (quorum sensing, cell membranes, holarchy, stigmergy).
+**TL;DR**: Harmonic is a social agency platform, not an engagement platform. It enables individuals and collectives to coordinate and act together. The design draws from music (rhythm, harmony) and biology (quorum sensing, cell membranes, holarchy, stigmergy).
 
 Key mechanisms:
 * Cycles and Heartbeats create shared rhythm
@@ -40,7 +40,7 @@ Both domains rely on rhythm to synchronize activity:
 - In music, rhythm creates shared structure that allows independent musicians to play together coherently
 - In biology, rhythms (heartbeats, circadian cycles, seasonal patterns) synchronize activity across cells, organs, and organisms
 
-Harmonic applies this principle through **Cycles** (time-bounded activity windows), **Heartbeats** (periodic presence signals), and **Tempo** settings (the frequency of a Studio's primary rhythm). These create shared temporal structure that helps groups coordinate without requiring constant explicit communication.
+Harmonic applies this principle through **Cycles** (time-bounded activity windows), **Heartbeats** (periodic presence signals), and **Tempo** settings (the frequency of a Collective's primary rhythm). These create shared temporal structure that helps groups coordinate without requiring constant explicit communication.
 
 ### Harmony as Coherence
 
@@ -53,9 +53,7 @@ Harmonic's goal of *symmetrical synergy* is essentially musical harmony applied 
 These metaphors are reflected throughout the app:
 
 - **Harmonic** — the app itself
-- **Studios** — private groups (where musicians practice and create)
-- **Scenes** — public groups (where performance and socializing happen)
-- **Tempo** — the cycle frequency setting
+- **Tempo** — the cycle frequency setting for collectives
 - **Heartbeats** — periodic presence signals
 
 ### Biomimicry as Design Principle
@@ -63,7 +61,7 @@ These metaphors are reflected throughout the app:
 When designing coordination mechanics, we look to patterns that have evolved in living systems:
 
 - **Critical mass thresholds** in Commitments reflect quorum sensing in bacteria
-- **Holarchic structure** (Studios within Studios) mirrors nested biological systems, cells within organs within organisms etc.
+- **Holarchic structure** (collectives within collectives) mirrors nested biological systems, cells within organs within organisms etc.
 - **Bidirectional links** create knowledge graphs similar to neural networks
 
 The underlying principle: coordination mechanisms that work in nature are likely to work for human and AI collectives as well. Living systems achieve coherent collective behavior through local interactions, shared context, and simple rules rather than top-down control.
@@ -91,11 +89,11 @@ The app is fully open-source under the MIT license. Self-hosting is supported an
 
 ## Key Concepts Explained
 
-### Studios and Scenes
+### Collectives
 
-Studios and Scenes are types of groups. Studios are private groups. Scenes are public groups.
+Collectives are groups within a tenant. They can be private or public.
 
-*Musical analog*: Studios are private spaces where musicians practice and create. Scenes are public spaces where performance and socializing happens.
+*Musical analog*: Groups where musicians practice, create, perform, and socialize together.
 
 ### Confirmed Reads
 
@@ -105,7 +103,7 @@ Notes do not have a traditional "like" button. Instead there is a "confirm" butt
 
 Cycles create rhythmic structure to activity. Rather than an endless stream of content, activity is grouped into discrete time windows (days, weeks, months).
 
-Every studio has a tempo setting that determines the primary cycle unit. In order to access a given studio, users must first send a heartbeat to signal their presence for the current cycle. Heartbeats are visible to everyone in the studio. This creates a clear signal of how "alive" a group is.
+Every collective has a tempo setting that determines the primary cycle unit. In order to access a given collective, users must first send a heartbeat to signal their presence for the current cycle. Heartbeats are visible to everyone in the collective. This creates a clear signal of how "alive" a group is.
 
 *Biological analog*: Circadian rhythms, heartbeats, and breathing cycles are fundamental to how organisms coordinate internal processes.
 
@@ -113,7 +111,7 @@ Every studio has a tempo setting that determines the primary cycle unit. In orde
 
 ### Bidirectional Links
 
-Bidirectional links create a navigable knowledge graph within a studio or scene. When content references other content, the relationship is visible from both sides.
+Bidirectional links create a navigable knowledge graph within a collective. When content references other content, the relationship is visible from both sides.
 
 *Biological analog*: Neural networks in the brain form webs of association where activation can spread in multiple directions.
 
@@ -137,11 +135,11 @@ By making commitments conditional on critical mass, individuals can signal willi
 
 ### Collective Agency and Representation
 
-The feature of Representation allows Studios to act as singular unified agents in the context of other Studios and Scenes.
+The feature of Representation allows collectives to act as singular unified agents in the context of other collectives.
 
 Individual users can be designated as representatives and act on behalf of the group through representation sessions during which all of their actions are recorded and made visible to everyone else in the group.
 
-This creates nested layers of collective agency. Groups can participate as unified agents in larger groups, which can themselves participate in even larger groups, and so on.
+This creates nested layers of collective agency. Collectives can participate as unified agents in larger collectives, which can themselves participate in even larger collectives, and so on.
 
 *Biological analog*: This mirrors how biological systems nest. Cells form tissues, tissues form organs, organs form organisms, organisms form ecosystems. Each level maintains its own agency while participating in larger wholes. Michael Levin's research on collective intelligence in biological systems (from cellular collectives to organisms) is a key inspiration.
 

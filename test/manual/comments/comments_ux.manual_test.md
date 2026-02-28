@@ -11,7 +11,7 @@ Verifies that users can add comments inline without page redirect, view threaded
 ## Prerequisites
 
 - A logged-in user account
-- At least one studio where the user is a member
+- At least one collective where the user is a member
 - An existing note, decision, or commitment to comment on
 - Another user in the same tenant to test reply threading
 
@@ -19,7 +19,7 @@ Verifies that users can add comments inline without page redirect, view threaded
 
 ### Part 1: Inline Comment Submission
 
-1. Navigate to a note's page (e.g., `/studios/your-studio/n/note-id`)
+1. Navigate to a note's page (e.g., `/collectives/your-collective/n/note-id`)
 2. Scroll to the comments section at the bottom
 3. Enter text in the comment textarea
 4. Click "Add Comment"
@@ -31,13 +31,13 @@ Verifies that users can add comments inline without page redirect, view threaded
 
 ### Part 2: Inline Comment on Decision
 
-1. Navigate to a decision's page (e.g., `/studios/your-studio/d/decision-id`)
+1. Navigate to a decision's page (e.g., `/collectives/your-collective/d/decision-id`)
 2. Scroll to the comments section
 3. Add a comment and verify it stays on the page
 
 ### Part 3: Inline Comment on Commitment
 
-1. Navigate to a commitment's page (e.g., `/studios/your-studio/c/commitment-id`)
+1. Navigate to a commitment's page (e.g., `/collectives/your-collective/c/commitment-id`)
 2. Scroll to the comments section
 3. Add a comment and verify it stays on the page
 
@@ -100,7 +100,7 @@ Verifies that users can add comments inline without page redirect, view threaded
 ### Part 10: Anchor Links
 
 1. Get a comment's truncated ID (visible in the anchor: `#n-abc12345`)
-2. Navigate to the parent note with the anchor: `/studios/your-studio/d/decision-id#n-comment-id`
+2. Navigate to the parent note with the anchor: `/collectives/your-collective/d/decision-id#n-comment-id`
 3. Observe the page scrolls to the comment
 
 ### Part 11: Permalinks

@@ -45,7 +45,7 @@ class NotesController < ApplicationController
       @note.attach!(params[:files])
     end
     # Handle pinning (HTML form specific)
-    if params[:pinned] == "1" && current_collective.id != current_tenant.main_studio_id
+    if params[:pinned] == "1" && current_collective.id != current_tenant.main_collective_id
       api_helper.pin_resource(@note)
     end
     redirect_to @note.path

@@ -25,7 +25,7 @@ class SessionsController < ApplicationController
       cookies[:redirect_to_subdomain] ||= ENV['PRIMARY_SUBDOMAIN']
       @original_tenant = original_tenant
       @redirect_to_resource = cookies[:redirect_to_resource]
-      @studio_invite_code = cookies[:studio_invite_code]
+      @collective_invite_code = cookies[:collective_invite_code]
     else
       # user is on the tenant subdomain and is not logged in
       # so we redirect them to the auth domain
@@ -165,7 +165,7 @@ class SessionsController < ApplicationController
       resource = LinkParser.parse_path(params[:redirect_to_resource])
       set_shared_domain_cookie(:redirect_to_resource, resource.path) if resource && resource.tenant_id == current_tenant.id
     elsif params[:code]
-      set_shared_domain_cookie(:studio_invite_code, params[:code])
+      set_shared_domain_cookie(:collective_invite_code, params[:code])
     end
     redirect_to auth_domain_login_url,
                 allow_other_host: true
@@ -220,7 +220,7 @@ class SessionsController < ApplicationController
     end
 
     tenant_user = tenant.tenant_users.find_by(user: @current_user)
-    is_accepting_invite = cookies[:studio_invite_code].present?
+    is_accepting_invite = cookies[:collective_invite_code].present?
     if tenant_user || is_accepting_invite
       session[:user_id] = @current_user.id
       session[:logged_in_at] = Time.current.to_i
@@ -236,7 +236,7 @@ class SessionsController < ApplicationController
   def redirect_to_resource_or_invite_or_root
     if cookies[:redirect_to_resource]
       redirect_to_resource_if_allowed
-    elsif cookies[:studio_invite_code]
+    elsif cookies[:collective_invite_code]
       redirect_to_invite_if_allowed
     else
       redirect_to root_path
@@ -259,9 +259,9 @@ class SessionsController < ApplicationController
     # Query needs to bypass collective scope because current_collective
     # will be different than the invite collective.
     invite = Invite.tenant_scoped_only(current_tenant.id).find_by(
-      code: cookies[:studio_invite_code]
+      code: cookies[:collective_invite_code]
     )
-    delete_studio_invite_cookie
+    delete_collective_invite_cookie
     if invite && invite.is_acceptable_by_user?(@current_user)
       tu = current_tenant.tenant_users.find_by(user: @current_user)
       unless tu
@@ -312,8 +312,8 @@ class SessionsController < ApplicationController
     delete_shared_domain_cookie(:redirect_to_resource)
   end
 
-  def delete_studio_invite_cookie
-    delete_shared_domain_cookie(:studio_invite_code)
+  def delete_collective_invite_cookie
+    delete_shared_domain_cookie(:collective_invite_code)
   end
 
   def set_auth_sidebar

@@ -34,7 +34,7 @@ class SearchQuery
     @raw_query = raw_query
     @params = build_params(params)
 
-    # Resolve collective from studio:/scene: DSL operators
+    # Resolve collective from collective: handle
     resolve_collective_from_handle
   end
 
@@ -192,17 +192,17 @@ class SearchQuery
   attr_reader :raw_query
 
   sig { returns(T.nilable(String)) }
-  def studio_handle
-    @params[:studio_handle].presence
-  end
-
-  sig { returns(T.nilable(String)) }
-  def scene_handle
-    @params[:scene_handle].presence
+  def collective_handle
+    @params[:collective_handle].presence
   end
 
   sig { returns(T.nilable(Collective)) }
   attr_reader :collective
+
+  sig { returns(T.nilable(String)) }
+  def scope
+    @params[:scope].presence
+  end
 
   # Options for UI dropdowns
 
@@ -242,7 +242,7 @@ class SearchQuery
   sig { returns(T::Array[T::Array[String]]) }
   def group_by_options
     [
-      ["Studio/Scene", "collective"],
+      ["Collective", "collective"],
       ["Creator", "creator"],
       ["Item type", "item_type"],
       ["None (flat list)", "none"],
@@ -301,14 +301,17 @@ class SearchQuery
   def resolve_collective_from_handle
     return if @collective.present? # Already have a collective object
 
-    # Check for studio: or scene: handle
-    handle = studio_handle || scene_handle
+    # Check for collective: handle
+    handle = collective_handle
     return if handle.blank?
 
-    collective_type = studio_handle.present? ? "studio" : "scene"
-
-    # Look up collective by handle and type within the tenant
-    @collective = @tenant.collectives.find_by(handle: handle, collective_type: collective_type)
+    # "main" is a reserved handle that resolves to the tenant's main collective
+    if handle == "main"
+      @collective = @tenant.main_collective
+    else
+      # Look up collective by handle within the tenant
+      @collective = @tenant.collectives.find_by(handle: handle)
+    end
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -351,19 +354,28 @@ class SearchQuery
 
   sig { returns(T::Array[String]) }
   def accessible_collective_ids
-    # All scenes (public) in tenant
-    scene_ids = @tenant.collectives.where(collective_type: "scene").pluck(:id)
+    if @current_user.present?
+      member_ids = @current_user.collectives
+        .where(tenant_id: @tenant.id)
+        .pluck(:id)
 
-    # Studios the user is a member of
-    studio_ids = if @current_user.present?
-                   @current_user.collectives
-                     .where(tenant_id: @tenant.id, collective_type: "studio")
-                     .pluck(:id)
-                 else
-                   []
-                 end
+      # Ensure main collective is always accessible for authenticated users
+      main_id = @tenant.main_collective_id
+      member_ids << main_id if main_id.present? && !member_ids.include?(main_id)
 
-    scene_ids + studio_ids
+      # Apply scope filter
+      case scope
+      when "public"
+        [main_id].compact
+      when "private"
+        member_ids - [main_id].compact
+      else
+        member_ids
+      end
+    else
+      # Unauthenticated users can only see the main collective
+      [@tenant.main_collective_id].compact
+    end
   end
 
   sig { void }

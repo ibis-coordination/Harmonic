@@ -51,7 +51,7 @@ See `docs/plans/notifications-webhooks.md` for the full implementation plan.
 | File | Line | Description |
 |------|------|-------------|
 | `app/models/cycle.rb` | 427 | Make homepage query more efficient (ideally one query) |
-| `app/controllers/studios_controller.rb` | 202 | Make studio listing more efficient |
+| `app/controllers/collectives_controller.rb` | 202 | Make collective listing more efficient |
 | `app/models/decision.rb` | 129 | Clean up `voters` method - inefficient query pattern |
 
 ---
@@ -60,11 +60,11 @@ See `docs/plans/notifications-webhooks.md` for the full implementation plan.
 
 | File | Line | Description |
 |------|------|-------------|
-| `app/controllers/representation_sessions_controller.rb` | 5 | Bug - representatives can act AS the studio within the studio itself (should only act on behalf in OTHER studios) |
+| `app/controllers/representation_sessions_controller.rb` | 5 | Bug - representatives can act AS the collective within the collective itself (should only act on behalf in OTHER collectives) |
 | `app/controllers/sessions_controller.rb` | 133 | Check if user is allowed to access tenant |
 | `app/controllers/application_controller.rb` | 238 | Handle invalid representation session - security concerns unclear |
-| `app/controllers/studios_controller.rb` | 182 | Check studio settings for public join permission |
-| `app/models/user.rb` | 102 | Check trustee permissions for non-studio trustee users |
+| `app/controllers/collectives_controller.rb` | 182 | Check collective settings for public join permission |
+| `app/models/user.rb` | 102 | Check trustee permissions for non-collective trustee users |
 
 ---
 
@@ -73,12 +73,12 @@ See `docs/plans/notifications-webhooks.md` for the full implementation plan.
 | File | Line | Description |
 |------|------|-------------|
 | `app/controllers/application_controller.rb` | 14 | Remove `current_app` method - logic no longer needed |
-| `app/controllers/application_controller.rb` | 183 | Add `last_seen_at` to StudioUser instead of using touch |
+| `app/controllers/application_controller.rb` | 183 | Add `last_seen_at` to CollectiveMember instead of using touch |
 | `app/models/note_history_event.rb` | 42 | Refactor note history event logic |
 | `app/models/cycle_data_row.rb` | 156 | Change `participants` to `readers` |
 | `app/models/api_token.rb` | 31 | Remove invalid scopes (e.g., 'create:cycles', 'update:results') |
 | `app/controllers/api/v1/options_controller.rb` | 14 | Abstract `api_json` pattern into base controller and base model |
-| `app/controllers/application_controller.rb` | 175 | Decide how to handle trustee not being member of studio |
+| `app/controllers/application_controller.rb` | 175 | Decide how to handle trustee not being member of collective |
 | `app/models/heartbeat.rb` | 7 | Add activity log functionality |
 
 ---

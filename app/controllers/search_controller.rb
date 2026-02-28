@@ -59,7 +59,7 @@ class SearchController < ApplicationController
 
   def search_params
     permitted = params.permit(:type, :cycle, :filters, :sort_by, :group_by, :cursor, :per_page, :offset)
-    # Default to "all" time window for global search (unlike studio search which defaults to "today")
+    # Default to "all" time window for global search (unlike collective search which defaults to "today")
     permitted[:cycle] ||= "all"
     permitted
   end

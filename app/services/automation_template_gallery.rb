@@ -61,11 +61,11 @@ class AutomationTemplateGallery
     ),
     Template.new(
       key: "daily_summary",
-      name: "Daily Studio Summary",
-      description: "Post a daily summary of studio activity every morning",
+      name: "Daily Collective Summary",
+      description: "Post a daily summary of collective activity every morning",
       trigger_type: "schedule",
       yaml_content: <<~YAML
-        name: "Daily studio summary"
+        name: "Daily collective summary"
         description: "Every morning, summarize yesterday's activity"
 
         trigger:
@@ -74,7 +74,7 @@ class AutomationTemplateGallery
           timezone: "America/Los_Angeles"
 
         task: |
-          Review yesterday's activity in your studios and post a summary note
+          Review yesterday's activity in your collectives and post a summary note
           highlighting key decisions, commitments, and discussions.
 
         max_steps: 30

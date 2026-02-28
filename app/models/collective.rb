@@ -25,7 +25,7 @@ class Collective < ApplicationRecord
     has_many table.to_sym
   end
   has_many :users, through: :collective_members
-  validates :collective_type, inclusion: { in: ["studio", "scene"] }
+
   validate :handle_is_valid
   validate :creator_is_not_collective_identity, on: :create
 
@@ -89,6 +89,8 @@ class Collective < ApplicationRecord
 
   sig { params(handle: String).returns(T::Boolean) }
   def self.handle_available?(handle)
+    return false if RESERVED_HANDLES.include?(handle)
+
     Collective.where(handle: handle).count == 0
   end
 
@@ -96,21 +98,21 @@ class Collective < ApplicationRecord
   def set_defaults
     self.updated_by ||= created_by
     self.settings = {
-      unlisted: true,
-      invite_only: true,
-      timezone: "UTC",
-      all_members_can_invite: false,
-      any_member_can_represent: false,
-      tempo: "weekly",
-      synchronization_mode: "improv",
-      allow_file_uploads: true,
-      file_upload_limit: 100.megabytes,
-      pinned: {},
-      feature_flags: {
-        api: false,
+      "unlisted" => true,
+      "invite_only" => true,
+      "timezone" => "UTC",
+      "all_members_can_invite" => false,
+      "any_member_can_represent" => false,
+      "tempo" => "weekly",
+      "synchronization_mode" => "improv",
+      "allow_file_uploads" => true,
+      "file_upload_limit" => 100.megabytes,
+      "pinned" => {},
+      "feature_flags" => {
+        "api" => false,
       },
     }.merge(
-      T.must(tenant).default_studio_settings
+      T.must(tenant).default_collective_settings
     ).merge(
       settings || {}
     )
@@ -121,30 +123,6 @@ class Collective < ApplicationRecord
     T.must(tenant).main_collective_id == id
   end
 
-  sig { returns(T::Boolean) }
-  def is_scene?
-    collective_type == "scene"
-  end
-
-  sig { params(value: T::Boolean).void }
-  def open_scene=(value)
-    if [true, false].include?(value)
-      self.settings = (settings || {}).merge("open_scene" => value)
-    else
-      errors.add(:settings, "'open_scene' must be a boolean")
-    end
-  end
-
-  sig { returns(T::Boolean) }
-  def scene_is_open?
-    # An open scene is a scene that does not require an invite to join
-    is_scene? && settings["open_scene"] == true
-  end
-
-  sig { returns(T::Boolean) }
-  def scene_is_invite_only?
-    is_scene? && !scene_is_open?
-  end
 
   sig { void }
   def creator_is_not_collective_identity
@@ -350,11 +328,14 @@ class Collective < ApplicationRecord
     end
   end
 
+  RESERVED_HANDLES = %w[main].freeze
+
   sig { void }
   def handle_is_valid
     if handle.present?
       only_alphanumeric_with_dash = T.must(handle).match?(/\A[a-z0-9-]+\z/)
       errors.add(:handle, "must be alphanumeric with dashes") unless only_alphanumeric_with_dash
+      errors.add(:handle, "is reserved") if RESERVED_HANDLES.include?(handle)
     else
       errors.add(:handle, "can't be blank")
     end
@@ -416,7 +397,7 @@ class Collective < ApplicationRecord
 
   sig { returns(String) }
   def path_prefix
-    "#{collective_type}s"
+    "collectives"
   end
 
   sig { returns(T.nilable(String)) }

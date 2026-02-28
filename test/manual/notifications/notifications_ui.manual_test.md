@@ -11,7 +11,7 @@ Verifies that users can view, manage, and interact with notifications through bo
 ## Prerequisites
 
 - A logged-in user account
-- At least one studio with API enabled where the user is a member
+- At least one collective with API enabled where the user is a member
 - Another user in the same tenant to test @mentions
 
 ## Steps
@@ -27,8 +27,8 @@ Verifies that users can view, manage, and interact with notifications through bo
 
 ### Part 2: Creating a Notification via @mention
 
-1. Navigate to a studio where you are a member (e.g., `/studios/your-studio`)
-2. Go to the note creation page (`/studios/your-studio/note`)
+1. Navigate to a collective where you are a member (e.g., `/collectives/your-collective`)
+2. Go to the note creation page (`/collectives/your-collective/note`)
 3. Execute the `create_note` action with text that mentions another user: `Hey @other-user-handle, check this out!`
 4. The mentioned user should receive a notification
 

@@ -31,8 +31,8 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
     assert result[:content].present?, "Expected content to be present"
   end
 
-  test "navigate to studio show page returns content with studio name" do
-    result = @service.navigate("/studios/#{@collective.handle}")
+  test "navigate to collective show page returns content with collective name" do
+    result = @service.navigate("/collectives/#{@collective.handle}")
     assert_nil result[:error], "Expected no error, got: #{result[:error]}"
     assert_includes result[:content], @collective.name
   end
@@ -77,7 +77,7 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
   end
 
   test "navigate returns available actions from YAML frontmatter" do
-    result = @service.navigate("/studios/#{@collective.handle}/note")
+    result = @service.navigate("/collectives/#{@collective.handle}/note")
     assert_nil result[:error], "Expected no error, got: #{result[:error]}"
     assert result[:actions].is_a?(Array), "Expected actions to be an array, got: #{result[:actions].class}"
     action_names = result[:actions].map { |a| a["name"] }
@@ -93,13 +93,13 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
   # set_path tests
 
   test "set_path returns true" do
-    result = @service.set_path("/studios/#{@collective.handle}")
+    result = @service.set_path("/collectives/#{@collective.handle}")
     assert result
   end
 
   test "set_path sets current_path" do
-    @service.set_path("/studios/#{@collective.handle}")
-    assert_equal "/studios/#{@collective.handle}", @service.current_path
+    @service.set_path("/collectives/#{@collective.handle}")
+    assert_equal "/collectives/#{@collective.handle}", @service.current_path
   end
 
   # Action execution tests
@@ -116,7 +116,7 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
   end
 
   test "execute_action create_note creates note and returns success" do
-    @service.navigate("/studios/#{@collective.handle}/note")
+    @service.navigate("/collectives/#{@collective.handle}/note")
     text = "Test note created via V2 service - #{SecureRandom.hex(4)}"
     result = @service.execute_action("create_note", { text: text })
     assert result[:success], "Expected success, got error: #{result[:error]}"
@@ -128,7 +128,7 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
   end
 
   test "execute_action with set_path creates note" do
-    @service.set_path("/studios/#{@collective.handle}/note")
+    @service.set_path("/collectives/#{@collective.handle}/note")
     text = "Test note via set_path - #{SecureRandom.hex(4)}"
     result = @service.execute_action("create_note", { text: text })
     assert result[:success], "Expected success, got error: #{result[:error]}"
@@ -140,7 +140,7 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
 
   test "execute_action works when already on action description page" do
     # Navigate to the action description page (like an agent exploring the action)
-    @service.navigate("/studios/#{@collective.handle}/note/actions/create_note")
+    @service.navigate("/collectives/#{@collective.handle}/note/actions/create_note")
 
     # Now execute the action - it should work without double-appending /actions/create_note
     text = "Test note from action page - #{SecureRandom.hex(4)}"
@@ -172,7 +172,7 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
   # Internal token tests
 
   test "internal token is created for user" do
-    @service.navigate("/studios/#{@collective.handle}")
+    @service.navigate("/collectives/#{@collective.handle}")
 
     # Check that an internal token was created
     token = ApiToken.internal.find_by(user: @user, tenant: @tenant)
@@ -181,10 +181,10 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
   end
 
   test "internal token is reused on subsequent requests" do
-    @service.navigate("/studios/#{@collective.handle}")
+    @service.navigate("/collectives/#{@collective.handle}")
     token1 = ApiToken.internal.find_by(user: @user, tenant: @tenant)
 
-    @service.navigate("/studios/#{@collective.handle}/note")
+    @service.navigate("/collectives/#{@collective.handle}/note")
     token2 = ApiToken.internal.find_by(user: @user, tenant: @tenant)
 
     assert_equal token1.id, token2.id, "Same token should be reused"
@@ -192,22 +192,21 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
 
   # Dynamic collective switching tests
 
-  test "navigate to different studio switches context" do
-    # Create a second studio with API enabled
-    other_studio = Collective.create!(
+  test "navigate to different collective switches context" do
+    # Create a second collective with API enabled
+    other_collective = Collective.create!(
       tenant: @tenant,
-      handle: "other-studio-#{SecureRandom.hex(4)}",
-      name: "Other Studio",
-      collective_type: "studio",
+      handle: "other-collective-#{SecureRandom.hex(4)}",
+      name: "Other Collective",
       created_by: @user,
       updated_by: @user
     )
-    other_studio.enable_feature_flag!("api")
-    other_studio.add_user!(@user)
+    other_collective.enable_feature_flag!("api")
+    other_collective.add_user!(@user)
 
-    result = @service.navigate("/studios/#{other_studio.handle}")
+    result = @service.navigate("/collectives/#{other_collective.handle}")
     assert_nil result[:error]
-    assert_includes result[:content], other_studio.name
+    assert_includes result[:content], other_collective.name
   end
 
 end

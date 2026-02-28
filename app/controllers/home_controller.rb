@@ -7,7 +7,7 @@ class HomeController < ApplicationController
     @page_title = 'Home'
     @sidebar_mode = 'none'
     @hide_breadcrumb = true
-    @studios_and_scenes = @current_user.collectives
+    @collectives = @current_user.collectives
       .joins(
         "LEFT JOIN heartbeats ON heartbeats.collective_id = collectives.id AND " +
         "heartbeats.user_id = '#{@current_user.id}' AND " +
@@ -16,8 +16,6 @@ class HomeController < ApplicationController
       .select("collectives.*, heartbeats.id IS NOT NULL AS has_heartbeat")
       .where.not(id: @current_tenant.main_collective_id)
       .order(:has_heartbeat, :name)
-    @scenes = @studios_and_scenes.where(collective_type: 'scene')
-    @studios = @studios_and_scenes.where(collective_type: 'studio')
     @public_tenants = Tenant.all_public_tenants
     @other_tenants = (
       (@current_user.own_tenants + @public_tenants) - [@current_tenant]

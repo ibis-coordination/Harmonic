@@ -29,8 +29,8 @@ class SearchQueryParser
   # - multi: whether multiple comma-separated values are allowed
   OPERATORS = T.let({
     # Location scope
-    "studio" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
-    "scene" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
+    "collective" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
+    "scope" => { values: ["public", "private"], multi: false },
 
     # User filters
     "creator" => { pattern: HANDLE_PATTERN, multi: true },
@@ -300,9 +300,11 @@ class SearchQueryParser
     # Limit
     params[:per_page] = build_limit_param
 
-    # Collective scope (studio: or scene:)
-    params[:studio_handle] = build_collective_param("studio")
-    params[:scene_handle] = build_collective_param("scene")
+    # Collective scope
+    params[:collective_handle] = build_collective_param("collective")
+
+    # Scope filter (public/private)
+    params[:scope] = build_scope_param
 
     params.compact
   end
@@ -482,6 +484,15 @@ class SearchQueryParser
     return nil if values.blank?
 
     # Last value wins (value is already lowercased by expand_alias)
+    T.must(values.last)
+  end
+
+  sig { returns(T.nilable(String)) }
+  def build_scope_param
+    values = @operators["scope"]
+    return nil if values.blank?
+
+    # Last value wins
     T.must(values.last)
   end
 end

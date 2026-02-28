@@ -11,7 +11,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
   # === Unauthenticated Access Tests ===
 
   test "unauthenticated user is redirected from new note form" do
-    get "/studios/#{@collective.handle}/note"
+    get "/collectives/#{@collective.handle}/note"
     assert_response :redirect
   end
 
@@ -19,7 +19,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
   test "authenticated user can access new note form" do
     sign_in_as(@user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/note"
+    get "/collectives/#{@collective.handle}/note"
     assert_response :success
   end
 
@@ -29,7 +29,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference "Note.count", 1 do
-      post "/studios/#{@collective.handle}/note", params: {
+      post "/collectives/#{@collective.handle}/note", params: {
         note: {
           title: "Test Note Title",
           text: "This is the note content"
@@ -63,7 +63,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "/studios/#{@collective.handle}/n/#{note.truncated_id}"
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
     assert_response :success
   end
 
@@ -74,7 +74,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     # But the find happens before that check, so we get exception
     # In production, Rails rescues this and renders 404
     assert_raises(ActiveRecord::RecordNotFound) do
-      get "/studios/#{@collective.handle}/n/nonexistent123"
+      get "/collectives/#{@collective.handle}/n/nonexistent123"
     end
   end
 
@@ -96,7 +96,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "/studios/#{@collective.handle}/n/#{note.truncated_id}/edit"
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
     assert_response :success
   end
 
@@ -119,7 +119,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     sign_in_as(other_user, tenant: @tenant)
-    get "/studios/#{@collective.handle}/n/#{note.truncated_id}/edit"
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
     assert_response :forbidden
   end
 
@@ -142,7 +142,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     # Update uses POST to /n/:note_id/edit
-    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/edit", params: {
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit", params: {
       note: {
         title: "Updated Title",
         text: "Updated content"
@@ -174,7 +174,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     sign_in_as(other_user, tenant: @tenant)
-    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/edit", params: {
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit", params: {
       note: {
         title: "Hacked Title"
       }
@@ -203,7 +203,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "/studios/#{@collective.handle}/n/#{note.truncated_id}/history.html"
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/history.html"
     assert_response :success
   end
 
@@ -226,7 +226,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     initial_count = Note.unscoped.count
-    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/comments",
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/comments",
       params: { text: "This is a test comment" },
       headers: { "Accept" => "application/json" }
 
@@ -263,7 +263,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "/studios/#{@collective.handle}/n/#{note.truncated_id}/comments.html"
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/comments.html"
 
     assert_response :success
     assert_includes response.body, "pulse-comments-list"
@@ -286,7 +286,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
       headers: { "Accept" => "application/json" }
 
     assert_response :success
@@ -315,7 +315,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     # First user confirms
     sign_in_as(@user, tenant: @tenant)
-    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
       headers: { "Accept" => "application/json" }
 
     assert_response :success
@@ -324,7 +324,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     # Second user confirms
     sign_in_as(other_user, tenant: @tenant)
-    post "/studios/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
       headers: { "Accept" => "application/json" }
 
     assert_response :success

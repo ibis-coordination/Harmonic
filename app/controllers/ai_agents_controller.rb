@@ -70,14 +70,14 @@ class AiAgentsController < ApplicationController
   def settings
     @page_title = "Settings - #{@ai_agent.display_name}"
 
-    # Get studios the agent is a member of
+    # Get collectives the agent is a member of
     active_collective_members = @ai_agent.collective_members.reject(&:archived?)
-    all_ai_agent_studios = active_collective_members.map(&:collective)
-    @ai_agent_studios = all_ai_agent_studios.reject { |s| s == @current_tenant.main_collective }
+    all_ai_agent_collectives = active_collective_members.map(&:collective)
+    @ai_agent_collectives = all_ai_agent_collectives.reject { |s| s == @current_tenant.main_collective }
 
-    # Get studios the agent can be added to (studios where current user can invite)
-    invitable_studios = @current_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
-    @available_studios = (invitable_studios - all_ai_agent_studios).reject { |s| s == @current_tenant.main_collective }
+    # Get collectives the agent can be added to (collectives where current user can invite)
+    invitable_collectives = @current_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
+    @available_collectives = (invitable_collectives - all_ai_agent_collectives).reject { |s| s == @current_tenant.main_collective }
   end
 
   # POST /ai-agents/:handle/settings - Update settings for a specific AI agent

@@ -28,18 +28,18 @@
     <% else %>
       <p>
         Through representation, you can act on behalf of <%= @current_collective.name %>.
-        Your actions during a representation session will be recorded and attributed to the studio.
+        Your actions during a representation session will be recorded and attributed to the collective.
       </p>
     <% end %>
 
-    <% if @can_represent_studio && !@current_representation_session %>
+    <% if @can_represent_collective && !@current_representation_session %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">
           <%= octicon 'organization', height: 16 %>
           Represent <%= @current_collective.name %>
         </h2>
         <p>
-          Because you have been assigned the <code>representative</code> role in <%= @current_collective.name %>, you can act on the studio's behalf.
+          Because you have been assigned the <code>representative</code> role in <%= @current_collective.name %>, you can act on the collective's behalf.
         </p>
         <ul class="pulse-list" style="margin-bottom: 16px;">
           <li class="pulse-list-item">
@@ -49,12 +49,12 @@
             Actions will be attributed to <%= @current_collective.name %> as a whole.
           </li>
           <li class="pulse-list-item">
-            All actions will be recorded and visible to studio members.
+            All actions will be recorded and visible to collective members.
           </li>
         </ul>
         <%= form_with url: @current_collective.path + '/represent', method: :post, class: 'pulse-form' do |f| %>
           <label class="pulse-checkbox-label">
-            <%= f.check_box :understand, id: 'i-understand-studio-checkbox', class: 'pulse-checkbox-input' %>
+            <%= f.check_box :understand, id: 'i-understand-collective-checkbox', class: 'pulse-checkbox-input' %>
             <span>I understand that my actions will be recorded and visible to all members of <%= @current_collective.name %>.</span>
           </label>
           <div class="pulse-form-actions">

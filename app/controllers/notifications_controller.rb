@@ -5,8 +5,8 @@ class NotificationsController < ApplicationController
 
   def index
     @sidebar_mode = 'minimal'
-    # Set only tenant scope (not collective scope) to allow loading events from all studios
-    # This is needed because notifications span all studios, not just the current one
+    # Set only tenant scope (not collective scope) to allow loading events from all collectives
+    # This is needed because notifications span all collectives, not just the current one
     Tenant.scope_thread_to_tenant(subdomain: request.subdomain)
 
     # Show immediate notifications and due reminders (not future scheduled)
@@ -21,7 +21,7 @@ class NotificationsController < ApplicationController
 
     # Manually load collectives to bypass association scoping
     # Events and Collectives are scoped to tenant and collective, but we need to load
-    # collectives from all studios for the current tenant.
+    # collectives from all collectives for the current tenant.
     # We avoid using nr.notification.event because the Event default_scope interferes.
     # Instead, we query event_id directly from the notifications table.
     notification_ids = @notification_recipients.map(&:notification_id)
@@ -41,7 +41,7 @@ class NotificationsController < ApplicationController
       @collective_for_nr[nr.id] = collective_id ? collectives[collective_id] : nil
     end
 
-    # Group notifications by collective (studio)
+    # Group notifications by collective
     # Notifications without an event (reminders) go into a nil key
     @notifications_by_collective = @notification_recipients.group_by do |nr|
       @collective_for_nr[nr.id]
@@ -124,45 +124,45 @@ class NotificationsController < ApplicationController
     end
   end
 
-  def describe_dismiss_for_studio
-    render_action_description(ActionsHelper.action_description("dismiss_for_studio", resource: nil))
+  def describe_dismiss_for_collective
+    render_action_description(ActionsHelper.action_description("dismiss_for_collective", resource: nil))
   end
 
-  def execute_dismiss_for_studio
-    studio_id = params[:studio_id]
+  def execute_dismiss_for_collective
+    collective_id = params[:collective_id]
 
     # Special case: "reminders" dismisses notifications without an event
-    if studio_id == "reminders"
+    if collective_id == "reminders"
       count = NotificationService.dismiss_all_reminders(current_user, tenant: current_tenant)
-      studio_name = "Reminders"
+      collective_name = "Reminders"
     else
-      studio = Collective.find_by(id: studio_id)
-      if studio.nil?
+      collective = Collective.find_by(id: collective_id)
+      if collective.nil?
         return respond_to do |format|
-          format.json { render json: { success: false, error: "Studio not found." }, status: :not_found }
-          format.html { render json: { success: false, error: "Studio not found." }, status: :not_found }
+          format.json { render json: { success: false, error: "Collective not found." }, status: :not_found }
+          format.html { render json: { success: false, error: "Collective not found." }, status: :not_found }
           format.md do
             render_action_error({
-              action_name: "dismiss_for_studio",
+              action_name: "dismiss_for_collective",
               resource: nil,
-              error: "Studio not found.",
+              error: "Collective not found.",
             })
           end
         end
       end
 
-      count = NotificationService.dismiss_all_for_collective(current_user, tenant: current_tenant, collective_id: studio.id)
-      studio_name = studio.name
+      count = NotificationService.dismiss_all_for_collective(current_user, tenant: current_tenant, collective_id: collective.id)
+      collective_name = collective.name
     end
 
     respond_to do |format|
-      format.json { render json: { success: true, action: "dismiss_for_studio", studio_id: studio_id, count: count } }
-      format.html { render json: { success: true, action: "dismiss_for_studio", studio_id: studio_id, count: count } }
+      format.json { render json: { success: true, action: "dismiss_for_collective", collective_id: collective_id, count: count } }
+      format.html { render json: { success: true, action: "dismiss_for_collective", collective_id: collective_id, count: count } }
       format.md do
         render_action_success({
-          action_name: "dismiss_for_studio",
+          action_name: "dismiss_for_collective",
           resource: nil,
-          result: "#{count} notifications dismissed for #{studio_name}.",
+          result: "#{count} notifications dismissed for #{collective_name}.",
         })
       end
     end

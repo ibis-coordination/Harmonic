@@ -4,11 +4,11 @@ REST API for programmatic access to Harmonic data and functionality.
 
 ## Overview
 
-The Harmonic API provides JSON endpoints for managing notes, decisions, commitments, cycles, users, and studios. The API is designed for automation and integration with external tools.
+The Harmonic API provides JSON endpoints for managing notes, decisions, commitments, cycles, users, and collectives. The API is designed for automation and integration with external tools.
 
 **Base URL**: `https://{tenant}.{domain}/api/v1`
 
-**Studio-scoped URL**: `https://{tenant}.{domain}/studios/{studio_handle}/api/v1`
+**Collective-scoped URL**: `https://{tenant}.{domain}/collectives/{collective_handle}/api/v1`
 
 ## Authentication
 
@@ -497,41 +497,41 @@ List participants in a commitment.
 
 ---
 
-### Studios
+### Collectives
 
-Studios are private groups within a tenant.
+Collectives are groups within a tenant.
 
-#### GET /api/v1/studios
+#### GET /api/v1/collectives
 
-List studios the current user is a member of.
+List collectives the current user is a member of.
 
 **Response:**
 ```json
 [
   {
-    "id": "studio-uuid",
-    "name": "My Studio",
-    "handle": "my-studio",
+    "id": "collective-uuid",
+    "name": "My Collective",
+    "handle": "my-collective",
     "timezone": "America/New_York",
     "tempo": "weekly"
   }
 ]
 ```
 
-#### GET /api/v1/studios/{id}
+#### GET /api/v1/collectives/{id}
 
-Get a specific studio. Can use ID or handle.
+Get a specific collective. Can use ID or handle.
 
-#### POST /api/v1/studios
+#### POST /api/v1/collectives
 
-Create a new studio.
+Create a new collective.
 
 **Request Body:**
 ```json
 {
-  "name": "New Studio",
-  "handle": "new-studio",
-  "description": "Studio description...",
+  "name": "New Collective",
+  "handle": "new-collective",
+  "description": "Collective description...",
   "timezone": "America/New_York",
   "tempo": "weekly",
   "synchronization_mode": "improv"
@@ -540,15 +540,15 @@ Create a new studio.
 
 **Required:** `name`, `handle`
 
-#### PUT /api/v1/studios/{id}
+#### PUT /api/v1/collectives/{id}
 
-Update a studio.
+Update a collective.
 
 **Note:** Changing `handle` requires `"force_update": true` due to potential link breakage.
 
-#### DELETE /api/v1/studios/{id}
+#### DELETE /api/v1/collectives/{id}
 
-Delete a studio.
+Delete a collective.
 
 ---
 
@@ -673,16 +673,16 @@ Delete a token (soft delete—token becomes inactive immediately).
 
 ---
 
-## Studio-Scoped API
+## Collective-Scoped API
 
-When accessing the API at `/studios/{studio_handle}/api/v1/`, all operations are scoped to that studio. This is required for:
+When accessing the API at `/collectives/{collective_handle}/api/v1/`, all operations are scoped to that collective. This is required for:
 
 - Creating/reading notes, decisions, commitments
 - Accessing cycles
 
 **Example:**
 ```
-GET https://acme.harmonic.example/studios/engineering/api/v1/cycles/today
+GET https://acme.harmonic.example/collectives/engineering/api/v1/cycles/today
 ```
 
 ---
@@ -712,7 +712,7 @@ Always check the HTTP status code and handle errors appropriately:
 { "error": "Token expired" }
 
 // 403 Forbidden - Permission denied
-{ "error": "API not enabled for this studio" }
+{ "error": "API not enabled for this collective" }
 { "error": "Cannot add options" }
 
 // 404 Not Found
@@ -727,7 +727,7 @@ Always check the HTTP status code and handle errors appropriately:
 
 ```bash
 # Create decision
-curl -X POST https://acme.harmonic.example/studios/team/api/v1/decisions \
+curl -X POST https://acme.harmonic.example/collectives/team/api/v1/decisions \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -742,13 +742,13 @@ curl -X POST https://acme.harmonic.example/studios/team/api/v1/decisions \
   }'
 
 # Vote on an option
-curl -X POST https://acme.harmonic.example/studios/team/api/v1/decisions/{id}/options/{option_id}/votes \
+curl -X POST https://acme.harmonic.example/collectives/team/api/v1/decisions/{id}/options/{option_id}/votes \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"accepted": 1, "preferred": 1}'
 
 # Get results
-curl https://acme.harmonic.example/studios/team/api/v1/decisions/{id}/results \
+curl https://acme.harmonic.example/collectives/team/api/v1/decisions/{id}/results \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -756,7 +756,7 @@ curl https://acme.harmonic.example/studios/team/api/v1/decisions/{id}/results \
 
 ```bash
 # Create commitment
-curl -X POST https://acme.harmonic.example/studios/team/api/v1/commitments \
+curl -X POST https://acme.harmonic.example/collectives/team/api/v1/commitments \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -767,7 +767,7 @@ curl -X POST https://acme.harmonic.example/studios/team/api/v1/commitments \
   }'
 
 # Join commitment
-curl -X POST https://acme.harmonic.example/studios/team/api/v1/commitments/{id}/join \
+curl -X POST https://acme.harmonic.example/collectives/team/api/v1/commitments/{id}/join \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"committed": true}'
@@ -776,6 +776,6 @@ curl -X POST https://acme.harmonic.example/studios/team/api/v1/commitments/{id}/
 ### Get Today's Activity
 
 ```bash
-curl "https://acme.harmonic.example/studios/team/api/v1/cycles/today?include=notes,decisions,commitments" \
+curl "https://acme.harmonic.example/collectives/team/api/v1/cycles/today?include=notes,decisions,commitments" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```

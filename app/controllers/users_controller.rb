@@ -29,24 +29,22 @@ class UsersController < ApplicationController
       sm = @showing_user.collective_members.where(collective: current_collective).first
       return render '404' if sm.nil?
       @showing_user.collective_member = sm
-      @common_studios = [current_collective]
-      @additional_common_studio_count = (
+      @common_collectives = [current_collective]
+      @additional_common_collective_count = (
         current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
       ).count - 1
     else
       # Showing user at the tenant level, so we want to show all common collectives between the current user and the showing user
-      @common_studios = current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
-      @additional_common_studio_count = 0
+      @common_collectives = current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
+      @additional_common_collective_count = 0
     end
 
-    # Compute counts of common studios and scenes for profile display
+    # Compute count of common collectives for profile display
     if @current_user != @showing_user
       all_common = current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
-      @common_studio_count = all_common.count { |s| s.collective_type == "studio" }
-      @common_scene_count = all_common.count { |s| s.collective_type == "scene" }
+      @common_collective_count = all_common.count
     else
-      @common_studio_count = 0
-      @common_scene_count = 0
+      @common_collective_count = 0
     end
     # Load AI agent count for human users
     if @showing_user.human?
@@ -79,7 +77,7 @@ class UsersController < ApplicationController
     if @settings_user.human?
       @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :collective_members).where(tenant_users: { tenant_id: @current_tenant.id })
       # Collectives where settings user has invite permission (for adding AI agents)
-      @invitable_studios = @settings_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
+      @invitable_collectives = @settings_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
 
       # Load all API tokens: user's own + AI agents' tokens
       # Sorted by: user's tokens first, then agents alphabetically, then by created_at desc
@@ -89,7 +87,7 @@ class UsersController < ApplicationController
         agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
     else
       @ai_agents = []
-      @invitable_studios = []
+      @invitable_collectives = []
       @all_api_tokens = @settings_user.api_tokens.external.includes(:user).order(created_at: :desc).to_a
     end
 
@@ -99,7 +97,7 @@ class UsersController < ApplicationController
     end
   end
 
-  def add_ai_agent_to_studio
+  def add_ai_agent_to_collective
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?
     ai_agent = tu.user
@@ -125,7 +123,7 @@ class UsersController < ApplicationController
     end
   end
 
-  def remove_ai_agent_from_studio
+  def remove_ai_agent_from_collective
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render status: 404, plain: "404 Not Found" if tu.nil?
     ai_agent = tu.user
@@ -310,7 +308,7 @@ class UsersController < ApplicationController
     # For human users, show their AI agents and consolidated API tokens
     if @settings_user.human?
       @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :collective_members).where(tenant_users: { tenant_id: @current_tenant.id })
-      @invitable_studios = @settings_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
+      @invitable_collectives = @settings_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
 
       # Load all API tokens: user's own + AI agents' tokens
       user_tokens = @settings_user.api_tokens.external.includes(:user).to_a
@@ -319,7 +317,7 @@ class UsersController < ApplicationController
         agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
     else
       @ai_agents = []
-      @invitable_studios = []
+      @invitable_collectives = []
       @all_api_tokens = @settings_user.api_tokens.external.includes(:user).order(created_at: :desc).to_a
     end
 

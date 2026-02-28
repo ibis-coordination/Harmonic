@@ -75,8 +75,8 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     # Give ai_agent only create_note capability
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
-    # Send heartbeat first to establish studio context
-    post "/studios/#{@collective.handle}/actions/send_heartbeat",
+    # Send heartbeat first to establish collective context
+    post "/collectives/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
     assert_response :success
 
@@ -95,8 +95,8 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
       title: "Option 1"
     )
 
-    # Try to vote (not in capabilities) - use full path with studio handle
-    post "/studios/#{@collective.handle}/d/#{decision.truncated_id}/actions/vote",
+    # Try to vote (not in capabilities) - use full path with collective handle
+    post "/collectives/#{@collective.handle}/d/#{decision.truncated_id}/actions/vote",
       params: { votes: [{ option_title: option.title, accept: true, prefer: false }] },
       headers: api_headers
 
@@ -109,13 +109,13 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     # Give ai_agent full capabilities
     @ai_agent.update!(agent_configuration: nil)
 
-    # Send heartbeat first to ensure studio access
-    post "/studios/#{@collective.handle}/actions/send_heartbeat",
+    # Send heartbeat first to ensure collective access
+    post "/collectives/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
     assert_response :success
 
     # Create a note through the API
-    post "/studios/#{@collective.handle}/note/actions/create_note",
+    post "/collectives/#{@collective.handle}/note/actions/create_note",
       params: { text: "Test note from ai_agent" },
       headers: api_headers
 
@@ -128,7 +128,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # send_heartbeat is always allowed
-    post "/studios/#{@collective.handle}/actions/send_heartbeat",
+    post "/collectives/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
 
     assert_response :success
@@ -144,8 +144,8 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: nil)
 
     # Check that the capability check denies blocked actions
-    refute CapabilityCheck.allowed?(@ai_agent, "create_studio")
-    refute ActionAuthorization.authorized?("create_studio", @ai_agent, {})
+    refute CapabilityCheck.allowed?(@ai_agent, "create_collective")
+    refute ActionAuthorization.authorized?("create_collective", @ai_agent, {})
   end
 
   # ====================
@@ -193,7 +193,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     post "/u/#{@ai_agent.handle}/settings/profile",
       params: {
         name: @ai_agent.name,
-        capabilities: ["create_note", "invalid_action", "create_studio"],
+        capabilities: ["create_note", "invalid_action", "create_collective"],
       }
 
     assert_response :redirect
@@ -210,11 +210,11 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: nil)
 
     # Send heartbeat first
-    post "/studios/#{@collective.handle}/actions/send_heartbeat",
+    post "/collectives/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
 
     # Create a note
-    post "/studios/#{@collective.handle}/note/actions/create_note",
+    post "/collectives/#{@collective.handle}/note/actions/create_note",
       params: { text: "Test note" },
       headers: api_headers
 
@@ -229,7 +229,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["vote"] })
 
     # Try to create note via legacy HTML route (not /actions/)
-    post "/studios/#{@collective.handle}/note",
+    post "/collectives/#{@collective.handle}/note",
       params: { title: "Test", text: "Test note" },
       headers: api_headers
 
@@ -242,11 +242,11 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Send heartbeat first
-    post "/studios/#{@collective.handle}/actions/send_heartbeat",
+    post "/collectives/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
 
     # Create note via legacy HTML route
-    post "/studios/#{@collective.handle}/note",
+    post "/collectives/#{@collective.handle}/note",
       params: { title: "Test", text: "Test note via legacy route" },
       headers: api_headers
 
@@ -257,7 +257,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   test "ai_agent cannot create decision via legacy HTML route when not in capabilities" do
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
-    post "/studios/#{@collective.handle}/decide",
+    post "/collectives/#{@collective.handle}/decide",
       params: { question: "Test decision?" },
       headers: api_headers
 
@@ -268,7 +268,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   test "ai_agent cannot create commitment via legacy HTML route when not in capabilities" do
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
-    post "/studios/#{@collective.handle}/commit",
+    post "/collectives/#{@collective.handle}/commit",
       params: { title: "Test commitment" },
       headers: api_headers
 
@@ -276,16 +276,16 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     assert_match "create_commitment", response.body
   end
 
-  test "ai_agent cannot create studio via legacy HTML route" do
-    # Even with no restrictions, create_studio is always blocked
+  test "ai_agent cannot create collective via legacy HTML route" do
+    # Even with no restrictions, create_collective is always blocked
     @ai_agent.update!(agent_configuration: nil)
 
-    post "/studios",
-      params: { name: "New Studio", handle: "new-studio-#{SecureRandom.hex(4)}" },
+    post "/collectives",
+      params: { name: "New Collective", handle: "new-collective-#{SecureRandom.hex(4)}" },
       headers: api_headers
 
     assert_response :forbidden
-    assert_match "create_studio", response.body
+    assert_match "create_collective", response.body
   end
 
   # ====================
@@ -295,7 +295,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   test "ai_agent cannot create note via v1 API when not in capabilities" do
     @ai_agent.update!(agent_configuration: { "capabilities" => ["vote"] })
 
-    post "/studios/#{@collective.handle}/api/v1/notes",
+    post "/collectives/#{@collective.handle}/api/v1/notes",
       params: { title: "Test", text: "Test note via API" },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
@@ -308,10 +308,10 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Send heartbeat first
-    post "/studios/#{@collective.handle}/actions/send_heartbeat",
+    post "/collectives/#{@collective.handle}/actions/send_heartbeat",
       headers: api_headers
 
-    post "/studios/#{@collective.handle}/api/v1/notes",
+    post "/collectives/#{@collective.handle}/api/v1/notes",
       params: { title: "Test", text: "Test note via v1 API" },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
@@ -323,7 +323,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   test "ai_agent cannot create decision via v1 API when not in capabilities" do
     @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
 
-    post "/studios/#{@collective.handle}/api/v1/decisions",
+    post "/collectives/#{@collective.handle}/api/v1/decisions",
       params: { question: "Test decision?" },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
@@ -354,7 +354,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
       user: @ai_agent
     )
 
-    post "/studios/#{@collective.handle}/api/v1/decisions/#{decision.id}/participants/#{participant.id}/votes",
+    post "/collectives/#{@collective.handle}/api/v1/decisions/#{decision.id}/participants/#{participant.id}/votes",
       params: { option_id: option.id, accepted: true },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
@@ -363,17 +363,17 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     assert_match "vote", response.body
   end
 
-  test "ai_agent cannot create studio via v1 API" do
-    # Even with no restrictions, create_studio is always blocked
+  test "ai_agent cannot create collective via v1 API" do
+    # Even with no restrictions, create_collective is always blocked
     @ai_agent.update!(agent_configuration: nil)
 
-    post "/api/v1/studios",
-      params: { name: "New Studio", handle: "new-studio-#{SecureRandom.hex(4)}" },
+    post "/api/v1/collectives",
+      params: { name: "New Collective", handle: "new-collective-#{SecureRandom.hex(4)}" },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json
 
     assert_response :forbidden
-    assert_match "create_studio", response.body
+    assert_match "create_collective", response.body
   end
 
   test "ai_agent cannot join commitment via v1 API when not in capabilities" do
@@ -386,7 +386,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
       title: "Test Commitment"
     )
 
-    post "/studios/#{@collective.handle}/api/v1/commitments/#{commitment.id}/join",
+    post "/collectives/#{@collective.handle}/api/v1/commitments/#{commitment.id}/join",
       params: { committed: true },
       headers: api_headers.merge("Content-Type" => "application/json"),
       as: :json

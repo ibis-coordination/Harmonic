@@ -14,22 +14,22 @@ describe("AiAgentCollectiveAdderController", () => {
 
     // Set up DOM
     document.body.innerHTML = `
-      <div data-controller="ai_agent-collective-adder" data-ai_agent-collective-adder-remove-url-value="/u/ai_agent1/remove_from_studio">
-        <ul class="studio-membership-list" data-ai_agent-collective-adder-target="collectiveList">
-          <li class="studio-item" data-collective-id="1">
-            <a href="/studios/studio1">Studio One</a>
+      <div data-controller="ai_agent-collective-adder" data-ai_agent-collective-adder-remove-url-value="/u/ai_agent1/remove_from_collective">
+        <ul class="collective-membership-list" data-ai_agent-collective-adder-target="collectiveList">
+          <li class="collective-item" data-collective-id="1">
+            <a href="/collectives/collective1">Collective One</a>
             <button type="button" class="button-small button-danger"
                     data-action="ai_agent-collective-adder#remove"
                     data-collective-id="1"
-                    data-collective-name="Studio One">
-              Remove from studio
+                    data-collective-name="Collective One">
+              Remove from collective
             </button>
           </li>
         </ul>
-        <form data-ai_agent-collective-adder-target="form" data-action="submit->ai_agent-collective-adder#add" action="/u/ai_agent1/add_to_studio">
+        <form data-ai_agent-collective-adder-target="form" data-action="submit->ai_agent-collective-adder#add" action="/u/ai_agent1/add_to_collective">
           <select data-ai_agent-collective-adder-target="select">
-            <option value="">Add to studio...</option>
-            <option value="2">Studio Two</option>
+            <option value="">Add to collective...</option>
+            <option value="2">Collective Two</option>
           </select>
           <button type="submit">Add</button>
         </form>
@@ -48,13 +48,13 @@ describe("AiAgentCollectiveAdderController", () => {
   })
 
   describe("add", () => {
-    it("sends POST request with selected studio ID", async () => {
+    it("sends POST request with selected collective ID", async () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
           collective_id: 2,
-          collective_name: "Studio Two",
-          collective_path: "/studios/studio2",
+          collective_name: "Collective Two",
+          collective_path: "/collectives/collective2",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -66,7 +66,7 @@ describe("AiAgentCollectiveAdderController", () => {
       form.dispatchEvent(new Event("submit", { bubbles: true }))
 
       expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/u/ai_agent1/add_to_studio"),
+        expect.stringContaining("/u/ai_agent1/add_to_collective"),
         expect.objectContaining({
           method: "POST",
           headers: {
@@ -84,13 +84,13 @@ describe("AiAgentCollectiveAdderController", () => {
         ok: true,
         json: () => Promise.resolve({
           collective_id: 2,
-          collective_name: "Studio Two",
-          collective_path: "/studios/studio2",
+          collective_name: "Collective Two",
+          collective_path: "/collectives/collective2",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
 
-      const initialItems = document.querySelectorAll(".studio-item").length
+      const initialItems = document.querySelectorAll(".collective-item").length
 
       const select = document.querySelector("select") as HTMLSelectElement
       select.value = "2"
@@ -99,7 +99,7 @@ describe("AiAgentCollectiveAdderController", () => {
       form.dispatchEvent(new Event("submit", { bubbles: true }))
 
       await vi.waitFor(() => {
-        const items = document.querySelectorAll(".studio-item")
+        const items = document.querySelectorAll(".collective-item")
         expect(items.length).toBe(initialItems + 1)
       })
     })
@@ -109,8 +109,8 @@ describe("AiAgentCollectiveAdderController", () => {
         ok: true,
         json: () => Promise.resolve({
           collective_id: 2,
-          collective_name: "Studio Two",
-          collective_path: "/studios/studio2",
+          collective_name: "Collective Two",
+          collective_path: "/collectives/collective2",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -127,7 +127,7 @@ describe("AiAgentCollectiveAdderController", () => {
       })
     })
 
-    it("does not submit if no studio selected", () => {
+    it("does not submit if no collective selected", () => {
       const select = document.querySelector("select") as HTMLSelectElement
       select.value = ""
 
@@ -145,7 +145,7 @@ describe("AiAgentCollectiveAdderController", () => {
       const button = document.querySelector("button[data-action='ai_agent-collective-adder#remove']") as HTMLButtonElement
       button.click()
 
-      expect(confirmSpy).toHaveBeenCalledWith("Remove this ai_agent from Studio One?")
+      expect(confirmSpy).toHaveBeenCalledWith("Remove this AI agent from Collective One?")
       expect(fetch).not.toHaveBeenCalled()
     })
 
@@ -155,7 +155,7 @@ describe("AiAgentCollectiveAdderController", () => {
         ok: true,
         json: () => Promise.resolve({
           collective_id: 1,
-          collective_name: "Studio One",
+          collective_name: "Collective One",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -163,7 +163,7 @@ describe("AiAgentCollectiveAdderController", () => {
       const button = document.querySelector("button[data-action='ai_agent-collective-adder#remove']") as HTMLButtonElement
       button.click()
 
-      expect(fetch).toHaveBeenCalledWith("/u/ai_agent1/remove_from_studio", {
+      expect(fetch).toHaveBeenCalledWith("/u/ai_agent1/remove_from_collective", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -180,7 +180,7 @@ describe("AiAgentCollectiveAdderController", () => {
         ok: true,
         json: () => Promise.resolve({
           collective_id: 1,
-          collective_name: "Studio One",
+          collective_name: "Collective One",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -189,18 +189,18 @@ describe("AiAgentCollectiveAdderController", () => {
       button.click()
 
       await vi.waitFor(() => {
-        const item = document.querySelector(".studio-item[data-collective-id='1']")
+        const item = document.querySelector(".collective-item[data-collective-id='1']")
         expect(item).toBeNull()
       })
     })
 
-    it("shows 'None' message when last studio removed", async () => {
+    it("shows 'None' message when last collective removed", async () => {
       vi.spyOn(window, "confirm").mockReturnValue(true)
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({
           collective_id: 1,
-          collective_name: "Studio One",
+          collective_name: "Collective One",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -211,7 +211,7 @@ describe("AiAgentCollectiveAdderController", () => {
       await vi.waitFor(() => {
         const noneMessage = document.querySelector(".none-message")
         expect(noneMessage).not.toBeNull()
-        expect(noneMessage?.textContent).toContain("Not a member of any studios")
+        expect(noneMessage?.textContent).toContain("Not a member of any collectives")
       })
     })
 
@@ -221,7 +221,7 @@ describe("AiAgentCollectiveAdderController", () => {
         ok: true,
         json: () => Promise.resolve({
           collective_id: 1,
-          collective_name: "Studio One",
+          collective_name: "Collective One",
         }),
       }
       vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
@@ -232,7 +232,7 @@ describe("AiAgentCollectiveAdderController", () => {
       await vi.waitFor(() => {
         const option = document.querySelector("option[value='1']")
         expect(option).not.toBeNull()
-        expect(option?.textContent).toBe("Studio One")
+        expect(option?.textContent).toBe("Collective One")
       })
     })
   })

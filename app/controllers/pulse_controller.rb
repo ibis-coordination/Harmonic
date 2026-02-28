@@ -12,15 +12,12 @@ class PulseController < ApplicationController
     @pinned_items = @current_collective.pinned_items
     @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle)
-    render "shared/actions_index_studio", locals: {
+    render "shared/actions_index_collective", locals: {
       base_path: @current_collective.path,
     }
   end
 
   def show
-    # Allow both studios and scenes
-    return render "shared/404", status: :not_found unless ["studio", "scene"].include?(@current_collective.collective_type)
-
     @page_title = @current_collective.name
 
     # Cycle data - use param if provided, otherwise default to tempo-based cycle
@@ -42,7 +39,7 @@ class PulseController < ApplicationController
     @open_commitments = @cycle.open_commitments
     @closed_commitments = @cycle.closed_commitments
 
-    # Studio data
+    # Collective data
     @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle)
     @pinned_items = @current_collective.pinned_items

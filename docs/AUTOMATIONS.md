@@ -34,7 +34,7 @@ Automations are rules that execute actions when specific conditions are met. Eac
 | Type | Scope | Use Case |
 |------|-------|----------|
 | **Agent Automations** | AI Agent | Trigger an agent to perform tasks (e.g., respond to @mentions) |
-| **Studio Automations** | Studio | Send webhooks, trigger agents, or orchestrate workflows |
+| **Collective Automations** | Collective | Send webhooks, trigger agents, or orchestrate workflows |
 
 ### How It Works
 
@@ -80,9 +80,9 @@ max_steps: 20
 5. Click **Create** to save
 6. The automation is now active and will trigger when someone @mentions your agent
 
-### Creating a Studio Automation
+### Creating a Collective Automation
 
-1. Go to **Studio Settings** → **Automations**
+1. Go to **Collective Settings** → **Automations**
 2. Click **New Automation**
 3. Configure your webhook or multi-action workflow:
 
@@ -113,7 +113,7 @@ actions:
 
 ### Event Triggers
 
-Event triggers fire when something happens in the studio—a note is created, a decision is made, or a commitment reaches critical mass.
+Event triggers fire when something happens in the collective--a note is created, a decision is made, or a commitment reaches critical mass.
 
 ```yaml
 trigger:
@@ -273,9 +273,9 @@ max_steps: 20  # Optional: limit agent steps (default varies)
 
 The agent receives the rendered task prompt and executes autonomously.
 
-### Studio Automations (Action-Based)
+### Collective Automations (Action-Based)
 
-Studio automations use an `actions` array with multiple action types:
+Collective automations use an `actions` array with multiple action types:
 
 #### Webhook Actions
 
@@ -312,7 +312,7 @@ actions:
 
 #### Internal Actions
 
-Create content directly within the studio. Internal actions execute as the **studio identity user** and are automatically tracked for attribution.
+Create content directly within the collective. Internal actions execute as the **collective identity user** and are automatically tracked for attribution.
 
 **Supported Actions:**
 
@@ -456,11 +456,11 @@ Available when trigger type is `event`:
 {{subject.created_by.name}}
 {{subject.created_by.handle}}
 
-# Studio context
-{{studio.id}}
-{{studio.name}}
-{{studio.handle}}
-{{studio.path}}
+# Collective context
+{{collective.id}}
+{{collective.name}}
+{{collective.handle}}
+{{collective.path}}
 ```
 
 ### Webhook Context
@@ -552,7 +552,7 @@ task: |
 max_steps: 20
 ```
 
-### Example 2: Daily Studio Summary
+### Example 2: Daily Collective Summary
 
 An agent that posts a daily summary every morning.
 
@@ -568,7 +568,7 @@ trigger:
 task: |
   It's time for the daily summary.
 
-  Review yesterday's activity in the studio:
+  Review yesterday's activity in the collective:
   - New notes and discussions
   - Decisions made or pending
   - Commitments created or completed
@@ -718,7 +718,7 @@ actions:
   - type: webhook
     url: "https://hooks.slack.com/services/..."
     payload:
-      text: "Weekly review is ready! Check the studio for the summary."
+      text: "Weekly review is ready! Check the collective for the summary."
 ```
 
 ---
@@ -760,7 +760,7 @@ trigger:
 task: string                        # Task prompt with {{variables}}
 max_steps: integer                  # Optional: max agent steps
 
-# For Studio Rules (mutually exclusive with task)
+# For Collective Rules (mutually exclusive with task)
 actions:                            # Array of actions
   - type: enum                      # "webhook" | "trigger_agent" | "internal_action"
 
@@ -794,18 +794,18 @@ conditions:
 3. **Event triggers** require `event_type`
 4. **Schedule triggers** require valid `cron` expression
 5. **Agent rules** must have `task`, cannot have `actions`
-6. **Studio rules** must have `actions`, cannot have `task`
+6. **Collective rules** must have `actions`, cannot have `task`
 7. **Mention filters** must be `"self"` or `"any_agent"`
 8. **Conditions** must use valid operators
 9. **Webhook IPs** must be valid IPv4/IPv6 or CIDR notation
 
 ### Internal Action Schemas
 
-Internal actions create content in the studio. Each action has specific required and optional parameters.
+Internal actions create content in the collective. Each action has specific required and optional parameters.
 
 #### create_note
 
-Creates a new note in the studio.
+Creates a new note in the collective.
 
 ```yaml
 actions:
@@ -841,7 +841,7 @@ actions:
 
 #### create_decision
 
-Creates a new decision for the studio to vote on.
+Creates a new decision for the collective to vote on.
 
 ```yaml
 actions:
@@ -882,7 +882,7 @@ actions:
 
 #### create_commitment
 
-Creates a new commitment for studio members to join.
+Creates a new commitment for collective members to join.
 
 ```yaml
 actions:
@@ -926,7 +926,7 @@ actions:
 
 ### Using the Test Feature
 
-Studio automations have a **Test** button that:
+Collective automations have a **Test** button that:
 
 1. Creates a synthetic test event
 2. Executes the automation immediately
@@ -947,7 +947,7 @@ Studio automations have a **Test** button that:
 
 ### Viewing Run History
 
-Both agent and studio automations have a **Runs** tab showing:
+Both agent and collective automations have a **Runs** tab showing:
 
 - Trigger source (event, schedule, webhook, manual, test)
 - Status (pending, running, completed, failed, skipped)
@@ -992,7 +992,7 @@ Automations have multiple layers of protection to prevent runaway execution and 
 |------------|-------|-------|
 | **Tenant-level** | 100 runs/minute | All automations across the tenant |
 | **Agent rules** | 3 runs/minute | Per individual agent automation |
-| **Studio rules** | 10 runs/minute | Per individual studio automation |
+| **Collective rules** | 10 runs/minute | Per individual collective automation |
 
 When a rate limit is hit:
 - The automation execution is silently skipped
@@ -1061,7 +1061,7 @@ sum by (status) (increase(automations_runs_total[1h]))
 2. **Verify event type**: Make sure you're listening for the right event
 3. **Check mention filter**: If using `mention_filter: self`, ensure the agent is actually @mentioned
 4. **Review conditions**: Conditions may be filtering out events
-5. **Check rate limits**: See [Rate Limits](#rate-limits) - agent rules: 3/min, studio rules: 10/min, tenant: 100/min
+5. **Check rate limits**: See [Rate Limits](#rate-limits) - agent rules: 3/min, collective rules: 10/min, tenant: 100/min
 6. **Check chain limits**: If triggered by another automation, chain depth (3) or rules-per-chain (10) may be exceeded
 
 ### Webhook Actions Failing
@@ -1080,8 +1080,8 @@ sum by (status) (increase(automations_runs_total[1h]))
 
 ### Internal Actions Failing
 
-1. **Check studio context**: Internal actions require a studio automation (not user-level)
-2. **Verify identity user**: Studio must have an identity user configured
+1. **Check collective context**: Internal actions require a collective automation (not user-level)
+2. **Verify identity user**: Collective must have an identity user configured
 3. **Check required params**: Each action has required parameters (see table above)
 4. **Review run details**: Check the run's executed actions for specific errors
 
@@ -1100,10 +1100,10 @@ sum by (status) (increase(automations_runs_total[1h]))
 | "Event type is required" | Missing event_type for event trigger | Add `event_type` field |
 | "Invalid cron expression" | Malformed cron schedule | Use 5-field cron format |
 | "Agent not found" | Invalid agent_id in trigger_agent | Verify agent UUID exists |
-| "Rate limit exceeded" | Too many executions | Agent: 3/min, Studio: 10/min, Tenant: 100/min |
-| "Internal actions require a studio context" | User-level automation with internal_action | Use studio automation instead |
+| "Rate limit exceeded" | Too many executions | Agent: 3/min, Collective: 10/min, Tenant: 100/min |
+| "Internal actions require a collective context" | User-level automation with internal_action | Use collective automation instead |
 | "Unsupported action" | Invalid action name | Use `create_note`, `create_decision`, or `create_commitment` |
-| "Studio does not have an identity user" | Missing identity user | Contact admin to configure studio |
+| "Collective does not have an identity user" | Missing identity user | Contact admin to configure collective |
 
 ---
 

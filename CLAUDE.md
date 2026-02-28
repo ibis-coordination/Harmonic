@@ -106,7 +106,7 @@ Subdomain-based multi-tenancy using thread-local variables:
 
 - `HasTruncatedId` - Short 8-char IDs for URLs (e.g., `/n/a1b2c3d4`)
 - `Linkable` - Bidirectional linking between content
-- `Pinnable` - Content can be pinned to studio
+- `Pinnable` - Content can be pinned to collective
 - `Attachable` - File attachments
 - `Commentable` - Comments (which are Notes)
 
@@ -126,7 +126,7 @@ The app serves two parallel interfaces:
 ### Backend (Ruby)
 - Framework: Minitest
 - Coverage threshold: 45% line, 25% branch (CI enforces this)
-- Test helpers: `create_tenant_studio_user`, `create_note`, `create_decision`, etc. in `test/test_helper.rb`
+- Test helpers: `create_tenant_collective_user`, `create_note`, `create_decision`, etc. in `test/test_helper.rb`
 - Integration tests use `sign_in_as(user, tenant:)` helper
 
 ### Frontend (TypeScript)

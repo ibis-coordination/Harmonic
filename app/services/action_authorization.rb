@@ -38,22 +38,22 @@ module ActionAuthorization
     collective_admin: lambda { |user, context|
       return false unless user
 
-      studio = context[:studio]
-      # No studio context = permissive for listing (user might be admin of some studio)
-      return true unless studio
+      collective = context[:collective]
+      # No collective context = permissive for listing (user might be admin of some collective)
+      return true unless collective
 
-      user.collective_members.find_by(collective_id: studio.id)&.is_admin? || false
+      user.collective_members.find_by(collective_id: collective.id)&.is_admin? || false
     },
 
     # Role-based
     collective_member: lambda { |user, context|
       return false unless user
 
-      studio = context[:studio]
-      # No studio context = permissive for listing (user might be member of some studio)
-      return true unless studio
+      collective = context[:collective]
+      # No collective context = permissive for listing (user might be member of some collective)
+      return true unless collective
 
-      studio.user_is_member?(user)
+      collective.user_is_member?(user)
     },
     resource_owner: lambda { |user, context|
       return false unless user
@@ -97,7 +97,7 @@ module ActionAuthorization
   #
   # @param action_name [String] The name of the action
   # @param user [User, nil] The user attempting the action
-  # @param context [Hash] Additional context (studio, resource, target_user, target)
+  # @param context [Hash] Additional context (collective, resource, target_user, target)
   # @return [Boolean] true if authorized, false otherwise
   sig do
     params(
@@ -128,11 +128,11 @@ module ActionAuthorization
   # Check if a trustee user is authorized for this action.
   #
   # For user representation sessions: checks grant permissions.
-  # For studio representation: collective trustees have full access.
+  # For collective representation: collective trustees have full access.
   #
   # @param user [User, nil] The user attempting the action
   # @param action_name [String] The action to check
-  # @param context [Hash] Additional context (studio, representation_session, etc.)
+  # @param context [Hash] Additional context (collective, representation_session, etc.)
   # @return [Boolean] true if authorized, false otherwise
   sig do
     params(
@@ -150,9 +150,9 @@ module ActionAuthorization
       grant = rep_session.trustee_grant
       return false unless grant&.active?
 
-      # Check studio scope if context provided
-      studio = context[:studio]
-      return false if studio && !grant.allows_studio?(studio)
+      # Check collective scope if context provided
+      collective = context[:collective]
+      return false if collective && !grant.allows_collective?(collective)
 
       # Check if grant allows this action
       return false unless grant.has_action_permission?(action_name)
@@ -161,7 +161,7 @@ module ActionAuthorization
       return CapabilityCheck.allowed?(T.must(grant.granting_user), action_name)
     end
 
-    # For studio representation: current_user is a collective_identity user
+    # For collective representation: current_user is a collective_identity user
     return true unless user&.collective_identity?
     return true if user.identity_collective.present?  # Collective identity users have full access
 

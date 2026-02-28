@@ -1,7 +1,7 @@
 # Feature Flag Definitions
 #
 # This file defines all available feature flags in the application.
-# Flags follow a hierarchical cascade: App -> Tenant -> Studio
+# Flags follow a hierarchical cascade: App -> Tenant -> Collective
 # A feature must be enabled at ALL higher levels to be available at a given level.
 #
 # Configuration options per flag:
@@ -9,7 +9,7 @@
 #   description: Explanation shown in admin UIs
 #   app_enabled: Whether enabled at app level (fixed, requires restart to change)
 #   default_tenant: Default value for new tenants
-#   default_studio: Default value for new studios
+#   default_collective: Default value for new collectives
 
 feature_flags:
   api:
@@ -17,25 +17,25 @@ feature_flags:
     description: "Enables API access for programmatic integrations and AI agents"
     app_enabled: true
     default_tenant: false
-    default_studio: false
+    default_collective: false
 
   file_attachments:
     name: "File Attachments"
     description: "Allows users to attach files to notes, decisions, and commitments"
     app_enabled: true
     default_tenant: true
-    default_studio: true
+    default_collective: true
 
   trio:
     name: "Trio AI Assistant"
     description: "Enables the Trio AI ensemble chat feature for answering questions"
     app_enabled: true
     default_tenant: false
-    default_studio: true
+    default_collective: true
 
   ai_agents:
     name: "AI Agents Task Runner"
     description: "Enables the AI Agents task runner for executing automated tasks via AI agents"
     app_enabled: true
     default_tenant: false
-    default_studio: false
+    default_collective: false

@@ -1,0 +1,46 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Collectives'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'heart', height: 14, class: 'pulse-resource-icon' %>
+        Collectives
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Your Collectives</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @collectives.any? %>
+      <ul class="pulse-list">
+        <% @collectives.each do |collective| %>
+          <li class="pulse-list-item">
+            <a href="<%= collective.path %>" class="pulse-list-link">
+              <img src="<%= collective.image_path %>" class="pulse-home-list-icon" alt="">
+              <%= collective.name %>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    <% elsif @current_user %>
+      <p class="pulse-empty-content"><em>You are not a member of any collectives yet.</em></p>
+    <% else %>
+      <p class="pulse-empty-content">
+        <a href="/login" class="pulse-link">Log in</a> to see your collectives.
+      </p>
+    <% end %>
+
+    <% if @current_user %>
+      <div class="pulse-form-actions" style="margin-top: 1.5rem;">
+        <a href="/collectives/new" class="pulse-action-btn">
+          <%= octicon 'plus', height: 14 %>
+          Create New Collective
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>

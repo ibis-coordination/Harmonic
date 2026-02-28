@@ -45,10 +45,10 @@ class DevController < ApplicationController
       parent: nil
     )
 
-    @dummy_studio = OpenStruct.new(
+    @dummy_collective = OpenStruct.new(
       display_name: "Design Team",
       handle: "design-team",
-      path: "/studios/design-team",
+      path: "/collectives/design-team",
       profile_picture: OpenStruct.new(attached?: false)
     )
 
@@ -63,7 +63,7 @@ class DevController < ApplicationController
       comment_count: 3,
       attachments: [],
       is_comment?: false,
-      collective: @dummy_studio
+      collective: @dummy_collective
     )
 
     @dummy_decision = OpenStruct.new(
@@ -80,7 +80,7 @@ class DevController < ApplicationController
         OpenStruct.new(title: "No, keep current design", vote_count: 2),
         OpenStruct.new(title: "Migrate gradually", vote_count: 8),
       ],
-      collective: @dummy_studio
+      collective: @dummy_collective
     )
 
     @dummy_commitment = OpenStruct.new(
@@ -94,7 +94,7 @@ class DevController < ApplicationController
       open?: true,
       critical_mass: 3,
       participant_count: 2,
-      collective: @dummy_studio
+      collective: @dummy_collective
     )
 
     @dummy_comments = [

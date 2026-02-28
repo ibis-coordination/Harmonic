@@ -75,10 +75,10 @@ export default class DecisionController extends Controller {
   }
 
   async toggleVoteValues(event: Event): Promise<void> {
-    const studioHandle = window.location.pathname.startsWith("/studios/")
+    const collectiveHandle = window.location.pathname.startsWith("/collectives/")
       ? window.location.pathname.split("/")[2]
       : null
-    const urlPrefix = studioHandle ? `/studios/${studioHandle}` : ""
+    const urlPrefix = collectiveHandle ? `/collectives/${collectiveHandle}` : ""
     const decisionId = this.inputTarget.dataset.decisionId
 
     const target = event.target as HTMLElement

@@ -29,7 +29,7 @@ class CommitmentsController < ApplicationController
       if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
         @commitment.attach!(params[:files])
       end
-      if params[:pinned] == '1' && current_collective.id != current_tenant.main_studio_id
+      if params[:pinned] == '1' && current_collective.id != current_tenant.main_collective_id
         api_helper.pin_resource(@commitment)
       end
       redirect_to @commitment.path
@@ -101,12 +101,12 @@ class CommitmentsController < ApplicationController
 
   def actions_index_new
     @page_title = "Actions | Commit"
-    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/commit'))
+    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/commit'))
   end
 
   def actions_index_show
     @page_title = "Actions | #{current_commitment.title}"
-    render_actions_index(ActionsHelper.actions_for_route('/studios/:studio_handle/c/:commitment_id'))
+    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/c/:commitment_id'))
   end
 
   def describe_create_commitment
