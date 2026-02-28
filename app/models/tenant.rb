@@ -106,22 +106,22 @@ class Tenant < ApplicationRecord
   def set_defaults
     return unless self.respond_to?(:settings)
     self.settings = ({
-      timezone: 'UTC',
-      require_login: true,
-      require_invite: true,
-      auth_providers: ['github'],
-      allow_file_uploads: false,
-      allow_main_collective_items: false,
-      api_enabled: false,
-      default_collective_settings: {
-        tempo: 'daily',
-        synchronization_mode: 'improv',
-        all_members_can_invite: false,
-        any_member_can_represent: false,
-        api_enabled: false,
-        allow_file_uploads: true,
-        file_upload_limit: 100.megabytes,
-      }
+      "timezone" => "UTC",
+      "require_login" => true,
+      "require_invite" => true,
+      "auth_providers" => ["github"],
+      "allow_file_uploads" => false,
+      "allow_main_collective_items" => false,
+      "api_enabled" => false,
+      "default_collective_settings" => {
+        "tempo" => "daily",
+        "synchronization_mode" => "improv",
+        "all_members_can_invite" => false,
+        "any_member_can_represent" => false,
+        "api_enabled" => false,
+        "allow_file_uploads" => true,
+        "file_upload_limit" => 100.megabytes,
+      },
     }).merge(self.settings || {})
   end
 

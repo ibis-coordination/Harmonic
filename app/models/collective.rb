@@ -96,18 +96,18 @@ class Collective < ApplicationRecord
   def set_defaults
     self.updated_by ||= created_by
     self.settings = {
-      unlisted: true,
-      invite_only: true,
-      timezone: "UTC",
-      all_members_can_invite: false,
-      any_member_can_represent: false,
-      tempo: "weekly",
-      synchronization_mode: "improv",
-      allow_file_uploads: true,
-      file_upload_limit: 100.megabytes,
-      pinned: {},
-      feature_flags: {
-        api: false,
+      "unlisted" => true,
+      "invite_only" => true,
+      "timezone" => "UTC",
+      "all_members_can_invite" => false,
+      "any_member_can_represent" => false,
+      "tempo" => "weekly",
+      "synchronization_mode" => "improv",
+      "allow_file_uploads" => true,
+      "file_upload_limit" => 100.megabytes,
+      "pinned" => {},
+      "feature_flags" => {
+        "api" => false,
       },
     }.merge(
       T.must(tenant).default_collective_settings
