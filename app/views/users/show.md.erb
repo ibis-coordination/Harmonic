@@ -10,7 +10,7 @@ Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.
 <% end %>
 <% if @showing_user.human? && @ai_agent_count && @ai_agent_count > 0 %>
 
-Has <%= @ai_agent_count %> ai_agent<%= @ai_agent_count == 1 ? "" : "s" %>
+Has <%= @ai_agent_count %> AI agent<%= @ai_agent_count == 1 ? "" : "s" %>
 <% end %>
 <% if @current_user != @showing_user && @common_collective_count > 0 %>
 

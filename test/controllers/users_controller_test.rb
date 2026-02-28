@@ -35,7 +35,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
     assert_response :success
-    assert_includes response.body, "Has 2 ai_agents"
+    assert_includes response.body, "Has 2 AI agents"
   end
 
   test "person user profile shows singular ai_agent when they have one" do
@@ -45,18 +45,17 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
     assert_response :success
-    assert_includes response.body, "Has 1 ai_agent"
-    assert_not_includes response.body, "Has 1 ai_agents"
+    assert_includes response.body, "Has 1 AI agent"
+    assert_not_includes response.body, "Has 1 AI agents"
   end
 
   test "person user profile does not show ai_agent count when they have none" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
     assert_response :success
-    assert_not_includes response.body, "Has 0 ai_agent"
-    # The profile section should not mention ai_agents when user has none
-    # (Note: "AiAgents" appears in navigation menu but that's expected)
-    assert_no_match(/Has \d+ ai_agent/, response.body)
+    assert_not_includes response.body, "Has 0 AI agent"
+    # The profile section should not mention AI agents when user has none
+    assert_no_match(/Has \d+ AI agent/, response.body)
   end
 
   test "ai_agent profile does not show ai_agent count" do
@@ -67,10 +66,10 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{ai_agent.handle}"
     assert_response :success
-    # AiAgent shows "ai_agent" badge and "Managed by" but not "Has N ai_agents"
-    assert_includes response.body, "ai_agent"
-    assert_not_includes response.body, "Has 0 ai_agent"
-    assert_not_includes response.body, "Has 1 ai_agent"
+    # AiAgent shows "AI agent" badge and "Managed by" but not "Has N AI agents"
+    assert_includes response.body, "AI agent"
+    assert_not_includes response.body, "Has 0 AI agent"
+    assert_not_includes response.body, "Has 1 AI agent"
   end
 
   # === AiAgent Count Tests (Markdown) ===
@@ -84,14 +83,14 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_includes response.body, "Has 2 ai_agents"
+    assert_includes response.body, "Has 2 AI agents"
   end
 
   test "markdown person profile does not show ai_agent count when they have none" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_not_includes response.body, "Has 0 ai_agent"
+    assert_not_includes response.body, "Has 0 AI agent"
   end
 
   # === AiAgent Count Scoping Tests ===
@@ -108,8 +107,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
     assert_response :success
-    # Should only show 1 ai_agent (the one in this tenant)
-    assert_includes response.body, "Has 1 ai_agent"
-    assert_not_includes response.body, "Has 2 ai_agents"
+    # Should only show 1 AI agent (the one in this tenant)
+    assert_includes response.body, "Has 1 AI agent"
+    assert_not_includes response.body, "Has 2 AI agents"
   end
 end
