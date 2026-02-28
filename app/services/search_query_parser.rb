@@ -30,6 +30,7 @@ class SearchQueryParser
   OPERATORS = T.let({
     # Location scope
     "collective" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
+    "scope" => { values: ["public", "private"], multi: false },
 
     # User filters
     "creator" => { pattern: HANDLE_PATTERN, multi: true },
@@ -302,6 +303,9 @@ class SearchQueryParser
     # Collective scope
     params[:collective_handle] = build_collective_param("collective")
 
+    # Scope filter (public/private)
+    params[:scope] = build_scope_param
+
     params.compact
   end
 
@@ -480,6 +484,15 @@ class SearchQueryParser
     return nil if values.blank?
 
     # Last value wins (value is already lowercased by expand_alias)
+    T.must(values.last)
+  end
+
+  sig { returns(T.nilable(String)) }
+  def build_scope_param
+    values = @operators["scope"]
+    return nil if values.blank?
+
+    # Last value wins
     T.must(values.last)
   end
 end

@@ -14,8 +14,7 @@ module Api::V1
     end
 
     def create
-      handle_available = Collective.where(handle: params[:handle]).empty?
-      return render json: { error: 'Handle already in use' }, status: 400 unless handle_available
+      return render json: { error: 'Handle is not available' }, status: 400 unless Collective.handle_available?(params[:handle])
       begin
         collective = api_helper.create_collective
         render json: collective.api_json

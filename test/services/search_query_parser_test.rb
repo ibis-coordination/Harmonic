@@ -571,6 +571,36 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal "created_at-desc", result[:sort_by]
   end
 
+  test "collective:main is a valid collective handle" do
+    result = SearchQueryParser.new("collective:main").parse
+    assert_equal "main", result[:collective_handle]
+  end
+
+  # scope: operator
+
+  test "scope:public sets scope" do
+    result = SearchQueryParser.new("scope:public").parse
+    assert_equal "public", result[:scope]
+  end
+
+  test "scope:private sets scope" do
+    result = SearchQueryParser.new("scope:private").parse
+    assert_equal "private", result[:scope]
+  end
+
+  test "invalid scope treated as search text" do
+    result = SearchQueryParser.new("scope:invalid").parse
+    assert_equal "scope:invalid", result[:q]
+    assert_nil result[:scope]
+  end
+
+  test "scope: operator with other operators" do
+    result = SearchQueryParser.new("budget scope:public type:note").parse
+    assert_equal "budget", result[:q]
+    assert_equal "public", result[:scope]
+    assert_equal "note", result[:type]
+  end
+
   test "invalid collective: value is treated as search text" do
     result = SearchQueryParser.new("collective:has spaces").parse
     # "collective:has" would be valid as a handle, but "spaces" becomes search text

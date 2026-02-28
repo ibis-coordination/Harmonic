@@ -41,6 +41,20 @@ class CollectiveTest < ActiveSupport::TestCase
     end
   end
 
+  test "Collective rejects reserved handle 'main'" do
+    tenant = create_tenant
+    user = create_user
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Collective.create!(
+        tenant: tenant,
+        created_by: user,
+        name: "Main Collective",
+        handle: "main"
+      )
+    end
+    assert_match(/handle is reserved/i, error.message)
+  end
+
   test "Collective.creator_is_not_collective_identity validation" do
     tenant = create_tenant
     identity_user = create_user(user_type: "collective_identity")
@@ -73,6 +87,10 @@ class CollectiveTest < ActiveSupport::TestCase
 
   test "Collective.handle_available? returns true for available handle" do
     assert Collective.handle_available?("unique-handle")
+  end
+
+  test "Collective.handle_available? returns false for reserved handle" do
+    assert_not Collective.handle_available?("main")
   end
 
   test "Collective.handle_available? returns false for taken handle" do

@@ -693,6 +693,91 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_nil search.collective
   end
 
+  test "collective:main resolves to tenant main collective" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "main collective content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "collective:main cycle:all"
+    )
+
+    assert_equal main_collective, search.collective
+    assert_includes search.results.pluck(:item_id), main_note.id
+    # Should NOT include items from other collectives
+    assert_not_includes search.results.pluck(:item_id), @note.id
+  end
+
+  # scope: operator tests
+
+  test "scope:public restricts search to main collective only" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user)
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public main content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "scope:public cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_includes result_ids, main_note.id
+    # Should NOT include items from non-main collectives
+    assert_not_includes result_ids, @note.id
+  end
+
+  test "scope:private excludes main collective results" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user)
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public main content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "scope:private cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_not_includes result_ids, main_note.id
+    # Should include items from non-main collectives the user is a member of
+    assert_includes result_ids, @note.id
+  end
+
+  test "scope:public for unauthenticated user returns main collective results" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public unauthenticated content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: nil,
+      raw_query: "scope:public cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    assert_includes result_ids, main_note.id
+  end
+
+  test "authenticated user always has access to main collective in search" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    # Don't explicitly add user as member — test that main collective is always accessible
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "always accessible content")
+    SearchIndexer.reindex(main_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "cycle:all"
+    )
+
+    assert_includes search.results.pluck(:item_id), main_note.id
+  end
+
   test "collective: operator respects access control" do
     # Create another user's private collective
     other_user = User.create!(name: "Other", email: "other-in-#{SecureRandom.hex(4)}@example.com")

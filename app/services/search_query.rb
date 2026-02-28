@@ -199,6 +199,11 @@ class SearchQuery
   sig { returns(T.nilable(Collective)) }
   attr_reader :collective
 
+  sig { returns(T.nilable(String)) }
+  def scope
+    @params[:scope].presence
+  end
+
   # Options for UI dropdowns
 
   sig { returns(T::Array[T::Array[String]]) }
@@ -300,8 +305,13 @@ class SearchQuery
     handle = collective_handle
     return if handle.blank?
 
-    # Look up collective by handle within the tenant
-    @collective = @tenant.collectives.find_by(handle: handle)
+    # "main" is a reserved handle that resolves to the tenant's main collective
+    if handle == "main"
+      @collective = @tenant.main_collective
+    else
+      # Look up collective by handle within the tenant
+      @collective = @tenant.collectives.find_by(handle: handle)
+    end
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -345,9 +355,23 @@ class SearchQuery
   sig { returns(T::Array[String]) }
   def accessible_collective_ids
     if @current_user.present?
-      @current_user.collectives
+      member_ids = @current_user.collectives
         .where(tenant_id: @tenant.id)
         .pluck(:id)
+
+      # Ensure main collective is always accessible for authenticated users
+      main_id = @tenant.main_collective_id
+      member_ids << main_id if main_id.present? && !member_ids.include?(main_id)
+
+      # Apply scope filter
+      case scope
+      when "public"
+        [main_id].compact
+      when "private"
+        member_ids - [main_id].compact
+      else
+        member_ids
+      end
     else
       # Unauthenticated users can only see the main collective
       [@tenant.main_collective_id].compact

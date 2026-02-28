@@ -185,6 +185,15 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not json["available"]
   end
 
+  test "handle_available returns false for reserved handle 'main'" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/available", params: { handle: "main" }
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    assert_not json["available"]
+  end
+
   # === Join Collective Tests ===
 
   test "user can view join page with valid invite code" do

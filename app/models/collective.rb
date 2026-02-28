@@ -89,6 +89,8 @@ class Collective < ApplicationRecord
 
   sig { params(handle: String).returns(T::Boolean) }
   def self.handle_available?(handle)
+    return false if RESERVED_HANDLES.include?(handle)
+
     Collective.where(handle: handle).count == 0
   end
 
@@ -326,11 +328,14 @@ class Collective < ApplicationRecord
     end
   end
 
+  RESERVED_HANDLES = %w[main].freeze
+
   sig { void }
   def handle_is_valid
     if handle.present?
       only_alphanumeric_with_dash = T.must(handle).match?(/\A[a-z0-9-]+\z/)
       errors.add(:handle, "must be alphanumeric with dashes") unless only_alphanumeric_with_dash
+      errors.add(:handle, "is reserved") if RESERVED_HANDLES.include?(handle)
     else
       errors.add(:handle, "can't be blank")
     end
