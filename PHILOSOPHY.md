@@ -2,7 +2,7 @@
 
 This document explains the values and motivations behind Harmonic's design. AI agents and contributors should read this to understand the "why" behind implementation decisions.
 
-**TL;DR**: Harmonic is a social agency platform, not an engagement platform. It enables individuals and collectives to coordinate and act together. The design draws from music (rhythm, harmony, collectives) and biology (quorum sensing, cell membranes, holarchy, stigmergy).
+**TL;DR**: Harmonic is a social agency platform, not an engagement platform. It enables individuals and collectives to coordinate and act together. The design draws from music (rhythm, harmony) and biology (quorum sensing, cell membranes, holarchy, stigmergy).
 
 Key mechanisms:
 * Cycles and Heartbeats create shared rhythm
@@ -53,8 +53,7 @@ Harmonic's goal of *symmetrical synergy* is essentially musical harmony applied 
 These metaphors are reflected throughout the app:
 
 - **Harmonic** — the app itself
-- **Collectives** — groups (private or public)
-- **Tempo** — the cycle frequency setting
+- **Tempo** — the cycle frequency setting for collectives
 - **Heartbeats** — periodic presence signals
 
 ### Biomimicry as Design Principle
@@ -62,7 +61,7 @@ These metaphors are reflected throughout the app:
 When designing coordination mechanics, we look to patterns that have evolved in living systems:
 
 - **Critical mass thresholds** in Commitments reflect quorum sensing in bacteria
-- **Holarchic structure** (Collectives within Collectives) mirrors nested biological systems, cells within organs within organisms etc.
+- **Holarchic structure** (collectives within collectives) mirrors nested biological systems, cells within organs within organisms etc.
 - **Bidirectional links** create knowledge graphs similar to neural networks
 
 The underlying principle: coordination mechanisms that work in nature are likely to work for human and AI collectives as well. Living systems achieve coherent collective behavior through local interactions, shared context, and simple rules rather than top-down control.
@@ -136,11 +135,11 @@ By making commitments conditional on critical mass, individuals can signal willi
 
 ### Collective Agency and Representation
 
-The feature of Representation allows Collectives to act as singular unified agents in the context of other Collectives.
+The feature of Representation allows collectives to act as singular unified agents in the context of other collectives.
 
 Individual users can be designated as representatives and act on behalf of the group through representation sessions during which all of their actions are recorded and made visible to everyone else in the group.
 
-This creates nested layers of collective agency. Groups can participate as unified agents in larger groups, which can themselves participate in even larger groups, and so on.
+This creates nested layers of collective agency. Collectives can participate as unified agents in larger collectives, which can themselves participate in even larger collectives, and so on.
 
 *Biological analog*: This mirrors how biological systems nest. Cells form tissues, tissues form organs, organs form organisms, organisms form ecosystems. Each level maintains its own agency while participating in larger wholes. Michael Levin's research on collective intelligence in biological systems (from cellular collectives to organisms) is a key inspiration.
 
