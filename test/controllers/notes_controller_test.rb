@@ -23,6 +23,38 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "new note form shows members-only visibility hint for non-main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/note"
+    assert_response :success
+    assert_select ".pulse-visibility-hint", /Only members of this collective/
+  end
+
+  test "new note form shows publicly visible hint for main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user) unless main_collective.collective_members.exists?(user: @user)
+    get "/note"
+    assert_response :success
+    assert_select ".pulse-visibility-hint", /publicly visible/
+  end
+
+  test "new note markdown shows members-only visibility for non-main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/note", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Only members of this collective/, response.body)
+  end
+
+  test "new note markdown shows publicly visible for main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user) unless main_collective.collective_members.exists?(user: @user)
+    get "/note", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/publicly visible/, response.body)
+  end
+
   # === Create Note Tests ===
 
   test "authenticated user can create a note" do

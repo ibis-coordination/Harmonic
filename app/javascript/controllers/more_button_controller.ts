@@ -41,7 +41,7 @@ export default class MoreButtonController extends Controller {
     const scrollTop = window.scrollY || document.documentElement.scrollTop
     this.menuTarget.style.position = "absolute"
     this.menuTarget.style.top = `${rect.bottom + scrollTop}px`
-    this.menuTarget.style.right = `${window.innerWidth - rect.right}px`
+    this.menuTarget.style.right = `${document.documentElement.clientWidth - rect.right}px`
 
     this.menuTarget.style.display = this.menuTarget.style.display === "none" ? "block" : "none"
     this.plusMenuTarget.style.display = "none"
@@ -52,7 +52,7 @@ export default class MoreButtonController extends Controller {
     const scrollTop = window.scrollY || document.documentElement.scrollTop
     this.plusMenuTarget.style.position = "absolute"
     this.plusMenuTarget.style.top = `${rect.bottom + scrollTop}px`
-    this.plusMenuTarget.style.right = `${window.innerWidth - rect.right}px`
+    this.plusMenuTarget.style.right = `${document.documentElement.clientWidth - rect.right}px`
 
     this.plusMenuTarget.style.display = this.plusMenuTarget.style.display === "none" ? "block" : "none"
     this.menuTarget.style.display = "none"

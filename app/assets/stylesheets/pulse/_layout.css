@@ -127,6 +127,26 @@
   justify-content: center;
 }
 
+/* Plus button spacing (between plus and kebab on resource pages) */
+.more-button [data-more-button-target="plus"] {
+  margin-right: 12px;
+}
+
+/* Header plus button (create new note/decision/commitment) */
+.header-plus-button .more-button {
+  float: none;
+  display: inline-block;
+}
+
+.header-plus-button .more-button > button,
+.header-plus-button .more-button > div.more-button-menu {
+  display: none;
+}
+
+.header-plus-button .more-button [data-more-button-target="plus"] {
+  margin-right: 0;
+}
+
 /* Top Menu (user dropdown) */
 .top-menu-button {
   cursor: pointer;

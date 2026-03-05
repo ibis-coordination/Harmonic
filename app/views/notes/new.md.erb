@@ -2,3 +2,9 @@
 
 Notes only require text content (markdown). Any links to other resources within the collective should include the full URL, not just the path.
 
+<% if @current_collective.id == @current_tenant.main_collective_id %>
+**Visibility:** This note will be publicly visible.
+<% else %>
+**Visibility:** Only members of this collective will see this note.
+<% end %>
+

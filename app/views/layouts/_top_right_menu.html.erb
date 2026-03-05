@@ -2,8 +2,7 @@
 <% if @current_user %>
   <%# Only auto-populate search filter for non-main collectives %>
   <% search_collective = @current_collective&.id != @current_tenant&.main_collective_id ? @current_collective : nil %>
-  <div style="display:inline-block;vertical-align:top;margin-right:12px;"
-       data-controller="header-search"
+  <div data-controller="header-search"
        data-header-search-collective-handle-value="<%= search_collective&.handle %>"
        data-header-search-collective-name-value="<%= search_collective&.name %>">
     <form action="/search" method="get" class="header-search-form" data-header-search-target="form">
@@ -19,7 +18,12 @@
              data-action="focus->header-search#onFocus blur->header-search#onBlur" />
     </form>
   </div>
-  <div style="display:inline-block;vertical-align:top;margin-right:8px;">
+  <% if @current_collective %>
+    <div class="header-plus-button">
+      <%= render 'shared/more_button_collective', collective: @current_collective %>
+    </div>
+  <% end %>
+  <div>
     <a href="/notifications" class="notification-icon" title="Notifications">
       <%= octicon 'inbox', height: 20 %>
       <span class="notification-badge-count"
@@ -29,7 +33,7 @@
       </span>
     </a>
   </div>
-  <div data-controller="top-right-menu" style="display:inline-block;">
+  <div data-controller="top-right-menu">
     <div data-top-right-menu-target="button" class="top-menu-button" data-action="click->top-right-menu#toggleMenu">
       <%= profile_pic(@current_user) %>
     </div>

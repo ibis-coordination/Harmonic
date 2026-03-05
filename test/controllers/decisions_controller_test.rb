@@ -35,6 +35,38 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form"
   end
 
+  test "new decision form shows members-only visibility hint for non-main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/decide"
+    assert_response :success
+    assert_select ".pulse-visibility-hint", /Only members of this collective/
+  end
+
+  test "new decision form shows publicly visible hint for main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user) unless main_collective.collective_members.exists?(user: @user)
+    get "/decide"
+    assert_response :success
+    assert_select ".pulse-visibility-hint", /publicly visible/
+  end
+
+  test "new decision markdown shows members-only visibility for non-main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/decide", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Only members of this collective/, response.body)
+  end
+
+  test "new decision markdown shows publicly visible for main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user) unless main_collective.collective_members.exists?(user: @user)
+    get "/decide", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/publicly visible/, response.body)
+  end
+
   test "unauthenticated user is redirected from new decision form" do
     get "/collectives/#{@collective.handle}/decide"
     assert_redirected_to "/login"
