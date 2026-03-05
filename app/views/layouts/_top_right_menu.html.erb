@@ -4,7 +4,15 @@
   <% search_collective = @current_collective&.id != @current_tenant&.main_collective_id ? @current_collective : nil %>
   <div data-controller="header-search"
        data-header-search-collective-handle-value="<%= search_collective&.handle %>"
-       data-header-search-collective-name-value="<%= search_collective&.name %>">
+       data-header-search-collective-name-value="<%= search_collective&.name %>"
+       class="header-search-wrapper">
+    <button type="button"
+            class="header-search-toggle"
+            data-header-search-target="toggle"
+            data-action="click->header-search#toggleMobileSearch"
+            aria-label="Search">
+      <%= octicon 'search', height: 16 %>
+    </button>
     <form action="/search" method="get" class="header-search-form" data-header-search-target="form">
       <span class="header-search-icon" data-action="click->header-search#focusInput">
         <%= octicon 'search', height: 16 %>
@@ -15,7 +23,7 @@
              placeholder="Search"
              autocomplete="off"
              data-header-search-target="input"
-             data-action="focus->header-search#onFocus blur->header-search#onBlur" />
+             data-action="focus->header-search#onFocus blur->header-search#onBlur keydown.esc->header-search#collapseMobileSearch" />
     </form>
   </div>
   <% if @current_collective %>

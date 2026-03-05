@@ -8,18 +8,25 @@ import { Controller } from "@hotwired/stimulus"
  * to scope the search to that collective. The user can remove
  * this prefix to search across all accessible collectives.
  *
+ * On mobile (<=768px), the search bar collapses to an icon-only button.
+ * Tapping the icon expands the search as an overlay. Escape or click-outside
+ * collapses it back.
+ *
  * Usage:
  * <div data-controller="header-search"
  *      data-header-search-collective-handle-value="my-collective"
- *      data-header-search-collective-name-value="My Collective">
+ *      data-header-search-collective-name-value="My Collective"
+ *      class="header-search-wrapper">
+ *   <button data-header-search-target="toggle"
+ *           data-action="click->header-search#toggleMobileSearch">search icon</button>
  *   <form data-header-search-target="form">
  *     <input data-header-search-target="input"
- *            data-action="focus->header-search#onFocus blur->header-search#onBlur" />
+ *            data-action="focus->header-search#onFocus blur->header-search#onBlur keydown.esc->header-search#collapseMobileSearch" />
  *   </form>
  * </div>
  */
 export default class HeaderSearchController extends Controller<HTMLElement> {
-  static targets = ["form", "input"]
+  static targets = ["form", "input", "toggle"]
   static values = {
     collectiveHandle: String,
     collectiveName: String,
@@ -27,13 +34,22 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
 
   declare readonly formTarget: HTMLFormElement
   declare readonly inputTarget: HTMLInputElement
+  declare readonly hasToggleTarget: boolean
   declare collectiveHandleValue: string
   declare collectiveNameValue: string
 
   private hasAutoPopulated = false
+  private boundClickOutside: ((event: Event) => void) | null = null
 
   connect(): void {
-    // Nothing to do on connect
+    this.boundClickOutside = this.handleClickOutside.bind(this)
+    document.addEventListener("click", this.boundClickOutside)
+  }
+
+  disconnect(): void {
+    if (this.boundClickOutside) {
+      document.removeEventListener("click", this.boundClickOutside)
+    }
   }
 
   /**
@@ -91,5 +107,54 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
    */
   focusInput(): void {
     this.inputTarget.focus()
+  }
+
+  // --- Mobile search toggle ---
+
+  private isMobile(): boolean {
+    return window.innerWidth <= 768
+  }
+
+  private isExpanded(): boolean {
+    return this.element.classList.contains("header-search-expanded")
+  }
+
+  toggleMobileSearch(): void {
+    if (!this.isMobile()) return
+
+    if (this.isExpanded()) {
+      this.collapseMobileSearch()
+    } else {
+      this.expandMobileSearch()
+    }
+  }
+
+  private expandMobileSearch(): void {
+    this.element.classList.add("header-search-expanded")
+    requestAnimationFrame(() => {
+      this.inputTarget.focus()
+    })
+  }
+
+  collapseMobileSearch(): void {
+    if (!this.isMobile() || !this.isExpanded()) return
+
+    this.element.classList.remove("header-search-expanded")
+    this.inputTarget.blur()
+
+    const prefix = this.buildPrefix()
+    if (prefix && this.inputTarget.value.trim() === prefix) {
+      this.inputTarget.value = ""
+      this.hasAutoPopulated = false
+    }
+  }
+
+  private handleClickOutside(event: Event): void {
+    if (!this.isMobile() || !this.isExpanded()) return
+
+    const target = event.target as Node
+    if (!this.element.contains(target)) {
+      this.collapseMobileSearch()
+    }
   }
 }

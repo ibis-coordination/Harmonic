@@ -127,6 +127,26 @@
   justify-content: center;
 }
 
+/* Mobile search toggle button - hidden on desktop, shown via media query */
+.header-search-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.header-search-toggle:hover {
+  color: var(--color-fg-default);
+}
+
+.header-search-wrapper {
+  position: relative;
+}
+
 /* Plus button spacing (between plus and kebab on resource pages) */
 .more-button [data-more-button-target="plus"] {
   margin-right: 12px;
