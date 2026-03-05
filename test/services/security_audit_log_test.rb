@@ -7,14 +7,18 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
     @tenant = @global_tenant
     @user = @global_user
     @log_file = Rails.root.join("log/security_audit.log")
+    # Record current line count so find_log_entries only searches entries
+    # written during this test, avoiding collisions with accumulated entries
+    @log_line_offset = File.exist?(@log_file) ? File.readlines(@log_file).size : 0
   end
 
   # Find log entries matching the given criteria
-  # Returns all entries that match all provided key-value pairs
+  # Only searches entries written after @log_line_offset to avoid
+  # false matches from other tests or previous test runs
   def find_log_entries(**criteria)
     return [] unless File.exist?(@log_file)
 
-    File.readlines(@log_file).filter_map do |line|
+    File.readlines(@log_file).drop(@log_line_offset).filter_map do |line|
       entry = JSON.parse(line) rescue nil
       next unless entry
       entry if criteria.all? { |key, value| entry[key.to_s] == value }

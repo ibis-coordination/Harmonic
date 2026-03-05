@@ -222,6 +222,58 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # === Login Page Security Tests ===
+
+  test "login page oauth buttons disable turbo to prevent fetch-based form submission" do
+    host! auth_host
+    cookies[:redirect_to_subdomain] = @tenant.subdomain
+
+    get "/login"
+    assert_response :success
+    assert_select "form[action='/auth/github'][data-turbo='false']", { minimum: 1 },
+                  "OAuth buttons must set data-turbo='false' to avoid cross-origin fetch failures on iOS"
+  end
+
+  test "CSP form-action allows HTTPS destinations for OAuth redirects" do
+    host! auth_host
+    cookies[:redirect_to_subdomain] = @tenant.subdomain
+
+    get "/login"
+    csp = response.headers["Content-Security-Policy"]
+    assert csp, "Content-Security-Policy header must be present"
+
+    # form-action must allow https: (the scheme source, not a specific domain URL)
+    # so OAuth redirects to any provider work on iOS WebKit
+    assert_match(/form-action[^;]* https:(?!\/)/, csp,
+                 "CSP form-action must allow https: scheme for OAuth provider redirects")
+  end
+
+  test "CSP blocks inline scripts" do
+    host! auth_host
+    cookies[:redirect_to_subdomain] = @tenant.subdomain
+
+    get "/login"
+    csp = response.headers["Content-Security-Policy"]
+    assert csp, "Content-Security-Policy header must be present"
+
+    assert_match(/script-src 'self'/, csp,
+                 "CSP must restrict scripts to self")
+    refute_match(/script-src[^;]*'unsafe-inline'/, csp,
+                 "CSP must not allow unsafe-inline scripts")
+  end
+
+  test "CSP blocks clickjacking" do
+    host! auth_host
+    cookies[:redirect_to_subdomain] = @tenant.subdomain
+
+    get "/login"
+    csp = response.headers["Content-Security-Policy"]
+    assert csp, "Content-Security-Policy header must be present"
+
+    assert_match(/frame-ancestors 'none'/, csp,
+                 "CSP must set frame-ancestors 'none' to prevent clickjacking")
+  end
+
   # === Return Endpoint Tests ===
 
   test "return endpoint without user redirects to login" do
