@@ -27,31 +27,31 @@
       <% oauth_providers.each do |provider| %>
         <% provider = provider.downcase %>
         <% if provider == "github" %>
-          <%= button_to "/auth/github", method: :post, class: "pulse-auth-provider-btn" do %>
+          <%= button_to "/auth/github", method: :post, form: { data: { turbo: false } }, class: "pulse-auth-provider-btn" do %>
             <%= octicon 'mark-github', height: 18 %> Continue with GitHub
           <% end %>
         <% elsif provider == "google" %>
-          <%= button_to "/auth/google_oauth2", method: :post, class: "pulse-auth-provider-btn" do %>
+          <%= button_to "/auth/google_oauth2", method: :post, form: { data: { turbo: false } }, class: "pulse-auth-provider-btn" do %>
             Continue with Google
           <% end %>
         <% elsif provider == "twitter" %>
-          <%= button_to "/auth/twitter", method: :post, class: "pulse-auth-provider-btn" do %>
+          <%= button_to "/auth/twitter", method: :post, form: { data: { turbo: false } }, class: "pulse-auth-provider-btn" do %>
             Continue with Twitter
           <% end %>
         <% elsif provider == "facebook" %>
-          <%= button_to "/auth/facebook", method: :post, class: "pulse-auth-provider-btn" do %>
+          <%= button_to "/auth/facebook", method: :post, form: { data: { turbo: false } }, class: "pulse-auth-provider-btn" do %>
             Continue with Facebook
           <% end %>
         <% elsif provider == "linkedin" %>
-          <%= button_to "/auth/linkedin", method: :post, class: "pulse-auth-provider-btn" do %>
+          <%= button_to "/auth/linkedin", method: :post, form: { data: { turbo: false } }, class: "pulse-auth-provider-btn" do %>
             Continue with LinkedIn
           <% end %>
         <% elsif provider == "microsoft" %>
-          <%= button_to "/auth/microsoft_v2_auth", method: :post, class: "pulse-auth-provider-btn" do %>
+          <%= button_to "/auth/microsoft_v2_auth", method: :post, form: { data: { turbo: false } }, class: "pulse-auth-provider-btn" do %>
             Continue with Microsoft
           <% end %>
         <% elsif provider == "developer" && Rails.env.development? %>
-          <%= button_to "/auth/developer", method: :post, class: "pulse-auth-provider-btn" do %>
+          <%= button_to "/auth/developer", method: :post, form: { data: { turbo: false } }, class: "pulse-auth-provider-btn" do %>
             Continue with Developer
           <% end %>
         <% end %>

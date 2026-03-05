@@ -11,10 +11,12 @@ Rails.application.configure do
     policy.object_src  :none
     policy.base_uri    :self
 
-    # Allow form submissions to self and all harmonic subdomains
-    # This is needed for auth flows that cross subdomains
-    hostname = ENV.fetch("HOSTNAME", "harmonic.local")
-    policy.form_action :self, "https://*.#{hostname}"
+    # Allow form submissions to self and any HTTPS destination.
+    # OAuth login buttons POST to /auth/:provider (self), then OmniAuth redirects
+    # to the provider's authorize URL. WebKit (iOS) checks redirect destinations
+    # against form-action, so we must allow HTTPS broadly rather than listing
+    # each OAuth provider domain.
+    policy.form_action :self, "https:"
 
     # Images: allow self, data URIs, and DigitalOcean Spaces (for uploaded files)
     if ENV["DO_SPACES_ENDPOINT"].present?
