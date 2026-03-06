@@ -16,12 +16,27 @@
 
   <div class="pulse-resource-body">
     <% if @collectives.any? %>
-      <ul class="pulse-list">
+      <ul class="pulse-home-list" style="list-style-type: none;">
         <% @collectives.each do |collective| %>
-          <li class="pulse-list-item">
-            <a href="<%= collective.path %>" class="pulse-list-link">
-              <img src="<%= collective.image_path %>" class="pulse-home-list-icon" alt="">
-              <%= collective.name %>
+          <li class="pulse-home-list-item" style="list-style-type: none;">
+            <a href="<%= collective.path %>" class="pulse-home-list-link">
+              <% if collective.has_heartbeat %>
+                <span class="pulse-heartbeat-icon pulse-heartbeat-sent" title="Checked in this cycle">
+                  <%= octicon 'heart-fill', height: 16 %>
+                </span>
+              <% else %>
+                <span class="pulse-heartbeat-icon pulse-heartbeat-pending" title="Not yet checked in this cycle">
+                  <%= octicon 'heart', height: 16 %>
+                </span>
+              <% end %>
+              <% if collective.image.attached? %>
+                <img src="<%= collective.image_path %>" alt="" class="pulse-home-list-icon">
+              <% else %>
+                <span class="pulse-home-list-icon pulse-default-icon">
+                  <%= octicon 'people', height: 14 %>
+                </span>
+              <% end %>
+              <span class="pulse-home-list-name"><%= collective.name %></span>
             </a>
           </li>
         <% end %>

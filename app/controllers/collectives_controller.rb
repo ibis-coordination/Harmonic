@@ -6,7 +6,15 @@ class CollectivesController < ApplicationController
   def index
     @page_title = "Collectives"
     if current_user
-      @collectives = current_user.collectives.where.not(id: @current_tenant.main_collective_id).order(created_at: :desc)
+      @collectives = current_user.collectives
+        .joins(
+          "LEFT JOIN heartbeats ON heartbeats.collective_id = collectives.id AND " +
+          "heartbeats.user_id = '#{current_user.id}' AND " +
+          "heartbeats.expires_at > '#{Time.current}'"
+        )
+        .select("collectives.*, heartbeats.id IS NOT NULL AS has_heartbeat")
+        .where.not(id: @current_tenant.main_collective_id)
+        .order(:has_heartbeat, :name)
     else
       @collectives = []
     end

@@ -58,6 +58,14 @@
           </li>
         <% end %>
         <li>
+          <%= octicon 'people' %>
+          <a href="/collectives">Collectives</a>
+        </li>
+        <li>
+          <%= octicon 'globe' %>
+          <a href="/subdomains">Subdomains</a>
+        </li>
+        <li>
           <%= octicon 'gear' %>
           <a href="<%= @current_user.path %>/settings">Settings</a>
           <% if (pending_grants = @current_user.pending_trustee_grant_requests.count) > 0 %>

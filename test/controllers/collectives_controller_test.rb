@@ -26,6 +26,42 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     collective
   end
 
+  # === Collectives Index Tests ===
+
+  test "index shows only collectives the user is a member of" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Create a collective the user is NOT a member of
+    other_user = create_user(name: "Other User")
+    @tenant.add_user!(other_user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    other_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: other_user,
+      name: "Secret Collective",
+      handle: "secret-#{SecureRandom.hex(4)}",
+    )
+    other_collective.add_user!(other_user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives"
+    assert_response :success
+    assert_includes response.body, @collective.name
+    assert_not_includes response.body, "Secret Collective"
+  end
+
+  test "index excludes the main collective" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives"
+    assert_response :success
+
+    main_collective = Collective.find(@tenant.main_collective_id)
+    assert_not_includes response.body, "pulse-home-list-name\">#{main_collective.name}"
+  end
+
   # === Unauthenticated Access Tests ===
 
   test "unauthenticated user is redirected from collective homepage" do
