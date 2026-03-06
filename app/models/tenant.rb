@@ -111,7 +111,6 @@ class Tenant < ApplicationRecord
       "require_invite" => true,
       "auth_providers" => ["github"],
       "allow_file_uploads" => false,
-      "allow_main_collective_items" => false,
       "api_enabled" => false,
       "default_collective_settings" => {
         "tempo" => "daily",
@@ -166,12 +165,6 @@ class Tenant < ApplicationRecord
   sig { returns(ActiveSupport::TimeZone) }
   def timezone
     @timezone ||= self.settings['timezone'] ? ActiveSupport::TimeZone[self.settings['timezone']] : ActiveSupport::TimeZone['UTC']
-  end
-
-  sig { returns(T::Boolean) }
-  def allow_main_collective_items?
-    # Check both new and old key names for backward compatibility
-    (settings['allow_main_collective_items'] || settings['allow_main_studio_items']).to_s == 'true'
   end
 
   sig { returns(T::Boolean) }

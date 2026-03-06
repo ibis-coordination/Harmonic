@@ -1,0 +1,43 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  'Subdomains'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'globe', height: 14, class: 'pulse-resource-icon' %>
+        Subdomains
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Your Subdomains</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <ul class="pulse-list">
+      <li class="pulse-list-item pulse-home-list-item-current">
+        <span class="pulse-list-link">
+          <code class="pulse-subdomain-code"><%= @current_tenant.subdomain %></code>
+          <span class="pulse-current-badge">current</span>
+        </span>
+      </li>
+      <% @other_tenants.each do |tenant| %>
+        <li class="pulse-list-item">
+          <a href="https://<%= tenant.subdomain %>.<%= ENV['HOSTNAME'] %>" class="pulse-list-link">
+            <code class="pulse-subdomain-code"><%= tenant.subdomain %></code>
+          </a>
+        </li>
+      <% end %>
+    </ul>
+
+    <% if @current_user&.app_admin? && @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
+      <div class="pulse-form-actions" style="margin-top: 1.5rem;">
+        <a href="/app-admin/tenants/new" class="pulse-action-btn">
+          <%= octicon 'plus', height: 14 %>
+          New Subdomain
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>

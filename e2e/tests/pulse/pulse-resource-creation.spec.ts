@@ -42,10 +42,15 @@ test.describe("Pulse Resource Creation Forms", () => {
       await page.goto(`${baseUrl}${cachedCollectivePath}`)
       await page.waitForLoadState("domcontentloaded")
 
-      // Click the "+ New" button in the header
-      const newButton = page.locator('a.pulse-action-btn:has-text("+ New")')
-      await expect(newButton).toBeVisible()
-      await newButton.click()
+      // Click the [+▾] button in the header to open the creation dropdown
+      const plusButton = page.locator('[data-more-button-target="plus"]')
+      await expect(plusButton).toBeVisible()
+      await plusButton.click()
+
+      // Click "New Note" from the dropdown
+      const newNoteLink = page.locator('[data-more-button-target="plusMenu"] a:has-text("New Note")')
+      await expect(newNoteLink).toBeVisible()
+      await newNoteLink.click()
 
       // Should be on note creation page (route is /note, not /notes/new)
       await expect(page).toHaveURL(/\/note/)

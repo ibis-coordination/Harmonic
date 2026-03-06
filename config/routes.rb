@@ -125,6 +125,7 @@ Rails.application.routes.draw do
   get 'about' => 'home#about'
   get 'help' => 'home#help'
   get 'contact' => 'home#contact'
+  get 'subdomains' => 'home#subdomains'
 
   # LLM Chat - Trio (with voting ensemble)
   get 'trio' => 'trio#index'
@@ -167,7 +168,7 @@ Rails.application.routes.draw do
   post 'search/actions/search' => 'search#execute_search'
 
   # ============================================================
-  # NEW ADMIN ROUTES (fresh implementation - separate from /admin)
+  # ADMIN ROUTES
   # ============================================================
 
   # System Admin (primary tenant only, sys_admin role on User)

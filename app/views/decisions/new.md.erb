@@ -9,3 +9,9 @@ Decisions require the following:
 
 Options can be added to the list after the decision is created.
 
+<% if @current_collective.id == @current_tenant.main_collective_id %>
+**Visibility:** This decision will be publicly visible.
+<% else %>
+**Visibility:** Only members of this collective can access this decision.
+<% end %>
+

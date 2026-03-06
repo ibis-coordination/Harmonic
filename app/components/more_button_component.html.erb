@@ -2,22 +2,22 @@
   <div
     data-more-button-target="plus"
     data-action="click->more-button#togglePlusMenu"
-    style="display:inline-block;float:none;width:36px;text-align:center;margin-right:12px;background-color:var(--color-fg-default);color:var(--color-canvas-default);border-radius:3px;padding:3px;"
+    style="display:inline-block;float:none;text-align:center;background-color:var(--color-fg-default);color:var(--color-canvas-default);border-radius:3px;padding:3px 6px;cursor:pointer;"
     >
     <%= helpers.octicon 'plus' %><%= helpers.octicon 'triangle-down' %>
     </div>
     <div data-more-button-target="plusMenu" class="top-menu" style="display:none;">
     <ul>
       <li>
-        <i class="note-icon" style="height:1.5em;float:left;margin-right:12px"></i>
+        <i class="note-icon" style="height:1.5em;margin-right:12px"></i>
         <a href="<%= @collective.path %>/note">New Note</a>
       </li>
       <li>
-        <i class="decision-icon" style="height:1.5em;float:left;margin-right:12px"></i>
+        <i class="decision-icon" style="height:1.5em;margin-right:12px"></i>
         <a href="<%= @collective.path %>/decide">New Decision</a>
       </li>
       <li>
-        <i class="commitment-icon" style="height:1.5em;float:left;margin-right:12px"></i>
+        <i class="commitment-icon" style="height:1.5em;margin-right:12px"></i>
         <a href="<%= @collective.path %>/commit">New Commitment</a>
       </li>
     </ul>

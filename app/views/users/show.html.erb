@@ -79,8 +79,24 @@
   <% end %>
 
   <% if @proximity_users.present? %>
-    <%= render 'shared/pulse_accordion', title: 'Social Proximity', count: @proximity_users.size, icon: 'people', open: true do %>
+    <%= render 'shared/pulse_accordion', title: 'Social Proximity', count: @proximity_users.size, icon: 'people', open: false do %>
       <%= render 'users/proximity_connections' %>
+    <% end %>
+  <% end %>
+
+  <% if @feed_items.present? %>
+    <%= render 'shared/pulse_accordion', title: 'Recent Activity', icon: 'pulse', count: @feed_items.size, open: true do %>
+      <div class="pulse-feed" style="padding: 0;">
+        <% @feed_items.each do |feed_item| %>
+          <%= render FeedItemComponent.new(
+            item: feed_item[:item],
+            type: feed_item[:type],
+            created_by: feed_item[:created_by],
+            created_at: feed_item[:created_at],
+            current_user: @current_user,
+          ) %>
+        <% end %>
+      </div>
     <% end %>
   <% end %>
 </article>

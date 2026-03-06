@@ -6,12 +6,6 @@
 <article class="pulse-notifications-page">
   <header class="pulse-notifications-header">
     <h1 class="pulse-page-title"><%= octicon 'inbox', height: 20 %> Notifications</h1>
-    <div class="pulse-notifications-actions">
-      <a href="/notifications/new" class="pulse-action-btn">
-        <%= octicon 'clock', height: 14 %>
-        Schedule Reminder
-      </a>
-    </div>
   </header>
 
   <% if @scheduled_reminders.any? %>

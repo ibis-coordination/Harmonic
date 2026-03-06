@@ -27,7 +27,6 @@
           <span>Harmonic</span>
         </a>
         <div class="pulse-top-header-right">
-          <%= yield :header_actions %>
           <% unless @current_representation_session %>
             <%= render 'layouts/top_right_menu' %>
           <% end %>
@@ -60,31 +59,11 @@
         <% end %>
       </div>
     <% end %>
-    <%# Sidebar modes: full (default), resource, minimal, settings, admin, system_admin, app_admin, tenant_admin, none %>
-    <% sidebar_mode = @sidebar_mode || 'full' %>
-    <div class="pulse-container<%= ' no-sidebar' if sidebar_mode == 'none' %>" data-controller="pulse-filter">
-      <% case sidebar_mode %>
-      <% when 'full' %>
-        <%= render 'pulse/sidebar' %>
-      <% when 'resource' %>
-        <%= render 'pulse/sidebar_resource' %>
-      <% when 'settings' %>
-        <%= render 'pulse/sidebar_settings' %>
-      <% when 'minimal' %>
-        <%= render 'pulse/sidebar_minimal' %>
-      <% when 'system_admin' %>
-        <%= render 'pulse/sidebar_system_admin' %>
-      <% when 'app_admin' %>
-        <%= render 'pulse/sidebar_app_admin' %>
-      <% when 'tenant_admin' %>
-        <%= render 'pulse/sidebar_tenant_admin' %>
-      <% when 'none' %>
-        <%# No sidebar %>
-      <% end %>
+    <%= render SidebarComponent.new(requested_mode: @sidebar_mode || "full", collective: @current_collective) do %>
       <main class="pulse-main">
         <%= yield %>
       </main>
-    </div>
+    <% end %>
     <p class="pulse-motto-footer"
       title="These words appear on every page in Harmonic as a tuning fork to facilitate social attunement between agents within Harmonic, both human and AI. Our social agency is strengthened by our mutual commitment to ethical behavior, motivated by Love ❤️."
     >

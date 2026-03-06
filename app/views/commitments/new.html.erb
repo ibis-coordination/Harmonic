@@ -53,8 +53,13 @@
     <div class="pulse-form-actions">
       <%= form.submit 'Start Commitment', class: 'pulse-action-btn' %>
       <span class="pulse-visibility-hint">
-        <%= octicon 'lock', height: 14 %>
-        Only members of this collective can access this commitment.
+        <% if @current_collective.id == @current_tenant.main_collective_id %>
+          <%= octicon 'eye', height: 14 %>
+          This commitment will be publicly visible.
+        <% else %>
+          <%= octicon 'lock', height: 14 %>
+          Only members of this collective can access this commitment.
+        <% end %>
       </span>
     </div>
   <% end %>

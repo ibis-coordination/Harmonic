@@ -36,6 +36,38 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form"
   end
 
+  test "new commitment form shows members-only visibility hint for non-main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/commit"
+    assert_response :success
+    assert_select ".pulse-visibility-hint", /Only members of this collective/
+  end
+
+  test "new commitment form shows publicly visible hint for main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user) unless main_collective.collective_members.exists?(user: @user)
+    get "/commit"
+    assert_response :success
+    assert_select ".pulse-visibility-hint", /publicly visible/
+  end
+
+  test "new commitment markdown shows members-only visibility for non-main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/commit", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Only members of this collective/, response.body)
+  end
+
+  test "new commitment markdown shows publicly visible for main collective" do
+    sign_in_as(@user, tenant: @tenant)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user) unless main_collective.collective_members.exists?(user: @user)
+    get "/commit", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/publicly visible/, response.body)
+  end
+
   test "unauthenticated user is redirected from new commitment form" do
     get "/collectives/#{@collective.handle}/commit"
     assert_response :redirect

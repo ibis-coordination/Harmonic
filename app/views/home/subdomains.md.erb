@@ -1,0 +1,6 @@
+# Subdomains
+
+* `<%= @current_tenant.subdomain %>` (current)
+<% @other_tenants.each do |tenant| -%>
+* [`<%= tenant.subdomain %>`](https://<%= tenant.subdomain %>.<%= ENV['HOSTNAME'] %>)
+<% end -%>

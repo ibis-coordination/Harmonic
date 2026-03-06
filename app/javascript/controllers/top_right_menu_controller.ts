@@ -26,8 +26,10 @@ export default class TopRightMenuController extends Controller {
 
   toggleMenu(): void {
     const rect = this.buttonTarget.getBoundingClientRect()
-    this.menuTarget.style.top = `${rect.bottom}px`
-    this.menuTarget.style.right = `${window.innerWidth - rect.right}px`
+    const offsetParent = (this.menuTarget.offsetParent || document.body) as HTMLElement
+    const parentRect = offsetParent.getBoundingClientRect()
+    this.menuTarget.style.top = `${rect.bottom - parentRect.top}px`
+    this.menuTarget.style.right = `${parentRect.right - rect.right}px`
     this.menuTarget.style.display = this.menuTarget.style.display === "none" ? "block" : "none"
   }
 }

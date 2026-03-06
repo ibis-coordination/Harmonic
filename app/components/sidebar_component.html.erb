@@ -1,0 +1,6 @@
+<div class="pulse-container<%= ' no-sidebar' unless show_sidebar? %>" data-controller="pulse-filter">
+  <% if show_sidebar? %>
+    <%= render sidebar_partial %>
+  <% end %>
+  <%= content %>
+</div>

@@ -1,7 +1,3 @@
-<% content_for :header_actions do %>
-  <a href="<%= @current_collective.path %>/note" class="pulse-action-btn">+ New</a>
-<% end %>
-
 <% if @current_user && @current_heartbeat.nil? %>
   <div class="pulse-heartbeat-section" data-controller="heartbeat">
     <button

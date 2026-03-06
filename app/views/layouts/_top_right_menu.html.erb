@@ -2,10 +2,17 @@
 <% if @current_user %>
   <%# Only auto-populate search filter for non-main collectives %>
   <% search_collective = @current_collective&.id != @current_tenant&.main_collective_id ? @current_collective : nil %>
-  <div style="display:inline-block;vertical-align:top;margin-right:12px;"
-       data-controller="header-search"
+  <div data-controller="header-search"
        data-header-search-collective-handle-value="<%= search_collective&.handle %>"
-       data-header-search-collective-name-value="<%= search_collective&.name %>">
+       data-header-search-collective-name-value="<%= search_collective&.name %>"
+       class="header-search-wrapper">
+    <button type="button"
+            class="header-search-toggle"
+            data-header-search-target="toggle"
+            data-action="click->header-search#toggleMobileSearch"
+            aria-label="Search">
+      <%= octicon 'search', height: 16 %>
+    </button>
     <form action="/search" method="get" class="header-search-form" data-header-search-target="form">
       <span class="header-search-icon" data-action="click->header-search#focusInput">
         <%= octicon 'search', height: 16 %>
@@ -16,10 +23,15 @@
              placeholder="Search"
              autocomplete="off"
              data-header-search-target="input"
-             data-action="focus->header-search#onFocus blur->header-search#onBlur" />
+             data-action="focus->header-search#onFocus blur->header-search#onBlur keydown.esc->header-search#collapseMobileSearch" />
     </form>
   </div>
-  <div style="display:inline-block;vertical-align:top;margin-right:8px;">
+  <% if @current_collective %>
+    <div class="header-plus-button">
+      <%= render 'shared/more_button_collective', collective: @current_collective %>
+    </div>
+  <% end %>
+  <div>
     <a href="/notifications" class="notification-icon" title="Notifications">
       <%= octicon 'inbox', height: 20 %>
       <span class="notification-badge-count"
@@ -29,7 +41,7 @@
       </span>
     </a>
   </div>
-  <div data-controller="top-right-menu" style="display:inline-block;">
+  <div data-controller="top-right-menu">
     <div data-top-right-menu-target="button" class="top-menu-button" data-action="click->top-right-menu#toggleMenu">
       <%= profile_pic(@current_user) %>
     </div>
@@ -45,6 +57,14 @@
             <a href="/ai-agents">AI Agents</a>
           </li>
         <% end %>
+        <li>
+          <%= octicon 'people' %>
+          <a href="/collectives">Collectives</a>
+        </li>
+        <li>
+          <%= octicon 'globe' %>
+          <a href="/subdomains">Subdomains</a>
+        </li>
         <li>
           <%= octicon 'gear' %>
           <a href="<%= @current_user.path %>/settings">Settings</a>

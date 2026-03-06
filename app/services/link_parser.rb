@@ -79,7 +79,8 @@ class LinkParser
       end
       text = @from_record.class == Note ? T.unsafe(@from_record).text : T.unsafe(@from_record).description
       subdomain = T.must(@from_record.tenant).subdomain
-      collective_handle = T.must(@from_record.collective).handle
+      collective = T.must(@from_record.collective)
+      collective_handle = collective.is_main_collective? ? nil : collective.handle
       self.class.parse(text, subdomain: subdomain, collective_handle: collective_handle) do |to_record|
         yield to_record
       end
