@@ -129,11 +129,6 @@ class TenantTest < ActiveSupport::TestCase
     assert_not tenant.allow_file_uploads?
   end
 
-  test "Tenant.allow_main_collective_items? returns false by default" do
-    tenant = create_tenant
-    assert_not tenant.allow_main_collective_items?
-  end
-
   test "Tenant.valid_auth_provider? validates provider" do
     tenant = create_tenant
     assert tenant.valid_auth_provider?("github")

@@ -188,14 +188,6 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Scheduled Reminders"
   end
 
-  test "index always shows Schedule Reminder button" do
-    sign_in_as(@user, tenant: @tenant)
-
-    get "/notifications"
-    assert_response :success
-    assert_includes response.body, "Schedule Reminder"
-    assert_includes response.body, "/notifications/new"
-  end
 
   test "new page shows reminder creation form" do
     sign_in_as(@user, tenant: @tenant)

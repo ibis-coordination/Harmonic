@@ -4,8 +4,27 @@
       <h1 class="pulse-page-title"><span><%= @current_tenant.subdomain %><span class="pulse-subdomain-suffix">.<%= ENV['HOSTNAME'] %></span></span></h1>
     </header>
 
+    <%# Recent Activity Feed (primary content) %>
+    <% if @feed_items.present? %>
+      <div class="pulse-feed" style="padding: 0;">
+        <% @feed_items.each do |feed_item| %>
+          <%= render FeedItemComponent.new(
+            item: feed_item[:item],
+            type: feed_item[:type],
+            created_by: feed_item[:created_by],
+            created_at: feed_item[:created_at],
+            current_user: @current_user,
+          ) %>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="pulse-feed-empty">
+        <p>No public activity yet.</p>
+      </div>
+    <% end %>
+
     <%# Collectives Section %>
-    <%= render 'shared/pulse_accordion', title: 'Your Collectives', icon: 'people', count: @collectives.size, open: true do %>
+    <%= render 'shared/pulse_accordion', title: 'Your Collectives', icon: 'people', count: @collectives.size, open: false do %>
       <% if @collectives.any? %>
         <% unless @current_representation_session %>
           <div class="pulse-home-section-intro">
@@ -55,7 +74,7 @@
     <% end %>
 
     <%# Subdomains Section %>
-    <%= render 'shared/pulse_accordion', title: 'Your Subdomains', icon: 'globe', tooltip: 'Each subdomain contains a separate set of collectives.', count: @other_tenants.size + 1, open: true do %>
+    <%= render 'shared/pulse_accordion', title: 'Your Subdomains', icon: 'globe', tooltip: 'Each subdomain contains a separate set of collectives.', count: @other_tenants.size + 1, open: false do %>
       <div class="pulse-home-section-intro">
         <% if @current_user&.app_admin? && @current_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
           <a href="/app-admin/tenants/new" class="pulse-action-btn-secondary">

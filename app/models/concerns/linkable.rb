@@ -10,9 +10,7 @@ module Linkable
   end
 
   def parse_and_create_link_records!
-    unless self.collective.is_main_collective?
-      LinkParser.new(from_record: self).parse_and_create_link_records!
-    end
+    LinkParser.new(from_record: self).parse_and_create_link_records!
   end
 
   def backlinks

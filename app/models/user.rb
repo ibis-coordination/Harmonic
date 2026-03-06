@@ -440,6 +440,13 @@ class User < ApplicationRecord
     scores[other_user.id] || 0.0
   end
 
+  sig { params(tenant_id: T.nilable(String)).returns(T::Hash[String, Float]) }
+  def proximity_scores(tenant_id: Tenant.current_id)
+    return {} if tenant_id.nil?
+
+    cached_proximity_scores(tenant_id)
+  end
+
   sig { params(tenant_id: T.nilable(String), limit: Integer).returns(T::Array[T::Array[T.untyped]]) }
   def most_proximate_users(tenant_id: Tenant.current_id, limit: 20)
     return [] if tenant_id.nil?

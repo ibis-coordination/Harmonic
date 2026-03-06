@@ -20,6 +20,18 @@ class HomeController < ApplicationController
     @other_tenants = (
       (@current_user.own_tenants + @public_tenants) - [@current_tenant]
     ).uniq.sort_by(&:subdomain)
+
+    # Build main collective timeline, proximity-ranked
+    main_cid = @current_tenant.main_collective_id
+    tid = @current_tenant.id
+    scores = @current_user.proximity_scores(tenant_id: tid)
+
+    @feed_items = FeedBuilder.new(
+      notes_scope: Note.tenant_scoped_only(tid).where(collective_id: main_cid),
+      decisions_scope: Decision.tenant_scoped_only(tid).where(collective_id: main_cid),
+      commitments_scope: Commitment.tenant_scoped_only(tid).where(collective_id: main_cid),
+      proximity_scores: scores,
+    ).feed_items
   end
 
   def about

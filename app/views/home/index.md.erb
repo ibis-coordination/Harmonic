@@ -1,4 +1,12 @@
 # `<%= @current_tenant.domain %>`
+<% if @feed_items.present? %>
+
+## Recent Activity (<%= @feed_items.size %>)
+
+<% @feed_items.each do |feed_item| -%>
+* [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
+<% end -%>
+<% end %>
 
 ## Your Collectives
 

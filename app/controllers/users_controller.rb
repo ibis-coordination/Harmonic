@@ -57,6 +57,18 @@ class UsersController < ApplicationController
     # Load proximity connections for the profile being viewed
     load_proximity_connections
 
+    # Build user's main collective (public) content timeline
+    tid = @current_tenant.id
+    main_cid = @current_tenant.main_collective_id
+    @feed_items = FeedBuilder.new(
+      notes_scope: Note.tenant_scoped_only(tid)
+        .where(collective_id: main_cid, created_by_id: @showing_user.id),
+      decisions_scope: Decision.tenant_scoped_only(tid)
+        .where(collective_id: main_cid, created_by_id: @showing_user.id),
+      commitments_scope: Commitment.tenant_scoped_only(tid)
+        .where(collective_id: main_cid, created_by_id: @showing_user.id),
+    ).feed_items
+
     respond_to do |format|
       format.html
       format.md
