@@ -1,0 +1,26 @@
+# Billing
+
+## Status
+
+<% if @stripe_customer&.active? %>
+**Active** — [Manage payment](/billing/portal)
+<% else %>
+**Not Set Up** — Set up billing to create and run AI agents.
+
+To set up billing, visit `/billing` in your browser and click "Set Up Billing".
+<% end %>
+
+<% if @ai_agents.any? %>
+## Your AI Agents
+
+| Agent | Handle |
+|-------|--------|
+<% @ai_agents.each do |agent| %>
+| [<%= agent.display_name %>](/ai-agents/<%= agent.handle %>) | `<%= agent.handle %>` |
+<% end %>
+<% end %>
+
+## Navigation
+
+* [AI Agents](/ai-agents)
+* [Settings](<%= @current_user.path %>/settings)

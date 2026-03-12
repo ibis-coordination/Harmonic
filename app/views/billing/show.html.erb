@@ -8,7 +8,6 @@
         Billing
       </span>
     </div>
-    <h1 class="pulse-resource-title">Billing</h1>
   </header>
 
   <div class="pulse-resource-body">
@@ -25,20 +24,11 @@
     <% end %>
 
     <section class="pulse-section" style="margin-bottom: 24px;">
-      <h2 class="pulse-section-title">Billing Status</h2>
 
       <% if @stripe_customer&.active? %>
-        <div class="pulse-notice pulse-notice-success">
-          <strong>Active</strong> — Your billing is set up and AI agents can run tasks.
-        </div>
-
-        <div style="margin-top: 16px;">
-          <%= link_to "Manage Billing", billing_portal_path, class: "pulse-button pulse-button-secondary" %>
-        </div>
+        <div class="pulse-notice pulse-notice-success"><span><%= octicon 'check-circle', height: 16 %> <strong>Active</strong> — <%= link_to "Manage payment", billing_portal_path %></span></div>
       <% else %>
-        <div class="pulse-notice pulse-notice-warning">
-          <strong>Not Set Up</strong> — Set up billing to create and run AI agents.
-        </div>
+        <div class="pulse-notice pulse-notice-warning"><span><%= octicon 'alert', height: 16 %> <strong>Not Set Up</strong> — Set up billing to create and run AI agents.</span></div>
 
         <div style="margin-top: 16px;">
           <%= form_tag billing_setup_path, method: :post do %>

@@ -77,4 +77,35 @@ class StripeCustomerTest < ActiveSupport::TestCase
     )
     assert_not sc.active?
   end
+
+  test "has_many ai_agents returns agents billed to this customer" do
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(8)}",
+    )
+    agent = create_ai_agent(parent: @user, name: "Billed Agent")
+    agent.update!(stripe_customer_id: sc.id)
+
+    assert_includes sc.ai_agents, agent
+  end
+
+  test "has_many task_runs returns runs billed to this customer" do
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(8)}",
+    )
+    agent = create_ai_agent(parent: @user, name: "Run Agent")
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant,
+      ai_agent: agent,
+      initiated_by: @user,
+      task: "Test",
+      max_steps: 5,
+      status: "queued",
+      stripe_customer_id: sc.id,
+    )
+
+    assert_includes sc.task_runs, task_run
+  end
 end

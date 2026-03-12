@@ -300,6 +300,21 @@
       </div>
     <% end %>
 
+    <% if @settings_user.human? && is_own_settings && @current_tenant.feature_enabled?("stripe_billing") %>
+      <%# Billing Link %>
+      <%= render 'shared/pulse_accordion', title: 'Billing' do %>
+        <p class="pulse-form-hint" style="margin-bottom:16px;">
+          Manage your billing and subscription for AI agent usage.
+        </p>
+        <div class="pulse-form-actions">
+          <a href="/billing" class="pulse-action-btn">
+            <%= octicon 'credit-card', height: 14 %>
+            Manage Billing
+          </a>
+        </div>
+      <% end %>
+    <% end %>
+
     <% if @settings_user.human? && is_own_settings %>
       <%# AI Agents Link %>
       <%= render 'shared/pulse_accordion', title: 'AI Agents' do %>

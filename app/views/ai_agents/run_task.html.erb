@@ -19,6 +19,13 @@
   </header>
 
   <div class="pulse-resource-body">
+    <% if @current_tenant.feature_enabled?("stripe_billing") && !@ai_agent.billing_customer&.active? %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 24px;">
+        <%= octicon 'credit-card', height: 14 %>
+        <strong>Billing inactive</strong> — This agent's billing is not active. <a href="/billing">Set up billing</a> to run tasks.
+      </div>
+    <% end %>
+
     <div class="pulse-ai-agent-card" style="margin-bottom: 24px;">
       <div class="pulse-ai-agent-header">
         <img src="<%= @ai_agent.image_url %>" alt="<%= @ai_agent.name %>" class="pulse-ai-agent-avatar">

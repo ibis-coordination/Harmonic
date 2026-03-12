@@ -100,7 +100,7 @@ class AgentQueueProcessorJob < TenantScopedJob
     billing_customer = ai_agent.billing_customer
 
     # Billing gate: if stripe_billing is enabled, agent must have active billing
-    if task_run.tenant.feature_enabled?("stripe_billing")
+    if T.must(task_run.tenant).feature_enabled?("stripe_billing")
       unless billing_customer&.active?
         task_run.update!(
           status: "failed",

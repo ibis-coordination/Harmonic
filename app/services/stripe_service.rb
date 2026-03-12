@@ -65,7 +65,7 @@ class StripeService
       },
     )
 
-    session.url
+    T.must(session.url)
   end
 
   # Create a Stripe Billing Portal session.

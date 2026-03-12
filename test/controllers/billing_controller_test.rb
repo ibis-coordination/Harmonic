@@ -236,6 +236,24 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{billing\.stripe\.com}, response.location
   end
 
+  # === Markdown view ===
+
+  test "show renders markdown view when Accept: text/markdown" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "# Billing"
+    assert_includes response.body, "Not Set Up"
+  end
+
+  test "show markdown view shows active status when billing set up" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_md123", active: true)
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "**Active**"
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)
