@@ -96,20 +96,50 @@ class AgentQueueProcessorJob < TenantScopedJob
 
   sig { params(task_run: AiAgentTaskRun).void }
   def run_task(task_run)
+    ai_agent = T.must(task_run.ai_agent)
+    billing_customer = ai_agent.billing_customer
+
+    # Billing gate: if stripe_billing is enabled, agent must have active billing
+    if task_run.tenant.feature_enabled?("stripe_billing")
+      unless billing_customer&.active?
+        task_run.update!(
+          status: "failed",
+          success: false,
+          error: "Billing is not set up. Please set up billing at /billing before running AI agents.",
+          completed_at: Time.current,
+        )
+        task_run.notify_parent_automation_runs!
+        return
+      end
+
+      # Stamp immutable billing attribution on the run
+      task_run.update!(stripe_customer_id: billing_customer.id)
+    end
+
+    # Resolve the Stripe cus_xxx ID for the gateway (nil in litellm mode)
+    stripe_customer_stripe_id = billing_customer&.stripe_id
+
     navigator = self.class.navigator_class.new(
-      user: task_run.ai_agent,
+      user: ai_agent,
       tenant: task_run.tenant,
       collective: resolve_collective(task_run),
-      model: task_run.model
+      model: task_run.model,
+      stripe_customer_id: stripe_customer_stripe_id,
     )
 
     result = navigator.run(task: task_run.task, max_steps: task_run.max_steps)
 
-    estimated_cost = LLMPricing.calculate_cost(
-      model: task_run.model || "default",
-      input_tokens: result.input_tokens,
-      output_tokens: result.output_tokens
-    )
+    # Skip local cost estimation when Stripe gateway handles billing
+    stripe_gateway_active = ENV.fetch("LLM_GATEWAY_MODE", "litellm") == "stripe_gateway"
+    estimated_cost = if stripe_gateway_active
+                       nil
+                     else
+                       LLMPricing.calculate_cost(
+                         model: task_run.model || "default",
+                         input_tokens: result.input_tokens,
+                         output_tokens: result.output_tokens,
+                       )
+                     end
 
     task_run.update!(
       status: result.success ? "completed" : "failed",
@@ -122,7 +152,7 @@ class AgentQueueProcessorJob < TenantScopedJob
       input_tokens: result.input_tokens,
       output_tokens: result.output_tokens,
       total_tokens: result.input_tokens + result.output_tokens,
-      estimated_cost_usd: estimated_cost
+      estimated_cost_usd: estimated_cost,
     )
 
     # Notify any parent automation runs that this task has finished

@@ -2,29 +2,21 @@
 # frozen_string_literal: true
 
 # General-purpose client for LLM APIs (OpenAI-compatible).
-# Uses LiteLLM as the backend to support multiple providers (Anthropic, OpenAI, Ollama, etc.).
+# Supports two gateway modes:
+#   - :litellm (default) — routes through local LiteLLM proxy for development
+#   - :stripe_gateway — routes through Stripe AI Gateway (llm.stripe.com) for production billing
 #
-# This is a simpler alternative to TrioClient for cases where you just need
-# to call an LLM without the voting ensemble logic.
-#
-# @example Basic usage
+# @example Basic usage (LiteLLM mode)
 #   client = LLMClient.new
 #   response = client.chat(messages: [{ role: "user", content: "Hello!" }])
 #   puts response.content
 #
-# @example With system prompt
-#   client = LLMClient.new(model: "claude-3-sonnet")
-#   response = client.chat(
-#     messages: [{ role: "user", content: "Explain Ruby blocks" }],
-#     system_prompt: "You are a helpful programming tutor."
-#   )
-#
-# @example With custom configuration
+# @example Stripe Gateway mode
 #   client = LLMClient.new(
-#     model: "gpt-4",
-#     temperature: 0.7,
-#     max_tokens: 1000
+#     gateway_mode: :stripe_gateway,
+#     stripe_customer_id: "cus_abc123"
 #   )
+#   response = client.chat(messages: [{ role: "user", content: "Hello!" }])
 #
 class LLMClient
   extend T::Sig
@@ -40,10 +32,14 @@ class LLMClient
 
   # Default configuration
   DEFAULT_BASE_URL = "http://litellm:4000"
+  STRIPE_BASE_URL = "https://llm.stripe.com"
   DEFAULT_MODEL = "default"
   DEFAULT_MAX_TOKENS = 4096
   DEFAULT_TEMPERATURE = 0.7
   DEFAULT_TIMEOUT = 120
+
+  sig { returns(Symbol) }
+  attr_reader :gateway_mode
 
   sig do
     params(
@@ -51,12 +47,32 @@ class LLMClient
       base_url: T.nilable(String),
       temperature: T.nilable(Float),
       max_tokens: T.nilable(Integer),
-      timeout: T.nilable(Integer)
+      timeout: T.nilable(Integer),
+      gateway_mode: T.nilable(Symbol),
+      stripe_customer_id: T.nilable(String),
     ).void
   end
-  def initialize(model: nil, base_url: nil, temperature: nil, max_tokens: nil, timeout: nil)
-    @model = T.let(model || ENV.fetch("LLM_MODEL", DEFAULT_MODEL), String)
-    @base_url = T.let(base_url || ENV.fetch("LLM_BASE_URL", DEFAULT_BASE_URL), String)
+  def initialize(model: nil, base_url: nil, temperature: nil, max_tokens: nil, timeout: nil, gateway_mode: nil, stripe_customer_id: nil)
+    @gateway_mode = T.let(
+      gateway_mode || ENV.fetch("LLM_GATEWAY_MODE", "litellm").to_sym,
+      Symbol,
+    )
+    @stripe_customer_id = T.let(stripe_customer_id, T.nilable(String))
+
+    # Validate stripe mode requirements
+    if stripe_mode?
+      raise ArgumentError, "stripe_customer_id is required in stripe_gateway mode" if @stripe_customer_id.nil?
+    end
+
+    raw_model = model || ENV.fetch("LLM_MODEL", DEFAULT_MODEL)
+    @model = T.let(
+      stripe_mode? ? StripeModelMapper.to_stripe(raw_model) : raw_model,
+      String,
+    )
+    @base_url = T.let(
+      stripe_mode? ? STRIPE_BASE_URL : (base_url || ENV.fetch("LLM_BASE_URL", DEFAULT_BASE_URL)),
+      String,
+    )
     @temperature = T.let(temperature || ENV.fetch("LLM_TEMPERATURE", DEFAULT_TEMPERATURE.to_s).to_f, Float)
     @max_tokens = T.let(max_tokens || ENV.fetch("LLM_MAX_TOKENS", DEFAULT_MAX_TOKENS.to_s).to_i, Integer)
     @timeout = T.let(timeout || ENV.fetch("LLM_TIMEOUT", DEFAULT_TIMEOUT.to_s).to_i, Integer)
@@ -69,13 +85,6 @@ class LLMClient
   # @param max_tokens [Integer, nil] Override default max_tokens for this request
   # @param temperature [Float, nil] Override default temperature for this request
   # @return [Result] The completion result
-  #
-  # @example
-  #   result = client.chat(
-  #     messages: [{ role: "user", content: "What is 2+2?" }],
-  #     system_prompt: "Be concise."
-  #   )
-  #   puts result.content  # => "4"
   sig do
     params(
       messages: T::Array[T::Hash[Symbol, String]],
@@ -88,7 +97,7 @@ class LLMClient
     full_messages = build_messages(messages, system_prompt)
     body = build_request_body(full_messages, max_tokens, temperature)
 
-    Rails.logger.info("[LLMClient] Request to model=#{@model} messages=#{full_messages.count} max_tokens=#{body[:max_tokens]}")
+    Rails.logger.info("[LLMClient] Request to model=#{@model} gateway=#{@gateway_mode} messages=#{full_messages.count} max_tokens=#{body[:max_tokens]}")
     Rails.logger.debug { "[LLMClient] Full request body: #{body.to_json}" }
 
     response = make_request(body)
@@ -126,6 +135,11 @@ class LLMClient
 
   private
 
+  sig { returns(T::Boolean) }
+  def stripe_mode?
+    @gateway_mode == :stripe_gateway
+  end
+
   sig do
     params(
       messages: T::Array[T::Hash[Symbol, String]],
@@ -157,8 +171,14 @@ class LLMClient
 
   sig { params(body: T::Hash[Symbol, T.untyped]).returns(Faraday::Response) }
   def make_request(body)
-    connection.post("/v1/chat/completions") do |req|
+    endpoint = stripe_mode? ? "/chat/completions" : "/v1/chat/completions"
+
+    connection.post(endpoint) do |req|
       req.headers["Content-Type"] = "application/json"
+      if stripe_mode?
+        req.headers["Authorization"] = "Bearer #{ENV.fetch("STRIPE_GATEWAY_KEY")}"
+        req.headers["X-Stripe-Customer-ID"] = T.must(@stripe_customer_id)
+      end
       req.body = body.to_json
     end
   end
@@ -168,6 +188,8 @@ class LLMClient
     # Check for error status codes
     unless response.success?
       error_msg = case response.status
+                  when 402
+                    "Payment required. Please check your billing setup."
                   when 429
                     "Rate limited by LLM provider. Please try again later."
                   when 401, 403

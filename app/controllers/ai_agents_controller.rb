@@ -3,6 +3,7 @@
 class AiAgentsController < ApplicationController
   before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent]
   before_action :require_ai_agents_enabled, only: [:index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run]
+  before_action :require_billing_for_creation, only: [:new]
   before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent]
   before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent]
 
@@ -133,6 +134,15 @@ class AiAgentsController < ApplicationController
     @ai_agent = find_ai_agent_by_handle
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
 
+    if current_tenant.feature_enabled?("stripe_billing")
+      billing_customer = @ai_agent.billing_customer
+      unless billing_customer&.active?
+        session[:billing_return_to] = ai_agent_run_task_path(@ai_agent.handle)
+        flash[:notice] = "Set up billing before running AI agent tasks"
+        return redirect_to "/billing"
+      end
+    end
+
     max_steps = params[:max_steps].present? ? params[:max_steps].to_i : nil
 
     @task_run = AiAgentTaskRun.create_queued(
@@ -247,6 +257,7 @@ class AiAgentsController < ApplicationController
     end
   end
 
+  # NOTE: This action has no route. Agent creation goes through execute_create_ai_agent.
   def create
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
 
@@ -286,7 +297,26 @@ class AiAgentsController < ApplicationController
                                    error: "Only human accounts can create AI agents.",
                                  })
     end
+
+    if current_user.requires_stripe_billing?(current_tenant)
+      respond_to do |format|
+        format.md do
+          return render_action_error({
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: "Billing is not set up. Please set up billing at /billing before creating AI agents.",
+          })
+        end
+        format.any do
+          session[:billing_return_to] = new_ai_agent_path
+          flash[:notice] = "Set up billing to create AI agents"
+          return redirect_to "/billing"
+        end
+      end
+    end
+
     @ai_agent = api_helper.create_ai_agent
+    assign_billing_customer!(@ai_agent) if current_tenant.feature_enabled?("stripe_billing")
     # Only generate token for external AI agents
     @token = api_helper.generate_token(@ai_agent) if @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
 
@@ -357,6 +387,15 @@ class AiAgentsController < ApplicationController
 
   private
 
+  def require_billing_for_creation
+    return unless current_user&.human?
+    return unless current_user.requires_stripe_billing?(current_tenant)
+
+    session[:billing_return_to] = new_ai_agent_path
+    flash[:notice] = "Set up billing to create AI agents"
+    redirect_to "/billing"
+  end
+
   def require_ai_agents_enabled
     return if @current_tenant&.ai_agents_enabled?
 
@@ -388,6 +427,11 @@ class AiAgentsController < ApplicationController
       .joins(:tenant_users)
       .where(tenant_users: { tenant_id: current_tenant.id, handle: params[:handle] })
       .first
+  end
+
+  def assign_billing_customer!(ai_agent)
+    stripe_customer = current_user.stripe_customer
+    ai_agent.update!(stripe_customer_id: stripe_customer.id) if stripe_customer
   end
 
   def serialize_result(result)

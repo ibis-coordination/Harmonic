@@ -1,0 +1,64 @@
+<%= render 'shared/pulse_breadcrumb', items: ['Billing'] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'credit-card', height: 14, class: 'pulse-resource-icon' %>
+        Billing
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Billing</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if flash[:notice] %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;">
+        <%= flash[:notice] %>
+      </div>
+    <% end %>
+
+    <% if flash[:error] %>
+      <div class="pulse-notice pulse-notice-error" style="margin-bottom: 20px;">
+        <%= flash[:error] %>
+      </div>
+    <% end %>
+
+    <section class="pulse-section" style="margin-bottom: 24px;">
+      <h2 class="pulse-section-title">Billing Status</h2>
+
+      <% if @stripe_customer&.active? %>
+        <div class="pulse-notice pulse-notice-success">
+          <strong>Active</strong> — Your billing is set up and AI agents can run tasks.
+        </div>
+
+        <div style="margin-top: 16px;">
+          <%= link_to "Manage Billing", billing_portal_path, class: "pulse-button pulse-button-secondary" %>
+        </div>
+      <% else %>
+        <div class="pulse-notice pulse-notice-warning">
+          <strong>Not Set Up</strong> — Set up billing to create and run AI agents.
+        </div>
+
+        <div style="margin-top: 16px;">
+          <%= form_tag billing_setup_path, method: :post do %>
+            <%= submit_tag "Set Up Billing", class: "pulse-button pulse-button-primary" %>
+          <% end %>
+        </div>
+      <% end %>
+    </section>
+
+    <% if @ai_agents.any? %>
+      <section class="pulse-section">
+        <h2 class="pulse-section-title">Your AI Agents</h2>
+        <ul class="pulse-list">
+          <% @ai_agents.each do |agent| %>
+            <li class="pulse-list-item">
+              <%= link_to agent.display_name, ai_agent_path(agent.handle) %>
+            </li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+  </div>
+</article>

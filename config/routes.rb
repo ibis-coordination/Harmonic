@@ -5,6 +5,14 @@ Rails.application.routes.draw do
   # Incoming webhooks - public endpoint for external automation triggers
   post 'hooks/:webhook_path' => 'incoming_webhooks#receive', as: 'incoming_webhook'
 
+  # Stripe webhooks
+  post 'stripe/webhooks' => 'stripe_webhooks#receive'
+
+  # Billing management
+  get 'billing' => 'billing#show', as: 'billing_show'
+  post 'billing/setup' => 'billing#setup', as: 'billing_setup'
+  get 'billing/portal' => 'billing#portal', as: 'billing_portal'
+
   # Development tools - Pulse styleguide (only available in development)
   if Rails.env.development?
     get 'dev/pulse' => 'dev#pulse_components'

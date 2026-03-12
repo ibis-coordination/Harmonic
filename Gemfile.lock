@@ -417,6 +417,7 @@ GEM
     stimulus-rails (1.0.2)
       railties (>= 6.0.0)
     stringio (3.1.1)
+    stripe (18.4.1)
     tapioca (0.17.10)
       benchmark
       bundler (>= 2.2.25)
@@ -537,6 +538,7 @@ DEPENDENCIES
   sprockets-rails
   ssrf_filter
   stimulus-rails
+  stripe
   tapioca (~> 0.17.0)
   turbo-rails
   tzinfo-data

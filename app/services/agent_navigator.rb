@@ -48,14 +48,18 @@ class AgentNavigator
       user: User,
       tenant: Tenant,
       collective: T.nilable(Collective),
-      model: T.nilable(String)
+      model: T.nilable(String),
+      stripe_customer_id: T.nilable(String),
     ).void
   end
-  def initialize(user:, tenant:, collective: nil, model: nil)
+  def initialize(user:, tenant:, collective: nil, model: nil, stripe_customer_id: nil)
     @user = user
     @tenant = tenant
     @starting_collective = collective
-    @llm = T.let(LLMClient.new(model: model || "default"), LLMClient)
+    @llm = T.let(
+      LLMClient.new(model: model || "default", stripe_customer_id: stripe_customer_id),
+      LLMClient,
+    )
     # Initialize service without a fixed collective - it will resolve dynamically from paths
     @service = T.let(
       MarkdownUiService.new(tenant: tenant, collective: collective, user: user),

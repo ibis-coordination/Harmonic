@@ -20,6 +20,12 @@ class User < ApplicationRecord
   has_many :notification_recipients
   has_many :notifications, through: :notification_recipients
 
+  # Stripe billing associations
+  # For human users: the StripeCustomer record they own (polymorphic billable)
+  has_one :stripe_customer, as: :billable, class_name: "StripeCustomer"
+  # For AI agents: which StripeCustomer pays for this agent's usage
+  belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
+
   # Trustee grant associations
   # granted_trustee_grants: grants where this user is the granting party (e.g., an AI agent granting authority)
   has_many :granted_trustee_grants, class_name: "TrusteeGrant",
@@ -456,6 +462,18 @@ class User < ApplicationRecord
       .first(limit)
       .map { |uid, score| [User.find_by(id: uid), score] }
       .reject { |user, _| user.nil? }
+  end
+
+  # Stripe billing helpers
+
+  sig { returns(T::Boolean) }
+  def stripe_billing_setup?
+    stripe_customer&.active? || false
+  end
+
+  sig { params(tenant: Tenant).returns(T::Boolean) }
+  def requires_stripe_billing?(tenant)
+    tenant.feature_enabled?("stripe_billing") && !stripe_billing_setup?
   end
 
   private

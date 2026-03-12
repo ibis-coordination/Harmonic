@@ -400,4 +400,126 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     get "/ai-agents/new"
     assert_response :redirect
   end
+
+  # === Stripe billing tests ===
+
+  test "new page redirects to billing when stripe_billing enabled and billing not set up" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/ai-agents/new"
+
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
+  end
+
+  test "new page renders form when billing is set up" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/ai-agents/new"
+
+    assert_response :success
+  end
+
+  test "create redirects to billing when stripe_billing enabled and billing not set up" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal" }
+    end
+
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
+  end
+
+  test "create works normally when stripe_billing disabled" do
+    # stripe_billing NOT enabled — should create agent as usual
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "User.where(user_type: 'ai_agent').count", 1 do
+      post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal" }
+    end
+
+    assert_response :redirect
+  end
+
+  test "create works normally when billing is set up" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "User.where(user_type: 'ai_agent').count", 1 do
+      post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal" }
+    end
+
+    assert_response :redirect
+  end
+
+  test "create assigns current user's stripe customer to new agent" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/ai-agents/new/actions/create_ai_agent", params: { name: "Billing Agent", mode: "internal" }
+
+    new_agent = User.where(user_type: "ai_agent").order(:created_at).last
+    assert_equal sc.id, new_agent.stripe_customer_id
+  end
+
+  test "execute_create_ai_agent returns action error when billing not set up via markdown" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      post "/ai-agents/new/actions/create_ai_agent",
+        params: { name: "New Agent", mode: "internal" },
+        headers: { "Accept" => "text/markdown" }
+    end
+
+    assert_response :success
+    assert_match(/billing/i, response.body)
+    assert_match(/Action Error/i, response.body)
+  end
+
+  test "create blocks agent creation for any request format when billing not set up" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      post "/ai-agents/new/actions/create_ai_agent",
+        params: { name: "New Agent", mode: "internal" },
+        headers: { "Accept" => "application/json" }
+    end
+
+    # Should not return 200/success — billing gate must block all formats
+    assert_includes [302, 403, 422], response.status
+  end
+
+  test "execute_task redirects to billing when billing not set up" do
+    enable_stripe_billing_flag!(@tenant)
+    # Set up billing initially to create the agent, then deactivate
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    @ai_agent.update!(stripe_customer_id: sc.id)
+    sc.update!(active: false)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "AiAgentTaskRun.count" do
+      post "/ai-agents/#{@ai_agent_handle}/run", params: { task: "Test task" }
+    end
+
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
+  end
+
+  private
+
+  def enable_stripe_billing_flag!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
+  end
 end

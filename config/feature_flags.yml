@@ -39,3 +39,10 @@ feature_flags:
     app_enabled: true
     default_tenant: false
     default_collective: false
+
+  stripe_billing:
+    name: "Stripe Billing"
+    description: "Requires users to set up Stripe billing before creating AI agents. Enables AI Gateway for LLM routing and automatic token metering."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false

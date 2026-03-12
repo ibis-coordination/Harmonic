@@ -312,4 +312,166 @@ class LLMClientTest < ActiveSupport::TestCase
         body["messages"][2]["role"] == "user"
     end
   end
+
+  # === Stripe Gateway Mode ===
+
+  test "defaults to litellm gateway mode" do
+    client = LLMClient.new
+    assert_equal :litellm, client.gateway_mode
+  end
+
+  test "uses stripe gateway mode from env" do
+    ENV["LLM_GATEWAY_MODE"] = "stripe_gateway"
+    # Must provide stripe_customer_id in stripe mode
+    client = LLMClient.new(stripe_customer_id: "cus_test123")
+    assert_equal :stripe_gateway, client.gateway_mode
+  ensure
+    ENV.delete("LLM_GATEWAY_MODE")
+  end
+
+  test "stripe mode raises ArgumentError when stripe_customer_id is nil" do
+    assert_raises(ArgumentError) do
+      LLMClient.new(gateway_mode: :stripe_gateway)
+    end
+  end
+
+  test "stripe mode uses llm.stripe.com base URL" do
+    ENV["STRIPE_GATEWAY_KEY"] = "sk_test_gateway"
+    stripe_url = "https://llm.stripe.com/chat/completions"
+    stub_request(:post, stripe_url)
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = LLMClient.new(gateway_mode: :stripe_gateway, stripe_customer_id: "cus_test123")
+    client.chat(messages: [{ role: "user", content: "Test" }])
+
+    assert_requested :post, stripe_url
+  ensure
+    ENV.delete("STRIPE_GATEWAY_KEY")
+  end
+
+  test "stripe mode maps model via StripeModelMapper" do
+    ENV["STRIPE_GATEWAY_KEY"] = "sk_test_gateway"
+    stub_request(:post, "https://llm.stripe.com/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = LLMClient.new(gateway_mode: :stripe_gateway, stripe_customer_id: "cus_test123", model: "default")
+    client.chat(messages: [{ role: "user", content: "Test" }])
+
+    assert_requested :post, "https://llm.stripe.com/chat/completions" do |req|
+      body = JSON.parse(req.body)
+      body["model"] == "anthropic/claude-sonnet-4"
+    end
+  ensure
+    ENV.delete("STRIPE_GATEWAY_KEY")
+  end
+
+  test "stripe mode sends Authorization Bearer with STRIPE_GATEWAY_KEY" do
+    ENV["STRIPE_GATEWAY_KEY"] = "sk_test_gateway_key_123"
+    stub_request(:post, "https://llm.stripe.com/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = LLMClient.new(gateway_mode: :stripe_gateway, stripe_customer_id: "cus_test123")
+    client.chat(messages: [{ role: "user", content: "Test" }])
+
+    assert_requested :post, "https://llm.stripe.com/chat/completions" do |req|
+      req.headers["Authorization"] == "Bearer sk_test_gateway_key_123"
+    end
+  ensure
+    ENV.delete("STRIPE_GATEWAY_KEY")
+  end
+
+  test "stripe mode sends X-Stripe-Customer-ID header" do
+    ENV["STRIPE_GATEWAY_KEY"] = "sk_test_gateway"
+    stub_request(:post, "https://llm.stripe.com/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = LLMClient.new(gateway_mode: :stripe_gateway, stripe_customer_id: "cus_abc789")
+    client.chat(messages: [{ role: "user", content: "Test" }])
+
+    assert_requested :post, "https://llm.stripe.com/chat/completions" do |req|
+      req.headers["X-Stripe-Customer-Id"] == "cus_abc789"
+    end
+  ensure
+    ENV.delete("STRIPE_GATEWAY_KEY")
+  end
+
+  test "stripe mode posts to /chat/completions (no /v1 prefix)" do
+    ENV["STRIPE_GATEWAY_KEY"] = "sk_test_gateway"
+    stub_request(:post, "https://llm.stripe.com/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = LLMClient.new(gateway_mode: :stripe_gateway, stripe_customer_id: "cus_test123")
+    client.chat(messages: [{ role: "user", content: "Test" }])
+
+    # Should NOT have been called with /v1/ prefix
+    assert_not_requested :post, "https://llm.stripe.com/v1/chat/completions"
+    assert_requested :post, "https://llm.stripe.com/chat/completions"
+  ensure
+    ENV.delete("STRIPE_GATEWAY_KEY")
+  end
+
+  test "litellm mode posts to /v1/chat/completions" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = LLMClient.new(gateway_mode: :litellm)
+    client.chat(messages: [{ role: "user", content: "Test" }])
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions"
+  end
+
+  test "litellm mode does not send Authorization header" do
+    stub_request(:post, "#{@base_url}/v1/chat/completions")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { choices: [{ message: { content: "Response" } }] }.to_json,
+      )
+
+    client = LLMClient.new(gateway_mode: :litellm)
+    client.chat(messages: [{ role: "user", content: "Test" }])
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions" do |req|
+      req.headers["Authorization"].nil?
+    end
+  end
+
+  test "handles 402 payment required in stripe mode" do
+    ENV["STRIPE_GATEWAY_KEY"] = "sk_test_gateway"
+    stub_request(:post, "https://llm.stripe.com/chat/completions")
+      .to_return(status: 402, body: '{"error": "payment required"}')
+
+    client = LLMClient.new(gateway_mode: :stripe_gateway, stripe_customer_id: "cus_test123")
+    result = client.chat(messages: [{ role: "user", content: "Test" }])
+
+    assert_equal "", result.content
+    assert_equal "error", result.finish_reason
+    assert_includes result.error, "Payment required"
+  ensure
+    ENV.delete("STRIPE_GATEWAY_KEY")
+  end
 end

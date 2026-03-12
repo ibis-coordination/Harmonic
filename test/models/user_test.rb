@@ -932,5 +932,58 @@ class UserTest < ActiveSupport::TestCase
     assert permission.present?
     assert permission.allows_collective?(@collective)
   end
+
+  # === Stripe Billing Tests ===
+
+  test "stripe_billing_setup? returns true when user has active stripe customer" do
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(8)}",
+      active: true,
+    )
+    assert @user.reload.stripe_billing_setup?
+  end
+
+  test "stripe_billing_setup? returns false when user has no stripe customer" do
+    assert_not @user.stripe_billing_setup?
+  end
+
+  test "stripe_billing_setup? returns false when stripe customer is inactive" do
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(8)}",
+      active: false,
+    )
+    assert_not @user.reload.stripe_billing_setup?
+  end
+
+  test "requires_stripe_billing? returns true when flag enabled and billing not set up" do
+    enable_stripe_billing_flag!(@tenant)
+    assert @user.requires_stripe_billing?(@tenant)
+  end
+
+  test "requires_stripe_billing? returns false when flag disabled" do
+    assert_not @user.requires_stripe_billing?(@tenant)
+  end
+
+  test "requires_stripe_billing? returns false when billing already set up" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(8)}",
+      active: true,
+    )
+    @user.reload
+    assert_not @user.requires_stripe_billing?(@tenant)
+  end
+
+  private
+
+  def enable_stripe_billing_flag!(tenant)
+    # Temporarily set app_enabled to true for stripe_billing in the cached config
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
+  end
 end
 
