@@ -520,6 +520,40 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Billing required"
   end
 
+  test "new shows billing gate when billing not set up" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/ai-agents/new"
+
+    assert_response :success
+    assert_includes response.body, "Billing required"
+    assert_includes response.body, "Set Up Billing"
+    assert_not_includes response.body, "pulse-form-input" # creation form should not render
+  end
+
+  test "new shows creation form when billing is set up" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/ai-agents/new"
+
+    assert_response :success
+    assert_not_includes response.body, "Billing required"
+    assert_includes response.body, "pulse-form-input" # creation form should render
+  end
+
+  test "new shows creation form when stripe_billing flag is disabled" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/ai-agents/new"
+
+    assert_response :success
+    assert_not_includes response.body, "Billing required"
+    assert_includes response.body, "pulse-form-input"
+  end
+
   test "execute_task redirects to billing when billing not set up" do
     enable_stripe_billing_flag!(@tenant)
     # Set up billing initially to create the agent, then deactivate

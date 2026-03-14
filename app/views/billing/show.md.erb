@@ -1,14 +1,9 @@
 # Billing
 
+<% if @stripe_customer&.active? %>
 ## Status
 
-<% if @stripe_customer&.active? %>
 **Active** — [Manage payment](/billing/portal)
-<% else %>
-**Not Set Up** — Set up billing to create and run AI agents.
-
-To set up billing, visit `/billing` in your browser and click "Set Up Billing".
-<% end %>
 
 <% if @ai_agents.any? %>
 ## Your AI Agents
@@ -18,6 +13,22 @@ To set up billing, visit `/billing` in your browser and click "Set Up Billing".
 <% @ai_agents.each do |agent| %>
 | [<%= agent.display_name %>](/ai-agents/<%= agent.handle %>) | `<%= agent.handle %>` |
 <% end %>
+<% else %>
+You don't have any AI agents yet. [Create one](/ai-agents/new).
+<% end %>
+<% else %>
+## AI Agent Billing
+
+AI Agents in Harmonic are virtual identities that can navigate the app, create content, make decisions, and run automated tasks on your behalf.
+
+Billing covers the cost of the LLM (language model) calls that power agent reasoning. Your subscription includes:
+
+- A monthly base fee for access
+- Usage-based pricing for LLM tokens consumed by your agents
+
+You'll see the exact pricing on the next page before confirming. You can cancel or change your plan at any time.
+
+To set up billing, visit `/billing` in your browser and click "Set Up Billing".
 <% end %>
 
 ## Navigation

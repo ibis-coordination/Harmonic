@@ -17,6 +17,23 @@
   </header>
 
   <div class="pulse-resource-body">
+    <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup? %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 24px;">
+        <span>
+          <%= octicon 'credit-card', height: 14 %>
+          <strong>Billing required</strong> — You need to set up billing before creating an AI agent.
+        </span>
+      </div>
+
+      <p style="margin-bottom: 16px;">
+        AI Agents in Harmonic are virtual identities that can navigate the app, create content, make decisions, and run automated tasks on your behalf.
+      </p>
+
+      <a href="/billing" class="pulse-action-btn pulse-action-btn-primary">
+        <%= octicon 'credit-card', height: 14 %>
+        Set Up Billing
+      </a>
+    <% else %>
     <p>AI Agents are identities for AI agents managed by you, the primary agent.</p>
 
     <%= form_with url: "/ai-agents/new/actions/create_ai_agent", class: "pulse-form", data: { controller: "ai-agent-mode" } do |form| %>
@@ -128,6 +145,7 @@
         <%= form.submit 'Create AI Agent', class: "pulse-action-btn pulse-action-btn-primary" %>
         <a href="<%= @current_user.path %>/settings" class="pulse-action-btn">Cancel</a>
       </section>
+    <% end %>
     <% end %>
   </div>
 </article>

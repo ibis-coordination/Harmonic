@@ -254,6 +254,25 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "**Active**"
   end
 
+  test "show explains billing when not set up" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+    assert_response :success
+    assert_includes response.body, "AI Agent Billing"
+    assert_includes response.body, "monthly base fee"
+    assert_includes response.body, "Usage-based pricing"
+    assert_includes response.body, "Set Up Billing"
+  end
+
+  test "show displays create agent link when active but no agents" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+    assert_response :success
+    assert_includes response.body, "Create AI Agent"
+    assert_includes response.body, "/ai-agents/new"
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)
