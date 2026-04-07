@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
+import { describe, it, expect, beforeEach, vi, type Mock } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import PinController from "./pin_controller"
 import { waitForController } from "../test/setup"
@@ -11,11 +11,11 @@ const flushPromises = async () => {
 
 describe("PinController", () => {
   let application: Application
-  let mockFetch: ReturnType<typeof vi.fn>
+  let mockFetch: Mock<typeof fetch>
 
   beforeEach(() => {
     // Mock fetch - return a default resolved response
-    mockFetch = vi.fn().mockResolvedValue({
+    mockFetch = vi.fn<typeof fetch>().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ pinned: false, click_title: "" }),
     } as Response)
