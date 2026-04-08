@@ -87,7 +87,7 @@ class Attachment < ApplicationRecord
   def validate_file
     blob = T.unsafe(file).blob
     content_type = blob.content_type
-    allowed = tenant.allowed_attachment_categories
+    allowed = T.must(tenant).allowed_attachment_categories
     is_image = content_type.start_with?("image/") && allowed.include?("images")
     is_text  = content_type.start_with?("text/")  && allowed.include?("text")
     is_pdf   = content_type == "application/pdf"  && allowed.include?("pdfs")
