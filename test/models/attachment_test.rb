@@ -129,7 +129,7 @@ class AttachmentTest < ActiveSupport::TestCase
   end
 
   test "truncates long filenames while preserving extension" do
-    long_name = "a" * 300 + ".txt"
+    long_name = ("a" * 300) + ".txt"
     blob = create_blob(content: "test content", filename: long_name, content_type: "text/plain")
     attachment = Attachment.create!(
       tenant: @tenant,
@@ -177,7 +177,7 @@ class AttachmentTest < ActiveSupport::TestCase
     )
 
     assert_not attachment.valid?
-    assert attachment.errors[:file].any? { |e| e.include?("content does not match") }
+    assert(attachment.errors[:file].any? { |e| e.include?("content does not match") })
   end
 
   test "accepts valid PDF with correct magic bytes" do
@@ -206,7 +206,7 @@ class AttachmentTest < ActiveSupport::TestCase
     )
 
     assert_not attachment.valid?
-    assert attachment.errors[:file].any? { |e| e.include?("content does not match") }
+    assert(attachment.errors[:file].any? { |e| e.include?("content does not match") })
   end
 
   test "accepts text files without magic byte check" do
@@ -240,7 +240,7 @@ class AttachmentTest < ActiveSupport::TestCase
     )
 
     assert_not attachment.valid?
-    assert attachment.errors[:files].any? { |e| e.include?("acceptable file type") }
+    assert(attachment.errors[:files].any? { |e| e.include?("is not allowed") })
   end
 
   test "rejects JavaScript file types" do
@@ -255,7 +255,110 @@ class AttachmentTest < ActiveSupport::TestCase
     )
 
     assert_not attachment.valid?
-    assert attachment.errors[:files].any? { |e| e.include?("acceptable file type") }
+    assert(attachment.errors[:files].any? { |e| e.include?("is not allowed") })
+  end
+
+  # ============================================
+  # Tenant allowed_attachment_categories
+  # ============================================
+  #
+  # Tenants can restrict which categories of attachments are accepted by
+  # setting tenant.allowed_attachment_categories. Default is the historical
+  # permissive set: images, pdfs, text. See Tenant#allowed_attachment_categories.
+
+  test "default tenant allows images, pdfs, and text" do
+    assert_equal ["images", "pdfs", "text"], @tenant.allowed_attachment_categories
+  end
+
+  test "image upload is rejected when tenant disables images" do
+    @tenant.allowed_attachment_categories = ["pdfs", "text"]
+    @tenant.save!
+
+    blob = create_blob(content: valid_png_bytes, filename: "image.png", content_type: "image/png")
+    attachment = Attachment.new(
+      tenant: @tenant,
+      collective: @collective,
+      attachable: @note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    assert_not attachment.valid?
+    assert attachment.errors[:files].any? { |e| e.include?("is not allowed") },
+           "Expected files error about disallowed type, got: #{attachment.errors.full_messages.inspect}"
+  end
+
+  test "text upload is rejected when tenant disables text" do
+    @tenant.allowed_attachment_categories = ["images", "pdfs"]
+    @tenant.save!
+
+    blob = create_blob(content: "hello", filename: "note.txt", content_type: "text/plain")
+    attachment = Attachment.new(
+      tenant: @tenant,
+      collective: @collective,
+      attachable: @note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    assert_not attachment.valid?
+    assert(attachment.errors[:files].any? { |e| e.include?("is not allowed") })
+  end
+
+  test "pdf upload is rejected when tenant disables pdfs" do
+    @tenant.allowed_attachment_categories = ["images", "text"]
+    @tenant.save!
+
+    blob = create_blob(content: valid_pdf_bytes, filename: "doc.pdf", content_type: "application/pdf")
+    attachment = Attachment.new(
+      tenant: @tenant,
+      collective: @collective,
+      attachable: @note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    assert_not attachment.valid?
+    assert(attachment.errors[:files].any? { |e| e.include?("is not allowed") })
+  end
+
+  test "setter rejects unknown categories" do
+    @tenant.allowed_attachment_categories = ["images", "bogus", "pdfs"]
+    assert_equal ["images", "pdfs"], @tenant.allowed_attachment_categories
+  end
+
+  test "existing attachments remain valid after tenant disables their category" do
+    # Upload a PNG while images are allowed.
+    blob = create_blob(content: valid_png_bytes, filename: "image.png", content_type: "image/png")
+    attachment = Attachment.create!(
+      tenant: @tenant,
+      collective: @collective,
+      attachable: @note,
+      file: blob,
+      created_by: @user,
+      updated_by: @user
+    )
+
+    # Tenant later disables images.
+    @tenant.allowed_attachment_categories = ["pdfs", "text"]
+    @tenant.save!
+
+    # Existing record is still readable; reload doesn't trigger validation.
+    assert_nothing_raised { attachment.reload }
+    # But a new upload of the same type is rejected.
+    new_blob = create_blob(content: valid_png_bytes, filename: "image2.png", content_type: "image/png")
+    new_attachment = Attachment.new(
+      tenant: @tenant,
+      collective: @collective,
+      attachable: @note,
+      file: new_blob,
+      created_by: @user,
+      updated_by: @user
+    )
+    assert_not new_attachment.valid?
   end
 
   # ============================================
@@ -275,7 +378,7 @@ class AttachmentTest < ActiveSupport::TestCase
     )
 
     assert_not attachment.valid?
-    assert attachment.errors[:files].any? { |e| e.include?("less than 10MB") }
+    assert(attachment.errors[:files].any? { |e| e.include?("less than 10MB") })
   end
 
   # ============================================
@@ -338,7 +441,7 @@ class AttachmentTest < ActiveSupport::TestCase
 
     begin
       attachment.send(:scan_for_viruses)
-      assert attachment.errors[:file].any? { |e| e.include?("virus") }
+      assert(attachment.errors[:file].any? { |e| e.include?("virus") })
     ensure
       Clamby.define_singleton_method(:safe?, original_safe)
     end
@@ -364,7 +467,7 @@ class AttachmentTest < ActiveSupport::TestCase
 
     begin
       attachment.send(:scan_for_viruses)
-      assert_not attachment.errors[:file].any? { |e| e.include?("virus") }
+      assert_not(attachment.errors[:file].any? { |e| e.include?("virus") })
     ensure
       Clamby.define_singleton_method(:safe?, original_safe)
     end
@@ -395,7 +498,7 @@ class AttachmentTest < ActiveSupport::TestCase
       end
 
       # Should not add virus error when scanning fails
-      assert_not attachment.errors[:file].any? { |e| e.include?("virus") }
+      assert_not(attachment.errors[:file].any? { |e| e.include?("virus") })
     ensure
       Clamby.define_singleton_method(:safe?, original_safe)
     end

@@ -337,13 +337,14 @@ class ActionsHelper
     # Admin actions
     "update_tenant_settings" => {
       description: "Update tenant settings",
-      params_string: "(name, timezone, api_enabled, require_login, allow_file_uploads)",
+      params_string: "(name, timezone, api_enabled, require_login, allow_file_uploads, allowed_attachment_categories)",
       params: [
         { name: "name", type: "string", description: "The name of the tenant" },
         { name: "timezone", type: "string", description: "The default timezone for the tenant" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is enabled" },
         { name: "require_login", type: "boolean", description: "Whether login is required to view content" },
         { name: "allow_file_uploads", type: "boolean", description: "Whether file uploads are allowed" },
+        { name: "allowed_attachment_categories", type: "array[string]", description: "Categories of attachment content types that may be uploaded. Valid values: images, pdfs, text. Send the full desired set; values not in the list are dropped." },
       ],
       authorization: :tenant_admin,
     },

@@ -20,7 +20,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     @secondary_collective.add_user!(@secondary_admin)
     # Make them a tenant admin
     @secondary_tenant_user = @secondary_tenant.tenant_users.find_by(user: @secondary_admin)
-    @secondary_tenant_user.add_role!('admin')
+    @secondary_tenant_user.add_role!("admin")
 
     # Create tenant admin user on primary tenant
     @tenant_admin_user = create_user(email: "tenant_admin@example.com", name: "Tenant Admin User")
@@ -28,7 +28,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_collective.add_user!(@tenant_admin_user)
     # Make them a tenant admin
     @primary_tenant_user = @primary_tenant.tenant_users.find_by(user: @tenant_admin_user)
-    @primary_tenant_user.add_role!('admin')
+    @primary_tenant_user.add_role!("admin")
 
     # Create a regular non-admin user on primary tenant
     @non_admin_user = create_user(email: "non_admin@example.com", name: "Non Admin User")
@@ -89,6 +89,45 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     @primary_tenant.reload
     assert_equal "Updated Tenant Name", @primary_tenant.name
+  end
+
+  test "tenant admin can update allowed attachment categories" do
+    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+
+    # Form posts the hidden empty marker plus only the categories the admin
+    # left checked. Here only "images" and "pdfs" are checked; "text" is not.
+    post "/tenant-admin/settings", params: {
+      allowed_attachment_categories: ["", "images", "pdfs"],
+    }
+
+    assert_response :redirect
+    @primary_tenant.reload
+    assert_equal ["images", "pdfs"], @primary_tenant.allowed_attachment_categories
+  end
+
+  test "tenant admin can disable all attachment categories" do
+    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+
+    # Hidden empty marker only — no boxes checked.
+    post "/tenant-admin/settings", params: {
+      allowed_attachment_categories: [""],
+    }
+
+    assert_response :redirect
+    @primary_tenant.reload
+    assert_equal [], @primary_tenant.allowed_attachment_categories
+  end
+
+  test "tenant admin settings update ignores unknown attachment categories" do
+    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+
+    post "/tenant-admin/settings", params: {
+      allowed_attachment_categories: ["", "images", "audio", "executables"],
+    }
+
+    assert_response :redirect
+    @primary_tenant.reload
+    assert_equal ["images"], @primary_tenant.allowed_attachment_categories
   end
 
   # ==========================================
