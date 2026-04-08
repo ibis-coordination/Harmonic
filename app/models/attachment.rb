@@ -86,10 +86,14 @@ class Attachment < ApplicationRecord
   sig { void }
   def validate_file
     blob = T.unsafe(file).blob
-    is_image = blob.content_type.start_with?("image/")
-    is_text = blob.content_type.start_with?("text/")
-    is_pdf = blob.content_type == "application/pdf"
-    errors.add(:files, "must be an acceptable file type (image, text, pdf)") unless is_image || is_text || is_pdf
+    content_type = blob.content_type
+    allowed = tenant.allowed_attachment_categories
+    is_image = content_type.start_with?("image/") && allowed.include?("images")
+    is_text  = content_type.start_with?("text/")  && allowed.include?("text")
+    is_pdf   = content_type == "application/pdf"  && allowed.include?("pdfs")
+    unless is_image || is_text || is_pdf
+      errors.add(:files, "type #{content_type} is not allowed for this tenant (allowed: #{allowed.join(', ')})")
+    end
 
     errors.add(:files, "size must be less than 10MB") if blob.byte_size > 10.megabytes
     scan_for_viruses

@@ -31,6 +31,28 @@
     </div>
   <% end %>
 
+  <%= render 'shared/pulse_accordion', title: 'Attachments', icon: 'paperclip', open: true do %>
+    <p class="pulse-form-hint" style="margin-bottom:16px;">
+      Which categories of file attachments may be uploaded by users in this tenant. Existing attachments are not affected when these settings change.
+    </p>
+
+    <%# Hidden empty value ensures the param key is present even when no boxes are checked. %>
+    <%= hidden_field_tag "allowed_attachment_categories[]", "" %>
+
+    <% [["images", "Images (PNG, JPEG, GIF, WebP, BMP, SVG, etc.)"],
+        ["pdfs",   "PDFs"],
+        ["text",   "Text files (plain text, Markdown, CSV, HTML, etc.)"]].each do |category, label| %>
+      <div class="pulse-form-section" style="border-top:none;margin-top:0;padding-top:0;">
+        <label class="pulse-checkbox-label">
+          <%= check_box_tag "allowed_attachment_categories[]", category,
+                @current_tenant.allowed_attachment_categories.include?(category),
+                id: "allowed_attachment_category_#{category}", class: 'pulse-checkbox-input' %>
+          <span><%= label %></span>
+        </label>
+      </div>
+    <% end %>
+  <% end %>
+
   <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.app_enabled?(f) } %>
   <% if available_flags.any? %>
     <%= render 'shared/pulse_accordion', title: 'Feature Flags', icon: 'beaker', count: available_flags.count, open: true do %>

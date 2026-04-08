@@ -34,7 +34,7 @@ class AttachmentsControllerTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @collective = @global_collective
     @user = @global_user
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.set_thread_context(@collective)
@@ -95,10 +95,10 @@ class AttachmentsControllerTest < ActionDispatch::IntegrationTest
     final = fetch_final_response(attachment)
 
     # Browser must NOT receive a renderable HTML response.
-    refute_match %r{^text/html}, final.headers["Content-Type"].to_s,
-      "HTML attachment served with renderable Content-Type: #{final.headers['Content-Type']}"
-    assert_match %r{^attachment}, final.headers["Content-Disposition"].to_s,
-      "HTML attachment served with non-attachment disposition: #{final.headers['Content-Disposition']}"
+    assert_no_match %r{^text/html}, final.headers["Content-Type"].to_s,
+                    "HTML attachment served with renderable Content-Type: #{final.headers["Content-Type"]}"
+    assert_match(/^attachment/, final.headers["Content-Disposition"].to_s,
+                 "HTML attachment served with non-attachment disposition: #{final.headers["Content-Disposition"]}")
   end
 
   test "svg attachment is served as octet-stream + attachment" do
@@ -110,21 +110,29 @@ class AttachmentsControllerTest < ActionDispatch::IntegrationTest
 
     final = fetch_final_response(attachment)
 
-    refute_match %r{^image/svg}, final.headers["Content-Type"].to_s,
-      "SVG attachment served with renderable Content-Type: #{final.headers['Content-Type']}"
-    assert_match %r{^attachment}, final.headers["Content-Disposition"].to_s,
-      "SVG attachment served with non-attachment disposition: #{final.headers['Content-Disposition']}"
+    assert_no_match %r{^image/svg}, final.headers["Content-Type"].to_s,
+                    "SVG attachment served with renderable Content-Type: #{final.headers["Content-Type"]}"
+    assert_match(/^attachment/, final.headers["Content-Disposition"].to_s,
+                 "SVG attachment served with non-attachment disposition: #{final.headers["Content-Disposition"]}")
   end
 
   # ============================================
   # Positive cases — safe types should still render inline so previews work
   # ============================================
 
+  # Minimal valid PNG: 1x1 transparent pixel.
+  def valid_png_bytes
+    [
+      "\x89PNG\r\n\x1a\n",
+      "\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+      "\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4",
+      "\x00\x00\x00\x00IEND\xaeB`\x82",
+    ].join.b
+  end
+
   test "png attachment is served inline with image content type" do
-    # 1x1 transparent PNG
-    png_bytes = "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82".b
     attachment = create_attachment(
-      content: png_bytes,
+      content: valid_png_bytes,
       filename: "pixel.png",
       content_type: "image/png"
     )
@@ -132,9 +140,9 @@ class AttachmentsControllerTest < ActionDispatch::IntegrationTest
     final = fetch_final_response(attachment)
 
     assert_match %r{^image/png}, final.headers["Content-Type"].to_s,
-      "PNG attachment should be served as image/png, got: #{final.headers['Content-Type']}"
-    assert_match %r{^inline}, final.headers["Content-Disposition"].to_s,
-      "PNG attachment should be served inline, got: #{final.headers['Content-Disposition']}"
+                 "PNG attachment should be served as image/png, got: #{final.headers["Content-Type"]}"
+    assert_match(/^inline/, final.headers["Content-Disposition"].to_s,
+                 "PNG attachment should be served inline, got: #{final.headers["Content-Disposition"]}")
   end
 
   test "pdf attachment is served inline with pdf content type" do
@@ -148,8 +156,8 @@ class AttachmentsControllerTest < ActionDispatch::IntegrationTest
     final = fetch_final_response(attachment)
 
     assert_match %r{^application/pdf}, final.headers["Content-Type"].to_s,
-      "PDF attachment should be served as application/pdf, got: #{final.headers['Content-Type']}"
-    assert_match %r{^inline}, final.headers["Content-Disposition"].to_s,
-      "PDF attachment should be served inline, got: #{final.headers['Content-Disposition']}"
+                 "PDF attachment should be served as application/pdf, got: #{final.headers["Content-Type"]}"
+    assert_match(/^inline/, final.headers["Content-Disposition"].to_s,
+                 "PDF attachment should be served inline, got: #{final.headers["Content-Disposition"]}")
   end
 end

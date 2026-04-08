@@ -9,6 +9,7 @@
 | Name | <%= @current_tenant.name %> |
 | Timezone | <%= @current_tenant.timezone.name %> |
 | Require Login | <%= @current_tenant.require_login? ? 'Yes' : 'No' %> |
+| Allowed Attachment Categories | <%= @current_tenant.allowed_attachment_categories.join(', ').presence || '(none)' %> |
 
 ## Feature Flags
 

@@ -54,6 +54,13 @@ class TenantAdminController < ApplicationController
       end
     end
 
+    # Allowed attachment categories (array of "images" / "pdfs" / "text").
+    # The setter intersects against the valid set, so empty strings from the
+    # hidden marker field and any unknown values are dropped.
+    if params.key?(:allowed_attachment_categories)
+      @current_tenant.allowed_attachment_categories = params[:allowed_attachment_categories]
+    end
+
     # Handle feature flags via unified system
     FeatureFlagService.all_flags.each do |flag_name|
       param_key = "feature_#{flag_name}"
@@ -149,6 +156,13 @@ class TenantAdminController < ApplicationController
       if ["true", "false", "1", "0"].include?(params[setting])
         @current_tenant.settings[setting] = params[setting] == "true" || params[setting] == "1"
       end
+    end
+
+    # Allowed attachment categories (array of "images" / "pdfs" / "text").
+    # The setter intersects against the valid set, so empty strings from the
+    # hidden marker field and any unknown values are dropped.
+    if params.key?(:allowed_attachment_categories)
+      @current_tenant.allowed_attachment_categories = params[:allowed_attachment_categories]
     end
 
     # Handle feature flags via unified system

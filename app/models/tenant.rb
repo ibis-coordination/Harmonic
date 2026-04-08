@@ -111,6 +111,7 @@ class Tenant < ApplicationRecord
       "require_invite" => true,
       "auth_providers" => ["github"],
       "allow_file_uploads" => false,
+      "allowed_attachment_categories" => %w[images pdfs text],
       "api_enabled" => false,
       "default_collective_settings" => {
         "tempo" => "daily",
@@ -149,6 +150,20 @@ class Tenant < ApplicationRecord
   sig { params(provider: String).returns(T::Boolean) }
   def valid_auth_provider?(provider)
     self.settings['auth_providers'].include?(provider)
+  end
+
+  # Categories of attachment content types this tenant accepts.
+  # Valid values: "images", "pdfs", "text". See Attachment#validate_file.
+  # Default preserves the historical permissive behavior.
+  sig { returns(T::Array[String]) }
+  def allowed_attachment_categories
+    settings["allowed_attachment_categories"] || %w[images pdfs text]
+  end
+
+  sig { params(categories: T::Array[String]).void }
+  def allowed_attachment_categories=(categories)
+    self.settings["allowed_attachment_categories"] =
+      Array(categories).map(&:to_s) & %w[images pdfs text]
   end
 
   sig { params(value: T.nilable(String)).void }
