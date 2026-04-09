@@ -16,13 +16,13 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     @original_stripe_key = Stripe.api_key
     Stripe.api_key = "sk_test_fake"
 
-    @original_pricing_plan_id = ENV["STRIPE_PRICING_PLAN_ID"]
-    ENV["STRIPE_PRICING_PLAN_ID"] = "bpp_test_plan123"
+    @original_price_id = ENV["STRIPE_PRICE_ID"]
+    ENV["STRIPE_PRICE_ID"] = "price_test_123"
   end
 
   teardown do
     Stripe.api_key = @original_stripe_key
-    ENV["STRIPE_PRICING_PLAN_ID"] = @original_pricing_plan_id
+    ENV["STRIPE_PRICE_ID"] = @original_price_id
   end
 
   # === Show ===
@@ -258,19 +258,18 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
     assert_response :success
-    assert_includes response.body, "AI Agent Billing"
-    assert_includes response.body, "monthly base fee"
-    assert_includes response.body, "Usage-based pricing"
+    assert_includes response.body, "Account Subscription"
+    assert_includes response.body, "$3/month"
     assert_includes response.body, "Set Up Billing"
   end
 
-  test "show displays create agent link when active but no agents" do
+  test "show displays active status when billing set up" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
     assert_response :success
-    assert_includes response.body, "Create AI Agent"
-    assert_includes response.body, "/ai-agents/new"
+    assert_includes response.body, "Active"
+    assert_includes response.body, "Manage payment"
   end
 
   private

@@ -35,14 +35,14 @@ feature_flags:
 
   ai_agents:
     name: "AI Agents Task Runner"
-    description: "Enables the AI Agents task runner for executing automated tasks via AI agents"
+    description: "Enables the internal AI Agents task runner for executing automated tasks. External agents interacting via the API only need the 'api' flag."
     app_enabled: true
     default_tenant: false
     default_collective: false
 
   stripe_billing:
     name: "Stripe Billing"
-    description: "Requires users to set up Stripe billing before creating AI agents. Enables AI Gateway for LLM routing and automatic token metering."
+    description: "Enables all Stripe billing: account subscriptions and AI Agent usage metering via AI Gateway. Required for harmonic.social; not needed for self-hosted instances."
     app_enabled: true
     default_tenant: false
     default_collective: false

@@ -469,7 +469,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal sc.id, new_agent.stripe_customer_id
   end
 
-  test "execute_create_ai_agent returns action error when billing not set up via markdown" do
+  test "execute_create_ai_agent redirects to billing when not set up via markdown" do
     enable_stripe_billing_flag!(@tenant)
     sign_in_as(@user, tenant: @tenant)
 
@@ -479,9 +479,9 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
         headers: { "Accept" => "text/markdown" }
     end
 
-    assert_response :success
-    assert_match(/billing/i, response.body)
-    assert_match(/Action Error/i, response.body)
+    # Application-level billing gate redirects to /billing before controller action runs
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
   end
 
   test "create blocks agent creation for any request format when billing not set up" do
@@ -498,15 +498,15 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_includes [302, 403, 422], response.status
   end
 
-  test "index shows billing banner when billing not set up" do
+  test "index redirects to billing when billing not set up" do
     enable_stripe_billing_flag!(@tenant)
     sign_in_as(@user, tenant: @tenant)
 
     get "/ai-agents"
 
-    assert_response :success
-    assert_includes response.body, "Billing required"
-    assert_includes response.body, "/billing"
+    # Application-level billing gate redirects to /billing
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
   end
 
   test "index does not show billing banner when billing is set up" do
@@ -520,16 +520,15 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Billing required"
   end
 
-  test "new shows billing gate when billing not set up" do
+  test "new redirects to billing when billing not set up" do
     enable_stripe_billing_flag!(@tenant)
     sign_in_as(@user, tenant: @tenant)
 
     get "/ai-agents/new"
 
-    assert_response :success
-    assert_includes response.body, "Billing required"
-    assert_includes response.body, "Set Up Billing"
-    assert_not_includes response.body, "pulse-form-input" # creation form should not render
+    # Application-level billing gate redirects to /billing
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
   end
 
   test "new shows creation form when billing is set up" do

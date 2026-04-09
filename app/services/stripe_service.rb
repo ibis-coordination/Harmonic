@@ -36,7 +36,8 @@ class StripeService
     T.must(billable.reload.stripe_customer)
   end
 
-  # Create a Stripe Checkout Session for subscription signup.
+  # Create a Stripe Checkout Session for the $3/month account subscription.
+  # Uses the legacy line_items + Price API (stable, fully documented).
   # Returns the checkout URL for redirect.
   sig do
     params(
@@ -47,22 +48,16 @@ class StripeService
   end
   def self.create_checkout_session(stripe_customer:, success_url:, cancel_url:)
     session = Stripe::Checkout::Session.create(
-      {
-        customer: stripe_customer.stripe_id,
-        checkout_items: [
-          {
-            type: "pricing_plan_subscription_item",
-            pricing_plan_subscription_item: {
-              pricing_plan: ENV.fetch("STRIPE_PRICING_PLAN_ID"),
-            },
-          },
-        ],
-        success_url: success_url,
-        cancel_url: cancel_url,
-      },
-      {
-        stripe_version: "2025-09-30.preview;checkout_product_catalog_preview=v1",
-      },
+      customer: stripe_customer.stripe_id,
+      mode: "subscription",
+      line_items: [
+        {
+          price: ENV.fetch("STRIPE_PRICE_ID"),
+          quantity: 1,
+        },
+      ],
+      success_url: success_url,
+      cancel_url: cancel_url,
     )
 
     T.must(session.url)

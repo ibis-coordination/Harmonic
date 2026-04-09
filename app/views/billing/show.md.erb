@@ -5,28 +5,16 @@
 
 **Active** — [Manage payment](/billing/portal)
 
-<% if @ai_agents.any? %>
-## Your AI Agents
-
-| Agent | Handle |
-|-------|--------|
-<% @ai_agents.each do |agent| %>
-| [<%= agent.display_name %>](/ai-agents/<%= agent.handle %>) | `<%= agent.handle %>` |
-<% end %>
 <% else %>
-You don't have any AI agents yet. [Create one](/ai-agents/new).
-<% end %>
-<% else %>
-## AI Agent Billing
+## Status
 
-AI Agents in Harmonic are virtual identities that can navigate the app, create content, make decisions, and run automated tasks on your behalf.
+Not Set Up
 
-Billing covers the cost of the LLM (language model) calls that power agent reasoning. Your subscription includes:
+## Account Subscription
 
-- A monthly base fee for access
-- Usage-based pricing for LLM tokens consumed by your agents
+Harmonic accounts on this server require an active subscription. The base fee is **$3/month**.
 
-You'll see the exact pricing on the next page before confirming. You can cancel or change your plan at any time.
+You can cancel at any time.
 
 To set up billing, visit `/billing` in your browser and click "Set Up Billing".
 <% end %>

@@ -10,6 +10,7 @@ class ApplicationController < ActionController::Base
                 :load_unread_notification_count, :set_sentry_context
   before_action :check_session_timeout
   before_action :check_user_suspension
+  before_action :check_stripe_billing_gate
 
   # Include ActionCapabilityCheck AFTER before_action declarations so that
   # append_before_action puts check_capability_for_action at the END of the chain,
@@ -973,6 +974,26 @@ class ApplicationController < ActionController::Base
     reset_session
     flash[:alert] = "Your account has been suspended."
     redirect_to "/login"
+  end
+
+  # Billing gate: when stripe_billing is enabled, human users must have an active
+  # subscription before they can use the app. Exempt: billing pages, auth routes,
+  # webhooks, API controllers, non-human users, user settings.
+  def check_stripe_billing_gate
+    return unless @current_user&.human?
+    return unless @current_tenant&.feature_enabled?("stripe_billing")
+    return if @current_user.stripe_billing_setup?
+
+    # Exempt controllers (webhooks and healthcheck inherit from ActionController::Base,
+    # not ApplicationController, so they're inherently exempt)
+    return if is_auth_controller?
+    return if self.is_a?(BillingController)
+    return if request.path.start_with?("/api/")
+
+    # Exempt user settings page
+    return if controller_name == "users" && (action_name == "settings" || action_name == "show" || action_name == "update_profile")
+
+    redirect_to "/billing"
   end
 
   # Set Sentry context for error tracking

@@ -13,13 +13,13 @@ class StripeServiceTest < ActiveSupport::TestCase
     @original_stripe_key = Stripe.api_key
     Stripe.api_key = "sk_test_fake"
 
-    @original_pricing_plan_id = ENV["STRIPE_PRICING_PLAN_ID"]
-    ENV["STRIPE_PRICING_PLAN_ID"] = "bpp_test_plan123"
+    @original_price_id = ENV["STRIPE_PRICE_ID"]
+    ENV["STRIPE_PRICE_ID"] = "price_test_123"
   end
 
   teardown do
     Stripe.api_key = @original_stripe_key
-    ENV["STRIPE_PRICING_PLAN_ID"] = @original_pricing_plan_id
+    ENV["STRIPE_PRICE_ID"] = @original_price_id
   end
 
   # === find_or_create_customer ===
@@ -68,15 +68,14 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   # === create_checkout_session ===
 
-  test "create_checkout_session creates session with pricing plan" do
+  test "create_checkout_session creates subscription session with line_items" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_checkout456")
 
     captured_body = nil
     stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
       .with { |req|
         captured_body = Rack::Utils.parse_nested_query(req.body)
-        captured_body["customer"] == "cus_checkout456" &&
-          captured_body["checkout_items"].is_a?(Hash)
+        true
       }
       .to_return(
         status: 200,
@@ -95,10 +94,11 @@ class StripeServiceTest < ActiveSupport::TestCase
     )
 
     assert_equal "https://checkout.stripe.com/session/cs_test123", result
-    # Verify pricing plan format
-    item = captured_body["checkout_items"]["0"]
-    assert_equal "pricing_plan_subscription_item", item["type"]
-    assert_equal "bpp_test_plan123", item["pricing_plan_subscription_item"]["pricing_plan"]
+    assert_equal "cus_checkout456", captured_body["customer"]
+    assert_equal "subscription", captured_body["mode"]
+    item = captured_body["line_items"]["0"]
+    assert_equal "price_test_123", item["price"]
+    assert_equal "1", item["quantity"]
   end
 
   test "create_checkout_session includes checkout_session_id template in success_url" do
@@ -157,18 +157,21 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   # === handle_webhook_event ===
 
-  test "handle_webhook checkout.session.completed activates billing" do
+  test "handle_webhook checkout.session.completed activates billing for subscription" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_webhook123", active: false)
 
     event = build_stripe_event(
       type: "checkout.session.completed",
-      object: { "customer" => "cus_webhook123", "subscription" => "sub_test123" },
+      object: {
+        "customer" => "cus_webhook123",
+        "subscription" => "sub_test123",
+      },
     )
 
     StripeService.handle_webhook_event(event)
 
     sc.reload
-    assert sc.active, "Customer should be active after checkout"
+    assert sc.active, "Customer should be active after subscription checkout"
     assert_equal "sub_test123", sc.stripe_subscription_id
   end
 

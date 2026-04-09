@@ -10,7 +10,7 @@ class BillingController < ApplicationController
     @stripe_customer = current_user.stripe_customer
 
     # Handle checkout return: verify session synchronously
-    if params[:checkout_session_id].present? && !@stripe_customer&.active?
+    if params[:checkout_session_id].present?
       handle_checkout_return
     end
 
@@ -20,10 +20,6 @@ class BillingController < ApplicationController
       return redirect_to return_to
     end
 
-    # Load user's AI agents for the billing page
-    @ai_agents = current_user.ai_agents
-      .joins(:tenant_users)
-      .where(tenant_users: { tenant_id: current_tenant.id })
   end
 
   # POST /billing/setup
@@ -84,20 +80,22 @@ class BillingController < ApplicationController
     session_obj = Stripe::Checkout::Session.retrieve(checkout_session_id)
     stripe_customer = current_user.stripe_customer
 
-    # Only activate if the checkout session matches the current user's customer
+    # Only process if the checkout session matches the current user's customer
     unless stripe_customer && session_obj.customer == stripe_customer.stripe_id
       Rails.logger.warn("[BillingController] Checkout session customer mismatch for user #{current_user.id}")
       return
     end
 
-    stripe_customer.update!(
-      stripe_subscription_id: session_obj.subscription,
-      active: true,
-    )
-    @stripe_customer = stripe_customer.reload
-    flash.now[:notice] = "Billing activated successfully!"
-  rescue Stripe::InvalidRequestError => e
-    Rails.logger.warn("[BillingController] Failed to retrieve checkout session: #{e.message}")
+    if !stripe_customer.active?
+      stripe_customer.update!(
+        stripe_subscription_id: session_obj.subscription,
+        active: true,
+      )
+      @stripe_customer = stripe_customer.reload
+      flash.now[:notice] = "Billing activated successfully!"
+    end
+  rescue Stripe::StripeError => e
+    Rails.logger.warn("[BillingController] Checkout session handling failed: #{e.message}")
     flash.now[:error] = "Could not verify checkout session. Your billing may take a moment to activate."
   end
 

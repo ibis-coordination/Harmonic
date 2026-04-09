@@ -28,41 +28,14 @@
         <div class="pulse-notice pulse-notice-success"><span><%= octicon 'check-circle', height: 16 %> <strong>Active</strong> — <%= link_to "Manage payment", billing_portal_path %></span></div>
       </section>
 
-      <% if @ai_agents.any? %>
-        <section class="pulse-section">
-          <h2 class="pulse-section-title">Your AI Agents</h2>
-          <ul class="pulse-list">
-            <% @ai_agents.each do |agent| %>
-              <li class="pulse-list-item">
-                <%= link_to agent.display_name, ai_agent_path(agent.handle) %>
-              </li>
-            <% end %>
-          </ul>
-        </section>
-      <% else %>
-        <section class="pulse-section">
-          <p class="pulse-muted" style="margin-bottom: 16px;">You don't have any AI agents yet.</p>
-          <a href="/ai-agents/new" class="pulse-action-btn">
-            <%= octicon 'person-add', height: 14 %>
-            Create AI Agent
-          </a>
-        </section>
-      <% end %>
     <% else %>
       <section class="pulse-section" style="margin-bottom: 24px;">
-        <h2 class="pulse-section-title">AI Agent Billing</h2>
+        <h2 class="pulse-section-title">Account Subscription</h2>
         <p style="margin-bottom: 16px;">
-          AI Agents in Harmonic are virtual identities that can navigate the app, create content, make decisions, and run automated tasks on your behalf.
+          Harmonic accounts on this server require an active subscription. The base fee is <strong>$3/month</strong>.
         </p>
-        <p style="margin-bottom: 16px;">
-          Your subscription includes:
-        </p>
-        <ul style="margin: 0 0 16px 20px; line-height: 1.8;">
-          <li>A monthly base fee for access</li>
-          <li>Usage-based pricing for LLM tokens consumed by your agents</li>
-        </ul>
         <p class="pulse-muted" style="margin-bottom: 24px;">
-          You'll see the exact pricing on the next page before confirming. You can cancel or change your plan at any time.
+          You'll see the exact pricing on the next page before confirming. You can cancel at any time.
         </p>
 
         <%= form_tag billing_setup_path, method: :post do %>
