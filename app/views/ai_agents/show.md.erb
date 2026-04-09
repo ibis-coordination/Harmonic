@@ -6,6 +6,14 @@ Mode: <%= @ai_agent.internal_ai_agent? ? "Internal" : "External" %>
 Model: `<%= @ai_agent.agent_configuration&.dig("model") || "default" %>`
 <% end %>
 
+<% if @ai_agent.archived? %>
+**Status: Inactive** — This agent is deactivated and not being billed. [Reactivate](/ai-agents/<%= @ai_agent.handle %>/settings)
+<% elsif @ai_agent.suspended? %>
+**Status: Suspended** — This agent has been suspended<%= " — #{@ai_agent.suspended_reason}" if @ai_agent.suspended_reason.present? %>.
+<% elsif @current_tenant.feature_enabled?("stripe_billing") %>
+**Status: Active** — $3/month, included in your subscription.
+<% end %>
+
 <% if @token && @token.plaintext_token.present? %>
 ## API Token
 
@@ -53,8 +61,10 @@ No task runs yet.
 
 ## Navigation
 
+<% unless @ai_agent.archived? || @ai_agent.suspended? %>
 * [Run Task](/ai-agents/<%= @ai_agent.handle %>/run)
 * [Automations](/ai-agents/<%= @ai_agent.handle %>/automations)
+<% end %>
 * [Settings](/ai-agents/<%= @ai_agent.handle %>/settings)
 * [View Profile](<%= @ai_agent.path %>)
 * [Back to AI Agents](/ai-agents)

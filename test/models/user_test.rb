@@ -977,6 +977,51 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.requires_stripe_billing?(@tenant)
   end
 
+  test "stripe_billing_setup? returns true when billing_exempt is true" do
+    @user.update!(billing_exempt: true)
+    assert @user.stripe_billing_setup?
+  end
+
+  test "stripe_billing_setup? returns true when billing_exempt even without stripe customer" do
+    assert_nil @user.stripe_customer
+    @user.update!(billing_exempt: true)
+    assert @user.stripe_billing_setup?
+  end
+
+  test "active_billable_agent_count counts non-archived non-suspended agents" do
+    agent1 = create_ai_agent(parent: @user, name: "Agent 1")
+    @tenant.add_user!(agent1)
+    agent2 = create_ai_agent(parent: @user, name: "Agent 2")
+    @tenant.add_user!(agent2)
+
+    assert_equal 2, @user.active_billable_agent_count(@tenant)
+  end
+
+  test "active_billable_agent_count excludes archived agents" do
+    agent1 = create_ai_agent(parent: @user, name: "Active Agent")
+    @tenant.add_user!(agent1)
+    agent2 = create_ai_agent(parent: @user, name: "Archived Agent")
+    @tenant.add_user!(agent2)
+    agent2.tenant_user = agent2.tenant_users.find_by(tenant_id: @tenant.id)
+    agent2.archive!
+
+    assert_equal 1, @user.active_billable_agent_count(@tenant)
+  end
+
+  test "active_billable_agent_count excludes suspended agents" do
+    agent1 = create_ai_agent(parent: @user, name: "Active Agent")
+    @tenant.add_user!(agent1)
+    agent2 = create_ai_agent(parent: @user, name: "Suspended Agent")
+    @tenant.add_user!(agent2)
+    agent2.update!(suspended_at: Time.current)
+
+    assert_equal 1, @user.active_billable_agent_count(@tenant)
+  end
+
+  test "active_billable_agent_count returns 0 when no agents" do
+    assert_equal 0, @user.active_billable_agent_count(@tenant)
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)

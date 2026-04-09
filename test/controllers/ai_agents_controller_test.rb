@@ -452,7 +452,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
-      post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal" }
+      post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal", confirm_billing: "1" }
     end
 
     assert_response :redirect
@@ -463,7 +463,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     sign_in_as(@user, tenant: @tenant)
 
-    post "/ai-agents/new/actions/create_ai_agent", params: { name: "Billing Agent", mode: "internal" }
+    post "/ai-agents/new/actions/create_ai_agent", params: { name: "Billing Agent", mode: "internal", confirm_billing: "1" }
 
     new_agent = User.where(user_type: "ai_agent").order(:created_at).last
     assert_equal sc.id, new_agent.stripe_customer_id
@@ -568,6 +568,116 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     assert_match %r{/billing}, response.location
+  end
+
+  # === Deactivate / Reactivate Tests ===
+
+  test "deactivate archives agent and redirects" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/ai-agents/#{@ai_agent_handle}/deactivate"
+
+    assert_response :redirect
+    @ai_agent.reload
+    tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert tu.archived?, "Agent should be archived after deactivation"
+  end
+
+  test "deactivate revokes agent API tokens" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    # Create a token for the agent
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    token = ApiToken.create!(user: @ai_agent, tenant: @tenant, name: "test", expires_at: 1.year.from_now, scopes: ["read:all"])
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/#{@ai_agent_handle}/deactivate"
+
+    token.reload
+    assert token.deleted_at.present?, "API token should be revoked after deactivation"
+  end
+
+  test "reactivate requires billing confirmation" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    # Archive the agent first
+    @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    @ai_agent.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/#{@ai_agent_handle}/reactivate"
+
+    assert_response :redirect
+    @ai_agent.reload
+    tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert tu.archived?, "Agent should still be archived without billing confirmation"
+  end
+
+  test "reactivate unarchives agent with billing confirmation" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    # Archive the agent first
+    @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    @ai_agent.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/#{@ai_agent_handle}/reactivate", params: { confirm_billing: "1" }
+
+    assert_response :redirect
+    @ai_agent.reload
+    tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_not tu.archived?, "Agent should be unarchived after reactivation with confirmation"
+  end
+
+  test "reactivate skips billing confirmation for exempt users" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    @user.update!(billing_exempt: true)
+
+    @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    @ai_agent.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/#{@ai_agent_handle}/reactivate"
+
+    assert_response :redirect
+    @ai_agent.reload
+    tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_not tu.archived?, "Exempt user should be able to reactivate without confirmation"
+  end
+
+  test "update_settings blocked for archived agent" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    @ai_agent.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { name: "Hacked Name" }
+
+    assert_response :redirect
+    @ai_agent.reload
+    assert_not_equal "Hacked Name", @ai_agent.name
+  end
+
+  test "create rejects agent without billing confirmation when stripe_billing enabled" do
+    enable_stripe_billing_flag!(@tenant)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      post "/ai-agents/new/actions/create_ai_agent", params: { name: "No Confirm Agent", mode: "internal" }
+    end
+
+    assert_response :redirect
+    assert_match %r{/ai-agents/new}, response.location
   end
 
   private

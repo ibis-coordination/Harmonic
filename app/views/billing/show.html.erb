@@ -28,6 +28,28 @@
         <div class="pulse-notice pulse-notice-success"><span><%= octicon 'check-circle', height: 16 %> <strong>Active</strong> — <%= link_to "Manage payment", billing_portal_path %></span></div>
       </section>
 
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <h2 class="pulse-section-title">Subscription Details</h2>
+        <table class="pulse-table" style="max-width: 400px;">
+          <tbody>
+            <tr>
+              <td>Your account</td>
+              <td style="text-align: right;">$3/mo</td>
+            </tr>
+            <% if @active_agent_count && @active_agent_count > 0 %>
+              <tr>
+                <td>AI Agents (<%= @active_agent_count %>)</td>
+                <td style="text-align: right;">$<%= @active_agent_count * 3 %>/mo</td>
+              </tr>
+            <% end %>
+            <tr style="font-weight: bold; border-top: 2px solid var(--border-color, #ddd);">
+              <td>Total</td>
+              <td style="text-align: right;">$<%= (1 + (@active_agent_count || 0)) * 3 %>/mo</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
     <% else %>
       <section class="pulse-section" style="margin-bottom: 24px;">
         <h2 class="pulse-section-title">Account Subscription</h2>

@@ -901,6 +901,51 @@ class User
     sig { void }
     def app_admin_will_change!; end
 
+    sig { returns(T::Boolean) }
+    def billing_exempt; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def billing_exempt=(value); end
+
+    sig { returns(T::Boolean) }
+    def billing_exempt?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def billing_exempt_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def billing_exempt_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def billing_exempt_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def billing_exempt_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def billing_exempt_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def billing_exempt_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def billing_exempt_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def billing_exempt_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def billing_exempt_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def billing_exempt_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def billing_exempt_was; end
+
+    sig { void }
+    def billing_exempt_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -1268,6 +1313,9 @@ class User
     def restore_app_admin!; end
 
     sig { void }
+    def restore_billing_exempt!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -1323,6 +1371,12 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_app_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_billing_exempt; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_billing_exempt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -1734,6 +1788,9 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_app_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_billing_exempt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end

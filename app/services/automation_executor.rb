@@ -43,6 +43,18 @@ class AutomationExecutor
       return
     end
 
+    # Agent must be active (not archived or suspended)
+    if ai_agent.suspended?
+      @run.mark_failed!("Agent is suspended. Unsuspend the agent before running automations.")
+      return
+    end
+
+    agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: @rule.tenant_id)
+    if agent_tenant_user&.archived?
+      @run.mark_failed!("Agent is deactivated. Reactivate the agent before running automations.")
+      return
+    end
+
     # Billing gate: if stripe_billing is enabled, agent must have active billing
     if @rule.tenant.feature_enabled?("stripe_billing")
       unless ai_agent.billing_customer&.active?

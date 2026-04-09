@@ -202,6 +202,9 @@ class User < ApplicationRecord
   sig { void }
   def archive!
     T.must(tenant_user).archive!
+
+    # Revoke all API tokens for this user (same as suspension)
+    ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!) if ai_agent?
   end
 
   sig { void }
@@ -400,8 +403,8 @@ class User < ApplicationRecord
     suspended_at.present?
   end
 
-  sig { params(by: User, reason: String).void }
-  def suspend!(by:, reason:)
+  sig { params(by: User, reason: String, skip_billing_sync: T::Boolean).void }
+  def suspend!(by:, reason:, skip_billing_sync: false)
     update!(
       suspended_at: Time.current,
       suspended_by_id: by.id,
@@ -414,9 +417,18 @@ class User < ApplicationRecord
     # (e.g., AdminController.ensure_admin_user checks tenant-level admin role)
     ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!)
 
-    # Recursively suspend all AI agents
+    # Recursively suspend all AI agents (skip billing sync on children to avoid N+1 Stripe calls)
     ai_agents.where(suspended_at: nil).find_each do |ai_agent|
-      ai_agent.suspend!(by: by, reason: "Parent user suspended: #{reason}")
+      ai_agent.suspend!(by: by, reason: "Parent user suspended: #{reason}", skip_billing_sync: true)
+    end
+
+    # Sync subscription quantity once after all suspensions complete
+    unless skip_billing_sync
+      billing_user = ai_agent? ? User.find_by(id: parent_id) : self
+      tenant = billing_user&.tenant_users&.first&.tenant
+      if billing_user && tenant&.feature_enabled?("stripe_billing")
+        StripeService.sync_subscription_quantity!(billing_user, tenant)
+      end
     end
   end
 
@@ -468,12 +480,24 @@ class User < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def stripe_billing_setup?
-    stripe_customer&.active? || false
+    billing_exempt? || (stripe_customer&.active? || false)
   end
 
   sig { params(tenant: Tenant).returns(T::Boolean) }
   def requires_stripe_billing?(tenant)
     tenant.feature_enabled?("stripe_billing") && !stripe_billing_setup?
+  end
+
+  # Count active (not archived, not suspended) AI agents for a specific tenant.
+  # Takes tenant explicitly so it works from admin controllers and background jobs
+  # where Tenant.current_id may not be set or may be wrong.
+  sig { params(tenant: Tenant).returns(Integer) }
+  def active_billable_agent_count(tenant)
+    ai_agents
+      .joins(:tenant_users)
+      .where(tenant_users: { tenant_id: tenant.id, archived_at: nil })
+      .where(suspended_at: nil)
+      .count
   end
 
   private

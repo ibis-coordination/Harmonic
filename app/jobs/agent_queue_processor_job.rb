@@ -97,6 +97,21 @@ class AgentQueueProcessorJob < TenantScopedJob
   sig { params(task_run: AiAgentTaskRun).void }
   def run_task(task_run)
     ai_agent = T.must(task_run.ai_agent)
+
+    # Agent must be active (not archived or suspended)
+    agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: task_run.tenant_id)
+    agent_archived = agent_tenant_user&.archived? || false
+    if ai_agent.suspended? || agent_archived
+      task_run.update!(
+        status: "failed",
+        success: false,
+        error: "Agent is #{ai_agent.suspended? ? "suspended" : "deactivated"}. Reactivate the agent before running tasks.",
+        completed_at: Time.current,
+      )
+      task_run.notify_parent_automation_runs!
+      return
+    end
+
     billing_customer = ai_agent.billing_customer
 
     # Billing gate: if stripe_billing is enabled, agent must have active billing

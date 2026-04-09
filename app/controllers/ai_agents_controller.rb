@@ -1,11 +1,11 @@
 # typed: false
 
 class AiAgentsController < ApplicationController
-  before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent]
+  before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate, :reactivate]
   before_action :require_ai_agents_enabled, only: [:index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run]
   before_action :require_billing_for_creation, only: [:new]
-  before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent]
-  before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent]
+  before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
+  before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
 
   # GET /ai-agents - List all AI agents owned by current user
   def index
@@ -67,9 +67,44 @@ class AiAgentsController < ApplicationController
       .limit(5)
   end
 
+  # POST /ai-agents/:handle/deactivate
+  def deactivate
+    @ai_agent.archive!
+    if current_tenant.feature_enabled?("stripe_billing")
+      StripeService.sync_subscription_quantity!(current_user, current_tenant)
+    end
+    flash[:notice] = "#{@ai_agent.display_name} has been deactivated."
+    redirect_to ai_agent_path(@ai_agent.handle)
+  end
+
+  # POST /ai-agents/:handle/reactivate
+  def reactivate
+    if current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt? && params[:confirm_billing] != "1"
+      flash[:error] = "You must confirm the billing charge to reactivate this agent."
+      return redirect_to ai_agent_path(@ai_agent.handle)
+    end
+
+    @ai_agent.unarchive!
+    charged_cents = nil
+    if current_tenant.feature_enabled?("stripe_billing")
+      charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant)
+    end
+    notice = "#{@ai_agent.display_name} has been reactivated."
+    if charged_cents && charged_cents > 0
+      notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
+    end
+    flash[:notice] = notice
+    redirect_to ai_agent_path(@ai_agent.handle)
+  end
+
   # GET /ai-agents/:handle/settings - Show settings for a specific AI agent
   def settings
     @page_title = "Settings - #{@ai_agent.display_name}"
+
+    # Preview proration for reactivation
+    if @ai_agent.archived? && current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt?
+      @proration_amount_cents = StripeService.preview_proration(current_user, current_tenant)
+    end
 
     # Get collectives the agent is a member of
     active_collective_members = @ai_agent.collective_members.reject(&:archived?)
@@ -83,6 +118,11 @@ class AiAgentsController < ApplicationController
 
   # POST /ai-agents/:handle/settings - Update settings for a specific AI agent
   def update_settings
+    if @ai_agent.archived?
+      flash[:error] = "Cannot update settings for a deactivated agent. Reactivate the agent first."
+      return redirect_to ai_agent_settings_path(@ai_agent.handle)
+    end
+
     name = params[:name]
     new_handle = params[:new_handle]
     identity_prompt = params[:identity_prompt]
@@ -251,6 +291,10 @@ class AiAgentsController < ApplicationController
   def new
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
 
+    if current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt?
+      @proration_amount_cents = StripeService.preview_proration(current_user, current_tenant)
+    end
+
     respond_to do |format|
       format.html
       format.md
@@ -315,18 +359,43 @@ class AiAgentsController < ApplicationController
       end
     end
 
+    # Require billing confirmation when stripe_billing is enabled
+    if current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt? && params[:confirm_billing] != "1"
+      respond_to do |format|
+        format.md do
+          return render_action_error({
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: "You must confirm that you understand each AI agent costs $3/month added to your subscription.",
+          })
+        end
+        format.any do
+          flash[:error] = "You must confirm the billing charge to create an AI agent."
+          return redirect_to new_ai_agent_path
+        end
+      end
+    end
+
     @ai_agent = api_helper.create_ai_agent
-    assign_billing_customer!(@ai_agent) if current_tenant.feature_enabled?("stripe_billing")
+    charged_cents = nil
+    if current_tenant.feature_enabled?("stripe_billing")
+      assign_billing_customer!(@ai_agent)
+      charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant)
+    end
     # Only generate token for external AI agents
     @token = api_helper.generate_token(@ai_agent) if @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
 
-    flash.now[:notice] = "AI Agent #{@ai_agent.display_name} created successfully."
+    notice = "AI Agent #{@ai_agent.display_name} created successfully."
+    if charged_cents && charged_cents > 0
+      notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
+    end
+    flash[:notice] = notice
     respond_to do |format|
       format.md do
         render_action_success({
           action_name: "create_ai_agent",
           resource: @ai_agent,
-          result: "AI Agent '#{@ai_agent.display_name}' created successfully",
+          result: notice,
           redirect_to: "/ai-agents/#{@ai_agent.handle}",
         })
       end

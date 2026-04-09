@@ -202,6 +202,16 @@ class AppAdminController < ApplicationController
     return render(plain: "404 Not Found", status: :not_found) unless user
 
     user.unsuspend!
+
+    # Sync billing if unsuspending an AI agent
+    if user.ai_agent? && user.parent_id.present?
+      parent = User.find_by(id: user.parent_id)
+      tenant = user.tenant_users.first&.tenant
+      if parent && tenant&.feature_enabled?("stripe_billing")
+        StripeService.sync_subscription_quantity!(parent, tenant)
+      end
+    end
+
     SecurityAuditLog.log_user_unsuspended(
       user: user,
       unsuspended_by: @current_user,
@@ -217,6 +227,56 @@ class AppAdminController < ApplicationController
       end
       format.html do
         flash[:notice] = "User #{user.display_name} has been unsuspended."
+        redirect_to "/app-admin/users/#{user.id}"
+      end
+    end
+  end
+
+  # GET /app-admin/users/:id/actions/toggle_billing_exempt
+  def describe_toggle_billing_exempt
+    @showing_user = User.find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless @showing_user
+    render_action_description(ActionsHelper.action_description("toggle_billing_exempt"))
+  end
+
+  # POST /app-admin/users/:id/actions/toggle_billing_exempt
+  def execute_toggle_billing_exempt
+    user = User.find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless user
+
+    # Prevent admins from exempting themselves
+    if user.id == @current_user.id
+      respond_to do |format|
+        format.md { render plain: "You cannot change your own billing exemption.", status: 400 }
+        format.html do
+          flash[:alert] = "You cannot change your own billing exemption."
+          redirect_to "/app-admin/users/#{user.id}"
+        end
+      end
+      return
+    end
+
+    new_value = !user.billing_exempt?
+    user.update!(billing_exempt: new_value)
+
+    action = new_value ? "granted" : "revoked"
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "billing_exempt_#{action}",
+      target_user_id: user.id,
+      details: { user_name: user.display_name },
+    )
+
+    respond_to do |format|
+      format.md do
+        @showing_user = user.reload
+        @page_title = @showing_user.display_name || @showing_user.name
+        @user_tenants = @showing_user.tenant_users.includes(:tenant).map(&:tenant)
+        render "show_user"
+      end
+      format.html do
+        flash[:notice] = "Billing exemption #{action} for #{user.display_name}."
         redirect_to "/app-admin/users/#{user.id}"
       end
     end

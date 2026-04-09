@@ -5,6 +5,16 @@
 
 **Active** — [Manage payment](/billing/portal)
 
+## Subscription Details
+
+| Item | Cost |
+|------|------|
+| Your account | $3/mo |
+<% if @active_agent_count && @active_agent_count > 0 %>
+| AI Agents (<%= @active_agent_count %>) | $<%= @active_agent_count * 3 %>/mo |
+<% end %>
+| **Total** | **$<%= (1 + (@active_agent_count || 0)) * 3 %>/mo** |
+
 <% else %>
 ## Status
 

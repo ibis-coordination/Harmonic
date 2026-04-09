@@ -1822,7 +1822,8 @@ CREATE TABLE public.users (
     suspended_by_id uuid,
     suspended_reason character varying,
     agent_configuration jsonb DEFAULT '{}'::jsonb,
-    stripe_customer_id uuid
+    stripe_customer_id uuid,
+    billing_exempt boolean DEFAULT false NOT NULL
 );
 
 
@@ -8510,6 +8511,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260409000000'),
 ('20260308000000'),
 ('20260228000000'),
 ('20260227000000'),

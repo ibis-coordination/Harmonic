@@ -30,6 +30,8 @@ Rails.application.routes.draw do
   get 'ai-agents/:handle/settings/actions' => 'ai_agents#settings_actions_index'
   get 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#describe_update_ai_agent'
   post 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#execute_update_ai_agent'
+  post 'ai-agents/:handle/deactivate' => 'ai_agents#deactivate', as: 'deactivate_ai_agent'
+  post 'ai-agents/:handle/reactivate' => 'ai_agents#reactivate', as: 'reactivate_ai_agent'
   get 'ai-agents/:handle/run' => 'ai_agents#run_task', as: 'ai_agent_run_task'
   post 'ai-agents/:handle/run' => 'ai_agents#execute_task', as: 'ai_agent_execute_task'
   get 'ai-agents/:handle/runs' => 'ai_agents#runs', as: 'ai_agent_runs'
@@ -208,6 +210,8 @@ Rails.application.routes.draw do
   post 'app-admin/users/:id/actions/suspend_user' => 'app_admin#execute_suspend_user'
   get 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#describe_unsuspend_user'
   post 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#execute_unsuspend_user'
+  get 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_billing_exempt'
+  post 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_billing_exempt'
   get 'app-admin/security' => 'app_admin#security_dashboard'
   get 'app-admin/security/events/:line_number' => 'app_admin#security_event'
 
