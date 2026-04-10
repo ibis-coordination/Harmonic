@@ -128,7 +128,7 @@
       </fieldset>
     </section>
 
-    <% if @current_tenant.feature_enabled?("stripe_billing") && @current_user&.human? && !@current_user.billing_exempt? %>
+    <% if @current_tenant.feature_enabled?("stripe_billing") && @current_user&.human? %>
       <section class="pulse-settings-section">
         <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 16px;">
           <span>

@@ -983,7 +983,7 @@ class ApplicationController < ActionController::Base
   def check_stripe_billing_gate
     return unless @current_user&.human?
     return unless @current_tenant&.feature_enabled?("stripe_billing")
-    return if @current_user.stripe_billing_setup?
+    return if @current_user.stripe_billing_setup?(@current_tenant)
 
     # Exempt controllers (webhooks and healthcheck inherit from ActionController::Base,
     # not ApplicationController, so they're inherently exempt)

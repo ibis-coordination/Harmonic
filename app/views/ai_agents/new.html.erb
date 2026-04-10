@@ -17,7 +17,7 @@
   </header>
 
   <div class="pulse-resource-body">
-    <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup? %>
+    <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup?(@current_tenant) %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 24px;">
         <span>
           <%= octicon 'credit-card', height: 14 %>
@@ -141,7 +141,7 @@
         <small class="pulse-hint">Required for the AI Agent to access the API.</small>
       </section>
 
-      <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.billing_exempt? %>
+      <% if @current_tenant.feature_enabled?("stripe_billing") %>
         <section class="pulse-settings-section">
           <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 16px;">
             <span>

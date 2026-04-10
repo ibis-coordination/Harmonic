@@ -3,7 +3,7 @@
 <% if @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
 **Status: Inactive** — This collective is deactivated and not being billed.
 
-<% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id && !@current_user.billing_exempt? %>
+<% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id %>
 <% if @proration_amount_cents %>
 Reactivating this collective will charge **$<%= "%.2f" % (@proration_amount_cents / 100.0) %> now** (prorated), then **$3/month** thereafter.
 <% else %>

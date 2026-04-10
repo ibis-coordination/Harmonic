@@ -1,0 +1,51 @@
+<table class="pulse-table" style="max-width: 500px;">
+  <tbody>
+    <tr>
+      <td><%= octicon 'person', height: 14 %> <%= @current_user.display_name %> <span class="pulse-muted">(you)</span></td>
+      <% if show_prices %>
+        <td style="text-align: right;">
+          <% if @current_user.billing_exempt? %>
+            <span style="color: var(--color-fg-muted);">$0/mo <span class="pulse-muted">(exempt)</span></span>
+          <% else %>
+            $3/mo
+          <% end %>
+        </td>
+      <% end %>
+    </tr>
+    <% @active_agents&.each do |agent| %>
+      <% agent_handle = agent.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>
+      <tr data-billing-item="agent-<%= agent.id %>">
+        <td><%= octicon 'dependabot', height: 14 %> <%= link_to agent.display_name, "/ai-agents/#{agent_handle}" %> <span class="pulse-muted">(agent)</span></td>
+        <% if show_prices %>
+          <td style="text-align: right;">
+            <% if agent.billing_exempt? %>
+              <span style="color: var(--color-fg-muted);">$0/mo <span class="pulse-muted">(exempt)</span></span>
+            <% else %>
+              $3/mo
+            <% end %>
+          </td>
+        <% end %>
+      </tr>
+    <% end %>
+    <% @active_collectives&.each do |collective| %>
+      <tr data-billing-item="collective-<%= collective.id %>">
+        <td><%= octicon 'people', height: 14 %> <%= link_to collective.name, collective.path %> <span class="pulse-muted">(collective)</span></td>
+        <% if show_prices %>
+          <td style="text-align: right;">
+            <% if collective.billing_exempt? %>
+              <span style="color: var(--color-fg-muted);">$0/mo <span class="pulse-muted">(exempt)</span></span>
+            <% else %>
+              $3/mo
+            <% end %>
+          </td>
+        <% end %>
+      </tr>
+    <% end %>
+    <% if show_prices %>
+      <tr style="font-weight: bold; border-top: 2px solid var(--border-color, #ddd);">
+        <td>Total</td>
+        <td style="text-align: right;">$<%= (@billable_quantity || 0) * 3 %>/mo</td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

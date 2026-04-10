@@ -478,17 +478,30 @@ class User < ApplicationRecord
 
   # Stripe billing helpers
 
-  sig { returns(T::Boolean) }
-  def stripe_billing_setup?
-    billing_exempt? || (stripe_customer&.active? || false)
+  # Check if this user's billing is set up for the given tenant.
+  # A user needs a subscription if they have any non-exempt billable resources.
+  # If all resources (including the user) are exempt, no subscription is needed.
+  sig { params(tenant: Tenant).returns(T::Boolean) }
+  def stripe_billing_setup?(tenant)
+    return true if stripe_customer&.active?
+
+    # No active subscription — but if everything is exempt, that's fine
+    billable_quantity(tenant) == 0
   end
 
   sig { params(tenant: Tenant).returns(T::Boolean) }
   def requires_stripe_billing?(tenant)
-    tenant.feature_enabled?("stripe_billing") && !stripe_billing_setup?
+    tenant.feature_enabled?("stripe_billing") && !stripe_billing_setup?(tenant)
   end
 
-  # Count active (not archived, not suspended) AI agents for a specific tenant.
+  # Compute the total billable quantity for this user on a tenant.
+  sig { params(tenant: Tenant).returns(Integer) }
+  def billable_quantity(tenant)
+    user_count = billing_exempt? ? 0 : 1
+    user_count + active_billable_agent_count(tenant) + active_billable_collective_count(tenant)
+  end
+
+  # Count active (not archived, not suspended, not exempt) AI agents for a specific tenant.
   # Takes tenant explicitly so it works from admin controllers and background jobs
   # where Tenant.current_id may not be set or may be wrong.
   sig { params(tenant: Tenant).returns(Integer) }
@@ -496,17 +509,18 @@ class User < ApplicationRecord
     ai_agents
       .joins(:tenant_users)
       .where(tenant_users: { tenant_id: tenant.id, archived_at: nil })
-      .where(suspended_at: nil)
+      .where(suspended_at: nil, billing_exempt: false)
       .count
   end
 
-  # Count active (not archived) collectives created by this user, excluding the main collective.
+  # Count active (not archived, not exempt) collectives created by this user, excluding the main collective.
   sig { params(tenant: Tenant).returns(Integer) }
   def active_billable_collective_count(tenant)
     Collective.where(
       tenant_id: tenant.id,
       created_by_id: id,
       archived_at: nil,
+      billing_exempt: false,
     ).where.not(id: tenant.main_collective_id).count
   end
 

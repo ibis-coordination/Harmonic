@@ -15,6 +15,11 @@ module Api::V1
     def create
       # Only AI agent users can be created via the API
       begin
+        # Billing gate: require active subscription when stripe_billing is enabled
+        if current_user.requires_stripe_billing?(current_tenant)
+          return render json: { error: "Billing is not set up. Please set up billing at /billing before creating AI agents." }, status: 403
+        end
+
         user = api_helper.create_ai_agent
         if current_tenant.feature_enabled?("stripe_billing") && current_user.stripe_customer
           user.update!(stripe_customer_id: current_user.stripe_customer.id)

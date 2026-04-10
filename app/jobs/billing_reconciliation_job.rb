@@ -16,7 +16,6 @@ class BillingReconciliationJob < SystemJob
       .find_each do |sc|
       user = sc.billable
       next unless user
-      next if user.billing_exempt?
 
       tenant = user.tenant_users.first&.tenant
       next unless tenant&.feature_enabled?("stripe_billing")

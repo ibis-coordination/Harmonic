@@ -38,7 +38,7 @@
       </div>
 
       <section class="pulse-settings-section">
-        <% if !@current_user.billing_exempt? %>
+        <% if true %>
           <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 16px;">
             <span>
               <%= octicon 'credit-card', height: 14 %>
@@ -51,7 +51,7 @@
           </div>
         <% end %>
         <%= form_tag reactivate_ai_agent_path(@ai_agent.handle), method: :post do %>
-          <% if !@current_user.billing_exempt? %>
+          <% if true %>
             <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 16px;">
               <%= check_box_tag :confirm_billing, "1", false, required: true, id: "confirm_billing" %>
               <% if @proration_amount_cents %>

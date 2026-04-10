@@ -941,11 +941,11 @@ class UserTest < ActiveSupport::TestCase
       stripe_id: "cus_#{SecureRandom.hex(8)}",
       active: true,
     )
-    assert @user.reload.stripe_billing_setup?
+    assert @user.reload.stripe_billing_setup?(@tenant)
   end
 
   test "stripe_billing_setup? returns false when user has no stripe customer" do
-    assert_not @user.stripe_billing_setup?
+    assert_not @user.stripe_billing_setup?(@tenant)
   end
 
   test "stripe_billing_setup? returns false when stripe customer is inactive" do
@@ -954,7 +954,7 @@ class UserTest < ActiveSupport::TestCase
       stripe_id: "cus_#{SecureRandom.hex(8)}",
       active: false,
     )
-    assert_not @user.reload.stripe_billing_setup?
+    assert_not @user.reload.stripe_billing_setup?(@tenant)
   end
 
   test "requires_stripe_billing? returns true when flag enabled and billing not set up" do
@@ -977,15 +977,18 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.requires_stripe_billing?(@tenant)
   end
 
-  test "stripe_billing_setup? returns true when billing_exempt is true" do
+  test "stripe_billing_setup? returns true when billing_exempt and all resources exempt" do
     @user.update!(billing_exempt: true)
-    assert @user.stripe_billing_setup?
+    # @collective is created by @user and is non-main, so it's billable
+    # Exempt it too so billable_quantity is 0
+    @collective.update!(billing_exempt: true)
+    assert @user.stripe_billing_setup?(@tenant)
   end
 
-  test "stripe_billing_setup? returns true when billing_exempt even without stripe customer" do
-    assert_nil @user.stripe_customer
+  test "stripe_billing_setup? returns false when billing_exempt but has non-exempt resources" do
     @user.update!(billing_exempt: true)
-    assert @user.stripe_billing_setup?
+    # @collective is non-exempt, so user still needs a subscription
+    assert_not @user.stripe_billing_setup?(@tenant)
   end
 
   test "active_billable_agent_count counts non-archived non-suspended agents" do

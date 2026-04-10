@@ -258,8 +258,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
     assert_response :success
-    assert_includes response.body, "Account Subscription"
-    assert_includes response.body, "$3/month"
+    assert_includes response.body, "$3/mo"
     assert_includes response.body, "Set Up Billing"
   end
 
@@ -272,11 +271,185 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Manage payment"
   end
 
+  # === Itemized Inventory Tests ===
+
+  test "show lists active agents by name when subscription active" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    agent = create_ai_agent(parent: @user, name: "Research Bot")
+    @tenant.add_user!(agent)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, "Research Bot"
+    assert_includes response.body, "$3/mo"
+  end
+
+  test "show lists active collectives by name when subscription active" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    collective = create_test_collective(name: "Design Team")
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, "Design Team"
+  end
+
+  test "show lists inactive agents separately" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    agent = create_ai_agent(parent: @user, name: "Archived Bot")
+    @tenant.add_user!(agent)
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    agent.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, "Archived Bot"
+    assert_includes response.body, "inactive"
+  end
+
+  test "show lists inactive collectives separately" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    collective = create_test_collective(name: "Old Club")
+    collective.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, "Old Club"
+    assert_includes response.body, "inactive"
+  end
+
+  test "show does not list main collective" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    main = Collective.find(@tenant.main_collective_id)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    # Main collective should not appear in the billing inventory
+    assert_not_includes response.body, "billing-item-collective-#{main.id}"
+  end
+
+  test "show does not list agents owned by other users" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    other_user = create_user(name: "Other Person")
+    @tenant.add_user!(other_user)
+    other_agent = create_ai_agent(parent: other_user, name: "Not My Bot")
+    @tenant.add_user!(other_agent)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_not_includes response.body, "Not My Bot"
+  end
+
+  test "show computes correct total with agents and collectives" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    agent1 = create_ai_agent(parent: @user, name: "Agent One")
+    @tenant.add_user!(agent1)
+    agent2 = create_ai_agent(parent: @user, name: "Agent Two")
+    @tenant.add_user!(agent2)
+    create_test_collective(name: "My Collective")
+
+    # Count collectives: @collective (Global Collective, created by @user) + My Collective = 2
+    expected_collectives = @user.active_billable_collective_count(@tenant)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    # 1 (account) + 2 (agents) + N (collectives)
+    expected_total = (1 + 2 + expected_collectives) * 3
+    assert_includes response.body, "$#{expected_total}/mo"
+  end
+
+  test "show itemizes resources before checkout when not set up" do
+    # User has agents but no subscription yet
+    agent = create_ai_agent(parent: @user, name: "Pre-existing Agent")
+    @tenant.add_user!(agent)
+    create_test_collective(name: "Pre-existing Collective")
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, "Pre-existing Agent"
+    assert_includes response.body, "Pre-existing Collective"
+    assert_includes response.body, "Set Up Billing"
+  end
+
+  test "show displays billing-exempt banner when all resources are exempt" do
+    @user.update!(billing_exempt: true)
+    # Exempt all non-main collectives created by this user
+    Collective.where(created_by_id: @user.id).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, "Billing-exempt"
+  end
+
+  test "show displays exempt label on individual exempt resources" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    @user.update!(billing_exempt: true)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    # User row should show exempt, but non-exempt collectives should show $3/mo
+    assert_includes response.body, "(exempt)"
+    assert_includes response.body, "$3/mo"
+  end
+
+  test "show displays cross-tenant notice when user belongs to other billing-enabled tenants" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    # Create another tenant with stripe_billing enabled and add the user
+    other_subdomain = "other-org-#{SecureRandom.hex(4)}"
+    other_tenant = Tenant.create!(name: "Other Org", subdomain: other_subdomain)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    other_tenant.enable_feature_flag!("stripe_billing")
+    other_tenant.add_user!(@user)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, other_subdomain
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)
     FeatureFlagService.config["stripe_billing"] ||= {}
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  def create_test_collective(name: "Test Collective", handle: "test-collective-#{SecureRandom.hex(4)}")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: name,
+      handle: handle,
+    )
+    cm = collective.add_user!(@user)
+    cm.add_role!("admin")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    collective
   end
 end

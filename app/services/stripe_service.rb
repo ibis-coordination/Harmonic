@@ -65,18 +65,20 @@ class StripeService
   end
 
   # Recalculate and update the Stripe subscription quantity for a user.
-  # quantity = 1 (user) + active_billable_agent_count
-  # No-op if user has no active subscription or is billing_exempt.
+  # quantity = (user exempt ? 0 : 1) + non-exempt active agents + non-exempt active collectives
+  # No-op if user has no active subscription, or if computed quantity is 0.
   # Returns the amount charged in cents (nil if no charge, 0 if credits covered it).
   # Rescues Stripe errors to avoid blocking user actions.
   sig { params(user: T.untyped, tenant: Tenant).returns(T.nilable(Integer)) }
   def self.sync_subscription_quantity!(user, tenant)
-    return nil if user.billing_exempt?
-
     sc = user.stripe_customer
     return nil unless sc&.active? && sc.stripe_subscription_id.present?
 
-    new_quantity = 1 + user.active_billable_agent_count(tenant) + user.active_billable_collective_count(tenant)
+    user_count = user.billing_exempt? ? 0 : 1
+    new_quantity = user_count + user.active_billable_agent_count(tenant) + user.active_billable_collective_count(tenant)
+
+    # Stripe doesn't allow quantity 0 on a subscription item — skip if nothing to bill
+    return nil if new_quantity == 0
 
     # Retrieve the subscription to get the item ID — quantity must be set on the item, not the subscription
     subscription = Stripe::Subscription.retrieve(sc.stripe_subscription_id)
@@ -112,8 +114,6 @@ class StripeService
   # Returns the amount in cents, or nil if preview fails.
   sig { params(user: T.untyped, tenant: Tenant).returns(T.nilable(Integer)) }
   def self.preview_proration(user, tenant)
-    return nil if user.billing_exempt?
-
     sc = user.stripe_customer
     return nil unless sc&.active? && sc.stripe_subscription_id.present?
 

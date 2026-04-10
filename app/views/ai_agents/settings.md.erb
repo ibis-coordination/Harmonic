@@ -3,12 +3,10 @@
 <% if @ai_agent.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
 **Status: Inactive** — This agent is deactivated and not being billed.
 
-<% if !@current_user.billing_exempt? %>
 <% if @proration_amount_cents %>
 Reactivating this agent will charge **$<%= "%.2f" % (@proration_amount_cents / 100.0) %> now** (prorated), then **$3/month** thereafter.
 <% else %>
 Reactivating this agent will add **$3/month** to your subscription, prorated for the current billing period.
-<% end %>
 <% end %>
 
 To reactivate, visit this page in your browser and use the reactivation form.

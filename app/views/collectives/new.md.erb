@@ -2,7 +2,7 @@
 
 Collectives are private by default. Once created, you can invite others to join your collective.
 
-<% if @current_tenant.feature_enabled?("stripe_billing") && @current_user&.human? && !@current_user.billing_exempt? %>
+<% if @current_tenant.feature_enabled?("stripe_billing") && @current_user&.human? %>
 <% if @proration_amount_cents %>
 **Billing:** You will be charged **$<%= "%.2f" % (@proration_amount_cents / 100.0) %> now** (prorated), then **$3/month** thereafter. Include `confirm_billing: "1"` to authorize.
 <% else %>

@@ -71,7 +71,7 @@ class CollectivesController < ApplicationController
     @page_title = 'New Collective'
     @page_description = 'Create a new collective'
 
-    if current_tenant.feature_enabled?("stripe_billing") && current_user&.human? && !current_user.billing_exempt?
+    if current_tenant.feature_enabled?("stripe_billing") && current_user&.human?
       @proration_amount_cents = StripeService.preview_proration(current_user, current_tenant)
     end
   end
@@ -172,7 +172,7 @@ class CollectivesController < ApplicationController
       # Preview proration for reactivation
       if @current_collective.archived? && current_tenant.feature_enabled?("stripe_billing")
         creator = @current_collective.created_by
-        if creator && creator.id == @current_user.id && !creator.billing_exempt?
+        if creator && creator.id == @current_user.id
           @proration_amount_cents = StripeService.preview_proration(creator, current_tenant)
         end
       end
@@ -622,7 +622,7 @@ class CollectivesController < ApplicationController
       return redirect_to "#{@current_collective.path}/settings"
     end
 
-    if current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt? && params[:confirm_billing] != "1"
+    if current_tenant.feature_enabled?("stripe_billing") && params[:confirm_billing] != "1"
       flash[:error] = "You must confirm the billing charge to reactivate this collective."
       return redirect_to "#{@current_collective.path}/settings"
     end
@@ -645,7 +645,6 @@ class CollectivesController < ApplicationController
   def requires_collective_billing_confirmation?
     current_tenant.feature_enabled?("stripe_billing") &&
       current_user&.human? &&
-      !current_user.billing_exempt? &&
       params[:confirm_billing] != "1"
   end
 

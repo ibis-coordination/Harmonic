@@ -84,7 +84,7 @@ class AiAgentsController < ApplicationController
 
   # POST /ai-agents/:handle/reactivate
   def reactivate
-    if current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt? && params[:confirm_billing] != "1"
+    if current_tenant.feature_enabled?("stripe_billing") && params[:confirm_billing] != "1"
       flash[:error] = "You must confirm the billing charge to reactivate this agent."
       return redirect_to ai_agent_path(@ai_agent.handle)
     end
@@ -107,7 +107,7 @@ class AiAgentsController < ApplicationController
     @page_title = "Settings - #{@ai_agent.display_name}"
 
     # Preview proration for reactivation
-    if @ai_agent.archived? && current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt?
+    if @ai_agent.archived? && current_tenant.feature_enabled?("stripe_billing")
       @proration_amount_cents = StripeService.preview_proration(current_user, current_tenant)
     end
 
@@ -296,7 +296,7 @@ class AiAgentsController < ApplicationController
   def new
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
 
-    if current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt?
+    if current_tenant.feature_enabled?("stripe_billing")
       @proration_amount_cents = StripeService.preview_proration(current_user, current_tenant)
     end
 
@@ -364,8 +364,9 @@ class AiAgentsController < ApplicationController
       end
     end
 
-    # Require billing confirmation when stripe_billing is enabled
-    if current_tenant.feature_enabled?("stripe_billing") && !current_user.billing_exempt? && params[:confirm_billing] != "1"
+    # Require billing confirmation when stripe_billing is enabled.
+    # The new agent will cost $3/mo regardless of user's own exemption status.
+    if current_tenant.feature_enabled?("stripe_billing") && params[:confirm_billing] != "1"
       respond_to do |format|
         format.md do
           return render_action_error({

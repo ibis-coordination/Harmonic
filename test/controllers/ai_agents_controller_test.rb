@@ -635,7 +635,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_not tu.archived?, "Agent should be unarchived after reactivation with confirmation"
   end
 
-  test "reactivate skips billing confirmation for exempt users" do
+  test "reactivate requires billing confirmation even for exempt users" do
     enable_stripe_billing_flag!(@tenant)
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     @user.update!(billing_exempt: true)
@@ -644,12 +644,18 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @ai_agent.archive!
 
     sign_in_as(@user, tenant: @tenant)
+    # Without confirm_billing, should be blocked
     post "/ai-agents/#{@ai_agent_handle}/reactivate"
 
     assert_response :redirect
     @ai_agent.reload
     tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    assert_not tu.archived?, "Exempt user should be able to reactivate without confirmation"
+    assert tu.archived?, "Agent should remain archived without billing confirmation"
+
+    # With confirm_billing, should succeed
+    post "/ai-agents/#{@ai_agent_handle}/reactivate", params: { confirm_billing: "1" }
+    tu.reload
+    assert_not tu.archived?, "Agent should be reactivated with billing confirmation"
   end
 
   test "update_settings blocked for archived agent" do

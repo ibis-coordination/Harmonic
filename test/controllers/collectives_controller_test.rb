@@ -361,7 +361,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not test_collective.archived?, "Should be unarchived with billing confirmation"
   end
 
-  test "reactivate skips billing confirmation for exempt users" do
+  test "reactivate requires billing confirmation even for exempt users" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     @user.update!(billing_exempt: true)
@@ -369,11 +369,17 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     test_collective.archive!
 
     sign_in_as(@user, tenant: @tenant)
+    # Without confirm_billing, should be blocked
     post "/collectives/#{test_collective.handle}/reactivate"
 
     assert_response :redirect
     test_collective.reload
-    assert_not test_collective.archived?, "Exempt user should reactivate without confirmation"
+    assert test_collective.archived?, "Collective should remain archived without billing confirmation"
+
+    # With confirm_billing, should succeed
+    post "/collectives/#{test_collective.handle}/reactivate", params: { confirm_billing: "1" }
+    test_collective.reload
+    assert_not test_collective.archived?, "Collective should be reactivated with billing confirmation"
   end
 
   test "create requires billing confirmation when stripe_billing enabled" do

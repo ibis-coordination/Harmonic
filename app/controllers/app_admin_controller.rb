@@ -259,6 +259,14 @@ class AppAdminController < ApplicationController
     new_value = !user.billing_exempt?
     user.update!(billing_exempt: new_value)
 
+    # Sync billing quantity after exemption change to keep Stripe in sync
+    if user.human? && user.stripe_customer&.active?
+      user.tenant_users.includes(:tenant).each do |tu|
+        next unless tu.tenant.feature_enabled?("stripe_billing")
+        StripeService.sync_subscription_quantity!(user, tu.tenant)
+      end
+    end
+
     action = new_value ? "granted" : "revoked"
     SecurityAuditLog.log_admin_action(
       admin: @current_user,

@@ -864,7 +864,138 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_not sc.active
     # stripe_billing_setup? should now return false
     @user.reload
-    assert_not @user.stripe_billing_setup?
+    assert_not @user.stripe_billing_setup?(@tenant)
+  end
+
+  # === Per-resource billing exemption ===
+
+  test "sync_subscription_quantity! excludes exempt user from count but includes non-exempt agents" do
+    @user.update!(billing_exempt: true)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_perexempt", active: true, stripe_subscription_id: "sub_perexempt")
+
+    agent = create_ai_agent(parent: @user, name: "Non-exempt Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent)
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_perexempt")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_perexempt", object: "subscription",
+          items: { data: [{ id: "si_perexempt", quantity: 2, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_perexempt")
+      .to_return(
+        status: 200,
+        body: { id: "si_perexempt", object: "subscription_item", quantity: 1 }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    StripeService.sync_subscription_quantity!(@user, @tenant)
+
+    # Should be 0 (exempt user) + 1 (non-exempt agent) = 1
+    assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_perexempt") do |req|
+      body = Rack::Utils.parse_query(req.body)
+      body["quantity"] == "1"
+    end
+  end
+
+  test "sync_subscription_quantity! excludes exempt agents from count" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_agentexempt", active: true, stripe_subscription_id: "sub_agentexempt")
+
+    exempt_agent = create_ai_agent(parent: @user, name: "Exempt Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(exempt_agent)
+    exempt_agent.update!(billing_exempt: true)
+
+    paid_agent = create_ai_agent(parent: @user, name: "Paid Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(paid_agent)
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_agentexempt")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_agentexempt", object: "subscription",
+          items: { data: [{ id: "si_agentexempt", quantity: 3, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_agentexempt")
+      .to_return(
+        status: 200,
+        body: { id: "si_agentexempt", object: "subscription_item", quantity: 2 }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    StripeService.sync_subscription_quantity!(@user, @tenant)
+
+    # Should be 1 (non-exempt user) + 1 (paid agent only) = 2
+    assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_agentexempt") do |req|
+      body = Rack::Utils.parse_query(req.body)
+      body["quantity"] == "2"
+    end
+  end
+
+  test "sync_subscription_quantity! excludes exempt collectives from count" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_collexempt", active: true, stripe_subscription_id: "sub_collexempt")
+
+    # Create two collectives, one exempt
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    paid_collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll", handle: "paid-coll-#{SecureRandom.hex(4)}")
+    exempt_collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Exempt Coll", handle: "exempt-coll-#{SecureRandom.hex(4)}", billing_exempt: true)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_collexempt")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_collexempt", object: "subscription",
+          items: { data: [{ id: "si_collexempt", quantity: 3, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_collexempt")
+      .to_return(
+        status: 200,
+        body: { id: "si_collexempt", object: "subscription_item", quantity: 2 }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    StripeService.sync_subscription_quantity!(@user, @tenant)
+
+    # Should be 1 (non-exempt user) + 1 (paid collective only) = 2
+    assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_collexempt") do |req|
+      body = Rack::Utils.parse_query(req.body)
+      body["quantity"] == "2"
+    end
+  end
+
+  test "sync_subscription_quantity! is no-op when all resources are exempt (quantity zero)" do
+    @user.update!(billing_exempt: true)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_allexempt", active: true, stripe_subscription_id: "sub_allexempt")
+
+    # No non-exempt agents or collectives — quantity should be 0
+    # But quantity 0 means no subscription needed, so this should be a no-op
+    # (Stripe doesn't allow quantity 0 on a subscription item)
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_allexempt")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_allexempt", object: "subscription",
+          items: { data: [{ id: "si_allexempt", quantity: 1, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    # Should NOT try to set quantity to 0
+    StripeService.sync_subscription_quantity!(@user, @tenant)
+
+    assert_not_requested(:post, "https://api.stripe.com/v1/subscription_items/si_allexempt")
   end
 
   private

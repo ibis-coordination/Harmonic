@@ -24,46 +24,65 @@
     <% end %>
 
     <% if @stripe_customer&.active? %>
+      <%# === Active subscription === %>
       <section class="pulse-section" style="margin-bottom: 24px;">
         <div class="pulse-notice pulse-notice-success"><span><%= octicon 'check-circle', height: 16 %> <strong>Active</strong> — <%= link_to "Manage payment", billing_portal_path %></span></div>
       </section>
 
       <section class="pulse-section" style="margin-bottom: 24px;">
-        <h2 class="pulse-section-title">Subscription Details</h2>
-        <table class="pulse-table" style="max-width: 400px;">
-          <tbody>
-            <tr>
-              <td>Your account</td>
-              <td style="text-align: right;">$3/mo</td>
-            </tr>
-            <% if @active_agent_count && @active_agent_count > 0 %>
-              <tr>
-                <td>AI Agents (<%= @active_agent_count %>)</td>
-                <td style="text-align: right;">$<%= @active_agent_count * 3 %>/mo</td>
-              </tr>
-            <% end %>
-            <% if @active_collective_count && @active_collective_count > 0 %>
-              <tr>
-                <td>Collectives (<%= @active_collective_count %>)</td>
-                <td style="text-align: right;">$<%= @active_collective_count * 3 %>/mo</td>
-              </tr>
-            <% end %>
-            <tr style="font-weight: bold; border-top: 2px solid var(--border-color, #ddd);">
-              <td>Total</td>
-              <td style="text-align: right;">$<%= (1 + (@active_agent_count || 0) + (@active_collective_count || 0)) * 3 %>/mo</td>
-            </tr>
-          </tbody>
-        </table>
+        <h2 class="pulse-section-title">Your Subscription</h2>
+        <p class="pulse-muted" style="margin-bottom: 12px;">Each identity on Harmonic costs $3/month.</p>
+        <%= render partial: "billing/inventory_table", locals: { show_prices: true } %>
+      </section>
+
+      <% if @inactive_agents&.any? || @inactive_collectives&.any? %>
+        <section class="pulse-section" style="margin-bottom: 24px;">
+          <h2 class="pulse-section-title">Inactive Resources</h2>
+          <p class="pulse-muted" style="margin-bottom: 12px;">These resources are deactivated and not being billed.</p>
+          <table class="pulse-table" style="max-width: 500px;">
+            <tbody>
+              <% @inactive_agents&.each do |agent| %>
+                <tr data-billing-item="agent-<%= agent.id %>">
+                  <td><%= octicon 'dependabot', height: 14 %> <%= agent.display_name %> <span class="pulse-muted">(inactive agent)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
+                </tr>
+              <% end %>
+              <% @inactive_collectives&.each do |collective| %>
+                <tr data-billing-item="collective-<%= collective.id %>">
+                  <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(inactive collective)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </section>
+      <% end %>
+
+    <% elsif @billable_quantity && @billable_quantity == 0 %>
+      <%# === No subscription needed (everything is exempt) === %>
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <div class="pulse-notice pulse-notice-success">
+          <span><%= octicon 'shield-check', height: 16 %> <strong>Billing-exempt</strong> — No subscription required.</span>
+        </div>
+      </section>
+
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <h2 class="pulse-section-title">Your Resources</h2>
+        <%= render partial: "billing/inventory_table", locals: { show_prices: false } %>
       </section>
 
     <% else %>
+      <%# === No subscription, needs to set up billing === %>
       <section class="pulse-section" style="margin-bottom: 24px;">
         <h2 class="pulse-section-title">Account Subscription</h2>
         <p style="margin-bottom: 16px;">
-          Harmonic accounts on this server require an active subscription. The base fee is <strong>$3/month</strong>.
+          Your account requires an active subscription to continue. Each identity on Harmonic costs <strong>$3/month</strong>.
         </p>
-        <p class="pulse-muted" style="margin-bottom: 24px;">
-          You'll see the exact pricing on the next page before confirming. You can cancel at any time.
+
+        <%= render partial: "billing/inventory_table", locals: { show_prices: true } %>
+
+        <p class="pulse-muted" style="margin-top: 16px; margin-bottom: 24px;">
+          You'll confirm the exact amount on the next page before being charged. You can cancel or deactivate resources at any time.
         </p>
 
         <%= form_tag billing_setup_path, method: :post do %>
@@ -72,6 +91,20 @@
             Set Up Billing
           </button>
         <% end %>
+      </section>
+    <% end %>
+
+    <% if @other_billing_tenants&.any? %>
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <div class="pulse-notice pulse-notice-warning">
+          <span>
+            <%= octicon 'globe', height: 14 %>
+            You also have billing on other organizations:
+            <% @other_billing_tenants.each_with_index do |tenant, i| %>
+              <strong><%= tenant.subdomain %></strong><%= ", " unless i == @other_billing_tenants.length - 1 %>
+            <% end %>
+          </span>
+        </div>
       </section>
     <% end %>
   </div>
