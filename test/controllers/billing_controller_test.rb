@@ -429,6 +429,149 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, other_subdomain
   end
 
+  # === Deactivate/Reactivate Actions ===
+
+  test "deactivate_agent archives the agent and redirects to billing" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    agent = create_ai_agent(parent: @user, name: "Deactivate Me")
+    @tenant.add_user!(agent)
+    agent_handle = agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/deactivate_agent/#{agent_handle}", params: { confirm_deactivate: "1" }
+
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert agent.archived?, "Agent should be archived"
+  end
+
+  test "deactivate_agent requires confirmation" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    agent = create_ai_agent(parent: @user, name: "No Confirm")
+    @tenant.add_user!(agent)
+    agent_handle = agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/deactivate_agent/#{agent_handle}"
+
+    assert_response :redirect
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_not agent.archived?, "Agent should not be archived without confirmation"
+  end
+
+  test "reactivate_agent unarchives the agent and redirects to billing" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    agent = create_ai_agent(parent: @user, name: "Reactivate Me")
+    @tenant.add_user!(agent)
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    agent.archive!
+
+    agent_handle = agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/reactivate_agent/#{agent_handle}", params: { confirm_billing: "1" }
+
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_not agent.archived?, "Agent should be unarchived"
+  end
+
+  test "reactivate_agent requires billing confirmation" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    agent = create_ai_agent(parent: @user, name: "No Confirm React")
+    @tenant.add_user!(agent)
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    agent.archive!
+
+    agent_handle = agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/reactivate_agent/#{agent_handle}"
+
+    assert_response :redirect
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert agent.archived?, "Agent should remain archived without confirmation"
+  end
+
+  test "deactivate_collective archives the collective and redirects to billing" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    collective = create_test_collective(name: "Deactivate Coll")
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/deactivate_collective/#{collective.handle}", params: { confirm_deactivate: "1" }
+
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
+    collective.reload
+    assert collective.archived?, "Collective should be archived"
+  end
+
+  test "reactivate_collective unarchives the collective and redirects to billing" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    collective = create_test_collective(name: "Reactivate Coll")
+    collective.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/reactivate_collective/#{collective.handle}", params: { confirm_billing: "1" }
+
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
+    collective.reload
+    assert_not collective.archived?, "Collective should be unarchived"
+  end
+
+  test "reactivate_agent clears suspension from subscription loss" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    agent = create_ai_agent(parent: @user, name: "Suspended Bot")
+    @tenant.add_user!(agent)
+    agent.update!(suspended_at: Time.current, suspended_by_id: @user.id, suspended_reason: "Subscription deleted")
+
+    agent_handle = agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/reactivate_agent/#{agent_handle}", params: { confirm_billing: "1" }
+
+    assert_response :redirect
+    agent.reload
+    assert_nil agent.suspended_at, "Suspension should be cleared"
+    assert_nil agent.suspended_reason
+  end
+
+  test "reactivate_agent blocked without active subscription" do
+    # User has no active subscription
+    agent = create_ai_agent(parent: @user, name: "No Sub Bot")
+    @tenant.add_user!(agent)
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    agent.archive!
+
+    agent_handle = agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/reactivate_agent/#{agent_handle}", params: { confirm_billing: "1" }
+
+    assert_response :redirect
+    agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert agent.archived?, "Agent should remain archived without active subscription"
+  end
+
+  test "cannot deactivate another user's agent" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    other_user = create_user(name: "Other Owner")
+    @tenant.add_user!(other_user)
+    other_agent = create_ai_agent(parent: other_user, name: "Not Mine")
+    @tenant.add_user!(other_agent)
+    agent_handle = other_agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/deactivate_agent/#{agent_handle}", params: { confirm_deactivate: "1" }
+
+    assert_response :redirect
+    other_agent.tenant_user = other_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_not other_agent.archived?, "Should not be able to deactivate another user's agent"
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)

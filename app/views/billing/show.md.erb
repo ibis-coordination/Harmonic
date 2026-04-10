@@ -28,12 +28,14 @@ These resources are deactivated and not being billed.
 | Item | Status |
 |------|--------|
 <% @inactive_agents&.each do |agent| %>
-| <%= agent.display_name %> (agent) | inactive |
+| <%= agent.display_name %> (agent) | not billed |
 <% end %>
 <% @inactive_collectives&.each do |collective| %>
-| <%= collective.name %> (collective) | inactive |
+| <%= collective.name %> (collective) | not billed |
 <% end %>
 <% end %>
+
+To deactivate or reactivate resources, visit `/billing` in your browser.
 
 <% elsif @billable_quantity && @billable_quantity == 0 %>
 ## Status

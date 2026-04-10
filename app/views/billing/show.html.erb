@@ -32,25 +32,42 @@
       <section class="pulse-section" style="margin-bottom: 24px;">
         <h2 class="pulse-section-title">Your Subscription</h2>
         <p class="pulse-muted" style="margin-bottom: 12px;">Each identity on Harmonic costs $3/month.</p>
-        <%= render partial: "billing/inventory_table", locals: { show_prices: true } %>
+        <%= render partial: "billing/inventory_table", locals: { show_prices: true, show_actions: true } %>
       </section>
 
       <% if @inactive_agents&.any? || @inactive_collectives&.any? %>
         <section class="pulse-section" style="margin-bottom: 24px;">
           <h2 class="pulse-section-title">Inactive Resources</h2>
           <p class="pulse-muted" style="margin-bottom: 12px;">These resources are deactivated and not being billed.</p>
-          <table class="pulse-table" style="max-width: 500px;">
+          <table class="pulse-table" style="max-width: 600px;">
             <tbody>
               <% @inactive_agents&.each do |agent| %>
+                <% agent_handle = agent.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>
                 <tr data-billing-item="agent-<%= agent.id %>">
                   <td><%= octicon 'dependabot', height: 14 %> <%= agent.display_name %> <span class="pulse-muted">(inactive agent)</span></td>
                   <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
+                  <td style="text-align: right;">
+                    <%= form_tag billing_reactivate_agent_path(agent_handle), method: :post, style: "display:inline" do %>
+                      <%= hidden_field_tag :confirm_billing, "1" %>
+                      <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j agent.display_name %>? This will add $3/mo to your subscription.')">
+                        Reactivate
+                      </button>
+                    <% end %>
+                  </td>
                 </tr>
               <% end %>
               <% @inactive_collectives&.each do |collective| %>
                 <tr data-billing-item="collective-<%= collective.id %>">
                   <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(inactive collective)</span></td>
                   <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
+                  <td style="text-align: right;">
+                    <%= form_tag billing_reactivate_collective_path(collective.handle), method: :post, style: "display:inline" do %>
+                      <%= hidden_field_tag :confirm_billing, "1" %>
+                      <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j collective.name %>? This will add $3/mo to your subscription.')">
+                        Reactivate
+                      </button>
+                    <% end %>
+                  </td>
                 </tr>
               <% end %>
             </tbody>

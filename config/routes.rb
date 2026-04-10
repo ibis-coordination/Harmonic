@@ -12,6 +12,10 @@ Rails.application.routes.draw do
   get 'billing' => 'billing#show', as: 'billing_show'
   post 'billing/setup' => 'billing#setup', as: 'billing_setup'
   get 'billing/portal' => 'billing#portal', as: 'billing_portal'
+  post 'billing/deactivate_agent/:handle' => 'billing#deactivate_agent', as: 'billing_deactivate_agent'
+  post 'billing/reactivate_agent/:handle' => 'billing#reactivate_agent', as: 'billing_reactivate_agent'
+  post 'billing/deactivate_collective/:collective_handle' => 'billing#deactivate_collective', as: 'billing_deactivate_collective'
+  post 'billing/reactivate_collective/:collective_handle' => 'billing#reactivate_collective', as: 'billing_reactivate_collective'
 
   # Development tools - Pulse styleguide (only available in development)
   if Rails.env.development?

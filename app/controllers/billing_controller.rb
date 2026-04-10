@@ -63,11 +63,133 @@ class BillingController < ApplicationController
     redirect_to portal_url, allow_other_host: true
   end
 
+  # POST /billing/deactivate_agent/:handle
+  def deactivate_agent
+    agent = find_owned_agent
+    return redirect_to billing_show_path unless agent
+
+    if params[:confirm_deactivate] != "1"
+      flash[:error] = "You must confirm deactivation."
+      return redirect_to billing_show_path
+    end
+
+    agent.archive!
+    StripeService.sync_subscription_quantity!(current_user, current_tenant) if current_tenant.feature_enabled?("stripe_billing")
+    flash[:notice] = "#{agent.display_name} has been deactivated."
+    redirect_to billing_show_path
+  end
+
+  # POST /billing/reactivate_agent/:handle
+  def reactivate_agent
+    agent = find_owned_agent
+    return redirect_to billing_show_path unless agent
+
+    # Reactivating a non-exempt resource requires an active subscription
+    if current_tenant.feature_enabled?("stripe_billing") && !agent.billing_exempt?
+      unless current_user.stripe_customer&.active?
+        flash[:error] = "You need an active subscription to reactivate resources. Please set up billing first."
+        return redirect_to billing_show_path
+      end
+
+      if params[:confirm_billing] != "1"
+        flash[:error] = "You must confirm the billing charge to reactivate this agent."
+        return redirect_to billing_show_path
+      end
+    end
+
+    # Clear suspension if the agent was suspended (e.g., from subscription loss)
+    if agent.suspended_at.present?
+      agent.update!(suspended_at: nil, suspended_by_id: nil, suspended_reason: nil)
+    end
+    agent.unarchive!
+    charged_cents = nil
+    charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant) if current_tenant.feature_enabled?("stripe_billing")
+    notice = "#{agent.display_name} has been reactivated."
+    notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
+    flash[:notice] = notice
+    redirect_to billing_show_path
+  end
+
+  # POST /billing/deactivate_collective/:collective_handle
+  def deactivate_collective
+    collective = find_owned_collective
+    return redirect_to billing_show_path unless collective
+
+    if params[:confirm_deactivate] != "1"
+      flash[:error] = "You must confirm deactivation."
+      return redirect_to billing_show_path
+    end
+
+    collective.archive!
+    if current_tenant.feature_enabled?("stripe_billing")
+      StripeService.sync_subscription_quantity!(current_user, current_tenant)
+    end
+    flash[:notice] = "#{collective.name} has been deactivated."
+    redirect_to billing_show_path
+  end
+
+  # POST /billing/reactivate_collective/:collective_handle
+  def reactivate_collective
+    collective = find_owned_collective
+    return redirect_to billing_show_path unless collective
+
+    # Reactivating a non-exempt resource requires an active subscription
+    if current_tenant.feature_enabled?("stripe_billing") && !collective.billing_exempt?
+      unless current_user.stripe_customer&.active?
+        flash[:error] = "You need an active subscription to reactivate resources. Please set up billing first."
+        return redirect_to billing_show_path
+      end
+
+      if params[:confirm_billing] != "1"
+        flash[:error] = "You must confirm the billing charge to reactivate this collective."
+        return redirect_to billing_show_path
+      end
+    end
+
+    collective.unarchive!
+    charged_cents = nil
+    charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant) if current_tenant.feature_enabled?("stripe_billing")
+    notice = "#{collective.name} has been reactivated."
+    notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
+    flash[:notice] = notice
+    redirect_to billing_show_path
+  end
+
   def current_resource_model
     nil
   end
 
   private
+
+  def find_owned_agent
+    tu = TenantUser.where(tenant_id: current_tenant.id, handle: params[:handle]).first
+    return nil unless tu
+
+    agent = tu.user
+    unless agent&.ai_agent? && agent.parent_id == current_user.id
+      flash[:error] = "You can only manage your own agents."
+      return nil
+    end
+
+    # Set tenant_user so archive!/unarchive! can find it
+    agent.tenant_user = tu
+    agent
+  end
+
+  def find_owned_collective
+    collective = Collective.find_by(tenant_id: current_tenant.id, handle: params[:collective_handle])
+    unless collective && collective.created_by_id == current_user.id
+      flash[:error] = "You can only manage collectives you created."
+      return nil
+    end
+
+    if collective.is_main_collective?
+      flash[:error] = "The main collective cannot be deactivated."
+      return nil
+    end
+
+    collective
+  end
 
   def set_sidebar_mode
     @sidebar_mode = "minimal"
