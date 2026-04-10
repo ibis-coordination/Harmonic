@@ -39,7 +39,7 @@
         <span>
           <%= octicon 'archive', height: 14 %>
           <strong>Inactive</strong> — This agent is deactivated and not being billed.
-          <%= link_to "Reactivate", ai_agent_settings_path(@ai_agent.handle), class: "pulse-link" %>
+          <%= link_to "Manage on billing page", "/billing", class: "pulse-link" %>
         </span>
       </div>
     <% elsif @ai_agent.suspended? %>

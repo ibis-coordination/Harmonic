@@ -169,13 +169,7 @@ class CollectivesController < ApplicationController
     if @current_user.collective_member.is_admin?
       @page_title = 'Collective Settings'
 
-      # Preview proration for reactivation
-      if @current_collective.archived? && current_tenant.feature_enabled?("stripe_billing")
-        creator = @current_collective.created_by
-        if creator && creator.id == @current_user.id
-          @proration_amount_cents = StripeService.preview_proration(creator, current_tenant)
-        end
-      end
+      # Proration preview no longer needed here — reactivation is managed on /billing
 
       # AI agents in this collective (for display) - exclude archived memberships
       @collective_ai_agents = @current_collective.users
@@ -203,7 +197,7 @@ class CollectivesController < ApplicationController
       return render status: 403, plain: '403 Unauthorized'
     end
     if @current_collective.archived?
-      flash[:error] = "Cannot update settings for a deactivated collective. Reactivate it first."
+      flash[:error] = "Cannot update settings for a deactivated collective. Reactivate it on the billing page first."
       return redirect_to "#{@current_collective.path}/settings"
     end
     @current_collective.name = params[:name]
@@ -588,58 +582,6 @@ class CollectivesController < ApplicationController
   end
 
   # POST /collectives/:collective_handle/deactivate
-  def deactivate
-    unless @current_user.collective_member&.is_admin?
-      flash[:error] = "Only collective admins can deactivate a collective."
-      return redirect_to @current_collective.path
-    end
-
-    if @current_collective.is_main_collective?
-      flash[:error] = "The main collective cannot be deactivated."
-      return redirect_to "#{@current_collective.path}/settings"
-    end
-
-    if params[:confirm_deactivate] != "1"
-      flash[:error] = "You must confirm deactivation."
-      return redirect_to "#{@current_collective.path}/settings"
-    end
-
-    @current_collective.archive!
-    if current_tenant.feature_enabled?("stripe_billing")
-      creator = @current_collective.created_by
-      StripeService.sync_subscription_quantity!(creator, current_tenant)
-    end
-    flash[:notice] = "#{@current_collective.name} has been deactivated."
-    redirect_to "#{@current_collective.path}/settings"
-  end
-
-  # POST /collectives/:collective_handle/reactivate
-  def reactivate
-    creator = @current_collective.created_by
-
-    unless creator && @current_user.id == creator.id
-      flash[:error] = "Only the collective creator can reactivate it (they are billed for it)."
-      return redirect_to "#{@current_collective.path}/settings"
-    end
-
-    if current_tenant.feature_enabled?("stripe_billing") && params[:confirm_billing] != "1"
-      flash[:error] = "You must confirm the billing charge to reactivate this collective."
-      return redirect_to "#{@current_collective.path}/settings"
-    end
-
-    @current_collective.unarchive!
-    charged_cents = nil
-    if current_tenant.feature_enabled?("stripe_billing")
-      charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant)
-    end
-    notice = "#{@current_collective.name} has been reactivated."
-    if charged_cents && charged_cents > 0
-      notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
-    end
-    flash[:notice] = notice
-    redirect_to "#{@current_collective.path}/settings"
-  end
-
   private
 
   def requires_collective_billing_confirmation?

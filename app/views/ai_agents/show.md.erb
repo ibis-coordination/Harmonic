@@ -7,7 +7,7 @@ Model: `<%= @ai_agent.agent_configuration&.dig("model") || "default" %>`
 <% end %>
 
 <% if @ai_agent.archived? %>
-**Status: Inactive** — This agent is deactivated and not being billed. [Reactivate](/ai-agents/<%= @ai_agent.handle %>/settings)
+**Status: Inactive** — This agent is deactivated and not being billed. [Manage on billing page](/billing)
 <% elsif @ai_agent.suspended? %>
 **Status: Suspended** — This agent has been suspended<%= " — #{@ai_agent.suspended_reason}" if @ai_agent.suspended_reason.present? %>.
 <% elsif @current_tenant.feature_enabled?("stripe_billing") %>

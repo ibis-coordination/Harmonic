@@ -1,15 +1,7 @@
 # Settings - <%= @ai_agent.display_name %>
 
 <% if @ai_agent.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
-**Status: Inactive** — This agent is deactivated and not being billed.
-
-<% if @proration_amount_cents %>
-Reactivating this agent will charge **$<%= "%.2f" % (@proration_amount_cents / 100.0) %> now** (prorated), then **$3/month** thereafter.
-<% else %>
-Reactivating this agent will add **$3/month** to your subscription, prorated for the current billing period.
-<% end %>
-
-To reactivate, visit this page in your browser and use the reactivation form.
+**Status: Inactive** — This agent is deactivated and not being billed. [Manage on billing page](/billing)
 
 <% else %>
 ## Profile
@@ -68,11 +60,11 @@ This agent has no API tokens.
 <% end %>
 
 <% if @current_tenant.feature_enabled?("stripe_billing") %>
-## Deactivate Agent
-
-Deactivating this agent will remove the $3/month charge from your subscription. The agent's data will be preserved and you can reactivate it at any time.
-
-To deactivate, visit this page in your browser.
+<% if @ai_agent.billing_exempt? %>
+This agent is billing-exempt. [View billing](/billing)
+<% else %>
+This agent costs $3/month. [Manage billing](/billing)
+<% end %>
 <% end %>
 <% end %>
 

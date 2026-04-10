@@ -1,17 +1,11 @@
 # Collective Settings
 
 <% if @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
-**Status: Inactive** — This collective is deactivated and not being billed.
-
 <% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id %>
-<% if @proration_amount_cents %>
-Reactivating this collective will charge **$<%= "%.2f" % (@proration_amount_cents / 100.0) %> now** (prorated), then **$3/month** thereafter.
+**Status: Inactive** — This collective is deactivated and not being billed. [Manage on billing page](/billing)
 <% else %>
-Reactivating this collective will add **$3/month** to your subscription, prorated for the current billing period.
+**Status: Inactive** — This collective is deactivated and not being billed. Only the collective creator can reactivate it.
 <% end %>
-<% end %>
-
-To reactivate, visit this page in your browser and use the reactivation form.
 
 <% else %>
 Current settings for **<%= @current_collective.name %>**:
@@ -49,11 +43,11 @@ Current settings for **<%= @current_collective.name %>**:
 <% end %>
 
 <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? %>
-## Deactivate Collective
-
-Deactivating this collective will remove the $3/month charge. The collective's data will be preserved and it can be reactivated at any time.
-
-To deactivate, visit this page in your browser.
+<% if @current_collective.billing_exempt? %>
+This collective is billing-exempt. [View billing](/billing)
+<% else %>
+This collective costs $3/month. [Manage billing](/billing)
+<% end %>
 <% end %>
 
 ## Additional Settings

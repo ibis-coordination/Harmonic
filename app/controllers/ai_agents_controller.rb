@@ -68,48 +68,11 @@ class AiAgentsController < ApplicationController
   end
 
   # POST /ai-agents/:handle/deactivate
-  def deactivate
-    if params[:confirm_deactivate] != "1"
-      flash[:error] = "You must confirm deactivation."
-      return redirect_to ai_agent_settings_path(@ai_agent.handle)
-    end
-
-    @ai_agent.archive!
-    if current_tenant.feature_enabled?("stripe_billing")
-      StripeService.sync_subscription_quantity!(current_user, current_tenant)
-    end
-    flash[:notice] = "#{@ai_agent.display_name} has been deactivated."
-    redirect_to ai_agent_path(@ai_agent.handle)
-  end
-
-  # POST /ai-agents/:handle/reactivate
-  def reactivate
-    if current_tenant.feature_enabled?("stripe_billing") && params[:confirm_billing] != "1"
-      flash[:error] = "You must confirm the billing charge to reactivate this agent."
-      return redirect_to ai_agent_path(@ai_agent.handle)
-    end
-
-    @ai_agent.unarchive!
-    charged_cents = nil
-    if current_tenant.feature_enabled?("stripe_billing")
-      charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant)
-    end
-    notice = "#{@ai_agent.display_name} has been reactivated."
-    if charged_cents && charged_cents > 0
-      notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
-    end
-    flash[:notice] = notice
-    redirect_to ai_agent_path(@ai_agent.handle)
-  end
-
   # GET /ai-agents/:handle/settings - Show settings for a specific AI agent
   def settings
     @page_title = "Settings - #{@ai_agent.display_name}"
 
-    # Preview proration for reactivation
-    if @ai_agent.archived? && current_tenant.feature_enabled?("stripe_billing")
-      @proration_amount_cents = StripeService.preview_proration(current_user, current_tenant)
-    end
+    # Proration preview no longer needed here — reactivation is managed on /billing
 
     # Get collectives the agent is a member of
     active_collective_members = @ai_agent.collective_members.reject(&:archived?)
@@ -124,7 +87,7 @@ class AiAgentsController < ApplicationController
   # POST /ai-agents/:handle/settings - Update settings for a specific AI agent
   def update_settings
     if @ai_agent.archived?
-      flash[:error] = "Cannot update settings for a deactivated agent. Reactivate the agent first."
+      flash[:error] = "Cannot update settings for a deactivated agent. Reactivate it on the billing page first."
       return redirect_to ai_agent_settings_path(@ai_agent.handle)
     end
 

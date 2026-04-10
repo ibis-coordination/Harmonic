@@ -570,94 +570,6 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{/billing}, response.location
   end
 
-  # === Deactivate / Reactivate Tests ===
-
-  test "deactivate archives agent and redirects" do
-    enable_stripe_billing_flag!(@tenant)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    sign_in_as(@user, tenant: @tenant)
-
-    post "/ai-agents/#{@ai_agent_handle}/deactivate", params: { confirm_deactivate: "1" }
-
-    assert_response :redirect
-    @ai_agent.reload
-    tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    assert tu.archived?, "Agent should be archived after deactivation"
-  end
-
-  test "deactivate revokes agent API tokens" do
-    enable_stripe_billing_flag!(@tenant)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-
-    # Create a token for the agent
-    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    token = ApiToken.create!(user: @ai_agent, tenant: @tenant, name: "test", expires_at: 1.year.from_now, scopes: ["read:all"])
-    Tenant.clear_thread_scope
-
-    sign_in_as(@user, tenant: @tenant)
-    post "/ai-agents/#{@ai_agent_handle}/deactivate", params: { confirm_deactivate: "1" }
-
-    token.reload
-    assert token.deleted_at.present?, "API token should be revoked after deactivation"
-  end
-
-  test "reactivate requires billing confirmation" do
-    enable_stripe_billing_flag!(@tenant)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-
-    # Archive the agent first
-    @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    @ai_agent.archive!
-
-    sign_in_as(@user, tenant: @tenant)
-    post "/ai-agents/#{@ai_agent_handle}/reactivate"
-
-    assert_response :redirect
-    @ai_agent.reload
-    tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    assert tu.archived?, "Agent should still be archived without billing confirmation"
-  end
-
-  test "reactivate unarchives agent with billing confirmation" do
-    enable_stripe_billing_flag!(@tenant)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-
-    # Archive the agent first
-    @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    @ai_agent.archive!
-
-    sign_in_as(@user, tenant: @tenant)
-    post "/ai-agents/#{@ai_agent_handle}/reactivate", params: { confirm_billing: "1" }
-
-    assert_response :redirect
-    @ai_agent.reload
-    tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    assert_not tu.archived?, "Agent should be unarchived after reactivation with confirmation"
-  end
-
-  test "reactivate requires billing confirmation even for exempt users" do
-    enable_stripe_billing_flag!(@tenant)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    @user.update!(billing_exempt: true)
-
-    @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    @ai_agent.archive!
-
-    sign_in_as(@user, tenant: @tenant)
-    # Without confirm_billing, should be blocked
-    post "/ai-agents/#{@ai_agent_handle}/reactivate"
-
-    assert_response :redirect
-    @ai_agent.reload
-    tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    assert tu.archived?, "Agent should remain archived without billing confirmation"
-
-    # With confirm_billing, should succeed
-    post "/ai-agents/#{@ai_agent_handle}/reactivate", params: { confirm_billing: "1" }
-    tu.reload
-    assert_not tu.archived?, "Agent should be reactivated with billing confirmation"
-  end
-
   test "update_settings blocked for archived agent" do
     enable_stripe_billing_flag!(@tenant)
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
@@ -671,6 +583,33 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     @ai_agent.reload
     assert_not_equal "Hacked Name", @ai_agent.name
+  end
+
+  test "settings page links to billing for archived agent instead of reactivation form" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
+    @ai_agent.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+
+    assert_response :success
+    assert_includes response.body, "/billing"
+    assert_not_includes response.body, "Reactivate Agent"
+  end
+
+  test "settings page links to billing for deactivation instead of form" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+
+    assert_response :success
+    assert_includes response.body, "/billing"
+    assert_not_includes response.body, "Deactivate Agent"
   end
 
   test "create rejects agent without billing confirmation when stripe_billing enabled" do
