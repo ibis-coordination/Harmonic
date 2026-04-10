@@ -435,4 +435,90 @@ class CollectiveTest < ActiveSupport::TestCase
     # Bob does NOT have access to Alice's collective (he's not a member)
     assert_not alices_collective.accessible_by?(trustee)
   end
+
+  # === Archive Tests ===
+
+  test "archive! sets archived_at" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Archive Test", handle: "archive-test-#{SecureRandom.hex(4)}")
+
+    assert_nil collective.archived_at
+    collective.archive!
+    assert collective.archived?
+    assert_not_nil collective.archived_at
+  end
+
+  test "unarchive! clears archived_at" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Unarchive Test", handle: "unarchive-test-#{SecureRandom.hex(4)}")
+
+    collective.archive!
+    assert collective.archived?
+    collective.unarchive!
+    assert_not collective.archived?
+    assert_nil collective.archived_at
+  end
+
+  test "archive! disables automation rules" do
+    tenant = create_tenant
+    user = create_user
+    tenant.add_user!(user)
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Auto Test", handle: "auto-test-#{SecureRandom.hex(4)}")
+    collective.add_user!(user)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    # Create an enabled automation rule
+    rule = AutomationRule.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      name: "Test Rule",
+      trigger_type: "webhook",
+      actions: { "type" => "webhook", "url" => "https://example.com/hook" },
+      enabled: true,
+    )
+
+    collective.archive!
+
+    rule.reload
+    assert_not rule.enabled?, "Automation rule should be disabled after collective is archived"
+
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  test "unarchive! does not re-enable automation rules" do
+    tenant = create_tenant
+    user = create_user
+    tenant.add_user!(user)
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "NoReEnable Test", handle: "nore-test-#{SecureRandom.hex(4)}")
+    collective.add_user!(user)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    agent = create_ai_agent(parent: user, name: "NoRe Agent #{SecureRandom.hex(4)}")
+    tenant.add_user!(agent)
+    collective.add_user!(agent)
+    rule = AutomationRule.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      name: "Test Rule",
+      trigger_type: "webhook",
+      actions: { "type" => "webhook", "url" => "https://example.com/hook" },
+      enabled: true,
+    )
+
+    collective.archive!
+    collective.unarchive!
+
+    rule.reload
+    assert_not rule.enabled?, "Automation rule should NOT be re-enabled after unarchive"
+
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
 end

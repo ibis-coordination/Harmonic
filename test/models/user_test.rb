@@ -1022,6 +1022,35 @@ class UserTest < ActiveSupport::TestCase
     assert_equal 0, @user.active_billable_agent_count(@tenant)
   end
 
+  # === Collective Billing Tests ===
+
+  test "active_billable_collective_count counts non-main non-archived collectives" do
+    # @collective from setup is non-main, so it counts as 1 already
+    @tenant.update!(main_collective_id: @collective.id) # make it main so we start from 0
+    extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Extra #{SecureRandom.hex(4)}", handle: "extra-#{SecureRandom.hex(4)}")
+    assert_equal 1, @user.active_billable_collective_count(@tenant)
+  end
+
+  test "active_billable_collective_count excludes main collective" do
+    @tenant.update!(main_collective_id: @collective.id)
+    assert_equal 0, @user.active_billable_collective_count(@tenant)
+  end
+
+  test "active_billable_collective_count excludes archived collectives" do
+    @tenant.update!(main_collective_id: @collective.id)
+    extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Archived #{SecureRandom.hex(4)}", handle: "archived-#{SecureRandom.hex(4)}")
+    extra.archive!
+    assert_equal 0, @user.active_billable_collective_count(@tenant)
+  end
+
+  test "active_billable_collective_count excludes collectives created by other users" do
+    @tenant.update!(main_collective_id: @collective.id)
+    other = create_user(email: "other-#{SecureRandom.hex(4)}@example.com", name: "Other User #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other)
+    Collective.create!(tenant: @tenant, created_by: other, name: "Other #{SecureRandom.hex(4)}", handle: "other-#{SecureRandom.hex(4)}")
+    assert_equal 0, @user.active_billable_collective_count(@tenant)
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)

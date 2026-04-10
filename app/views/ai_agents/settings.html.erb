@@ -215,8 +215,11 @@
             Deactivating this agent will remove the $3/month charge from your subscription. The agent's data will be preserved and you can reactivate it at any time.
           </p>
           <%= form_tag deactivate_ai_agent_path(@ai_agent.handle), method: :post do %>
-            <button type="submit" class="pulse-action-btn pulse-action-btn-danger"
-                    onclick="return confirm('Are you sure you want to deactivate this agent?')">
+            <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 16px;">
+              <%= check_box_tag :confirm_deactivate, "1", false, required: true, id: "confirm_deactivate" %>
+              I understand that deactivating this agent will revoke its API tokens and prevent it from running tasks
+            </label>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-danger">
               <%= octicon 'archive', height: 14 %>
               Deactivate Agent
             </button>

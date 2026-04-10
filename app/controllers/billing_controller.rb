@@ -20,7 +20,10 @@ class BillingController < ApplicationController
       return redirect_to return_to
     end
 
-    @active_agent_count = current_user.active_billable_agent_count(current_tenant) if @stripe_customer&.active?
+    if @stripe_customer&.active?
+      @active_agent_count = current_user.active_billable_agent_count(current_tenant)
+      @active_collective_count = current_user.active_billable_collective_count(current_tenant)
+    end
 
   end
 
@@ -33,7 +36,7 @@ class BillingController < ApplicationController
     success_url = "#{billing_url}?checkout_session_id={CHECKOUT_SESSION_ID}"
     success_url += "&return_to=#{CGI.escape(return_to)}" if return_to.present?
 
-    quantity = 1 + current_user.active_billable_agent_count(current_tenant)
+    quantity = 1 + current_user.active_billable_agent_count(current_tenant) + current_user.active_billable_collective_count(current_tenant)
 
     checkout_url = StripeService.create_checkout_session(
       stripe_customer: stripe_customer,

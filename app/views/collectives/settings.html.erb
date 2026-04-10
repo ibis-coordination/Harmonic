@@ -16,6 +16,63 @@
   </header>
 
   <div class="pulse-settings-form">
+    <% if flash[:notice] %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;">
+        <%= flash[:notice] %>
+      </div>
+    <% end %>
+
+    <% if flash[:error] %>
+      <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 20px;">
+        <%= flash[:error] %>
+      </div>
+    <% end %>
+
+    <% if @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'archive', height: 14 %>
+          <strong>Inactive</strong> — This collective is deactivated and not being billed.
+        </span>
+      </div>
+
+      <% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id %>
+        <section class="pulse-settings-section">
+          <% if !@current_user.billing_exempt? %>
+            <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 16px;">
+              <span>
+                <%= octicon 'credit-card', height: 14 %>
+                <% if @proration_amount_cents %>
+                  <strong>You will be charged $<%= "%.2f" % (@proration_amount_cents / 100.0) %> now</strong> (prorated for the current billing period), then <strong>$3/month</strong> thereafter.
+                <% else %>
+                  <strong>Reactivating this collective will add $3/month</strong> to your subscription, prorated for the current billing period.
+                <% end %>
+              </span>
+            </div>
+          <% end %>
+          <%= form_tag "#{@current_collective.path}/reactivate", method: :post do %>
+            <% if !@current_user.billing_exempt? %>
+              <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 16px;">
+                <%= check_box_tag :confirm_billing, "1", false, required: true, id: "confirm_billing" %>
+                <% if @proration_amount_cents %>
+                  I authorize a charge of $<%= "%.2f" % (@proration_amount_cents / 100.0) %> now and $3/month thereafter
+                <% else %>
+                  I understand that reactivating this collective will add $3/month to my subscription
+                <% end %>
+              </label>
+            <% end %>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+              <%= octicon 'play', height: 14 %>
+              Reactivate Collective
+            </button>
+          <% end %>
+        </section>
+      <% else %>
+        <p class="pulse-muted">Only the collective creator can reactivate this collective.</p>
+      <% end %>
+
+    <% else %>
+
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Collective Image</h2>
       <%= render 'shared/profile_image_upload', resource: @current_collective, size: 83 %>
@@ -104,7 +161,7 @@
         </fieldset>
       </section>
 
-      <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) } %>
+      <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) && FeatureFlagService.flag_metadata(f).fetch("collective_level", false) } %>
       <% if available_flags.any? %>
         <section class="pulse-settings-section">
           <h2 class="pulse-section-title">Features Enabled</h2>
@@ -212,6 +269,30 @@
           <%= octicon 'gear', height: 14 %> Manage Automations
         </a>
       </section>
+
     <% end %>
+
+
+      <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Deactivate Collective</h2>
+          <p class="pulse-muted" style="margin-bottom: 16px;">
+            Deactivating this collective will remove the $3/month charge from the creator's subscription. The collective's data will be preserved and it can be reactivated at any time.
+          </p>
+          <%= form_tag "#{@current_collective.path}/deactivate", method: :post do %>
+            <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 16px;">
+              <%= check_box_tag :confirm_deactivate, "1", false, required: true, id: "confirm_deactivate" %>
+              I understand that deactivating this collective will make it inaccessible to all members
+            </label>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-danger">
+              <%= octicon 'archive', height: 14 %>
+              Deactivate Collective
+            </button>
+          <% end %>
+        </section>
+      <% end %>
+
+    <% end %>
+
   </div>
 </article>

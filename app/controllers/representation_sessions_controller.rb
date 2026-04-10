@@ -56,6 +56,11 @@ class RepresentationSessionsController < ApplicationController
     end
     return render status: :forbidden, plain: "403 Unauthorized" unless current_user.collective_member.can_represent?
 
+    if current_collective.archived?
+      flash[:alert] = "This collective is deactivated and cannot be represented."
+      return redirect_to "#{current_collective.path}/settings"
+    end
+
     confirmed_understanding = ["true", "1"].include?(params[:understand])
     unless confirmed_understanding
       flash[:alert] = "You must check the box to confirm you understand."

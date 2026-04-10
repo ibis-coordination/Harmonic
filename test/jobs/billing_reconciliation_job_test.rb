@@ -15,6 +15,7 @@ class BillingReconciliationJobTest < ActiveJob::TestCase
 
   test "reconciles subscription quantities for active customers" do
     tenant, collective, user = create_tenant_collective_user
+    tenant.update!(main_collective_id: collective.id)
     enable_stripe_billing_flag!(tenant)
     sc = StripeCustomer.create!(billable: user, stripe_id: "cus_recon", active: true, stripe_subscription_id: "sub_recon")
 
@@ -36,6 +37,7 @@ class BillingReconciliationJobTest < ActiveJob::TestCase
 
   test "skips billing_exempt users" do
     tenant, collective, user = create_tenant_collective_user
+    tenant.update!(main_collective_id: collective.id)
     enable_stripe_billing_flag!(tenant)
     user.update!(billing_exempt: true)
     StripeCustomer.create!(billable: user, stripe_id: "cus_exempt_recon", active: true, stripe_subscription_id: "sub_exempt_recon")
@@ -48,6 +50,7 @@ class BillingReconciliationJobTest < ActiveJob::TestCase
 
   test "continues processing when one user fails" do
     tenant, collective, user1 = create_tenant_collective_user
+    tenant.update!(main_collective_id: collective.id)
     enable_stripe_billing_flag!(tenant)
     StripeCustomer.create!(billable: user1, stripe_id: "cus_fail_recon", active: true, stripe_subscription_id: "sub_fail_recon")
 

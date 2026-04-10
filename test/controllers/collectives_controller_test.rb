@@ -20,7 +20,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
       name: name,
       handle: handle
     )
-    collective.add_user!(@user)
+    cm = collective.add_user!(@user)
+    cm.add_role!("admin")
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
     collective
@@ -257,5 +258,181 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(new_user, tenant: @tenant)
     get "/collectives/#{test_collective.handle}/join", params: { code: invite.code }
     assert_response :success
+  end
+
+  # === Collective Billing and Archive Tests ===
+
+  test "deactivate archives the collective" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    test_collective = create_test_collective
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/deactivate", params: { confirm_deactivate: "1" }
+
+    assert_response :redirect
+    test_collective.reload
+    assert test_collective.archived?, "Collective should be archived after deactivation"
+  end
+
+  test "deactivate blocks non-admins" do
+    enable_stripe_billing_flag!(@tenant)
+    test_collective = create_test_collective
+
+    # Create a non-admin member
+    other_user = create_user(name: "Non Admin #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    test_collective.add_user!(other_user)
+    Tenant.clear_thread_scope
+
+    sign_in_as(other_user, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/deactivate"
+
+    assert_response :redirect
+    test_collective.reload
+    assert_not test_collective.archived?, "Non-admin should not be able to deactivate"
+  end
+
+  test "deactivate blocks main collective" do
+    enable_stripe_billing_flag!(@tenant)
+    main = Collective.find(@tenant.main_collective_id)
+
+    sign_in_as(@user, tenant: @tenant)
+    # Need to be admin of main collective
+    cm = main.collective_members.find_by(user: @user) || main.add_user!(@user)
+    cm.add_role!('admin') unless cm.is_admin?
+
+    post "/collectives/#{main.handle}/deactivate"
+
+    assert_response :redirect
+    main.reload
+    assert_not main.archived?, "Main collective should not be deactivatable"
+  end
+
+  test "reactivate requires creator" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    test_collective = create_test_collective
+    test_collective.archive!
+
+    # Sign in as a different admin
+    other_user = create_user(name: "Other Admin #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    test_collective.add_user!(other_user)
+    cm = test_collective.collective_members.find_by(user: other_user)
+    cm.add_role!('admin')
+    Tenant.clear_thread_scope
+
+    sign_in_as(other_user, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/reactivate", params: { confirm_billing: "1" }
+
+    assert_response :redirect
+    test_collective.reload
+    assert test_collective.archived?, "Non-creator should not be able to reactivate"
+  end
+
+  test "reactivate requires billing confirmation" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    test_collective = create_test_collective
+    test_collective.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/reactivate"
+
+    assert_response :redirect
+    test_collective.reload
+    assert test_collective.archived?, "Should remain archived without billing confirmation"
+  end
+
+  test "reactivate unarchives collective with billing confirmation" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    test_collective = create_test_collective
+    test_collective.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/reactivate", params: { confirm_billing: "1" }
+
+    assert_response :redirect
+    test_collective.reload
+    assert_not test_collective.archived?, "Should be unarchived with billing confirmation"
+  end
+
+  test "reactivate skips billing confirmation for exempt users" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    @user.update!(billing_exempt: true)
+    test_collective = create_test_collective
+    test_collective.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/reactivate"
+
+    assert_response :redirect
+    test_collective.reload
+    assert_not test_collective.archived?, "Exempt user should reactivate without confirmation"
+  end
+
+  test "create requires billing confirmation when stripe_billing enabled" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "Collective.count" do
+      post "/collectives", params: { name: "No Confirm", handle: "no-confirm-#{SecureRandom.hex(4)}" }
+    end
+
+    assert_response :redirect
+    assert_match %r{/collectives/new}, response.location
+  end
+
+  test "create succeeds with billing confirmation" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "Collective.count", 1 do
+      post "/collectives", params: { name: "Confirmed Collective", handle: "confirmed-#{SecureRandom.hex(4)}", confirm_billing: "1" }
+    end
+
+    assert_response :redirect
+  end
+
+  test "archived collective blocks write requests" do
+    test_collective = create_test_collective
+    test_collective.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+
+    # Try to update settings on archived collective
+    post "/collectives/#{test_collective.handle}/settings", params: { name: "New Name" }
+
+    assert_response :redirect
+    test_collective.reload
+    assert_not_equal "New Name", test_collective.name
+  end
+
+  test "archived collective redirects to settings" do
+    test_collective = create_test_collective
+    test_collective.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{test_collective.handle}"
+
+    assert_response :redirect
+    assert_match %r{/settings}, response.location
+  end
+
+  private
+
+  def enable_stripe_billing_flag!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
   end
 end

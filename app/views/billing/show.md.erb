@@ -13,7 +13,10 @@
 <% if @active_agent_count && @active_agent_count > 0 %>
 | AI Agents (<%= @active_agent_count %>) | $<%= @active_agent_count * 3 %>/mo |
 <% end %>
-| **Total** | **$<%= (1 + (@active_agent_count || 0)) * 3 %>/mo** |
+<% if @active_collective_count && @active_collective_count > 0 %>
+| Collectives (<%= @active_collective_count %>) | $<%= @active_collective_count * 3 %>/mo |
+<% end %>
+| **Total** | **$<%= (1 + (@active_agent_count || 0) + (@active_collective_count || 0)) * 3 %>/mo** |
 
 <% else %>
 ## Status

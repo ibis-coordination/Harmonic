@@ -1,12 +1,33 @@
 # Collectives
 
+<% if @current_tenant.feature_enabled?("stripe_billing") -%>
+<% if @my_collectives&.any? -%>
+## Created by you
+
+<% @my_collectives.each do |collective| -%>
+* [<%= collective.name %>](<%= collective.path %>)<%= " (Archived)" if collective.archived? %>
+<% end -%>
+<% end -%>
+
+<% if @member_collectives&.any? -%>
+## Member of
+
+<% @member_collectives.each do |collective| -%>
+* [<%= collective.name %>](<%= collective.path %>)<%= " (Archived)" if collective.archived? %>
+<% end -%>
+<% end -%>
+
+<% if !@my_collectives&.any? && !@member_collectives&.any? && current_user -%>
+You are not a member of any collectives yet.
+<% end -%>
+<% else -%>
 <% if @collectives.any? -%>
 <% @collectives.each do |collective| -%>
-* [<%= collective.name %>](<%= collective.path %>)
+* [<%= collective.name %>](<%= collective.path %>)<%= " (Archived)" if collective.archived? %>
 <% end -%>
 <% elsif current_user -%>
 You are not a member of any collectives yet.
 <% else -%>
 [Log in](/login) to see your collectives.
 <% end -%>
-
+<% end -%>

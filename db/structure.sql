@@ -299,7 +299,8 @@ CREATE TABLE public.collectives (
     updated_by_id uuid NOT NULL,
     identity_user_id uuid,
     description text,
-    internal boolean DEFAULT false NOT NULL
+    internal boolean DEFAULT false NOT NULL,
+    archived_at timestamp(6) without time zone
 );
 
 
@@ -8511,6 +8512,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260409000001'),
 ('20260409000000'),
 ('20260308000000'),
 ('20260228000000'),

@@ -6,6 +6,8 @@ require "webmock/minitest"
 class StripeServiceTest < ActiveSupport::TestCase
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
+    # Set as main collective so it doesn't count toward billing
+    @tenant.update!(main_collective_id: @collective.id)
     @tenant.enable_feature_flag!("ai_agents")
     enable_stripe_billing_flag!(@tenant)
 
@@ -810,6 +812,37 @@ class StripeServiceTest < ActiveSupport::TestCase
 
     result = StripeService.preview_proration(@user, @tenant)
     assert_nil result
+  end
+
+  test "handle_webhook customer.subscription.deleted archives user's non-main collectives" do
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_del_coll",
+      stripe_subscription_id: "sub_del_coll",
+      active: true,
+    )
+
+    # Create a non-main collective owned by the user
+    extra_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Extra Coll #{SecureRandom.hex(4)}",
+      handle: "extra-coll-#{SecureRandom.hex(4)}",
+    )
+
+    event = build_stripe_event(
+      type: "customer.subscription.deleted",
+      object: { "customer" => "cus_del_coll", "id" => "sub_del_coll" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    extra_collective.reload
+    assert extra_collective.archived?, "Non-main collective should be archived when subscription deleted"
+
+    # Main collective should NOT be archived
+    @collective.reload
+    assert_not @collective.archived?, "Main collective should not be archived"
   end
 
   test "handle_webhook customer.subscription.deleted deactivates customer so agents cannot run" do

@@ -42,9 +42,15 @@
                 <td style="text-align: right;">$<%= @active_agent_count * 3 %>/mo</td>
               </tr>
             <% end %>
+            <% if @active_collective_count && @active_collective_count > 0 %>
+              <tr>
+                <td>Collectives (<%= @active_collective_count %>)</td>
+                <td style="text-align: right;">$<%= @active_collective_count * 3 %>/mo</td>
+              </tr>
+            <% end %>
             <tr style="font-weight: bold; border-top: 2px solid var(--border-color, #ddd);">
               <td>Total</td>
-              <td style="text-align: right;">$<%= (1 + (@active_agent_count || 0)) * 3 %>/mo</td>
+              <td style="text-align: right;">$<%= (1 + (@active_agent_count || 0) + (@active_collective_count || 0)) * 3 %>/mo</td>
             </tr>
           </tbody>
         </table>

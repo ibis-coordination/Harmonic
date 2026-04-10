@@ -500,6 +500,16 @@ class User < ApplicationRecord
       .count
   end
 
+  # Count active (not archived) collectives created by this user, excluding the main collective.
+  sig { params(tenant: Tenant).returns(Integer) }
+  def active_billable_collective_count(tenant)
+    Collective.where(
+      tenant_id: tenant.id,
+      created_by_id: id,
+      archived_at: nil,
+    ).where.not(id: tenant.main_collective_id).count
+  end
+
   private
 
   # Check if self is the parent of the given user (for representation)

@@ -11,6 +11,7 @@ class ApplicationController < ActionController::Base
   before_action :check_session_timeout
   before_action :check_user_suspension
   before_action :check_stripe_billing_gate
+  before_action :check_collective_archived
 
   # Include ActionCapabilityCheck AFTER before_action declarations so that
   # append_before_action puts check_capability_for_action at the END of the chain,
@@ -994,6 +995,22 @@ class ApplicationController < ActionController::Base
     return if controller_name == "users" && (action_name == "settings" || action_name == "show" || action_name == "update_profile")
 
     redirect_to "/billing"
+  end
+
+  # Redirect all requests to the settings page when a collective is archived.
+  # Exempt: settings page, reactivation, billing, auth, and webhook controllers
+  # (which inherit from ActionController::Base, not ApplicationController).
+  def check_collective_archived
+    return unless @current_collective&.respond_to?(:archived?) && @current_collective.archived?
+    return if is_auth_controller?
+    return if self.is_a?(BillingController)
+    return if controller_name == "collectives" && action_name.in?(%w[settings reactivate])
+
+    respond_to do |format|
+      format.json { render json: { error: "This collective is deactivated." }, status: :forbidden }
+      format.md { render plain: "This collective is deactivated. Visit the settings page to reactivate.", status: :forbidden }
+      format.any { redirect_to "#{@current_collective.path}/settings" }
+    end
   end
 
   # Set Sentry context for error tracking

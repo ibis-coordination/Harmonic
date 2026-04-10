@@ -577,7 +577,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     sign_in_as(@user, tenant: @tenant)
 
-    post "/ai-agents/#{@ai_agent_handle}/deactivate"
+    post "/ai-agents/#{@ai_agent_handle}/deactivate", params: { confirm_deactivate: "1" }
 
     assert_response :redirect
     @ai_agent.reload
@@ -595,7 +595,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     sign_in_as(@user, tenant: @tenant)
-    post "/ai-agents/#{@ai_agent_handle}/deactivate"
+    post "/ai-agents/#{@ai_agent_handle}/deactivate", params: { confirm_deactivate: "1" }
 
     token.reload
     assert token.deleted_at.present?, "API token should be revoked after deactivation"

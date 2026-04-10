@@ -128,6 +128,29 @@
       </fieldset>
     </section>
 
+    <% if @current_tenant.feature_enabled?("stripe_billing") && @current_user&.human? && !@current_user.billing_exempt? %>
+      <section class="pulse-settings-section">
+        <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 16px;">
+          <span>
+            <%= octicon 'credit-card', height: 14 %>
+            <% if @proration_amount_cents %>
+              <strong>You will be charged $<%= "%.2f" % (@proration_amount_cents / 100.0) %> now</strong> (prorated for the current billing period), then <strong>$3/month</strong> thereafter.
+            <% else %>
+              <strong>Each collective costs $3/month</strong>, added to your subscription and prorated for the current billing period.
+            <% end %>
+          </span>
+        </div>
+        <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <%= check_box_tag :confirm_billing, "1", false, required: true, id: "confirm_billing" %>
+          <% if @proration_amount_cents %>
+            I authorize a charge of $<%= "%.2f" % (@proration_amount_cents / 100.0) %> now and $3/month thereafter
+          <% else %>
+            I understand that creating this collective will add $3/month to my subscription
+          <% end %>
+        </label>
+      </section>
+    <% end %>
+
     <div class="pulse-form-actions">
       <%= form.submit 'Create Collective', class: 'pulse-action-btn' %>
     </div>

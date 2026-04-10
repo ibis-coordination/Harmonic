@@ -69,6 +69,11 @@ class AiAgentsController < ApplicationController
 
   # POST /ai-agents/:handle/deactivate
   def deactivate
+    if params[:confirm_deactivate] != "1"
+      flash[:error] = "You must confirm deactivation."
+      return redirect_to ai_agent_settings_path(@ai_agent.handle)
+    end
+
     @ai_agent.archive!
     if current_tenant.feature_enabled?("stripe_billing")
       StripeService.sync_subscription_quantity!(current_user, current_tenant)

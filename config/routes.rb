@@ -305,6 +305,8 @@ Rails.application.routes.draw do
   get "collectives/:collective_handle/members" => 'collectives#members'
   get "collectives/:collective_handle/settings" => 'collectives#settings'
   post "collectives/:collective_handle/settings" => 'collectives#update_settings'
+  post "collectives/:collective_handle/deactivate" => 'collectives#deactivate'
+  post "collectives/:collective_handle/reactivate" => 'collectives#reactivate'
   post "collectives/:collective_handle/settings/add_ai_agent" => 'collectives#add_ai_agent'
   delete "collectives/:collective_handle/settings/remove_ai_agent" => 'collectives#remove_ai_agent'
   get "collectives/:collective_handle/settings/actions" => 'collectives#actions_index_settings'

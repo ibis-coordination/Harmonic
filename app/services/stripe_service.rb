@@ -76,7 +76,7 @@ class StripeService
     sc = user.stripe_customer
     return nil unless sc&.active? && sc.stripe_subscription_id.present?
 
-    new_quantity = 1 + user.active_billable_agent_count(tenant)
+    new_quantity = 1 + user.active_billable_agent_count(tenant) + user.active_billable_collective_count(tenant)
 
     # Retrieve the subscription to get the item ID — quantity must be set on the item, not the subscription
     subscription = Stripe::Subscription.retrieve(sc.stripe_subscription_id)
@@ -208,7 +208,7 @@ class StripeService
 
     # If subscription transitioned to inactive (canceled, unpaid), suspend all agents
     if was_active && !now_active
-      suspend_agents_for_customer(sc, reason: "Subscription #{subscription.status}")
+      deactivate_resources_for_customer(sc, reason: "Subscription #{subscription.status}")
     end
   end
   private_class_method :handle_subscription_updated
@@ -224,7 +224,7 @@ class StripeService
     sc.update!(active: false)
     Rails.logger.info("[StripeService] Deactivated billing for customer #{subscription.customer}")
 
-    suspend_agents_for_customer(sc, reason: "Subscription deleted")
+    deactivate_resources_for_customer(sc, reason: "Subscription deleted")
   end
   private_class_method :handle_subscription_deleted
 
@@ -234,19 +234,29 @@ class StripeService
   end
   private_class_method :handle_payment_failed
 
-  # Suspend all agents owned by the billing customer's user.
-  # Revokes API tokens (blocking external agents) and prevents task execution.
+  # Suspend all agents and archive all collectives owned by the billing customer's user.
+  # Revokes API tokens (blocking external agents) and prevents task/automation execution.
   sig { params(stripe_customer: StripeCustomer, reason: String).void }
-  def self.suspend_agents_for_customer(stripe_customer, reason:)
+  def self.deactivate_resources_for_customer(stripe_customer, reason:)
     user = stripe_customer.billable
     return unless user.is_a?(User) && user.human?
 
+    # Suspend agents
     suspended_count = 0
     user.ai_agents.where(suspended_at: nil).find_each do |agent|
       agent.suspend!(by: user, reason: reason, skip_billing_sync: true)
       suspended_count += 1
     end
     Rails.logger.info("[StripeService] Suspended #{suspended_count} agents for user #{user.id}: #{reason}") if suspended_count > 0
+
+    # Archive non-main collectives created by this user
+    archived_count = 0
+    Collective.where(created_by_id: user.id, archived_at: nil).find_each do |collective|
+      next if collective.is_main_collective?
+      collective.archive!
+      archived_count += 1
+    end
+    Rails.logger.info("[StripeService] Archived #{archived_count} collectives for user #{user.id}: #{reason}") if archived_count > 0
   end
-  private_class_method :suspend_agents_for_customer
+  private_class_method :deactivate_resources_for_customer
 end
