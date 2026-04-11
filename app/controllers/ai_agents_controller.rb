@@ -353,7 +353,13 @@ class AiAgentsController < ApplicationController
       if !current_user.stripe_customer&.active?
         @ai_agent.update!(pending_billing_setup: true)
       else
-        charged_cents = StripeService.sync_subscription_quantity!(current_user)
+        result = StripeService.sync_subscription_quantity!(current_user)
+        if result == :error
+          # Sync failed — mark agent pending so it doesn't run unbilled
+          @ai_agent.update!(pending_billing_setup: true)
+        else
+          charged_cents = result
+        end
       end
     end
     # Only generate token for external AI agents (not for pending agents)

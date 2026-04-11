@@ -103,7 +103,8 @@ class BillingController < ApplicationController
     end
     agent.unarchive!
     charged_cents = nil
-    charged_cents = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
+    result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
+    charged_cents = result if result.is_a?(Integer)
     notice = "#{agent.display_name} has been reactivated."
     notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
@@ -148,7 +149,8 @@ class BillingController < ApplicationController
 
     collective.unarchive!
     charged_cents = nil
-    charged_cents = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
+    result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
+    charged_cents = result if result.is_a?(Integer)
     notice = "#{collective.name} has been reactivated."
     notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
@@ -234,6 +236,9 @@ class BillingController < ApplicationController
 
       # Activate any pending resources now that billing is set up
       activate_pending_resources!
+
+      # Sync quantity to correct any drift (e.g. resources created during checkout flow)
+      StripeService.sync_subscription_quantity!(current_user)
 
       flash.now[:notice] = "Billing activated successfully!"
     end

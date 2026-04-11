@@ -69,7 +69,7 @@ class StripeService
   # No-op if user has no active subscription, or if computed quantity is 0.
   # Returns the amount charged in cents (nil if no charge, 0 if credits covered it).
   # Rescues Stripe errors to avoid blocking user actions.
-  sig { params(user: T.untyped).returns(T.nilable(Integer)) }
+  sig { params(user: T.untyped).returns(T.any(NilClass, Integer, Symbol)) }
   def self.sync_subscription_quantity!(user)
     sc = user.stripe_customer
     return nil unless sc&.active? && sc.stripe_subscription_id.present?
@@ -81,6 +81,16 @@ class StripeService
 
     # Retrieve the subscription to get the item ID — quantity must be set on the item, not the subscription
     subscription = Stripe::Subscription.retrieve(sc.stripe_subscription_id)
+
+    # Check if Stripe reports the subscription as inactive (e.g. cancelled while webhook pending)
+    inactive_statuses = %w[canceled unpaid incomplete_expired]
+    if inactive_statuses.include?(subscription.status)
+      Rails.logger.warn("[StripeService] Subscription #{sc.stripe_subscription_id} is #{subscription.status} — deactivating locally for user #{user.id}")
+      sc.update!(active: false)
+      deactivate_resources_for_customer(sc, reason: "Subscription #{subscription.status}")
+      return :error
+    end
+
     item = subscription.items.data.first
     return nil unless item
 
@@ -106,7 +116,7 @@ class StripeService
     nil
   rescue Stripe::StripeError => e
     Rails.logger.error("[StripeService] Failed to update subscription quantity for user #{user.id}: #{e.message}")
-    nil
+    :error
   end
 
   # Preview the prorated amount that would be charged if subscription quantity increased by 1.

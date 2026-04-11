@@ -1261,6 +1261,51 @@ class User
     sig { void }
     def parent_id_will_change!; end
 
+    sig { returns(T::Boolean) }
+    def pending_billing_setup; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def pending_billing_setup=(value); end
+
+    sig { returns(T::Boolean) }
+    def pending_billing_setup?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def pending_billing_setup_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def pending_billing_setup_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def pending_billing_setup_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def pending_billing_setup_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def pending_billing_setup_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pending_billing_setup_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def pending_billing_setup_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def pending_billing_setup_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pending_billing_setup_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def pending_billing_setup_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def pending_billing_setup_was; end
+
+    sig { void }
+    def pending_billing_setup_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def picture_url; end
 
@@ -1335,6 +1380,9 @@ class User
 
     sig { void }
     def restore_parent_id!; end
+
+    sig { void }
+    def restore_pending_billing_setup!; end
 
     sig { void }
     def restore_picture_url!; end
@@ -1419,6 +1467,12 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_parent_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_pending_billing_setup; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_pending_billing_setup?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_picture_url; end
@@ -1812,6 +1866,9 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_parent_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_pending_billing_setup?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_picture_url?(from: T.unsafe(nil), to: T.unsafe(nil)); end

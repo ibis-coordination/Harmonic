@@ -42,6 +42,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   test "show activates billing when checkout_session_id present" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_show123", active: false)
 
+    stub_subscription_sync("sub_show123")
     stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_test123})
       .to_return(
         status: 200,
@@ -67,6 +68,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   test "show redirects to return_to after activating billing" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_redir123", active: false)
 
+    stub_subscription_sync("sub_redir123")
     stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_redir123})
       .to_return(
         status: 200,
@@ -89,6 +91,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
   test "show validates return_to is a relative path" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_evil123", active: false)
+    stub_subscription_sync("sub_evil123")
 
     stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_evil123})
       .to_return(
@@ -646,7 +649,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
   test "checkout activates pending resources" do
     @user.update!(billing_exempt: true)
-    Collective.where(created_by_id: @user.id).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
+    Collective.for_user_across_tenants(@user).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
 
     agent = create_ai_agent(parent: @user, name: "Pending Agent")
     @tenant.add_user!(agent)
@@ -657,6 +660,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_pending_#{SecureRandom.hex(4)}", active: false)
 
+    stub_subscription_sync("sub_pending123")
     stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_pending123})
       .to_return(
         status: 200,
@@ -697,6 +701,123 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert new_agent.pending_billing_setup?, "Agent should be pending when created without subscription"
   end
 
+  # === Billing Consistency Tests ===
+  # These ensure billing state stays in sync with Stripe, even in edge cases.
+  # Not security exploits, but consistency gaps that could lead to brief under-billing.
+
+  test "checkout completion syncs subscription quantity to catch any drift" do
+    @user.update!(billing_exempt: true)
+    Collective.where(created_by_id: @user.id).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
+
+    agent1 = create_ai_agent(parent: @user, name: "Before Checkout")
+    @tenant.add_user!(agent1)
+    agent1.update!(pending_billing_setup: true)
+
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_sync_#{SecureRandom.hex(4)}", active: false)
+
+    agent2 = create_ai_agent(parent: @user, name: "During Checkout")
+    @tenant.add_user!(agent2)
+    agent2.update!(pending_billing_setup: true)
+
+    stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_sync_checkout})
+      .to_return(
+        status: 200,
+        body: {
+          id: "cs_sync_checkout",
+          object: "checkout.session",
+          customer: sc.stripe_id,
+          subscription: "sub_sync_checkout",
+          status: "complete",
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_sync_checkout")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_sync_checkout", object: "subscription", status: "active",
+          items: { data: [{ id: "si_sync_checkout", quantity: 1, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    quantity_set = nil
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_sync_checkout")
+      .with { |req| quantity_set = Rack::Utils.parse_query(req.body)["quantity"]; true }
+      .to_return(
+        status: 200,
+        body: { id: "si_sync_checkout", object: "subscription_item", quantity: 2 }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    stub_request(:post, "https://api.stripe.com/v1/invoices")
+      .to_return(
+        status: 200,
+        body: { id: "in_sync", object: "invoice", amount_due: 0 }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing?checkout_session_id=cs_sync_checkout"
+
+    assert_response :success
+    assert_equal "2", quantity_set, "Should sync quantity after checkout to correct any drift"
+  end
+
+  test "agent creation marks agent pending when sync fails" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_syncfail_#{SecureRandom.hex(4)}", active: true, stripe_subscription_id: "sub_syncfail")
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_syncfail")
+      .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "User.where(user_type: 'ai_agent').count", 1 do
+      post "/ai-agents/new/actions/create_ai_agent", params: {
+        name: "Sync Failed Agent",
+        confirm_billing: "1",
+      }
+    end
+
+    new_agent = User.where(user_type: "ai_agent").order(:created_at).last
+    # If sync fails, the agent should be marked pending so it doesn't run unbilled
+    assert new_agent.pending_billing_setup?, "Agent should be pending when sync fails"
+  end
+
+  test "agent creation checks subscription status from Stripe before activating" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_cancel_#{SecureRandom.hex(4)}", active: true, stripe_subscription_id: "sub_cancel")
+
+    # Subscription is actually cancelled in Stripe, but local record still says active
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_cancel")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_cancel", object: "subscription",
+          status: "canceled",
+          items: { data: [{ id: "si_cancel", quantity: 2, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_cancel")
+      .to_return(status: 200, body: { id: "si_cancel", quantity: 3 }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v1/invoices")
+      .to_return(status: 200, body: { id: "in_cancel", object: "invoice", amount_due: 150 }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v1/invoices/in_cancel/pay")
+      .to_return(status: 200, body: { id: "in_cancel", object: "invoice", status: "paid" }.to_json, headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "Created During Cancel",
+      confirm_billing: "1",
+    }
+
+    new_agent = User.where(user_type: "ai_agent").order(:created_at).last
+    # Sync discovers subscription is cancelled — should mark agent pending and deactivate local subscription
+    assert new_agent.pending_billing_setup?,
+      "Agent should be pending when sync discovers subscription is cancelled"
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)
@@ -719,5 +840,31 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
     collective
+  end
+
+  # Stub Stripe subscription retrieval and update for sync_subscription_quantity!
+  # Use when a test triggers checkout return (which now calls sync after activation).
+  def stub_subscription_sync(sub_id)
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/#{sub_id}")
+      .to_return(
+        status: 200,
+        body: {
+          id: sub_id, object: "subscription", status: "active",
+          items: { data: [{ id: "si_#{sub_id}", quantity: 99, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_#{sub_id}")
+      .to_return(
+        status: 200,
+        body: { id: "si_#{sub_id}", object: "subscription_item" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/invoices")
+      .to_return(
+        status: 200,
+        body: { id: "in_#{sub_id}", object: "invoice", amount_due: 0 }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
   end
 end
