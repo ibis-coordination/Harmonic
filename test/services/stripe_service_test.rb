@@ -779,9 +779,9 @@ class StripeServiceTest < ActiveSupport::TestCase
         body: {
           id: "in_preview", object: "invoice", amount_due: 1199,
           lines: { data: [
-            { amount: -600, description: "Unused time on 1 x Account after 09 Apr 2026" },
-            { amount: 899, description: "Remaining time on 2 x Account after 09 Apr 2026" },
-            { amount: 900, description: "2 x Account (at $3.00 / month)" },
+            { amount: -600, description: "Unused time on 1 x Account after 09 Apr 2026", proration: true },
+            { amount: 899, description: "Remaining time on 2 x Account after 09 Apr 2026", proration: true },
+            { amount: 900, description: "2 x Account (at $3.00 / month)", proration: false },
           ] },
         }.to_json,
         headers: { "Content-Type" => "application/json" },

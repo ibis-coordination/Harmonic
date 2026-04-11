@@ -354,11 +354,11 @@ class AiAgentsController < ApplicationController
         @ai_agent.update!(pending_billing_setup: true)
       else
         result = StripeService.sync_subscription_quantity!(current_user)
-        if result == :error
+        if result.success
+          charged_cents = result.charged_cents
+        else
           # Sync failed — mark agent pending so it doesn't run unbilled
           @ai_agent.update!(pending_billing_setup: true)
-        else
-          charged_cents = result
         end
       end
     end

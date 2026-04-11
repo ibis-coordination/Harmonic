@@ -4,36 +4,48 @@
 class StripeService
   extend T::Sig
 
+  class SyncResult < T::Struct
+    const :success, T::Boolean
+    const :charged_cents, T.nilable(Integer)
+  end
+
   # Find or create a StripeCustomer record for the given billable (User, Collective, etc.)
-  # Uses the DB unique index on [billable_type, billable_id] as a concurrency guard.
+  # Uses an advisory lock to prevent concurrent Stripe API calls that would create
+  # orphaned Stripe customer objects, plus a DB unique index as a safety net.
   sig { params(billable: T.untyped).returns(StripeCustomer) }
   def self.find_or_create_customer(billable)
     # Return existing record if present
     existing = billable.stripe_customer
     return existing if existing
 
-    # Create Stripe customer via API
-    stripe_customer = Stripe::Customer.create(
-      email: billable.respond_to?(:email) ? billable.email : nil,
-      name: billable.respond_to?(:display_name) ? billable.display_name : billable.to_s,
-      metadata: {
-        billable_type: billable.class.name,
-        billable_id: billable.id,
-      },
-    )
+    # Advisory lock keyed on billable to serialize customer creation
+    lock_key = "stripe_customer_create_#{billable.class.name}_#{billable.id}"
+    StripeCustomer.transaction do
+      ActiveRecord::Base.connection.execute(
+        "SELECT pg_advisory_xact_lock(hashtext(#{ActiveRecord::Base.connection.quote(lock_key)}))",
+      )
 
-    # Create local record (DB unique constraint prevents duplicates)
-    StripeCustomer.create!(
-      billable: billable,
-      stripe_id: stripe_customer.id,
-      active: false,
-    )
-  rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
-    # Race condition or stale cache: another call created the record first
-    raise e unless e.is_a?(ActiveRecord::RecordNotUnique) ||
-      e.message.include?("already been taken")
+      # Re-check after acquiring lock (another request may have created it)
+      already_created = billable.reload.stripe_customer
+      return already_created if already_created
 
-    T.must(billable.reload.stripe_customer)
+      # Create Stripe customer via API
+      stripe_customer = Stripe::Customer.create(
+        email: billable.respond_to?(:email) ? billable.email : nil,
+        name: billable.respond_to?(:display_name) ? billable.display_name : billable.to_s,
+        metadata: {
+          billable_type: billable.class.name,
+          billable_id: billable.id,
+        },
+      )
+
+      # Create local record (DB unique constraint as safety net)
+      StripeCustomer.create!(
+        billable: billable,
+        stripe_id: stripe_customer.id,
+        active: false,
+      )
+    end
   end
 
   # Create a Stripe Checkout Session for the $3/month account subscription.
@@ -67,17 +79,17 @@ class StripeService
   # Recalculate and update the Stripe subscription quantity for a user.
   # Sums all billable resources across ALL tenants (one subscription per user).
   # No-op if user has no active subscription, or if computed quantity is 0.
-  # Returns the amount charged in cents (nil if no charge, 0 if credits covered it).
+  # Returns a SyncResult with success status and optional charged_cents.
   # Rescues Stripe errors to avoid blocking user actions.
-  sig { params(user: T.untyped).returns(T.any(NilClass, Integer, Symbol)) }
+  sig { params(user: T.untyped).returns(SyncResult) }
   def self.sync_subscription_quantity!(user)
     sc = user.stripe_customer
-    return nil unless sc&.active? && sc.stripe_subscription_id.present?
+    return SyncResult.new(success: true, charged_cents: nil) unless sc&.active? && sc.stripe_subscription_id.present?
 
     new_quantity = user.billable_quantity
 
     # Stripe doesn't allow quantity 0 on a subscription item — skip if nothing to bill
-    return nil if new_quantity == 0
+    return SyncResult.new(success: true, charged_cents: nil) if new_quantity == 0
 
     # Retrieve the subscription to get the item ID — quantity must be set on the item, not the subscription
     subscription = Stripe::Subscription.retrieve(sc.stripe_subscription_id)
@@ -88,16 +100,16 @@ class StripeService
       Rails.logger.warn("[StripeService] Subscription #{sc.stripe_subscription_id} is #{subscription.status} — deactivating locally for user #{user.id}")
       sc.update!(active: false)
       deactivate_resources_for_customer(sc, reason: "Subscription #{subscription.status}")
-      return :error
+      return SyncResult.new(success: false, charged_cents: nil)
     end
 
     item = subscription.items.data.first
-    return nil unless item
+    return SyncResult.new(success: true, charged_cents: nil) unless item
 
     old_quantity = item.quantity
 
     # Skip if quantity hasn't changed (avoids unnecessary API calls and proration events)
-    return nil if new_quantity == old_quantity
+    return SyncResult.new(success: true, charged_cents: nil) if new_quantity == old_quantity
 
     Stripe::SubscriptionItem.update(item.id, quantity: new_quantity)
     Rails.logger.info("[StripeService] Updated subscription item #{item.id} quantity from #{old_quantity} to #{new_quantity} for user #{user.id}")
@@ -110,13 +122,13 @@ class StripeService
       # If credits exceed the new charge, amount_due is 0 and we skip payment.
       invoice.pay if invoice.amount_due > 0
       Rails.logger.info("[StripeService] Charged prorated invoice #{invoice.id} for #{invoice.amount_due} cents")
-      return invoice.amount_due
+      return SyncResult.new(success: true, charged_cents: invoice.amount_due)
     end
 
-    nil
+    SyncResult.new(success: true, charged_cents: nil)
   rescue Stripe::StripeError => e
     Rails.logger.error("[StripeService] Failed to update subscription quantity for user #{user.id}: #{e.message}")
-    :error
+    SyncResult.new(success: false, charged_cents: nil)
   end
 
   # Preview the prorated amount that would be charged if subscription quantity increased by 1.
@@ -144,11 +156,9 @@ class StripeService
     )
 
     # Sum only proration line items (exclude the next recurring charge).
-    # Recurring lines match "N × Product (at $X / month)".
     proration_amount = 0
     preview.lines.data.each do |line|
-      is_recurring = line.description.to_s.match?(/\d+ .+ \(at \$/)
-      proration_amount += line.amount unless is_recurring
+      proration_amount += line.amount if line.proration
     end
     [proration_amount, 0].max
   rescue Stripe::StripeError => e
@@ -193,6 +203,12 @@ class StripeService
       return
     end
 
+    # Idempotency: skip if already activated with this subscription
+    if sc.active? && sc.stripe_subscription_id == session.subscription
+      Rails.logger.info("[StripeService] checkout.session.completed: Already active for #{session.customer}, skipping")
+      return
+    end
+
     sc.update!(
       stripe_subscription_id: session.subscription,
       active: true,
@@ -206,6 +222,13 @@ class StripeService
     sc = StripeCustomer.find_by(stripe_id: subscription.customer)
     unless sc
       Rails.logger.warn("[StripeService] customer.subscription.updated: No StripeCustomer found for #{subscription.customer}")
+      return
+    end
+
+    # Ignore updates for a subscription that no longer matches the current one
+    # (e.g., user resubscribed and this is a stale webhook for the old subscription)
+    if sc.stripe_subscription_id.present? && sc.stripe_subscription_id != subscription.id
+      Rails.logger.info("[StripeService] Ignoring update for old subscription #{subscription.id} (current: #{sc.stripe_subscription_id})")
       return
     end
 
@@ -230,10 +253,20 @@ class StripeService
       return
     end
 
-    sc.update!(active: false)
+    # Ignore deletes for a subscription that no longer matches the current one
+    if sc.stripe_subscription_id.present? && sc.stripe_subscription_id != subscription.id
+      Rails.logger.info("[StripeService] Ignoring delete for old subscription #{subscription.id} (current: #{sc.stripe_subscription_id})")
+      return
+    end
+
+    # Idempotency: skip deactivation if already inactive
+    was_active = sc.active?
+    unless sc.active? == false
+      sc.update!(active: false)
+    end
     Rails.logger.info("[StripeService] Deactivated billing for customer #{subscription.customer}")
 
-    deactivate_resources_for_customer(sc, reason: "Subscription deleted")
+    deactivate_resources_for_customer(sc, reason: "Subscription deleted") if was_active
   end
   private_class_method :handle_subscription_deleted
 

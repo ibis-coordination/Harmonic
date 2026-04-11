@@ -159,10 +159,10 @@ class CollectivesController < ApplicationController
         @collective.update!(pending_billing_setup: true)
       else
         result = StripeService.sync_subscription_quantity!(current_user)
-        if result == :error
-          @collective.update!(pending_billing_setup: true)
+        if result.success
+          charged_cents = result.charged_cents
         else
-          charged_cents = result
+          @collective.update!(pending_billing_setup: true)
         end
       end
     end

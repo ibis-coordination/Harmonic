@@ -34,8 +34,10 @@ class BillingController < ApplicationController
     success_url += "&return_to=#{CGI.escape(return_to)}" if return_to.present?
 
     quantity = current_user.billable_quantity
-    # Stripe requires quantity >= 1 for checkout
-    quantity = [quantity, 1].max
+    if quantity == 0
+      flash[:notice] = "All your resources are exempt from billing. No subscription needed."
+      return redirect_to billing_show_path
+    end
 
     checkout_url = StripeService.create_checkout_session(
       stripe_customer: stripe_customer,
@@ -104,7 +106,7 @@ class BillingController < ApplicationController
     agent.unarchive!
     charged_cents = nil
     result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
-    charged_cents = result if result.is_a?(Integer)
+    charged_cents = result&.charged_cents
     notice = "#{agent.display_name} has been reactivated."
     notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
@@ -150,7 +152,7 @@ class BillingController < ApplicationController
     collective.unarchive!
     charged_cents = nil
     result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
-    charged_cents = result if result.is_a?(Integer)
+    charged_cents = result&.charged_cents
     notice = "#{collective.name} has been reactivated."
     notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
@@ -164,8 +166,15 @@ class BillingController < ApplicationController
   private
 
   def activate_pending_resources!
+    stripe_customer = current_user.stripe_customer
+
     # Activate ALL pending agents (cross-tenant — one subscription covers everything)
-    current_user.ai_agents.where(pending_billing_setup: true).update_all(pending_billing_setup: false)
+    # Also backfill stripe_customer_id for agents created before billing was set up
+    pending_agents = current_user.ai_agents.where(pending_billing_setup: true)
+    if stripe_customer
+      pending_agents.where(stripe_customer_id: nil).update_all(stripe_customer_id: stripe_customer.id)
+    end
+    pending_agents.update_all(pending_billing_setup: false)
 
     # Activate ALL pending collectives (cross-tenant)
     Collective.for_user_across_tenants(current_user).where(
@@ -234,16 +243,24 @@ class BillingController < ApplicationController
     end
 
     if !stripe_customer.active?
-      stripe_customer.update!(
-        stripe_subscription_id: session_obj.subscription,
-        active: true,
-      )
+      # Lock the stripe_customer row to prevent concurrent checkout completions
+      # and ensure pending resource activation is atomic with billing activation.
+      StripeCustomer.transaction do
+        stripe_customer.lock!
+        # Re-check after acquiring lock (another request may have activated it)
+        if !stripe_customer.active?
+          stripe_customer.update!(
+            stripe_subscription_id: session_obj.subscription,
+            active: true,
+          )
+
+          # Activate any pending resources now that billing is set up
+          activate_pending_resources!
+        end
+      end
       @stripe_customer = stripe_customer.reload
 
-      # Activate any pending resources now that billing is set up
-      activate_pending_resources!
-
-      # Sync quantity to correct any drift (e.g. resources created during checkout flow)
+      # Sync quantity outside the transaction (calls Stripe API, shouldn't hold lock)
       StripeService.sync_subscription_quantity!(current_user)
 
       flash.now[:notice] = "Billing activated successfully!"

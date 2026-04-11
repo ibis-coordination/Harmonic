@@ -243,18 +243,6 @@ class AppAdminController < ApplicationController
     user = User.find_by(id: params[:id])
     return render(plain: "404 Not Found", status: :not_found) unless user
 
-    # Prevent admins from exempting themselves
-    if user.id == @current_user.id
-      respond_to do |format|
-        format.md { render plain: "You cannot change your own billing exemption.", status: 400 }
-        format.html do
-          flash[:alert] = "You cannot change your own billing exemption."
-          redirect_to "/app-admin/users/#{user.id}"
-        end
-      end
-      return
-    end
-
     new_value = !user.billing_exempt?
     user.update!(billing_exempt: new_value)
 
