@@ -17,7 +17,7 @@ class BillingReconciliationJobTest < ActiveJob::TestCase
     tenant, collective, user = create_tenant_collective_user
     tenant.update!(main_collective_id: collective.id)
     enable_stripe_billing_flag!(tenant)
-    sc = StripeCustomer.create!(billable: user, stripe_id: "cus_recon", active: true, stripe_subscription_id: "sub_recon")
+    StripeCustomer.create!(billable: user, stripe_id: "cus_recon", active: true, stripe_subscription_id: "sub_recon")
 
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_recon")
       .to_return(

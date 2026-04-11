@@ -370,7 +370,7 @@ class AiAgentsController < ApplicationController
     notice = if @ai_agent.pending_billing_setup?
       "AI Agent #{@ai_agent.display_name} created. Set up billing to activate it."
     elsif charged_cents && charged_cents > 0
-      "AI Agent #{@ai_agent.display_name} created successfully. You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
+      "AI Agent #{@ai_agent.display_name} created successfully. You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)."
     else
       "AI Agent #{@ai_agent.display_name} created successfully."
     end

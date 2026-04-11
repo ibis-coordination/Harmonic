@@ -106,7 +106,7 @@ class BillingController < ApplicationController
     result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
     charged_cents = result if result.is_a?(Integer)
     notice = "#{agent.display_name} has been reactivated."
-    notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
+    notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
     redirect_to billing_show_path
   end
@@ -152,7 +152,7 @@ class BillingController < ApplicationController
     result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
     charged_cents = result if result.is_a?(Integer)
     notice = "#{collective.name} has been reactivated."
-    notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
+    notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
     redirect_to billing_show_path
   end

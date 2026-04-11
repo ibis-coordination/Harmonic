@@ -169,7 +169,7 @@ class CollectivesController < ApplicationController
     notice = if @collective.pending_billing_setup?
       "Collective #{@collective.name} created. Set up billing to activate it."
     elsif charged_cents && charged_cents > 0
-      "Collective #{@collective.name} created successfully. You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
+      "Collective #{@collective.name} created successfully. You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)."
     else
       "Collective #{@collective.name} created successfully."
     end

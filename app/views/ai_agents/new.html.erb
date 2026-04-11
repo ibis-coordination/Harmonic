@@ -147,7 +147,7 @@
             <span>
               <%= octicon 'credit-card', height: 14 %>
               <% if @proration_amount_cents %>
-                <strong>You will be charged $<%= "%.2f" % (@proration_amount_cents / 100.0) %> now</strong> (prorated for the current billing period), then <strong>$3/month</strong> thereafter.
+                <strong>You will be charged $<%= format("%.2f", @proration_amount_cents / 100.0) %> now</strong> (prorated for the current billing period), then <strong>$3/month</strong> thereafter.
               <% else %>
                 <strong>Each AI agent identity costs $3/month</strong>, added to your subscription and prorated for the current billing period.
               <% end %>
@@ -156,7 +156,7 @@
           <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
             <%= check_box_tag :confirm_billing, "1", false, required: true, id: "confirm_billing" %>
             <% if @proration_amount_cents %>
-              I authorize a charge of $<%= "%.2f" % (@proration_amount_cents / 100.0) %> now and $3/month thereafter
+              I authorize a charge of $<%= format("%.2f", @proration_amount_cents / 100.0) %> now and $3/month thereafter
             <% else %>
               I understand that creating this agent will add $3/month to my subscription
             <% end %>

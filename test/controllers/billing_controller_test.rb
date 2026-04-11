@@ -66,7 +66,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show redirects to return_to after activating billing" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_redir123", active: false)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_redir123", active: false)
 
     stub_subscription_sync("sub_redir123")
     stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_redir123})
@@ -90,7 +90,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show validates return_to is a relative path" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_evil123", active: false)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_evil123", active: false)
     stub_subscription_sync("sub_evil123")
 
     stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_evil123})
@@ -189,7 +189,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "setup passes return_to from session into success_url" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_return123")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_return123")
 
     captured_body = nil
     stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
@@ -219,7 +219,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   # === Portal ===
 
   test "portal redirects to Stripe Billing Portal" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_portal123", active: true)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_portal123", active: true)
 
     stub_request(:post, "https://api.stripe.com/v1/billing_portal/sessions")
       .to_return(
@@ -291,7 +291,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
   test "show lists active collectives by name when subscription active" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    collective = create_test_collective(name: "Design Team")
+    create_test_collective(name: "Design Team")
 
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
@@ -470,7 +470,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     non_billing_tenant.create_main_collective!(created_by: @user) unless non_billing_tenant.main_collective_id
     main_coll = Collective.find(non_billing_tenant.main_collective_id)
     Collective.scope_thread_to_collective(subdomain: non_billing_tenant.subdomain, handle: main_coll.handle)
-    free_collective = Collective.create!(
+    Collective.create!(
       tenant: non_billing_tenant,
       created_by: @user,
       name: "Free Org Collective",
@@ -821,7 +821,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "agent creation marks agent pending when sync fails" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_syncfail_#{SecureRandom.hex(4)}", active: true, stripe_subscription_id: "sub_syncfail")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_syncfail_#{SecureRandom.hex(4)}", active: true, stripe_subscription_id: "sub_syncfail")
 
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_syncfail")
       .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json)
@@ -841,7 +841,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "agent creation checks subscription status from Stripe before activating" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_cancel_#{SecureRandom.hex(4)}", active: true, stripe_subscription_id: "sub_cancel")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_cancel_#{SecureRandom.hex(4)}", active: true, stripe_subscription_id: "sub_cancel")
 
     # Subscription is actually cancelled in Stripe, but local record still says active
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_cancel")

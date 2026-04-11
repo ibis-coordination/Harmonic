@@ -448,7 +448,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create works normally when billing is set up" do
     enable_stripe_billing_flag!(@tenant)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
@@ -572,7 +572,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "update_settings blocked for archived agent" do
     enable_stripe_billing_flag!(@tenant)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
 
     @ai_agent.tenant_user = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
     @ai_agent.archive!
@@ -614,7 +614,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create rejects agent without billing confirmation when stripe_billing enabled" do
     enable_stripe_billing_flag!(@tenant)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     sign_in_as(@user, tenant: @tenant)
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
