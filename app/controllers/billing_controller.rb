@@ -227,6 +227,12 @@ class BillingController < ApplicationController
       return
     end
 
+    # Only activate if checkout was actually completed (paid)
+    unless session_obj.status == "complete"
+      Rails.logger.warn("[BillingController] Checkout session #{checkout_session_id} not complete (status=#{session_obj.status}) for user #{current_user.id}")
+      return
+    end
+
     if !stripe_customer.active?
       stripe_customer.update!(
         stripe_subscription_id: session_obj.subscription,

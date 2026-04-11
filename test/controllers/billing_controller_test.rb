@@ -765,6 +765,61 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_equal "2", quantity_set, "Should sync quantity after checkout to correct any drift"
   end
 
+  test "checkout does not activate billing for incomplete session" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_incomplete_#{SecureRandom.hex(4)}", active: false)
+
+    agent = create_ai_agent(parent: @user, name: "Pending Agent")
+    @tenant.add_user!(agent)
+    agent.update!(pending_billing_setup: true)
+
+    # Simulate a checkout session that was started but never completed (status: "open")
+    stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_incomplete123})
+      .to_return(
+        status: 200,
+        body: {
+          id: "cs_incomplete123",
+          object: "checkout.session",
+          customer: sc.stripe_id,
+          subscription: nil,
+          status: "open",
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing?checkout_session_id=cs_incomplete123"
+
+    assert_response :success
+    sc.reload
+    assert_not sc.active?, "Customer should NOT be activated for incomplete checkout"
+    agent.reload
+    assert agent.pending_billing_setup?, "Pending agent should remain pending for incomplete checkout"
+  end
+
+  test "checkout does not activate billing for expired session" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_expired_#{SecureRandom.hex(4)}", active: false)
+
+    stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_expired123})
+      .to_return(
+        status: 200,
+        body: {
+          id: "cs_expired123",
+          object: "checkout.session",
+          customer: sc.stripe_id,
+          subscription: nil,
+          status: "expired",
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing?checkout_session_id=cs_expired123"
+
+    assert_response :success
+    sc.reload
+    assert_not sc.active?, "Customer should NOT be activated for expired checkout"
+  end
+
   test "agent creation marks agent pending when sync fails" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_syncfail_#{SecureRandom.hex(4)}", active: true, stripe_subscription_id: "sub_syncfail")
 
