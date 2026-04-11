@@ -104,7 +104,6 @@ class BillingController < ApplicationController
       agent.update!(suspended_at: nil, suspended_by_id: nil, suspended_reason: nil)
     end
     agent.unarchive!
-    charged_cents = nil
     result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
     charged_cents = result&.charged_cents
     notice = "#{agent.display_name} has been reactivated."
@@ -150,7 +149,6 @@ class BillingController < ApplicationController
     end
 
     collective.unarchive!
-    charged_cents = nil
     result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
     charged_cents = result&.charged_cents
     notice = "#{collective.name} has been reactivated."
