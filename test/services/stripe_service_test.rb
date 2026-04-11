@@ -289,7 +289,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_sync123") do |req|
       body = Rack::Utils.parse_query(req.body)
@@ -302,14 +302,14 @@ class StripeServiceTest < ActiveSupport::TestCase
     @user.update!(billing_exempt: true)
 
     # No Stripe API call should be made
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
   end
 
   test "sync_subscription_quantity! is no-op without active subscription" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_nosub", active: false)
 
     # No Stripe API call should be made
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
   end
 
   test "sync_subscription_quantity! logs and does not raise on Stripe failure" do
@@ -319,7 +319,7 @@ class StripeServiceTest < ActiveSupport::TestCase
       .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json)
 
     assert_nothing_raised do
-      StripeService.sync_subscription_quantity!(@user, @tenant)
+      StripeService.sync_subscription_quantity!(@user)
     end
   end
 
@@ -367,7 +367,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     # Should be 1 (user) + 1 (active agent only) = 2
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_count") do |req|
@@ -420,7 +420,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     # Should NOT call SubscriptionItem.update
     assert_not_requested(:post, "https://api.stripe.com/v1/subscription_items/si_noop")
@@ -452,7 +452,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     # Should update quantity
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_dec")
@@ -493,7 +493,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     # Should NOT pay the invoice
     assert_not_requested(:post, "https://api.stripe.com/v1/invoices/in_zero/pay")
@@ -541,7 +541,7 @@ class StripeServiceTest < ActiveSupport::TestCase
 
     # Should not raise — quantity is updated, Stripe dunning handles the failed payment
     assert_nothing_raised do
-      StripeService.sync_subscription_quantity!(@user, @tenant)
+      StripeService.sync_subscription_quantity!(@user)
     end
   end
 
@@ -594,9 +594,9 @@ class StripeServiceTest < ActiveSupport::TestCase
       )
 
     # First call — updates quantity and charges
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
     # Second call — quantity already matches, should be no-op
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     # SubscriptionItem.update called only once (second call sees quantity=2, skips)
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_idem", times: 1)
@@ -787,7 +787,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    result = StripeService.preview_proration(@user, @tenant)
+    result = StripeService.preview_proration(@user)
 
     # Should return only the proration lines: -600 + 899 = 299
     assert_equal 299, result
@@ -795,12 +795,12 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   test "preview_proration returns nil for billing_exempt user" do
     @user.update!(billing_exempt: true)
-    result = StripeService.preview_proration(@user, @tenant)
+    result = StripeService.preview_proration(@user)
     assert_nil result
   end
 
   test "preview_proration returns nil without active subscription" do
-    result = StripeService.preview_proration(@user, @tenant)
+    result = StripeService.preview_proration(@user)
     assert_nil result
   end
 
@@ -810,7 +810,7 @@ class StripeServiceTest < ActiveSupport::TestCase
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_prev_fail")
       .to_return(status: 500, body: { error: { message: "Error" } }.to_json)
 
-    result = StripeService.preview_proration(@user, @tenant)
+    result = StripeService.preview_proration(@user)
     assert_nil result
   end
 
@@ -864,7 +864,7 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_not sc.active
     # stripe_billing_setup? should now return false
     @user.reload
-    assert_not @user.stripe_billing_setup?(@tenant)
+    assert_not @user.stripe_billing_setup?
   end
 
   # === Per-resource billing exemption ===
@@ -893,7 +893,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     # Should be 0 (exempt user) + 1 (non-exempt agent) = 1
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_perexempt") do |req|
@@ -929,7 +929,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     # Should be 1 (non-exempt user) + 1 (paid agent only) = 2
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_agentexempt") do |req|
@@ -966,7 +966,7 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     # Should be 1 (non-exempt user) + 1 (paid collective only) = 2
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_collexempt") do |req|
@@ -993,7 +993,7 @@ class StripeServiceTest < ActiveSupport::TestCase
       )
 
     # Should NOT try to set quantity to 0
-    StripeService.sync_subscription_quantity!(@user, @tenant)
+    StripeService.sync_subscription_quantity!(@user)
 
     assert_not_requested(:post, "https://api.stripe.com/v1/subscription_items/si_allexempt")
   end

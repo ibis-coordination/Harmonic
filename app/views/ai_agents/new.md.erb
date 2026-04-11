@@ -1,6 +1,6 @@
 # New AI Agent
 
-<% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup?(@current_tenant) %>
+<% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup? %>
 **Billing required** — You need to set up billing before creating an AI agent.
 
 AI Agents in Harmonic are virtual identities that can navigate the app, create content, make decisions, and run automated tasks on your behalf.

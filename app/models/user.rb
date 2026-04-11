@@ -425,10 +425,7 @@ class User < ApplicationRecord
     # Sync subscription quantity once after all suspensions complete
     unless skip_billing_sync
       billing_user = ai_agent? ? User.find_by(id: parent_id) : self
-      tenant = billing_user&.tenant_users&.first&.tenant
-      if billing_user && tenant&.feature_enabled?("stripe_billing")
-        StripeService.sync_subscription_quantity!(billing_user, tenant)
-      end
+      StripeService.sync_subscription_quantity!(billing_user) if billing_user
     end
   end
 
@@ -478,50 +475,67 @@ class User < ApplicationRecord
 
   # Stripe billing helpers
 
-  # Check if this user's billing is set up for the given tenant.
+  # Check if this user's billing is set up.
   # A user needs a subscription if they have any non-exempt billable resources.
   # If all resources (including the user) are exempt, no subscription is needed.
-  sig { params(tenant: Tenant).returns(T::Boolean) }
-  def stripe_billing_setup?(tenant)
+  # Checks across all billing-enabled tenants.
+  sig { returns(T::Boolean) }
+  def stripe_billing_setup?
     return true if stripe_customer&.active?
 
     # No active subscription — but if everything is exempt, that's fine
-    billable_quantity(tenant) == 0
+    billable_quantity == 0
   end
 
   sig { params(tenant: Tenant).returns(T::Boolean) }
   def requires_stripe_billing?(tenant)
-    tenant.feature_enabled?("stripe_billing") && !stripe_billing_setup?(tenant)
+    tenant.feature_enabled?("stripe_billing") && !stripe_billing_setup?
   end
 
-  # Compute the total billable quantity for this user on a tenant.
-  sig { params(tenant: Tenant).returns(Integer) }
-  def billable_quantity(tenant)
+  # IDs of tenants where this user has resources that are billed per-identity.
+  # Only tenants with stripe_billing enabled count — other tenants have their own billing model.
+  sig { returns(T::Array[String]) }
+  def billing_tenant_ids
+    all_tenant_ids = TenantUser.for_user_across_tenants(self).pluck(:tenant_id)
+    Tenant.where(id: all_tenant_ids).select { |t| t.feature_enabled?("stripe_billing") }.map(&:id)
+  end
+
+  # Compute the total billable quantity for this user across all billing-enabled tenants.
+  # One subscription covers all billing-enabled tenants.
+  sig { returns(Integer) }
+  def billable_quantity
+    tenant_ids = billing_tenant_ids
     user_count = billing_exempt? ? 0 : 1
-    user_count + active_billable_agent_count(tenant) + active_billable_collective_count(tenant)
+    user_count + active_billable_agent_count(tenant_ids) + active_billable_collective_count(tenant_ids)
   end
 
-  # Count active (not archived, not suspended, not exempt) AI agents for a specific tenant.
-  # Takes tenant explicitly so it works from admin controllers and background jobs
-  # where Tenant.current_id may not be set or may be wrong.
-  sig { params(tenant: Tenant).returns(Integer) }
-  def active_billable_agent_count(tenant)
+  # Count active (not archived, not suspended, not exempt) AI agents on billing-enabled tenants.
+  sig { params(tenant_ids: T::Array[String]).returns(Integer) }
+  def active_billable_agent_count(tenant_ids = billing_tenant_ids)
+    return 0 if tenant_ids.empty?
+
     ai_agents
       .joins(:tenant_users)
-      .where(tenant_users: { tenant_id: tenant.id, archived_at: nil })
+      .where(tenant_users: { tenant_id: tenant_ids, archived_at: nil })
       .where(suspended_at: nil, billing_exempt: false)
       .count
   end
 
-  # Count active (not archived, not exempt) collectives created by this user, excluding the main collective.
-  sig { params(tenant: Tenant).returns(Integer) }
-  def active_billable_collective_count(tenant)
-    Collective.where(
-      tenant_id: tenant.id,
-      created_by_id: id,
+  # Count active (not archived, not exempt) collectives created by this user on billing-enabled tenants,
+  # excluding main collectives.
+  sig { params(tenant_ids: T::Array[String]).returns(Integer) }
+  def active_billable_collective_count(tenant_ids = billing_tenant_ids)
+    return 0 if tenant_ids.empty?
+
+    main_collective_ids = Tenant.where(id: tenant_ids).pluck(:main_collective_id).compact
+
+    scope = Collective.for_user_across_tenants(self).where(
+      tenant_id: tenant_ids,
       archived_at: nil,
       billing_exempt: false,
-    ).where.not(id: tenant.main_collective_id).count
+    )
+    scope = scope.where.not(id: main_collective_ids) if main_collective_ids.any?
+    scope.count
   end
 
   private

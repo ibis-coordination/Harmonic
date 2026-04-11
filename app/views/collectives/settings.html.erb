@@ -28,7 +28,16 @@
       </div>
     <% end %>
 
-    <% if @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
+    <% if @current_collective.pending_billing_setup? && @current_tenant.feature_enabled?("stripe_billing") %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'clock', height: 14 %>
+          <strong>Pending</strong> — This collective will activate once billing is set up.
+          <%= link_to "Set up billing", "/billing", class: "pulse-link" %>
+        </span>
+      </div>
+
+    <% elsif @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
         <span>
           <%= octicon 'archive', height: 14 %>

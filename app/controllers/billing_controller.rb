@@ -33,7 +33,7 @@ class BillingController < ApplicationController
     success_url = "#{billing_url}?checkout_session_id={CHECKOUT_SESSION_ID}"
     success_url += "&return_to=#{CGI.escape(return_to)}" if return_to.present?
 
-    quantity = current_user.billable_quantity(current_tenant)
+    quantity = current_user.billable_quantity
     # Stripe requires quantity >= 1 for checkout
     quantity = [quantity, 1].max
 
@@ -74,7 +74,7 @@ class BillingController < ApplicationController
     end
 
     agent.archive!
-    StripeService.sync_subscription_quantity!(current_user, current_tenant) if current_tenant.feature_enabled?("stripe_billing")
+    StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
     flash[:notice] = "#{agent.display_name} has been deactivated."
     redirect_to billing_show_path
   end
@@ -103,7 +103,7 @@ class BillingController < ApplicationController
     end
     agent.unarchive!
     charged_cents = nil
-    charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant) if current_tenant.feature_enabled?("stripe_billing")
+    charged_cents = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
     notice = "#{agent.display_name} has been reactivated."
     notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
@@ -122,7 +122,7 @@ class BillingController < ApplicationController
 
     collective.archive!
     if current_tenant.feature_enabled?("stripe_billing")
-      StripeService.sync_subscription_quantity!(current_user, current_tenant)
+      StripeService.sync_subscription_quantity!(current_user)
     end
     flash[:notice] = "#{collective.name} has been deactivated."
     redirect_to billing_show_path
@@ -148,7 +148,7 @@ class BillingController < ApplicationController
 
     collective.unarchive!
     charged_cents = nil
-    charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant) if current_tenant.feature_enabled?("stripe_billing")
+    charged_cents = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
     notice = "#{collective.name} has been reactivated."
     notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
@@ -160,6 +160,16 @@ class BillingController < ApplicationController
   end
 
   private
+
+  def activate_pending_resources!
+    # Activate ALL pending agents (cross-tenant — one subscription covers everything)
+    current_user.ai_agents.where(pending_billing_setup: true).update_all(pending_billing_setup: false)
+
+    # Activate ALL pending collectives (cross-tenant)
+    Collective.for_user_across_tenants(current_user).where(
+      pending_billing_setup: true,
+    ).update_all(pending_billing_setup: false)
+  end
 
   def find_owned_agent
     tu = TenantUser.where(tenant_id: current_tenant.id, handle: params[:handle]).first
@@ -221,6 +231,10 @@ class BillingController < ApplicationController
         active: true,
       )
       @stripe_customer = stripe_customer.reload
+
+      # Activate any pending resources now that billing is set up
+      activate_pending_resources!
+
       flash.now[:notice] = "Billing activated successfully!"
     end
   rescue Stripe::StripeError => e
@@ -231,46 +245,54 @@ class BillingController < ApplicationController
   def load_billing_inventory
     return unless current_tenant&.feature_enabled?("stripe_billing")
 
-    # Active (billable) agents: owned by current user, on this tenant, not archived, not suspended
+    # Get all tenants this user belongs to (for cross-tenant billing)
+    billing_tenant_ids = current_user.billing_tenant_ids
+    main_collective_ids = Tenant.where(id: billing_tenant_ids).pluck(:main_collective_id).compact
+
+    # Active agents on billing-enabled tenants: not archived, not suspended, not pending
     @active_agents = current_user.ai_agents
       .joins(:tenant_users)
-      .where(tenant_users: { tenant_id: current_tenant.id, archived_at: nil })
-      .where(suspended_at: nil)
+      .includes(:tenant_users)
+      .where(tenant_users: { tenant_id: billing_tenant_ids, archived_at: nil })
+      .where(suspended_at: nil, pending_billing_setup: false)
       .order(:name)
 
-    # Inactive agents: owned by current user, on this tenant, archived or suspended
+    # Pending agents on billing-enabled tenants
+    @pending_agents = current_user.ai_agents
+      .joins(:tenant_users)
+      .includes(:tenant_users)
+      .where(tenant_users: { tenant_id: billing_tenant_ids, archived_at: nil })
+      .where(suspended_at: nil, pending_billing_setup: true)
+      .order(:name)
+
+    # Inactive agents on billing-enabled tenants: archived or suspended
     @inactive_agents = current_user.ai_agents
       .joins(:tenant_users)
-      .where(tenant_users: { tenant_id: current_tenant.id })
+      .includes(:tenant_users)
+      .where(tenant_users: { tenant_id: billing_tenant_ids })
       .where("tenant_users.archived_at IS NOT NULL OR users.suspended_at IS NOT NULL")
       .order(:name)
 
-    # Active (billable) collectives: created by current user, on this tenant, not archived, not main
-    @active_collectives = Collective.where(
-      tenant_id: current_tenant.id,
-      created_by_id: current_user.id,
+    # Active collectives on billing-enabled tenants: not archived, not pending, not main
+    @active_collectives = Collective.for_user_across_tenants(current_user).where(
+      tenant_id: billing_tenant_ids,
       archived_at: nil,
-    ).where.not(id: current_tenant.main_collective_id).order(:name)
+      pending_billing_setup: false,
+    ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 
-    # Inactive collectives: created by current user, on this tenant, archived, not main
-    @inactive_collectives = Collective.where(
-      tenant_id: current_tenant.id,
-      created_by_id: current_user.id,
-    ).where.not(archived_at: nil).where.not(id: current_tenant.main_collective_id).order(:name)
+    # Pending collectives on billing-enabled tenants
+    @pending_collectives = Collective.for_user_across_tenants(current_user).where(
+      tenant_id: billing_tenant_ids,
+      archived_at: nil,
+      pending_billing_setup: true,
+    ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 
-    @active_agent_count = @active_agents.where(billing_exempt: false).count
-    @active_collective_count = @active_collectives.where(billing_exempt: false).count
-    @billable_quantity = current_user.billable_quantity(current_tenant)
+    # Inactive collectives on billing-enabled tenants: archived, not main
+    @inactive_collectives = Collective.for_user_across_tenants(current_user).where(
+      tenant_id: billing_tenant_ids,
+    ).where.not(archived_at: nil).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 
-    # Cross-tenant notice: other tenants with stripe_billing enabled that this user belongs to
-    other_tenant_ids = TenantUser.for_user_across_tenants(current_user)
-      .where.not(tenant_id: current_tenant.id)
-      .pluck(:tenant_id)
-    if other_tenant_ids.any?
-      @other_billing_tenants = Tenant.where(id: other_tenant_ids).select do |t|
-        t.feature_enabled?("stripe_billing")
-      end
-    end
+    @billable_quantity = current_user.billable_quantity
   end
 
   # Only allow relative paths (starts with /, no protocol/host) to prevent open redirect

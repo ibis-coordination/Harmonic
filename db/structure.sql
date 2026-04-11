@@ -301,7 +301,8 @@ CREATE TABLE public.collectives (
     description text,
     internal boolean DEFAULT false NOT NULL,
     archived_at timestamp(6) without time zone,
-    billing_exempt boolean DEFAULT false NOT NULL
+    billing_exempt boolean DEFAULT false NOT NULL,
+    pending_billing_setup boolean DEFAULT false NOT NULL
 );
 
 
@@ -1825,7 +1826,8 @@ CREATE TABLE public.users (
     suspended_reason character varying,
     agent_configuration jsonb DEFAULT '{}'::jsonb,
     stripe_customer_id uuid,
-    billing_exempt boolean DEFAULT false NOT NULL
+    billing_exempt boolean DEFAULT false NOT NULL,
+    pending_billing_setup boolean DEFAULT false NOT NULL
 );
 
 
@@ -8513,6 +8515,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260410000001'),
 ('20260410000000'),
 ('20260409000001'),
 ('20260409000000'),

@@ -260,7 +260,7 @@ class AiAgentsController < ApplicationController
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
 
     if current_tenant.feature_enabled?("stripe_billing")
-      @proration_amount_cents = StripeService.preview_proration(current_user, current_tenant)
+      @proration_amount_cents = StripeService.preview_proration(current_user)
     end
 
     respond_to do |format|
@@ -349,26 +349,37 @@ class AiAgentsController < ApplicationController
     charged_cents = nil
     if current_tenant.feature_enabled?("stripe_billing")
       assign_billing_customer!(@ai_agent)
-      charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant)
+      # If user has no active subscription, mark agent as pending
+      if !current_user.stripe_customer&.active?
+        @ai_agent.update!(pending_billing_setup: true)
+      else
+        charged_cents = StripeService.sync_subscription_quantity!(current_user)
+      end
     end
-    # Only generate token for external AI agents
-    @token = api_helper.generate_token(@ai_agent) if @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
+    # Only generate token for external AI agents (not for pending agents)
+    if !@ai_agent.pending_billing_setup? && @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
+      @token = api_helper.generate_token(@ai_agent)
+    end
 
-    notice = "AI Agent #{@ai_agent.display_name} created successfully."
-    if charged_cents && charged_cents > 0
-      notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
+    notice = if @ai_agent.pending_billing_setup?
+      "AI Agent #{@ai_agent.display_name} created. Set up billing to activate it."
+    elsif charged_cents && charged_cents > 0
+      "AI Agent #{@ai_agent.display_name} created successfully. You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
+    else
+      "AI Agent #{@ai_agent.display_name} created successfully."
     end
     flash[:notice] = notice
+    redirect_path = @ai_agent.pending_billing_setup? ? "/billing" : ai_agent_path(@ai_agent.handle)
     respond_to do |format|
       format.md do
         render_action_success({
           action_name: "create_ai_agent",
           resource: @ai_agent,
           result: notice,
-          redirect_to: "/ai-agents/#{@ai_agent.handle}",
+          redirect_to: redirect_path,
         })
       end
-      format.html { redirect_to ai_agent_path(@ai_agent.handle) }
+      format.html { redirect_to redirect_path }
     end
   end
 

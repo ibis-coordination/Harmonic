@@ -23,7 +23,7 @@ module Api::V1
         user = api_helper.create_ai_agent
         if current_tenant.feature_enabled?("stripe_billing") && current_user.stripe_customer
           user.update!(stripe_customer_id: current_user.stripe_customer.id)
-          StripeService.sync_subscription_quantity!(current_user, current_tenant)
+          StripeService.sync_subscription_quantity!(current_user)
         end
         token = api_helper.generate_token(user) if params[:generate_token]
         response = user.api_json
@@ -56,7 +56,7 @@ module Api::V1
       if (params[:archived] == true || params[:archived] == false) &&
          user.ai_agent? && current_tenant.feature_enabled?("stripe_billing") && user.parent_id.present?
         parent = User.find_by(id: user.parent_id)
-        StripeService.sync_subscription_quantity!(parent, current_tenant) if parent
+        StripeService.sync_subscription_quantity!(parent) if parent
       end
 
       render json: user.api_json
@@ -85,7 +85,7 @@ module Api::V1
       # Sync billing only after successful deletion
       if destroyed && is_agent && current_tenant.feature_enabled?("stripe_billing") && parent_id.present?
         parent = User.find_by(id: parent_id)
-        StripeService.sync_subscription_quantity!(parent, current_tenant) if parent
+        StripeService.sync_subscription_quantity!(parent) if parent
       end
     end
 

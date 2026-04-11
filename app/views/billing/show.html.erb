@@ -35,39 +35,74 @@
         <%= render partial: "billing/inventory_table", locals: { show_prices: true, show_actions: true } %>
       </section>
 
+      <% if @pending_agents&.any? || @pending_collectives&.any? %>
+        <section class="pulse-section" style="margin-bottom: 24px;">
+          <h2 class="pulse-section-title">Pending Resources</h2>
+          <p class="pulse-muted" style="margin-bottom: 12px;">These resources will activate once billing is set up.</p>
+          <table class="pulse-table" style="max-width: 600px;">
+            <tbody>
+              <% @pending_agents&.each do |agent| %>
+                <tr data-billing-item="agent-<%= agent.id %>">
+                  <td><%= octicon 'dependabot', height: 14 %> <%= agent.display_name %> <span class="pulse-muted">(pending agent)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">$3/mo when active</td>
+                </tr>
+              <% end %>
+              <% @pending_collectives&.each do |collective| %>
+                <tr data-billing-item="collective-<%= collective.id %>">
+                  <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(pending collective)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">$3/mo when active</td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </section>
+      <% end %>
+
       <% if @inactive_agents&.any? || @inactive_collectives&.any? %>
+        <% multi_tenant = @current_user.tenant_users.count > 1 %>
         <section class="pulse-section" style="margin-bottom: 24px;">
           <h2 class="pulse-section-title">Inactive Resources</h2>
           <p class="pulse-muted" style="margin-bottom: 12px;">These resources are deactivated and not being billed.</p>
-          <table class="pulse-table" style="max-width: 600px;">
+          <table class="pulse-table" style="max-width: 650px;">
             <tbody>
               <% @inactive_agents&.each do |agent| %>
-                <% agent_handle = agent.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>
+                <% tu = agent.tenant_users.first %>
+                <% agent_handle = tu&.handle %>
+                <% on_current_tenant = tu&.tenant_id == @current_tenant.id %>
                 <tr data-billing-item="agent-<%= agent.id %>">
-                  <td><%= octicon 'dependabot', height: 14 %> <%= agent.display_name %> <span class="pulse-muted">(inactive agent)</span></td>
+                  <td><%= octicon 'dependabot', height: 14 %> <%= agent.display_name %> <span class="pulse-muted">(inactive agent<%= " on #{tu&.tenant&.subdomain}" if multi_tenant %>)</span></td>
                   <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
-                  <td style="text-align: right;">
-                    <%= form_tag billing_reactivate_agent_path(agent_handle), method: :post, style: "display:inline" do %>
-                      <%= hidden_field_tag :confirm_billing, "1" %>
-                      <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j agent.display_name %>? This will add $3/mo to your subscription.')">
-                        Reactivate
-                      </button>
-                    <% end %>
-                  </td>
+                  <% if on_current_tenant %>
+                    <td style="text-align: right;">
+                      <%= form_tag billing_reactivate_agent_path(agent_handle), method: :post, style: "display:inline" do %>
+                        <%= hidden_field_tag :confirm_billing, "1" %>
+                        <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j agent.display_name %>? This will add $3/mo to your subscription.')">
+                          Reactivate
+                        </button>
+                      <% end %>
+                    </td>
+                  <% else %>
+                    <td></td>
+                  <% end %>
                 </tr>
               <% end %>
               <% @inactive_collectives&.each do |collective| %>
+                <% on_current_tenant = collective.tenant_id == @current_tenant.id %>
                 <tr data-billing-item="collective-<%= collective.id %>">
-                  <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(inactive collective)</span></td>
+                  <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(inactive collective<%= " on #{collective.tenant&.subdomain}" if multi_tenant %>)</span></td>
                   <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
-                  <td style="text-align: right;">
-                    <%= form_tag billing_reactivate_collective_path(collective.handle), method: :post, style: "display:inline" do %>
-                      <%= hidden_field_tag :confirm_billing, "1" %>
-                      <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j collective.name %>? This will add $3/mo to your subscription.')">
-                        Reactivate
-                      </button>
-                    <% end %>
-                  </td>
+                  <% if on_current_tenant %>
+                    <td style="text-align: right;">
+                      <%= form_tag billing_reactivate_collective_path(collective.handle), method: :post, style: "display:inline" do %>
+                        <%= hidden_field_tag :confirm_billing, "1" %>
+                        <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j collective.name %>? This will add $3/mo to your subscription.')">
+                          Reactivate
+                        </button>
+                      <% end %>
+                    </td>
+                  <% else %>
+                    <td></td>
+                  <% end %>
                 </tr>
               <% end %>
             </tbody>
@@ -111,18 +146,5 @@
       </section>
     <% end %>
 
-    <% if @other_billing_tenants&.any? %>
-      <section class="pulse-section" style="margin-bottom: 24px;">
-        <div class="pulse-notice pulse-notice-warning">
-          <span>
-            <%= octicon 'globe', height: 14 %>
-            You also have billing on other organizations:
-            <% @other_billing_tenants.each_with_index do |tenant, i| %>
-              <strong><%= tenant.subdomain %></strong><%= ", " unless i == @other_billing_tenants.length - 1 %>
-            <% end %>
-          </span>
-        </div>
-      </section>
-    <% end %>
   </div>
 </article>

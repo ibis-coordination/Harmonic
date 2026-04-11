@@ -72,7 +72,7 @@ class CollectivesController < ApplicationController
     @page_description = 'Create a new collective'
 
     if current_tenant.feature_enabled?("stripe_billing") && current_user&.human?
-      @proration_amount_cents = StripeService.preview_proration(current_user, current_tenant)
+      @proration_amount_cents = StripeService.preview_proration(current_user)
     end
   end
 
@@ -99,7 +99,7 @@ class CollectivesController < ApplicationController
     begin
       collective = api_helper.create_collective
       if current_tenant.feature_enabled?("stripe_billing")
-        StripeService.sync_subscription_quantity!(current_user, current_tenant)
+        StripeService.sync_subscription_quantity!(current_user)
       end
       render_action_success({
         action_name: "create_collective",
@@ -155,14 +155,21 @@ class CollectivesController < ApplicationController
     @collective = api_helper.create_collective
     charged_cents = nil
     if current_tenant.feature_enabled?("stripe_billing")
-      charged_cents = StripeService.sync_subscription_quantity!(current_user, current_tenant)
+      if !current_user.stripe_customer&.active?
+        @collective.update!(pending_billing_setup: true)
+      else
+        charged_cents = StripeService.sync_subscription_quantity!(current_user)
+      end
     end
-    notice = "Collective #{@collective.name} created successfully."
-    if charged_cents && charged_cents > 0
-      notice += " You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
+    notice = if @collective.pending_billing_setup?
+      "Collective #{@collective.name} created. Set up billing to activate it."
+    elsif charged_cents && charged_cents > 0
+      "Collective #{@collective.name} created successfully. You were charged $#{"%.2f" % (charged_cents / 100.0)} (prorated for the current billing period)."
+    else
+      "Collective #{@collective.name} created successfully."
     end
     flash[:notice] = notice
-    redirect_to @collective.path
+    redirect_to @collective.pending_billing_setup? ? "/billing" : @collective.path
   end
 
   def settings

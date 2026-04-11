@@ -65,17 +65,16 @@ class StripeService
   end
 
   # Recalculate and update the Stripe subscription quantity for a user.
-  # quantity = (user exempt ? 0 : 1) + non-exempt active agents + non-exempt active collectives
+  # Sums all billable resources across ALL tenants (one subscription per user).
   # No-op if user has no active subscription, or if computed quantity is 0.
   # Returns the amount charged in cents (nil if no charge, 0 if credits covered it).
   # Rescues Stripe errors to avoid blocking user actions.
-  sig { params(user: T.untyped, tenant: Tenant).returns(T.nilable(Integer)) }
-  def self.sync_subscription_quantity!(user, tenant)
+  sig { params(user: T.untyped).returns(T.nilable(Integer)) }
+  def self.sync_subscription_quantity!(user)
     sc = user.stripe_customer
     return nil unless sc&.active? && sc.stripe_subscription_id.present?
 
-    user_count = user.billing_exempt? ? 0 : 1
-    new_quantity = user_count + user.active_billable_agent_count(tenant) + user.active_billable_collective_count(tenant)
+    new_quantity = user.billable_quantity
 
     # Stripe doesn't allow quantity 0 on a subscription item — skip if nothing to bill
     return nil if new_quantity == 0
@@ -112,8 +111,8 @@ class StripeService
 
   # Preview the prorated amount that would be charged if subscription quantity increased by 1.
   # Returns the amount in cents, or nil if preview fails.
-  sig { params(user: T.untyped, tenant: Tenant).returns(T.nilable(Integer)) }
-  def self.preview_proration(user, tenant)
+  sig { params(user: T.untyped).returns(T.nilable(Integer)) }
+  def self.preview_proration(user)
     sc = user.stripe_customer
     return nil unless sc&.active? && sc.stripe_subscription_id.present?
 
@@ -241,17 +240,25 @@ class StripeService
     user = stripe_customer.billable
     return unless user.is_a?(User) && user.human?
 
-    # Suspend agents
+    billing_tenant_ids = user.billing_tenant_ids
+
+    # Suspend agents on billing-enabled tenants only
     suspended_count = 0
-    user.ai_agents.where(suspended_at: nil).find_each do |agent|
+    user.ai_agents
+      .joins(:tenant_users)
+      .where(tenant_users: { tenant_id: billing_tenant_ids })
+      .where(suspended_at: nil)
+      .find_each do |agent|
       agent.suspend!(by: user, reason: reason, skip_billing_sync: true)
       suspended_count += 1
     end
     Rails.logger.info("[StripeService] Suspended #{suspended_count} agents for user #{user.id}: #{reason}") if suspended_count > 0
 
-    # Archive non-main collectives created by this user
+    # Archive non-main collectives on billing-enabled tenants only
     archived_count = 0
-    Collective.where(created_by_id: user.id, archived_at: nil).find_each do |collective|
+    Collective.for_user_across_tenants(user)
+      .where(tenant_id: billing_tenant_ids, archived_at: nil)
+      .find_each do |collective|
       next if collective.is_main_collective?
       collective.archive!
       archived_count += 1

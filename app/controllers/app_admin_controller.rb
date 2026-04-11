@@ -206,9 +206,8 @@ class AppAdminController < ApplicationController
     # Sync billing if unsuspending an AI agent
     if user.ai_agent? && user.parent_id.present?
       parent = User.find_by(id: user.parent_id)
-      tenant = user.tenant_users.first&.tenant
-      if parent && tenant&.feature_enabled?("stripe_billing")
-        StripeService.sync_subscription_quantity!(parent, tenant)
+      if parent
+        StripeService.sync_subscription_quantity!(parent)
       end
     end
 
@@ -260,12 +259,7 @@ class AppAdminController < ApplicationController
     user.update!(billing_exempt: new_value)
 
     # Sync billing quantity after exemption change to keep Stripe in sync
-    if user.human? && user.stripe_customer&.active?
-      user.tenant_users.includes(:tenant).each do |tu|
-        next unless tu.tenant.feature_enabled?("stripe_billing")
-        StripeService.sync_subscription_quantity!(user, tu.tenant)
-      end
-    end
+    StripeService.sync_subscription_quantity!(user) if user.human?
 
     action = new_value ? "granted" : "revoked"
     SecurityAuditLog.log_admin_action(

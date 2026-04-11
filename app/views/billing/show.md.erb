@@ -20,6 +20,21 @@ Each identity on Harmonic costs $3/month.
 <% end %>
 | **Total** | **$<%= (@billable_quantity || 0) * 3 %>/mo** |
 
+<% if @pending_agents&.any? || @pending_collectives&.any? %>
+## Pending Resources
+
+These resources will activate once billing is set up.
+
+| Item | Status |
+|------|--------|
+<% @pending_agents&.each do |agent| %>
+| <%= agent.display_name %> (agent) | pending — $3/mo when active |
+<% end %>
+<% @pending_collectives&.each do |collective| %>
+| <%= collective.name %> (collective) | pending — $3/mo when active |
+<% end %>
+<% end %>
+
 <% if @inactive_agents&.any? || @inactive_collectives&.any? %>
 ## Inactive Resources
 
@@ -72,17 +87,17 @@ Your account requires an active subscription to continue. Each identity on Harmo
 <% @active_collectives&.each do |collective| %>
 | <%= collective.name %> (collective) | <%= collective.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
 <% end %>
+<% @pending_agents&.each do |agent| %>
+| <%= agent.display_name %> (pending agent) | $3/mo when active |
+<% end %>
+<% @pending_collectives&.each do |collective| %>
+| <%= collective.name %> (pending collective) | $3/mo when active |
+<% end %>
 | **Total** | **$<%= (@billable_quantity || 0) * 3 %>/mo** |
 
 You can cancel or deactivate resources at any time.
 
 To set up billing, visit `/billing` in your browser and click "Set Up Billing".
-<% end %>
-
-<% if @other_billing_tenants&.any? %>
----
-
-You also have billing on other organizations: <%= @other_billing_tenants.map { |t| "**#{t.subdomain}**" }.join(", ") %>
 <% end %>
 
 ## Navigation

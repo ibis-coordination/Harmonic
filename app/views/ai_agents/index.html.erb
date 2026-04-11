@@ -18,7 +18,7 @@
   </header>
 
   <div class="pulse-resource-body">
-    <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup?(@current_tenant) %>
+    <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup? %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 24px;">
         <%= octicon 'credit-card', height: 14 %>
         <strong>Billing required</strong> — <a href="/billing">Set up billing</a> to create and run AI agents.

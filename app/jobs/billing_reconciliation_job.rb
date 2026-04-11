@@ -17,10 +17,7 @@ class BillingReconciliationJob < SystemJob
       user = sc.billable
       next unless user
 
-      tenant = user.tenant_users.first&.tenant
-      next unless tenant&.feature_enabled?("stripe_billing")
-
-      StripeService.sync_subscription_quantity!(user, tenant)
+      StripeService.sync_subscription_quantity!(user)
     rescue => e
       Rails.logger.error("[BillingReconciliationJob] Failed for user #{user&.id}: #{e.message}")
     end

@@ -983,7 +983,7 @@ class ApplicationController < ActionController::Base
   def check_stripe_billing_gate
     return unless @current_user&.human?
     return unless @current_tenant&.feature_enabled?("stripe_billing")
-    return if @current_user.stripe_billing_setup?(@current_tenant)
+    return if @current_user.stripe_billing_setup?
 
     # Exempt controllers (webhooks and healthcheck inherit from ActionController::Base,
     # not ApplicationController, so they're inherently exempt)
@@ -1001,14 +1001,17 @@ class ApplicationController < ActionController::Base
   # Exempt: settings page, reactivation, billing, auth, and webhook controllers
   # (which inherit from ActionController::Base, not ApplicationController).
   def check_collective_archived
-    return unless @current_collective&.respond_to?(:archived?) && @current_collective.archived?
+    is_archived = @current_collective&.respond_to?(:archived?) && @current_collective.archived?
+    is_pending = @current_collective&.respond_to?(:pending_billing_setup?) && @current_collective.pending_billing_setup?
+    return unless is_archived || is_pending
     return if is_auth_controller?
     return if self.is_a?(BillingController)
-    return if controller_name == "collectives" && action_name.in?(%w[settings reactivate])
+    return if controller_name == "collectives" && action_name.in?(%w[settings])
 
+    msg = is_pending ? "This collective is pending billing setup." : "This collective is deactivated."
     respond_to do |format|
-      format.json { render json: { error: "This collective is deactivated." }, status: :forbidden }
-      format.md { render plain: "This collective is deactivated. Visit the settings page to reactivate.", status: :forbidden }
+      format.json { render json: { error: msg }, status: :forbidden }
+      format.md { render plain: "#{msg} Visit /billing to manage.", status: :forbidden }
       format.any { redirect_to "#{@current_collective.path}/settings" }
     end
   end

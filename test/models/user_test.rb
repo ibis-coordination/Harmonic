@@ -7,6 +7,7 @@ class UserTest < ActiveSupport::TestCase
     @tenant.add_user!(@user)
     @collective = create_collective(tenant: @tenant, created_by: @user, handle: "user-collective-#{SecureRandom.hex(4)}")
     @collective.add_user!(@user)
+    enable_stripe_billing_flag!(@tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
@@ -941,11 +942,11 @@ class UserTest < ActiveSupport::TestCase
       stripe_id: "cus_#{SecureRandom.hex(8)}",
       active: true,
     )
-    assert @user.reload.stripe_billing_setup?(@tenant)
+    assert @user.reload.stripe_billing_setup?
   end
 
   test "stripe_billing_setup? returns false when user has no stripe customer" do
-    assert_not @user.stripe_billing_setup?(@tenant)
+    assert_not @user.stripe_billing_setup?
   end
 
   test "stripe_billing_setup? returns false when stripe customer is inactive" do
@@ -954,7 +955,7 @@ class UserTest < ActiveSupport::TestCase
       stripe_id: "cus_#{SecureRandom.hex(8)}",
       active: false,
     )
-    assert_not @user.reload.stripe_billing_setup?(@tenant)
+    assert_not @user.reload.stripe_billing_setup?
   end
 
   test "requires_stripe_billing? returns true when flag enabled and billing not set up" do
@@ -963,7 +964,9 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "requires_stripe_billing? returns false when flag disabled" do
-    assert_not @user.requires_stripe_billing?(@tenant)
+    non_billing_tenant = create_tenant(subdomain: "no-billing-#{SecureRandom.hex(4)}")
+    non_billing_tenant.add_user!(@user)
+    assert_not @user.requires_stripe_billing?(non_billing_tenant)
   end
 
   test "requires_stripe_billing? returns false when billing already set up" do
@@ -982,13 +985,13 @@ class UserTest < ActiveSupport::TestCase
     # @collective is created by @user and is non-main, so it's billable
     # Exempt it too so billable_quantity is 0
     @collective.update!(billing_exempt: true)
-    assert @user.stripe_billing_setup?(@tenant)
+    assert @user.stripe_billing_setup?
   end
 
   test "stripe_billing_setup? returns false when billing_exempt but has non-exempt resources" do
     @user.update!(billing_exempt: true)
     # @collective is non-exempt, so user still needs a subscription
-    assert_not @user.stripe_billing_setup?(@tenant)
+    assert_not @user.stripe_billing_setup?
   end
 
   test "active_billable_agent_count counts non-archived non-suspended agents" do
@@ -997,7 +1000,7 @@ class UserTest < ActiveSupport::TestCase
     agent2 = create_ai_agent(parent: @user, name: "Agent 2")
     @tenant.add_user!(agent2)
 
-    assert_equal 2, @user.active_billable_agent_count(@tenant)
+    assert_equal 2, @user.active_billable_agent_count
   end
 
   test "active_billable_agent_count excludes archived agents" do
@@ -1008,7 +1011,7 @@ class UserTest < ActiveSupport::TestCase
     agent2.tenant_user = agent2.tenant_users.find_by(tenant_id: @tenant.id)
     agent2.archive!
 
-    assert_equal 1, @user.active_billable_agent_count(@tenant)
+    assert_equal 1, @user.active_billable_agent_count
   end
 
   test "active_billable_agent_count excludes suspended agents" do
@@ -1018,11 +1021,11 @@ class UserTest < ActiveSupport::TestCase
     @tenant.add_user!(agent2)
     agent2.update!(suspended_at: Time.current)
 
-    assert_equal 1, @user.active_billable_agent_count(@tenant)
+    assert_equal 1, @user.active_billable_agent_count
   end
 
   test "active_billable_agent_count returns 0 when no agents" do
-    assert_equal 0, @user.active_billable_agent_count(@tenant)
+    assert_equal 0, @user.active_billable_agent_count
   end
 
   # === Collective Billing Tests ===
@@ -1031,19 +1034,19 @@ class UserTest < ActiveSupport::TestCase
     # @collective from setup is non-main, so it counts as 1 already
     @tenant.update!(main_collective_id: @collective.id) # make it main so we start from 0
     extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Extra #{SecureRandom.hex(4)}", handle: "extra-#{SecureRandom.hex(4)}")
-    assert_equal 1, @user.active_billable_collective_count(@tenant)
+    assert_equal 1, @user.active_billable_collective_count
   end
 
   test "active_billable_collective_count excludes main collective" do
     @tenant.update!(main_collective_id: @collective.id)
-    assert_equal 0, @user.active_billable_collective_count(@tenant)
+    assert_equal 0, @user.active_billable_collective_count
   end
 
   test "active_billable_collective_count excludes archived collectives" do
     @tenant.update!(main_collective_id: @collective.id)
     extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Archived #{SecureRandom.hex(4)}", handle: "archived-#{SecureRandom.hex(4)}")
     extra.archive!
-    assert_equal 0, @user.active_billable_collective_count(@tenant)
+    assert_equal 0, @user.active_billable_collective_count
   end
 
   test "active_billable_collective_count excludes collectives created by other users" do
@@ -1051,7 +1054,7 @@ class UserTest < ActiveSupport::TestCase
     other = create_user(email: "other-#{SecureRandom.hex(4)}@example.com", name: "Other User #{SecureRandom.hex(4)}")
     @tenant.add_user!(other)
     Collective.create!(tenant: @tenant, created_by: other, name: "Other #{SecureRandom.hex(4)}", handle: "other-#{SecureRandom.hex(4)}")
-    assert_equal 0, @user.active_billable_collective_count(@tenant)
+    assert_equal 0, @user.active_billable_collective_count
   end
 
   private

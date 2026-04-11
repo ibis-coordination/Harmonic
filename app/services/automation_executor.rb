@@ -43,7 +43,12 @@ class AutomationExecutor
       return
     end
 
-    # Agent must be active (not archived or suspended)
+    # Agent must be active (not archived, suspended, or pending billing)
+    if ai_agent.pending_billing_setup?
+      @run.mark_failed!("Agent is pending billing setup. Set up billing at /billing to activate this agent.")
+      return
+    end
+
     if ai_agent.suspended?
       @run.mark_failed!("Agent is suspended. Unsuspend the agent before running automations.")
       return

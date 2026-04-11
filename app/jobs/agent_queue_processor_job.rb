@@ -98,14 +98,21 @@ class AgentQueueProcessorJob < TenantScopedJob
   def run_task(task_run)
     ai_agent = T.must(task_run.ai_agent)
 
-    # Agent must be active (not archived or suspended)
+    # Agent must be active (not archived, suspended, or pending billing)
     agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: task_run.tenant_id)
     agent_archived = agent_tenant_user&.archived? || false
-    if ai_agent.suspended? || agent_archived
+    if ai_agent.suspended? || agent_archived || ai_agent.pending_billing_setup?
+      status_msg = if ai_agent.pending_billing_setup?
+        "pending billing setup. Set up billing at /billing to activate this agent"
+      elsif ai_agent.suspended?
+        "suspended"
+      else
+        "deactivated"
+      end
       task_run.update!(
         status: "failed",
         success: false,
-        error: "Agent is #{ai_agent.suspended? ? "suspended" : "deactivated"}. Reactivate the agent before running tasks.",
+        error: "Agent is #{status_msg}.",
         completed_at: Time.current,
       )
       task_run.notify_parent_automation_runs!

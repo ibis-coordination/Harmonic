@@ -1,5 +1,6 @@
 <% show_actions = local_assigns.fetch(:show_actions, false) %>
-<table class="pulse-table" style="max-width: 600px;">
+<% multi_tenant = @current_user.tenant_users.count > 1 %>
+<table class="pulse-table" style="max-width: 650px;">
   <tbody>
     <tr>
       <td><%= octicon 'person', height: 14 %> <%= @current_user.display_name %> <span class="pulse-muted">(you)</span></td>
@@ -15,9 +16,15 @@
       <% if show_actions %><td></td><% end %>
     </tr>
     <% @active_agents&.each do |agent| %>
-      <% agent_handle = agent.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>
+      <% tu = agent.tenant_users.first %>
+      <% agent_handle = tu&.handle %>
+      <% agent_tenant = tu&.tenant %>
       <tr data-billing-item="agent-<%= agent.id %>">
-        <td><%= octicon 'dependabot', height: 14 %> <%= link_to agent.display_name, "/ai-agents/#{agent_handle}" %> <span class="pulse-muted">(agent)</span></td>
+        <td>
+          <%= octicon 'dependabot', height: 14 %>
+          <%= link_to agent.display_name, "/ai-agents/#{agent_handle}" %>
+          <span class="pulse-muted">(agent<%= " on #{agent_tenant&.subdomain}" if multi_tenant && agent_tenant %>)</span>
+        </td>
         <% if show_prices %>
           <td style="text-align: right;">
             <% if agent.billing_exempt? %>
@@ -27,7 +34,7 @@
             <% end %>
           </td>
         <% end %>
-        <% if show_actions %>
+        <% if show_actions && agent_tenant == @current_tenant %>
           <td style="text-align: right;">
             <%= form_tag billing_deactivate_agent_path(agent_handle), method: :post, style: "display:inline" do %>
               <%= hidden_field_tag :confirm_deactivate, "1" %>
@@ -36,12 +43,18 @@
               </button>
             <% end %>
           </td>
+        <% elsif show_actions %>
+          <td></td>
         <% end %>
       </tr>
     <% end %>
     <% @active_collectives&.each do |collective| %>
       <tr data-billing-item="collective-<%= collective.id %>">
-        <td><%= octicon 'people', height: 14 %> <%= link_to collective.name, collective.path %> <span class="pulse-muted">(collective)</span></td>
+        <td>
+          <%= octicon 'people', height: 14 %>
+          <%= link_to collective.name, collective.path %>
+          <span class="pulse-muted">(collective<%= " on #{collective.tenant&.subdomain}" if multi_tenant %>)</span>
+        </td>
         <% if show_prices %>
           <td style="text-align: right;">
             <% if collective.billing_exempt? %>
@@ -51,7 +64,7 @@
             <% end %>
           </td>
         <% end %>
-        <% if show_actions %>
+        <% if show_actions && collective.tenant_id == @current_tenant.id %>
           <td style="text-align: right;">
             <%= form_tag billing_deactivate_collective_path(collective.handle), method: :post, style: "display:inline" do %>
               <%= hidden_field_tag :confirm_deactivate, "1" %>
@@ -60,7 +73,33 @@
               </button>
             <% end %>
           </td>
+        <% elsif show_actions %>
+          <td></td>
         <% end %>
+      </tr>
+    <% end %>
+    <% @pending_agents&.each do |agent| %>
+      <tr data-billing-item="agent-<%= agent.id %>">
+        <td>
+          <%= octicon 'dependabot', height: 14 %> <%= agent.display_name %>
+          <span class="pulse-muted">(pending agent<%= " on #{agent.tenant_users.first&.tenant&.subdomain}" if multi_tenant %>)</span>
+        </td>
+        <% if show_prices %>
+          <td style="text-align: right; color: var(--color-fg-muted);">$3/mo when active</td>
+        <% end %>
+        <% if show_actions %><td></td><% end %>
+      </tr>
+    <% end %>
+    <% @pending_collectives&.each do |collective| %>
+      <tr data-billing-item="collective-<%= collective.id %>">
+        <td>
+          <%= octicon 'people', height: 14 %> <%= collective.name %>
+          <span class="pulse-muted">(pending collective<%= " on #{collective.tenant&.subdomain}" if multi_tenant %>)</span>
+        </td>
+        <% if show_prices %>
+          <td style="text-align: right; color: var(--color-fg-muted);">$3/mo when active</td>
+        <% end %>
+        <% if show_actions %><td></td><% end %>
       </tr>
     <% end %>
     <% if show_prices %>

@@ -67,32 +67,38 @@ Changed `billing_exempt` from a blanket user-level bypass to per-resource:
 - Deactivation: confirmation checkbox per resource (same as current)
 - Reactivation: shows proration amount inline, confirmation checkbox
 
-### Phase 3: Simplify resource pages
+### Phase 3: Simplify resource pages — DONE
 
-**Agent settings page** (`app/views/ai_agents/settings.html.erb`):
-- Remove deactivate/reactivate forms
-- When archived: show "This agent is inactive. [Manage on billing page](/billing)" instead of the reactivation form
-- When active + stripe_billing enabled: show "This agent costs $3/mo. [Manage billing](/billing)" instead of the deactivation form
+- Removed deactivate/reactivate forms from agent and collective settings pages
+- Removed old routes: POST /ai-agents/:handle/deactivate, /reactivate, POST /collectives/:handle/deactivate, /reactivate
+- Removed old controller actions and 12 associated tests
+- Settings pages now show status with link to /billing
+- Exempt resources show "billing-exempt" instead of "$3/month"
+- Error messages reference billing page for reactivation
+- Markdown views match HTML, including creator-only reactivation message for collectives
+- Removed unnecessary Stripe proration API calls from settings controllers
 
-**Collective settings page** (`app/views/collectives/settings.html.erb`):
-- Remove deactivate/reactivate forms
-- Same pattern: status text + link to billing page
+### Phase 4: Pending billing state for resource creation — DONE
 
-**Agent show page** — keep the status badge, update text to link to `/billing`
+**Data model:**
+- Added `pending_billing_setup` boolean to `users` and `collectives` tables (migration `20260410000001`)
 
-**Collective show page** — keep archived redirect to settings (this is about access control, not billing UI)
+**Creation flow:**
+- When stripe_billing enabled and user has no active subscription, new agents/collectives are created with `pending_billing_setup: true`
+- API tokens are not generated for pending agents
+- User is shown "Set up billing to activate it" instead of "created successfully"
+- Collective creation redirects to /billing when pending
 
-### Phase 4: Pending billing state for resource creation
+**Blocking:**
+- `AgentQueueProcessorJob` blocks pending agents from running tasks
+- `AutomationExecutor` blocks pending agents from running automations
+- Pending resources count in `billable_quantity` (so checkout includes them)
 
-When a user without a subscription creates an agent or collective:
-- Resource created in a "pending" state (not yet active)
-- Shows on billing page as "pending — set up billing to activate"
-- Activated automatically once user sets up billing and pays
+**Activation:**
+- After Stripe checkout return, `activate_pending_resources!` clears the flag on all user's pending agents and collectives
 
-## Scope boundaries
+**Billing page:**
+- Pending resources shown in a "Pending Resources" section: "will activate once billing is set up"
+- Also shown in the inventory table in the pre-checkout view with "$3/mo when active"
 
-- Cross-tenant notice is **read-only** — no managing other-tenant resources
-- Creation billing confirmation stays on creation forms — not moving to billing page
-- The Stripe portal link remains for payment method management and cancellation
-- No changes to webhook handling or StripeService internals (beyond per-resource quantity)
-- Agent/collective archival behavior unchanged (archive!, unarchive!, what gets disabled)
+## All phases complete

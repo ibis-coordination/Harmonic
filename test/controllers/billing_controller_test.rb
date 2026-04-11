@@ -360,7 +360,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     create_test_collective(name: "My Collective")
 
     # Count collectives: @collective (Global Collective, created by @user) + My Collective = 2
-    expected_collectives = @user.active_billable_collective_count(@tenant)
+    expected_collectives = @user.active_billable_collective_count
 
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
@@ -411,22 +411,76 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "$3/mo"
   end
 
-  test "show displays cross-tenant notice when user belongs to other billing-enabled tenants" do
+  test "show includes resources from current tenant in cross-tenant billing total" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-
-    # Create another tenant with stripe_billing enabled and add the user
-    other_subdomain = "other-org-#{SecureRandom.hex(4)}"
-    other_tenant = Tenant.create!(name: "Other Org", subdomain: other_subdomain)
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
-    other_tenant.enable_feature_flag!("stripe_billing")
-    other_tenant.add_user!(@user)
+    agent = create_ai_agent(parent: @user, name: "My Bot")
+    @tenant.add_user!(agent)
 
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
 
     assert_response :success
-    assert_includes response.body, other_subdomain
+    assert_includes response.body, "My Bot"
+    # Total should include the agent: 1 (user) + 1 (agent) + N (collectives)
+    total = @user.billable_quantity
+    assert_includes response.body, "$#{total * 3}/mo"
+  end
+
+  test "billable_quantity includes collectives from other billing-enabled tenants" do
+    # Create another billing-enabled tenant and a collective on it owned by this user
+    other_tenant = Tenant.create!(name: "Other Org", subdomain: "other-org-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(other_tenant)
+    other_tenant.add_user!(@user)
+
+    Tenant.scope_thread_to_tenant(subdomain: other_tenant.subdomain)
+    other_tenant.create_main_collective!(created_by: @user) unless other_tenant.main_collective_id
+    main_coll = Collective.find(other_tenant.main_collective_id)
+    Collective.scope_thread_to_collective(subdomain: other_tenant.subdomain, handle: main_coll.handle)
+    other_collective = Collective.create!(
+      tenant: other_tenant,
+      created_by: @user,
+      name: "Other Org Collective",
+      handle: "other-org-coll-#{SecureRandom.hex(4)}",
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # billable_quantity should count the collective on the other tenant
+    # even when called from a request scoped to @tenant
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    # The total should include: user + collectives on @tenant + the other_collective
+    assert_includes response.body, other_collective.name
+  end
+
+  test "billable_quantity excludes collectives from non-billing tenants" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+
+    # Create a tenant WITHOUT stripe_billing and a collective on it
+    non_billing_tenant = Tenant.create!(name: "Free Org", subdomain: "free-org-#{SecureRandom.hex(4)}")
+    # NOT enabling stripe_billing on this tenant
+    non_billing_tenant.add_user!(@user)
+
+    Tenant.scope_thread_to_tenant(subdomain: non_billing_tenant.subdomain)
+    non_billing_tenant.create_main_collective!(created_by: @user) unless non_billing_tenant.main_collective_id
+    main_coll = Collective.find(non_billing_tenant.main_collective_id)
+    Collective.scope_thread_to_collective(subdomain: non_billing_tenant.subdomain, handle: main_coll.handle)
+    free_collective = Collective.create!(
+      tenant: non_billing_tenant,
+      created_by: @user,
+      name: "Free Org Collective",
+      handle: "free-org-coll-#{SecureRandom.hex(4)}",
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_not_includes response.body, "Free Org Collective"
   end
 
   # === Deactivate/Reactivate Actions ===
@@ -570,6 +624,77 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     other_agent.tenant_user = other_agent.tenant_users.find_by(tenant_id: @tenant.id)
     assert_not other_agent.archived?, "Should not be able to deactivate another user's agent"
+  end
+
+  # === Pending Billing Setup Tests ===
+
+  test "show displays pending resources distinctly" do
+    # Exempt user with no subscription, creates a pending agent
+    @user.update!(billing_exempt: true)
+    Collective.where(created_by_id: @user.id).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
+    agent = create_ai_agent(parent: @user, name: "Pending Bot")
+    @tenant.add_user!(agent)
+    agent.update!(pending_billing_setup: true)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, "Pending Bot"
+    assert_includes response.body, "pending"
+  end
+
+  test "checkout activates pending resources" do
+    @user.update!(billing_exempt: true)
+    Collective.where(created_by_id: @user.id).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
+
+    agent = create_ai_agent(parent: @user, name: "Pending Agent")
+    @tenant.add_user!(agent)
+    agent.update!(pending_billing_setup: true)
+
+    collective = create_test_collective(name: "Pending Coll")
+    collective.update!(pending_billing_setup: true)
+
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_pending_#{SecureRandom.hex(4)}", active: false)
+
+    stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_pending123})
+      .to_return(
+        status: 200,
+        body: {
+          id: "cs_pending123",
+          object: "checkout.session",
+          customer: sc.stripe_id,
+          subscription: "sub_pending123",
+          status: "complete",
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing?checkout_session_id=cs_pending123"
+
+    assert_response :success
+    agent.reload
+    assert_not agent.pending_billing_setup?, "Agent should no longer be pending after checkout"
+    collective.reload
+    assert_not collective.pending_billing_setup?, "Collective should no longer be pending after checkout"
+  end
+
+  test "agent creation sets pending_billing_setup when user has no subscription" do
+    @user.update!(billing_exempt: true)
+    Collective.where(created_by_id: @user.id).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "User.where(user_type: 'ai_agent').count", 1 do
+      post "/ai-agents/new/actions/create_ai_agent", params: {
+        name: "New Pending Agent",
+        confirm_billing: "1",
+      }
+    end
+
+    new_agent = User.where(user_type: "ai_agent").order(:created_at).last
+    assert new_agent.pending_billing_setup?, "Agent should be pending when created without subscription"
   end
 
   private
