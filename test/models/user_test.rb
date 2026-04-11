@@ -1033,7 +1033,7 @@ class UserTest < ActiveSupport::TestCase
   test "active_billable_collective_count counts non-main non-archived collectives" do
     # @collective from setup is non-main, so it counts as 1 already
     @tenant.update!(main_collective_id: @collective.id) # make it main so we start from 0
-    extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Extra #{SecureRandom.hex(4)}", handle: "extra-#{SecureRandom.hex(4)}")
+    Collective.create!(tenant: @tenant, created_by: @user, name: "Extra #{SecureRandom.hex(4)}", handle: "extra-#{SecureRandom.hex(4)}")
     assert_equal 1, @user.active_billable_collective_count
   end
 

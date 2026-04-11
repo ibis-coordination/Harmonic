@@ -252,7 +252,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   # === sync_subscription_quantity! ===
 
   test "sync_subscription_quantity! updates Stripe subscription quantity" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_sync123", active: true, stripe_subscription_id: "sub_sync123")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_sync123", active: true, stripe_subscription_id: "sub_sync123")
 
     # Create an active agent
     agent = create_ai_agent(parent: @user)
@@ -298,7 +298,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   end
 
   test "sync_subscription_quantity! is no-op for billing_exempt user" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_exempt", active: true, stripe_subscription_id: "sub_exempt")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_exempt", active: true, stripe_subscription_id: "sub_exempt")
     @user.update!(billing_exempt: true)
 
     # No Stripe API call should be made
@@ -306,14 +306,14 @@ class StripeServiceTest < ActiveSupport::TestCase
   end
 
   test "sync_subscription_quantity! is no-op without active subscription" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_nosub", active: false)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_nosub", active: false)
 
     # No Stripe API call should be made
     StripeService.sync_subscription_quantity!(@user)
   end
 
   test "sync_subscription_quantity! logs and does not raise on Stripe failure" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_fail", active: true, stripe_subscription_id: "sub_fail")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_fail", active: true, stripe_subscription_id: "sub_fail")
 
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_fail")
       .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json)
@@ -324,7 +324,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   end
 
   test "sync_subscription_quantity! excludes archived and suspended agents from count" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_count", active: true, stripe_subscription_id: "sub_count")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_count", active: true, stripe_subscription_id: "sub_count")
 
     active_agent = create_ai_agent(parent: @user, name: "Active Agent #{SecureRandom.hex(4)}")
     @tenant.add_user!(active_agent)
@@ -407,7 +407,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   # === Edge case: no-op when quantity unchanged ===
 
   test "sync_subscription_quantity! skips Stripe update when quantity unchanged" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_noop", active: true, stripe_subscription_id: "sub_noop")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_noop", active: true, stripe_subscription_id: "sub_noop")
 
     # No agents — quantity should be 1, which matches the current subscription
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_noop")
@@ -429,7 +429,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   # === Edge case: quantity decrease does NOT create invoice ===
 
   test "sync_subscription_quantity! does not create invoice on quantity decrease" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_dec", active: true, stripe_subscription_id: "sub_dec")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_dec", active: true, stripe_subscription_id: "sub_dec")
 
     # Subscription has quantity 3 but user has only 1 active agent → new quantity = 2
     agent = create_ai_agent(parent: @user, name: "Dec Agent #{SecureRandom.hex(4)}")
@@ -463,7 +463,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   # === Edge case: invoice with zero amount_due is not paid ===
 
   test "sync_subscription_quantity! skips payment when invoice amount_due is zero" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_zero", active: true, stripe_subscription_id: "sub_zero")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_zero", active: true, stripe_subscription_id: "sub_zero")
 
     agent = create_ai_agent(parent: @user, name: "Zero Agent #{SecureRandom.hex(4)}")
     @tenant.add_user!(agent)
@@ -502,7 +502,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   # === Edge case: invoice payment fails (card declined) ===
 
   test "sync_subscription_quantity! does not raise when invoice payment fails" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_declined", active: true, stripe_subscription_id: "sub_declined")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_declined", active: true, stripe_subscription_id: "sub_declined")
 
     agent = create_ai_agent(parent: @user, name: "Declined Agent #{SecureRandom.hex(4)}")
     @tenant.add_user!(agent)
@@ -871,7 +871,7 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   test "sync_subscription_quantity! excludes exempt user from count but includes non-exempt agents" do
     @user.update!(billing_exempt: true)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_perexempt", active: true, stripe_subscription_id: "sub_perexempt")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_perexempt", active: true, stripe_subscription_id: "sub_perexempt")
 
     agent = create_ai_agent(parent: @user, name: "Non-exempt Agent #{SecureRandom.hex(4)}")
     @tenant.add_user!(agent)
@@ -903,7 +903,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   end
 
   test "sync_subscription_quantity! excludes exempt agents from count" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_agentexempt", active: true, stripe_subscription_id: "sub_agentexempt")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_agentexempt", active: true, stripe_subscription_id: "sub_agentexempt")
 
     exempt_agent = create_ai_agent(parent: @user, name: "Exempt Agent #{SecureRandom.hex(4)}")
     @tenant.add_user!(exempt_agent)
@@ -939,7 +939,7 @@ class StripeServiceTest < ActiveSupport::TestCase
   end
 
   test "sync_subscription_quantity! excludes exempt collectives from count" do
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_collexempt", active: true, stripe_subscription_id: "sub_collexempt")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_collexempt", active: true, stripe_subscription_id: "sub_collexempt")
 
     # Create two collectives, one exempt
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -977,7 +977,7 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   test "sync_subscription_quantity! is no-op when all resources are exempt (quantity zero)" do
     @user.update!(billing_exempt: true)
-    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_allexempt", active: true, stripe_subscription_id: "sub_allexempt")
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_allexempt", active: true, stripe_subscription_id: "sub_allexempt")
 
     # No non-exempt agents or collectives — quantity should be 0
     # But quantity 0 means no subscription needed, so this should be a no-op
