@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-11
+
+### Added
+
+- Stripe billing integration: $3/month per-identity subscription covering human users, AI agents, and collectives
+- Billing dashboard with resource inventory, deactivate/reactivate actions, and Stripe portal link
+- Billing explanation page and billing gates on agent and collective creation forms
+- Pending billing state for resources created before subscription is active
+- Per-resource billing exemption for app admins (logged to security audit log)
+- Collective archival (archive/unarchive lifecycle tied to billing)
+- Billing reconciliation job as safety net for subscription quantity drift
+- Stale webhook protection, idempotent webhook handlers, and security audit logging for billing
+- Tenant-level allowed attachment categories
+- Integration tests pinning attachment XSS protection
+
+### Fixed
+
+- Fix Sorbet error in Attachment#validate_file
+- Fix pin_controller test typing for vitest 4
+
+### Dependencies
+
+- Bump hono from 4.12.7 to 4.12.12 (harmonic-agent, mcp-server)
+- Bump @hono/node-server to 1.19.13 (harmonic-agent, mcp-server)
+- Bump vite from 7.3.1 to 7.3.2 (harmonic-agent, mcp-server)
+- Bump vite and vitest (root)
+- Bump esbuild from 0.24.2 to 0.28.0
+
 ## [1.4.2] - 2026-04-02
 
 ### Security
