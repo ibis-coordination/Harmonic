@@ -385,6 +385,44 @@ class AgentNavigatorTest < ActiveSupport::TestCase
     assert result.success
   end
 
+  # === Stripe Customer ID passthrough ===
+
+  test "passes stripe_customer_id to LLMClient when provided" do
+    ENV["LLM_GATEWAY_MODE"] = "stripe_gateway"
+    ENV["STRIPE_GATEWAY_KEY"] = "sk_test_gateway"
+    stub_request(:post, "https://llm.stripe.com/chat/completions")
+      .to_return(
+        { status: 200, body: llm_response('{"type": "done", "message": "Done"}'), headers: json_headers },
+        { status: 200, body: llm_response('{"scratchpad": null}'), headers: json_headers },
+      )
+
+    agent = AgentNavigator.new(
+      user: @user, tenant: @tenant, collective: @collective,
+      stripe_customer_id: "cus_test_abc123",
+    )
+    agent.run(task: "Test task", max_steps: 5)
+
+    assert_requested :post, "https://llm.stripe.com/chat/completions", times: 2 do |req|
+      req.headers["X-Stripe-Customer-Id"] == "cus_test_abc123" &&
+        req.headers["Authorization"] == "Bearer sk_test_gateway"
+    end
+  ensure
+    ENV.delete("STRIPE_GATEWAY_KEY")
+    ENV.delete("LLM_GATEWAY_MODE")
+  end
+
+  test "does not pass stripe_customer_id when nil" do
+    stub_llm_responses(['{"type": "done", "message": "Done"}'])
+
+    agent = AgentNavigator.new(user: @user, tenant: @tenant, collective: @collective)
+    agent.run(task: "Test task", max_steps: 5)
+
+    assert_requested :post, "#{@base_url}/v1/chat/completions", times: 2 do |req|
+      req.headers["X-Stripe-Customer-Id"].nil? &&
+        req.headers["Authorization"].nil?
+    end
+  end
+
   private
 
   def stub_llm_responses(responses)

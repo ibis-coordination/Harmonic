@@ -126,6 +126,9 @@ gem 'rack-attack' # Rate limiting and request filtering
 gem 'clamby' # ClamAV virus scanning
 gem 'ssrf_filter' # SSRF protection for outbound HTTP requests
 
+# Stripe billing and AI Gateway
+gem "stripe"
+
 # Monitoring and error tracking
 gem 'sentry-ruby'
 gem 'sentry-rails'

@@ -10,6 +10,7 @@
 #   app_enabled: Whether enabled at app level (fixed, requires restart to change)
 #   default_tenant: Default value for new tenants
 #   default_collective: Default value for new collectives
+#   collective_level: Whether this flag can be toggled per-collective (default: false)
 
 feature_flags:
   api:
@@ -18,6 +19,7 @@ feature_flags:
     app_enabled: true
     default_tenant: false
     default_collective: false
+    collective_level: true
 
   file_attachments:
     name: "File Attachments"
@@ -25,6 +27,7 @@ feature_flags:
     app_enabled: true
     default_tenant: true
     default_collective: true
+    collective_level: true
 
   trio:
     name: "Trio AI Assistant"
@@ -32,10 +35,20 @@ feature_flags:
     app_enabled: true
     default_tenant: false
     default_collective: true
+    collective_level: true
 
   ai_agents:
     name: "AI Agents Task Runner"
-    description: "Enables the AI Agents task runner for executing automated tasks via AI agents"
+    description: "Enables the internal AI Agents task runner for executing automated tasks. External agents interacting via the API only need the 'api' flag."
     app_enabled: true
     default_tenant: false
     default_collective: false
+    collective_level: false
+
+  stripe_billing:
+    name: "Stripe Billing"
+    description: "Enables all Stripe billing: account subscriptions and AI Agent usage metering via AI Gateway. Required for harmonic.social; not needed for self-hosted instances."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: false

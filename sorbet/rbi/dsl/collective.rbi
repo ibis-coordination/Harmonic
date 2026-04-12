@@ -873,6 +873,20 @@ class Collective
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def search_index_ids=(ids); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def stripe_customer_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def stripe_customer_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :stripe_customers`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::StripeCustomer::PrivateCollectionProxy) }
+    def stripe_customers; end
+
+    sig { params(value: T::Enumerable[::StripeCustomer]).void }
+    def stripe_customers=(value); end
+
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
 
@@ -1117,6 +1131,96 @@ class Collective
   end
 
   module GeneratedAttributeMethods
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def archived_at; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def archived_at=(value); end
+
+    sig { returns(T::Boolean) }
+    def archived_at?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def archived_at_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def archived_at_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def archived_at_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def archived_at_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def archived_at_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def archived_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def archived_at_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def archived_at_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def archived_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def archived_at_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def archived_at_was; end
+
+    sig { void }
+    def archived_at_will_change!; end
+
+    sig { returns(T::Boolean) }
+    def billing_exempt; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def billing_exempt=(value); end
+
+    sig { returns(T::Boolean) }
+    def billing_exempt?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def billing_exempt_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def billing_exempt_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def billing_exempt_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def billing_exempt_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def billing_exempt_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def billing_exempt_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def billing_exempt_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def billing_exempt_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def billing_exempt_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def billing_exempt_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def billing_exempt_was; end
+
+    sig { void }
+    def billing_exempt_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -1522,6 +1626,57 @@ class Collective
     sig { void }
     def name_will_change!; end
 
+    sig { returns(T::Boolean) }
+    def pending_billing_setup; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def pending_billing_setup=(value); end
+
+    sig { returns(T::Boolean) }
+    def pending_billing_setup?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def pending_billing_setup_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def pending_billing_setup_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def pending_billing_setup_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def pending_billing_setup_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def pending_billing_setup_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pending_billing_setup_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def pending_billing_setup_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def pending_billing_setup_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pending_billing_setup_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def pending_billing_setup_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def pending_billing_setup_was; end
+
+    sig { void }
+    def pending_billing_setup_will_change!; end
+
+    sig { void }
+    def restore_archived_at!; end
+
+    sig { void }
+    def restore_billing_exempt!; end
+
     sig { void }
     def restore_created_at!; end
 
@@ -1550,6 +1705,9 @@ class Collective
     def restore_name!; end
 
     sig { void }
+    def restore_pending_billing_setup!; end
+
+    sig { void }
     def restore_settings!; end
 
     sig { void }
@@ -1560,6 +1718,18 @@ class Collective
 
     sig { void }
     def restore_updated_by_id!; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_archived_at; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_archived_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_billing_exempt; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_billing_exempt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -1614,6 +1784,12 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_pending_billing_setup; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_pending_billing_setup?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.untyped, T.untyped])) }
     def saved_change_to_settings; end
@@ -1820,6 +1996,12 @@ class Collective
     def updated_by_id_will_change!; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_archived_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_billing_exempt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1845,6 +2027,9 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_pending_billing_setup?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_settings?(from: T.unsafe(nil), to: T.unsafe(nil)); end

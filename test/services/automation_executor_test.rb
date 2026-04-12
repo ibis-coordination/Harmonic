@@ -591,7 +591,77 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_includes run.actions_executed.first["result"]["error"], "not found"
   end
 
+  # === Stripe billing tests ===
+
+  test "fails agent rule run when stripe_billing enabled and agent has no billing customer" do
+    enable_stripe_billing_flag!(@tenant)
+
+    rule = create_agent_rule(task: "Run this task")
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_no_difference "AiAgentTaskRun.count" do
+      AutomationExecutor.execute(run)
+    end
+
+    run.reload
+    assert_equal "failed", run.status
+    assert_includes run.error_message, "billing"
+  end
+
+  test "fails trigger_agent action when stripe_billing enabled and agent has no billing customer" do
+    enable_stripe_billing_flag!(@tenant)
+
+    other_agent = create_ai_agent(parent: @user, name: "Unbilled Agent")
+    @tenant.add_user!(other_agent)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Billing gate trigger test",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [
+        { "type" => "trigger_agent", "agent_id" => other_agent.id, "task" => "Do something" },
+      ],
+      enabled: true
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    AutomationExecutor.execute(run)
+
+    run.reload
+    result = run.actions_executed.first["result"]
+    assert_equal "failed", result["status"]
+    assert_includes result["error"], "illing"
+  end
+
+  test "agent rule runs normally when stripe_billing flag disabled" do
+    # stripe_billing NOT enabled — should work as before
+    rule = create_agent_rule(task: "Run this task")
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_difference "AiAgentTaskRun.count", 1 do
+      assert_enqueued_with(job: AgentQueueProcessorJob) do
+        AutomationExecutor.execute(run)
+      end
+    end
+
+    run.reload
+    assert_equal "running", run.status
+  end
+
   private
+
+  def enable_stripe_billing_flag!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
+  end
 
   def create_agent_rule(task:, max_steps: nil)
     trigger_config = { "event_type" => "note.created" }

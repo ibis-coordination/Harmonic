@@ -134,7 +134,8 @@ CREATE TABLE public.ai_agent_task_runs (
     output_tokens integer DEFAULT 0,
     total_tokens integer DEFAULT 0,
     estimated_cost_usd numeric(10,6),
-    automation_rule_id uuid
+    automation_rule_id uuid,
+    stripe_customer_id uuid
 );
 
 
@@ -298,7 +299,10 @@ CREATE TABLE public.collectives (
     updated_by_id uuid NOT NULL,
     identity_user_id uuid,
     description text,
-    internal boolean DEFAULT false NOT NULL
+    internal boolean DEFAULT false NOT NULL,
+    archived_at timestamp(6) without time zone,
+    billing_exempt boolean DEFAULT false NOT NULL,
+    pending_billing_setup boolean DEFAULT false NOT NULL
 );
 
 
@@ -1354,6 +1358,22 @@ CREATE TABLE public.search_index_p9 (
 
 
 --
+-- Name: stripe_customers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stripe_customers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    billable_type character varying NOT NULL,
+    billable_id uuid NOT NULL,
+    stripe_id character varying NOT NULL,
+    stripe_subscription_id character varying,
+    active boolean DEFAULT false NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: tenant_users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1804,7 +1824,10 @@ CREATE TABLE public.users (
     suspended_at timestamp(6) without time zone,
     suspended_by_id uuid,
     suspended_reason character varying,
-    agent_configuration jsonb DEFAULT '{}'::jsonb
+    agent_configuration jsonb DEFAULT '{}'::jsonb,
+    stripe_customer_id uuid,
+    billing_exempt boolean DEFAULT false NOT NULL,
+    pending_billing_setup boolean DEFAULT false NOT NULL
 );
 
 
@@ -2434,6 +2457,14 @@ ALTER TABLE ONLY public.search_index_p9
 
 
 --
+-- Name: stripe_customers stripe_customers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stripe_customers
+    ADD CONSTRAINT stripe_customers_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: invites studio_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2906,6 +2937,13 @@ CREATE INDEX index_ai_agent_task_runs_on_initiated_by_id ON public.ai_agent_task
 --
 
 CREATE INDEX index_ai_agent_task_runs_on_status ON public.ai_agent_task_runs USING btree (status);
+
+
+--
+-- Name: index_ai_agent_task_runs_on_stripe_customer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_ai_agent_task_runs_on_stripe_customer_id ON public.ai_agent_task_runs USING btree (stripe_customer_id);
 
 
 --
@@ -3749,6 +3787,20 @@ CREATE INDEX index_representation_sessions_on_trustee_grant_id ON public.represe
 
 
 --
+-- Name: index_stripe_customers_on_billable_type_and_billable_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_stripe_customers_on_billable_type_and_billable_id ON public.stripe_customers USING btree (billable_type, billable_id);
+
+
+--
+-- Name: index_stripe_customers_on_stripe_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_stripe_customers_on_stripe_id ON public.stripe_customers USING btree (stripe_id);
+
+
+--
 -- Name: index_tenant_users_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3837,6 +3889,13 @@ CREATE UNIQUE INDEX index_users_on_email ON public.users USING btree (email);
 --
 
 CREATE INDEX index_users_on_parent_id ON public.users USING btree (parent_id);
+
+
+--
+-- Name: index_users_on_stripe_customer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_users_on_stripe_customer_id ON public.users USING btree (stripe_customer_id);
 
 
 --
@@ -8226,6 +8285,14 @@ ALTER TABLE ONLY public.attachments
 
 
 --
+-- Name: users fk_rails_caff4e084f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT fk_rails_caff4e084f FOREIGN KEY (stripe_customer_id) REFERENCES public.stripe_customers(id);
+
+
+--
 -- Name: links fk_rails_cd7c2a63d7; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8287,6 +8354,14 @@ ALTER TABLE ONLY public.trustee_grants
 
 ALTER TABLE ONLY public.options
     ADD CONSTRAINT fk_rails_df3bc80da2 FOREIGN KEY (decision_id) REFERENCES public.decisions(id);
+
+
+--
+-- Name: ai_agent_task_runs fk_rails_e06cc35312; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_agent_task_runs
+    ADD CONSTRAINT fk_rails_e06cc35312 FOREIGN KEY (stripe_customer_id) REFERENCES public.stripe_customers(id);
 
 
 --
@@ -8440,6 +8515,11 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260410000001'),
+('20260410000000'),
+('20260409000001'),
+('20260409000000'),
+('20260308000000'),
 ('20260228000000'),
 ('20260227000000'),
 ('20260218073707'),

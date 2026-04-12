@@ -1,5 +1,13 @@
 # Collective Settings
 
+<% if @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
+<% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id %>
+**Status: Inactive** — This collective is deactivated and not being billed. [Manage on billing page](/billing)
+<% else %>
+**Status: Inactive** — This collective is deactivated and not being billed. Only the collective creator can reactivate it.
+<% end %>
+
+<% else %>
 Current settings for **<%= @current_collective.name %>**:
 
 | Setting | Value |
@@ -12,7 +20,7 @@ Current settings for **<%= @current_collective.name %>**:
 | Synchronization Mode | <%= @current_collective.synchronization_mode %> |
 | Invitations | <%= @current_collective.all_members_can_invite? ? 'All members can invite' : 'Only admins can invite' %> |
 | Representation | <%= @current_collective.any_member_can_represent? ? 'Any member can represent' : 'Only representatives' %> |
-<% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) } %>
+<% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) && FeatureFlagService.flag_metadata(f).fetch("collective_level", false) } %>
 <% if available_flags.any? %>
 
 ## Features Enabled
@@ -34,6 +42,15 @@ Current settings for **<%= @current_collective.name %>**:
 <% end %>
 <% end %>
 
+<% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? %>
+<% if @current_collective.billing_exempt? %>
+This collective is billing-exempt. [View billing](/billing)
+<% else %>
+This collective costs $3/month. [Manage billing](/billing)
+<% end %>
+<% end %>
+
 ## Additional Settings
 
 * [Manage Automations](<%= @current_collective.path %>/settings/automations) - Configure event-triggered actions, webhooks, and schedules
+<% end %>

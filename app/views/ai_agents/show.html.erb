@@ -28,6 +28,40 @@
       </div>
     <% end %>
 
+    <% if flash[:error] %>
+      <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 20px;">
+        <%= flash[:error] %>
+      </div>
+    <% end %>
+
+    <% if @ai_agent.archived? %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'archive', height: 14 %>
+          <% if @current_tenant.feature_enabled?("stripe_billing") %>
+            <strong>Inactive</strong> — This agent is deactivated and not being billed.
+            <%= link_to "Manage on billing page", "/billing", class: "pulse-link" %>
+          <% else %>
+            <strong>Inactive</strong> — This agent is deactivated.
+          <% end %>
+        </span>
+      </div>
+    <% elsif @ai_agent.suspended? %>
+      <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'alert', height: 14 %>
+          <strong>Suspended</strong> — This agent has been suspended<%= " — #{@ai_agent.suspended_reason}" if @ai_agent.suspended_reason.present? %>.
+        </span>
+      </div>
+    <% elsif @current_tenant.feature_enabled?("stripe_billing") %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'check-circle', height: 14 %>
+          <strong>Active</strong> — $3/month. <%= link_to "Manage billing", "/billing", class: "pulse-link" %>
+        </span>
+      </div>
+    <% end %>
+
     <% if @token && @token.plaintext_token.present? %>
       <section class="pulse-settings-section">
         <h3>API Token</h3>
@@ -59,12 +93,14 @@
     <% end %>
 
     <p class="pulse-action-row">
-      <a href="<%= ai_agent_run_task_path(@ai_agent.handle) %>" class="pulse-action-btn pulse-action-btn-primary">
-        <%= octicon 'play' %> Run Task
-      </a>
-      <a href="/ai-agents/<%= @ai_agent.handle %>/automations" class="pulse-action-btn">
-        <%= octicon 'zap' %> Automations
-      </a>
+      <% unless @ai_agent.archived? || @ai_agent.suspended? %>
+        <a href="<%= ai_agent_run_task_path(@ai_agent.handle) %>" class="pulse-action-btn pulse-action-btn-primary">
+          <%= octicon 'play' %> Run Task
+        </a>
+        <a href="/ai-agents/<%= @ai_agent.handle %>/automations" class="pulse-action-btn">
+          <%= octicon 'zap' %> Automations
+        </a>
+      <% end %>
       <a href="/ai-agents/<%= @ai_agent.handle %>/settings" class="pulse-action-btn">
         <%= octicon 'gear' %> Settings
       </a>

@@ -5,6 +5,18 @@ Rails.application.routes.draw do
   # Incoming webhooks - public endpoint for external automation triggers
   post 'hooks/:webhook_path' => 'incoming_webhooks#receive', as: 'incoming_webhook'
 
+  # Stripe webhooks
+  post 'stripe/webhooks' => 'stripe_webhooks#receive'
+
+  # Billing management
+  get 'billing' => 'billing#show', as: 'billing_show'
+  post 'billing/setup' => 'billing#setup', as: 'billing_setup'
+  get 'billing/portal' => 'billing#portal', as: 'billing_portal'
+  post 'billing/deactivate_agent/:handle' => 'billing#deactivate_agent', as: 'billing_deactivate_agent'
+  post 'billing/reactivate_agent/:handle' => 'billing#reactivate_agent', as: 'billing_reactivate_agent'
+  post 'billing/deactivate_collective/:collective_handle' => 'billing#deactivate_collective', as: 'billing_deactivate_collective'
+  post 'billing/reactivate_collective/:collective_handle' => 'billing#reactivate_collective', as: 'billing_reactivate_collective'
+
   # Development tools - Pulse styleguide (only available in development)
   if Rails.env.development?
     get 'dev/pulse' => 'dev#pulse_components'
@@ -200,6 +212,8 @@ Rails.application.routes.draw do
   post 'app-admin/users/:id/actions/suspend_user' => 'app_admin#execute_suspend_user'
   get 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#describe_unsuspend_user'
   post 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#execute_unsuspend_user'
+  get 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_billing_exempt'
+  post 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_billing_exempt'
   get 'app-admin/security' => 'app_admin#security_dashboard'
   get 'app-admin/security/events/:line_number' => 'app_admin#security_event'
 

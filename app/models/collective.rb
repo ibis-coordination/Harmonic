@@ -123,6 +123,21 @@ class Collective < ApplicationRecord
     T.must(tenant).main_collective_id == id
   end
 
+  sig { void }
+  def archive!
+    update!(archived_at: Time.current)
+    automation_rules.where(enabled: true).update_all(enabled: false)
+  end
+
+  sig { void }
+  def unarchive!
+    update!(archived_at: nil)
+  end
+
+  sig { returns(T::Boolean) }
+  def archived?
+    archived_at.present?
+  end
 
   sig { void }
   def creator_is_not_collective_identity

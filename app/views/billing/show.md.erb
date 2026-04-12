@@ -1,0 +1,106 @@
+# Billing
+
+<% if @stripe_customer&.active? %>
+## Status
+
+**Active** — [Manage payment](/billing/portal)
+
+## Your Subscription
+
+Each identity on Harmonic costs $3/month.
+
+| Item | Cost |
+|------|------|
+| <%= @current_user.display_name %> (you) | <%= @current_user.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
+<% @active_agents&.each do |agent| %>
+| <%= agent.display_name %> (agent) | <%= agent.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
+<% end %>
+<% @active_collectives&.each do |collective| %>
+| <%= collective.name %> (collective) | <%= collective.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
+<% end %>
+| **Total** | **$<%= (@billable_quantity || 0) * 3 %>/mo** |
+
+<% if @pending_agents&.any? || @pending_collectives&.any? %>
+## Pending Resources
+
+These resources will activate once billing is set up.
+
+| Item | Status |
+|------|--------|
+<% @pending_agents&.each do |agent| %>
+| <%= agent.display_name %> (agent) | pending — $3/mo when active |
+<% end %>
+<% @pending_collectives&.each do |collective| %>
+| <%= collective.name %> (collective) | pending — $3/mo when active |
+<% end %>
+<% end %>
+
+<% if @inactive_agents&.any? || @inactive_collectives&.any? %>
+## Inactive Resources
+
+These resources are deactivated and not being billed.
+
+| Item | Status |
+|------|--------|
+<% @inactive_agents&.each do |agent| %>
+| <%= agent.display_name %> (agent) | not billed |
+<% end %>
+<% @inactive_collectives&.each do |collective| %>
+| <%= collective.name %> (collective) | not billed |
+<% end %>
+<% end %>
+
+To deactivate or reactivate resources, visit `/billing` in your browser.
+
+<% elsif @billable_quantity && @billable_quantity == 0 %>
+## Status
+
+**Billing-exempt** — No subscription required.
+
+## Your Resources
+
+| Item |
+|------|
+| <%= @current_user.display_name %> (you) |
+<% @active_agents&.each do |agent| %>
+| <%= agent.display_name %> (agent) |
+<% end %>
+<% @active_collectives&.each do |collective| %>
+| <%= collective.name %> (collective) |
+<% end %>
+
+<% else %>
+## Status
+
+Not Set Up
+
+## Account Subscription
+
+Your account requires an active subscription to continue. Each identity on Harmonic costs **$3/month**.
+
+| Item | Cost |
+|------|------|
+| <%= @current_user.display_name %> (you) | <%= @current_user.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
+<% @active_agents&.each do |agent| %>
+| <%= agent.display_name %> (agent) | <%= agent.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
+<% end %>
+<% @active_collectives&.each do |collective| %>
+| <%= collective.name %> (collective) | <%= collective.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
+<% end %>
+<% @pending_agents&.each do |agent| %>
+| <%= agent.display_name %> (pending agent) | $3/mo when active |
+<% end %>
+<% @pending_collectives&.each do |collective| %>
+| <%= collective.name %> (pending collective) | $3/mo when active |
+<% end %>
+| **Total** | **$<%= (@billable_quantity || 0) * 3 %>/mo** |
+
+You can cancel or deactivate resources at any time.
+
+To set up billing, visit `/billing` in your browser and click "Set Up Billing".
+<% end %>
+
+## Navigation
+
+* [AI Agents](/ai-agents)
+* [Settings](<%= @current_user.path %>/settings)

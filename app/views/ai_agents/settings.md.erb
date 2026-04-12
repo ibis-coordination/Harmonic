@@ -1,5 +1,9 @@
 # Settings - <%= @ai_agent.display_name %>
 
+<% if @ai_agent.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
+**Status: Inactive** — This agent is deactivated and not being billed. [Manage on billing page](/billing)
+
+<% else %>
 ## Profile
 
 | Property | Value |
@@ -55,8 +59,19 @@ This agent has no API tokens.
 *Internal agents cannot have API tokens.*
 <% end %>
 
+<% if @current_tenant.feature_enabled?("stripe_billing") %>
+<% if @ai_agent.billing_exempt? %>
+This agent is billing-exempt. [View billing](/billing)
+<% else %>
+This agent costs $3/month. [Manage billing](/billing)
+<% end %>
+<% end %>
+<% end %>
+
 ## Navigation
 
 * [Back to <%= @ai_agent.display_name %>](/ai-agents/<%= @ai_agent.handle %>)
+<% unless @ai_agent.archived? || @ai_agent.suspended? %>
 * [Automations](/ai-agents/<%= @ai_agent.handle %>/automations)
+<% end %>
 * [Back to AI Agents](/ai-agents)

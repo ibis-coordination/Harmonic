@@ -43,6 +43,31 @@ class AutomationExecutor
       return
     end
 
+    # Agent must be active (not archived, suspended, or pending billing)
+    if ai_agent.pending_billing_setup?
+      @run.mark_failed!("Agent is pending billing setup. Set up billing at /billing to activate this agent.")
+      return
+    end
+
+    if ai_agent.suspended?
+      @run.mark_failed!("Agent is suspended. Unsuspend the agent before running automations.")
+      return
+    end
+
+    agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: @rule.tenant_id)
+    if agent_tenant_user&.archived?
+      @run.mark_failed!("Agent is deactivated. Reactivate the agent before running automations.")
+      return
+    end
+
+    # Billing gate: if stripe_billing is enabled, agent must have active billing
+    if @rule.tenant.feature_enabled?("stripe_billing")
+      unless ai_agent.billing_customer&.active?
+        @run.mark_failed!("Billing is not set up for this agent's billing customer. Set up billing at /billing.")
+        return
+      end
+    end
+
     # Build the task prompt from the template
     task_prompt = render_task_prompt
     if task_prompt.blank?
@@ -242,6 +267,13 @@ class AutomationExecutor
 
     agent = User.find_by(id: agent_id)
     return { "status" => "failed", "error" => "Agent not found or not an AI agent" } unless agent&.ai_agent?
+
+    # Billing gate: if stripe_billing is enabled, agent must have active billing
+    if @rule.tenant.feature_enabled?("stripe_billing")
+      unless agent.billing_customer&.active?
+        return { "status" => "failed", "error" => "Billing is not set up for this agent's billing customer. Set up billing at /billing." }
+      end
+    end
 
     # Authorization check: can the rule creator trigger this agent?
     auth_result = authorize_agent_trigger(agent)

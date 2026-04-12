@@ -75,10 +75,17 @@ class ApplicationRecord < ActiveRecord::Base
   # Query a user's own records across all tenants.
   # Safe because it's constrained to the user's own data.
   # Use this for cross-tenant queries of user's own memberships, tokens, etc.
+  # Resolves foreign key dynamically: prefers user_id, falls back to created_by_id.
   sig { params(user: User).returns(T.untyped) }
   def self.for_user_across_tenants(user)
-    raise ArgumentError, "#{name} does not have user_id column" unless column_names.include?("user_id")
-    unscoped.where(user_id: user.id) # unscoped-allowed - user's own data across tenants
+    fk = if column_names.include?("user_id")
+      "user_id"
+    elsif column_names.include?("created_by_id")
+      "created_by_id"
+    else
+      raise ArgumentError, "#{name} does not have user_id or created_by_id column"
+    end
+    unscoped.where(fk => user.id) # unscoped-allowed - user's own data across tenants
   end
 
   sig { void }

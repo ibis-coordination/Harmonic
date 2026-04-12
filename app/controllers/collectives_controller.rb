@@ -6,7 +6,7 @@ class CollectivesController < ApplicationController
   def index
     @page_title = "Collectives"
     if current_user
-      @collectives = current_user.collectives
+      all_collectives = current_user.collectives
         .joins(
           "LEFT JOIN heartbeats ON heartbeats.collective_id = collectives.id AND " +
           "heartbeats.user_id = '#{current_user.id}' AND " +
@@ -15,6 +15,13 @@ class CollectivesController < ApplicationController
         .select("collectives.*, heartbeats.id IS NOT NULL AS has_heartbeat")
         .where.not(id: @current_tenant.main_collective_id)
         .order(:has_heartbeat, :name)
+
+      if @current_tenant.feature_enabled?("stripe_billing")
+        @my_collectives = all_collectives.select { |c| c.created_by_id == current_user.id }
+        @member_collectives = all_collectives.reject { |c| c.created_by_id == current_user.id }
+      else
+        @collectives = all_collectives
+      end
     else
       @collectives = []
     end
@@ -63,6 +70,10 @@ class CollectivesController < ApplicationController
   def new
     @page_title = 'New Collective'
     @page_description = 'Create a new collective'
+
+    if current_tenant.feature_enabled?("stripe_billing") && current_user&.human?
+      @proration_amount_cents = StripeService.preview_proration(current_user)
+    end
   end
 
   def actions_index_new
@@ -77,16 +88,27 @@ class CollectivesController < ApplicationController
   end
 
   def create_collective
+    if requires_collective_billing_confirmation?
+      return render_action_error({
+        action_name: "create_collective",
+        resource: nil,
+        error: "You must confirm that you understand each collective costs $3/month added to your subscription. Include confirm_billing: \"1\" to authorize.",
+      })
+    end
+
     begin
       collective = api_helper.create_collective
+      if current_tenant.feature_enabled?("stripe_billing")
+        StripeService.sync_subscription_quantity!(current_user)
+      end
       render_action_success({
-        action_name: 'create_collective',
+        action_name: "create_collective",
         resource: collective,
-        result: 'Collective created successfully.',
+        result: "Collective created successfully.",
       })
     rescue ActiveRecord::RecordInvalid => e
       render_action_error({
-        action_name: 'create_collective',
+        action_name: "create_collective",
         resource: nil,
         error: e.message,
       })
@@ -125,13 +147,42 @@ class CollectivesController < ApplicationController
   end
 
   def create
+    if requires_collective_billing_confirmation?
+      flash[:error] = "You must confirm the billing charge to create a collective."
+      return redirect_to "/collectives/new"
+    end
+
     @collective = api_helper.create_collective
-    redirect_to @collective.path
+    charged_cents = nil
+    if current_tenant.feature_enabled?("stripe_billing")
+      if !current_user.stripe_customer&.active?
+        @collective.update!(pending_billing_setup: true)
+      else
+        result = StripeService.sync_subscription_quantity!(current_user)
+        if result.success
+          charged_cents = result.charged_cents
+        else
+          @collective.update!(pending_billing_setup: true)
+        end
+      end
+    end
+    notice = if @collective.pending_billing_setup?
+      "Collective #{@collective.name} created. Set up billing to activate it."
+    elsif charged_cents && charged_cents > 0
+      "Collective #{@collective.name} created successfully. You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)."
+    else
+      "Collective #{@collective.name} created successfully."
+    end
+    flash[:notice] = notice
+    redirect_to @collective.pending_billing_setup? ? "/billing" : @collective.path
   end
 
   def settings
     if @current_user.collective_member.is_admin?
       @page_title = 'Collective Settings'
+
+      # Proration preview no longer needed here — reactivation is managed on /billing
+
       # AI agents in this collective (for display) - exclude archived memberships
       @collective_ai_agents = @current_collective.users
         .includes(:tenant_users)
@@ -156,6 +207,10 @@ class CollectivesController < ApplicationController
   def update_settings
     if !@current_user.collective_member.is_admin?
       return render status: 403, plain: '403 Unauthorized'
+    end
+    if @current_collective.archived?
+      flash[:error] = "Cannot update settings for a deactivated collective. Reactivate it on the billing page first."
+      return redirect_to "#{@current_collective.path}/settings"
     end
     @current_collective.name = params[:name]
     # @current_collective.handle = params[:handle] if params[:handle]
@@ -538,7 +593,14 @@ class CollectivesController < ApplicationController
     @filter_options = @cycle.filter_options
   end
 
+  # POST /collectives/:collective_handle/deactivate
   private
+
+  def requires_collective_billing_confirmation?
+    current_tenant.feature_enabled?("stripe_billing") &&
+      current_user&.human? &&
+      params[:confirm_billing] != "1"
+  end
 
   def set_sidebar_mode
     if action_name.in?(%w[index new])

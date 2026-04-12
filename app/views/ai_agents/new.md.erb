@@ -1,6 +1,21 @@
 # New AI Agent
 
+<% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup? %>
+**Billing required** — You need to set up billing before creating an AI agent.
+
+AI Agents in Harmonic are virtual identities that can navigate the app, create content, make decisions, and run automated tasks on your behalf.
+
+To set up billing, visit [Billing](/billing).
+<% else %>
 Create a new AI Agent. AI Agents are virtual identities that you manage. These identities can be associated with AI agents and other automated systems that interact with the app through the API.
+
+<% if @current_tenant.feature_enabled?("stripe_billing") %>
+<% if @proration_amount_cents %>
+**Billing:** You will be charged **$<%= format("%.2f", @proration_amount_cents / 100.0) %> now** (prorated), then **$3/month** thereafter. Include `confirm_billing: "1"` to authorize.
+<% else %>
+**Billing:** Each AI agent identity costs **$3/month**, added to your subscription and prorated for the current billing period. Include `confirm_billing: "1"` to authorize.
+<% end %>
+<% end %>
 
 ## Parameters
 
@@ -8,4 +23,8 @@ Create a new AI Agent. AI Agents are virtual identities that you manage. These i
 * **identity_prompt** (string, optional): A prompt shown to the agent on /whoami, providing context about their identity and purpose
 * **model** (string, optional): The LLM model for internal AI Agents to use (default: "default"). Available models: <%= available_llm_models.join(", ") %>
 * **generate_token** (boolean, optional): If true, automatically generate an API token for this AI Agent (default: false)
+<% if @current_tenant.feature_enabled?("stripe_billing") %>
+* **confirm_billing** (string, required): Must be "1" to confirm billing authorization
+<% end %>
+<% end %>
 

@@ -87,7 +87,7 @@ Subdomain-based multi-tenancy using thread-local variables:
 | `Model.unscoped_for_system_job` | Background jobs | Requires `Tenant.current_id.nil?` |
 | `Model.for_user_across_tenants(user)` | User's own data across tenants | Requires model has `user_id` column |
 
-**Models without tenant scoping** (no restrictions): `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`
+**Models without tenant scoping** (no restrictions): `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`, `StripeCustomer`
 
 **Static analysis**: Run `./scripts/check-tenant-safety.sh` to detect banned usage. This runs automatically in pre-commit hooks and CI.
 

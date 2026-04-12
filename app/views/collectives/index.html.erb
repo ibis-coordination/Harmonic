@@ -15,38 +15,46 @@
   </header>
 
   <div class="pulse-resource-body">
-    <% if @collectives.any? %>
-      <ul class="pulse-home-list" style="list-style-type: none;">
-        <% @collectives.each do |collective| %>
-          <li class="pulse-home-list-item" style="list-style-type: none;">
-            <a href="<%= collective.path %>" class="pulse-home-list-link">
-              <% if collective.has_heartbeat %>
-                <span class="pulse-heartbeat-icon pulse-heartbeat-sent" title="Checked in this cycle">
-                  <%= octicon 'heart-fill', height: 16 %>
-                </span>
-              <% else %>
-                <span class="pulse-heartbeat-icon pulse-heartbeat-pending" title="Not yet checked in this cycle">
-                  <%= octicon 'heart', height: 16 %>
-                </span>
-              <% end %>
-              <% if collective.image.attached? %>
-                <img src="<%= collective.image_path %>" alt="" class="pulse-home-list-icon">
-              <% else %>
-                <span class="pulse-home-list-icon pulse-default-icon">
-                  <%= octicon 'people', height: 14 %>
-                </span>
-              <% end %>
-              <span class="pulse-home-list-name"><%= collective.name %></span>
-            </a>
-          </li>
-        <% end %>
-      </ul>
-    <% elsif @current_user %>
-      <p class="pulse-empty-content"><em>You are not a member of any collectives yet.</em></p>
+    <% if @current_tenant.feature_enabled?("stripe_billing") %>
+      <% if @my_collectives&.any? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Created by you</h2>
+          <ul class="pulse-home-list" style="list-style-type: none;">
+            <% @my_collectives.each do |collective| %>
+              <%= render partial: 'collectives/collective_list_item', locals: { collective: collective } %>
+            <% end %>
+          </ul>
+        </section>
+      <% end %>
+
+      <% if @member_collectives&.any? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Member of</h2>
+          <ul class="pulse-home-list" style="list-style-type: none;">
+            <% @member_collectives.each do |collective| %>
+              <%= render partial: 'collectives/collective_list_item', locals: { collective: collective } %>
+            <% end %>
+          </ul>
+        </section>
+      <% end %>
+
+      <% if !@my_collectives&.any? && !@member_collectives&.any? && @current_user %>
+        <p class="pulse-empty-content"><em>You are not a member of any collectives yet.</em></p>
+      <% end %>
     <% else %>
-      <p class="pulse-empty-content">
-        <a href="/login" class="pulse-link">Log in</a> to see your collectives.
-      </p>
+      <% if @collectives.any? %>
+        <ul class="pulse-home-list" style="list-style-type: none;">
+          <% @collectives.each do |collective| %>
+            <%= render partial: 'collectives/collective_list_item', locals: { collective: collective } %>
+          <% end %>
+        </ul>
+      <% elsif @current_user %>
+        <p class="pulse-empty-content"><em>You are not a member of any collectives yet.</em></p>
+      <% else %>
+        <p class="pulse-empty-content">
+          <a href="/login" class="pulse-link">Log in</a> to see your collectives.
+        </p>
+      <% end %>
     <% end %>
 
     <% if @current_user %>

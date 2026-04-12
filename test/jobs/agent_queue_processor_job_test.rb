@@ -1,16 +1,18 @@
 # typed: false
 require "test_helper"
+require "minitest/mock"
 
 class AgentQueueProcessorJobTest < ActiveJob::TestCase
   # Mock navigator class for testing
   class MockNavigator
     attr_accessor :mock_result
 
-    def initialize(user:, tenant:, collective:, model: nil)
+    def initialize(user:, tenant:, collective:, model: nil, stripe_customer_id: nil)
       @user = user
       @tenant = tenant
       @collective = collective
       @model = model
+      @stripe_customer_id = stripe_customer_id
     end
 
     def run(task:, max_steps:)
@@ -28,9 +30,9 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
       attr_accessor :mock_result
     end
 
-    def self.new(user:, tenant:, collective:, model: nil)
+    def self.new(user:, tenant:, collective:, model: nil, stripe_customer_id: nil)
       instance = allocate
-      instance.send(:initialize, user: user, tenant: tenant, collective: collective, model: model)
+      instance.send(:initialize, user: user, tenant: tenant, collective: collective, model: model, stripe_customer_id: stripe_customer_id)
       instance.mock_result = @mock_result
       instance
     end
@@ -318,6 +320,200 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
     end
   end
 
+  # === Stripe billing tests ===
+
+  test "fails task when stripe_billing enabled and agent has no billing customer" do
+    tenant, collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!("ai_agents")
+    enable_stripe_billing_flag!(tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    ai_agent = create_ai_agent(user, tenant, collective)
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: tenant,
+      ai_agent: ai_agent,
+      initiated_by: user,
+      task: "Test task",
+      max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
+      status: "queued",
+    )
+
+    AgentQueueProcessorJob.navigator_class = MockNavigator
+
+    AgentQueueProcessorJob.perform_now(
+      ai_agent_id: ai_agent.id,
+      tenant_id: tenant.id,
+    )
+
+    task_run.reload
+    assert_equal "failed", task_run.status
+    assert_includes task_run.error, "billing"
+  end
+
+  test "stamps stripe_customer_id on task run and completes normally with billing" do
+    tenant, collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!("ai_agents")
+    enable_stripe_billing_flag!(tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    ai_agent = create_ai_agent(user, tenant, collective)
+
+    # Set up billing for parent user and agent
+    sc = StripeCustomer.create!(billable: user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    ai_agent.update!(stripe_customer_id: sc.id)
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: tenant,
+      ai_agent: ai_agent,
+      initiated_by: user,
+      task: "Test task",
+      max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
+      status: "queued",
+    )
+
+    MockNavigator.mock_result = OpenStruct.new(
+      success: true, steps: [], final_message: "Done",
+      error: nil, input_tokens: 100, output_tokens: 50,
+    )
+    AgentQueueProcessorJob.navigator_class = MockNavigator
+
+    AgentQueueProcessorJob.perform_now(
+      ai_agent_id: ai_agent.id,
+      tenant_id: tenant.id,
+    )
+
+    task_run.reload
+    assert_equal "completed", task_run.status
+    assert_equal sc.id, task_run.stripe_customer_id
+  end
+
+  test "passes stripe_id to AgentNavigator when agent has active billing" do
+    tenant, collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!("ai_agents")
+    enable_stripe_billing_flag!(tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    ai_agent = create_ai_agent(user, tenant, collective)
+
+    sc = StripeCustomer.create!(billable: user, stripe_id: "cus_passthrough", active: true)
+    ai_agent.update!(stripe_customer_id: sc.id)
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: tenant,
+      ai_agent: ai_agent,
+      initiated_by: user,
+      task: "Test task",
+      max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
+      status: "queued",
+    )
+
+    captured_stripe_id = nil
+    mock_navigator_class = Class.new(MockNavigator) do
+      define_method(:initialize) do |user:, tenant:, collective:, model: nil, stripe_customer_id: nil|
+        captured_stripe_id = stripe_customer_id
+        super(user: user, tenant: tenant, collective: collective, model: model, stripe_customer_id: stripe_customer_id)
+      end
+    end
+    # Need class-level new method
+    mock_navigator_class.define_singleton_method(:new) do |user:, tenant:, collective:, model: nil, stripe_customer_id: nil|
+      instance = allocate
+      instance.send(:initialize, user: user, tenant: tenant, collective: collective, model: model, stripe_customer_id: stripe_customer_id)
+      instance.mock_result = MockNavigator.mock_result
+      instance
+    end
+
+    MockNavigator.mock_result = OpenStruct.new(
+      success: true, steps: [], final_message: "Done",
+      error: nil, input_tokens: 100, output_tokens: 50,
+    )
+
+    AgentQueueProcessorJob.navigator_class = mock_navigator_class
+
+    AgentQueueProcessorJob.perform_now(
+      ai_agent_id: ai_agent.id,
+      tenant_id: tenant.id,
+    )
+
+    assert_equal "cus_passthrough", captured_stripe_id
+    task_run.reload
+    assert_equal "completed", task_run.status
+  end
+
+  test "skips LLMPricing.calculate_cost when stripe gateway active" do
+    tenant, collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!("ai_agents")
+    enable_stripe_billing_flag!(tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    ai_agent = create_ai_agent(user, tenant, collective)
+    sc = StripeCustomer.create!(billable: user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    ai_agent.update!(stripe_customer_id: sc.id)
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: tenant,
+      ai_agent: ai_agent,
+      initiated_by: user,
+      task: "Test task",
+      max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
+      status: "queued",
+    )
+
+    MockNavigator.mock_result = OpenStruct.new(
+      success: true, steps: [], final_message: "Done",
+      error: nil, input_tokens: 100, output_tokens: 50,
+    )
+
+    original_mode = ENV["LLM_GATEWAY_MODE"]
+    ENV["LLM_GATEWAY_MODE"] = "stripe_gateway"
+
+    AgentQueueProcessorJob.navigator_class = MockNavigator
+
+    AgentQueueProcessorJob.perform_now(
+      ai_agent_id: ai_agent.id,
+      tenant_id: tenant.id,
+    )
+
+    ENV["LLM_GATEWAY_MODE"] = original_mode
+
+    task_run.reload
+    assert_equal "completed", task_run.status
+    assert_nil task_run.estimated_cost_usd, "Should not estimate cost when Stripe gateway is active"
+    assert_equal 150, task_run.total_tokens, "Should still record token counts"
+  end
+
+  test "runs normally when stripe_billing flag is disabled" do
+    tenant, collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!("ai_agents")
+    # stripe_billing NOT enabled
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    ai_agent = create_ai_agent(user, tenant, collective)
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: tenant,
+      ai_agent: ai_agent,
+      initiated_by: user,
+      task: "Test task",
+      max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
+      status: "queued",
+    )
+
+    MockNavigator.mock_result = OpenStruct.new(
+      success: true, steps: [], final_message: "Done",
+      error: nil, input_tokens: 100, output_tokens: 50,
+    )
+    AgentQueueProcessorJob.navigator_class = MockNavigator
+
+    AgentQueueProcessorJob.perform_now(
+      ai_agent_id: ai_agent.id,
+      tenant_id: tenant.id,
+    )
+
+    task_run.reload
+    assert_equal "completed", task_run.status
+  end
+
   private
 
   def create_ai_agent(user, tenant, collective)
@@ -331,5 +527,11 @@ class AgentQueueProcessorJobTest < ActiveJob::TestCase
     ai_agent.tenant_user = tu
     CollectiveMember.create!(collective: collective, user: ai_agent)
     ai_agent
+  end
+
+  def enable_stripe_billing_flag!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
   end
 end

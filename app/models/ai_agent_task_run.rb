@@ -7,6 +7,8 @@ class AiAgentTaskRun < ApplicationRecord
   belongs_to :ai_agent, class_name: "User"
   belongs_to :initiated_by, class_name: "User"
   belongs_to :automation_rule, optional: true
+  # Immutable billing attribution — stamped at run creation, never changed
+  belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
 
   has_many :ai_agent_task_run_resources, dependent: :destroy
 

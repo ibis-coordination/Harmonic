@@ -16,6 +16,42 @@
   </header>
 
   <div class="pulse-settings-form">
+    <% if flash[:notice] %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;">
+        <%= flash[:notice] %>
+      </div>
+    <% end %>
+
+    <% if flash[:error] %>
+      <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 20px;">
+        <%= flash[:error] %>
+      </div>
+    <% end %>
+
+    <% if @current_collective.pending_billing_setup? && @current_tenant.feature_enabled?("stripe_billing") %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'clock', height: 14 %>
+          <strong>Pending</strong> — This collective will activate once billing is set up.
+          <%= link_to "Set up billing", "/billing", class: "pulse-link" %>
+        </span>
+      </div>
+
+    <% elsif @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'archive', height: 14 %>
+          <strong>Inactive</strong> — This collective is deactivated and not being billed.
+          <% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id %>
+            <%= link_to "Manage on billing page", "/billing", class: "pulse-link" %>
+          <% else %>
+            Only the collective creator can reactivate this collective.
+          <% end %>
+        </span>
+      </div>
+
+    <% else %>
+
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Collective Image</h2>
       <%= render 'shared/profile_image_upload', resource: @current_collective, size: 83 %>
@@ -104,7 +140,7 @@
         </fieldset>
       </section>
 
-      <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) } %>
+      <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) && FeatureFlagService.flag_metadata(f).fetch("collective_level", false) } %>
       <% if available_flags.any? %>
         <section class="pulse-settings-section">
           <h2 class="pulse-section-title">Features Enabled</h2>
@@ -212,6 +248,24 @@
           <%= octicon 'gear', height: 14 %> Manage Automations
         </a>
       </section>
+
     <% end %>
+
+
+      <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? %>
+        <section class="pulse-settings-section">
+          <p class="pulse-muted">
+            <%= octicon 'credit-card', height: 14 %>
+            <% if @current_collective.billing_exempt? %>
+              This collective is billing-exempt. <%= link_to "View billing", "/billing", class: "pulse-link" %>
+            <% else %>
+              This collective costs $3/month. <%= link_to "Manage billing", "/billing", class: "pulse-link" %>
+            <% end %>
+          </p>
+        </section>
+      <% end %>
+
+    <% end %>
+
   </div>
 </article>

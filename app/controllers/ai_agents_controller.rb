@@ -1,10 +1,11 @@
 # typed: false
 
 class AiAgentsController < ApplicationController
-  before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent]
+  before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate, :reactivate]
   before_action :require_ai_agents_enabled, only: [:index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run]
-  before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent]
-  before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent]
+  before_action :require_billing_for_creation, only: [:new]
+  before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
+  before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
 
   # GET /ai-agents - List all AI agents owned by current user
   def index
@@ -66,9 +67,12 @@ class AiAgentsController < ApplicationController
       .limit(5)
   end
 
+  # POST /ai-agents/:handle/deactivate
   # GET /ai-agents/:handle/settings - Show settings for a specific AI agent
   def settings
     @page_title = "Settings - #{@ai_agent.display_name}"
+
+    # Proration preview no longer needed here — reactivation is managed on /billing
 
     # Get collectives the agent is a member of
     active_collective_members = @ai_agent.collective_members.reject(&:archived?)
@@ -82,6 +86,11 @@ class AiAgentsController < ApplicationController
 
   # POST /ai-agents/:handle/settings - Update settings for a specific AI agent
   def update_settings
+    if @ai_agent.archived?
+      flash[:error] = "Cannot update settings for a deactivated agent. Reactivate it on the billing page first."
+      return redirect_to ai_agent_settings_path(@ai_agent.handle)
+    end
+
     name = params[:name]
     new_handle = params[:new_handle]
     identity_prompt = params[:identity_prompt]
@@ -132,6 +141,15 @@ class AiAgentsController < ApplicationController
 
     @ai_agent = find_ai_agent_by_handle
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
+
+    if current_tenant.feature_enabled?("stripe_billing")
+      billing_customer = @ai_agent.billing_customer
+      unless billing_customer&.active?
+        session[:billing_return_to] = ai_agent_run_task_path(@ai_agent.handle)
+        flash[:notice] = "Set up billing before running AI agent tasks"
+        return redirect_to "/billing"
+      end
+    end
 
     max_steps = params[:max_steps].present? ? params[:max_steps].to_i : nil
 
@@ -241,12 +259,17 @@ class AiAgentsController < ApplicationController
   def new
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
 
+    if current_tenant.feature_enabled?("stripe_billing")
+      @proration_amount_cents = StripeService.preview_proration(current_user)
+    end
+
     respond_to do |format|
       format.html
       format.md
     end
   end
 
+  # NOTE: This action has no route. Agent creation goes through execute_create_ai_agent.
   def create
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
 
@@ -286,21 +309,83 @@ class AiAgentsController < ApplicationController
                                    error: "Only human accounts can create AI agents.",
                                  })
     end
-    @ai_agent = api_helper.create_ai_agent
-    # Only generate token for external AI agents
-    @token = api_helper.generate_token(@ai_agent) if @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
 
-    flash.now[:notice] = "AI Agent #{@ai_agent.display_name} created successfully."
+    if current_user.requires_stripe_billing?(current_tenant)
+      respond_to do |format|
+        format.md do
+          return render_action_error({
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: "Billing is not set up. Please set up billing at /billing before creating AI agents.",
+          })
+        end
+        format.any do
+          session[:billing_return_to] = new_ai_agent_path
+          flash[:notice] = "Set up billing to create AI agents"
+          return redirect_to "/billing"
+        end
+      end
+    end
+
+    # Require billing confirmation when stripe_billing is enabled.
+    # The new agent will cost $3/mo regardless of user's own exemption status.
+    if current_tenant.feature_enabled?("stripe_billing") && params[:confirm_billing] != "1"
+      respond_to do |format|
+        format.md do
+          return render_action_error({
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: "You must confirm that you understand each AI agent costs $3/month added to your subscription.",
+          })
+        end
+        format.any do
+          flash[:error] = "You must confirm the billing charge to create an AI agent."
+          return redirect_to new_ai_agent_path
+        end
+      end
+    end
+
+    @ai_agent = api_helper.create_ai_agent
+    charged_cents = nil
+    if current_tenant.feature_enabled?("stripe_billing")
+      assign_billing_customer!(@ai_agent)
+      # If user has no active subscription, mark agent as pending
+      if !current_user.stripe_customer&.active?
+        @ai_agent.update!(pending_billing_setup: true)
+      else
+        result = StripeService.sync_subscription_quantity!(current_user)
+        if result.success
+          charged_cents = result.charged_cents
+        else
+          # Sync failed — mark agent pending so it doesn't run unbilled
+          @ai_agent.update!(pending_billing_setup: true)
+        end
+      end
+    end
+    # Only generate token for external AI agents (not for pending agents)
+    if !@ai_agent.pending_billing_setup? && @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
+      @token = api_helper.generate_token(@ai_agent)
+    end
+
+    notice = if @ai_agent.pending_billing_setup?
+      "AI Agent #{@ai_agent.display_name} created. Set up billing to activate it."
+    elsif charged_cents && charged_cents > 0
+      "AI Agent #{@ai_agent.display_name} created successfully. You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)."
+    else
+      "AI Agent #{@ai_agent.display_name} created successfully."
+    end
+    flash[:notice] = notice
+    redirect_path = @ai_agent.pending_billing_setup? ? "/billing" : ai_agent_path(@ai_agent.handle)
     respond_to do |format|
       format.md do
         render_action_success({
           action_name: "create_ai_agent",
           resource: @ai_agent,
-          result: "AI Agent '#{@ai_agent.display_name}' created successfully",
-          redirect_to: "/ai-agents/#{@ai_agent.handle}",
+          result: notice,
+          redirect_to: redirect_path,
         })
       end
-      format.html { redirect_to ai_agent_path(@ai_agent.handle) }
+      format.html { redirect_to redirect_path }
     end
   end
 
@@ -357,6 +442,15 @@ class AiAgentsController < ApplicationController
 
   private
 
+  def require_billing_for_creation
+    return unless current_user&.human?
+    return unless current_user.requires_stripe_billing?(current_tenant)
+
+    session[:billing_return_to] = new_ai_agent_path
+    flash[:notice] = "Set up billing to create AI agents"
+    redirect_to "/billing"
+  end
+
   def require_ai_agents_enabled
     return if @current_tenant&.ai_agents_enabled?
 
@@ -388,6 +482,11 @@ class AiAgentsController < ApplicationController
       .joins(:tenant_users)
       .where(tenant_users: { tenant_id: current_tenant.id, handle: params[:handle] })
       .first
+  end
+
+  def assign_billing_customer!(ai_agent)
+    stripe_customer = current_user.stripe_customer
+    ai_agent.update!(stripe_customer_id: stripe_customer.id) if stripe_customer
   end
 
   def serialize_result(result)

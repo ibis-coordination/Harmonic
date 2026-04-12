@@ -40,7 +40,7 @@ Harmonic uses **subdomain-based multi-tenancy** with strict data isolation:
 - Pre-commit hook: Blocks commits with banned `.unscoped` usage
 - CI: Fails builds with banned patterns
 
-**Models without tenant scoping** (global data): `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`
+**Models without tenant scoping** (global data): `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`, `StripeCustomer`
 
 ### Content Security Policy
 

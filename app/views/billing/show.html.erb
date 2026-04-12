@@ -1,0 +1,150 @@
+<%= render 'shared/pulse_breadcrumb', items: ['Billing'] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'credit-card', height: 14, class: 'pulse-resource-icon' %>
+        Billing
+      </span>
+    </div>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if flash[:notice] %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;">
+        <%= flash[:notice] %>
+      </div>
+    <% end %>
+
+    <% if flash[:error] %>
+      <div class="pulse-notice pulse-notice-error" style="margin-bottom: 20px;">
+        <%= flash[:error] %>
+      </div>
+    <% end %>
+
+    <% if @stripe_customer&.active? %>
+      <%# === Active subscription === %>
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <div class="pulse-notice pulse-notice-success"><span><%= octicon 'check-circle', height: 16 %> <strong>Active</strong> — <%= link_to "Manage payment", billing_portal_path %></span></div>
+      </section>
+
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <h2 class="pulse-section-title">Your Subscription</h2>
+        <p class="pulse-muted" style="margin-bottom: 12px;">Each identity on Harmonic costs $3/month.</p>
+        <%= render partial: "billing/inventory_table", locals: { show_prices: true, show_actions: true } %>
+      </section>
+
+      <% if @pending_agents&.any? || @pending_collectives&.any? %>
+        <section class="pulse-section" style="margin-bottom: 24px;">
+          <h2 class="pulse-section-title">Pending Resources</h2>
+          <p class="pulse-muted" style="margin-bottom: 12px;">These resources will activate once billing is set up.</p>
+          <table class="pulse-table" style="max-width: 600px;">
+            <tbody>
+              <% @pending_agents&.each do |agent| %>
+                <tr data-billing-item="agent-<%= agent.id %>">
+                  <td><%= octicon 'dependabot', height: 14 %> <%= agent.display_name %> <span class="pulse-muted">(pending agent)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">$3/mo when active</td>
+                </tr>
+              <% end %>
+              <% @pending_collectives&.each do |collective| %>
+                <tr data-billing-item="collective-<%= collective.id %>">
+                  <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(pending collective)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">$3/mo when active</td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </section>
+      <% end %>
+
+      <% if @inactive_agents&.any? || @inactive_collectives&.any? %>
+        <% multi_tenant = @current_user.tenant_users.count > 1 %>
+        <section class="pulse-section" style="margin-bottom: 24px;">
+          <h2 class="pulse-section-title">Inactive Resources</h2>
+          <p class="pulse-muted" style="margin-bottom: 12px;">These resources are deactivated and not being billed.</p>
+          <table class="pulse-table" style="max-width: 650px;">
+            <tbody>
+              <% @inactive_agents&.each do |agent| %>
+                <% tu = agent.tenant_users.first %>
+                <% agent_handle = tu&.handle %>
+                <% on_current_tenant = tu&.tenant_id == @current_tenant.id %>
+                <tr data-billing-item="agent-<%= agent.id %>">
+                  <td><%= octicon 'dependabot', height: 14 %> <%= agent.display_name %> <span class="pulse-muted">(inactive agent<%= " on #{tu&.tenant&.subdomain}" if multi_tenant %>)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
+                  <% if on_current_tenant %>
+                    <td style="text-align: right;">
+                      <%= form_tag billing_reactivate_agent_path(agent_handle), method: :post, style: "display:inline" do %>
+                        <%= hidden_field_tag :confirm_billing, "1" %>
+                        <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j agent.display_name %>? This will add $3/mo to your subscription.')">
+                          Reactivate
+                        </button>
+                      <% end %>
+                    </td>
+                  <% else %>
+                    <td></td>
+                  <% end %>
+                </tr>
+              <% end %>
+              <% @inactive_collectives&.each do |collective| %>
+                <% on_current_tenant = collective.tenant_id == @current_tenant.id %>
+                <tr data-billing-item="collective-<%= collective.id %>">
+                  <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(inactive collective<%= " on #{collective.tenant&.subdomain}" if multi_tenant %>)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
+                  <% if on_current_tenant %>
+                    <td style="text-align: right;">
+                      <%= form_tag billing_reactivate_collective_path(collective.handle), method: :post, style: "display:inline" do %>
+                        <%= hidden_field_tag :confirm_billing, "1" %>
+                        <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j collective.name %>? This will add $3/mo to your subscription.')">
+                          Reactivate
+                        </button>
+                      <% end %>
+                    </td>
+                  <% else %>
+                    <td></td>
+                  <% end %>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </section>
+      <% end %>
+
+    <% elsif @billable_quantity && @billable_quantity == 0 %>
+      <%# === No subscription needed (everything is exempt) === %>
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <div class="pulse-notice pulse-notice-success">
+          <span><%= octicon 'shield-check', height: 16 %> <strong>Billing-exempt</strong> — No subscription required.</span>
+        </div>
+      </section>
+
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <h2 class="pulse-section-title">Your Resources</h2>
+        <%= render partial: "billing/inventory_table", locals: { show_prices: false } %>
+      </section>
+
+    <% else %>
+      <%# === No subscription, needs to set up billing === %>
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <h2 class="pulse-section-title">Account Subscription</h2>
+        <p style="margin-bottom: 16px;">
+          Your account requires an active subscription to continue. Each identity on Harmonic costs <strong>$3/month</strong>.
+        </p>
+
+        <%= render partial: "billing/inventory_table", locals: { show_prices: true } %>
+
+        <p class="pulse-muted" style="margin-top: 16px; margin-bottom: 24px;">
+          You'll confirm the exact amount on the next page before being charged. You can cancel or deactivate resources at any time.
+        </p>
+
+        <%= form_tag billing_setup_path, method: :post do %>
+          <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+            <%= octicon 'credit-card', height: 14 %>
+            Set Up Billing
+          </button>
+        <% end %>
+      </section>
+    <% end %>
+
+  </div>
+</article>

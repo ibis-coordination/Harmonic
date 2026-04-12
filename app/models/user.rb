@@ -20,6 +20,12 @@ class User < ApplicationRecord
   has_many :notification_recipients
   has_many :notifications, through: :notification_recipients
 
+  # Stripe billing associations
+  # For human users: the StripeCustomer record they own (polymorphic billable)
+  has_one :stripe_customer, as: :billable, class_name: "StripeCustomer"
+  # For AI agents: which StripeCustomer pays for this agent's usage
+  belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
+
   # Trustee grant associations
   # granted_trustee_grants: grants where this user is the granting party (e.g., an AI agent granting authority)
   has_many :granted_trustee_grants, class_name: "TrusteeGrant",
@@ -196,6 +202,9 @@ class User < ApplicationRecord
   sig { void }
   def archive!
     T.must(tenant_user).archive!
+
+    # Revoke all API tokens for this user (same as suspension)
+    ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!) if ai_agent?
   end
 
   sig { void }
@@ -394,8 +403,8 @@ class User < ApplicationRecord
     suspended_at.present?
   end
 
-  sig { params(by: User, reason: String).void }
-  def suspend!(by:, reason:)
+  sig { params(by: User, reason: String, skip_billing_sync: T::Boolean).void }
+  def suspend!(by:, reason:, skip_billing_sync: false)
     update!(
       suspended_at: Time.current,
       suspended_by_id: by.id,
@@ -408,9 +417,15 @@ class User < ApplicationRecord
     # (e.g., AdminController.ensure_admin_user checks tenant-level admin role)
     ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!)
 
-    # Recursively suspend all AI agents
+    # Recursively suspend all AI agents (skip billing sync on children to avoid N+1 Stripe calls)
     ai_agents.where(suspended_at: nil).find_each do |ai_agent|
-      ai_agent.suspend!(by: by, reason: "Parent user suspended: #{reason}")
+      ai_agent.suspend!(by: by, reason: "Parent user suspended: #{reason}", skip_billing_sync: true)
+    end
+
+    # Sync subscription quantity once after all suspensions complete
+    unless skip_billing_sync
+      billing_user = ai_agent? ? User.find_by(id: parent_id) : self
+      StripeService.sync_subscription_quantity!(billing_user) if billing_user
     end
   end
 
@@ -456,6 +471,71 @@ class User < ApplicationRecord
       .first(limit)
       .map { |uid, score| [User.find_by(id: uid), score] }
       .reject { |user, _| user.nil? }
+  end
+
+  # Stripe billing helpers
+
+  # Check if this user's billing is set up.
+  # A user needs a subscription if they have any non-exempt billable resources.
+  # If all resources (including the user) are exempt, no subscription is needed.
+  # Checks across all billing-enabled tenants.
+  sig { returns(T::Boolean) }
+  def stripe_billing_setup?
+    return true if stripe_customer&.active?
+
+    # No active subscription — but if everything is exempt, that's fine
+    billable_quantity == 0
+  end
+
+  sig { params(tenant: Tenant).returns(T::Boolean) }
+  def requires_stripe_billing?(tenant)
+    tenant.feature_enabled?("stripe_billing") && !stripe_billing_setup?
+  end
+
+  # IDs of tenants where this user has resources that are billed per-identity.
+  # Only tenants with stripe_billing enabled count — other tenants have their own billing model.
+  sig { returns(T::Array[String]) }
+  def billing_tenant_ids
+    all_tenant_ids = TenantUser.for_user_across_tenants(self).pluck(:tenant_id)
+    Tenant.where(id: all_tenant_ids).select { |t| t.feature_enabled?("stripe_billing") }.map(&:id)
+  end
+
+  # Compute the total billable quantity for this user across all billing-enabled tenants.
+  # One subscription covers all billing-enabled tenants.
+  sig { returns(Integer) }
+  def billable_quantity
+    tenant_ids = billing_tenant_ids
+    user_count = billing_exempt? ? 0 : 1
+    user_count + active_billable_agent_count(tenant_ids) + active_billable_collective_count(tenant_ids)
+  end
+
+  # Count active (not archived, not suspended, not exempt) AI agents on billing-enabled tenants.
+  sig { params(tenant_ids: T::Array[String]).returns(Integer) }
+  def active_billable_agent_count(tenant_ids = billing_tenant_ids)
+    return 0 if tenant_ids.empty?
+
+    ai_agents
+      .joins(:tenant_users)
+      .where(tenant_users: { tenant_id: tenant_ids, archived_at: nil })
+      .where(suspended_at: nil, billing_exempt: false)
+      .count
+  end
+
+  # Count active (not archived, not exempt) collectives created by this user on billing-enabled tenants,
+  # excluding main collectives.
+  sig { params(tenant_ids: T::Array[String]).returns(Integer) }
+  def active_billable_collective_count(tenant_ids = billing_tenant_ids)
+    return 0 if tenant_ids.empty?
+
+    main_collective_ids = Tenant.where(id: tenant_ids).pluck(:main_collective_id).compact
+
+    scope = Collective.for_user_across_tenants(self).where(
+      tenant_id: tenant_ids,
+      archived_at: nil,
+      billing_exempt: false,
+    )
+    scope = scope.where.not(id: main_collective_ids) if main_collective_ids.any?
+    scope.count
   end
 
   private
