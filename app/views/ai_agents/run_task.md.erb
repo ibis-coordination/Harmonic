@@ -1,0 +1,18 @@
+# Run Task with <%= @ai_agent.display_name %>
+
+<% if @current_tenant.feature_enabled?("stripe_billing") && !@ai_agent.billing_customer&.active? %>
+**Billing inactive** — This agent's billing is not active. [Set up billing](/billing) to run tasks.
+
+<% elsif @credit_balance_cents == 0 %>
+**No credit balance** — [Add funds](/billing) before running tasks.
+
+<% end %>
+Agent: `<%= @ai_agent.handle %>`
+Max steps default: `<%= @max_steps_default %>`
+
+## Example Tasks
+
+* Create a note saying hello to the team
+* Navigate to the collective and tell me what's there
+* Create a decision asking "Should we adopt this approach?"
+* Find and read the most recent note

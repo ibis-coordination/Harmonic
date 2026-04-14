@@ -4,6 +4,7 @@ class AiAgentsController < ApplicationController
   before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate, :reactivate]
   before_action :require_ai_agents_enabled, only: [:index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run]
   before_action :require_billing_for_creation, only: [:new]
+  before_action :load_credit_balance_for_agents, only: [:index, :new, :run_task]
   before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
   before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
 
@@ -441,6 +442,17 @@ class AiAgentsController < ApplicationController
   end
 
   private
+
+  def load_credit_balance_for_agents
+    return unless current_user&.human?
+    return unless current_tenant&.feature_enabled?("stripe_billing")
+    return unless ENV.fetch("LLM_GATEWAY_MODE", "litellm") == "stripe_gateway"
+
+    sc = current_user.stripe_customer
+    return unless sc&.active?
+
+    @credit_balance_cents = StripeService.get_credit_balance(sc)
+  end
 
   def require_billing_for_creation
     return unless current_user&.human?
