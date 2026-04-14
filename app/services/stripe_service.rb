@@ -166,6 +166,94 @@ class StripeService
     nil
   end
 
+  # Create a Checkout Session for a one-time credit top-up payment.
+  # Returns the checkout URL for redirect.
+  sig do
+    params(
+      stripe_customer: StripeCustomer,
+      amount_cents: Integer,
+      success_url: String,
+      cancel_url: String,
+    ).returns(String)
+  end
+  def self.create_credit_topup_checkout(stripe_customer:, amount_cents:, success_url:, cancel_url:)
+    max_cents = ENV.fetch("STRIPE_MAX_TOPUP_CENTS", "50000").to_i
+    raise ArgumentError, "Amount must be at least 100 cents ($1.00)" if amount_cents < 100
+    raise ArgumentError, "Amount exceeds maximum of #{max_cents} cents" if amount_cents > max_cents
+
+    price = Stripe::Price.create(
+      unit_amount: amount_cents,
+      currency: "usd",
+      product: ENV.fetch("STRIPE_CREDIT_PRODUCT_ID"),
+    )
+
+    session = Stripe::Checkout::Session.create(
+      customer: stripe_customer.stripe_id,
+      mode: "payment",
+      line_items: [{ price: price.id, quantity: 1 }],
+      metadata: { type: "credit_topup" },
+      success_url: success_url,
+      cancel_url: cancel_url,
+    )
+
+    T.must(session.url)
+  end
+
+  # Create a Stripe Billing Credit Grant for a completed checkout session.
+  # Idempotent — skips if a grant with this checkout_session_id already exists.
+  # Amount must be derived from session.amount_total, never user input.
+  # Called from both the checkout return handler (synchronous) and the webhook (backup).
+  sig { params(stripe_customer: StripeCustomer, amount_cents: Integer, checkout_session_id: String).void }
+  def self.create_credit_grant_from_checkout(stripe_customer:, amount_cents:, checkout_session_id:)
+    # Idempotency: check if we already created a grant for this checkout session.
+    already_granted = T.let(false, T::Boolean)
+    T.unsafe(Stripe::Billing::CreditGrant.list(customer: stripe_customer.stripe_id, limit: 100)).auto_paging_each do |grant|
+      if grant.metadata&.[]("checkout_session_id") == checkout_session_id
+        already_granted = true
+        break
+      end
+    end
+    if already_granted
+      Rails.logger.info("[StripeService] credit_topup: Grant already exists for session #{checkout_session_id}, skipping")
+      return
+    end
+
+    Stripe::Billing::CreditGrant.create(
+      customer: stripe_customer.stripe_id,
+      name: "Credit top-up — #{Time.current.strftime("%Y-%m-%d %H:%M")}",
+      category: "paid",
+      amount: {
+        type: "monetary",
+        monetary: {
+          value: amount_cents,
+          currency: "usd",
+        },
+      },
+      applicability_config: {
+        scope: { price_type: "metered" },
+      },
+      metadata: { checkout_session_id: checkout_session_id },
+    )
+    Rails.logger.info("[StripeService] Created credit grant of #{amount_cents} cents for customer #{stripe_customer.stripe_id}")
+  end
+
+  # Fetch the available credit balance for a Stripe customer.
+  # Returns the balance in cents, or nil if the API call fails.
+  sig { params(stripe_customer: StripeCustomer).returns(T.nilable(Integer)) }
+  def self.get_credit_balance(stripe_customer)
+    summary = Stripe::Billing::CreditBalanceSummary.retrieve(
+      { customer: stripe_customer.stripe_id, filter: { type: "applicability_scope", applicability_scope: { price_type: "metered" } } },
+    )
+    # Balance is returned in monetary amount (cents)
+    balance = summary.balances&.first
+    return 0 unless balance
+
+    balance.available_balance&.monetary&.value || 0
+  rescue Stripe::StripeError => e
+    Rails.logger.error("[StripeService] Failed to fetch credit balance for #{stripe_customer.stripe_id}: #{e.message}")
+    nil
+  end
+
   # Create a Stripe Billing Portal session.
   # Returns the portal URL for redirect.
   sig { params(stripe_customer: StripeCustomer, return_url: String).returns(String) }
@@ -197,6 +285,17 @@ class StripeService
 
   sig { params(session: T.untyped).void }
   def self.handle_checkout_completed(session)
+    # Disambiguate by session mode
+    if session.mode == "payment" && session.metadata&.[]("type") == "credit_topup"
+      handle_credit_topup_completed(session)
+    else
+      handle_subscription_checkout_completed(session)
+    end
+  end
+  private_class_method :handle_checkout_completed
+
+  sig { params(session: T.untyped).void }
+  def self.handle_subscription_checkout_completed(session)
     sc = StripeCustomer.find_by(stripe_id: session.customer)
     unless sc
       Rails.logger.warn("[StripeService] checkout.session.completed: No StripeCustomer found for #{session.customer}")
@@ -215,7 +314,29 @@ class StripeService
     )
     Rails.logger.info("[StripeService] Activated billing for customer #{session.customer}")
   end
-  private_class_method :handle_checkout_completed
+  private_class_method :handle_subscription_checkout_completed
+
+  sig { params(session: T.untyped).void }
+  def self.handle_credit_topup_completed(session)
+    sc = StripeCustomer.find_by(stripe_id: session.customer)
+    unless sc
+      Rails.logger.warn("[StripeService] credit_topup: No StripeCustomer found for #{session.customer}")
+      return
+    end
+
+    amount_cents = session.amount_total
+    unless amount_cents && amount_cents > 0
+      Rails.logger.warn("[StripeService] credit_topup: Invalid amount_total for session #{session.id}")
+      return
+    end
+
+    create_credit_grant_from_checkout(
+      stripe_customer: sc,
+      amount_cents: amount_cents,
+      checkout_session_id: session.id,
+    )
+  end
+  private_class_method :handle_credit_topup_completed
 
   sig { params(subscription: T.untyped).void }
   def self.handle_subscription_updated(subscription)

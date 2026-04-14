@@ -18,6 +18,14 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
     @original_price_id = ENV["STRIPE_PRICE_ID"]
     ENV["STRIPE_PRICE_ID"] = "price_test_123"
+
+    # Stub credit balance API for all tests (load_credit_balance runs on every show)
+    stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_balance_summary.*})
+      .to_return(
+        status: 200,
+        body: { object: "billing.credit_balance_summary", balances: [] }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
   end
 
   teardown do
@@ -59,7 +67,8 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing?checkout_session_id=cs_test123"
 
-    assert_response :success
+    assert_response :redirect
+    assert_match %r{/billing\z}, response.location
     sc.reload
     assert sc.active, "Customer should be active after checkout session verification"
     assert_equal "sub_show123", sc.stripe_subscription_id
@@ -109,8 +118,9 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing?checkout_session_id=cs_evil123&return_to=https://evil.com"
 
-    # Should NOT redirect to external URL
-    assert_response :success
+    # Should NOT redirect to external URL — redirects to clean /billing instead
+    assert_response :redirect
+    assert_match %r{/billing\z}, response.location
   end
 
   test "show rejects return_to with control characters" do
@@ -130,7 +140,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     # This should NOT trigger a Stripe API call (no webmock stub needed)
     get "/billing?checkout_session_id=invalid_format"
 
-    assert_response :success
+    assert_response :redirect
   end
 
   test "show does not activate billing for mismatched customer" do
@@ -155,7 +165,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing?checkout_session_id=cs_mismatch123"
 
-    assert_response :success
+    assert_response :redirect
     sc.reload
     assert_not sc.active, "Should not activate billing for mismatched customer"
   end
@@ -677,7 +687,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing?checkout_session_id=cs_pending123"
 
-    assert_response :success
+    assert_response :redirect
     agent.reload
     assert_not agent.pending_billing_setup?, "Agent should no longer be pending after checkout"
     collective.reload
@@ -761,7 +771,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing?checkout_session_id=cs_sync_checkout"
 
-    assert_response :success
+    assert_response :redirect
     assert_equal "2", quantity_set, "Should sync quantity after checkout to correct any drift"
   end
 
@@ -789,7 +799,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing?checkout_session_id=cs_incomplete123"
 
-    assert_response :success
+    assert_response :redirect
     sc.reload
     assert_not sc.active?, "Customer should NOT be activated for incomplete checkout"
     agent.reload
@@ -815,7 +825,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/billing?checkout_session_id=cs_expired123"
 
-    assert_response :success
+    assert_response :redirect
     sc.reload
     assert_not sc.active?, "Customer should NOT be activated for expired checkout"
   end

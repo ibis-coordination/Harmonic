@@ -16,6 +16,7 @@ Rails.application.routes.draw do
   post 'billing/reactivate_agent/:handle' => 'billing#reactivate_agent', as: 'billing_reactivate_agent'
   post 'billing/deactivate_collective/:collective_handle' => 'billing#deactivate_collective', as: 'billing_deactivate_collective'
   post 'billing/reactivate_collective/:collective_handle' => 'billing#reactivate_collective', as: 'billing_reactivate_collective'
+  post 'billing/topup' => 'billing#topup', as: 'billing_topup'
 
   # Development tools - Pulse styleguide (only available in development)
   if Rails.env.development?

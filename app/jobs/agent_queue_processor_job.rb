@@ -136,6 +136,21 @@ class AgentQueueProcessorJob < TenantScopedJob
 
       # Stamp immutable billing attribution on the run
       task_run.update!(stripe_customer_id: billing_customer.id)
+
+      # Pre-flight credit balance check (best-effort — gateway 402 is authoritative)
+      if ENV.fetch("LLM_GATEWAY_MODE", "litellm") == "stripe_gateway"
+        credit_balance = StripeService.get_credit_balance(billing_customer)
+        if credit_balance == 0
+          task_run.update!(
+            status: "failed",
+            success: false,
+            error: "Insufficient credit balance. Add funds at /billing before running agents.",
+            completed_at: Time.current,
+          )
+          task_run.notify_parent_automation_runs!
+          return
+        end
+      end
     end
 
     # Resolve the Stripe cus_xxx ID for the gateway (nil in litellm mode)
