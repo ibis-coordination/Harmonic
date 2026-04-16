@@ -107,6 +107,7 @@ Model.for_user_across_tenants(user)
 - `Tenant` - Tenants themselves
 - `OauthIdentity` - OAuth provider identities
 - `OmniAuthIdentity` - OmniAuth provider identities
+- `StripeCustomer` - Billing record; attached to the human user, not a tenant (a single subscription spans all billing-enabled tenants)
 
 **Enforcement**:
 - Static analysis: `./scripts/check-tenant-safety.sh` detects banned `.unscoped` usage

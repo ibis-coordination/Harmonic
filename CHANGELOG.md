@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Agent-runner service — Node.js service for AI agent task execution. Replaces `AgentQueueProcessorJob` + `AgentNavigator` + `LLMClient` (~1,500 LOC + tests removed). Uses Effect.js fibers over a Redis Streams consumer group; handles hundreds of concurrent tasks per process instead of the 5-thread Sidekiq ceiling.
+- Internal API (`/internal/agent-runner/tasks/:id/*`) for runner ↔ Rails coordination. `Internal::BaseController` provides IP allowlist (raw TCP peer, unspoofable via XFF), HMAC-SHA256 signing over `{nonce}.{timestamp}.{body}`, and Redis-backed nonce tracking for replay protection.
+- `AgentRunnerDispatchService` — validates billing/status, encrypts Bearer token (AES-256-GCM via HKDF-derived key), publishes to Redis Stream.
+- Ephemeral per-task API tokens linked to `ai_agent_task_runs` for resource tracking; revoked on completion.
+- Usage-based billing via Stripe AI Gateway (active when `LLM_GATEWAY_MODE=stripe_gateway`): credit top-up flow at `/billing/topup`, balance display on `/billing`, pre-flight credit check in dispatch and in the runner's preflight endpoint.
+- Stripe credit grants created with idempotency key `credit_grant:<session_id>` so concurrent checkout-return + webhook calls converge on the same grant.
+- Admin monitoring UI at `/system-admin/agent-runner` (runner stats + recent task runs).
+- `rake agent_runner:redispatch_queued` for one-shot orphan recovery (Phase 2 cutover or after operator error).
+- Fail-closed default in `CapabilityCheck.allowed?` for uncategorized actions, plus a test asserting every `ACTION_DEFINITIONS` key is in exactly one of the three capability lists.
+- `ActionCapabilityCheck` denies unmapped writes for AI agents (humans and external clients unaffected).
+- `start_representation` / `end_representation` moved to `AI_AGENT_GRANTABLE_ACTIONS` (agents can represent when owner opts in).
+
+### Changed
+
+- Sidekiq 7.1.3 → 8.0.10 for Rails 7.2 compatibility (pulls in rack 3, rack-protection 4, rackup 2, redis-client 0.28).
+- `AutomationContext` chain state is cleared at the top of every HTTP request to prevent cross-request leaks on reused Puma threads (was causing false-positive "loop detected" errors).
+- CI Node runtime bumped 20 → 22 to match the agent-runner Docker image (undici 8.x requires Node 22+).
+- `request.raw_post` used in internal HMAC verification instead of `request.body.read` + rewind (avoids params parser race).
+- Agent token-count params (`input_tokens`, `output_tokens`, `total_tokens`, `steps_count`) are now non-negative coerced and capped (10M) before being written, so a buggy runner can't skew billing/reporting.
+- Preflight distinguishes nil (Stripe API error) from 0 credit balance — Stripe outages no longer look like "user out of credit."
+
+### Removed
+
+- `harmonic-agent/` — standalone PoC harness superseded by `mcp-server` for external agent use cases.
+- `AgentNavigator`, `AgentQueueProcessorJob`, `LLMClient`, `LLMPricing`, `StripeModelMapper`, `IdentityPromptLeakageDetector` (ported into agent-runner).
+
+### Fixed
+
+- Webhook credit-grant race: both the checkout-return handler and the webhook could simultaneously create duplicate credit grants via list-then-create. Replaced with Stripe's native idempotency header.
+- `StripeWebhooksController` test payload now includes `mode`, which Stripe 18.x requires (missing attribute raises NoMethodError).
+- `User#collectives_minus_main` no longer raises `PG::UndefinedTable` under default scopes; switched from `includes(:tenant)` (lazy) to `joins(:tenant)` (explicit JOIN).
+- 5 tests that reported "missing assertions" now make real assertions; one of the fixes uncovered the `collectives_minus_main` bug above.
+- `Internal::AgentRunnerController#complete` / `#fail` refuse terminal-state transitions, so a late agent report can't overwrite a user-initiated cancel.
+- `AgentLoop.runTask` decryption failures now flow through the typed Effect error channel instead of bubbling as a defect and orphaning the task in `queued`.
+- Stripe webhook `handle_checkout_completed` no longer blows up on payloads missing `mode`.
+- Dispatch refuses to mark a non-queued task as failed (prevents the redispatch rake from clobbering a task that got picked up between enumeration and dispatch).
+- Incorrect "Creating an agent is free" message on `/ai-agents/new` removed; $3/month seat cost was already shown elsewhere on the same page.
+- `Kernel#fail` no longer shadowed inside `Internal::AgentRunnerController` (action method renamed to `fail_task`).
+
 ## [1.5.0] - 2026-04-11
 
 ### Added
