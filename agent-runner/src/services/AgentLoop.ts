@@ -40,18 +40,20 @@ import {
   buildScratchpadPrompt,
 } from "../core/ScratchpadParser.js";
 import type { StepRecord } from "../core/StepBuilder.js";
-import type {
-  HarmonicApiError,
-  LLMError,
-  PreflightFailedError,
-  TaskCancelledError,
+import {
+  type HarmonicApiError,
+  type LLMError,
+  type PreflightFailedError,
+  type TaskCancelledError,
+  TokenDecryptError,
 } from "../errors/Errors.js";
 
 type AgentLoopError =
   | LLMError
   | HarmonicApiError
   | PreflightFailedError
-  | TaskCancelledError;
+  | TaskCancelledError
+  | TokenDecryptError;
 
 const PAGE_CONTENT_MAX_LENGTH = 4000;
 
@@ -66,8 +68,21 @@ export const runTask = (task: TaskPayload) =>
     const config = yield* Config;
     const subdomain = task.tenantSubdomain;
 
-    // Step 1: Decrypt Bearer token from stream payload
-    const token = decryptToken(task.encryptedToken, config.agentRunnerSecret);
+    // Step 1: Decrypt Bearer token from stream payload.
+    //
+    // decryptToken throws synchronously on bad base64 / auth-tag / wrong key.
+    // Inside Effect.gen, synchronous throws surface as defects (Cause.Die), which
+    // bypass Effect.catchAll<AgentLoopError> at the bottom of this pipe — that
+    // would leave the task in `queued` forever while the stream entry is ACK'd.
+    // Wrap in Effect.try so the failure flows through the typed error channel
+    // and reaches reporter.fail below.
+    const token = yield* Effect.try({
+      try: () => decryptToken(task.encryptedToken, config.agentRunnerSecret),
+      catch: (err) => new TokenDecryptError({
+        taskRunId: task.taskRunId,
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    });
 
     // Step 2: Preflight checks (billing, agent status)
     yield* reporter.preflight(task.taskRunId, subdomain);

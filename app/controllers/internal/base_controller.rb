@@ -75,6 +75,15 @@ module Internal
         return
       end
 
+      # Strict prefix check — refuse anything that isn't explicitly `sha256=...`.
+      # `String#sub` silently leaves the original value intact if the prefix is
+      # absent; that's a permissive parse we don't want on an auth check.
+      unless signature.start_with?("sha256=")
+        Rails.logger.warn("[Internal] Malformed signature header from #{request.remote_ip}")
+        render json: { error: "Invalid signature" }, status: :unauthorized
+        return
+      end
+
       # Replay protection
       request_time = Time.at(timestamp.to_i)
       if (Time.current - request_time).abs > TIMESTAMP_TOLERANCE
@@ -82,11 +91,14 @@ module Internal
         return
       end
 
-      # request.body is nil for GET requests under Rack 3; fall back to empty string.
-      body = request.body&.read || ""
-      request.body&.rewind
+      # `request.raw_post` is the canonical pattern for webhook signature
+      # verification: Rails memoizes it and it doesn't consume the underlying
+      # rewindable body, so later params parsing still sees the real payload.
+      # Reading `request.body` directly races with the params parser and can
+      # cause the HMAC check to see "" while the action sees the real body.
+      body = request.raw_post
       expected = OpenSSL::HMAC.hexdigest("sha256", secret, "#{timestamp}.#{body}")
-      actual = signature.sub(/^sha256=/, "")
+      actual = signature.delete_prefix("sha256=")
 
       unless ActiveSupport::SecurityUtils.secure_compare(expected, actual)
         Rails.logger.warn("[Internal] Invalid HMAC signature from #{request.remote_ip}")

@@ -54,6 +54,12 @@ module Internal
     sig { void }
     def complete
       task_run = find_task_run!
+      return unless guard_terminal_transition!(task_run)
+
+      input_tokens = nonneg_int_param(:input_tokens)
+      output_tokens = nonneg_int_param(:output_tokens)
+      total_tokens = nonneg_int_param(:total_tokens)
+      steps_count = nonneg_int_param(:steps_count)
 
       task_run.update!(
         status: params[:success] ? "completed" : "failed",
@@ -61,10 +67,10 @@ module Internal
         final_message: params[:final_message],
         error: params[:error],
         steps_data: params[:steps_data].is_a?(Array) ? params[:steps_data] : task_run.steps_data,
-        steps_count: params[:steps_count] || task_run.steps_count,
-        input_tokens: params[:input_tokens],
-        output_tokens: params[:output_tokens],
-        total_tokens: params[:total_tokens],
+        steps_count: steps_count.nil? ? task_run.steps_count : steps_count,
+        input_tokens: input_tokens,
+        output_tokens: output_tokens,
+        total_tokens: total_tokens,
         completed_at: Time.current,
       )
 
@@ -78,6 +84,7 @@ module Internal
     sig { void }
     def fail
       task_run = find_task_run!
+      return unless guard_terminal_transition!(task_run)
 
       task_run.update!(
         status: "failed",
@@ -150,7 +157,13 @@ module Internal
 
         if ENV.fetch("LLM_GATEWAY_MODE", "litellm") == "stripe_gateway"
           credit_balance = StripeService.get_credit_balance(billing_customer)
-          if credit_balance.nil? || credit_balance <= 0
+          # Distinguish "Stripe API failed" (nil) from "truly empty" (0).
+          # A Stripe outage should not look like "user is out of credit" — let
+          # the run proceed and surface any real billing issue on the actual
+          # LLM call rather than failing here with a misleading reason.
+          if credit_balance.nil?
+            Rails.logger.warn("[Internal::AgentRunner] Credit balance unavailable for customer #{billing_customer.stripe_id}; allowing preflight")
+          elsif credit_balance <= 0
             render json: { status: "fail", reason: "Insufficient credit balance" }
             return
           end
@@ -181,6 +194,35 @@ module Internal
       ApiToken.unscope(where: :internal)
         .where(ai_agent_task_run_id: task_run.id, internal: true)
         .find_each(&:destroy)
+    end
+
+    # Refuse to transition a task that's already in a terminal state
+    # (completed / failed / cancelled). Prevents a late agent report from
+    # overwriting a user-initiated cancel, or from duplicating a completion
+    # on a webhook / dispatch retry.
+    sig { params(task_run: AiAgentTaskRun).returns(T::Boolean) }
+    def guard_terminal_transition!(task_run)
+      return true if task_run.status == "running" || task_run.status == "queued"
+
+      Rails.logger.info(
+        "[Internal::AgentRunner] Refusing #{action_name} for task #{task_run.id} in terminal state #{task_run.status}",
+      )
+      render json: { error: "Task is in terminal state: #{task_run.status}" }, status: :conflict
+      false
+    end
+
+    # Pulls an integer param, coerces, and caps to a sane ceiling to prevent
+    # a buggy or compromised runner from skewing billing/reporting.
+    TOKEN_COUNT_CAP = 10_000_000
+    sig { params(key: Symbol).returns(T.nilable(Integer)) }
+    def nonneg_int_param(key)
+      raw = params[key]
+      return nil if raw.nil?
+
+      n = raw.to_i
+      return 0 if n < 0
+
+      [n, TOKEN_COUNT_CAP].min
     end
 
   end

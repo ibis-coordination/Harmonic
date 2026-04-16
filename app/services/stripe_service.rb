@@ -200,41 +200,32 @@ class StripeService
   end
 
   # Create a Stripe Billing Credit Grant for a completed checkout session.
-  # Idempotent — skips if a grant with this checkout_session_id already exists.
+  # Idempotent via Stripe's Idempotency-Key header keyed on the checkout session id.
   # Amount must be derived from session.amount_total, never user input.
-  # Called from both the checkout return handler (synchronous) and the webhook (backup).
+  # Called from both the checkout return handler (synchronous) and the webhook (backup);
+  # concurrent callers will resolve to the same underlying grant on Stripe's side.
   sig { params(stripe_customer: StripeCustomer, amount_cents: Integer, checkout_session_id: String).void }
   def self.create_credit_grant_from_checkout(stripe_customer:, amount_cents:, checkout_session_id:)
-    # Idempotency: check if we already created a grant for this checkout session.
-    already_granted = T.let(false, T::Boolean)
-    T.unsafe(Stripe::Billing::CreditGrant.list(customer: stripe_customer.stripe_id, limit: 100)).auto_paging_each do |grant|
-      if grant.metadata&.[]("checkout_session_id") == checkout_session_id
-        already_granted = true
-        break
-      end
-    end
-    if already_granted
-      Rails.logger.info("[StripeService] credit_topup: Grant already exists for session #{checkout_session_id}, skipping")
-      return
-    end
-
     Stripe::Billing::CreditGrant.create(
-      customer: stripe_customer.stripe_id,
-      name: "Credit top-up — #{Time.current.strftime("%Y-%m-%d %H:%M")}",
-      category: "paid",
-      amount: {
-        type: "monetary",
-        monetary: {
-          value: amount_cents,
-          currency: "usd",
+      {
+        customer: stripe_customer.stripe_id,
+        name: "Credit top-up — #{Time.current.strftime("%Y-%m-%d %H:%M")}",
+        category: "paid",
+        amount: {
+          type: "monetary",
+          monetary: {
+            value: amount_cents,
+            currency: "usd",
+          },
         },
+        applicability_config: {
+          scope: { price_type: "metered" },
+        },
+        metadata: { checkout_session_id: checkout_session_id },
       },
-      applicability_config: {
-        scope: { price_type: "metered" },
-      },
-      metadata: { checkout_session_id: checkout_session_id },
+      { idempotency_key: "credit_grant:#{checkout_session_id}" },
     )
-    Rails.logger.info("[StripeService] Created credit grant of #{amount_cents} cents for customer #{stripe_customer.stripe_id}")
+    Rails.logger.info("[StripeService] Created credit grant of #{amount_cents} cents for customer #{stripe_customer.stripe_id} (session #{checkout_session_id})")
   end
 
   # Fetch the available credit balance for a Stripe customer.

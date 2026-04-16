@@ -27,6 +27,12 @@ class AgentRunnerDispatchService
     return unless ai_agent&.ai_agent?
     return unless tenant&.ai_agents_enabled?
 
+    # Only dispatch tasks that are still queued. Guards against a race where
+    # the rake `agent_runner:redispatch_queued` task enumerates queued runs
+    # and then the runner picks one up before dispatch reaches it — without
+    # this guard, any downstream fail_task! would clobber the running state.
+    return unless @task_run.status == "queued"
+
     # Agent status checks
     agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: tenant.id)
     agent_archived = agent_tenant_user&.archived? || false
@@ -81,6 +87,11 @@ class AgentRunnerDispatchService
 
   sig { params(error: String).void }
   def fail_task!(error)
+    # Double-check state at mutation time — the task could have been picked up
+    # between the `status == "queued"` guard in `dispatch` and here. Only
+    # transition from queued; leave running/terminal states alone.
+    return unless @task_run.status == "queued"
+
     @task_run.update!(
       status: "failed",
       success: false,

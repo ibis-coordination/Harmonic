@@ -1165,20 +1165,14 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal "cs_topup_session", captured_grant_body["metadata"]["checkout_session_id"]
   end
 
-  test "handle_webhook checkout.session.completed skips duplicate credit grant" do
+  test "handle_webhook checkout.session.completed uses idempotency key for credit grant" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_topup_dup", active: true, stripe_subscription_id: "sub_dup")
 
-    # Stub listing existing grants (already has one for this session)
-    stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_grants.*})
-      .to_return(
-        status: 200,
-        body: {
-          object: "list",
-          data: [{ id: "credgr_existing", metadata: { "checkout_session_id" => "cs_dup_session" } }],
-          has_more: false,
-        }.to_json,
-        headers: { "Content-Type" => "application/json" },
-      )
+    # Stripe dedupes server-side via the Idempotency-Key header; we assert that
+    # we send it rather than guarding with a local list+scan (which races with
+    # concurrent webhook/return handlers and breaks past the 100-grant list cap).
+    stub_request(:post, "https://api.stripe.com/v1/billing/credit_grants")
+      .to_return(status: 200, body: { id: "credgr_existing" }.to_json, headers: { "Content-Type" => "application/json" })
 
     event = build_stripe_event(
       type: "checkout.session.completed",
@@ -1193,8 +1187,11 @@ class StripeServiceTest < ActiveSupport::TestCase
 
     StripeService.handle_webhook_event(event)
 
-    # Should NOT have created a new grant
-    assert_not_requested(:post, "https://api.stripe.com/v1/billing/credit_grants")
+    assert_requested(
+      :post,
+      "https://api.stripe.com/v1/billing/credit_grants",
+      headers: { "Idempotency-Key" => "credit_grant:cs_dup_session" },
+    )
   end
 
   test "handle_webhook checkout.session.completed still activates subscriptions" do

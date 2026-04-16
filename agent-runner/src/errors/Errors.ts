@@ -32,3 +32,8 @@ export class RedisError extends Data.TaggedError("RedisError")<{
 export class ConfigError extends Data.TaggedError("ConfigError")<{
   readonly message: string;
 }> {}
+
+export class TokenDecryptError extends Data.TaggedError("TokenDecryptError")<{
+  readonly taskRunId: string;
+  readonly message: string;
+}> {}
