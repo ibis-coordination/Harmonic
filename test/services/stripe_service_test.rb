@@ -301,15 +301,17 @@ class StripeServiceTest < ActiveSupport::TestCase
     StripeCustomer.create!(billable: @user, stripe_id: "cus_exempt", active: true, stripe_subscription_id: "sub_exempt")
     @user.update!(billing_exempt: true)
 
-    # No Stripe API call should be made
     StripeService.sync_subscription_quantity!(@user)
+
+    assert_not_requested(:any, /api\.stripe\.com/)
   end
 
   test "sync_subscription_quantity! is no-op without active subscription" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_nosub", active: false)
 
-    # No Stripe API call should be made
     StripeService.sync_subscription_quantity!(@user)
+
+    assert_not_requested(:any, /api\.stripe\.com/)
   end
 
   test "sync_subscription_quantity! logs and does not raise on Stripe failure" do

@@ -225,16 +225,19 @@ class UserTest < ActiveSupport::TestCase
   # === Collectives Minus Main Tests ===
 
   test "collectives_minus_main excludes main collective" do
-    # Set the thread tenant context for the scope
-    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain) do
-      @tenant.create_main_collective!(created_by: @user)
-      main_collective = @tenant.main_collective
-      main_collective.add_user!(@user)
+    # Set the thread tenant context so default scopes apply to @tenant.
+    # Note: Tenant.scope_thread_to_tenant doesn't yield — it sets thread state
+    # and returns the tenant. Previously this test wrapped the assertions in a
+    # do/end block which was silently discarded, so the assertions never ran.
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-      collectives = @user.collectives_minus_main
-      assert_not_includes collectives, main_collective
-      assert_includes collectives, @collective
-    end
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user)
+
+    collectives = @user.collectives_minus_main
+    assert_not_includes collectives, main_collective
+    assert_includes collectives, @collective
   end
 
   # === External OAuth Tests ===

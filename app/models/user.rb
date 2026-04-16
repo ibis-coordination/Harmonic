@@ -370,7 +370,7 @@ class User < ApplicationRecord
 
   sig { returns(ActiveRecord::Relation) }
   def collectives_minus_main
-    collectives.includes(:tenant).where("tenants.main_collective_id != collectives.id")
+    collectives.joins(:tenant).where("tenants.main_collective_id != collectives.id")
   end
 
   sig { returns(ActiveRecord::Relation) }

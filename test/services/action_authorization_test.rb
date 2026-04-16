@@ -203,16 +203,13 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
   test "routes_and_actions_for_user filters admin actions for regular users" do
     routes = ActionsHelper.routes_and_actions_for_user(@user)
 
-    # Admin routes should be filtered out
+    # Collect every admin action name the regular user can see across all admin routes.
     admin_routes = routes.select { |r| r[:route].start_with?("/admin") }
-    admin_routes.each do |route_info|
-      route_info[:actions].each do |action|
-        action_name = action[:name]
-        # Regular user should not see system_admin, app_admin, or tenant_admin actions
-        refute_includes ["retry_sidekiq_job", "create_tenant", "suspend_user", "unsuspend_user", "update_tenant_settings"], action_name,
-          "Regular user should not see admin action '#{action_name}'"
-      end
-    end
+    visible_admin_actions = admin_routes.flat_map { |r| r[:actions].map { |a| a[:name] } }
+
+    admin_only_actions = ["retry_sidekiq_job", "create_tenant", "suspend_user", "unsuspend_user", "update_tenant_settings"]
+    leaked = visible_admin_actions & admin_only_actions
+    assert_empty leaked, "Regular user should not see admin actions: #{leaked.inspect}"
   end
 
   # Test: Admin user sees admin actions

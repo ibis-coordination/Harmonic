@@ -425,19 +425,16 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
 
     test_email = "attacker-#{SecureRandom.hex(4)}@example.com"
 
-    # Attempt login with invalid credentials
+    # Attempt login with invalid credentials. OmniAuth routes identity-strategy
+    # failures through /auth/failure, which SessionsController#oauth_failure
+    # handles: it calls SecurityAuditLog.log_login_failure and redirects to /login.
     post "/auth/identity/callback", params: {
       auth_key: test_email,
       password: "wrongpassword123",
     }
 
-    # Check that the failure was logged
-    log_file = Rails.root.join("log/security_audit.log")
-    if File.exist?(log_file)
-      entries = File.readlines(log_file).map { |line| JSON.parse(line) rescue nil }.compact
-      # Login failures for identity provider go through OmniAuth
-      # The exact logging depends on how the identity failure is handled
-    end
+    assert_response :redirect
+    assert_nil session[:user_id], "Invalid identity login must not establish a session"
   end
 
   test "identity login with correct credentials sets session" do
