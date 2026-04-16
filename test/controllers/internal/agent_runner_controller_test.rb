@@ -57,7 +57,8 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
   test "rejects request with expired timestamp" do
     body = {}.to_json
     old_timestamp = (Time.current - 10.minutes).to_i.to_s
-    signature = "sha256=" + OpenSSL::HMAC.hexdigest("sha256", @secret, "#{old_timestamp}.#{body}")
+    nonce = SecureRandom.uuid
+    signature = "sha256=" + OpenSSL::HMAC.hexdigest("sha256", @secret, "#{nonce}.#{old_timestamp}.#{body}")
 
     post claim_url,
       params: body,
@@ -65,8 +66,23 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
         "Content-Type" => "application/json",
         "X-Internal-Signature" => signature,
         "X-Internal-Timestamp" => old_timestamp,
+        "X-Internal-Nonce" => nonce,
       }
     assert_response :unauthorized
+  end
+
+  test "rejects replayed nonce within signature window" do
+    body = { steps: [{ type: "navigate", detail: "/x", timestamp: Time.current.iso8601 }] }.to_json
+    headers = signed_headers(body)
+
+    # First request should succeed...
+    post "/internal/agent-runner/tasks/#{@task_run.id}/step", params: body, headers: headers
+    assert_response :ok
+
+    # ...replay with the same nonce must not.
+    post "/internal/agent-runner/tasks/#{@task_run.id}/step", params: body, headers: headers
+    assert_response :unauthorized
+    assert_match(/[Rr]eplay/, response.body)
   end
 
   # --- Claim ---
@@ -270,11 +286,13 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   def signed_headers(body)
     timestamp = Time.current.to_i.to_s
-    signature = "sha256=" + OpenSSL::HMAC.hexdigest("sha256", @secret, "#{timestamp}.#{body}")
+    nonce = SecureRandom.uuid
+    signature = "sha256=" + OpenSSL::HMAC.hexdigest("sha256", @secret, "#{nonce}.#{timestamp}.#{body}")
     {
       "Content-Type" => "application/json",
       "X-Internal-Signature" => signature,
       "X-Internal-Timestamp" => timestamp,
+      "X-Internal-Nonce" => nonce,
     }
   end
 

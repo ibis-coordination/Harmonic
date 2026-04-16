@@ -390,6 +390,14 @@ class StripeService
 
   # Suspend all agents and archive all collectives owned by the billing customer's user.
   # Revokes API tokens (blocking external agents) and prevents task/automation execution.
+  #
+  # CROSS-TENANT SCOPE, BY DESIGN: a single Stripe customer covers the user's
+  # activity across every billing-enabled tenant they belong to (billing is
+  # user-scoped, not tenant-scoped — see `User#billing_tenant_ids`). A webhook
+  # that disables billing therefore deactivates the user's agents and
+  # collectives in every billing-enabled tenant, not only the tenant that
+  # "triggered" the event. This is intentional so a single payment failure
+  # doesn't leave active infrastructure running elsewhere.
   sig { params(stripe_customer: StripeCustomer, reason: String).void }
   def self.deactivate_resources_for_customer(stripe_customer, reason:)
     user = stripe_customer.billable

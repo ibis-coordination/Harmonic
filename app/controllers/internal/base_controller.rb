@@ -23,6 +23,7 @@ module Internal
     before_action :resolve_tenant_from_subdomain
 
     TIMESTAMP_TOLERANCE = 5.minutes
+    MAX_NONCE_LENGTH = 64
 
     private
 
@@ -51,8 +52,16 @@ module Internal
       # In development/test, allow all if not configured
       return if allowed_ips.empty? && (Rails.env.development? || Rails.env.test?)
 
-      unless allowed_ips.any? { |ip| request.remote_ip == ip || ip_in_cidr?(request.remote_ip, ip) }
-        Rails.logger.warn("[Internal] Blocked request from #{request.remote_ip}")
+      # Use the raw socket peer IP (REMOTE_ADDR), not `request.remote_ip`.
+      # `remote_ip` walks the X-Forwarded-For header and Rails trusts private
+      # IP ranges by default, which means any peer on the docker network
+      # could spoof XFF to impersonate an allowed internal IP. For the
+      # internal allowlist we only trust the TCP peer, which can't be
+      # spoofed without network-level access.
+      peer_ip = request.env["REMOTE_ADDR"].to_s
+
+      unless allowed_ips.any? { |ip| peer_ip == ip || ip_in_cidr?(peer_ip, ip) }
+        Rails.logger.warn("[Internal] Blocked request from #{peer_ip} (XFF was: #{request.headers['X-Forwarded-For'].inspect})")
         render json: { error: "Forbidden" }, status: :forbidden
       end
     end
@@ -69,9 +78,17 @@ module Internal
 
       signature = request.headers["X-Internal-Signature"]
       timestamp = request.headers["X-Internal-Timestamp"]
+      nonce = request.headers["X-Internal-Nonce"]
 
-      if signature.blank? || timestamp.blank?
-        render json: { error: "Missing signature or timestamp" }, status: :unauthorized
+      if signature.blank? || timestamp.blank? || nonce.blank?
+        render json: { error: "Missing signature, timestamp, or nonce" }, status: :unauthorized
+        return
+      end
+
+      # Bound the nonce size to prevent a hostile caller from eating arbitrary
+      # Redis space via the replay cache.
+      if nonce.length > MAX_NONCE_LENGTH
+        render json: { error: "Invalid nonce" }, status: :unauthorized
         return
       end
 
@@ -79,12 +96,14 @@ module Internal
       # `String#sub` silently leaves the original value intact if the prefix is
       # absent; that's a permissive parse we don't want on an auth check.
       unless signature.start_with?("sha256=")
-        Rails.logger.warn("[Internal] Malformed signature header from #{request.remote_ip}")
+        Rails.logger.warn("[Internal] Malformed signature header from #{peer_ip}")
         render json: { error: "Invalid signature" }, status: :unauthorized
         return
       end
 
-      # Replay protection
+      # Coarse replay window: requests older than the tolerance are always
+      # rejected. Fine-grained replay prevention within the window is done
+      # below via the nonce cache.
       request_time = Time.at(timestamp.to_i)
       if (Time.current - request_time).abs > TIMESTAMP_TOLERANCE
         render json: { error: "Request timestamp too old" }, status: :unauthorized
@@ -97,13 +116,40 @@ module Internal
       # Reading `request.body` directly races with the params parser and can
       # cause the HMAC check to see "" while the action sees the real body.
       body = request.raw_post
-      expected = OpenSSL::HMAC.hexdigest("sha256", secret, "#{timestamp}.#{body}")
+      expected = OpenSSL::HMAC.hexdigest("sha256", secret, "#{nonce}.#{timestamp}.#{body}")
       actual = signature.delete_prefix("sha256=")
 
       unless ActiveSupport::SecurityUtils.secure_compare(expected, actual)
-        Rails.logger.warn("[Internal] Invalid HMAC signature from #{request.remote_ip}")
+        Rails.logger.warn("[Internal] Invalid HMAC signature from #{peer_ip}")
         render json: { error: "Invalid signature" }, status: :unauthorized
+        return
       end
+
+      # Fine-grained replay protection: once a nonce has been seen within the
+      # tolerance window, any further request bearing it is rejected. Uses
+      # Redis SETNX so the check-and-insert is atomic across workers.
+      if nonce_already_seen?(nonce)
+        Rails.logger.warn("[Internal] Replayed nonce from #{peer_ip}: #{nonce}")
+        render json: { error: "Replay detected" }, status: :unauthorized
+      end
+    end
+
+    sig { returns(String) }
+    def peer_ip
+      request.env["REMOTE_ADDR"].to_s
+    end
+
+    # Atomic "have we seen this nonce already?" using Redis SETNX with a TTL
+    # equal to the signature tolerance. Returns true if the nonce was already
+    # present (i.e. this is a replay).
+    sig { params(nonce: String).returns(T::Boolean) }
+    def nonce_already_seen?(nonce)
+      redis = Redis.new(url: ENV["REDIS_URL"])
+      # redis-rb returns `true` when the key was inserted, `false` when the
+      # NX condition rejected the SET because the key already existed.
+      !redis.set("internal:nonce:#{nonce}", "1", ex: TIMESTAMP_TOLERANCE.to_i, nx: true)
+    ensure
+      redis&.close
     end
 
     sig { params(ip: String, cidr: String).returns(T::Boolean) }

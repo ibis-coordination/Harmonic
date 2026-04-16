@@ -7,7 +7,7 @@ Rails.application.routes.draw do
     post 'tasks/:id/claim' => 'agent_runner#claim'
     post 'tasks/:id/step' => 'agent_runner#step'
     post 'tasks/:id/complete' => 'agent_runner#complete'
-    post 'tasks/:id/fail' => 'agent_runner#fail'
+    post 'tasks/:id/fail' => 'agent_runner#fail_task'
     put  'tasks/:id/scratchpad' => 'agent_runner#scratchpad'
     get  'tasks/:id/status' => 'agent_runner#status'
     post 'tasks/:id/preflight' => 'agent_runner#preflight'

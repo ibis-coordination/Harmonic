@@ -81,8 +81,10 @@ module Internal
     end
 
     # POST /internal/agent-runner/tasks/:id/fail
+    #
+    # Method is `fail_task`, not `fail`, to avoid shadowing `Kernel#fail`.
     sig { void }
-    def fail
+    def fail_task
       task_run = find_task_run!
       return unless guard_terminal_transition!(task_run)
 
