@@ -89,13 +89,35 @@ module ActionCapabilityCheck
     # Skip if no user is authenticated
     return unless defined?(@current_user) && @current_user.present?
 
-    # Determine the capability action name from the request
     capability_action = determine_capability_action
-    return if capability_action.blank?
+
+    # Fail-closed for AI agents on writes we can't identify.
+    #
+    # CONTROLLER_ACTION_MAP is incomplete — many legacy/REST routes don't
+    # appear in it, and writes through those routes would otherwise slip past
+    # this check entirely. Humans and external API clients continue to be
+    # gated by controller-level authorization, but for AI agents we require
+    # the route to be an /actions/<name> dispatch OR explicitly mapped. Any
+    # other write gets denied here rather than silently continuing. GETs are
+    # unaffected (navigation stays permissive).
+    #
+    # This is coarse; a follow-up plan covers populating the map exhaustively
+    # or refactoring to deny-by-default universally.
+    if capability_action.blank?
+      return unless write_request?
+      return unless @current_user.respond_to?(:ai_agent?) && @current_user.ai_agent?
+
+      render_capability_denied("unmapped_write:#{controller_path}##{action_name}")
+      return
+    end
 
     return if CapabilityCheck.allowed?(@current_user, capability_action)
 
     render_capability_denied(capability_action)
+  end
+
+  def write_request?
+    request.post? || request.patch? || request.put? || request.delete?
   end
 
   # Determines the capability action name from the request.

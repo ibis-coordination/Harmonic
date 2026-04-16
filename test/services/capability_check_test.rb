@@ -222,4 +222,33 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     assert_empty always_blocked & grantable,
       "Always-blocked and grantable should not overlap"
   end
+
+  # Test: every defined action is categorized in exactly one list.
+  #
+  # This forces new actions to declare their agent policy. Before this test,
+  # an action added to ACTION_DEFINITIONS without a corresponding entry in
+  # ALLOWED/BLOCKED/GRANTABLE would default to "allowed for any agent whose
+  # owner hasn't explicitly narrowed capabilities" — a fail-open default.
+  # The test + the fail-closed default in `allowed?` together close that gap.
+  test "every defined action is in exactly one capability list" do
+    always_allowed = CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED
+    always_blocked = CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED
+    grantable = CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
+
+    uncategorized = ActionsHelper::ACTION_DEFINITIONS.keys - always_allowed - always_blocked - grantable
+    assert_empty uncategorized,
+      "Actions defined in ACTION_DEFINITIONS but not placed in any capability list: " \
+      "#{uncategorized.inspect}. Add each to AI_AGENT_ALWAYS_ALLOWED (infrastructure), " \
+      "AI_AGENT_ALWAYS_BLOCKED (human-only), or AI_AGENT_GRANTABLE_ACTIONS (owner-configurable)."
+  end
+
+  # Test: fail-closed for uncategorized actions even with nil capabilities.
+  test "ai_agent with nil capabilities is denied an uncategorized action" do
+    @ai_agent.update!(agent_configuration: nil)
+
+    # A hypothetical action that isn't in any list. The system must not allow it
+    # just because capabilities is unset.
+    refute CapabilityCheck.allowed?(@ai_agent, "hypothetical_new_dangerous_action"),
+      "Uncategorized actions must fail closed, not allowed by default"
+  end
 end

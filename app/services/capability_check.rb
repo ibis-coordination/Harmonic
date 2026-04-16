@@ -21,6 +21,7 @@ module CapabilityCheck
     "send_heartbeat",
     "dismiss",
     "dismiss_all",
+    "dismiss_for_collective",
     "search",
     "update_scratchpad",
   ].freeze
@@ -45,6 +46,14 @@ module CapabilityCheck
     "update_tenant_settings",
     "create_tenant",
     "retry_sidekiq_job",
+    # Automation rule management is owner-scoped; agents should not be
+    # self-modifying their trigger graph. (HUMAN_ONLY_AUTHORIZATION already
+    # blocks these at the action-authorization layer, but listing them here
+    # makes the policy explicit and test-auditable.)
+    "create_automation_rule",
+    "update_automation_rule",
+    "delete_automation_rule",
+    "toggle_automation_rule",
   ].freeze
 
   # Actions that can be granted/denied via configuration
@@ -76,6 +85,11 @@ module CapabilityCheck
     "decline_trustee_grant",
     "create_trustee_grant",
     "revoke_trustee_grant",
+    # Representation sessions — agents can represent a user or a collective
+    # on whose behalf they hold a trustee grant. Grantable (not always-allowed)
+    # so the agent's owner can opt in per agent.
+    "start_representation",
+    "end_representation",
   ].freeze
 
   # Check if a user has capability for an action
@@ -94,14 +108,21 @@ module CapabilityCheck
     # Blocked actions are never allowed
     return false if AI_AGENT_ALWAYS_BLOCKED.include?(action_name)
 
-    # Check configured capabilities for grantable actions
+    # Everything past this point must be a grantable action to be considered.
+    # Previously, an action that was neither ALLOWED nor BLOCKED nor GRANTABLE
+    # would pass through and be allowed when `capabilities` was nil — a
+    # fail-open default that silently permitted any newly-added action an
+    # owner hadn't seen. Now: only actions in the explicit grantable list
+    # can be granted, and only if the owner has granted them (or left the
+    # configuration unset, which means "all grantable").
+    return false unless AI_AGENT_GRANTABLE_ACTIONS.include?(action_name)
+
     capabilities = user.agent_configuration&.dig("capabilities")
 
-    # No capabilities key (nil) = all grantable actions allowed (backwards compatible default)
+    # No capabilities key (nil) = all grantable actions allowed (owner hasn't
+    # narrowed them). Empty array = NONE. Non-empty = only those listed.
     return true if capabilities.nil?
 
-    # Empty array = NO grantable actions allowed
-    # Non-empty array = only those actions allowed
     capabilities.include?(action_name)
   end
 
