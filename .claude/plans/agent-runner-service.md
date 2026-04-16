@@ -2,7 +2,7 @@
 
 ## Status
 
-**Phases 1, 2, and 3 are implemented.** The agent-runner service handles all AI agent task execution in production; the old Sidekiq-based stack has been deleted; the standalone `harmonic-agent/` PoC has been removed.
+**All phases complete.** The agent-runner service handles all AI agent task execution in production; the old Sidekiq-based stack has been deleted; the standalone `harmonic-agent/` PoC has been removed; the `mcp-server` has been audited and brought current.
 
 For the current documentation of how the system works, see [docs/AGENT_RUNNER.md](../../docs/AGENT_RUNNER.md). The pseudocode and descriptions below were written during planning and may not match the final implementation in every detail — the code and docs are the source of truth.
 
@@ -10,10 +10,10 @@ For the current documentation of how the system works, see [docs/AGENT_RUNNER.md
 - Phase 1: agent-runner TypeScript service, Rails internal API, dispatch service, crypto, migration, admin monitoring, Docker Compose service, CI.
 - Phase 2: all four dispatch call sites switched to `AgentRunnerDispatchService`; resource tracking migrated to Bearer-token linkage; old `AgentNavigator`, `AgentQueueProcessorJob`, `LLMClient`, `LLMPricing`, `StripeModelMapper`, `IdentityPromptLeakageDetector` deleted (~1,500 LOC + tests); production compose service + required env vars + published image; rake task for orphan task re-dispatch; NOGROUP self-heal in runner.
 - Phase 3: `harmonic-agent/` directory deleted (standalone PoC harness, superseded by mcp-server for external agent use cases).
+- Phase 4: `mcp-server/` audited — source uses current `/collectives/` convention; `dist/` is gitignored so stale local builds self-resolve on next `npm run build`; CONTEXT.md already current; README parameter-name bug fixed (`url` → `path`).
 
-**What's remaining:**
-- Phase 4: Clean up `mcp-server/` — rebuild stale dist (source references `/collectives/` but dist still references `/studios/`); review `CONTEXT.md`.
-- Separate follow-up: migrate thread-local ambient state to `ActiveSupport::CurrentAttributes` — see [current-attributes-migration.md](current-attributes-migration.md).
+**Follow-up (separate work):**
+- Migrate thread-local ambient state to `ActiveSupport::CurrentAttributes` — see [current-attributes-migration.md](current-attributes-migration.md).
 
 ## Goal
 
@@ -666,12 +666,15 @@ Already done in Phase 1:
 
 ---
 
-## Phase 4: Clean up mcp-server
+## Phase 4: Clean up mcp-server ✅
 
-With harmonic-agent gone, the MCP server is the sole external agent interface. Ensure it's current:
+With harmonic-agent gone, the MCP server is the sole external agent interface. Audited:
 
-- Rebuild dist (currently stale — source references `/collectives/` but dist still has `/studios/`)
-- Update CONTEXT.md if needed
+- [x] `src/` uses `/collectives/` convention (current)
+- [x] `dist/` is gitignored — stale local builds self-resolve on next `npm run build`
+- [x] CONTEXT.md is current (uses `/collectives/` throughout)
+- [x] Fixed README inconsistency: documented `url` parameter didn't match code's `path` parameter
+- [x] Tests pass (16/16)
 - Consider adding task lifecycle tools later if MCP client users want to interact with the task system (not needed now)
 
 ---
