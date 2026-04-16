@@ -2,20 +2,18 @@
 
 ## Status
 
-**Phase 1 is implemented.** The agent-runner service and Rails internal API are built and tested.
+**Phases 1, 2, and 3 are implemented.** The agent-runner service handles all AI agent task execution in production; the old Sidekiq-based stack has been deleted; the standalone `harmonic-agent/` PoC has been removed.
 
 For the current documentation of how the system works, see [docs/AGENT_RUNNER.md](../../docs/AGENT_RUNNER.md). The pseudocode and descriptions below were written during planning and may not match the final implementation in every detail — the code and docs are the source of truth.
 
 **What's done:**
-- agent-runner TypeScript service (123 tests passing)
-- Rails internal API controller, base controller, dispatch service, crypto, migration (23 tests passing)
-- CI integration, admin monitoring page, Docker Compose service
+- Phase 1: agent-runner TypeScript service, Rails internal API, dispatch service, crypto, migration, admin monitoring, Docker Compose service, CI.
+- Phase 2: all four dispatch call sites switched to `AgentRunnerDispatchService`; resource tracking migrated to Bearer-token linkage; old `AgentNavigator`, `AgentQueueProcessorJob`, `LLMClient`, `LLMPricing`, `StripeModelMapper`, `IdentityPromptLeakageDetector` deleted (~1,500 LOC + tests); production compose service + required env vars + published image; rake task for orphan task re-dispatch; NOGROUP self-heal in runner.
+- Phase 3: `harmonic-agent/` directory deleted (standalone PoC harness, superseded by mcp-server for external agent use cases).
 
 **What's remaining:**
-- Phase 2: Wire up existing code paths to use `AgentRunnerDispatchService` (behind feature flag)
-- Phase 2: Remove old Ruby agent execution code
-- Phase 3: Delete harmonic-agent
-- Phase 4: Clean up mcp-server
+- Phase 4: Clean up `mcp-server/` — rebuild stale dist (source references `/collectives/` but dist still references `/studios/`); review `CONTEXT.md`.
+- Separate follow-up: migrate thread-local ambient state to `ActiveSupport::CurrentAttributes` — see [current-attributes-migration.md](current-attributes-migration.md).
 
 ## Goal
 
@@ -658,13 +656,13 @@ Already done in Phase 1:
 
 ---
 
-## Phase 3: Delete harmonic-agent
+## Phase 3: Delete harmonic-agent ✅
 
 `harmonic-agent` was a proof of concept for external webhook-driven agents. With MCP-compatible frameworks (OpenClaw, Hermes, etc.) growing, maintaining a standalone agent harness isn't needed. The `mcp-server` provides the reference implementation for external tool access.
 
-- Delete `harmonic-agent/` directory
-- Remove from CI pipeline (`.github/workflows/ci.yml`)
-- Update any docs that reference it
+- [x] Delete `harmonic-agent/` directory
+- [x] Confirm no CI references (none found in `.github/workflows/`)
+- [x] Confirm no active doc references (only historical CHANGELOG entries remain, which is correct)
 
 ---
 
