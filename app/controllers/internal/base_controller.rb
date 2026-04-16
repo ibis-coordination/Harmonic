@@ -82,8 +82,9 @@ module Internal
         return
       end
 
-      body = request.body.read
-      request.body.rewind
+      # request.body is nil for GET requests under Rack 3; fall back to empty string.
+      body = request.body&.read || ""
+      request.body&.rewind
       expected = OpenSSL::HMAC.hexdigest("sha256", secret, "#{timestamp}.#{body}")
       actual = signature.sub(/^sha256=/, "")
 

@@ -57,15 +57,6 @@ class TenantScopedJob < ApplicationJob
     Collective.set_thread_context(collective)
   end
 
-  # Set the AI agent task run context.
-  # Used for tracking resources created by AI agent tasks.
-  #
-  # @param task_run [AiAgentTaskRun] The task run to set as current
-  sig { params(task_run: AiAgentTaskRun).void }
-  def set_task_run_context!(task_run)
-    AiAgentTaskRun.current_id = task_run.id
-  end
-
   # Clear collective context without affecting tenant context.
   # Useful when processing items across multiple collectives within a tenant.
   sig { void }

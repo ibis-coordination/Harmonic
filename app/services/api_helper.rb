@@ -3,7 +3,7 @@
 class ApiHelper
   extend T::Sig
 
-  attr_reader :current_user, :current_collective, :current_tenant,
+  attr_reader :current_user, :current_collective, :current_tenant, :current_token,
               :current_representation_session, :current_resource_model,
               :current_resource, :current_note, :current_decision,
               :current_commitment, :current_decision_participant,
@@ -15,6 +15,7 @@ class ApiHelper
       current_user: User,
       current_collective: Collective,
       current_tenant: Tenant,
+      current_token: T.nilable(ApiToken),
       current_resource_model: T.nilable(T::Class[T.anything]),
       current_resource: T.untyped,
       current_note: T.nilable(Note),
@@ -32,6 +33,7 @@ class ApiHelper
   end
   def initialize(
     current_user:, current_collective:, current_tenant:,
+    current_token: nil,
     current_resource_model: nil,  current_resource: nil, current_note: nil,
     current_decision: nil, current_commitment: nil,
     current_decision_participant: nil, current_commitment_participant: nil,
@@ -41,6 +43,7 @@ class ApiHelper
     @current_user = current_user
     @current_collective = current_collective
     @current_tenant = current_tenant
+    @current_token = current_token
     @current_representation_session = current_representation_session
     @current_cycle = current_cycle
     @current_heartbeat = current_heartbeat
@@ -757,10 +760,15 @@ class ApiHelper
   def track_task_run_resource(resource, action_type:)
     return unless resource.respond_to?(:collective_id) && resource.collective_id.present?
 
-    # Track for AI agent task runs
-    if AiAgentTaskRun.current_id
+    # Resolve the current AiAgentTaskRun id. When requests come from the
+    # agent-runner service, there is no thread-local context (different
+    # process), so we read it from the ephemeral API token that
+    # AgentRunnerDispatchService linked to the task run.
+    task_run_id = @current_token&.ai_agent_task_run_id || AiAgentTaskRun.current_id
+
+    if task_run_id
       AiAgentTaskRunResource.create!(
-        ai_agent_task_run_id: AiAgentTaskRun.current_id,
+        ai_agent_task_run_id: task_run_id,
         resource: resource,
         resource_collective_id: resource.collective_id,
         action_type: action_type,

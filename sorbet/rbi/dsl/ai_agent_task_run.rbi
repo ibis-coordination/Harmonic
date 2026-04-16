@@ -436,6 +436,20 @@ class AiAgentTaskRun
     sig { params(value: T::Enumerable[::AiAgentTaskRunResource]).void }
     def ai_agent_task_run_resources=(value); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def api_token_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def api_token_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `AiAgentTaskRun` class because it declared `has_many :api_tokens`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::ApiToken::PrivateCollectionProxy) }
+    def api_tokens; end
+
+    sig { params(value: T::Enumerable[::ApiToken]).void }
+    def api_tokens=(value); end
+
     sig { returns(T.nilable(::AutomationRule)) }
     def automation_rule; end
 

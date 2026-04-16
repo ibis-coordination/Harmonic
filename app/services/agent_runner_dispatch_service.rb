@@ -3,7 +3,6 @@
 
 # Dispatches AI agent task runs to the agent-runner service via Redis Streams.
 # Performs all validation and billing checks before publishing to the stream.
-# Replaces the previous flow of enqueuing AgentQueueProcessorJob.
 class AgentRunnerDispatchService
   extend T::Sig
 
@@ -24,11 +23,11 @@ class AgentRunnerDispatchService
     ai_agent = @task_run.ai_agent
     tenant = @task_run.tenant
 
-    # Precondition checks (match AgentQueueProcessorJob lines 17-22)
+    # Precondition checks
     return unless ai_agent&.ai_agent?
     return unless tenant&.ai_agents_enabled?
 
-    # Agent status checks (match AgentQueueProcessorJob lines 101-119)
+    # Agent status checks
     agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: tenant.id)
     agent_archived = agent_tenant_user&.archived? || false
     if ai_agent.suspended? || agent_archived || ai_agent.pending_billing_setup?
@@ -43,7 +42,7 @@ class AgentRunnerDispatchService
       return
     end
 
-    # Billing checks (match AgentQueueProcessorJob lines 122-153)
+    # Billing checks
     billing_customer = ai_agent.billing_customer
     if tenant.feature_enabled?("stripe_billing")
       unless billing_customer&.active?

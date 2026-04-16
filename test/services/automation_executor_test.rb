@@ -19,11 +19,14 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     event = create_test_event
     run = create_automation_run(rule, event)
 
-    assert_difference "AiAgentTaskRun.count", 1 do
-      assert_enqueued_with(job: AgentQueueProcessorJob) do
+    dispatched = []
+    AgentRunnerDispatchService.stub :dispatch, ->(tr) { dispatched << tr } do
+      assert_difference "AiAgentTaskRun.count", 1 do
         AutomationExecutor.execute(run)
       end
     end
+    assert_equal 1, dispatched.length
+    assert_equal "AiAgentTaskRun", dispatched.first.class.name
 
     run.reload
     # Run stays "running" until the agent task completes
@@ -645,11 +648,13 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     event = create_test_event
     run = create_automation_run(rule, event)
 
-    assert_difference "AiAgentTaskRun.count", 1 do
-      assert_enqueued_with(job: AgentQueueProcessorJob) do
+    dispatched = []
+    AgentRunnerDispatchService.stub :dispatch, ->(tr) { dispatched << tr } do
+      assert_difference "AiAgentTaskRun.count", 1 do
         AutomationExecutor.execute(run)
       end
     end
+    assert_equal 1, dispatched.length
 
     run.reload
     assert_equal "running", run.status

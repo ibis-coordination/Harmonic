@@ -151,7 +151,11 @@ services:
   #   networks:
   #     - backend
 
-  # Agent runner service — executes AI agent tasks via Redis Streams
+  # Agent runner service — executes AI agent tasks via Redis Streams.
+  #
+  # Env vars are listed explicitly (not via `env_file: .env`) to keep
+  # agent-runner's blast radius small: a Node-side compromise should not
+  # leak the Rails master key, Stripe backend key, DB password, etc.
   agent-runner:
     build: ./agent-runner
     profiles: ["llm"]
@@ -160,12 +164,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - .env
     environment:
+      AGENT_RUNNER_SECRET: "${AGENT_RUNNER_SECRET}"
       REDIS_URL: redis://redis:6379
       HARMONIC_INTERNAL_URL: http://web:3000
       HARMONIC_HOSTNAME: "${HOSTNAME:-harmonic.local}"
+      LLM_GATEWAY_MODE: "${LLM_GATEWAY_MODE:-litellm}"
     deploy:
       resources:
         limits:

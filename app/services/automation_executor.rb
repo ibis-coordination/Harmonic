@@ -93,8 +93,10 @@ class AutomationExecutor
     # Link the automation run to the task run
     @run.link_to_task_run!(task_run)
 
-    # Kick off the queue processor
-    AgentQueueProcessorJob.perform_later(ai_agent_id: ai_agent.id, tenant_id: @rule.tenant_id)
+    # Dispatch to the agent-runner service via Redis stream.
+    # AgentRunnerDispatchService re-runs billing/status checks and will mark
+    # the task failed (and notify this automation run) if they don't pass.
+    AgentRunnerDispatchService.dispatch(task_run)
 
     # Record the action but don't mark as completed - task run will report back when done
     @run.record_actions!(executed_actions: [{ type: "trigger_agent", task_run_id: task_run.id }])
@@ -297,7 +299,7 @@ class AutomationExecutor
       automation_rule: @rule
     )
 
-    AgentQueueProcessorJob.perform_later(ai_agent_id: agent.id, tenant_id: @rule.tenant_id)
+    AgentRunnerDispatchService.dispatch(task_run)
 
     { "status" => "success", "task_run_id" => task_run.id }
   end

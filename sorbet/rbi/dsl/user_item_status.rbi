@@ -16,6 +16,16 @@ class UserItemStatus
   sig { returns(NilClass) }
   def to_ary; end
 
+  class << self
+    sig do
+      params(
+        attributes: T.untyped,
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(::UserItemStatus)
+    end
+    def new(attributes = nil, &block); end
+  end
+
   module CommonRelationMethods
     sig { params(block: T.nilable(T.proc.params(record: ::UserItemStatus).returns(T.untyped))).returns(T::Boolean) }
     def any?(&block); end
@@ -23,6 +33,13 @@ class UserItemStatus
     sig { params(column_name: T.any(String, Symbol)).returns(T.any(Integer, Float, BigDecimal)) }
     def average(column_name); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::UserItemStatus).void)).returns(::UserItemStatus) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -38,6 +55,13 @@ class UserItemStatus
     sig { params(column_name: NilClass, block: T.proc.params(object: ::UserItemStatus).void).returns(Integer) }
     def count(column_name = nil, &block); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::UserItemStatus).void)).returns(::UserItemStatus) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -46,6 +70,13 @@ class UserItemStatus
     end
     def create(attributes = nil, &block); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::UserItemStatus).void)).returns(::UserItemStatus) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -56,6 +87,12 @@ class UserItemStatus
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
       ).returns(::UserItemStatus)
@@ -64,14 +101,46 @@ class UserItemStatus
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
       ).returns(::UserItemStatus)
     end
     def create_or_find_by!(attributes, &block); end
 
+    sig do
+      params(
+        records: T.any(::UserItemStatus, Integer, String, T::Enumerable[T.any(::UserItemStatus, Integer, String, T::Enumerable[::UserItemStatus])])
+      ).returns(Integer)
+    end
+    def delete(*records); end
+
+    sig { returns(Integer) }
+    def delete_all; end
+
+    sig { params(args: T.untyped).returns(Integer) }
+    def delete_by(args); end
+
+    sig do
+      params(
+        records: T.any(::UserItemStatus, Integer, String, T::Enumerable[T.any(::UserItemStatus, Integer, String, T::Enumerable[::UserItemStatus])])
+      ).returns(T::Array[::UserItemStatus])
+    end
+    def destroy(*records); end
+
     sig { returns(T::Array[::UserItemStatus]) }
     def destroy_all; end
+
+    sig { returns(T::Array[::UserItemStatus]) }
+    def destroy_all; end
+
+    sig { params(args: T.untyped).returns(T::Array[::UserItemStatus]) }
+    def destroy_by(args); end
 
     sig { params(conditions: T.untyped).returns(T::Boolean) }
     def exists?(conditions = :none); end
@@ -84,12 +153,12 @@ class UserItemStatus
 
     sig do
       params(
-        args: T.any(String, Symbol, ::ActiveSupport::Multibyte::Chars, T::Boolean, BigDecimal, Numeric, ::ActiveRecord::Type::Binary::Data, ::ActiveRecord::Type::Time::Value, Date, Time, ::ActiveSupport::Duration, T::Class[T.anything])
+        args: T::Array[T.any(String, Symbol, ::ActiveSupport::Multibyte::Chars, T::Boolean, BigDecimal, Numeric, ::ActiveRecord::Type::Binary::Data, ::ActiveRecord::Type::Time::Value, Date, Time, ::ActiveSupport::Duration, T::Class[T.anything])]
       ).returns(::UserItemStatus)
     end
     sig do
       params(
-        args: T::Array[T.any(String, Symbol, ::ActiveSupport::Multibyte::Chars, T::Boolean, BigDecimal, Numeric, ::ActiveRecord::Type::Binary::Data, ::ActiveRecord::Type::Time::Value, Date, Time, ::ActiveSupport::Duration, T::Class[T.anything])]
+        args: T::Array[T::Array[T.any(String, Symbol, ::ActiveSupport::Multibyte::Chars, T::Boolean, BigDecimal, Numeric, ::ActiveRecord::Type::Binary::Data, ::ActiveRecord::Type::Time::Value, Date, Time, ::ActiveSupport::Duration, T::Class[T.anything])]]
       ).returns(T::Enumerable[::UserItemStatus])
     end
     sig do
@@ -150,6 +219,12 @@ class UserItemStatus
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
       ).returns(::UserItemStatus)
@@ -158,12 +233,24 @@ class UserItemStatus
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
       ).returns(::UserItemStatus)
     end
     def find_or_create_by!(attributes, &block); end
 
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -181,7 +268,7 @@ class UserItemStatus
     sig { params(arg: T.untyped, args: T.untyped).returns(::UserItemStatus) }
     def find_sole_by(arg, *args); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::UserItemStatus)) }
+    sig { returns(T.nilable(::UserItemStatus)) }
     sig { params(limit: Integer).returns(T::Array[::UserItemStatus]) }
     def first(limit = nil); end
 
@@ -200,7 +287,7 @@ class UserItemStatus
     sig { returns(::UserItemStatus) }
     def fourth!; end
 
-    sig { returns(Array) }
+    sig { returns(T::Array[T.untyped]) }
     def ids; end
 
     sig do
@@ -211,6 +298,7 @@ class UserItemStatus
         load: T.untyped,
         error_on_ignore: T.untyped,
         order: Symbol,
+        use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
       ).void
     end
@@ -221,15 +309,16 @@ class UserItemStatus
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
-        order: Symbol
+        order: Symbol,
+        use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::UserItemStatus)) }
+    sig { returns(T.nilable(::UserItemStatus)) }
     sig { params(limit: Integer).returns(T::Array[::UserItemStatus]) }
     def last(limit = nil); end
 
@@ -248,6 +337,13 @@ class UserItemStatus
     sig { params(column_name: T.any(String, Symbol)).returns(T.untyped) }
     def minimum(column_name); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::UserItemStatus).void)).returns(::UserItemStatus) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::UserItemStatus).void)
+      ).returns(T::Array[::UserItemStatus])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -293,7 +389,7 @@ class UserItemStatus
     end
     def sum(initial_value_or_column = nil, &block); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::UserItemStatus)) }
+    sig { returns(T.nilable(::UserItemStatus)) }
     sig { params(limit: Integer).returns(T::Array[::UserItemStatus]) }
     def take(limit = nil); end
 
@@ -350,11 +446,23 @@ class UserItemStatus
     sig { params(value: T.nilable(::Tenant)).void }
     def tenant=(value); end
 
+    sig { returns(T::Boolean) }
+    def tenant_changed?; end
+
+    sig { returns(T::Boolean) }
+    def tenant_previously_changed?; end
+
     sig { returns(T.nilable(::User)) }
     def user; end
 
     sig { params(value: T.nilable(::User)).void }
     def user=(value); end
+
+    sig { returns(T::Boolean) }
+    def user_changed?; end
+
+    sig { returns(T::Boolean) }
+    def user_previously_changed?; end
   end
 
   module GeneratedAssociationRelationMethods
@@ -366,6 +474,9 @@ class UserItemStatus
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def create_with(*args, &blk); end
@@ -403,40 +514,6 @@ class UserItemStatus
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def includes(*args, &blk); end
 
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert!(attributes, returning: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert_all(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert_all!(attributes, returning: nil); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def invert_where(*args, &blk); end
 
@@ -466,6 +543,9 @@ class UserItemStatus
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def not_voted(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def null_relation?(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def offset(*args, &blk); end
@@ -498,6 +578,9 @@ class UserItemStatus
     def references(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def regroup(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def reorder(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -509,7 +592,12 @@ class UserItemStatus
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def rewhere(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
+    sig do
+      params(
+        blk: T.proc.params(record: ::UserItemStatus).returns(BasicObject)
+      ).returns(T::Array[::UserItemStatus])
+    end
     def select(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -527,29 +615,18 @@ class UserItemStatus
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def unscope(*args, &blk); end
 
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def upsert(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def upsert_all(attributes, returning: nil, unique_by: nil); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def voted(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelationWhereChain) }
-    def where(*args, &blk); end
+    sig { returns(PrivateAssociationRelationWhereChain) }
+    sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
+    def where(*args); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with_recursive(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def without(*args, &blk); end
@@ -580,7 +657,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def has_read_change_to_be_saved; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def has_read_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -589,7 +666,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def has_read_previous_change; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def has_read_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -625,7 +702,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def has_voted_change_to_be_saved; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def has_voted_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -634,7 +711,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def has_voted_previous_change; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def has_voted_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -646,16 +723,16 @@ class UserItemStatus
     sig { void }
     def has_voted_will_change!; end
 
-    sig { returns(T.untyped) }
+    sig { returns([::String, ::String]) }
     def id; end
 
-    sig { params(value: T.untyped).returns(T.untyped) }
+    sig { params(value: [::String, ::String]).returns([::String, ::String]) }
     def id=(value); end
 
     sig { returns(T::Boolean) }
     def id?; end
 
-    sig { returns(T.untyped) }
+    sig { returns(T.nilable([::String, ::String])) }
     def id_before_last_save; end
 
     sig { returns(T.untyped) }
@@ -664,28 +741,73 @@ class UserItemStatus
     sig { returns(T::Boolean) }
     def id_came_from_user?; end
 
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    sig { returns(T.nilable([[::String, ::String], [::String, ::String]])) }
     def id_change; end
 
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    sig { returns(T.nilable([[::String, ::String], [::String, ::String]])) }
     def id_change_to_be_saved; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T.untyped) }
+    sig { returns(T.nilable([::String, ::String])) }
     def id_in_database; end
 
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    sig { returns(T.nilable([[::String, ::String], [::String, ::String]])) }
     def id_previous_change; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T.untyped) }
+    sig { returns(T.nilable([::String, ::String])) }
     def id_previously_was; end
 
+    sig { returns(::String) }
+    def id_value; end
+
+    sig { params(value: ::String).returns(::String) }
+    def id_value=(value); end
+
+    sig { returns(T::Boolean) }
+    def id_value?; end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_before_last_save; end
+
     sig { returns(T.untyped) }
+    def id_value_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def id_value_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def id_value_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def id_value_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_was; end
+
+    sig { void }
+    def id_value_will_change!; end
+
+    sig { returns(T.nilable([::String, ::String])) }
     def id_was; end
 
     sig { void }
@@ -715,7 +837,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def is_creator_change_to_be_saved; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def is_creator_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -724,7 +846,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def is_creator_previous_change; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def is_creator_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -760,7 +882,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def is_mentioned_change_to_be_saved; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def is_mentioned_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -769,7 +891,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def is_mentioned_previous_change; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def is_mentioned_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -805,7 +927,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def is_participating_change_to_be_saved; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def is_participating_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -814,7 +936,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def is_participating_previous_change; end
 
-    sig { params(from: T.nilable(T::Boolean), to: T.nilable(T::Boolean)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def is_participating_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(T::Boolean)) }
@@ -850,7 +972,7 @@ class UserItemStatus
     sig { returns(T.nilable([::String, ::String])) }
     def item_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def item_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -859,7 +981,7 @@ class UserItemStatus
     sig { returns(T.nilable([::String, ::String])) }
     def item_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def item_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -895,7 +1017,7 @@ class UserItemStatus
     sig { returns(T.nilable([::String, ::String])) }
     def item_type_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def item_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -904,7 +1026,7 @@ class UserItemStatus
     sig { returns(T.nilable([::String, ::String])) }
     def item_type_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def item_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -940,12 +1062,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def last_viewed_at_change_to_be_saved; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def last_viewed_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -954,12 +1071,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def last_viewed_at_previous_change; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def last_viewed_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -995,12 +1107,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def participated_at_change_to_be_saved; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def participated_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1009,12 +1116,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def participated_at_previous_change; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def participated_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1050,12 +1152,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def read_at_change_to_be_saved; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def read_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1064,12 +1161,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def read_at_previous_change; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def read_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1089,6 +1181,9 @@ class UserItemStatus
 
     sig { void }
     def restore_id!; end
+
+    sig { void }
+    def restore_id_value!; end
 
     sig { void }
     def restore_is_creator!; end
@@ -1126,86 +1221,92 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def saved_change_to_has_read; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_has_read?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_has_read?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def saved_change_to_has_voted; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_has_voted?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_has_voted?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    sig { returns(T.nilable([[::String, ::String], [::String, ::String]])) }
     def saved_change_to_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_id_value; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def saved_change_to_is_creator; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_is_creator?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_is_creator?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def saved_change_to_is_mentioned; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_is_mentioned?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_is_mentioned?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(T::Boolean), T.nilable(T::Boolean)])) }
     def saved_change_to_is_participating; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_is_participating?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_is_participating?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_item_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_item_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_item_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_item_type; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_item_type?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_item_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_last_viewed_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_last_viewed_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_last_viewed_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_participated_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_participated_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_participated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_read_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_read_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_read_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_tenant_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_user_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_user_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_voted_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_voted_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_voted_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1231,7 +1332,7 @@ class UserItemStatus
     sig { returns(T.nilable([::String, ::String])) }
     def tenant_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def tenant_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1240,7 +1341,7 @@ class UserItemStatus
     sig { returns(T.nilable([::String, ::String])) }
     def tenant_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def tenant_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1276,7 +1377,7 @@ class UserItemStatus
     sig { returns(T.nilable([::String, ::String])) }
     def user_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def user_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1285,7 +1386,7 @@ class UserItemStatus
     sig { returns(T.nilable([::String, ::String])) }
     def user_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def user_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1321,12 +1422,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def voted_at_change_to_be_saved; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def voted_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1335,12 +1431,7 @@ class UserItemStatus
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def voted_at_previous_change; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def voted_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1352,47 +1443,50 @@ class UserItemStatus
     sig { void }
     def voted_at_will_change!; end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_has_read?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_has_read?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_has_voted?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_has_voted?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_is_creator?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_is_mentioned?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_is_creator?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_is_participating?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_is_mentioned?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_item_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_is_participating?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_item_type?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_item_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_last_viewed_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_item_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_participated_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_last_viewed_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_read_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_participated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_tenant_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_read_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_user_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_voted_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_voted_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
   end
 
   module GeneratedRelationMethods
@@ -1404,6 +1498,9 @@ class UserItemStatus
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def create_with(*args, &blk); end
@@ -1472,6 +1569,9 @@ class UserItemStatus
     def not_voted(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def null_relation?(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def offset(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1502,6 +1602,9 @@ class UserItemStatus
     def references(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def regroup(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def reorder(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1513,7 +1616,12 @@ class UserItemStatus
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def rewhere(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    sig { params(args: T.untyped).returns(PrivateRelation) }
+    sig do
+      params(
+        blk: T.proc.params(record: ::UserItemStatus).returns(BasicObject)
+      ).returns(T::Array[::UserItemStatus])
+    end
     def select(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1534,8 +1642,15 @@ class UserItemStatus
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def voted(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelationWhereChain) }
-    def where(*args, &blk); end
+    sig { returns(PrivateRelationWhereChain) }
+    sig { params(args: T.untyped).returns(PrivateRelation) }
+    def where(*args); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with_recursive(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def without(*args, &blk); end
@@ -1580,6 +1695,9 @@ class UserItemStatus
     sig { params(column_name: T.any(String, Symbol)).returns(T::Hash[T.untyped, T.untyped]) }
     def minimum(column_name); end
 
+    sig { returns(T::Hash[T.untyped, Integer]) }
+    def size; end
+
     sig do
       params(
         column_name: T.nilable(T.any(String, Symbol)),
@@ -1589,7 +1707,7 @@ class UserItemStatus
     def sum(column_name = nil, &block); end
   end
 
-  class PrivateAssociationRelationWhereChain < PrivateAssociationRelation
+  class PrivateAssociationRelationWhereChain
     Elem = type_member { { fixed: ::UserItemStatus } }
 
     sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
@@ -1631,20 +1749,6 @@ class UserItemStatus
       ).returns(PrivateCollectionProxy)
     end
     def concat(*records); end
-
-    sig do
-      params(
-        records: T.any(::UserItemStatus, Integer, String, T::Enumerable[T.any(::UserItemStatus, Integer, String, T::Enumerable[::UserItemStatus])])
-      ).returns(T::Array[::UserItemStatus])
-    end
-    def delete(*records); end
-
-    sig do
-      params(
-        records: T.any(::UserItemStatus, Integer, String, T::Enumerable[T.any(::UserItemStatus, Integer, String, T::Enumerable[::UserItemStatus])])
-      ).returns(T::Array[::UserItemStatus])
-    end
-    def destroy(*records); end
 
     sig { returns(T::Array[::UserItemStatus]) }
     def load_target; end
@@ -1722,6 +1826,9 @@ class UserItemStatus
     sig { params(column_name: T.any(String, Symbol)).returns(T::Hash[T.untyped, T.untyped]) }
     def minimum(column_name); end
 
+    sig { returns(T::Hash[T.untyped, Integer]) }
+    def size; end
+
     sig do
       params(
         column_name: T.nilable(T.any(String, Symbol)),
@@ -1731,7 +1838,7 @@ class UserItemStatus
     def sum(column_name = nil, &block); end
   end
 
-  class PrivateRelationWhereChain < PrivateRelation
+  class PrivateRelationWhereChain
     Elem = type_member { { fixed: ::UserItemStatus } }
 
     sig { params(args: T.untyped).returns(PrivateRelation) }

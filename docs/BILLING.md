@@ -128,7 +128,7 @@ Billing is enforced at multiple layers:
 | Agent creation | `AiAgentsController` | Requires billing confirmation checkbox. If no active subscription, agent created as pending. |
 | Collective creation | `CollectivesController` | Requires billing confirmation checkbox. If no active subscription, collective created as pending. |
 | Resource deactivation/reactivation | `BillingController` | Centralized on `/billing` page with confirmation |
-| Task execution | `AgentQueueProcessorJob` | Fails if agent archived, suspended, pending billing, or billing customer inactive |
+| Task execution | `AgentRunnerDispatchService` + agent-runner preflight | Fails if agent archived, suspended, pending billing, or billing customer inactive |
 | Automation execution | `AutomationExecutor` | Fails if agent archived, suspended, pending billing, or billing customer inactive |
 | API access | `User#archive!` / `User#suspend!` | Revokes API tokens, blocking external agent access |
 | Reconciliation | `BillingReconciliationJob` | Daily job corrects quantity drift and recovers stuck pending resources |

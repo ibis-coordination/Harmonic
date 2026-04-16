@@ -19,7 +19,7 @@ module GeneratedPathHelpersModule
   def activate_api_app_admin_tenant_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def add_to_studio_user_path(*args); end
+  def add_to_collective_user_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def admin_path(*args); end
@@ -68,6 +68,12 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def api_app_admin_tenants_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_collective_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def api_v1_collectives_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def api_v1_commitment_join_path(*args); end
@@ -142,12 +148,6 @@ module GeneratedPathHelpersModule
   def api_v1_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def api_v1_studio_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def api_v1_studios_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def api_v1_user_api_token_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -187,7 +187,49 @@ module GeneratedPathHelpersModule
   def auth_failure_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def billing_deactivate_agent_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def billing_deactivate_collective_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def billing_portal_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def billing_reactivate_agent_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def billing_reactivate_collective_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def billing_setup_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def billing_show_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def billing_topup_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def cancel_ai_agent_run_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def collectives_actions_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def collectives_available_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def collectives_new_actions_create_collective_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def collectives_new_actions_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def collectives_new_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def collectives_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def commit_actions_create_commitment_path(*args); end
@@ -301,6 +343,9 @@ module GeneratedPathHelpersModule
   def edit_ai_agent_automation_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def edit_api_v1_collective_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_commitment_participant_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -331,16 +376,10 @@ module GeneratedPathHelpersModule
   def edit_api_v1_note_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def edit_api_v1_studio_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_user_api_token_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def edit_api_v1_user_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def edit_rails_conductor_inbound_email_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def healthcheck_path(*args); end
@@ -356,6 +395,9 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def incoming_webhook_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def internal_agent_runner_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def learn_acceptance_voting_path(*args); end
@@ -377,45 +419,6 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def learn_superagency_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_actions_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_security_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_settings_actions_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_settings_actions_update_tenant_settings_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_settings_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_sidekiq_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_tenants_new_actions_create_tenant_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_tenants_new_actions_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_tenants_new_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_tenants_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_user_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def legacy_admin_users_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def login_callback_path(*args); end
@@ -448,6 +451,9 @@ module GeneratedPathHelpersModule
   def new_ai_agent_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
+  def new_api_v1_collective_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
   def new_api_v1_commitment_participant_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
@@ -476,9 +482,6 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def new_api_v1_note_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def new_api_v1_studio_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def new_api_v1_user_api_token_path(*args); end
@@ -556,7 +559,7 @@ module GeneratedPathHelpersModule
   def notifications_actions_dismiss_all_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def notifications_actions_dismiss_for_studio_path(*args); end
+  def notifications_actions_dismiss_for_collective_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def notifications_actions_dismiss_path(*args); end
@@ -578,6 +581,12 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def password_resets_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def preview_view_component_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def preview_view_components_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def rails_blob_path(*args); end
@@ -655,7 +664,7 @@ module GeneratedPathHelpersModule
   def rails_storage_redirect_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def remove_from_studio_user_path(*args); end
+  def remove_from_collective_user_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def represent_user_path(*args); end
@@ -665,24 +674,6 @@ module GeneratedPathHelpersModule
 
   sig { params(args: T.untyped).returns(String) }
   def root_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def scenes_actions_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def scenes_available_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def scenes_new_actions_create_studio_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def scenes_new_actions_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def scenes_new_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def scenes_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def search_actions_path(*args); end
@@ -730,25 +721,16 @@ module GeneratedPathHelpersModule
   def settings_user_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def studios_actions_path(*args); end
+  def stripe_webhooks_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
-  def studios_available_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def studios_new_actions_create_studio_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def studios_new_actions_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def studios_new_path(*args); end
-
-  sig { params(args: T.untyped).returns(String) }
-  def studios_path(*args); end
+  def subdomains_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def suspend_api_app_admin_tenant_path(*args); end
+
+  sig { params(args: T.untyped).returns(String) }
+  def system_admin_agent_runner_path(*args); end
 
   sig { params(args: T.untyped).returns(String) }
   def system_admin_path(*args); end

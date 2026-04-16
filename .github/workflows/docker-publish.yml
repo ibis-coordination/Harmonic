@@ -14,6 +14,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  AGENT_RUNNER_IMAGE_NAME: ${{ github.repository }}-agent-runner
 
 jobs:
   build-and-push:
@@ -38,7 +39,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for Docker
+      - name: Extract metadata for Docker (Rails)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -50,7 +51,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image (Rails)
         id: build
         uses: docker/build-push-action@v5
         with:
@@ -63,9 +64,41 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
 
-      - name: Generate artifact attestation
+      - name: Generate artifact attestation (Rails)
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Extract metadata for Docker (agent-runner)
+        id: meta_agent_runner
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.AGENT_RUNNER_IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Build and push Docker image (agent-runner)
+        id: build_agent_runner
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agent-runner
+          file: ./agent-runner/Dockerfile
+          push: true
+          tags: ${{ steps.meta_agent_runner.outputs.tags }}
+          labels: ${{ steps.meta_agent_runner.outputs.labels }}
+          cache-from: type=gha,scope=agent-runner
+          cache-to: type=gha,mode=max,scope=agent-runner
+          platforms: linux/amd64,linux/arm64
+
+      - name: Generate artifact attestation (agent-runner)
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.AGENT_RUNNER_IMAGE_NAME }}
+          subject-digest: ${{ steps.build_agent_runner.outputs.digest }}
           push-to-registry: true

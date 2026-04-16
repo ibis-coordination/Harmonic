@@ -162,11 +162,8 @@ class AiAgentsController < ApplicationController
       max_steps: max_steps
     )
 
-    # Enqueue background job to process the task
-    AgentQueueProcessorJob.perform_later(
-      ai_agent_id: @ai_agent.id,
-      tenant_id: current_tenant.id
-    )
+    # Dispatch to the agent-runner service via Redis stream
+    AgentRunnerDispatchService.dispatch(@task_run)
 
     respond_to do |format|
       format.html { redirect_to ai_agent_run_path(@ai_agent.handle, @task_run.id) }
@@ -242,11 +239,9 @@ class AiAgentsController < ApplicationController
       completed_at: Time.current
     )
 
-    # Trigger job to pick up any remaining queued tasks
-    AgentQueueProcessorJob.perform_later(
-      ai_agent_id: @ai_agent.id,
-      tenant_id: current_tenant.id
-    )
+    # No re-enqueue needed: every queued task is already published to the
+    # agent-runner stream at creation time. agent-runner's per-agent lock
+    # means sibling queued tasks will be picked up as the current one finishes.
 
     respond_to do |format|
       format.html do

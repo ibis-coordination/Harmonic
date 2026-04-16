@@ -17,6 +17,10 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
       status: "queued",
     )
 
+    # Save and override the secret for this test's HMAC signatures.
+    # test_helper sets a default; we restore it in teardown so other tests
+    # that dispatch via AgentRunnerDispatchService don't see an empty value.
+    @previous_secret = ENV["AGENT_RUNNER_SECRET"]
     @secret = "test-secret-for-hmac"
     ENV["AGENT_RUNNER_SECRET"] = @secret
 
@@ -29,7 +33,11 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("AGENT_RUNNER_SECRET")
+    if @previous_secret.nil?
+      ENV.delete("AGENT_RUNNER_SECRET")
+    else
+      ENV["AGENT_RUNNER_SECRET"] = @previous_secret
+    end
   end
 
   # --- HMAC Verification ---

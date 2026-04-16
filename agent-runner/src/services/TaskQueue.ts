@@ -104,38 +104,53 @@ export const TaskQueueLive = Layer.effect(
           new RedisError({ message: error instanceof Error ? error.message : String(error) }),
       });
 
+    // Recreate the consumer group if Redis reports it is missing. This happens
+    // if the stream or group is deleted out from under us (ops cleanup, a
+    // debug `redis.del`, Redis flush). Without this, the runner would spin in
+    // a tight NOGROUP error loop indefinitely.
+    const readOnce = async (): Promise<StreamEntry | null> => {
+      const r = getRedis();
+      const results = await r.xreadgroup(
+        "GROUP", config.consumerGroup, config.consumerName,
+        "COUNT", 1,
+        "BLOCK", 5000,
+        "STREAMS", config.streamName, ">",
+      );
+
+      if (results === null || results.length === 0) return null;
+      const stream = results[0] as [string, Array<[string, string[]]>] | undefined;
+      if (stream === undefined) return null;
+      const entries = stream[1];
+      if (entries === undefined || entries.length === 0) return null;
+      const entry = entries[0];
+      if (entry === undefined) return null;
+      const [id, fields] = entry;
+      if (id === undefined || fields === undefined) return null;
+      const task = parseStreamEntry(fields);
+      if (task === null) return null;
+      return { id, task } satisfies StreamEntry;
+    };
+
     const read: TaskQueueService["read"] = () =>
       Effect.tryPromise({
         try: async () => {
-          const r = getRedis();
-          // Block for up to 5 seconds waiting for new messages
-          const results = await r.xreadgroup(
-            "GROUP", config.consumerGroup, config.consumerName,
-            "COUNT", 1,
-            "BLOCK", 5000,
-            "STREAMS", config.streamName, ">",
-          );
-
-          if (results === null || results.length === 0) {
-            return null;
+          try {
+            return await readOnce();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (message.includes("NOGROUP")) {
+              console.warn(`[AgentRunner] Consumer group missing, recreating: ${message}`);
+              const r = getRedis();
+              await r.xgroup("CREATE", config.streamName, config.consumerGroup, "0", "MKSTREAM")
+                .catch((e: unknown) => {
+                  // BUSYGROUP = someone else created it concurrently — fine.
+                  const m = e instanceof Error ? e.message : String(e);
+                  if (!m.includes("BUSYGROUP")) throw e;
+                });
+              return await readOnce();
+            }
+            throw err;
           }
-
-          const stream = results[0] as [string, Array<[string, string[]]>] | undefined;
-          if (stream === undefined) return null;
-
-          const entries = stream[1];
-          if (entries === undefined || entries.length === 0) return null;
-
-          const entry = entries[0];
-          if (entry === undefined) return null;
-
-          const [id, fields] = entry;
-          if (id === undefined || fields === undefined) return null;
-
-          const task = parseStreamEntry(fields);
-          if (task === null) return null;
-
-          return { id, task } satisfies StreamEntry;
         },
         catch: (error) =>
           new RedisError({ message: error instanceof Error ? error.message : String(error) }),

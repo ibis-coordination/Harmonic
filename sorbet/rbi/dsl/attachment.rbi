@@ -22,6 +22,16 @@ class Attachment
   sig { returns(NilClass) }
   def to_ary; end
 
+  class << self
+    sig do
+      params(
+        attributes: T.untyped,
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(::Attachment)
+    end
+    def new(attributes = nil, &block); end
+  end
+
   module CommonRelationMethods
     sig { params(block: T.nilable(T.proc.params(record: ::Attachment).returns(T.untyped))).returns(T::Boolean) }
     def any?(&block); end
@@ -29,6 +39,13 @@ class Attachment
     sig { params(column_name: T.any(String, Symbol)).returns(T.any(Integer, Float, BigDecimal)) }
     def average(column_name); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::Attachment).void)).returns(::Attachment) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -44,6 +61,13 @@ class Attachment
     sig { params(column_name: NilClass, block: T.proc.params(object: ::Attachment).void).returns(Integer) }
     def count(column_name = nil, &block); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::Attachment).void)).returns(::Attachment) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -52,6 +76,13 @@ class Attachment
     end
     def create(attributes = nil, &block); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::Attachment).void)).returns(::Attachment) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -62,6 +93,12 @@ class Attachment
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::Attachment).void)
       ).returns(::Attachment)
@@ -70,14 +107,46 @@ class Attachment
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::Attachment).void)
       ).returns(::Attachment)
     end
     def create_or_find_by!(attributes, &block); end
 
+    sig do
+      params(
+        records: T.any(::Attachment, Integer, String, T::Enumerable[T.any(::Attachment, Integer, String, T::Enumerable[::Attachment])])
+      ).returns(Integer)
+    end
+    def delete(*records); end
+
+    sig { returns(Integer) }
+    def delete_all; end
+
+    sig { params(args: T.untyped).returns(Integer) }
+    def delete_by(args); end
+
+    sig do
+      params(
+        records: T.any(::Attachment, Integer, String, T::Enumerable[T.any(::Attachment, Integer, String, T::Enumerable[::Attachment])])
+      ).returns(T::Array[::Attachment])
+    end
+    def destroy(*records); end
+
     sig { returns(T::Array[::Attachment]) }
     def destroy_all; end
+
+    sig { returns(T::Array[::Attachment]) }
+    def destroy_all; end
+
+    sig { params(args: T.untyped).returns(T::Array[::Attachment]) }
+    def destroy_by(args); end
 
     sig { params(conditions: T.untyped).returns(T::Boolean) }
     def exists?(conditions = :none); end
@@ -151,6 +220,12 @@ class Attachment
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::Attachment).void)
       ).returns(::Attachment)
@@ -159,12 +234,24 @@ class Attachment
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::Attachment).void)
       ).returns(::Attachment)
     end
     def find_or_create_by!(attributes, &block); end
 
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -182,7 +269,7 @@ class Attachment
     sig { params(arg: T.untyped, args: T.untyped).returns(::Attachment) }
     def find_sole_by(arg, *args); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::Attachment)) }
+    sig { returns(T.nilable(::Attachment)) }
     sig { params(limit: Integer).returns(T::Array[::Attachment]) }
     def first(limit = nil); end
 
@@ -201,7 +288,7 @@ class Attachment
     sig { returns(::Attachment) }
     def fourth!; end
 
-    sig { returns(Array) }
+    sig { returns(T::Array[::String]) }
     def ids; end
 
     sig do
@@ -212,6 +299,7 @@ class Attachment
         load: T.untyped,
         error_on_ignore: T.untyped,
         order: Symbol,
+        use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
       ).void
     end
@@ -222,15 +310,16 @@ class Attachment
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
-        order: Symbol
+        order: Symbol,
+        use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::Attachment)) }
+    sig { returns(T.nilable(::Attachment)) }
     sig { params(limit: Integer).returns(T::Array[::Attachment]) }
     def last(limit = nil); end
 
@@ -249,6 +338,13 @@ class Attachment
     sig { params(column_name: T.any(String, Symbol)).returns(T.untyped) }
     def minimum(column_name); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::Attachment).void)).returns(::Attachment) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::Attachment).void)
+      ).returns(T::Array[::Attachment])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -294,7 +390,7 @@ class Attachment
     end
     def sum(initial_value_or_column = nil, &block); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::Attachment)) }
+    sig { returns(T.nilable(::Attachment)) }
     sig { params(limit: Integer).returns(T::Array[::Attachment]) }
     def take(limit = nil); end
 
@@ -321,6 +417,12 @@ class Attachment
     sig { params(value: T.untyped).void }
     def attachable=(value); end
 
+    sig { returns(T::Boolean) }
+    def attachable_changed?; end
+
+    sig { returns(T::Boolean) }
+    def attachable_previously_changed?; end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
     def build_collective(*args, &blk); end
 
@@ -344,6 +446,12 @@ class Attachment
 
     sig { params(value: T.nilable(::Collective)).void }
     def collective=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_changed?; end
+
+    sig { returns(T::Boolean) }
+    def collective_previously_changed?; end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
     def create_collective(*args, &blk); end
@@ -386,6 +494,12 @@ class Attachment
 
     sig { params(value: T.nilable(::User)).void }
     def created_by=(value); end
+
+    sig { returns(T::Boolean) }
+    def created_by_changed?; end
+
+    sig { returns(T::Boolean) }
+    def created_by_previously_changed?; end
 
     sig { returns(T.nilable(::ActiveStorage::Attachment)) }
     def file_attachment; end
@@ -447,11 +561,23 @@ class Attachment
     sig { params(value: T.nilable(::Tenant)).void }
     def tenant=(value); end
 
+    sig { returns(T::Boolean) }
+    def tenant_changed?; end
+
+    sig { returns(T::Boolean) }
+    def tenant_previously_changed?; end
+
     sig { returns(T.nilable(::User)) }
     def updated_by; end
 
     sig { params(value: T.nilable(::User)).void }
     def updated_by=(value); end
+
+    sig { returns(T::Boolean) }
+    def updated_by_changed?; end
+
+    sig { returns(T::Boolean) }
+    def updated_by_previously_changed?; end
   end
 
   module GeneratedAssociationRelationMethods
@@ -463,6 +589,9 @@ class Attachment
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def create_with(*args, &blk); end
@@ -500,40 +629,6 @@ class Attachment
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def includes(*args, &blk); end
 
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert!(attributes, returning: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert_all(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert_all!(attributes, returning: nil); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def invert_where(*args, &blk); end
 
@@ -557,6 +652,9 @@ class Attachment
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def none(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def null_relation?(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def offset(*args, &blk); end
@@ -583,6 +681,9 @@ class Attachment
     def references(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def regroup(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def reorder(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -594,7 +695,8 @@ class Attachment
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def rewhere(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
+    sig { params(blk: T.proc.params(record: ::Attachment).returns(BasicObject)).returns(T::Array[::Attachment]) }
     def select(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -609,29 +711,18 @@ class Attachment
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def unscope(*args, &blk); end
 
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def upsert(attributes, returning: nil, unique_by: nil); end
+    sig { returns(PrivateAssociationRelationWhereChain) }
+    sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
+    def where(*args); end
 
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def upsert_all(attributes, returning: nil, unique_by: nil); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelationWhereChain) }
-    def where(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def with_attached_file(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with_recursive(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def without(*args, &blk); end
@@ -662,7 +753,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def attachable_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def attachable_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -671,7 +762,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def attachable_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def attachable_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -707,7 +798,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def attachable_type_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def attachable_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -716,7 +807,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def attachable_type_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def attachable_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -752,7 +843,7 @@ class Attachment
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def byte_size_change_to_be_saved; end
 
-    sig { params(from: ::Integer, to: ::Integer).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def byte_size_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -761,7 +852,7 @@ class Attachment
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def byte_size_previous_change; end
 
-    sig { params(from: ::Integer, to: ::Integer).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def byte_size_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -797,7 +888,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def collective_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -806,7 +897,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def collective_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -842,7 +933,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def content_type_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def content_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -851,7 +942,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def content_type_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def content_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -887,7 +978,7 @@ class Attachment
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def created_at_change_to_be_saved; end
 
-    sig { params(from: ::ActiveSupport::TimeWithZone, to: ::ActiveSupport::TimeWithZone).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def created_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -896,7 +987,7 @@ class Attachment
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def created_at_previous_change; end
 
-    sig { params(from: ::ActiveSupport::TimeWithZone, to: ::ActiveSupport::TimeWithZone).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def created_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -932,7 +1023,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def created_by_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def created_by_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -941,7 +1032,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def created_by_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def created_by_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -977,7 +1068,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -986,11 +1077,56 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
     def id_previously_was; end
+
+    sig { returns(::String) }
+    def id_value; end
+
+    sig { params(value: ::String).returns(::String) }
+    def id_value=(value); end
+
+    sig { returns(T::Boolean) }
+    def id_value?; end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def id_value_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def id_value_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def id_value_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def id_value_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_was; end
+
+    sig { void }
+    def id_value_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def id_was; end
@@ -1022,7 +1158,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def name_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def name_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1031,7 +1167,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def name_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def name_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1068,6 +1204,9 @@ class Attachment
     def restore_id!; end
 
     sig { void }
+    def restore_id_value!; end
+
+    sig { void }
     def restore_name!; end
 
     sig { void }
@@ -1082,74 +1221,80 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_attachable_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_attachable_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_attachable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_attachable_type; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_attachable_type?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_attachable_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def saved_change_to_byte_size; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_byte_size?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_byte_size?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_collective_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_collective_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_content_type; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_content_type?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_content_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_created_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_created_by_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_created_by_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_created_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_id_value; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_name; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_name?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_tenant_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_updated_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_updated_by_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_updated_by_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_updated_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1175,7 +1320,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def tenant_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def tenant_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1184,7 +1329,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def tenant_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def tenant_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1220,7 +1365,7 @@ class Attachment
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def updated_at_change_to_be_saved; end
 
-    sig { params(from: ::ActiveSupport::TimeWithZone, to: ::ActiveSupport::TimeWithZone).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def updated_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1229,7 +1374,7 @@ class Attachment
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def updated_at_previous_change; end
 
-    sig { params(from: ::ActiveSupport::TimeWithZone, to: ::ActiveSupport::TimeWithZone).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def updated_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1265,7 +1410,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def updated_by_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def updated_by_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1274,7 +1419,7 @@ class Attachment
     sig { returns(T.nilable([::String, ::String])) }
     def updated_by_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def updated_by_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1286,41 +1431,44 @@ class Attachment
     sig { void }
     def updated_by_id_will_change!; end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_attachable_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_attachable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_attachable_type?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_attachable_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_byte_size?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_byte_size?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_collective_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_content_type?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_content_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_created_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_created_by_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_created_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_name?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_tenant_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_updated_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_updated_by_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_updated_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
   end
 
   module GeneratedRelationMethods
@@ -1332,6 +1480,9 @@ class Attachment
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def create_with(*args, &blk); end
@@ -1394,6 +1545,9 @@ class Attachment
     def none(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def null_relation?(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def offset(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1418,6 +1572,9 @@ class Attachment
     def references(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def regroup(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def reorder(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1429,7 +1586,8 @@ class Attachment
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def rewhere(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    sig { params(args: T.untyped).returns(PrivateRelation) }
+    sig { params(blk: T.proc.params(record: ::Attachment).returns(BasicObject)).returns(T::Array[::Attachment]) }
     def select(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1444,11 +1602,18 @@ class Attachment
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def unscope(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelationWhereChain) }
-    def where(*args, &blk); end
+    sig { returns(PrivateRelationWhereChain) }
+    sig { params(args: T.untyped).returns(PrivateRelation) }
+    def where(*args); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def with_attached_file(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with_recursive(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def without(*args, &blk); end
@@ -1493,6 +1658,9 @@ class Attachment
     sig { params(column_name: T.any(String, Symbol)).returns(T::Hash[T.untyped, T.untyped]) }
     def minimum(column_name); end
 
+    sig { returns(T::Hash[T.untyped, Integer]) }
+    def size; end
+
     sig do
       params(
         column_name: T.nilable(T.any(String, Symbol)),
@@ -1502,7 +1670,7 @@ class Attachment
     def sum(column_name = nil, &block); end
   end
 
-  class PrivateAssociationRelationWhereChain < PrivateAssociationRelation
+  class PrivateAssociationRelationWhereChain
     Elem = type_member { { fixed: ::Attachment } }
 
     sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
@@ -1544,20 +1712,6 @@ class Attachment
       ).returns(PrivateCollectionProxy)
     end
     def concat(*records); end
-
-    sig do
-      params(
-        records: T.any(::Attachment, Integer, String, T::Enumerable[T.any(::Attachment, Integer, String, T::Enumerable[::Attachment])])
-      ).returns(T::Array[::Attachment])
-    end
-    def delete(*records); end
-
-    sig do
-      params(
-        records: T.any(::Attachment, Integer, String, T::Enumerable[T.any(::Attachment, Integer, String, T::Enumerable[::Attachment])])
-      ).returns(T::Array[::Attachment])
-    end
-    def destroy(*records); end
 
     sig { returns(T::Array[::Attachment]) }
     def load_target; end
@@ -1635,6 +1789,9 @@ class Attachment
     sig { params(column_name: T.any(String, Symbol)).returns(T::Hash[T.untyped, T.untyped]) }
     def minimum(column_name); end
 
+    sig { returns(T::Hash[T.untyped, Integer]) }
+    def size; end
+
     sig do
       params(
         column_name: T.nilable(T.any(String, Symbol)),
@@ -1644,7 +1801,7 @@ class Attachment
     def sum(column_name = nil, &block); end
   end
 
-  class PrivateRelationWhereChain < PrivateRelation
+  class PrivateRelationWhereChain
     Elem = type_member { { fixed: ::Attachment } }
 
     sig { params(args: T.untyped).returns(PrivateRelation) }

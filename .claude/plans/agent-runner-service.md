@@ -727,10 +727,11 @@ With harmonic-agent gone, the MCP server is the sole external agent interface. E
 - [ ] Confirm an unsigned request through the internal network returns **401** from `Internal::BaseController`.
 
 **Rollout:**
-- [ ] Deploy agent-runner alongside existing Sidekiq `AgentQueueProcessorJob`.
-- [ ] Flip feature flag (dispatch to agent-runner vs. Sidekiq — per tenant, then global) and monitor.
-- [ ] Validate results match the Sidekiq path: same steps, same resource tracking, same billing attribution.
-- [ ] Once stable, remove the Sidekiq path (Phase 2 cleanup).
+- [ ] Confirm `ghcr.io/ibis-coordination/harmonic-agent-runner` image is published for this version (docker-publish workflow now builds it alongside the Rails image).
+- [ ] Deploy Rails + agent-runner together. Phase 2 removed the old `AgentQueueProcessorJob`, so there is no Sidekiq fallback — agent-runner must be healthy for any new tasks to run.
+- [ ] **Re-dispatch stale queued tasks**: run `docker compose exec web bundle exec rake agent_runner:redispatch_queued`. Any tasks left in `status=queued` from before the cutover were never published to the Redis stream and will otherwise sit orphaned.
+- [ ] Validate: trigger a test task (via `/ai-agents/<handle>/runs` or an @ mention) and confirm it flows through agent-runner — check `/system-admin/agent-runner` for non-zero `totalTasksProcessed` and recent `lastTaskAt`, and confirm the task run shows steps + final message.
+- [ ] Monitor for billing-attribution parity (same `stripe_customer_id` stamped on task runs, same tokens counted).
 
 **Rollback:**
 - Flip the feature flag back to Sidekiq dispatch. Agent-runner can keep running — idle consumers are harmless.

@@ -17,26 +17,27 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
       status: "queued",
     )
 
-    ENV["AGENT_RUNNER_SECRET"] ||= "test-secret-for-dispatch"
+    # Save the default set by test_helper so we can restore it; any test that
+    # overrides AGENT_RUNNER_SECRET must restore this value, not delete the key.
+    @previous_agent_runner_secret = ENV["AGENT_RUNNER_SECRET"]
   end
 
   teardown do
-    ENV.delete("AGENT_RUNNER_SECRET") if ENV["AGENT_RUNNER_SECRET"] == "test-secret-for-dispatch"
+    if @previous_agent_runner_secret.nil?
+      ENV.delete("AGENT_RUNNER_SECRET")
+    else
+      ENV["AGENT_RUNNER_SECRET"] = @previous_agent_runner_secret
+    end
   end
 
   test "dispatches task to Redis Stream" do
     redis = Redis.new(url: ENV["REDIS_URL"])
-    # Clear stream
-    redis.del("agent_tasks")
-
     AgentRunnerDispatchService.dispatch(@task_run)
 
-    # Verify task is in stream
-    entries = redis.xrange("agent_tasks")
-    assert_equal 1, entries.length
-
-    fields = entries.first[1]
-    assert_equal @task_run.id, fields["task_run_id"]
+    # Don't assume an empty stream — other tests may share this Redis instance.
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry, "task run should have been added to the stream"
+    fields = entry[1]
     assert_equal "Test task", fields["task"]
     assert_equal @ai_agent.id, fields["agent_id"]
     assert_equal @tenant.subdomain, fields["tenant_subdomain"]
@@ -59,20 +60,20 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     ENV["AGENT_RUNNER_SECRET"] = "test-secret-for-crypto"
 
     redis = Redis.new(url: ENV["REDIS_URL"])
-    redis.del("agent_tasks")
-
     AgentRunnerDispatchService.dispatch(@task_run)
 
-    entries = redis.xrange("agent_tasks")
-    encrypted = entries.first[1]["encrypted_token"]
+    # Find the specific entry for this task_run (the stream may carry entries
+    # from other tests that ran under a different AGENT_RUNNER_SECRET).
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry, "task run should have been added to the stream"
+    encrypted = entry[1]["encrypted_token"]
     decrypted = AgentRunnerCrypto.decrypt(encrypted)
 
     # Should be a valid 40-char hex token
     assert_match(/\A[a-f0-9]{40}\z/, decrypted)
 
     redis.close
-  ensure
-    ENV.delete("AGENT_RUNNER_SECRET")
+    # teardown restores the secret to the test_helper default
   end
 
   test "fails task for suspended agent" do

@@ -15,6 +15,16 @@ class DecisionResult
   sig { returns(NilClass) }
   def to_ary; end
 
+  class << self
+    sig do
+      params(
+        attributes: T.untyped,
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(::DecisionResult)
+    end
+    def new(attributes = nil, &block); end
+  end
+
   module CommonRelationMethods
     sig { params(block: T.nilable(T.proc.params(record: ::DecisionResult).returns(T.untyped))).returns(T::Boolean) }
     def any?(&block); end
@@ -22,6 +32,13 @@ class DecisionResult
     sig { params(column_name: T.any(String, Symbol)).returns(T.any(Integer, Float, BigDecimal)) }
     def average(column_name); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::DecisionResult).void)).returns(::DecisionResult) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -37,6 +54,13 @@ class DecisionResult
     sig { params(column_name: NilClass, block: T.proc.params(object: ::DecisionResult).void).returns(Integer) }
     def count(column_name = nil, &block); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::DecisionResult).void)).returns(::DecisionResult) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -45,6 +69,13 @@ class DecisionResult
     end
     def create(attributes = nil, &block); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::DecisionResult).void)).returns(::DecisionResult) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -55,6 +86,12 @@ class DecisionResult
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::DecisionResult).void)
       ).returns(::DecisionResult)
@@ -63,14 +100,46 @@ class DecisionResult
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::DecisionResult).void)
       ).returns(::DecisionResult)
     end
     def create_or_find_by!(attributes, &block); end
 
+    sig do
+      params(
+        records: T.any(::DecisionResult, Integer, String, T::Enumerable[T.any(::DecisionResult, Integer, String, T::Enumerable[::DecisionResult])])
+      ).returns(Integer)
+    end
+    def delete(*records); end
+
+    sig { returns(Integer) }
+    def delete_all; end
+
+    sig { params(args: T.untyped).returns(Integer) }
+    def delete_by(args); end
+
+    sig do
+      params(
+        records: T.any(::DecisionResult, Integer, String, T::Enumerable[T.any(::DecisionResult, Integer, String, T::Enumerable[::DecisionResult])])
+      ).returns(T::Array[::DecisionResult])
+    end
+    def destroy(*records); end
+
     sig { returns(T::Array[::DecisionResult]) }
     def destroy_all; end
+
+    sig { returns(T::Array[::DecisionResult]) }
+    def destroy_all; end
+
+    sig { params(args: T.untyped).returns(T::Array[::DecisionResult]) }
+    def destroy_by(args); end
 
     sig { params(conditions: T.untyped).returns(T::Boolean) }
     def exists?(conditions = :none); end
@@ -149,6 +218,12 @@ class DecisionResult
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::DecisionResult).void)
       ).returns(::DecisionResult)
@@ -157,12 +232,24 @@ class DecisionResult
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::DecisionResult).void)
       ).returns(::DecisionResult)
     end
     def find_or_create_by!(attributes, &block); end
 
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -180,7 +267,7 @@ class DecisionResult
     sig { params(arg: T.untyped, args: T.untyped).returns(::DecisionResult) }
     def find_sole_by(arg, *args); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::DecisionResult)) }
+    sig { returns(T.nilable(::DecisionResult)) }
     sig { params(limit: Integer).returns(T::Array[::DecisionResult]) }
     def first(limit = nil); end
 
@@ -199,7 +286,7 @@ class DecisionResult
     sig { returns(::DecisionResult) }
     def fourth!; end
 
-    sig { returns(Array) }
+    sig { returns(T::Array[T.nilable(::String)]) }
     def ids; end
 
     sig do
@@ -210,6 +297,7 @@ class DecisionResult
         load: T.untyped,
         error_on_ignore: T.untyped,
         order: Symbol,
+        use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
       ).void
     end
@@ -220,15 +308,16 @@ class DecisionResult
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
-        order: Symbol
+        order: Symbol,
+        use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::DecisionResult)) }
+    sig { returns(T.nilable(::DecisionResult)) }
     sig { params(limit: Integer).returns(T::Array[::DecisionResult]) }
     def last(limit = nil); end
 
@@ -247,6 +336,13 @@ class DecisionResult
     sig { params(column_name: T.any(String, Symbol)).returns(T.untyped) }
     def minimum(column_name); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::DecisionResult).void)).returns(::DecisionResult) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::DecisionResult).void)
+      ).returns(T::Array[::DecisionResult])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -292,7 +388,7 @@ class DecisionResult
     end
     def sum(initial_value_or_column = nil, &block); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::DecisionResult)) }
+    sig { returns(T.nilable(::DecisionResult)) }
     sig { params(limit: Integer).returns(T::Array[::DecisionResult]) }
     def take(limit = nil); end
 
@@ -321,6 +417,9 @@ class DecisionResult
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def create_with(*args, &blk); end
@@ -358,40 +457,6 @@ class DecisionResult
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def includes(*args, &blk); end
 
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert!(attributes, returning: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert_all(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert_all!(attributes, returning: nil); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def invert_where(*args, &blk); end
 
@@ -415,6 +480,9 @@ class DecisionResult
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def none(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def null_relation?(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def offset(*args, &blk); end
@@ -441,6 +509,9 @@ class DecisionResult
     def references(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def regroup(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def reorder(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -452,7 +523,12 @@ class DecisionResult
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def rewhere(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
+    sig do
+      params(
+        blk: T.proc.params(record: ::DecisionResult).returns(BasicObject)
+      ).returns(T::Array[::DecisionResult])
+    end
     def select(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -467,26 +543,15 @@ class DecisionResult
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def unscope(*args, &blk); end
 
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def upsert(attributes, returning: nil, unique_by: nil); end
+    sig { returns(PrivateAssociationRelationWhereChain) }
+    sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
+    def where(*args); end
 
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def upsert_all(attributes, returning: nil, unique_by: nil); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelationWhereChain) }
-    def where(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with_recursive(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def without(*args, &blk); end
@@ -517,7 +582,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def accepted_no_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def accepted_no_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -526,7 +591,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def accepted_no_previous_change; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def accepted_no_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -562,7 +627,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def accepted_yes_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def accepted_yes_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -571,7 +636,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def accepted_yes_previous_change; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def accepted_yes_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -607,7 +672,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def decision_id_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def decision_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -616,7 +681,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def decision_id_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def decision_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -652,7 +717,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def id_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -661,7 +726,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def id_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -697,7 +762,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def option_id_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def option_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -706,7 +771,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def option_id_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def option_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -742,7 +807,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def option_title_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def option_title_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -751,7 +816,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def option_title_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def option_title_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -787,7 +852,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def preferred_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def preferred_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -796,7 +861,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def preferred_previous_change; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def preferred_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -832,7 +897,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def random_id_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def random_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -841,7 +906,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def random_id_previous_change; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def random_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -886,62 +951,62 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def saved_change_to_accepted_no; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_accepted_no?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_accepted_no?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def saved_change_to_accepted_yes; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_accepted_yes?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_accepted_yes?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_decision_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_decision_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_decision_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_option_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_option_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_option_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_option_title; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_option_title?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_option_title?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def saved_change_to_preferred; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_preferred?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_preferred?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def saved_change_to_random_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_random_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_random_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_tenant_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_tenant_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def saved_change_to_vote_count; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_vote_count?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_vote_count?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
     def tenant_id; end
@@ -967,7 +1032,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def tenant_id_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def tenant_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -976,7 +1041,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def tenant_id_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def tenant_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1012,7 +1077,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def vote_count_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def vote_count_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -1021,7 +1086,7 @@ class DecisionResult
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def vote_count_previous_change; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def vote_count_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -1033,35 +1098,35 @@ class DecisionResult
     sig { void }
     def vote_count_will_change!; end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_accepted_no?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_accepted_no?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_accepted_yes?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_accepted_yes?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_decision_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_decision_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_option_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_option_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_option_title?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_option_title?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_preferred?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_preferred?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_random_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_random_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_tenant_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_vote_count?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_vote_count?(from: T.unsafe(nil), to: T.unsafe(nil)); end
   end
 
   module GeneratedRelationMethods
@@ -1073,6 +1138,9 @@ class DecisionResult
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def create_with(*args, &blk); end
@@ -1135,6 +1203,9 @@ class DecisionResult
     def none(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def null_relation?(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def offset(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1159,6 +1230,9 @@ class DecisionResult
     def references(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def regroup(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def reorder(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1170,7 +1244,12 @@ class DecisionResult
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def rewhere(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    sig { params(args: T.untyped).returns(PrivateRelation) }
+    sig do
+      params(
+        blk: T.proc.params(record: ::DecisionResult).returns(BasicObject)
+      ).returns(T::Array[::DecisionResult])
+    end
     def select(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1185,8 +1264,15 @@ class DecisionResult
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def unscope(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelationWhereChain) }
-    def where(*args, &blk); end
+    sig { returns(PrivateRelationWhereChain) }
+    sig { params(args: T.untyped).returns(PrivateRelation) }
+    def where(*args); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with_recursive(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def without(*args, &blk); end
@@ -1231,6 +1317,9 @@ class DecisionResult
     sig { params(column_name: T.any(String, Symbol)).returns(T::Hash[T.untyped, T.untyped]) }
     def minimum(column_name); end
 
+    sig { returns(T::Hash[T.untyped, Integer]) }
+    def size; end
+
     sig do
       params(
         column_name: T.nilable(T.any(String, Symbol)),
@@ -1240,7 +1329,7 @@ class DecisionResult
     def sum(column_name = nil, &block); end
   end
 
-  class PrivateAssociationRelationWhereChain < PrivateAssociationRelation
+  class PrivateAssociationRelationWhereChain
     Elem = type_member { { fixed: ::DecisionResult } }
 
     sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
@@ -1282,20 +1371,6 @@ class DecisionResult
       ).returns(PrivateCollectionProxy)
     end
     def concat(*records); end
-
-    sig do
-      params(
-        records: T.any(::DecisionResult, Integer, String, T::Enumerable[T.any(::DecisionResult, Integer, String, T::Enumerable[::DecisionResult])])
-      ).returns(T::Array[::DecisionResult])
-    end
-    def delete(*records); end
-
-    sig do
-      params(
-        records: T.any(::DecisionResult, Integer, String, T::Enumerable[T.any(::DecisionResult, Integer, String, T::Enumerable[::DecisionResult])])
-      ).returns(T::Array[::DecisionResult])
-    end
-    def destroy(*records); end
 
     sig { returns(T::Array[::DecisionResult]) }
     def load_target; end
@@ -1373,6 +1448,9 @@ class DecisionResult
     sig { params(column_name: T.any(String, Symbol)).returns(T::Hash[T.untyped, T.untyped]) }
     def minimum(column_name); end
 
+    sig { returns(T::Hash[T.untyped, Integer]) }
+    def size; end
+
     sig do
       params(
         column_name: T.nilable(T.any(String, Symbol)),
@@ -1382,7 +1460,7 @@ class DecisionResult
     def sum(column_name = nil, &block); end
   end
 
-  class PrivateRelationWhereChain < PrivateRelation
+  class PrivateRelationWhereChain
     Elem = type_member { { fixed: ::DecisionResult } }
 
     sig { params(args: T.untyped).returns(PrivateRelation) }

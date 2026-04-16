@@ -440,10 +440,10 @@ See [AUTOMATIONS.md](AUTOMATIONS.md) for full user documentation.
          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  AutomationExecutor                                                  │
-│  ├── Agent rules → Create AiAgentTaskRun                            │
+│  ├── Agent rules → Create AiAgentTaskRun + dispatch via Redis stream│
 │  └── Collective rules → Execute actions array                       │
 │      ├── webhook → Create WebhookDelivery + queue job               │
-│      ├── trigger_agent → Create AiAgentTaskRun + queue job          │
+│      ├── trigger_agent → Create AiAgentTaskRun + dispatch via stream│
 │      └── internal_action → (not yet implemented)                    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -485,7 +485,7 @@ Rules can be scoped to different levels:
 - Jobs: `app/jobs/`
 - Redis required for queue storage
 
-Currently minimal job usage. Webhook delivery (stubbed) would use jobs.
+Used for: automation rule execution (`AutomationRuleExecutionJob`), webhook delivery (`WebhookDeliveryJob`), scheduled/cron triggers (`AutomationSchedulerJob`), reminder delivery, and similar I/O-light work. AI agent task execution runs in the separate **agent-runner** Node.js service — see [AGENT_RUNNER.md](AGENT_RUNNER.md) — because the LLM call patterns are not a good fit for thread-per-task Sidekiq concurrency.
 
 ## File Storage
 

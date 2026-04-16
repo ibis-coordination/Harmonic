@@ -16,6 +16,16 @@ class WebhookDelivery
   sig { returns(NilClass) }
   def to_ary; end
 
+  class << self
+    sig do
+      params(
+        attributes: T.untyped,
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(::WebhookDelivery)
+    end
+    def new(attributes = nil, &block); end
+  end
+
   module CommonRelationMethods
     sig { params(block: T.nilable(T.proc.params(record: ::WebhookDelivery).returns(T.untyped))).returns(T::Boolean) }
     def any?(&block); end
@@ -23,6 +33,13 @@ class WebhookDelivery
     sig { params(column_name: T.any(String, Symbol)).returns(T.any(Integer, Float, BigDecimal)) }
     def average(column_name); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)).returns(::WebhookDelivery) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -38,6 +55,13 @@ class WebhookDelivery
     sig { params(column_name: NilClass, block: T.proc.params(object: ::WebhookDelivery).void).returns(Integer) }
     def count(column_name = nil, &block); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)).returns(::WebhookDelivery) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -46,6 +70,13 @@ class WebhookDelivery
     end
     def create(attributes = nil, &block); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)).returns(::WebhookDelivery) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -56,6 +87,12 @@ class WebhookDelivery
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
       ).returns(::WebhookDelivery)
@@ -64,14 +101,46 @@ class WebhookDelivery
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
       ).returns(::WebhookDelivery)
     end
     def create_or_find_by!(attributes, &block); end
 
+    sig do
+      params(
+        records: T.any(::WebhookDelivery, Integer, String, T::Enumerable[T.any(::WebhookDelivery, Integer, String, T::Enumerable[::WebhookDelivery])])
+      ).returns(Integer)
+    end
+    def delete(*records); end
+
+    sig { returns(Integer) }
+    def delete_all; end
+
+    sig { params(args: T.untyped).returns(Integer) }
+    def delete_by(args); end
+
+    sig do
+      params(
+        records: T.any(::WebhookDelivery, Integer, String, T::Enumerable[T.any(::WebhookDelivery, Integer, String, T::Enumerable[::WebhookDelivery])])
+      ).returns(T::Array[::WebhookDelivery])
+    end
+    def destroy(*records); end
+
     sig { returns(T::Array[::WebhookDelivery]) }
     def destroy_all; end
+
+    sig { returns(T::Array[::WebhookDelivery]) }
+    def destroy_all; end
+
+    sig { params(args: T.untyped).returns(T::Array[::WebhookDelivery]) }
+    def destroy_by(args); end
 
     sig { params(conditions: T.untyped).returns(T::Boolean) }
     def exists?(conditions = :none); end
@@ -150,6 +219,12 @@ class WebhookDelivery
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
       ).returns(::WebhookDelivery)
@@ -158,12 +233,24 @@ class WebhookDelivery
 
     sig do
       params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
+    sig do
+      params(
         attributes: T.untyped,
         block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
       ).returns(::WebhookDelivery)
     end
     def find_or_create_by!(attributes, &block); end
 
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -181,7 +268,7 @@ class WebhookDelivery
     sig { params(arg: T.untyped, args: T.untyped).returns(::WebhookDelivery) }
     def find_sole_by(arg, *args); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::WebhookDelivery)) }
+    sig { returns(T.nilable(::WebhookDelivery)) }
     sig { params(limit: Integer).returns(T::Array[::WebhookDelivery]) }
     def first(limit = nil); end
 
@@ -200,7 +287,7 @@ class WebhookDelivery
     sig { returns(::WebhookDelivery) }
     def fourth!; end
 
-    sig { returns(Array) }
+    sig { returns(T::Array[::String]) }
     def ids; end
 
     sig do
@@ -211,6 +298,7 @@ class WebhookDelivery
         load: T.untyped,
         error_on_ignore: T.untyped,
         order: Symbol,
+        use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
       ).void
     end
@@ -221,15 +309,16 @@ class WebhookDelivery
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
-        order: Symbol
+        order: Symbol,
+        use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::WebhookDelivery)) }
+    sig { returns(T.nilable(::WebhookDelivery)) }
     sig { params(limit: Integer).returns(T::Array[::WebhookDelivery]) }
     def last(limit = nil); end
 
@@ -248,6 +337,13 @@ class WebhookDelivery
     sig { params(column_name: T.any(String, Symbol)).returns(T.untyped) }
     def minimum(column_name); end
 
+    sig { params(block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)).returns(::WebhookDelivery) }
+    sig do
+      params(
+        attributes: T::Array[T.untyped],
+        block: T.nilable(T.proc.params(object: ::WebhookDelivery).void)
+      ).returns(T::Array[::WebhookDelivery])
+    end
     sig do
       params(
         attributes: T.untyped,
@@ -293,7 +389,7 @@ class WebhookDelivery
     end
     def sum(initial_value_or_column = nil, &block); end
 
-    sig { params(limit: NilClass).returns(T.nilable(::WebhookDelivery)) }
+    sig { returns(T.nilable(::WebhookDelivery)) }
     sig { params(limit: Integer).returns(T::Array[::WebhookDelivery]) }
     def take(limit = nil); end
 
@@ -319,6 +415,12 @@ class WebhookDelivery
 
     sig { params(value: T.nilable(::AutomationRuleRun)).void }
     def automation_rule_run=(value); end
+
+    sig { returns(T::Boolean) }
+    def automation_rule_run_changed?; end
+
+    sig { returns(T::Boolean) }
+    def automation_rule_run_previously_changed?; end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::AutomationRuleRun) }
     def build_automation_rule_run(*args, &blk); end
@@ -353,6 +455,12 @@ class WebhookDelivery
     sig { params(value: T.nilable(::Event)).void }
     def event=(value); end
 
+    sig { returns(T::Boolean) }
+    def event_changed?; end
+
+    sig { returns(T::Boolean) }
+    def event_previously_changed?; end
+
     sig { returns(T.nilable(::AutomationRuleRun)) }
     def reload_automation_rule_run; end
 
@@ -376,6 +484,12 @@ class WebhookDelivery
 
     sig { params(value: T.nilable(::Tenant)).void }
     def tenant=(value); end
+
+    sig { returns(T::Boolean) }
+    def tenant_changed?; end
+
+    sig { returns(T::Boolean) }
+    def tenant_previously_changed?; end
   end
 
   module GeneratedAssociationRelationMethods
@@ -387,6 +501,9 @@ class WebhookDelivery
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def create_with(*args, &blk); end
@@ -427,40 +544,6 @@ class WebhookDelivery
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def includes(*args, &blk); end
 
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert!(attributes, returning: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert_all(attributes, returning: nil, unique_by: nil); end
-
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass))
-      ).returns(ActiveRecord::Result)
-    end
-    def insert_all!(attributes, returning: nil); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def invert_where(*args, &blk); end
 
@@ -487,6 +570,9 @@ class WebhookDelivery
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def none(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def null_relation?(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def offset(*args, &blk); end
@@ -516,6 +602,9 @@ class WebhookDelivery
     def references(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def regroup(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def reorder(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -527,7 +616,12 @@ class WebhookDelivery
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def rewhere(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
+    sig do
+      params(
+        blk: T.proc.params(record: ::WebhookDelivery).returns(BasicObject)
+      ).returns(T::Array[::WebhookDelivery])
+    end
     def select(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -542,26 +636,15 @@ class WebhookDelivery
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def unscope(*args, &blk); end
 
-    sig do
-      params(
-        attributes: Hash,
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def upsert(attributes, returning: nil, unique_by: nil); end
+    sig { returns(PrivateAssociationRelationWhereChain) }
+    sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
+    def where(*args); end
 
-    sig do
-      params(
-        attributes: T::Array[Hash],
-        returning: T.nilable(T.any(T::Array[Symbol], FalseClass)),
-        unique_by: T.nilable(T.any(T::Array[Symbol], Symbol))
-      ).returns(ActiveRecord::Result)
-    end
-    def upsert_all(attributes, returning: nil, unique_by: nil); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelationWhereChain) }
-    def where(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with_recursive(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def without(*args, &blk); end
@@ -592,7 +675,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def attempt_count_change_to_be_saved; end
 
-    sig { params(from: ::Integer, to: ::Integer).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def attempt_count_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -601,7 +684,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def attempt_count_previous_change; end
 
-    sig { params(from: ::Integer, to: ::Integer).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def attempt_count_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -637,7 +720,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def automation_rule_run_id_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def automation_rule_run_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -646,7 +729,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def automation_rule_run_id_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def automation_rule_run_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -682,7 +765,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def created_at_change_to_be_saved; end
 
-    sig { params(from: ::ActiveSupport::TimeWithZone, to: ::ActiveSupport::TimeWithZone).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def created_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -691,7 +774,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def created_at_previous_change; end
 
-    sig { params(from: ::ActiveSupport::TimeWithZone, to: ::ActiveSupport::TimeWithZone).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def created_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -727,12 +810,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def delivered_at_change_to_be_saved; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def delivered_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -741,12 +819,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def delivered_at_previous_change; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def delivered_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -782,7 +855,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def error_message_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def error_message_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -791,7 +864,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def error_message_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def error_message_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -827,7 +900,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def event_id_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def event_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -836,7 +909,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def event_id_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def event_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -872,7 +945,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::String, ::String])) }
     def id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -881,11 +954,56 @@ class WebhookDelivery
     sig { returns(T.nilable([::String, ::String])) }
     def id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
     def id_previously_was; end
+
+    sig { returns(::String) }
+    def id_value; end
+
+    sig { params(value: ::String).returns(::String) }
+    def id_value=(value); end
+
+    sig { returns(T::Boolean) }
+    def id_value?; end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def id_value_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def id_value_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def id_value_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def id_value_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def id_value_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def id_value_was; end
+
+    sig { void }
+    def id_value_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def id_was; end
@@ -917,12 +1035,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def next_retry_at_change_to_be_saved; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def next_retry_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -931,12 +1044,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def next_retry_at_previous_change; end
 
-    sig do
-      params(
-        from: T.nilable(::ActiveSupport::TimeWithZone),
-        to: T.nilable(::ActiveSupport::TimeWithZone)
-      ).returns(T::Boolean)
-    end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def next_retry_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -972,7 +1080,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def request_body_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def request_body_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -981,7 +1089,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def request_body_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def request_body_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1017,7 +1125,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def response_body_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def response_body_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1026,7 +1134,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def response_body_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def response_body_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1062,7 +1170,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def response_code_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def response_code_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -1071,7 +1179,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def response_code_previous_change; end
 
-    sig { params(from: T.nilable(::Integer), to: T.nilable(::Integer)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def response_code_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
@@ -1105,6 +1213,9 @@ class WebhookDelivery
     def restore_id!; end
 
     sig { void }
+    def restore_id_value!; end
+
+    sig { void }
     def restore_next_retry_at!; end
 
     sig { void }
@@ -1134,98 +1245,104 @@ class WebhookDelivery
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def saved_change_to_attempt_count; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_attempt_count?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_attempt_count?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_automation_rule_run_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_automation_rule_run_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_automation_rule_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_created_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_delivered_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_delivered_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_delivered_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_error_message; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_error_message?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_error_message?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_event_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_event_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_event_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_id_value; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_next_retry_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_next_retry_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_next_retry_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_request_body; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_request_body?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_request_body?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_response_body; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_response_body?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_response_body?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
     def saved_change_to_response_code; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_response_code?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_response_code?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_secret; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_secret?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_secret?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_status; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_status?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_status?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_tenant_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_updated_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_url; end
 
-    sig { returns(T::Boolean) }
-    def saved_change_to_url?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_url?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
     def secret; end
@@ -1251,7 +1368,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def secret_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def secret_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1260,7 +1377,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def secret_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def secret_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1296,7 +1413,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::String, ::String])) }
     def status_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def status_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1305,7 +1422,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::String, ::String])) }
     def status_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def status_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1341,7 +1458,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::String, ::String])) }
     def tenant_id_change_to_be_saved; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def tenant_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1350,7 +1467,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::String, ::String])) }
     def tenant_id_previous_change; end
 
-    sig { params(from: ::String, to: ::String).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def tenant_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1386,7 +1503,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def updated_at_change_to_be_saved; end
 
-    sig { params(from: ::ActiveSupport::TimeWithZone, to: ::ActiveSupport::TimeWithZone).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def updated_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1395,7 +1512,7 @@ class WebhookDelivery
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def updated_at_previous_change; end
 
-    sig { params(from: ::ActiveSupport::TimeWithZone, to: ::ActiveSupport::TimeWithZone).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def updated_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
@@ -1431,7 +1548,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def url_change_to_be_saved; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def url_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1440,7 +1557,7 @@ class WebhookDelivery
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def url_previous_change; end
 
-    sig { params(from: T.nilable(::String), to: T.nilable(::String)).returns(T::Boolean) }
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def url_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
@@ -1452,53 +1569,56 @@ class WebhookDelivery
     sig { void }
     def url_will_change!; end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_attempt_count?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_attempt_count?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_automation_rule_run_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_automation_rule_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_created_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_delivered_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_delivered_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_error_message?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_error_message?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_event_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_event_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_next_retry_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_request_body?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_next_retry_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_response_body?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_request_body?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_response_code?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_response_body?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_secret?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_response_code?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_status?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_secret?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_tenant_id?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_status?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_updated_at?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T::Boolean) }
-    def will_save_change_to_url?; end
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_url?(from: T.unsafe(nil), to: T.unsafe(nil)); end
   end
 
   module GeneratedRelationMethods
@@ -1510,6 +1630,9 @@ class WebhookDelivery
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def annotate(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def create_with(*args, &blk); end
@@ -1578,6 +1701,9 @@ class WebhookDelivery
     def none(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def null_relation?(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def offset(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1605,6 +1731,9 @@ class WebhookDelivery
     def references(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def regroup(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def reorder(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1616,7 +1745,12 @@ class WebhookDelivery
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def rewhere(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    sig { params(args: T.untyped).returns(PrivateRelation) }
+    sig do
+      params(
+        blk: T.proc.params(record: ::WebhookDelivery).returns(BasicObject)
+      ).returns(T::Array[::WebhookDelivery])
+    end
     def select(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1631,8 +1765,15 @@ class WebhookDelivery
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def unscope(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelationWhereChain) }
-    def where(*args, &blk); end
+    sig { returns(PrivateRelationWhereChain) }
+    sig { params(args: T.untyped).returns(PrivateRelation) }
+    def where(*args); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with_recursive(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def without(*args, &blk); end
@@ -1677,6 +1818,9 @@ class WebhookDelivery
     sig { params(column_name: T.any(String, Symbol)).returns(T::Hash[T.untyped, T.untyped]) }
     def minimum(column_name); end
 
+    sig { returns(T::Hash[T.untyped, Integer]) }
+    def size; end
+
     sig do
       params(
         column_name: T.nilable(T.any(String, Symbol)),
@@ -1686,7 +1830,7 @@ class WebhookDelivery
     def sum(column_name = nil, &block); end
   end
 
-  class PrivateAssociationRelationWhereChain < PrivateAssociationRelation
+  class PrivateAssociationRelationWhereChain
     Elem = type_member { { fixed: ::WebhookDelivery } }
 
     sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
@@ -1728,20 +1872,6 @@ class WebhookDelivery
       ).returns(PrivateCollectionProxy)
     end
     def concat(*records); end
-
-    sig do
-      params(
-        records: T.any(::WebhookDelivery, Integer, String, T::Enumerable[T.any(::WebhookDelivery, Integer, String, T::Enumerable[::WebhookDelivery])])
-      ).returns(T::Array[::WebhookDelivery])
-    end
-    def delete(*records); end
-
-    sig do
-      params(
-        records: T.any(::WebhookDelivery, Integer, String, T::Enumerable[T.any(::WebhookDelivery, Integer, String, T::Enumerable[::WebhookDelivery])])
-      ).returns(T::Array[::WebhookDelivery])
-    end
-    def destroy(*records); end
 
     sig { returns(T::Array[::WebhookDelivery]) }
     def load_target; end
@@ -1819,6 +1949,9 @@ class WebhookDelivery
     sig { params(column_name: T.any(String, Symbol)).returns(T::Hash[T.untyped, T.untyped]) }
     def minimum(column_name); end
 
+    sig { returns(T::Hash[T.untyped, Integer]) }
+    def size; end
+
     sig do
       params(
         column_name: T.nilable(T.any(String, Symbol)),
@@ -1828,7 +1961,7 @@ class WebhookDelivery
     def sum(column_name = nil, &block); end
   end
 
-  class PrivateRelationWhereChain < PrivateRelation
+  class PrivateRelationWhereChain
     Elem = type_member { { fixed: ::WebhookDelivery } }
 
     sig { params(args: T.untyped).returns(PrivateRelation) }

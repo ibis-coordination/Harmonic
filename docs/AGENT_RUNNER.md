@@ -90,12 +90,12 @@ Plaintext API tokens are encrypted before placing in Redis (protects against Red
 
 ## Error handling
 
-Matches Ruby `AgentNavigator` behavior:
 - **Navigation/action HTTP errors**: caught, recorded as step with error detail, LLM sees the error and decides next action
 - **LLM errors**: caught, think step recorded with `llm_error`, error step recorded, task completes with failure
 - **Unhandled exceptions** (cancellation, etc.): caught by outer handler, error step recorded, scratchpad update still runs, task completes with failure
-- **Step persistence failures**: logged but don't fail the task (matching Ruby `persist_step` error handling)
+- **Step persistence failures**: logged but don't fail the task
 - **Scratchpad failures**: logged, `scratchpad_update_failed` step recorded, task still completes
+- **Missing consumer group** (e.g., stream/group destroyed out-of-band): `TaskQueue.read` catches `NOGROUP`, recreates the group via `XGROUP CREATE ... MKSTREAM`, and resumes — the runner self-heals without operator action.
 
 ## Monitoring
 
