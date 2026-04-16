@@ -89,6 +89,22 @@ jobs:
           cd mcp-server
           npm test
 
+      - name: Build agent-runner
+        run: |
+          cd agent-runner
+          npm install
+          npm run build
+
+      - name: Run agent-runner type check
+        run: |
+          cd agent-runner
+          npm run typecheck
+
+      - name: Run agent-runner tests
+        run: |
+          cd agent-runner
+          npm test
+
       - name: Run tests with coverage
         env:
           RAILS_ENV: test

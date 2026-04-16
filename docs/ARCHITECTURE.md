@@ -32,6 +32,14 @@ This document describes the technical architecture of Harmonic. For design philo
          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  PostgreSQL                │  Redis (Sidekiq)  │  S3 (Active Storage)│
+└────────┬────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  agent-runner (Node.js/Effect.js)                                    │
+│  ├── Consumes tasks from Redis Stream                               │
+│  ├── Executes agent LLM loop (navigate, execute, reason)            │
+│  └── Reports results back to Rails via internal API                 │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -467,7 +475,7 @@ Rules can be scoped to different levels:
 ### Integration Points
 
 - **EventService** dispatches events to `AutomationDispatcher` alongside `NotificationDispatcher`
-- **Agent rules** create `AiAgentTaskRun` records processed by `AgentQueueProcessorJob`
+- **Agent rules** create `AiAgentTaskRun` records dispatched to the agent-runner service via Redis Streams (see [AGENT_RUNNER.md](AGENT_RUNNER.md))
 - **Webhook actions** create `WebhookDelivery` records processed by `WebhookDeliveryJob`
 
 ## Background Jobs

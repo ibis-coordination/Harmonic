@@ -39,14 +39,10 @@ class CaddyfileGenerator
     lines << "}"
 
     # Primary subdomain
-    lines << "#{primary_subdomain}.#{hostname} {"
-    lines << "\treverse_proxy web:3000"
-    lines << "}"
+    lines.concat(subdomain_block("#{primary_subdomain}.#{hostname}"))
 
     # Auth subdomain
-    lines << "#{auth_subdomain}.#{hostname} {"
-    lines << "\treverse_proxy web:3000"
-    lines << "}"
+    lines.concat(subdomain_block("#{auth_subdomain}.#{hostname}"))
 
     # Tenant subdomains (excluding primary and auth which are already listed)
     special_subdomains = [primary_subdomain, auth_subdomain].map(&:downcase)
@@ -58,12 +54,23 @@ class CaddyfileGenerator
         next
       end
 
-      lines << "#{subdomain}.#{hostname} {"
-      lines << "\treverse_proxy web:3000"
-      lines << "}"
+      lines.concat(subdomain_block("#{subdomain}.#{hostname}"))
     end
 
     lines.join("\n") + "\n"
+  end
+
+  sig { params(host: String).returns(T::Array[String]) }
+  def subdomain_block(host)
+    [
+      "#{host} {",
+      "\t# Block external access to internal service API",
+      "\thandle /internal/* {",
+      "\t\trespond 403",
+      "\t}",
+      "\treverse_proxy web:3000",
+      "}",
+    ]
   end
 
   sig { params(subdomain: String).returns(T::Boolean) }

@@ -1,0 +1,33 @@
+# Agent Runner
+
+<% if @error -%>
+**Error reading agent-runner stats:** <%= @error %>
+<% end -%>
+
+## Service Status
+
+<% if @runner_stats -%>
+| Metric | Value |
+|--------|-------|
+| Active Tasks | <%= @runner_stats["activeTasks"] %> |
+| Total Tasks Processed | <%= @runner_stats["totalTasksProcessed"] %> |
+| Started At | <%= @runner_stats["startedAt"] %> |
+| Last Task At | <%= @runner_stats["lastTaskAt"] || "None" %> |
+<% else -%>
+**Agent runner is not reporting stats.** It may be offline or not yet started.
+<% end -%>
+
+## Redis Stream
+
+| Metric | Value |
+|--------|-------|
+| Stream Length | <%= @stream_length %> |
+| Pending Messages | <%= @pending_count %> |
+
+## Recent Task Runs
+
+| ID | Agent | Status | Steps | Tokens | Started | Completed |
+|----|-------|--------|-------|--------|---------|-----------|
+<% @recent_task_runs.each do |run| -%>
+| <%= run.id[0..7] %> | <%= run.ai_agent&.name %> | <%= run.status %> | <%= run.steps_count %> | <%= run.total_tokens %> | <%= run.started_at&.strftime("%H:%M:%S") %> | <%= run.completed_at&.strftime("%H:%M:%S") %> |
+<% end -%>

@@ -49,7 +49,7 @@ Rails.application.configure do
   # Note: When behind a reverse proxy (like Caddy), the proxy handles SSL termination.
   # We still enable this to ensure secure cookies and HSTS headers.
   config.force_ssl = true
-  config.ssl_options = { redirect: { exclude: ->(request) { request.path.start_with?("/healthcheck") } } }
+  config.ssl_options = { redirect: { exclude: ->(request) { request.path.start_with?("/healthcheck") || request.path.start_with?("/internal/") } } }
 
   # Include generic and useful information about system operation, but avoid logging too much
   # information to avoid inadvertent exposure of personally identifiable information (PII).

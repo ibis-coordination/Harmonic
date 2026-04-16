@@ -151,6 +151,29 @@ services:
   #   networks:
   #     - backend
 
+  # Agent runner service — executes AI agent tasks via Redis Streams
+  agent-runner:
+    build: ./agent-runner
+    profiles: ["llm"]
+    depends_on:
+      web:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      HARMONIC_INTERNAL_URL: http://web:3000
+      HARMONIC_HOSTNAME: "${HOSTNAME:-harmonic.local}"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - frontend  # needs external access for LLM API calls
+      - backend
+
   # LLM services for in-app AI chat (optional - use profiles to enable)
   ollama:
     image: ollama/ollama:latest
