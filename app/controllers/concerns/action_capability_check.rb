@@ -38,10 +38,12 @@ module ActionCapabilityCheck
     "notes#update" => "update_note",
     "notes#create_comment" => "add_comment",
     "notes#confirm_and_return_partial" => "confirm_read",
+    "notes#pin" => "pin_note",
 
     # Notes - API v1 routes
     "api/v1/notes#create" => "create_note",
     "api/v1/notes#update" => "update_note",
+    "api/v1/notes#destroy" => "update_note",
     "api/v1/notes#confirm" => "confirm_read",
 
     # Decisions - legacy HTML routes
@@ -50,17 +52,27 @@ module ActionCapabilityCheck
     "decisions#create_option_and_return_options_partial" => "add_options",
     "decisions#update_settings" => "update_decision_settings",
     "decisions#duplicate" => "create_decision",
+    "decisions#pin" => "pin_decision",
 
     # Decisions - API v1 routes
     "api/v1/decisions#create" => "create_decision",
     "api/v1/decisions#update" => "update_decision_settings",
+    "api/v1/decisions#destroy" => "update_decision_settings",
 
     # Votes - API v1 routes
     "api/v1/votes#create" => "vote",
     "api/v1/votes#update" => "vote",
+    "api/v1/votes#destroy" => "vote",
 
     # Options - API v1 routes
     "api/v1/options#create" => "add_options",
+    "api/v1/options#update" => "add_options",
+    "api/v1/options#destroy" => "add_options",
+
+    # Participants - API v1 routes
+    "api/v1/participants#create" => "vote",
+    "api/v1/participants#update" => "vote",
+    "api/v1/participants#destroy" => "vote",
 
     # Commitments - legacy HTML routes
     "commitments#create" => "create_commitment",
@@ -68,25 +80,61 @@ module ActionCapabilityCheck
     "commitments#join_and_return_partial" => "join_commitment",
     "commitments#update_settings" => "update_commitment_settings",
     "commitments#join" => "join_commitment",
+    "commitments#pin" => "pin_commitment",
 
     # Commitments - API v1 routes
     "api/v1/commitments#create" => "create_commitment",
     "api/v1/commitments#update" => "update_commitment_settings",
+    "api/v1/commitments#destroy" => "update_commitment_settings",
     "api/v1/commitments#join" => "join_commitment",
 
     # Collectives - legacy HTML routes
     "collectives#create" => "create_collective",
     "collectives#update_settings" => "update_collective_settings",
+    "collectives#update_image" => "update_collective_settings",
     "collectives#add_ai_agent" => "add_ai_agent_to_collective",
+    "collectives#remove_ai_agent" => "remove_ai_agent_from_collective",
     "collectives#accept_invite" => "join_collective",
 
     # Collectives - API v1 routes
     "api/v1/collectives#create" => "create_collective",
     "api/v1/collectives#update" => "update_collective_settings",
+    "api/v1/collectives#destroy" => "update_collective_settings",
 
     # Users - legacy HTML routes
     "users#update_profile" => "update_profile",
+    "users#update_image" => "update_profile",
     "users#add_ai_agent_to_collective" => "add_ai_agent_to_collective",
+    "users#remove_ai_agent_from_collective" => "remove_ai_agent_from_collective",
+    "users#represent" => "start_representation",
+
+    # Users - API v1 routes
+    "api/v1/users#create" => "create_ai_agent",
+    "api/v1/users#update" => "update_profile",
+    "api/v1/users#destroy" => "update_profile",
+
+    # API tokens
+    "api_tokens#create" => "create_api_token",
+    "api_tokens#destroy" => "create_api_token",
+    "api/v1/api_tokens#create" => "create_api_token",
+    "api/v1/api_tokens#update" => "create_api_token",
+    "api/v1/api_tokens#destroy" => "create_api_token",
+
+    # Heartbeats
+    "heartbeats#create" => "send_heartbeat",
+
+    # Representation sessions
+    "representation_sessions#start_representing" => "start_representation",
+    "representation_sessions#start_representing_user" => "start_representation",
+    "representation_sessions#create_comment" => "add_comment",
+
+    # Trustee grants
+    "trustee_grants#start_representing" => "start_representation",
+
+    # AI agents (settings and task execution)
+    "ai_agents#update_settings" => "update_profile",
+    "ai_agents#execute_task" => "create_ai_agent",
+    "ai_agents#cancel_run" => "create_ai_agent",
   }.freeze
 
   included do
