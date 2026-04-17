@@ -97,10 +97,23 @@ module CapabilityCheck
   # @param user [User] The user attempting the action
   # @param action_name [String] The action to check
   # @return [Boolean] true if allowed, false if denied
+  # Does this user's action set get filtered by CapabilityCheck?
+  #
+  # Returns true for users whose requests are gated by the allowed/blocked/
+  # grantable lists below, false for users who bypass those checks. The
+  # concrete policy is "ai_agents are restricted, everyone else isn't";
+  # callers outside this module should go through this predicate rather
+  # than hard-coding `user.ai_agent?` so the policy can widen later
+  # without a shotgun edit.
+  sig { params(user: User).returns(T::Boolean) }
+  def self.restricted_user?(user)
+    user.ai_agent?
+  end
+
   sig { params(user: User, action_name: String).returns(T::Boolean) }
   def self.allowed?(user, action_name)
-    # Non-AI-agents have no capability restrictions
-    return true unless user.ai_agent?
+    # Non-restricted users (see `restricted_user?`) have no capability restrictions
+    return true unless restricted_user?(user)
 
     # Infrastructure actions are always allowed
     return true if AI_AGENT_ALWAYS_ALLOWED.include?(action_name)

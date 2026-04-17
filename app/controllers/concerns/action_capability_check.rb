@@ -16,6 +16,18 @@
 module ActionCapabilityCheck
   extend ActiveSupport::Concern
 
+  # Writes exempt from the unmapped-write fail-closed below. These are
+  # session-management routes whose controllers enforce "the acting user is
+  # the session's representative_user" — meaning whoever started the session
+  # can end it. Running the capability layer on top of
+  # that would let an unrelated capability configuration prevent a user
+  # from ending a session they started.
+  SESSION_MANAGEMENT_WRITES = Set.new([
+    "users#stop_representing",                         # DELETE /u/:handle/represent
+    "representation_sessions#stop_representing",       # DELETE /collectives/:handle/represent
+    "representation_sessions#stop_representing_user",  # DELETE /representing
+  ]).freeze
+
   # Maps controller#action to capability action names.
   # This catches legacy HTML routes and REST API routes that don't use /actions/ paths.
   #
@@ -91,28 +103,24 @@ module ActionCapabilityCheck
 
     capability_action = determine_capability_action
 
-    # Fail-closed for AI agents on writes we can't identify.
+    # Fail-closed on unmapped writes for users subject to CapabilityCheck.
     #
-    # CONTROLLER_ACTION_MAP is incomplete — many legacy/REST routes don't
-    # appear in it, and writes through those routes would otherwise slip past
-    # this check entirely. Humans and external API clients continue to be
-    # gated by controller-level authorization, but for AI-agent-driven writes
-    # we require the route to be an /actions/<name> dispatch OR explicitly
-    # mapped. Any other write gets denied here rather than silently
-    # continuing. GETs are unaffected (navigation stays permissive).
+    # `determine_capability_action` returns nil when the route is neither an
+    # `/actions/<name>` dispatch nor listed in CONTROLLER_ACTION_MAP, so we
+    # have no action name to feed CapabilityCheck. Silently skipping would
+    # let a capability-restricted caller reach writes through unmapped
+    # routes. Deny instead. Callers not restricted by CapabilityCheck
+    # (see CapabilityCheck#allowed?) aren't affected. GETs aren't affected.
     #
-    # Representation: when a human is representing an AI agent,
-    # `current_user` is the represented agent but the REAL actor is
-    # `@current_human_user` / `@api_token_user`. Use the real actor for the
-    # agent check so session-management actions (stop_representing, etc.)
-    # a human performs mid-representation aren't misclassified as agent
-    # writes and blocked.
+    # SESSION_MANAGEMENT_WRITES are the exception — see the set's comment.
     #
-    # This is coarse; a follow-up plan covers populating the map exhaustively
-    # or refactoring to deny-by-default universally.
+    # This is coarse; a follow-up plan (.claude/plans/agent-capability-audit.md)
+    # covers populating the map exhaustively or refactoring to deny-by-default
+    # universally.
     if capability_action.blank?
       return unless write_request?
-      return unless driven_by_ai_agent?
+      return if SESSION_MANAGEMENT_WRITES.include?("#{controller_path}##{action_name}")
+      return unless CapabilityCheck.restricted_user?(@current_user)
 
       render_capability_denied("unmapped_write:#{controller_path}##{action_name}")
       return
@@ -125,16 +133,6 @@ module ActionCapabilityCheck
 
   def write_request?
     request.post? || request.patch? || request.put? || request.delete?
-  end
-
-  def driven_by_ai_agent?
-    # Prefer the real acting identity when a representation session is in
-    # flight, then fall back to current_user. This matters because during
-    # representation current_user is swapped to the represented entity.
-    actor = (defined?(@current_human_user) && @current_human_user) ||
-            (defined?(@api_token_user) && @api_token_user) ||
-            @current_user
-    actor.respond_to?(:ai_agent?) && actor.ai_agent?
   end
 
   # Determines the capability action name from the request.
