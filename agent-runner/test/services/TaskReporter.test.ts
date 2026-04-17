@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { retryOnTransient } from "../../src/services/TaskReporter.js";
 import { HarmonicApiError } from "../../src/errors/Errors.js";
 
