@@ -21,6 +21,7 @@ module CapabilityCheck
     "send_heartbeat",
     "dismiss",
     "dismiss_all",
+    "dismiss_for_collective",
     "search",
     "update_scratchpad",
   ].freeze
@@ -45,6 +46,14 @@ module CapabilityCheck
     "update_tenant_settings",
     "create_tenant",
     "retry_sidekiq_job",
+    # Automation rule management is owner-scoped; agents should not be
+    # self-modifying their trigger graph. (HUMAN_ONLY_AUTHORIZATION already
+    # blocks these at the action-authorization layer, but listing them here
+    # makes the policy explicit and test-auditable.)
+    "create_automation_rule",
+    "update_automation_rule",
+    "delete_automation_rule",
+    "toggle_automation_rule",
   ].freeze
 
   # Actions that can be granted/denied via configuration
@@ -76,6 +85,11 @@ module CapabilityCheck
     "decline_trustee_grant",
     "create_trustee_grant",
     "revoke_trustee_grant",
+    # Representation sessions — agents can represent a user or a collective
+    # on whose behalf they hold a trustee grant. Grantable (not always-allowed)
+    # so the agent's owner can opt in per agent.
+    "start_representation",
+    "end_representation",
   ].freeze
 
   # Check if a user has capability for an action
@@ -83,10 +97,23 @@ module CapabilityCheck
   # @param user [User] The user attempting the action
   # @param action_name [String] The action to check
   # @return [Boolean] true if allowed, false if denied
+  # Does this user's action set get filtered by CapabilityCheck?
+  #
+  # Returns true for users whose requests are gated by the allowed/blocked/
+  # grantable lists below, false for users who bypass those checks. The
+  # concrete policy is "ai_agents are restricted, everyone else isn't";
+  # callers outside this module should go through this predicate rather
+  # than hard-coding `user.ai_agent?` so the policy can widen later
+  # without a shotgun edit.
+  sig { params(user: User).returns(T::Boolean) }
+  def self.restricted_user?(user)
+    user.ai_agent?
+  end
+
   sig { params(user: User, action_name: String).returns(T::Boolean) }
   def self.allowed?(user, action_name)
-    # Non-AI-agents have no capability restrictions
-    return true unless user.ai_agent?
+    # Non-restricted users (see `restricted_user?`) have no capability restrictions
+    return true unless restricted_user?(user)
 
     # Infrastructure actions are always allowed
     return true if AI_AGENT_ALWAYS_ALLOWED.include?(action_name)
@@ -94,14 +121,21 @@ module CapabilityCheck
     # Blocked actions are never allowed
     return false if AI_AGENT_ALWAYS_BLOCKED.include?(action_name)
 
-    # Check configured capabilities for grantable actions
+    # Everything past this point must be a grantable action to be considered.
+    # Previously, an action that was neither ALLOWED nor BLOCKED nor GRANTABLE
+    # would pass through and be allowed when `capabilities` was nil — a
+    # fail-open default that silently permitted any newly-added action an
+    # owner hadn't seen. Now: only actions in the explicit grantable list
+    # can be granted, and only if the owner has granted them (or left the
+    # configuration unset, which means "all grantable").
+    return false unless AI_AGENT_GRANTABLE_ACTIONS.include?(action_name)
+
     capabilities = user.agent_configuration&.dig("capabilities")
 
-    # No capabilities key (nil) = all grantable actions allowed (backwards compatible default)
+    # No capabilities key (nil) = all grantable actions allowed (owner hasn't
+    # narrowed them). Empty array = NONE. Non-empty = only those listed.
     return true if capabilities.nil?
 
-    # Empty array = NO grantable actions allowed
-    # Non-empty array = only those actions allowed
     capabilities.include?(action_name)
   end
 

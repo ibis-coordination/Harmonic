@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **For design philosophy and decisions**: Read [PHILOSOPHY.md](PHILOSOPHY.md)
 **For architecture details**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 **For detailed AI agent context**: Read [AGENTS.md](AGENTS.md)
+**For agent-runner service**: Read [docs/AGENT_RUNNER.md](docs/AGENT_RUNNER.md)
 **For automation system setup**: Read [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md)
 **For codebase patterns comparison**: Read [docs/CODEBASE_PATTERNS.md](docs/CODEBASE_PATTERNS.md)
 **For UI styling patterns**: Read [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md)
@@ -52,6 +53,11 @@ docker compose exec js npm run typecheck
 
 # Run frontend tests
 docker compose exec js npm test
+
+# Agent-runner (run from agent-runner/ directory)
+cd agent-runner && npm test        # Run tests
+cd agent-runner && npm run typecheck  # Type check
+cd agent-runner && npm run build   # Build
 
 # Generate ERD diagram
 ./scripts/generate-erd.sh

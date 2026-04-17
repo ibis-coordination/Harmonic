@@ -32,6 +32,14 @@ This document describes the technical architecture of Harmonic. For design philo
          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  PostgreSQL                │  Redis (Sidekiq)  │  S3 (Active Storage)│
+└────────┬────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  agent-runner (Node.js/Effect.js)                                    │
+│  ├── Consumes tasks from Redis Stream                               │
+│  ├── Executes agent LLM loop (navigate, execute, reason)            │
+│  └── Reports results back to Rails via internal API                 │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -99,6 +107,7 @@ Model.for_user_across_tenants(user)
 - `Tenant` - Tenants themselves
 - `OauthIdentity` - OAuth provider identities
 - `OmniAuthIdentity` - OmniAuth provider identities
+- `StripeCustomer` - Billing record; attached to the human user, not a tenant (a single subscription spans all billing-enabled tenants)
 
 **Enforcement**:
 - Static analysis: `./scripts/check-tenant-safety.sh` detects banned `.unscoped` usage
@@ -432,10 +441,10 @@ See [AUTOMATIONS.md](AUTOMATIONS.md) for full user documentation.
          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  AutomationExecutor                                                  │
-│  ├── Agent rules → Create AiAgentTaskRun                            │
+│  ├── Agent rules → Create AiAgentTaskRun + dispatch via Redis stream│
 │  └── Collective rules → Execute actions array                       │
 │      ├── webhook → Create WebhookDelivery + queue job               │
-│      ├── trigger_agent → Create AiAgentTaskRun + queue job          │
+│      ├── trigger_agent → Create AiAgentTaskRun + dispatch via stream│
 │      └── internal_action → (not yet implemented)                    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -467,7 +476,7 @@ Rules can be scoped to different levels:
 ### Integration Points
 
 - **EventService** dispatches events to `AutomationDispatcher` alongside `NotificationDispatcher`
-- **Agent rules** create `AiAgentTaskRun` records processed by `AgentQueueProcessorJob`
+- **Agent rules** create `AiAgentTaskRun` records dispatched to the agent-runner service via Redis Streams (see [AGENT_RUNNER.md](AGENT_RUNNER.md))
 - **Webhook actions** create `WebhookDelivery` records processed by `WebhookDeliveryJob`
 
 ## Background Jobs
@@ -477,7 +486,7 @@ Rules can be scoped to different levels:
 - Jobs: `app/jobs/`
 - Redis required for queue storage
 
-Currently minimal job usage. Webhook delivery (stubbed) would use jobs.
+Used for: automation rule execution (`AutomationRuleExecutionJob`), webhook delivery (`WebhookDeliveryJob`), scheduled/cron triggers (`AutomationSchedulerJob`), reminder delivery, and similar I/O-light work. AI agent task execution runs in the separate **agent-runner** Node.js service — see [AGENT_RUNNER.md](AGENT_RUNNER.md) — because the LLM call patterns are not a good fit for thread-per-task Sidekiq concurrency.
 
 ## File Storage
 

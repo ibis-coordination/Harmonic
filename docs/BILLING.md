@@ -30,9 +30,17 @@ When agents are created or reactivated, Stripe charges a prorated amount immedia
 
 App admins can grant billing exemptions to specific users, agents, and collectives. Exempt resources are excluded from the subscription quantity. A fully-exempt user (where the user and all their resources are exempt) doesn't need a subscription at all. All exemption changes are logged to the security audit log.
 
-### AI Agent Usage Billing (planned, not yet implemented)
+### AI Agent Usage Billing
 
-A future billing layer will add prepaid credit balances for AI Agent LLM token usage, separate from the identity subscription. See `.claude/plans/STRIPE_AI_GATEWAY_BILLING.md` for the full design.
+Prepaid credit balances bill LLM token usage separately from the identity subscription. This layer is active when `LLM_GATEWAY_MODE=stripe_gateway`.
+
+- **Credit top-up** — Users add funds via `/billing/topup`. Amount is validated against `STRIPE_MIN_TOPUP_CENTS` / `STRIPE_MAX_TOPUP_CENTS` (defaults $5 / $1000) and a Stripe Checkout session (`mode: payment`, `metadata.type: credit_topup`) is created.
+- **Balance display** — `/billing` shows current credit balance in cents, fetched via `StripeService.get_credit_balance`. The value can be `nil` (Stripe API error) or a number; the UI distinguishes the two states.
+- **Credit grant** — On successful top-up, a Stripe Billing Credit Grant is created with `idempotency_key: "credit_grant:<session_id>"`. Both the synchronous checkout return handler and the webhook call the same path; Stripe dedupes server-side.
+- **Pre-flight check** — `AgentRunnerDispatchService.dispatch` and `Internal::AgentRunnerController#preflight` refuse tasks when `credit_balance <= 0` in `stripe_gateway` mode. A `nil` balance (Stripe outage) is *not* treated as empty: dispatch fails closed, but preflight logs and lets the run proceed so an outage doesn't look like "user out of credit."
+- **LLM billing** — In `stripe_gateway` mode, agent-runner makes LLM calls via `https://llm.stripe.com` with the Stripe customer's ID attached, and Stripe deducts from the credit balance per call.
+
+See `.claude/plans/completed/` for the original design rationale.
 
 ## Billable Entity
 
@@ -128,7 +136,7 @@ Billing is enforced at multiple layers:
 | Agent creation | `AiAgentsController` | Requires billing confirmation checkbox. If no active subscription, agent created as pending. |
 | Collective creation | `CollectivesController` | Requires billing confirmation checkbox. If no active subscription, collective created as pending. |
 | Resource deactivation/reactivation | `BillingController` | Centralized on `/billing` page with confirmation |
-| Task execution | `AgentQueueProcessorJob` | Fails if agent archived, suspended, pending billing, or billing customer inactive |
+| Task execution | `AgentRunnerDispatchService` + agent-runner preflight | Fails if agent archived, suspended, pending billing, or billing customer inactive |
 | Automation execution | `AutomationExecutor` | Fails if agent archived, suspended, pending billing, or billing customer inactive |
 | API access | `User#archive!` / `User#suspend!` | Revokes API tokens, blocking external agent access |
 | Reconciliation | `BillingReconciliationJob` | Daily job corrects quantity drift and recovers stuck pending resources |
@@ -151,9 +159,8 @@ Webhook events keep billing state in sync:
 | File | Purpose |
 |------|---------|
 | `app/models/stripe_customer.rb` | Billing record linking a user to Stripe |
-| `app/services/stripe_service.rb` | Stripe API interactions (checkout, portal, webhooks, quantity sync, proration preview) |
-| `app/services/stripe_model_mapper.rb` | Maps LLM model names to Stripe AI Gateway model IDs |
-| `app/controllers/billing_controller.rb` | Billing dashboard, checkout setup, portal redirect, resource deactivation/reactivation |
+| `app/services/stripe_service.rb` | Stripe API interactions (checkout, portal, webhooks, quantity sync, proration preview, credit grants, balance) |
+| `app/controllers/billing_controller.rb` | Billing dashboard, checkout setup, portal redirect, resource deactivation/reactivation, credit top-up |
 | `app/controllers/ai_agents_controller.rb` | Agent creation with billing confirmation |
 | `app/controllers/collectives_controller.rb` | Collective creation with billing confirmation |
 | `app/controllers/stripe_webhooks_controller.rb` | Receives and verifies Stripe webhook events |
@@ -168,8 +175,10 @@ Webhook events keep billing state in sync:
 | `STRIPE_API_KEY` | Stripe restricted API key (backend operations) |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signature verification |
 | `STRIPE_PRICE_ID` | Recurring Price (`price_...` prefix) for the $3/month per-identity subscription |
-| `STRIPE_GATEWAY_KEY` | Separate restricted key for Stripe AI Gateway (future, not yet used) |
-| `LLM_GATEWAY_MODE` | `litellm` (default) or `stripe_gateway` (future) |
+| `STRIPE_GATEWAY_KEY` | Bearer token for Stripe AI Gateway (`https://llm.stripe.com`). Required when `LLM_GATEWAY_MODE=stripe_gateway`; unused in `litellm` mode. |
+| `LLM_GATEWAY_MODE` | `litellm` (default, flat-rate via local LiteLLM) or `stripe_gateway` (usage-billed via Stripe AI Gateway + credit balance) |
+| `STRIPE_MIN_TOPUP_CENTS` | Minimum credit top-up amount (default 500 = $5) |
+| `STRIPE_MAX_TOPUP_CENTS` | Maximum credit top-up amount (default 100000 = $1000) |
 
 ## Design Decisions
 

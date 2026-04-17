@@ -2,6 +2,17 @@ Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
   get 'metrics' => 'metrics#show'
 
+  # Internal API for agent-runner service (IP-restricted + HMAC-signed)
+  scope "internal/agent-runner", module: "internal", as: "internal_agent_runner" do
+    post 'tasks/:id/claim' => 'agent_runner#claim'
+    post 'tasks/:id/step' => 'agent_runner#step'
+    post 'tasks/:id/complete' => 'agent_runner#complete'
+    post 'tasks/:id/fail' => 'agent_runner#fail_task'
+    put  'tasks/:id/scratchpad' => 'agent_runner#scratchpad'
+    get  'tasks/:id/status' => 'agent_runner#status'
+    post 'tasks/:id/preflight' => 'agent_runner#preflight'
+  end
+
   # Incoming webhooks - public endpoint for external automation triggers
   post 'hooks/:webhook_path' => 'incoming_webhooks#receive', as: 'incoming_webhook'
 
@@ -16,6 +27,7 @@ Rails.application.routes.draw do
   post 'billing/reactivate_agent/:handle' => 'billing#reactivate_agent', as: 'billing_reactivate_agent'
   post 'billing/deactivate_collective/:collective_handle' => 'billing#deactivate_collective', as: 'billing_deactivate_collective'
   post 'billing/reactivate_collective/:collective_handle' => 'billing#reactivate_collective', as: 'billing_reactivate_collective'
+  post 'billing/topup' => 'billing#topup', as: 'billing_topup'
 
   # Development tools - Pulse styleguide (only available in development)
   if Rails.env.development?
@@ -193,6 +205,7 @@ Rails.application.routes.draw do
   get 'system-admin/sidekiq/jobs/:jid/actions' => 'system_admin#sidekiq_job_actions_index'
   get 'system-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'system_admin#describe_retry_sidekiq_job'
   post 'system-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'system_admin#execute_retry_sidekiq_job'
+  get 'system-admin/agent-runner' => 'system_admin#agent_runner'
 
   # App Admin (primary tenant only, app_admin role on User)
   # For cross-tenant management: tenants, users across all tenants

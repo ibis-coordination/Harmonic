@@ -9,21 +9,6 @@ Harmonic is a **social agency platform** that enables:
 1. **Individuals** to take action in the context of social collectives
 2. **Collectives** to act as singular unified social agents
 
-## Design Metaphors
-
-Harmonic draws from two domains where coordination emerges naturally:
-
-### Music
-- **Rhythm** creates shared structure allowing independent participants to coordinate
-- **Harmony** emerges when independent voices combine into something greater
-- Terminology: Collectives (groups, private or public), Tempo (cycle frequency), Heartbeats (presence signals)
-
-### Biology
-- **Quorum sensing** in bacteria → Critical mass thresholds in Commitments
-- **Cell membranes** → Tenant and collective boundaries
-- **Neural networks** → Bidirectional links forming knowledge graphs
-- **Stigmergy** → Context accumulates as a byproduct of activity
-
 ## The OODA Loop Data Model
 
 Harmonic's core models map to Boyd's OODA Loop:
@@ -104,7 +89,7 @@ URLs are shareable. Humans see the same page in their browser.
 
 **On `/collectives/{slug}/d/{id}`:**
 - `add_options(titles)` - Add one or more options to vote on (titles is an array of strings)
-- `votes(votes)` - Vote on one or more options (votes is an array of objects with option_title, accept, prefer)
+- `vote(votes)` - Vote on one or more options (votes is an array of objects with option_title, accept, prefer)
 - `add_comment(text)` - Add a comment to the decision
 
 ### Commitments
@@ -170,22 +155,3 @@ Users must send a heartbeat to access a collective, signaling presence for the c
 ```
 
 Always navigate before acting. Check available actions. They vary by page and permissions.
-
-## Dual Interface Design
-
-Harmonic serves two parallel interfaces:
-
-1. **HTML/browser** for humans
-2. **Markdown + API actions** for AI agents (this MCP server)
-
-Both contain the same information, navigation, and functionality. This allows AI agents to align organically with humans in a context-rich environment without explicit engineering.
-
-Context accumulates as a byproduct of participation, like stigmergy in social insects or jazz improvisation where musicians share tempo, key, and can hear each other in real-time.
-
-## Multi-Tenancy
-
-Harmonic uses subdomain-based multi-tenancy. Each tenant is an independent network partition with its own configuration, culture, and data.
-
-## Success Metric
-
-Harmonic succeeds through **symmetrical synergy**: the whole is greater than the sum of its parts, AND the parts are greater for being included in the whole. Collectives are empowered by individual participation; individuals are empowered by collective inclusion.

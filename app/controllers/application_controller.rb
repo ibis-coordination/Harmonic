@@ -5,6 +5,13 @@ class ApplicationController < ActionController::Base
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
 
+  # Chain state lives in Thread.current and background jobs clear it at the end
+  # of their run. HTTP requests reuse threads via Puma's thread pool, so we
+  # must clear at the start of every request too — otherwise rules executed
+  # during an earlier request remain in the chain and subsequent requests
+  # see "loop detected" when the same rule matches again.
+  before_action { AutomationContext.clear_chain! }
+
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_collective,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
@@ -803,6 +810,7 @@ class ApplicationController < ActionController::Base
         current_user: current_user,
         current_collective: current_collective,
         current_tenant: current_tenant,
+        current_token: current_token,
         current_representation_session: current_representation_session,
         current_cycle: current_cycle,
         current_heartbeat: current_heartbeat,
@@ -822,6 +830,7 @@ class ApplicationController < ActionController::Base
         current_user: current_user,
         current_collective: current_collective,
         current_tenant: current_tenant,
+        current_token: current_token,
         current_representation_session: current_representation_session,
         current_cycle: current_cycle,
         current_heartbeat: current_heartbeat,

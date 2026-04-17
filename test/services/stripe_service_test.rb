@@ -301,15 +301,17 @@ class StripeServiceTest < ActiveSupport::TestCase
     StripeCustomer.create!(billable: @user, stripe_id: "cus_exempt", active: true, stripe_subscription_id: "sub_exempt")
     @user.update!(billing_exempt: true)
 
-    # No Stripe API call should be made
     StripeService.sync_subscription_quantity!(@user)
+
+    assert_not_requested(:any, /api\.stripe\.com/)
   end
 
   test "sync_subscription_quantity! is no-op without active subscription" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_nosub", active: false)
 
-    # No Stripe API call should be made
     StripeService.sync_subscription_quantity!(@user)
+
+    assert_not_requested(:any, /api\.stripe\.com/)
   end
 
   test "sync_subscription_quantity! logs and does not raise on Stripe failure" do
@@ -996,6 +998,219 @@ class StripeServiceTest < ActiveSupport::TestCase
     StripeService.sync_subscription_quantity!(@user)
 
     assert_not_requested(:post, "https://api.stripe.com/v1/subscription_items/si_allexempt")
+  end
+
+  # === create_credit_topup_checkout ===
+
+  test "create_credit_topup_checkout creates payment session with correct params" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_topup123")
+
+    ENV["STRIPE_CREDIT_PRODUCT_ID"] = "prod_credits_test"
+
+    stub_request(:post, "https://api.stripe.com/v1/prices")
+      .to_return(
+        status: 200,
+        body: { id: "price_dynamic_123", object: "price" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    captured_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .with { |req| captured_body = Rack::Utils.parse_nested_query(req.body); true }
+      .to_return(
+        status: 200,
+        body: {
+          id: "cs_topup123",
+          object: "checkout.session",
+          url: "https://checkout.stripe.com/session/cs_topup123",
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    result = StripeService.create_credit_topup_checkout(
+      stripe_customer: sc,
+      amount_cents: 2500,
+      success_url: "https://app.example.com/billing?topup_session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: "https://app.example.com/billing",
+    )
+
+    assert_equal "https://checkout.stripe.com/session/cs_topup123", result
+    assert_equal "payment", captured_body["mode"]
+    assert_equal "credit_topup", captured_body["metadata"]["type"]
+  ensure
+    ENV.delete("STRIPE_CREDIT_PRODUCT_ID")
+  end
+
+  test "create_credit_topup_checkout rejects amount below minimum" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_topup_min")
+
+    assert_raises(ArgumentError) do
+      StripeService.create_credit_topup_checkout(
+        stripe_customer: sc,
+        amount_cents: 50,
+        success_url: "https://example.com",
+        cancel_url: "https://example.com",
+      )
+    end
+  end
+
+  test "create_credit_topup_checkout rejects amount above maximum" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_topup_max")
+
+    assert_raises(ArgumentError) do
+      StripeService.create_credit_topup_checkout(
+        stripe_customer: sc,
+        amount_cents: 100_000,
+        success_url: "https://example.com",
+        cancel_url: "https://example.com",
+      )
+    end
+  end
+
+  # === get_credit_balance ===
+
+  test "get_credit_balance returns available balance in cents" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_balance123")
+
+    stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_balance_summary.*})
+      .to_return(
+        status: 200,
+        body: {
+          object: "billing.credit_balance_summary",
+          balances: [
+            {
+              available_balance: { type: "monetary", monetary: { value: 2500, currency: "usd" } },
+              ledger_balance: { type: "monetary", monetary: { value: 2500, currency: "usd" } },
+            },
+          ],
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    result = StripeService.get_credit_balance(sc)
+    assert_equal 2500, result
+  end
+
+  test "get_credit_balance returns 0 when no balances" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_nobal")
+
+    stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_balance_summary.*})
+      .to_return(
+        status: 200,
+        body: {
+          object: "billing.credit_balance_summary",
+          balances: [],
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    result = StripeService.get_credit_balance(sc)
+    assert_equal 0, result
+  end
+
+  test "get_credit_balance returns nil on Stripe error" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_balerr")
+
+    stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_balance_summary.*})
+      .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json, headers: { "Content-Type" => "application/json" })
+
+    result = StripeService.get_credit_balance(sc)
+    assert_nil result
+  end
+
+  # === handle_webhook credit topup ===
+
+  test "handle_webhook checkout.session.completed creates credit grant for topup" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_topup_wh", active: true, stripe_subscription_id: "sub_existing")
+
+    # Stub listing existing grants (empty — no duplicates)
+    stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_grants.*})
+      .to_return(
+        status: 200,
+        body: { object: "list", data: [], has_more: false }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    # Stub grant creation
+    captured_grant_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/billing/credit_grants")
+      .with { |req| captured_grant_body = Rack::Utils.parse_nested_query(req.body); true }
+      .to_return(
+        status: 200,
+        body: { id: "credgr_test", object: "billing.credit_grant" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    event = build_stripe_event(
+      type: "checkout.session.completed",
+      object: {
+        "id" => "cs_topup_session",
+        "customer" => "cus_topup_wh",
+        "mode" => "payment",
+        "metadata" => { "type" => "credit_topup" },
+        "amount_total" => 5000,
+      },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    # Should NOT have changed subscription state
+    sc.reload
+    assert sc.active
+    assert_equal "sub_existing", sc.stripe_subscription_id
+
+    # Should have created a credit grant
+    assert_requested(:post, "https://api.stripe.com/v1/billing/credit_grants")
+    assert_equal "5000", captured_grant_body["amount"]["monetary"]["value"]
+    assert_equal "cs_topup_session", captured_grant_body["metadata"]["checkout_session_id"]
+  end
+
+  test "handle_webhook checkout.session.completed uses idempotency key for credit grant" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_topup_dup", active: true, stripe_subscription_id: "sub_dup")
+
+    # Stripe dedupes server-side via the Idempotency-Key header; we assert that
+    # we send it rather than guarding with a local list+scan (which races with
+    # concurrent webhook/return handlers and breaks past the 100-grant list cap).
+    stub_request(:post, "https://api.stripe.com/v1/billing/credit_grants")
+      .to_return(status: 200, body: { id: "credgr_existing" }.to_json, headers: { "Content-Type" => "application/json" })
+
+    event = build_stripe_event(
+      type: "checkout.session.completed",
+      object: {
+        "id" => "cs_dup_session",
+        "customer" => "cus_topup_dup",
+        "mode" => "payment",
+        "metadata" => { "type" => "credit_topup" },
+        "amount_total" => 2500,
+      },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    assert_requested(
+      :post,
+      "https://api.stripe.com/v1/billing/credit_grants",
+      headers: { "Idempotency-Key" => "credit_grant:cs_dup_session" },
+    )
+  end
+
+  test "handle_webhook checkout.session.completed still activates subscriptions" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_sub_still", active: false)
+
+    event = build_stripe_event(
+      type: "checkout.session.completed",
+      object: {
+        "customer" => "cus_sub_still",
+        "subscription" => "sub_new123",
+        "mode" => "subscription",
+      },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    sc.reload
+    assert sc.active
+    assert_equal "sub_new123", sc.stripe_subscription_id
   end
 
   private

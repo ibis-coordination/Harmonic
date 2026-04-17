@@ -122,6 +122,39 @@ class SystemAdminController < ApplicationController
     end
   end
 
+  # GET /system-admin/agent-runner
+  def agent_runner
+    @page_title = "Agent Runner"
+    @runner_stats = nil
+    @stream_length = 0
+    @pending_count = "N/A"
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    raw = redis.get("agent_runner:stats")
+    @runner_stats = raw.present? ? JSON.parse(raw) : nil
+
+    @stream_length = redis.xlen("agent_tasks")
+    @pending_count = begin
+      info = redis.xpending("agent_tasks", "agent_runner")
+      info[0] || 0
+    rescue StandardError
+      "N/A"
+    end
+  rescue StandardError => e
+    @error = e.message
+  ensure
+    redis&.close
+
+    @recent_task_runs = AiAgentTaskRun.unscoped_for_admin(@current_user)
+      .order(created_at: :desc)
+      .limit(20)
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
   private
 
   def ensure_primary_tenant
@@ -175,9 +208,34 @@ class SystemAdminController < ApplicationController
   def load_monitoring_data
     @security_summary = SecurityAuditLogReader.summary(since: 24.hours.ago)
     @agent_runs = load_agent_run_stats
+    @agent_runner_summary = load_agent_runner_summary
     @webhook_health = load_webhook_health_stats
     @event_activity = load_event_activity_stats
     @system_resources = load_system_resource_stats
+  end
+
+  # Lightweight runner-process stats for the dashboard row.
+  # The full picture lives on /system-admin/agent-runner; here we show just
+  # enough to signal "is it alive?".
+  def load_agent_runner_summary
+    stats = nil
+    stream_length = nil
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    raw = redis.get("agent_runner:stats")
+    stats = JSON.parse(raw) if raw.present?
+    stream_length = redis.xlen("agent_tasks")
+  rescue StandardError
+    stats = nil
+    stream_length = nil
+  ensure
+    redis&.close
+    return {
+      stats: stats,
+      stream_length: stream_length,
+      # Stats are written with a 60s TTL, so `stats` being nil means either
+      # the runner hasn't started or hasn't written a heartbeat recently.
+      alive: stats.present?,
+    }
   end
 
   def load_agent_run_stats

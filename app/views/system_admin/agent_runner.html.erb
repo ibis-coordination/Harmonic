@@ -1,0 +1,90 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['System Admin', '/system-admin'],
+  'Agent Runner'
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'cpu', height: 24 %> Agent Runner
+</h1>
+
+<% if @error %>
+  <div class="pulse-alert pulse-alert-warning">
+    <strong>Error reading agent-runner stats:</strong> <%= @error %>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Service Status', icon: 'pulse', open: true do %>
+  <% if @runner_stats %>
+    <div class="pulse-table-wrapper">
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Active Tasks</td><td><%= @runner_stats["activeTasks"] %></td></tr>
+          <tr><td>Total Tasks Processed</td><td><%= @runner_stats["totalTasksProcessed"] %></td></tr>
+          <tr><td>Started At</td><td><%= @runner_stats["startedAt"] %></td></tr>
+          <tr><td>Last Task At</td><td><%= @runner_stats["lastTaskAt"] || "None" %></td></tr>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="pulse-text-secondary">Agent runner is not reporting stats. It may be offline or not yet started.</p>
+  <% end %>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Redis Stream', icon: 'database', open: true do %>
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Stream Length</td><td><%= @stream_length %></td></tr>
+        <tr><td>Pending Messages</td><td><%= @pending_count %></td></tr>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<%= render 'shared/pulse_accordion', title: 'Recent Task Runs', icon: 'history', count: @recent_task_runs&.count || 0, open: true do %>
+  <% if @recent_task_runs&.any? %>
+    <div class="pulse-table-wrapper">
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Agent</th>
+            <th>Status</th>
+            <th>Steps</th>
+            <th>Tokens</th>
+            <th>Started</th>
+            <th>Completed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @recent_task_runs.each do |run| %>
+            <tr>
+              <td><code><%= run.id[0..7] %></code></td>
+              <td><%= run.ai_agent&.name %></td>
+              <td><%= run.status %></td>
+              <td><%= run.steps_count %></td>
+              <td><%= run.total_tokens %></td>
+              <td><%= run.started_at&.strftime("%H:%M:%S") %></td>
+              <td><%= run.completed_at&.strftime("%H:%M:%S") %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="pulse-text-secondary">No recent task runs.</p>
+  <% end %>
+<% end %>

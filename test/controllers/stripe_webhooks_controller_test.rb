@@ -13,7 +13,10 @@ class StripeWebhooksControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "receive with valid signature processes event" do
-    payload = { type: "checkout.session.completed", data: { object: { customer: "cus_test", subscription: "sub_test" } } }.to_json
+    payload = {
+      type: "checkout.session.completed",
+      data: { object: { mode: "subscription", customer: "cus_test", subscription: "sub_test" } },
+    }.to_json
     timestamp = Time.now.to_i
     signature = generate_stripe_signature(payload, timestamp)
 

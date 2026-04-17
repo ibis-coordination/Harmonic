@@ -24,6 +24,11 @@
         <%= octicon 'credit-card', height: 14 %>
         <strong>Billing inactive</strong> — This agent's billing is not active. <a href="/billing">Set up billing</a> to run tasks.
       </div>
+    <% elsif @credit_balance_cents == 0 %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 24px;">
+        <%= octicon 'alert', height: 14 %>
+        <strong>No credit balance</strong> — <a href="/billing">Add funds</a> before running tasks.
+      </div>
     <% end %>
 
     <div class="pulse-ai-agent-card" style="margin-bottom: 24px;">
@@ -66,7 +71,7 @@
       </div>
 
       <div class="pulse-form-actions">
-        <button type="submit" class="pulse-action-btn">
+        <button type="submit" class="pulse-action-btn" <%= "disabled" if @credit_balance_cents == 0 %>>
           <%= octicon 'play', height: 14 %> Run Task
         </button>
         <a href="<%= ai_agents_path %>" class="pulse-action-btn-secondary">Cancel</a>

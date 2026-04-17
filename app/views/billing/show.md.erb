@@ -52,6 +52,20 @@ These resources are deactivated and not being billed.
 
 To deactivate or reactivate resources, visit `/billing` in your browser.
 
+## AI Agent Credits
+
+<% if @credit_balance_cents.nil? %>
+Balance unavailable — try refreshing.
+<% else %>
+**Balance: $<%= format("%.2f", @credit_balance_cents / 100.0) %>**
+<% if @credit_balance_cents == 0 %>
+
+Add funds to run AI agents.
+<% end %>
+<% end %>
+
+To add credits, visit `/billing` in your browser and use the "Add Funds" button.
+
 <% elsif @billable_quantity && @billable_quantity == 0 %>
 ## Status
 

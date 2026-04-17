@@ -159,7 +159,8 @@ CREATE TABLE public.api_tokens (
     tenant_admin boolean DEFAULT false NOT NULL,
     token_hash character varying,
     token_prefix character varying(4),
-    internal boolean DEFAULT false NOT NULL
+    internal boolean DEFAULT false NOT NULL,
+    ai_agent_task_run_id uuid
 );
 
 
@@ -2972,6 +2973,13 @@ CREATE INDEX index_ai_agent_task_runs_on_tenant_id_and_created_at ON public.ai_a
 --
 
 CREATE INDEX index_ai_agent_task_runs_on_tenant_id_and_initiated_by_id ON public.ai_agent_task_runs USING btree (tenant_id, initiated_by_id);
+
+
+--
+-- Name: index_api_tokens_on_ai_agent_task_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_api_tokens_on_ai_agent_task_run_id ON public.api_tokens USING btree (ai_agent_task_run_id);
 
 
 --
@@ -8197,6 +8205,14 @@ ALTER TABLE ONLY public.automation_rule_run_resources
 
 
 --
+-- Name: api_tokens fk_rails_ab1eaf3124; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_tokens
+    ADD CONSTRAINT fk_rails_ab1eaf3124 FOREIGN KEY (ai_agent_task_run_id) REFERENCES public.ai_agent_task_runs(id);
+
+
+--
 -- Name: events fk_rails_ae2d71ac2b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8515,6 +8531,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260413000000'),
 ('20260410000001'),
 ('20260410000000'),
 ('20260409000001'),

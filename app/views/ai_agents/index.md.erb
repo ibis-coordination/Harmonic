@@ -1,0 +1,29 @@
+# My AI Agents
+
+<% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.stripe_billing_setup? %>
+**Billing required** — [Set up billing](/billing) to create and run AI agents.
+
+<% elsif @credit_balance_cents == 0 %>
+**No credit balance** — [Add funds](/billing) to run AI agents.
+
+<% end %>
+<% if @ai_agents.any? %>
+| Agent | Mode | Status | Latest Run |
+|-------|------|--------|------------|
+<% @ai_agents.each do |ai_agent| %>
+<% latest_run = @latest_runs_by_ai_agent[ai_agent.id] %>
+<% run_status = if latest_run
+  case latest_run.status
+  when "completed" then latest_run.success ? "Success" : "Failed"
+  when "running" then "Running"
+  when "queued" then "Queued"
+  else latest_run.status.titleize
+  end
+else
+  "No runs"
+end %>
+| [<%= ai_agent.display_name %>](/ai-agents/<%= ai_agent.handle %>)<%= " (archived)" if ai_agent.archived? %> | <%= ai_agent.internal_ai_agent? ? "Internal" : "External" %> | <%= ai_agent.archived? ? "Inactive" : "Active" %> | <%= run_status %> |
+<% end %>
+<% else %>
+No AI agents yet. Create one using the `create_ai_agent` action at [/ai-agents/new](/ai-agents/new).
+<% end %>

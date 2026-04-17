@@ -22,6 +22,50 @@
   </div>
 <% end %>
 
+<%= render 'shared/pulse_accordion', title: 'Agent Runner', icon: 'dependabot', open: true do %>
+  <p class="pulse-form-hint" style="margin-bottom: 16px;">
+    Node.js service that executes AI agent task runs. Consumes from the
+    <code class="pulse-code">agent_tasks</code> Redis stream.
+  </p>
+
+  <div class="pulse-monitoring-grid" style="margin-bottom: 16px;">
+    <div class="pulse-monitoring-row">
+      <%= octicon 'pulse', height: 14 %>
+      <span class="pulse-monitoring-label">Status</span>
+      <span class="pulse-monitoring-values">
+        <% if @agent_runner_summary[:alive] %>
+          <span class="pulse-text-success">alive</span>
+          &middot;
+          <span><%= @agent_runner_summary[:stats]["activeTasks"] || 0 %> active</span>
+          &middot;
+          <span><%= @agent_runner_summary[:stats]["totalTasksProcessed"] || 0 %> processed since start</span>
+        <% else %>
+          <span class="pulse-text-danger">no heartbeat</span>
+          <span class="pulse-text-muted">(stats key missing or stale)</span>
+        <% end %>
+      </span>
+    </div>
+
+    <div class="pulse-monitoring-row">
+      <%= octicon 'inbox', height: 14 %>
+      <span class="pulse-monitoring-label">Stream</span>
+      <span class="pulse-monitoring-values">
+        <% if @agent_runner_summary[:stream_length].nil? %>
+          <span class="pulse-text-muted">unavailable</span>
+        <% else %>
+          <span><%= @agent_runner_summary[:stream_length] %> entries in <code class="pulse-code">agent_tasks</code></span>
+        <% end %>
+      </span>
+    </div>
+  </div>
+
+  <div class="pulse-form-actions">
+    <a href="/system-admin/agent-runner" class="pulse-action-btn">
+      <%= octicon 'dependabot', height: 14 %> View Agent Runner Dashboard
+    </a>
+  </div>
+<% end %>
+
 <%= render 'shared/pulse_accordion', title: 'System Monitoring', icon: 'pulse', open: true do %>
   <div class="pulse-monitoring-grid">
 

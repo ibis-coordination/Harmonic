@@ -110,6 +110,39 @@
         </section>
       <% end %>
 
+      <section class="pulse-section" style="margin-bottom: 24px;">
+        <h2 class="pulse-section-title">AI Agent Credits</h2>
+        <p class="pulse-muted" style="margin-bottom: 12px;">Prepaid credits for AI agent LLM usage. Agents draw down from this balance as they run.</p>
+
+        <div style="margin-bottom: 16px;">
+          <% if @credit_balance_cents.nil? %>
+            <p class="pulse-muted">Balance unavailable — try refreshing.</p>
+          <% else %>
+            <p style="font-size: 1.5em; font-weight: 600;">
+              $<%= format("%.2f", @credit_balance_cents / 100.0) %>
+            </p>
+            <% if @credit_balance_cents == 0 %>
+              <p class="pulse-muted" style="margin-top: 4px;">Add funds to run AI agents.</p>
+            <% end %>
+          <% end %>
+        </div>
+
+        <%= form_tag billing_topup_path, method: :post, style: "display: flex; align-items: center; gap: 8px;" do %>
+          <label for="topup_amount" class="pulse-muted" style="white-space: nowrap;">Add funds:</label>
+          <select name="amount_cents" id="topup_amount" class="pulse-input" style="width: auto;">
+            <option value="500">$5.00</option>
+            <option value="1000">$10.00</option>
+            <option value="2500" selected>$25.00</option>
+            <option value="5000">$50.00</option>
+            <option value="10000">$100.00</option>
+          </select>
+          <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+            <%= octicon 'plus', height: 14 %>
+            Add Funds
+          </button>
+        <% end %>
+      </section>
+
     <% elsif @billable_quantity && @billable_quantity == 0 %>
       <%# === No subscription needed (everything is exempt) === %>
       <section class="pulse-section" style="margin-bottom: 24px;">

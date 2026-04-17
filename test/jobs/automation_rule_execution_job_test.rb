@@ -88,13 +88,15 @@ class AutomationRuleExecutionJobTest < ActiveJob::TestCase
     assert_equal "Actions must be an array", run.error_message
   end
 
-  test "enqueues AgentQueueProcessorJob when executing agent rule" do
+  test "dispatches to agent-runner when executing agent rule" do
     rule = create_agent_rule
     run = create_pending_run(rule)
 
-    assert_enqueued_with(job: AgentQueueProcessorJob) do
+    dispatched = []
+    AgentRunnerDispatchService.stub :dispatch, ->(tr) { dispatched << tr } do
       AutomationRuleExecutionJob.perform_now(automation_rule_run_id: run.id, tenant_id: @tenant.id)
     end
+    assert_equal 1, dispatched.length
   end
 
   # ===========================================================================

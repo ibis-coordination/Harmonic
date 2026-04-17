@@ -6,6 +6,7 @@ class ApiToken < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   belongs_to :user
+  belongs_to :ai_agent_task_run, optional: true
 
   # Default scope to external tokens only (merged with tenant scope from ApplicationRecord)
   # This prevents accidentally exposing internal tokens by forgetting to filter
@@ -165,10 +166,18 @@ class ApiToken < ApplicationRecord
   #
   # @param user [User] The user to create the token for
   # @param tenant [Tenant] The tenant context
+  # @param ai_agent_task_run [AiAgentTaskRun, nil] Optional task run to link for resource tracking
   # @param expires_in [ActiveSupport::Duration] How long until the token expires (default: 1 hour)
   # @return [ApiToken] The created token with plaintext_token available
-  sig { params(user: User, tenant: Tenant, expires_in: ActiveSupport::Duration).returns(ApiToken) }
-  def self.create_internal_token(user:, tenant:, expires_in: 1.hour)
+  sig do
+    params(
+      user: User,
+      tenant: Tenant,
+      ai_agent_task_run: T.nilable(AiAgentTaskRun),
+      expires_in: ActiveSupport::Duration,
+    ).returns(ApiToken)
+  end
+  def self.create_internal_token(user:, tenant:, ai_agent_task_run: nil, expires_in: 1.hour)
     token = new(
       user: user,
       tenant: tenant,
@@ -176,6 +185,7 @@ class ApiToken < ApplicationRecord
       scopes: valid_scopes,
       name: "Internal Agent Token",
       expires_at: Time.current + expires_in,
+      ai_agent_task_run_id: ai_agent_task_run&.id,
     )
     # Set the allow flag to bypass the validation - only this method can create internal tokens
     token.allow_internal_token = true

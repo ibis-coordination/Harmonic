@@ -17,6 +17,9 @@
     <a href="/system-admin/sidekiq" class="pulse-nav-item<%= ' active' if request.path.start_with?('/system-admin/sidekiq') %>">
       <%= octicon 'workflow', height: 16 %> Sidekiq
     </a>
+    <a href="/system-admin/agent-runner" class="pulse-nav-item<%= ' active' if request.path.start_with?('/system-admin/agent-runner') %>">
+      <%= octicon 'dependabot', height: 16 %> Agent Runner
+    </a>
   </div>
 
   <% if @current_user&.app_admin? || @current_tenant&.is_admin?(@current_user) %>

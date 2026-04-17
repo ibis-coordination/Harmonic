@@ -9,19 +9,20 @@ class BillingController < ApplicationController
     @page_title = "Billing"
     @stripe_customer = current_user.stripe_customer
 
-    # Handle checkout return: verify session synchronously
+    # Handle checkout return: verify session synchronously, then redirect to strip the param
     if params[:checkout_session_id].present?
       handle_checkout_return
-    end
 
-    # If billing is now active and there's a valid return_to, redirect
-    return_to = params[:return_to]
-    if @stripe_customer&.active? && safe_return_path?(return_to)
-      return redirect_to return_to
+      # PRG: redirect to clean URL to avoid re-processing on refresh
+      return_to = params[:return_to]
+      if @stripe_customer&.active? && safe_return_path?(return_to)
+        return redirect_to return_to
+      end
+      return redirect_to billing_show_path
     end
 
     load_billing_inventory
-
+    load_credit_balance
   end
 
   # POST /billing/setup
@@ -63,6 +64,44 @@ class BillingController < ApplicationController
     )
 
     redirect_to portal_url, allow_other_host: true
+  end
+
+  # POST /billing/topup
+  def topup
+    unless current_user.stripe_customer&.active?
+      flash[:error] = "You need an active subscription before adding credits."
+      return redirect_to billing_show_path
+    end
+
+    amount_cents = params[:amount_cents].to_i
+    max_cents = ENV.fetch("STRIPE_MAX_TOPUP_CENTS", "50000").to_i
+
+    if amount_cents < 100
+      flash[:error] = "Minimum top-up amount is $1.00."
+      return redirect_to billing_show_path
+    end
+
+    if amount_cents > max_cents
+      flash[:error] = "Maximum top-up amount is $#{format("%.2f", max_cents / 100.0)}."
+      return redirect_to billing_show_path
+    end
+
+    stripe_customer = current_user.stripe_customer
+    billing_url = billing_show_url
+    success_url = "#{billing_url}?checkout_session_id={CHECKOUT_SESSION_ID}"
+
+    checkout_url = StripeService.create_credit_topup_checkout(
+      stripe_customer: stripe_customer,
+      amount_cents: amount_cents,
+      success_url: success_url,
+      cancel_url: billing_url,
+    )
+
+    redirect_to checkout_url, allow_other_host: true
+  rescue Stripe::StripeError => e
+    Rails.logger.error("[BillingController] Credit top-up checkout failed: #{e.message}")
+    flash[:error] = "Could not start credit top-up. Please try again."
+    redirect_to billing_show_path
   end
 
   # POST /billing/deactivate_agent/:handle
@@ -240,7 +279,10 @@ class BillingController < ApplicationController
       return
     end
 
-    if !stripe_customer.active?
+    # Disambiguate by session mode
+    if session_obj.mode == "payment" && session_obj.metadata&.[]("type") == "credit_topup"
+      handle_topup_session(session_obj, stripe_customer)
+    elsif !stripe_customer.active?
       # Lock the stripe_customer row to prevent concurrent checkout completions
       # and ensure pending resource activation is atomic with billing activation.
       StripeCustomer.transaction do
@@ -261,11 +303,33 @@ class BillingController < ApplicationController
       # Sync quantity outside the transaction (calls Stripe API, shouldn't hold lock)
       StripeService.sync_subscription_quantity!(current_user)
 
-      flash.now[:notice] = "Billing activated successfully!"
+      flash[:notice] = "Billing activated successfully!"
     end
   rescue Stripe::StripeError => e
     Rails.logger.warn("[BillingController] Checkout session handling failed: #{e.message}")
-    flash.now[:error] = "Could not verify checkout session. Your billing may take a moment to activate."
+    flash[:error] = "Could not verify checkout session. Your billing may take a moment to activate."
+  end
+
+  def handle_topup_session(session_obj, stripe_customer)
+    amount_cents = session_obj.amount_total
+    if amount_cents && amount_cents > 0
+      # Create the credit grant synchronously (webhook is a backup for reliability).
+      # Idempotency is handled inside StripeService — safe if webhook also fires.
+      StripeService.create_credit_grant_from_checkout(
+        stripe_customer: stripe_customer,
+        amount_cents: amount_cents,
+        checkout_session_id: session_obj.id,
+      )
+      flash[:notice] = "Credits added: $#{format("%.2f", amount_cents / 100.0)}"
+    else
+      flash[:notice] = "Credit top-up completed."
+    end
+  end
+
+  def load_credit_balance
+    return unless @stripe_customer&.active?
+
+    @credit_balance_cents = StripeService.get_credit_balance(@stripe_customer)
   end
 
   def load_billing_inventory

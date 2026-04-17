@@ -4,6 +4,7 @@ class AiAgentsController < ApplicationController
   before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate, :reactivate]
   before_action :require_ai_agents_enabled, only: [:index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run]
   before_action :require_billing_for_creation, only: [:new]
+  before_action :load_credit_balance_for_agents, only: [:index, :new, :run_task]
   before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
   before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
 
@@ -161,11 +162,8 @@ class AiAgentsController < ApplicationController
       max_steps: max_steps
     )
 
-    # Enqueue background job to process the task
-    AgentQueueProcessorJob.perform_later(
-      ai_agent_id: @ai_agent.id,
-      tenant_id: current_tenant.id
-    )
+    # Dispatch to the agent-runner service via Redis stream
+    AgentRunnerDispatchService.dispatch(@task_run)
 
     respond_to do |format|
       format.html { redirect_to ai_agent_run_path(@ai_agent.handle, @task_run.id) }
@@ -241,11 +239,9 @@ class AiAgentsController < ApplicationController
       completed_at: Time.current
     )
 
-    # Trigger job to pick up any remaining queued tasks
-    AgentQueueProcessorJob.perform_later(
-      ai_agent_id: @ai_agent.id,
-      tenant_id: current_tenant.id
-    )
+    # No re-enqueue needed: every queued task is already published to the
+    # agent-runner stream at creation time. agent-runner's per-agent lock
+    # means sibling queued tasks will be picked up as the current one finishes.
 
     respond_to do |format|
       format.html do
@@ -441,6 +437,17 @@ class AiAgentsController < ApplicationController
   end
 
   private
+
+  def load_credit_balance_for_agents
+    return unless current_user&.human?
+    return unless current_tenant&.feature_enabled?("stripe_billing")
+    return unless ENV.fetch("LLM_GATEWAY_MODE", "litellm") == "stripe_gateway"
+
+    sc = current_user.stripe_customer
+    return unless sc&.active?
+
+    @credit_balance_cents = StripeService.get_credit_balance(sc)
+  end
 
   def require_billing_for_creation
     return unless current_user&.human?

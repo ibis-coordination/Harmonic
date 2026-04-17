@@ -35,9 +35,24 @@ end
 ENV["RAILS_ENV"] ||= "test"
 ENV["MAILER_FROM_ADDRESS"] ||= "test@example.com"
 ENV["CADDYFILE_PATH"] ||= File.join(Dir.tmpdir, "Caddyfile.test")
+ENV["AGENT_RUNNER_SECRET"] ||= "test-agent-runner-secret-not-a-real-key"
+
+# Route tests to a separate Redis DB so they don't share state with the dev
+# agent-runner process. Tests dispatch real XADDs to `agent_tasks`, and when
+# the dev runner is running it would otherwise pick those entries up,
+# inflating stats and attempting to call Rails with test-scoped subdomains
+# that don't exist in the dev DB. The dispatch service and the base
+# controller's replay-nonce cache both read ENV["REDIS_URL"] at call time,
+# so overriding here is sufficient.
+if ENV["REDIS_URL"].present?
+  ENV["REDIS_URL"] = ENV["REDIS_URL"].sub(%r{/\d+\z}, "") + "/15"
+else
+  ENV["REDIS_URL"] = "redis://redis:6379/15"
+end
 require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
+require "minitest/mock"
 
 # Allow real connections to localhost for integration tests
 WebMock.disable_net_connect!(allow_localhost: true)

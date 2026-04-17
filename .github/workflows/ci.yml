@@ -39,7 +39,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -87,6 +87,22 @@ jobs:
       - name: Run MCP server tests
         run: |
           cd mcp-server
+          npm test
+
+      - name: Build agent-runner
+        run: |
+          cd agent-runner
+          npm install
+          npm run build
+
+      - name: Run agent-runner type check
+        run: |
+          cd agent-runner
+          npm run typecheck
+
+      - name: Run agent-runner tests
+        run: |
+          cd agent-runner
           npm test
 
       - name: Run tests with coverage

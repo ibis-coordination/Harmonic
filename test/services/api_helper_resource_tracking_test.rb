@@ -66,6 +66,32 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     assert_equal "create", resource.action_type
   end
 
+  test "resource tracking uses current_token task run when thread-local is not set" do
+    # Simulates a request from agent-runner: no thread-local, but the Bearer
+    # token carries the task run linkage.
+    assert_nil AiAgentTaskRun.current_id
+
+    token = ApiToken.create_internal_token(
+      user: @ai_agent,
+      tenant: @tenant,
+      ai_agent_task_run: @task_run,
+    )
+
+    api_helper = ApiHelper.new(
+      current_user: @ai_agent,
+      current_tenant: @tenant,
+      current_collective: @collective,
+      current_token: token,
+      params: { text: "Token-tracked note" },
+      request: {},
+    )
+    note = api_helper.create_note
+
+    assert_equal 1, AiAgentTaskRunResource.count
+    assert_equal @task_run.id, AiAgentTaskRunResource.first.ai_agent_task_run_id
+    assert_equal note.id, AiAgentTaskRunResource.first.resource_id
+  end
+
   # === Note Tracking Tests ===
 
   test "create_note tracks resource with correct action_type and display_path" do

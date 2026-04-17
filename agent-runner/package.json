@@ -1,0 +1,27 @@
+{
+  "name": "agent-runner",
+  "version": "1.0.0",
+  "description": "Node.js service for executing Harmonic AI agent tasks",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "effect": "^3.21.0",
+    "ioredis": "^5.4.0",
+    "undici": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
