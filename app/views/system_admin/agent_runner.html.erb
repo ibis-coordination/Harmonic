@@ -66,6 +66,16 @@
 <% end %>
 
 <%= render 'shared/pulse_accordion', title: 'Recent Task Runs', icon: 'history', count: @recent_task_runs&.count || 0, open: true do %>
+  <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+    <% %w[all completed failed cancelled running queued].each do |status| %>
+      <% active = (status == "all" && @status_filter.blank?) || @status_filter == status %>
+      <a href="<%= status == "all" ? "/system-admin/agent-runner" : "/system-admin/agent-runner?status=#{status}" %>"
+         class="pulse-badge <%= active ? 'pulse-badge-info' : 'pulse-badge-muted' %>"
+         style="text-decoration: none;">
+        <%= status.titleize %>
+      </a>
+    <% end %>
+  </div>
   <% if @recent_task_runs&.any? %>
     <div class="pulse-table-wrapper">
       <table class="pulse-table">
@@ -83,9 +93,9 @@
         <tbody>
           <% @recent_task_runs.each do |run| %>
             <tr>
-              <td><code><%= run.id[0..7] %></code></td>
+              <td><a href="<%= system_admin_task_run_path(run.id) %>"><code><%= run.id[0..7] %></code></a></td>
               <td><%= run.ai_agent&.name %></td>
-              <td><%= run.status %></td>
+              <td><span class="pulse-badge <%= run.status_badge_class %>"><%= run.status %></span></td>
               <td><%= run.steps_count %></td>
               <td><%= run.total_tokens %></td>
               <td><%= run.started_at&.strftime("%H:%M:%S") %></td>
@@ -96,6 +106,6 @@
       </table>
     </div>
   <% else %>
-    <p class="pulse-text-secondary">No recent task runs.</p>
+    <p class="pulse-text-secondary">No task runs<%= " with status '#{@status_filter}'" if @status_filter.present? %>.</p>
   <% end %>
 <% end %>

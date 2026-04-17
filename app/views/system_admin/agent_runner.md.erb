@@ -36,9 +36,13 @@
 | Pending Messages | <%= @runner_stats&.dig("streamPending") || @pending_count %> |
 
 ## Recent Task Runs
+<% if @status_filter.present? -%>
+
+Filtered by: **<%= @status_filter %>** ([show all](/system-admin/agent-runner))
+<% end -%>
 
 | ID | Agent | Status | Steps | Tokens | Started | Completed |
 |----|-------|--------|-------|--------|---------|-----------|
 <% @recent_task_runs.each do |run| -%>
-| <%= run.id[0..7] %> | <%= run.ai_agent&.name %> | <%= run.status %> | <%= run.steps_count %> | <%= run.total_tokens %> | <%= run.started_at&.strftime("%H:%M:%S") %> | <%= run.completed_at&.strftime("%H:%M:%S") %> |
+| [<%= run.id[0..7] %>](/system-admin/agent-runner/runs/<%= run.id %>) | <%= run.ai_agent&.name %> | <%= run.status %> | <%= run.steps_count %> | <%= run.total_tokens %> | <%= run.started_at&.strftime("%H:%M:%S") %> | <%= run.completed_at&.strftime("%H:%M:%S") %> |
 <% end -%>
