@@ -117,8 +117,9 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     update_params = { display_name: "Updated Display Name" }
     put api_path("/#{@user.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
-    @user.reload
-    assert_equal "Updated Display Name", @user.display_name
+    # display_name is stored on TenantUser, not User — query it directly
+    # since CurrentAttributes auto-reset clears Tenant.current_id after the request
+    assert_equal "Updated Display Name", @tenant.tenant_users.find_by(user: @user).display_name
   end
 
   test "update can update ai_agent user created by current user" do
@@ -128,8 +129,7 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     update_params = { display_name: "Updated AiAgent Name" }
     put api_path("/#{ai_agent.id}"), params: update_params.to_json, headers: @headers
     assert_response :success
-    ai_agent.reload
-    assert_equal "Updated AiAgent Name", ai_agent.display_name
+    assert_equal "Updated AiAgent Name", @tenant.tenant_users.find_by(user: ai_agent).display_name
   end
 
   test "update cannot update other person user" do

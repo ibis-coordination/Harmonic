@@ -1028,19 +1028,21 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST create_api_token action creates token and returns 200 markdown" do
-    initial_count = @user.api_tokens.count
+    # Query directly — User#api_tokens relies on Tenant.current_id which is
+    # cleared by CurrentAttributes auto-reset after the request.
+    user_tokens = ApiToken.unscoped.where(user: @user, tenant: @tenant, deleted_at: nil)
+    initial_count = user_tokens.count
     post "/u/#{@user.handle}/settings/tokens/new/actions/create_api_token",
       params: { name: "Test Token", read_write: "read" }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    @user.reload
-    assert_equal initial_count + 1, @user.api_tokens.count, "New token should have been created"
-    new_token = @user.api_tokens.last
+    assert_equal initial_count + 1, user_tokens.count, "New token should have been created"
+    new_token = user_tokens.last
     assert_equal "Test Token", new_token.name
   ensure
-    @user.api_tokens.where(name: "Test Token").destroy_all
+    ApiToken.unscoped.where(user: @user, name: "Test Token").destroy_all
   end
 
   test "POST create_api_token action creates read_write token" do
@@ -1117,11 +1119,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     new_ai_agent = User.find_by(name: ai_agent_name)
     assert new_ai_agent, "AiAgent should exist"
-    assert new_ai_agent.api_tokens.any?, "AiAgent should have an API token"
+    assert ApiToken.unscoped.where(user: new_ai_agent).any?, "AiAgent should have an API token"
   ensure
+    # Query directly — User#api_tokens relies on Tenant.current_id which is
+    # cleared by CurrentAttributes auto-reset after the request.
     ai_agent = User.find_by(name: ai_agent_name)
     if ai_agent
-      ai_agent.api_tokens.delete_all
+      ApiToken.unscoped.where(user: ai_agent).delete_all
       TenantUser.where(user: ai_agent).delete_all
       ai_agent.destroy
     end
