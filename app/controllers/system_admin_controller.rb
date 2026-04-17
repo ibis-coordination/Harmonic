@@ -208,9 +208,34 @@ class SystemAdminController < ApplicationController
   def load_monitoring_data
     @security_summary = SecurityAuditLogReader.summary(since: 24.hours.ago)
     @agent_runs = load_agent_run_stats
+    @agent_runner_summary = load_agent_runner_summary
     @webhook_health = load_webhook_health_stats
     @event_activity = load_event_activity_stats
     @system_resources = load_system_resource_stats
+  end
+
+  # Lightweight runner-process stats for the dashboard row.
+  # The full picture lives on /system-admin/agent-runner; here we show just
+  # enough to signal "is it alive?".
+  def load_agent_runner_summary
+    stats = nil
+    stream_length = nil
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    raw = redis.get("agent_runner:stats")
+    stats = JSON.parse(raw) if raw.present?
+    stream_length = redis.xlen("agent_tasks")
+  rescue StandardError
+    stats = nil
+    stream_length = nil
+  ensure
+    redis&.close
+    return {
+      stats: stats,
+      stream_length: stream_length,
+      # Stats are written with a 60s TTL, so `stats` being nil means either
+      # the runner hasn't started or hasn't written a heartbeat recently.
+      alive: stats.present?,
+    }
   end
 
   def load_agent_run_stats

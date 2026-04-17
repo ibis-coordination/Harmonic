@@ -5,11 +5,27 @@ System-level administration for `<%= ENV['HOSTNAME'] %>`.
 ## Quick Links
 
 * [Sidekiq Dashboard](/system-admin/sidekiq) - Background job processing
+* [Agent Runner Dashboard](/system-admin/agent-runner) - AI agent task execution
 
 ## Available Features
 
 ### Sidekiq
 Manage background job queues, view failed jobs, and retry jobs.
+
+### Agent Runner
+
+Node.js service that executes AI agent task runs.
+
+<% if @agent_runner_summary[:alive] %>
+- Status: alive
+- Active tasks: <%= @agent_runner_summary[:stats]["activeTasks"] || 0 %>
+- Processed since process start: <%= @agent_runner_summary[:stats]["totalTasksProcessed"] || 0 %>
+<% else %>
+- Status: **no heartbeat** (stats key missing or stale)
+<% end %>
+<% if @agent_runner_summary[:stream_length] %>
+- `agent_tasks` stream depth: <%= @agent_runner_summary[:stream_length] %>
+<% end %>
 
 ### System Monitoring
 
