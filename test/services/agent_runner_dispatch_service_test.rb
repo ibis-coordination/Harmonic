@@ -163,6 +163,32 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     redis.close
   end
 
+  test "fails task when Redis XADD raises an error" do
+    # Point at a bogus Redis to trigger connection failure
+    original_url = ENV["REDIS_URL"]
+    ENV["REDIS_URL"] = "redis://127.0.0.1:1/0"
+
+    AgentRunnerDispatchService.dispatch(@task_run)
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_includes @task_run.error, "dispatch_failed"
+  ensure
+    ENV["REDIS_URL"] = original_url
+  end
+
+  test "cleans up token when Redis XADD fails" do
+    original_url = ENV["REDIS_URL"]
+    ENV["REDIS_URL"] = "redis://127.0.0.1:1/0"
+
+    AgentRunnerDispatchService.dispatch(@task_run)
+
+    token = ApiToken.unscope(where: :internal).find_by(ai_agent_task_run_id: @task_run.id)
+    assert_nil token, "ephemeral token should be destroyed after dispatch failure"
+  ensure
+    ENV["REDIS_URL"] = original_url
+  end
+
   private
 
   def create_ai_agent

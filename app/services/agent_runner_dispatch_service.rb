@@ -80,7 +80,15 @@ class AgentRunnerDispatchService
     )
 
     # Publish to Redis Stream with encrypted token
-    publish_to_stream(token, billing_customer)
+    begin
+      publish_to_stream(token, billing_customer)
+    rescue StandardError => e
+      # Redis failure after token creation — clean up the token and fail the task
+      # so it shows up on the admin page instead of lurking as "queued" forever.
+      token.destroy
+      fail_task!("dispatch_failed: #{e.message}")
+      Rails.logger.error("[AgentRunnerDispatchService] Redis publish failed for task #{@task_run.id}: #{e.message}")
+    end
   end
 
   private
