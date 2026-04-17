@@ -27,8 +27,19 @@
         <tbody>
           <tr><td>Active Tasks</td><td><%= @runner_stats["activeTasks"] %></td></tr>
           <tr><td>Total Tasks Processed</td><td><%= @runner_stats["totalTasksProcessed"] %></td></tr>
+          <% if @runner_stats["processedSinceStart"] %>
+            <% counts = @runner_stats["processedSinceStart"] %>
+            <tr><td>Completed</td><td><%= counts["completed"] || 0 %></td></tr>
+            <tr><td>Failed</td><td><%= counts["failed"] || 0 %></td></tr>
+            <tr><td>Cancelled</td><td><%= counts["cancelled"] || 0 %></td></tr>
+          <% end %>
           <tr><td>Started At</td><td><%= @runner_stats["startedAt"] %></td></tr>
           <tr><td>Last Task At</td><td><%= @runner_stats["lastTaskAt"] || "None" %></td></tr>
+          <tr><td>Last Completion At</td><td><%= @runner_stats["lastCompletionAt"] || "None" %></td></tr>
+          <tr><td>Last Failure At</td><td><%= @runner_stats["lastFailureAt"] || "None" %></td></tr>
+          <% if @runner_stats["lastFailureReason"] %>
+            <tr><td>Last Failure</td><td><%= @runner_stats["lastFailureReason"] %></td></tr>
+          <% end %>
         </tbody>
       </table>
     </div>
@@ -47,8 +58,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr><td>Stream Length</td><td><%= @stream_length %></td></tr>
-        <tr><td>Pending Messages</td><td><%= @pending_count %></td></tr>
+        <tr><td>Stream Depth</td><td><%= @runner_stats&.dig("streamDepth") || @stream_length %></td></tr>
+        <tr><td>Pending Messages</td><td><%= @runner_stats&.dig("streamPending") || @pending_count %></td></tr>
       </tbody>
     </table>
   </div>

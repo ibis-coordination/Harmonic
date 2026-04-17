@@ -11,8 +11,19 @@
 |--------|-------|
 | Active Tasks | <%= @runner_stats["activeTasks"] %> |
 | Total Tasks Processed | <%= @runner_stats["totalTasksProcessed"] %> |
+<% if @runner_stats["processedSinceStart"] -%>
+<% counts = @runner_stats["processedSinceStart"] -%>
+| Completed | <%= counts["completed"] || 0 %> |
+| Failed | <%= counts["failed"] || 0 %> |
+| Cancelled | <%= counts["cancelled"] || 0 %> |
+<% end -%>
 | Started At | <%= @runner_stats["startedAt"] %> |
 | Last Task At | <%= @runner_stats["lastTaskAt"] || "None" %> |
+| Last Completion At | <%= @runner_stats["lastCompletionAt"] || "None" %> |
+| Last Failure At | <%= @runner_stats["lastFailureAt"] || "None" %> |
+<% if @runner_stats["lastFailureReason"] -%>
+| Last Failure | <%= @runner_stats["lastFailureReason"] %> |
+<% end -%>
 <% else -%>
 **Agent runner is not reporting stats.** It may be offline or not yet started.
 <% end -%>
@@ -21,8 +32,8 @@
 
 | Metric | Value |
 |--------|-------|
-| Stream Length | <%= @stream_length %> |
-| Pending Messages | <%= @pending_count %> |
+| Stream Depth | <%= @runner_stats&.dig("streamDepth") || @stream_length %> |
+| Pending Messages | <%= @runner_stats&.dig("streamPending") || @pending_count %> |
 
 ## Recent Task Runs
 

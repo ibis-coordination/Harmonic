@@ -209,6 +209,7 @@ function runWithMocks(
   );
 }
 
+
 // --- Tests ---
 
 describe("AgentLoop", () => {
@@ -811,5 +812,31 @@ describe("AgentLoop", () => {
     expect(errorSteps.length).toBeGreaterThanOrEqual(1);
     // Scratchpad should have run
     expect(state.scratchpadContent).toBe("Was cancelled");
+  });
+
+  // --- Outcome reporting ---
+
+  it("returns 'completed' outcome on successful task", async () => {
+    const state = createMockState();
+    const outcome = await runWithMocks(makeTask(), state, [makeLLMResponse()]);
+
+    expect(outcome).toEqual({ outcome: "completed" });
+  });
+
+  it("returns 'failed' outcome on LLM error", async () => {
+    const state = createMockState();
+    const outcome = await runWithMocks(makeTask(), state, [], undefined, undefined, { llmErrorOnCall: 0 });
+
+    expect(outcome).toEqual({ outcome: "failed" });
+  });
+
+  it("returns 'cancelled' outcome when task is cancelled", async () => {
+    const state = createMockState();
+    state.cancellationStatus = "cancelled";
+    const outcome = await runWithMocks(makeTask(), state, [
+      makeLLMResponse({ content: '{"type":"done","message":"done"}' }),
+    ]);
+
+    expect(outcome).toEqual({ outcome: "cancelled" });
   });
 });

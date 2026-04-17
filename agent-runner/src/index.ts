@@ -22,15 +22,23 @@ import { runTask } from "./services/AgentLoop.js";
 interface RunnerStats {
   activeTasks: number;
   totalTasksProcessed: number;
+  processedSinceStart: { completed: number; failed: number; cancelled: number };
   startedAt: string;
   lastTaskAt: string | null;
+  lastCompletionAt: string | null;
+  lastFailureAt: string | null;
+  lastFailureReason: string | null;
 }
 
 const stats: RunnerStats = {
   activeTasks: 0,
   totalTasksProcessed: 0,
+  processedSinceStart: { completed: 0, failed: 0, cancelled: 0 },
   startedAt: new Date().toISOString(),
   lastTaskAt: null,
+  lastCompletionAt: null,
+  lastFailureAt: null,
+  lastFailureReason: null,
 };
 
 /**
@@ -75,9 +83,21 @@ const processQueue = Effect.gen(function* () {
 
       // Fork task execution — runs concurrently
       // Note: runTask catches all its own errors internally and reports via reporter.complete/fail.
-      // The Effect always succeeds at the outer level.
+      // The Effect always succeeds at the outer level, returning the outcome for stats.
       yield* Effect.fork(
         runTask(entry.task).pipe(
+          Effect.tap((result) =>
+            Effect.sync(() => {
+              const now = new Date().toISOString();
+              stats.processedSinceStart[result.outcome]++;
+              if (result.outcome === "completed") {
+                stats.lastCompletionAt = now;
+              } else if (result.outcome === "failed") {
+                stats.lastFailureAt = now;
+                stats.lastFailureReason = `task ${entry.task.taskRunId}`;
+              }
+            }),
+          ),
           Effect.ensuring(
             Effect.sync(() => { stats.activeTasks--; }),
           ),
@@ -103,7 +123,8 @@ const publishStatsLoop = () =>
     Effect.gen(function* () {
       yield* Effect.sleep("10 seconds");
       const queue = yield* TaskQueue;
-      yield* queue.publishStats(stats as unknown as Record<string, unknown>);
+      const info = yield* queue.streamInfo();
+      yield* queue.publishStats({ ...stats, ...info } as unknown as Record<string, unknown>);
     }),
     Effect.catchAll(() => Effect.void),
     Effect.forever,
