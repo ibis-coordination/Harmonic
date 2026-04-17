@@ -15,6 +15,7 @@ import { LLMClient } from "./LLMClient.js";
 import { HarmonicClient } from "./HarmonicClient.js";
 import { TaskReporter } from "./TaskReporter.js";
 import { Config } from "../config/Config.js";
+import { log } from "./Logger.js";
 import { decryptToken } from "./TokenCrypto.js";
 import type { TaskPayload, Message } from "../core/PromptBuilder.js";
 import {
@@ -111,7 +112,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         steps.push(step);
         yield* reporter.step(task.taskRunId, subdomain, [step]).pipe(
           Effect.catchAll((err) => {
-            console.error(`[AgentLoop] Failed to persist step: ${String(err)}`);
+            log.error({ event: "step_persist_failed", taskRunId: task.taskRunId, message: String(err) });
             return Effect.void;
           }),
         );
@@ -382,7 +383,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         return addStep(result.step);
       }),
       Effect.catchAll((error) => {
-        console.error(`[AgentLoop] Scratchpad update failed for task ${task.taskRunId}: ${String(error)}`);
+        log.error({ event: "scratchpad_update_failed", taskRunId: task.taskRunId, message: String(error) });
         return addStep(scratchpadUpdateFailedStep({ error: String(error) }, new Date()));
       }),
     );
@@ -408,9 +409,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         Effect.flatMap((reporter) =>
           reporter.fail(task.taskRunId, task.tenantSubdomain, error.message ?? String(error)).pipe(
             Effect.catchAll((reportError) => {
-              console.error(
-                `[AgentLoop] Failed to report failure for task ${task.taskRunId}: ${String(reportError)}`,
-              );
+              log.error({ event: "failure_report_failed", taskRunId: task.taskRunId, message: String(reportError) });
               return Effect.void;
             }),
           ),

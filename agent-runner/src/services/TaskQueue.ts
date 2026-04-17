@@ -8,6 +8,7 @@ import { Redis as IORedis } from "ioredis";
 import { Config } from "../config/Config.js";
 import { RedisError } from "../errors/Errors.js";
 import type { TaskPayload } from "../core/PromptBuilder.js";
+import { log } from "./Logger.js";
 
 export interface StreamEntry {
   readonly id: string;
@@ -145,7 +146,7 @@ export const TaskQueueLive = Layer.effect(
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes("NOGROUP")) {
-              console.warn(`[AgentRunner] Consumer group missing, recreating: ${message}`);
+              log.warn({ event: "consumer_group_missing_recreating", message });
               const r = getRedis();
               await r.xgroup("CREATE", config.streamName, config.consumerGroup, "0", "MKSTREAM")
                 .catch((e: unknown) => {

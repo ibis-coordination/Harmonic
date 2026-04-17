@@ -14,6 +14,7 @@ import { HarmonicApiError, PreflightFailedError, TaskCancelledError } from "../e
 import { buildHeaders } from "./HmacSigner.js";
 import { RailsHttp } from "./RailsHttp.js";
 import type { StepRecord } from "../core/StepBuilder.js";
+import { log } from "./Logger.js";
 
 /**
  * Retry an Effect that may fail with HarmonicApiError, retrying only on
@@ -29,9 +30,15 @@ export const retryOnTransient = <A>(
       schedule: Schedule.exponential("250 millis"),
       while: (error) => {
         // No statusCode = connection error → retry
-        if (error.statusCode === undefined) return true;
+        if (error.statusCode === undefined) {
+          log.warn({ event: "transient_retry", statusCode: undefined, path: error.path, message: error.message });
+          return true;
+        }
         // 5xx = server error → retry
-        if (error.statusCode >= 500) return true;
+        if (error.statusCode >= 500) {
+          log.warn({ event: "transient_retry", statusCode: error.statusCode, path: error.path, message: error.message });
+          return true;
+        }
         // 4xx (including 409 Conflict) = permanent → don't retry
         return false;
       },
