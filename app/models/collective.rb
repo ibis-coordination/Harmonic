@@ -58,33 +58,33 @@ class Collective < ApplicationRecord
     elsif collective.nil?
       raise ActiveRecord::RecordNotFound, "Collective with handle '#{handle}' not found"
     end
-    Thread.current[:collective_id] = collective.id
-    Thread.current[:collective_handle] = collective.handle
+    Current.collective_id = collective.id
+    Current.collective_handle = collective.handle
     collective
   end
 
   sig { void }
   def self.clear_thread_scope
-    Thread.current[:collective_id] = nil
-    Thread.current[:collective_handle] = nil
+    Current.collective_id = nil
+    Current.collective_handle = nil
   end
 
   # Set thread-local collective context from a Collective instance.
   # Use this in jobs and other contexts where you have a Collective record.
   sig { params(collective: Collective).void }
   def self.set_thread_context(collective)
-    Thread.current[:collective_id] = collective.id
-    Thread.current[:collective_handle] = collective.handle
+    Current.collective_id = collective.id
+    Current.collective_handle = collective.handle
   end
 
   sig { returns(T.nilable(String)) }
   def self.current_handle
-    Thread.current[:collective_handle]
+    Current.collective_handle
   end
 
   sig { returns(T.nilable(String)) }
   def self.current_id
-    Thread.current[:collective_id]
+    Current.collective_id
   end
 
   sig { params(handle: String).returns(T::Boolean) }

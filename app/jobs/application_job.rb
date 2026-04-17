@@ -33,27 +33,25 @@ class ApplicationJob < ActiveJob::Base
 
   def save_tenant_context
     {
-      tenant_id: Thread.current[:tenant_id],
-      tenant_subdomain: Thread.current[:tenant_subdomain],
-      main_collective_id: Thread.current[:main_collective_id],
-      collective_id: Thread.current[:collective_id],
-      collective_handle: Thread.current[:collective_handle],
-      ai_agent_task_run_id: Thread.current[:ai_agent_task_run_id],
+      tenant_id: Current.tenant_id,
+      tenant_subdomain: Current.tenant_subdomain,
+      main_collective_id: Current.main_collective_id,
+      collective_id: Current.collective_id,
+      collective_handle: Current.collective_handle,
+      ai_agent_task_run_id: Current.ai_agent_task_run_id,
     }
   end
 
   def restore_tenant_context(saved)
-    Thread.current[:tenant_id] = saved[:tenant_id]
-    Thread.current[:tenant_subdomain] = saved[:tenant_subdomain]
-    Thread.current[:main_collective_id] = saved[:main_collective_id]
-    Thread.current[:collective_id] = saved[:collective_id]
-    Thread.current[:collective_handle] = saved[:collective_handle]
-    Thread.current[:ai_agent_task_run_id] = saved[:ai_agent_task_run_id]
+    Current.tenant_id = saved[:tenant_id]
+    Current.tenant_subdomain = saved[:tenant_subdomain]
+    Current.main_collective_id = saved[:main_collective_id]
+    Current.collective_id = saved[:collective_id]
+    Current.collective_handle = saved[:collective_handle]
+    Current.ai_agent_task_run_id = saved[:ai_agent_task_run_id]
   end
 
   def clear_all_tenant_context
-    Tenant.clear_thread_scope
-    Collective.clear_thread_scope
-    AiAgentTaskRun.clear_thread_scope
+    Current.reset
   end
 end

@@ -35,15 +35,15 @@ class AiAgentTaskRun < ApplicationRecord
   # Thread-local context management for tracking which task run is currently executing
   class << self
     def current_id
-      Thread.current[:ai_agent_task_run_id]
+      Current.ai_agent_task_run_id
     end
 
     def current_id=(id)
-      Thread.current[:ai_agent_task_run_id] = id
+      Current.ai_agent_task_run_id = id
     end
 
     def clear_thread_scope
-      Thread.current[:ai_agent_task_run_id] = nil
+      Current.ai_agent_task_run_id = nil
     end
 
     # Factory method for creating queued task runs with proper defaults.

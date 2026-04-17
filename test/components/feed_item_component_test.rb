@@ -10,13 +10,12 @@ class FeedItemComponentTest < ViewComponent::TestCase
 
   setup do
     # MarkdownRenderer needs tenant/collective context for link parsing
-    Thread.current[:tenant_subdomain] = "test"
-    Thread.current[:collective_handle] = "test-collective"
+    Current.tenant_subdomain = "test"
+    Current.collective_handle = "test-collective"
   end
 
   teardown do
-    Thread.current[:tenant_subdomain] = nil
-    Thread.current[:collective_handle] = nil
+    Current.reset
   end
 
   # --- Notes ---

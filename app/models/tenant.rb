@@ -57,10 +57,9 @@ class Tenant < ApplicationRecord
 
   sig { void }
   def self.clear_thread_scope
-    Thread.current[:tenant_id] = nil
-    Thread.current[:tenant_handle] = nil
-    Thread.current[:tenant_subdomain] = nil
-    Thread.current[:main_collective_id] = nil
+    Current.tenant_id = nil
+    Current.tenant_subdomain = nil
+    Current.main_collective_id = nil
   end
 
   # Set thread-local tenant context from a Tenant instance.
@@ -74,17 +73,17 @@ class Tenant < ApplicationRecord
 
   sig { returns(T.nilable(String)) }
   def self.current_subdomain
-    Thread.current[:tenant_subdomain]
+    Current.tenant_subdomain
   end
 
   sig { returns(T.nilable(String)) }
   def self.current_id
-    Thread.current[:tenant_id]
+    Current.tenant_id
   end
 
   sig { returns(T.nilable(String)) }
   def self.current_main_collective_id
-    Thread.current[:main_collective_id]
+    Current.main_collective_id
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -340,17 +339,17 @@ class Tenant < ApplicationRecord
 
   sig { params(subdomain: T.nilable(String)).void }
   def self.current_subdomain=(subdomain)
-    Thread.current[:tenant_subdomain] = subdomain
+    Current.tenant_subdomain = subdomain
   end
 
   sig { params(id: T.nilable(String)).void }
   def self.current_id=(id)
-    Thread.current[:tenant_id] = id
+    Current.tenant_id = id
   end
 
   sig { params(id: T.nilable(String)).void }
   def self.current_main_collective_id=(id)
-    Thread.current[:main_collective_id] = id
+    Current.main_collective_id = id
   end
 
   sig { void }

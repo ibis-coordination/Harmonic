@@ -27,12 +27,12 @@ module AutomationContext
 
   sig { returns(T.nilable(String)) }
   def self.current_run_id
-    Thread.current[:automation_rule_run_id]
+    Current.automation_rule_run_id
   end
 
   sig { params(id: T.nilable(String)).void }
   def self.current_run_id=(id)
-    Thread.current[:automation_rule_run_id] = id
+    Current.automation_rule_run_id = id
   end
 
   sig { returns(T.nilable(AutomationRuleRun)) }
@@ -69,7 +69,7 @@ module AutomationContext
   # Get the current chain context, initializing if needed
   sig { returns(T::Hash[Symbol, T.untyped]) }
   def self.current_chain
-    Thread.current[:automation_chain] ||= new_chain
+    Current.automation_chain ||= new_chain
   end
 
   # Create a fresh chain context
@@ -150,7 +150,7 @@ module AutomationContext
   def self.restore_chain!(hash)
     return if hash.blank?
 
-    Thread.current[:automation_chain] = {
+    Current.automation_chain = {
       depth: hash["depth"] || 0,
       executed_rule_ids: Set.new(hash["executed_rule_ids"] || []),
       origin_event_id: hash["origin_event_id"],
@@ -160,13 +160,13 @@ module AutomationContext
   # Clear chain context (call at end of job execution)
   sig { void }
   def self.clear_chain!
-    Thread.current[:automation_chain] = nil
+    Current.automation_chain = nil
   end
 
   # Check if we're currently inside an automation chain
   sig { returns(T::Boolean) }
   def self.in_chain?
-    chain = Thread.current[:automation_chain]
+    chain = Current.automation_chain
     chain.present? && chain[:depth] > 0
   end
 
