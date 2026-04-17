@@ -88,6 +88,8 @@
             <th>Tokens</th>
             <th>Started</th>
             <th>Completed</th>
+            <th>Wait</th>
+            <th>Duration</th>
           </tr>
         </thead>
         <tbody>
@@ -98,8 +100,10 @@
               <td><span class="pulse-badge <%= run.status_badge_class %>"><%= run.status %></span></td>
               <td><%= run.steps_count %></td>
               <td><%= run.total_tokens %></td>
-              <td><%= run.started_at&.strftime("%H:%M:%S") %></td>
-              <td><%= run.completed_at&.strftime("%H:%M:%S") %></td>
+              <td><%= run.started_at&.strftime("%b %-d %H:%M:%S") %></td>
+              <td><%= run.completed_at&.strftime("%b %-d %H:%M:%S") %></td>
+              <td><%= run.formatted_queue_wait %></td>
+              <td><%= run.formatted_duration %></td>
             </tr>
           <% end %>
         </tbody>

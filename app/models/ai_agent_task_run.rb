@@ -127,15 +127,7 @@ class AiAgentTaskRun < ApplicationRecord
   end
 
   def formatted_duration
-    return nil unless duration
-
-    if duration < 60
-      "#{duration.round(1)}s"
-    else
-      minutes = (duration / 60).floor
-      seconds = (duration % 60).round
-      "#{minutes}m #{seconds}s"
-    end
+    format_seconds(duration)
   end
 
   # Format the estimated cost for display
@@ -183,7 +175,27 @@ class AiAgentTaskRun < ApplicationRecord
     end
   end
 
+  def formatted_queue_wait
+    format_seconds(queue_wait)
+  end
+
   private
+
+  def format_seconds(total)
+    return nil unless total
+
+    if total < 60
+      "#{total.round(1)}s"
+    elsif total < 3600
+      minutes = (total / 60).floor
+      seconds = (total % 60).round
+      "#{minutes}m #{seconds}s"
+    else
+      hours = (total / 3600).floor
+      minutes = ((total % 3600) / 60).floor
+      "#{hours}h #{minutes}m"
+    end
+  end
 
   def find_parent_automation_runs
     runs = []
@@ -210,5 +222,12 @@ class AiAgentTaskRun < ApplicationRecord
     return nil unless started_at && completed_at
 
     completed_at - started_at
+  end
+
+  def queue_wait
+    end_of_wait = started_at || completed_at
+    return nil unless end_of_wait && created_at
+
+    end_of_wait - created_at
   end
 end
