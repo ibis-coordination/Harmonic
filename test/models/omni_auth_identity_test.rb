@@ -86,6 +86,29 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
     assert identity.valid?, "Expected identity to be valid when only updating name"
   end
 
+  # === TOTP Code Reuse Tests ===
+
+  test "TOTP code cannot be reused after successful verification" do
+    identity = OmniAuthIdentity.create!(
+      email: "totp-reuse@example.com",
+      name: "TOTP Reuse Test",
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    identity.generate_otp_secret!
+    identity.enable_otp!
+
+    totp = ROTP::TOTP.new(identity.otp_secret)
+    code = totp.now
+
+    # First use should succeed
+    assert identity.verify_otp(code), "First use of TOTP code should succeed"
+
+    # Same code should be rejected on replay
+    identity.reload
+    assert_not identity.verify_otp(code), "Replayed TOTP code should be rejected"
+  end
+
   # === Password Reset Token Tests ===
 
   test "generate_reset_password_token! returns raw token and stores hash" do

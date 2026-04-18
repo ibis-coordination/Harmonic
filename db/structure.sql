@@ -707,7 +707,8 @@ CREATE TABLE public.omni_auth_identities (
     otp_enabled_at timestamp(6) without time zone,
     otp_recovery_codes jsonb DEFAULT '[]'::jsonb,
     otp_failed_attempts integer DEFAULT 0 NOT NULL,
-    otp_locked_until timestamp(6) without time zone
+    otp_locked_until timestamp(6) without time zone,
+    last_otp_at integer
 );
 
 
@@ -8524,6 +8525,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260418182030'),
 ('20260417000000'),
 ('20260413000000'),
 ('20260410000001'),

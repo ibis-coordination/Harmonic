@@ -106,15 +106,20 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     totp.provisioning_uri(email)
   end
 
-  # Verify a TOTP code
+  # Verify a TOTP code. Returns false if the code was already used
+  # (last_otp_at prevents replay within the drift window).
   sig { params(code: String).returns(T::Boolean) }
   def verify_otp(code)
     return false if otp_secret.blank?
     return false if otp_locked?
 
     totp = ROTP::TOTP.new(otp_secret, issuer: OTP_ISSUER)
-    # drift_behind and drift_ahead allow for 30 seconds of clock drift
-    if totp.verify(code, drift_behind: 30, drift_ahead: 30)
+    # drift_behind and drift_ahead allow for 30 seconds of clock drift.
+    # after: rejects codes that were already used in this time step.
+    # verify returns the matching time-step timestamp on success, nil on failure.
+    verified_at = totp.verify(code, drift_behind: 30, drift_ahead: 30, after: last_otp_at)
+    if verified_at
+      update!(last_otp_at: verified_at)
       reset_otp_failed_attempts!
       true
     else
@@ -211,6 +216,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     self.otp_recovery_codes = []
     self.otp_failed_attempts = 0
     self.otp_locked_until = nil
+    self.last_otp_at = nil
     save!
   end
 end
