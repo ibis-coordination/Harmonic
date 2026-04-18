@@ -74,6 +74,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -83,6 +85,7 @@ services:
       retries: 3
     networks:
       - backend
+      - frontend  # also on frontend so port mapping works (backend is internal-only)
 
   # Autoheal - automatically restarts unhealthy containers
   # Monitors container health checks and restarts containers that become unhealthy
@@ -158,6 +161,7 @@ services:
   # leak the Rails master key, Stripe backend key, DB password, etc.
   agent-runner:
     build: ./agent-runner
+    stop_grace_period: 5m
     profiles: ["llm"]
     depends_on:
       web:

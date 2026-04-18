@@ -63,6 +63,8 @@ export interface TaskReporterService {
   readonly fail: (taskRunId: string, subdomain: string, error: string) => Effect.Effect<void, HarmonicApiError>;
   readonly scratchpad: (taskRunId: string, subdomain: string, content: string) => Effect.Effect<void, HarmonicApiError>;
   readonly checkCancellation: (taskRunId: string, subdomain: string) => Effect.Effect<void, TaskCancelledError | HarmonicApiError>;
+  /** Get a task's current status string from Rails. */
+  readonly getTaskStatus: (taskRunId: string, subdomain: string) => Effect.Effect<string, HarmonicApiError>;
 }
 
 export class TaskReporter extends Context.Tag("TaskReporter")<TaskReporter, TaskReporterService>() {}
@@ -162,6 +164,14 @@ export const TaskReporterLive = Layer.effect(
         }
       });
 
-    return { preflight, claim, step, complete, fail, scratchpad, checkCancellation };
+    const getTaskStatus: TaskReporterService["getTaskStatus"] = (taskRunId, subdomain) =>
+      internalRequest("GET", `/internal/agent-runner/tasks/${taskRunId}/status`, subdomain).pipe(
+        Effect.map((result) => {
+          const obj = result as Record<string, unknown> | null;
+          return String(obj?.["status"] ?? "unknown");
+        }),
+      );
+
+    return { preflight, claim, step, complete, fail, scratchpad, checkCancellation, getTaskStatus };
   }),
 );
