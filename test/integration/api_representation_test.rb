@@ -36,6 +36,22 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     @collective.enable_api!
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
+    @internal_context = AutomationRuleRun.create!(
+      tenant: @tenant,
+      collective: @collective,
+      automation_rule: AutomationRule.create!(
+        tenant: @tenant,
+        collective: @collective,
+        name: "Rep test rule",
+        trigger_type: "manual",
+        trigger_config: {},
+        actions: [],
+        created_by: @alice,
+      ),
+      trigger_source: "manual",
+      status: "pending",
+    )
+
     # Create an API token for Bob
     @bob_token = ApiToken.create!(
       tenant: @tenant,
@@ -350,7 +366,8 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     internal_token = ApiToken.create_internal_token(
       user: @bob,
       tenant: @tenant,
-      expires_in: 1.hour
+      context: @internal_context,
+      expires_in: 1.hour,
     )
 
     internal_headers = {

@@ -194,7 +194,7 @@ module Internal
     sig { params(task_run: AiAgentTaskRun).void }
     def destroy_task_token(task_run)
       ApiToken.unscope(where: :internal)
-        .where(ai_agent_task_run_id: task_run.id, internal: true)
+        .where(context_type: "AiAgentTaskRun", context_id: task_run.id, internal: true)
         .find_each(&:destroy)
     end
 

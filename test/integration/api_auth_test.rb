@@ -7,6 +7,21 @@ class ApiTest < ActionDispatch::IntegrationTest
     @collective = @global_collective
     @collective.enable_api!
     @user = @global_user
+    @internal_context = AutomationRuleRun.create!(
+      tenant: @tenant,
+      collective: @collective,
+      automation_rule: AutomationRule.create!(
+        tenant: @tenant,
+        collective: @collective,
+        name: "Auth test rule",
+        trigger_type: "manual",
+        trigger_config: {},
+        actions: [],
+        created_by: @user,
+      ),
+      trigger_source: "manual",
+      status: "pending",
+    )
     @api_token = ApiToken.create!(
       tenant: @tenant,
       user: @user,
@@ -149,7 +164,7 @@ class ApiTest < ActionDispatch::IntegrationTest
     non_main_collective.save!
 
     # Create internal token
-    internal_token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    internal_token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @internal_context)
     internal_headers = {
       "Authorization" => "Bearer #{internal_token.plaintext_token}",
       "Content-Type" => "application/json",
@@ -166,7 +181,7 @@ class ApiTest < ActionDispatch::IntegrationTest
     @tenant.set_feature_flag!("api", false)
 
     # Create internal token
-    internal_token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    internal_token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @internal_context)
     internal_headers = {
       "Authorization" => "Bearer #{internal_token.plaintext_token}",
       "Content-Type" => "application/json",

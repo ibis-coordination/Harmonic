@@ -11,7 +11,7 @@ class AiAgentTaskRun < ApplicationRecord
   belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
 
   has_many :ai_agent_task_run_resources, dependent: :destroy
-  has_many :api_tokens, dependent: :destroy
+  has_many :api_tokens, as: :context, dependent: :destroy
 
   validates :task, presence: true
   validates :max_steps, presence: true, numericality: { greater_than: 0, less_than_or_equal_to: 50 }

@@ -355,32 +355,23 @@ class ApiToken
   end
 
   module GeneratedAssociationMethods
-    sig { returns(T.nilable(::AiAgentTaskRun)) }
-    def ai_agent_task_run; end
-
-    sig { params(value: T.nilable(::AiAgentTaskRun)).void }
-    def ai_agent_task_run=(value); end
-
-    sig { returns(T::Boolean) }
-    def ai_agent_task_run_changed?; end
-
-    sig { returns(T::Boolean) }
-    def ai_agent_task_run_previously_changed?; end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
-    def build_ai_agent_task_run(*args, &blk); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_user(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
-    def create_ai_agent_task_run(*args, &blk); end
+    sig { returns(T.untyped) }
+    def context; end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
-    def create_ai_agent_task_run!(*args, &blk); end
+    sig { params(value: T.untyped).void }
+    def context=(value); end
+
+    sig { returns(T::Boolean) }
+    def context_changed?; end
+
+    sig { returns(T::Boolean) }
+    def context_previously_changed?; end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -394,8 +385,8 @@ class ApiToken
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_user!(*args, &blk); end
 
-    sig { returns(T.nilable(::AiAgentTaskRun)) }
-    def reload_ai_agent_task_run; end
+    sig { returns(T.untyped) }
+    def reload_context; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -404,7 +395,7 @@ class ApiToken
     def reload_user; end
 
     sig { void }
-    def reset_ai_agent_task_run; end
+    def reset_context; end
 
     sig { void }
     def reset_tenant; end
@@ -589,51 +580,6 @@ class ApiToken
   end
 
   module GeneratedAttributeMethods
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_task_run_id; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def ai_agent_task_run_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def ai_agent_task_run_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_task_run_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def ai_agent_task_run_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def ai_agent_task_run_id_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def ai_agent_task_run_id_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def ai_agent_task_run_id_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def ai_agent_task_run_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_task_run_id_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def ai_agent_task_run_id_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def ai_agent_task_run_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_task_run_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_task_run_id_was; end
-
-    sig { void }
-    def ai_agent_task_run_id_will_change!; end
-
     sig { returns(T::Boolean) }
     def app_admin; end
 
@@ -678,6 +624,96 @@ class ApiToken
 
     sig { void }
     def app_admin_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def context_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def context_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def context_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def context_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def context_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def context_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def context_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def context_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def context_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def context_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def context_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def context_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def context_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def context_id_was; end
+
+    sig { void }
+    def context_id_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def context_type; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def context_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def context_type?; end
+
+    sig { returns(T.nilable(::String)) }
+    def context_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def context_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def context_type_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def context_type_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def context_type_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def context_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def context_type_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def context_type_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def context_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def context_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def context_type_was; end
+
+    sig { void }
+    def context_type_will_change!; end
 
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
@@ -1040,10 +1076,13 @@ class ApiToken
     def name_will_change!; end
 
     sig { void }
-    def restore_ai_agent_task_run_id!; end
+    def restore_app_admin!; end
 
     sig { void }
-    def restore_app_admin!; end
+    def restore_context_id!; end
+
+    sig { void }
+    def restore_context_type!; end
 
     sig { void }
     def restore_created_at!; end
@@ -1093,17 +1132,23 @@ class ApiToken
     sig { void }
     def restore_user_id!; end
 
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_ai_agent_task_run_id; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_ai_agent_task_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
     sig { returns(T.nilable([T::Boolean, T::Boolean])) }
     def saved_change_to_app_admin; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_app_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_context_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_context_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_context_type; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_context_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -1562,10 +1607,13 @@ class ApiToken
     def user_id_will_change!; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_ai_agent_task_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def will_save_change_to_app_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_app_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def will_save_change_to_context_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_context_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end

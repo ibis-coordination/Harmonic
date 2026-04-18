@@ -75,7 +75,7 @@ class AgentRunnerDispatchService
     token = ApiToken.create_internal_token(
       user: ai_agent,
       tenant: tenant,
-      ai_agent_task_run: @task_run,
+      context: @task_run,
       expires_in: 4.hours,
     )
 

@@ -755,16 +755,24 @@ class ApiHelper
 
   private
 
-  # Track resources created during an AiAgentTaskRun or AutomationRuleRun for traceability
+  # Track resources created during an AiAgentTaskRun or AutomationRuleRun for traceability.
+  #
+  # Context is resolved from the token's polymorphic `context` association (for
+  # requests from the agent-runner or MarkdownUiService) or from thread-local
+  # Current attributes (for in-process execution).
   sig { params(resource: T.untyped, action_type: String).void }
   def track_task_run_resource(resource, action_type:)
     return unless resource.respond_to?(:collective_id) && resource.collective_id.present?
 
-    # Resolve the current AiAgentTaskRun id. When requests come from the
-    # agent-runner service, there is no thread-local context (different
-    # process), so we read it from the ephemeral API token that
-    # AgentRunnerDispatchService linked to the task run.
-    task_run_id = @current_token&.ai_agent_task_run_id || AiAgentTaskRun.current_id
+    token_context = @current_token&.context
+    display_path = compute_display_path(resource)
+
+    # Track for AI agent task runs
+    task_run_id = if token_context.is_a?(AiAgentTaskRun)
+                    token_context.id
+                  else
+                    AiAgentTaskRun.current_id
+                  end
 
     if task_run_id
       AiAgentTaskRunResource.create!(
@@ -772,18 +780,24 @@ class ApiHelper
         resource: resource,
         resource_collective_id: resource.collective_id,
         action_type: action_type,
-        display_path: compute_display_path(resource),
+        display_path: display_path,
       )
     end
 
     # Track for automation rule runs
-    if AutomationContext.current_run_id
+    automation_run_id = if token_context.is_a?(AutomationRuleRun)
+                          token_context.id
+                        else
+                          AutomationContext.current_run_id
+                        end
+
+    if automation_run_id
       AutomationRuleRunResource.create!(
-        automation_rule_run_id: AutomationContext.current_run_id,
+        automation_rule_run_id: automation_run_id,
         resource: resource,
         resource_collective_id: resource.collective_id,
         action_type: action_type,
-        display_path: compute_display_path(resource),
+        display_path: display_path,
       )
     end
   rescue ActiveRecord::RecordInvalid => e
