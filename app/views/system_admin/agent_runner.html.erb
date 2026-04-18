@@ -27,8 +27,19 @@
         <tbody>
           <tr><td>Active Tasks</td><td><%= @runner_stats["activeTasks"] %></td></tr>
           <tr><td>Total Tasks Processed</td><td><%= @runner_stats["totalTasksProcessed"] %></td></tr>
+          <% if @runner_stats["processedSinceStart"] %>
+            <% counts = @runner_stats["processedSinceStart"] %>
+            <tr><td>Completed</td><td><%= counts["completed"] || 0 %></td></tr>
+            <tr><td>Failed</td><td><%= counts["failed"] || 0 %></td></tr>
+            <tr><td>Cancelled</td><td><%= counts["cancelled"] || 0 %></td></tr>
+          <% end %>
           <tr><td>Started At</td><td><%= @runner_stats["startedAt"] %></td></tr>
           <tr><td>Last Task At</td><td><%= @runner_stats["lastTaskAt"] || "None" %></td></tr>
+          <tr><td>Last Completion At</td><td><%= @runner_stats["lastCompletionAt"] || "None" %></td></tr>
+          <tr><td>Last Failure At</td><td><%= @runner_stats["lastFailureAt"] || "None" %></td></tr>
+          <% if @runner_stats["lastFailureReason"] %>
+            <tr><td>Last Failure</td><td><%= @runner_stats["lastFailureReason"] %></td></tr>
+          <% end %>
         </tbody>
       </table>
     </div>
@@ -47,14 +58,24 @@
         </tr>
       </thead>
       <tbody>
-        <tr><td>Stream Length</td><td><%= @stream_length %></td></tr>
-        <tr><td>Pending Messages</td><td><%= @pending_count %></td></tr>
+        <tr><td>Stream Depth</td><td><%= @runner_stats&.dig("streamDepth") || @stream_length %></td></tr>
+        <tr><td>Pending Messages</td><td><%= @runner_stats&.dig("streamPending") || @pending_count %></td></tr>
       </tbody>
     </table>
   </div>
 <% end %>
 
 <%= render 'shared/pulse_accordion', title: 'Recent Task Runs', icon: 'history', count: @recent_task_runs&.count || 0, open: true do %>
+  <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+    <% %w[all completed failed cancelled running queued].each do |status| %>
+      <% active = (status == "all" && @status_filter.blank?) || @status_filter == status %>
+      <a href="<%= status == "all" ? "/system-admin/agent-runner" : "/system-admin/agent-runner?status=#{status}" %>"
+         class="pulse-badge <%= active ? 'pulse-badge-info' : 'pulse-badge-muted' %>"
+         style="text-decoration: none;">
+        <%= status.titleize %>
+      </a>
+    <% end %>
+  </div>
   <% if @recent_task_runs&.any? %>
     <div class="pulse-table-wrapper">
       <table class="pulse-table">
@@ -67,24 +88,28 @@
             <th>Tokens</th>
             <th>Started</th>
             <th>Completed</th>
+            <th>Wait</th>
+            <th>Duration</th>
           </tr>
         </thead>
         <tbody>
           <% @recent_task_runs.each do |run| %>
             <tr>
-              <td><code><%= run.id[0..7] %></code></td>
+              <td><a href="<%= system_admin_task_run_path(run.id) %>"><code><%= run.id[0..7] %></code></a></td>
               <td><%= run.ai_agent&.name %></td>
-              <td><%= run.status %></td>
+              <td><span class="pulse-badge <%= run.status_badge_class %>"><%= run.status %></span></td>
               <td><%= run.steps_count %></td>
               <td><%= run.total_tokens %></td>
-              <td><%= run.started_at&.strftime("%H:%M:%S") %></td>
-              <td><%= run.completed_at&.strftime("%H:%M:%S") %></td>
+              <td><%= run.started_at&.strftime("%b %-d %H:%M:%S") %></td>
+              <td><%= run.completed_at&.strftime("%b %-d %H:%M:%S") %></td>
+              <td><%= run.formatted_queue_wait %></td>
+              <td><%= run.formatted_duration %></td>
             </tr>
           <% end %>
         </tbody>
       </table>
     </div>
   <% else %>
-    <p class="pulse-text-secondary">No recent task runs.</p>
+    <p class="pulse-text-secondary">No task runs<%= " with status '#{@status_filter}'" if @status_filter.present? %>.</p>
   <% end %>
 <% end %>

@@ -145,9 +145,20 @@ class SystemAdminController < ApplicationController
   ensure
     redis&.close
 
-    @recent_task_runs = AiAgentTaskRun.unscoped_for_admin(@current_user)
-      .order(created_at: :desc)
-      .limit(20)
+    @status_filter = params[:status]
+    scope = AiAgentTaskRun.unscoped_for_admin(@current_user).order(created_at: :desc)
+    scope = scope.where(status: @status_filter) if @status_filter.present?
+    @recent_task_runs = scope.limit(20)
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  def show_task_run
+    @page_title = "Task Run"
+    @task_run = AiAgentTaskRun.unscoped_for_admin(@current_user).find(params[:id])
 
     respond_to do |format|
       format.html

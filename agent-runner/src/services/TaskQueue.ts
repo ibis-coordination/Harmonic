@@ -8,10 +8,16 @@ import { Redis as IORedis } from "ioredis";
 import { Config } from "../config/Config.js";
 import { RedisError } from "../errors/Errors.js";
 import type { TaskPayload } from "../core/PromptBuilder.js";
+import { log } from "./Logger.js";
 
 export interface StreamEntry {
   readonly id: string;
   readonly task: TaskPayload;
+}
+
+export interface StreamInfo {
+  readonly streamDepth: number;
+  readonly streamPending: number;
 }
 
 export interface TaskQueueService {
@@ -20,6 +26,7 @@ export interface TaskQueueService {
   readonly nack: (entryId: string) => Effect.Effect<void, RedisError>;
   readonly ensureGroup: () => Effect.Effect<void, RedisError>;
   readonly publishStats: (stats: Record<string, unknown>) => Effect.Effect<void, RedisError>;
+  readonly streamInfo: () => Effect.Effect<StreamInfo, RedisError>;
   readonly shutdown: () => Effect.Effect<void>;
 }
 
@@ -139,7 +146,7 @@ export const TaskQueueLive = Layer.effect(
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes("NOGROUP")) {
-              console.warn(`[AgentRunner] Consumer group missing, recreating: ${message}`);
+              log.warn({ event: "consumer_group_missing_recreating", message });
               const r = getRedis();
               await r.xgroup("CREATE", config.streamName, config.consumerGroup, "0", "MKSTREAM")
                 .catch((e: unknown) => {
@@ -217,6 +224,24 @@ export const TaskQueueLive = Layer.effect(
           new RedisError({ message: error instanceof Error ? error.message : String(error) }),
       });
 
+    const streamInfo: TaskQueueService["streamInfo"] = () =>
+      Effect.tryPromise({
+        try: async () => {
+          const r = getRedis();
+          const depth = await r.xlen(config.streamName);
+          let pending = 0;
+          try {
+            const info = await r.xpending(config.streamName, config.consumerGroup);
+            pending = typeof info[0] === "number" ? info[0] : 0;
+          } catch {
+            // Stream or group may not exist yet
+          }
+          return { streamDepth: depth, streamPending: pending };
+        },
+        catch: (error) =>
+          new RedisError({ message: error instanceof Error ? error.message : String(error) }),
+      });
+
     const shutdown: TaskQueueService["shutdown"] = () =>
       Effect.sync(() => {
         if (redis !== null) {
@@ -225,6 +250,6 @@ export const TaskQueueLive = Layer.effect(
         }
       });
 
-    return { read, ack, nack, ensureGroup, publishStats, shutdown };
+    return { read, ack, nack, ensureGroup, publishStats, streamInfo, shutdown };
   }),
 );

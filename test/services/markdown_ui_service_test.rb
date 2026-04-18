@@ -15,6 +15,25 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
       subdomain: @tenant.subdomain,
       handle: @collective.handle
     )
+
+    # Create automation context for internal token
+    @rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      name: "Test Rule",
+      trigger_type: "manual",
+      trigger_config: {},
+      actions: [],
+      created_by: @user,
+    )
+    @run = AutomationRuleRun.create!(
+      tenant: @tenant,
+      collective: @collective,
+      automation_rule: @rule,
+      trigger_source: "manual",
+      status: "pending",
+    )
+
     @service = MarkdownUiService.new(
       tenant: @tenant,
       collective: @collective,
@@ -25,16 +44,20 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
   # Navigation tests
 
   test "navigate to home page returns content" do
-    result = @service.navigate("/")
-    assert_nil result[:error], "Expected no error, got: #{result[:error]}"
-    assert_equal "/", result[:path]
-    assert result[:content].present?, "Expected content to be present"
+    @service.with_internal_token(context: @run) do
+      result = @service.navigate("/")
+      assert_nil result[:error], "Expected no error, got: #{result[:error]}"
+      assert_equal "/", result[:path]
+      assert result[:content].present?, "Expected content to be present"
+    end
   end
 
   test "navigate to collective show page returns content with collective name" do
-    result = @service.navigate("/collectives/#{@collective.handle}")
-    assert_nil result[:error], "Expected no error, got: #{result[:error]}"
-    assert_includes result[:content], @collective.name
+    @service.with_internal_token(context: @run) do
+      result = @service.navigate("/collectives/#{@collective.handle}")
+      assert_nil result[:error], "Expected no error, got: #{result[:error]}"
+      assert_includes result[:content], @collective.name
+    end
   end
 
   test "navigate to note page returns note content" do
@@ -44,10 +67,12 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
       created_by: @user,
       deadline: Time.current + 1.week
     )
-    result = @service.navigate(note.path)
-    assert_nil result[:error], "Expected no error, got: #{result[:error]}"
-    assert_includes result[:content], note.title
-    assert_includes result[:content], note.text
+    @service.with_internal_token(context: @run) do
+      result = @service.navigate(note.path)
+      assert_nil result[:error], "Expected no error, got: #{result[:error]}"
+      assert_includes result[:content], note.title
+      assert_includes result[:content], note.text
+    end
   end
 
   test "navigate to note with @ in title still parses actions correctly" do
@@ -59,35 +84,43 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
       created_by: @user,
       deadline: Time.current + 1.week
     )
-    result = @service.navigate(note.path)
-    assert_nil result[:error], "Expected no error, got: #{result[:error]}"
-    assert_includes result[:content], note.title
+    @service.with_internal_token(context: @run) do
+      result = @service.navigate(note.path)
+      assert_nil result[:error], "Expected no error, got: #{result[:error]}"
+      assert_includes result[:content], note.title
 
-    # The key assertion: actions should be parsed even with @ in title
-    assert result[:actions].is_a?(Array), "Expected actions to be an array"
-    action_names = result[:actions].map { |a| a["name"] }
-    assert_includes action_names, "confirm_read", "Expected confirm_read action to be available"
-    assert_includes action_names, "add_comment", "Expected add_comment action to be available"
+      # The key assertion: actions should be parsed even with @ in title
+      assert result[:actions].is_a?(Array), "Expected actions to be an array"
+      action_names = result[:actions].map { |a| a["name"] }
+      assert_includes action_names, "confirm_read", "Expected confirm_read action to be available"
+      assert_includes action_names, "add_comment", "Expected add_comment action to be available"
+    end
   end
 
   test "navigate with layout includes YAML front matter" do
-    result = @service.navigate("/", include_layout: true)
-    assert_nil result[:error]
-    assert_includes result[:content], "app: Harmonic"
+    @service.with_internal_token(context: @run) do
+      result = @service.navigate("/", include_layout: true)
+      assert_nil result[:error]
+      assert_includes result[:content], "app: Harmonic"
+    end
   end
 
   test "navigate returns available actions from YAML frontmatter" do
-    result = @service.navigate("/collectives/#{@collective.handle}/note")
-    assert_nil result[:error], "Expected no error, got: #{result[:error]}"
-    assert result[:actions].is_a?(Array), "Expected actions to be an array, got: #{result[:actions].class}"
-    action_names = result[:actions].map { |a| a["name"] }
-    assert_includes action_names, "create_note"
+    @service.with_internal_token(context: @run) do
+      result = @service.navigate("/collectives/#{@collective.handle}/note")
+      assert_nil result[:error], "Expected no error, got: #{result[:error]}"
+      assert result[:actions].is_a?(Array), "Expected actions to be an array, got: #{result[:actions].class}"
+      action_names = result[:actions].map { |a| a["name"] }
+      assert_includes action_names, "create_note"
+    end
   end
 
   test "navigate to invalid path returns error" do
-    result = @service.navigate("/this/path/does/not/exist")
-    assert result[:error].present?
-    assert_includes result[:error], "No route matches"
+    @service.with_internal_token(context: @run) do
+      result = @service.navigate("/this/path/does/not/exist")
+      assert result[:error].present?
+      assert_includes result[:error], "No route matches"
+    end
   end
 
   # set_path tests
@@ -116,40 +149,46 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
   end
 
   test "execute_action create_note creates note and returns success" do
-    @service.navigate("/collectives/#{@collective.handle}/note")
-    text = "Test note created via V2 service - #{SecureRandom.hex(4)}"
-    result = @service.execute_action("create_note", { text: text })
-    assert result[:success], "Expected success, got error: #{result[:error]}"
+    @service.with_internal_token(context: @run) do
+      @service.navigate("/collectives/#{@collective.handle}/note")
+      text = "Test note created via V2 service - #{SecureRandom.hex(4)}"
+      result = @service.execute_action("create_note", { text: text })
+      assert result[:success], "Expected success, got error: #{result[:error]}"
 
-    # Verify note was created
-    note = Note.find_by(text: text)
-    assert_not_nil note, "Note should have been created"
-    assert_equal @user, note.created_by
+      # Verify note was created
+      note = Note.find_by(text: text)
+      assert_not_nil note, "Note should have been created"
+      assert_equal @user, note.created_by
+    end
   end
 
   test "execute_action with set_path creates note" do
-    @service.set_path("/collectives/#{@collective.handle}/note")
-    text = "Test note via set_path - #{SecureRandom.hex(4)}"
-    result = @service.execute_action("create_note", { text: text })
-    assert result[:success], "Expected success, got error: #{result[:error]}"
+    @service.with_internal_token(context: @run) do
+      @service.set_path("/collectives/#{@collective.handle}/note")
+      text = "Test note via set_path - #{SecureRandom.hex(4)}"
+      result = @service.execute_action("create_note", { text: text })
+      assert result[:success], "Expected success, got error: #{result[:error]}"
 
-    # Verify note was created
-    note = Note.find_by(text: text)
-    assert_not_nil note
+      # Verify note was created
+      note = Note.find_by(text: text)
+      assert_not_nil note
+    end
   end
 
   test "execute_action works when already on action description page" do
-    # Navigate to the action description page (like an agent exploring the action)
-    @service.navigate("/collectives/#{@collective.handle}/note/actions/create_note")
+    @service.with_internal_token(context: @run) do
+      # Navigate to the action description page (like an agent exploring the action)
+      @service.navigate("/collectives/#{@collective.handle}/note/actions/create_note")
 
-    # Now execute the action - it should work without double-appending /actions/create_note
-    text = "Test note from action page - #{SecureRandom.hex(4)}"
-    result = @service.execute_action("create_note", { text: text })
-    assert result[:success], "Expected success when executing from action description page, got error: #{result[:error]}"
+      # Now execute the action - it should work without double-appending /actions/create_note
+      text = "Test note from action page - #{SecureRandom.hex(4)}"
+      result = @service.execute_action("create_note", { text: text })
+      assert result[:success], "Expected success when executing from action description page, got error: #{result[:error]}"
 
-    # Verify note was created
-    note = Note.find_by(text: text)
-    assert_not_nil note, "Note should have been created"
+      # Verify note was created
+      note = Note.find_by(text: text)
+      assert_not_nil note, "Note should have been created"
+    end
   end
 
   test "execute_action confirm_read confirms note read" do
@@ -160,34 +199,36 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
       deadline: Time.current + 1.week
     )
 
-    @service.navigate(note.path)
-    result = @service.execute_action("confirm_read", {})
-    assert result[:success], "Expected success, got error: #{result[:error]}"
+    @service.with_internal_token(context: @run) do
+      @service.navigate(note.path)
+      result = @service.execute_action("confirm_read", {})
+      assert result[:success], "Expected success, got error: #{result[:error]}"
 
-    # Verify confirmation was recorded
-    note.reload
-    assert note.user_has_read?(@user)
+      # Verify confirmation was recorded
+      note.reload
+      assert note.user_has_read?(@user)
+    end
   end
 
   # Internal token tests
 
-  test "internal token is created for user" do
-    @service.navigate("/collectives/#{@collective.handle}")
+  test "with_internal_token creates and destroys token" do
+    token_id = nil
+    @service.with_internal_token(context: @run) do
+      token = ApiToken.internal.find_by(user: @user, tenant: @tenant)
+      assert_not_nil token, "Internal token should have been created"
+      assert token.internal?
+      token_id = token.id
+    end
 
-    # Check that an internal token was created
-    token = ApiToken.internal.find_by(user: @user, tenant: @tenant)
-    assert_not_nil token, "Internal token should have been created"
-    assert token.internal?
+    # Token should be destroyed after block
+    assert_nil ApiToken.internal.find_by(id: token_id), "Token should be destroyed after block"
   end
 
-  test "internal token is reused on subsequent requests" do
-    @service.navigate("/collectives/#{@collective.handle}")
-    token1 = ApiToken.internal.find_by(user: @user, tenant: @tenant)
-
-    @service.navigate("/collectives/#{@collective.handle}/note")
-    token2 = ApiToken.internal.find_by(user: @user, tenant: @tenant)
-
-    assert_equal token1.id, token2.id, "Same token should be reused"
+  test "dispatch without with_internal_token returns error" do
+    result = @service.navigate("/")
+    assert result[:error].present?
+    assert_includes result[:error], "No token"
   end
 
   # Dynamic collective switching tests
@@ -204,9 +245,10 @@ class MarkdownUiServiceTest < ActiveSupport::TestCase
     other_collective.enable_feature_flag!("api")
     other_collective.add_user!(@user)
 
-    result = @service.navigate("/collectives/#{other_collective.handle}")
-    assert_nil result[:error]
-    assert_includes result[:content], other_collective.name
+    @service.with_internal_token(context: @run) do
+      result = @service.navigate("/collectives/#{other_collective.handle}")
+      assert_nil result[:error]
+      assert_includes result[:content], other_collective.name
+    end
   end
-
 end

@@ -8,12 +8,42 @@
  * RailsHttp.ts for why the URL and TCP target are deliberately separated.
  */
 
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schedule } from "effect";
 import { Config } from "../config/Config.js";
 import { HarmonicApiError, PreflightFailedError, TaskCancelledError } from "../errors/Errors.js";
 import { buildHeaders } from "./HmacSigner.js";
 import { RailsHttp } from "./RailsHttp.js";
 import type { StepRecord } from "../core/StepBuilder.js";
+import { log } from "./Logger.js";
+
+/**
+ * Retry an Effect that may fail with HarmonicApiError, retrying only on
+ * transient errors (5xx or connection failures). 4xx errors are permanent
+ * and not retried. Up to 3 retries with exponential backoff (250ms, 1s, 4s).
+ */
+export const retryOnTransient = <A>(
+  effect: Effect.Effect<A, HarmonicApiError>,
+): Effect.Effect<A, HarmonicApiError> =>
+  effect.pipe(
+    Effect.retry({
+      times: 3,
+      schedule: Schedule.exponential("250 millis"),
+      while: (error) => {
+        // No statusCode = connection error → retry
+        if (error.statusCode === undefined) {
+          log.warn({ event: "transient_retry", statusCode: undefined, path: error.path, message: error.message });
+          return true;
+        }
+        // 5xx = server error → retry
+        if (error.statusCode >= 500) {
+          log.warn({ event: "transient_retry", statusCode: error.statusCode, path: error.path, message: error.message });
+          return true;
+        }
+        // 4xx (including 409 Conflict) = permanent → don't retry
+        return false;
+      },
+    }),
+  );
 
 export interface TaskResult {
   readonly success: boolean;
@@ -63,13 +93,16 @@ export const TaskReporterLive = Layer.effect(
 
           const text = await response.text();
           if (response.statusCode < 200 || response.statusCode >= 300) {
-            throw new Error(`Internal API ${path} failed: HTTP ${response.statusCode} - ${text.slice(0, 500)}`);
+            const err = new Error(`Internal API ${path} failed: HTTP ${response.statusCode} - ${text.slice(0, 500)}`);
+            (err as any).statusCode = response.statusCode;
+            throw err;
           }
           return text.length > 0 ? JSON.parse(text) as unknown : null;
         },
         catch: (error) =>
           new HarmonicApiError({
             message: error instanceof Error ? error.message : String(error),
+            statusCode: (error as any)?.statusCode as number | undefined,
             path,
           }),
       });
@@ -97,26 +130,28 @@ export const TaskReporterLive = Layer.effect(
       );
 
     const complete: TaskReporterService["complete"] = (taskRunId, subdomain, result) =>
-      internalRequest("POST", `/internal/agent-runner/tasks/${taskRunId}/complete`, subdomain, {
-        success: result.success,
-        final_message: result.finalMessage,
-        error: result.error,
-        steps_data: result.stepsData,
-        steps_count: result.stepsData.length,
-        input_tokens: result.inputTokens,
-        output_tokens: result.outputTokens,
-        total_tokens: result.totalTokens,
-      }).pipe(Effect.asVoid);
+      retryOnTransient(
+        internalRequest("POST", `/internal/agent-runner/tasks/${taskRunId}/complete`, subdomain, {
+          success: result.success,
+          final_message: result.finalMessage,
+          error: result.error,
+          steps_data: result.stepsData,
+          steps_count: result.stepsData.length,
+          input_tokens: result.inputTokens,
+          output_tokens: result.outputTokens,
+          total_tokens: result.totalTokens,
+        }),
+      ).pipe(Effect.asVoid);
 
     const fail: TaskReporterService["fail"] = (taskRunId, subdomain, error) =>
-      internalRequest("POST", `/internal/agent-runner/tasks/${taskRunId}/fail`, subdomain, { error }).pipe(
-        Effect.asVoid,
-      );
+      retryOnTransient(
+        internalRequest("POST", `/internal/agent-runner/tasks/${taskRunId}/fail`, subdomain, { error }),
+      ).pipe(Effect.asVoid);
 
     const scratchpad: TaskReporterService["scratchpad"] = (taskRunId, subdomain, content) =>
-      internalRequest("PUT", `/internal/agent-runner/tasks/${taskRunId}/scratchpad`, subdomain, { scratchpad: content }).pipe(
-        Effect.asVoid,
-      );
+      retryOnTransient(
+        internalRequest("PUT", `/internal/agent-runner/tasks/${taskRunId}/scratchpad`, subdomain, { scratchpad: content }),
+      ).pipe(Effect.asVoid);
 
     const checkCancellation: TaskReporterService["checkCancellation"] = (taskRunId, subdomain) =>
       Effect.gen(function* () {

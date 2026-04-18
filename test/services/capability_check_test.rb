@@ -242,6 +242,22 @@ class CapabilityCheckTest < ActiveSupport::TestCase
       "AI_AGENT_ALWAYS_BLOCKED (human-only), or AI_AGENT_GRANTABLE_ACTIONS (owner-configurable)."
   end
 
+  # Test: every CONTROLLER_ACTION_MAP value is a valid capability action name
+  test "every CONTROLLER_ACTION_MAP value is a valid capability action name" do
+    all_actions = CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED +
+                  CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED +
+                  CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
+
+    invalid = ActionCapabilityCheck::CONTROLLER_ACTION_MAP.select do |key, action|
+      !all_actions.include?(action)
+    end
+
+    assert_empty invalid,
+      "CONTROLLER_ACTION_MAP entries map to unknown capability actions: " \
+      "#{invalid.inspect}. Each value must appear in AI_AGENT_ALWAYS_ALLOWED, " \
+      "AI_AGENT_ALWAYS_BLOCKED, or AI_AGENT_GRANTABLE_ACTIONS."
+  end
+
   # Test: fail-closed for uncategorized actions even with nil capabilities.
   test "ai_agent with nil capabilities is denied an uncategorized action" do
     @ai_agent.update!(agent_configuration: nil)

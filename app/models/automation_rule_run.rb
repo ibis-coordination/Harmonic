@@ -12,6 +12,7 @@ class AutomationRuleRun < ApplicationRecord
   belongs_to :automation_rule
   belongs_to :triggered_by_event, class_name: "Event", optional: true
   belongs_to :ai_agent_task_run, optional: true
+  has_many :api_tokens, as: :context, dependent: :destroy
   has_many :webhook_deliveries, dependent: :nullify
   has_many :automation_rule_run_resources, dependent: :destroy
 

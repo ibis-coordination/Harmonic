@@ -248,7 +248,11 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     sign_in_as(@user, tenant: @tenant)
+    # Re-establish tenant context — CurrentAttributes auto-reset clears it after sign_in_as request
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: test_collective.handle)
     invite = test_collective.find_or_create_shareable_invite(@user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
 
     # Create a new user who is NOT a member of test_collective
     new_user = create_user(name: "New Member")

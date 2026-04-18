@@ -74,7 +74,7 @@ class ApiHelperResourceTrackingTest < ActiveSupport::TestCase
     token = ApiToken.create_internal_token(
       user: @ai_agent,
       tenant: @tenant,
-      ai_agent_task_run: @task_run,
+      context: @task_run,
     )
 
     api_helper = ApiHelper.new(

@@ -98,10 +98,7 @@ class AutomationInternalActionService
       )
     end
 
-    # Execute with automation context so created resources are tracked
-    AutomationContext.with_run(@run) do
-      execute_action_as_identity(action_name, params, identity_user)
-    end
+    execute_action_as_identity(action_name, params, identity_user)
   rescue StandardError => e
     Rails.logger.error("AutomationInternalActionService error: #{e.message}")
     Result.new(
@@ -133,8 +130,8 @@ class AutomationInternalActionService
     # Map params to the expected format
     action_params = map_params(params, T.must(config[:param_mapping]))
 
-    # Execute the action
-    service.with_internal_token do
+    # Execute the action with the automation run as token context for resource tracking
+    service.with_internal_token(context: @run) do
       # First, navigate to set up context
       service.set_path(collective_path)
 

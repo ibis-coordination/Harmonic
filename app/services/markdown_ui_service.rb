@@ -63,17 +63,21 @@ class MarkdownUiService
   # The token is created at the start of the block and destroyed when the block completes.
   # This ensures tokens only exist during active task execution.
   #
+  # @param context [AiAgentTaskRun, AutomationRuleRun] The run that owns this token
   # @yield The block to execute with the internal token available
   # @return The return value of the block
   sig do
     type_parameters(:T)
-      .params(blk: T.proc.returns(T.type_parameter(:T)))
+      .params(
+        context: T.any(AiAgentTaskRun, AutomationRuleRun),
+        blk: T.proc.returns(T.type_parameter(:T)),
+      )
       .returns(T.type_parameter(:T))
   end
-  def with_internal_token(&blk)
+  def with_internal_token(context:, &blk)
     raise ArgumentError, "User required for internal token" unless @user
 
-    @token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    @token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: context)
     @plaintext_token = @token.plaintext_token
     yield
   ensure
@@ -174,9 +178,11 @@ class MarkdownUiService
   sig { params(path: String).returns(T::Hash[Symbol, T.untyped]) }
   def dispatch_get(path)
     ensure_session!
-    ensure_token!
+    raise "No token — call with_internal_token first" unless @plaintext_token
 
-    session.get(path, headers: request_headers)
+    with_current_preserved do
+      session.get(path, headers: request_headers)
+    end
 
     build_response
   end
@@ -185,11 +191,32 @@ class MarkdownUiService
   sig { params(path: String, params: T::Hash[Symbol, T.untyped]).returns(T::Hash[Symbol, T.untyped]) }
   def dispatch_post(path, params)
     ensure_session!
-    ensure_token!
+    raise "No token — call with_internal_token first" unless @plaintext_token
 
-    session.post(path, params: params.to_json, headers: request_headers)
+    with_current_preserved do
+      session.post(path, params: params.to_json, headers: request_headers)
+    end
 
     build_response
+  end
+
+  # Re-establish tenant/collective context after internal request dispatch.
+  #
+  # The Executor middleware resets CurrentAttributes when each request ends.
+  # Since tenant/collective context lives in Current, we must restore it
+  # after the internal dispatch so the calling code's scoped queries still work.
+  # Automation and task run context is carried via the token's polymorphic
+  # `context` association, so it doesn't need to be saved/restored here.
+  sig { params(blk: T.proc.void).void }
+  def with_current_preserved(&blk)
+    yield
+  ensure
+    begin
+      Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+      Collective.set_thread_context(@collective) if @collective
+    rescue => e
+      Rails.logger.warn("Failed to restore Current context after dispatch: #{e.message}")
+    end
   end
 
   # Build the Integration::Session lazily
@@ -204,18 +231,6 @@ class MarkdownUiService
   sig { returns(ActionDispatch::Integration::Session) }
   def session
     T.must(@session)
-  end
-
-  # Create an internal API token for authentication if one doesn't exist.
-  # Prefers ephemeral token from with_internal_token block.
-  sig { void }
-  def ensure_token!
-    return if @plaintext_token.present?
-    return if @token
-    return unless @user
-
-    @token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
-    @plaintext_token = @token.plaintext_token
   end
 
   # Build request headers with Accept: text/markdown and Bearer auth

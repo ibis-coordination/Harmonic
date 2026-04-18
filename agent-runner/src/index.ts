@@ -14,6 +14,7 @@ import { RailsHttpLive } from "./services/RailsHttp.js";
 import { TaskQueue } from "./services/TaskQueue.js";
 import { AgentLock } from "./services/AgentLock.js";
 import { runTask } from "./services/AgentLoop.js";
+import { log } from "./services/Logger.js";
 
 /**
  * Runtime stats for monitoring. Written to Redis periodically
@@ -22,15 +23,23 @@ import { runTask } from "./services/AgentLoop.js";
 interface RunnerStats {
   activeTasks: number;
   totalTasksProcessed: number;
+  processedSinceStart: { completed: number; failed: number; cancelled: number };
   startedAt: string;
   lastTaskAt: string | null;
+  lastCompletionAt: string | null;
+  lastFailureAt: string | null;
+  lastFailureReason: string | null;
 }
 
 const stats: RunnerStats = {
   activeTasks: 0,
   totalTasksProcessed: 0,
+  processedSinceStart: { completed: 0, failed: 0, cancelled: 0 },
   startedAt: new Date().toISOString(),
   lastTaskAt: null,
+  lastCompletionAt: null,
+  lastFailureAt: null,
+  lastFailureReason: null,
 };
 
 /**
@@ -43,7 +52,7 @@ const processQueue = Effect.gen(function* () {
 
   yield* queue.ensureGroup();
 
-  console.log(`[AgentRunner] Started. max_concurrent=${config.maxConcurrentTasks} stream_maxlen=${config.streamMaxLen}. Listening for tasks...`);
+  log.info({ event: "started", maxConcurrent: config.maxConcurrentTasks, streamMaxLen: config.streamMaxLen });
 
   // Publish stats to Redis periodically
   yield* Effect.fork(publishStatsLoop());
@@ -60,11 +69,11 @@ const processQueue = Effect.gen(function* () {
       const entry = yield* queue.read();
       if (entry === null) return; // Timeout, loop again
 
-      console.log(`[AgentRunner] Received task ${entry.task.taskRunId} for agent ${entry.task.agentId} (active=${stats.activeTasks})`);
+      log.info({ event: "task_received", taskRunId: entry.task.taskRunId, agentId: entry.task.agentId, activeTasks: stats.activeTasks });
 
       const acquired = yield* agentLock.tryAcquire(entry.task.agentId);
       if (!acquired) {
-        console.log(`[AgentRunner] Agent ${entry.task.agentId} busy, NACKing task ${entry.task.taskRunId}`);
+        log.info({ event: "agent_busy_nack", taskRunId: entry.task.taskRunId, agentId: entry.task.agentId });
         yield* queue.nack(entry.id);
         return;
       }
@@ -75,9 +84,21 @@ const processQueue = Effect.gen(function* () {
 
       // Fork task execution — runs concurrently
       // Note: runTask catches all its own errors internally and reports via reporter.complete/fail.
-      // The Effect always succeeds at the outer level.
+      // The Effect always succeeds at the outer level, returning the outcome for stats.
       yield* Effect.fork(
         runTask(entry.task).pipe(
+          Effect.tap((result) =>
+            Effect.sync(() => {
+              const now = new Date().toISOString();
+              stats.processedSinceStart[result.outcome]++;
+              if (result.outcome === "completed") {
+                stats.lastCompletionAt = now;
+              } else if (result.outcome === "failed") {
+                stats.lastFailureAt = now;
+                stats.lastFailureReason = `task ${entry.task.taskRunId}`;
+              }
+            }),
+          ),
           Effect.ensuring(
             Effect.sync(() => { stats.activeTasks--; }),
           ),
@@ -87,7 +108,7 @@ const processQueue = Effect.gen(function* () {
       );
     }),
     Effect.catchAll((error) => {
-      console.error(`[AgentRunner] Queue processing error: ${String(error)}`);
+      log.error({ event: "queue_processing_error", message: String(error) });
       return Effect.void;
     }),
     Effect.forever,
@@ -103,7 +124,8 @@ const publishStatsLoop = () =>
     Effect.gen(function* () {
       yield* Effect.sleep("10 seconds");
       const queue = yield* TaskQueue;
-      yield* queue.publishStats(stats as unknown as Record<string, unknown>);
+      const info = yield* queue.streamInfo();
+      yield* queue.publishStats({ ...stats, ...info } as unknown as Record<string, unknown>);
     }),
     Effect.catchAll(() => Effect.void),
     Effect.forever,
@@ -128,12 +150,12 @@ const MainLayer = Layer.merge(ServiceLayer, ConfigLive);
 const program = processQueue.pipe(
   Effect.provide(MainLayer),
   Effect.tapErrorCause((cause) => {
-    console.error("[AgentRunner] Fatal error:", cause);
+    log.error({ event: "fatal_error", message: String(cause) });
     return Effect.void;
   }),
 );
 
 Effect.runPromise(program).catch((error) => {
-  console.error("[AgentRunner] Process crashed:", error);
+  log.error({ event: "process_crashed", message: String(error) });
   process.exit(1);
 });

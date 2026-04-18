@@ -3,6 +3,21 @@ require "test_helper"
 class ApiTokenTest < ActiveSupport::TestCase
   def setup
     @tenant, @collective, @user = create_tenant_collective_user
+    @context = AutomationRuleRun.create!(
+      tenant: @tenant,
+      collective: @collective,
+      automation_rule: AutomationRule.create!(
+        tenant: @tenant,
+        collective: @collective,
+        name: "Token test rule",
+        trigger_type: "manual",
+        trigger_config: {},
+        actions: [],
+        created_by: @user,
+      ),
+      trigger_source: "manual",
+      status: "pending",
+    )
   end
 
   # === Token Generation Tests ===
@@ -423,7 +438,7 @@ class ApiTokenTest < ActiveSupport::TestCase
       scopes: ApiToken.read_scopes,
       expires_at: 1.year.from_now
     )
-    internal = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    internal = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
 
     internal_tokens = @user.api_tokens.internal
     external_tokens = @user.api_tokens.external
@@ -437,7 +452,7 @@ class ApiTokenTest < ActiveSupport::TestCase
   # === Ephemeral Internal Token Tests ===
 
   test "create_internal_token creates valid internal token" do
-    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
 
     assert token.internal?
     assert_equal @user, token.user
@@ -447,7 +462,7 @@ class ApiTokenTest < ActiveSupport::TestCase
   end
 
   test "create_internal_token plaintext_token is valid for authentication" do
-    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
     plaintext = token.plaintext_token
 
     # Verify it matches by checking authentication works
@@ -456,27 +471,27 @@ class ApiTokenTest < ActiveSupport::TestCase
   end
 
   test "create_internal_token sets 1 hour default expiry" do
-    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
 
     assert_in_delta 1.hour.from_now, token.expires_at, 5.seconds
   end
 
   test "create_internal_token accepts custom expiry" do
-    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, expires_in: 30.minutes)
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context, expires_in: 30.minutes)
 
     assert_in_delta 30.minutes.from_now, token.expires_at, 5.seconds
   end
 
   test "create_internal_token always creates new token" do
-    token1 = ApiToken.create_internal_token(user: @user, tenant: @tenant)
-    token2 = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    token1 = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
+    token2 = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
 
     # Each call creates a fresh token (ephemeral pattern)
     assert_not_equal token1.id, token2.id
   end
 
   test "internal token can be destroyed for cleanup" do
-    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
     token_id = token.id
 
     token.destroy
@@ -517,7 +532,7 @@ class ApiTokenTest < ActiveSupport::TestCase
 
   test "internal token creation via create_internal_token succeeds with allow flag" do
     # This should work because create_internal_token sets allow_internal_token
-    token = ApiToken.create_internal_token(user: @user, tenant: @tenant)
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
 
     assert token.persisted?
     assert token.internal?
@@ -536,5 +551,45 @@ class ApiTokenTest < ActiveSupport::TestCase
 
     assert token.persisted?
     assert_not token.internal?
+  end
+
+  # === Context Validation Tests ===
+
+  test "internal token without context is invalid" do
+    token = ApiToken.new(
+      user: @user,
+      tenant: @tenant,
+      internal: true,
+      scopes: ApiToken.valid_scopes,
+      name: "Internal Token",
+      expires_at: 1.hour.from_now,
+    )
+    token.allow_internal_token = true
+
+    assert_not token.valid?
+    assert_includes token.errors[:context], "is required for internal tokens"
+  end
+
+  test "external token with context is invalid" do
+    token = ApiToken.new(
+      user: @user,
+      tenant: @tenant,
+      internal: false,
+      scopes: ApiToken.read_scopes,
+      name: "External Token",
+      expires_at: 1.year.from_now,
+      context: @context,
+    )
+
+    assert_not token.valid?
+    assert_includes token.errors[:context], "must be blank for external tokens"
+  end
+
+  test "internal token with context is valid" do
+    token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
+
+    assert token.persisted?
+    assert token.internal?
+    assert_equal @context, token.context
   end
 end

@@ -1,0 +1,89 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['System Admin', '/system-admin'],
+  ['Agent Runner', '/system-admin/agent-runner'],
+  'Task Run'
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'command-palette', height: 24 %> Task Run <code><%= @task_run.id[0..7] %></code>
+</h1>
+
+<% summary_class = case @task_run.status
+                   when "completed" then @task_run.success ? 'pulse-notice' : 'pulse-alert-danger'
+                   when "failed" then 'pulse-alert-danger'
+                   when "running", "queued" then 'pulse-notice'
+                   else 'pulse-notice'
+                   end %>
+<div class="<%= summary_class %>" style="margin-bottom: 24px; padding: 16px; border-radius: 6px;">
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+    <% case @task_run.status %>
+    <% when "completed" %>
+      <% if @task_run.success %>
+        <%= octicon 'check-circle-fill', height: 16, style: 'color: var(--color-success-fg);' %>
+        <strong>Task Completed</strong>
+      <% else %>
+        <%= octicon 'x-circle-fill', height: 16, style: 'color: var(--color-danger-fg);' %>
+        <strong>Task Failed</strong>
+      <% end %>
+    <% when "failed" %>
+      <%= octicon 'x-circle-fill', height: 16, style: 'color: var(--color-danger-fg);' %>
+      <strong>Task Failed</strong>
+    <% when "running" %>
+      <%= octicon 'sync', height: 16, style: 'color: var(--color-accent-fg);' %>
+      <strong>Task Running</strong>
+    <% when "queued" %>
+      <%= octicon 'clock', height: 16, style: 'color: var(--color-attention-fg);' %>
+      <strong>Task Queued</strong>
+    <% else %>
+      <%= octicon 'question', height: 16 %>
+      <strong><%= @task_run.status.titleize %></strong>
+    <% end %>
+  </div>
+  <% if @task_run.error.present? %>
+    <p style="margin: 8px 0 0 0; color: var(--color-danger-fg);">Error: <%= @task_run.error %></p>
+  <% end %>
+  <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 12px;">
+    Agent: <%= @task_run.ai_agent&.name %> |
+    Tenant: <%= @task_run.tenant&.subdomain %> |
+    Model: <code><%= @task_run.model || "default" %></code> |
+    Steps: <%= @task_run.steps_count %> / <%= @task_run.max_steps %>
+    <% if @task_run.formatted_duration %>
+      | Duration: <%= @task_run.formatted_duration %>
+    <% end %>
+    <% if @task_run.total_tokens&.positive? %>
+      | Tokens: <%= @task_run.formatted_tokens %>
+      <% if @task_run.formatted_cost %>
+        | Est. Cost: <%= @task_run.formatted_cost %>
+      <% end %>
+    <% end %>
+    | Created: <%= @task_run.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %>
+  </p>
+  <p class="pulse-muted" style="margin: 4px 0 0 0; font-size: 12px;">
+    Run ID: <code><%= @task_run.id %></code> |
+    Initiated by: <%= @task_run.initiated_by&.name %>
+    <% if @task_run.triggered_by_automation? %>
+      | Automation: <%= @task_run.automation_rule&.name %>
+    <% end %>
+    <% if @task_run.stripe_customer_id.present? %>
+      | Billing: <code><%= @task_run.stripe_customer_id[0..7] %></code>
+    <% end %>
+  </p>
+</div>
+
+<div class="pulse-alert pulse-alert-warning" style="margin-bottom: 24px;">
+  <%= octicon 'shield-lock', height: 14 %>
+  <strong>Privacy note:</strong> Task prompt and page content are redacted in the admin view.
+  The task owner can view full details from their agent's run history.
+</div>
+
+<!-- Steps Timeline -->
+<div class="pulse-section-label" style="margin-bottom: 16px;">
+  <%= octicon 'list-ordered', height: 12 %> Execution Steps (<%= @task_run.steps_count %>)
+</div>
+
+<% if @task_run.steps_data.present? %>
+  <%= render 'shared/task_run_steps_timeline', task_run: @task_run, debug: false, redacted: true %>
+<% else %>
+  <p class="pulse-text-secondary">No step data recorded.</p>
+<% end %>

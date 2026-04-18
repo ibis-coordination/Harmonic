@@ -1,0 +1,59 @@
+# Task Run <%= @task_run.id[0..7] %>
+
+> Privacy note: Task prompt and page content are redacted in the admin view.
+
+## Summary
+
+| Field | Value |
+|-------|-------|
+| Status | <%= @task_run.status %> |
+| Success | <%= @task_run.success %> |
+| Agent | <%= @task_run.ai_agent&.name %> |
+| Tenant | <%= @task_run.tenant&.subdomain %> |
+| Model | <%= @task_run.model || "default" %> |
+| Steps | <%= @task_run.steps_count %> / <%= @task_run.max_steps %> |
+<% if @task_run.formatted_duration -%>
+| Duration | <%= @task_run.formatted_duration %> |
+<% end -%>
+<% if @task_run.total_tokens&.positive? -%>
+| Tokens | <%= @task_run.formatted_tokens %> |
+<% end -%>
+<% if @task_run.formatted_cost -%>
+| Est. Cost | <%= @task_run.formatted_cost %> |
+<% end -%>
+| Created | <%= @task_run.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %> |
+| Initiated by | <%= @task_run.initiated_by&.name %> |
+| Run ID | <%= @task_run.id %> |
+
+<% if @task_run.error.present? -%>
+**Error:** <%= @task_run.error %>
+<% end -%>
+
+## Execution Steps
+
+<% (@task_run.steps_data || []).each_with_index do |step, index| -%>
+<% step = step.with_indifferent_access -%>
+<% detail = step[:detail].is_a?(Hash) ? step[:detail].with_indifferent_access : {} -%>
+### Step <%= index + 1 %>: <%= step[:type].upcase %> (<%= Time.parse(step[:timestamp]).strftime("%H:%M:%S") %>)
+
+<% case step[:type] -%>
+<% when "navigate" -%>
+Path: `<%= detail[:path] %>`
+<% when "execute" -%>
+Action: `<%= detail[:action] %>` — <%= detail[:success] ? "success" : "failed" %>
+<% if detail[:error].present? -%>
+Error: <%= detail[:error] %>
+<% end -%>
+<% when "think" -%>
+<% if detail[:llm_error].present? -%>
+LLM Error: <%= detail[:llm_error] %>
+<% end -%>
+<% when "done" -%>
+Task completed
+<% when "error" -%>
+<%= detail[:message] %>
+<% when "security_warning" -%>
+Type: <%= detail[:type] %> — <%= detail[:reasons]&.join(", ") %>
+<% end -%>
+
+<% end -%>

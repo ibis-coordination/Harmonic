@@ -15,6 +15,7 @@ import { LLMClient } from "./LLMClient.js";
 import { HarmonicClient } from "./HarmonicClient.js";
 import { TaskReporter } from "./TaskReporter.js";
 import { Config } from "../config/Config.js";
+import { log } from "./Logger.js";
 import { decryptToken } from "./TokenCrypto.js";
 import type { TaskPayload, Message } from "../core/PromptBuilder.js";
 import {
@@ -57,10 +58,14 @@ type AgentLoopError =
 
 const PAGE_CONTENT_MAX_LENGTH = 4000;
 
+/** Outcome of a task execution, for stats tracking in the main loop. */
+export type TaskOutcome = { readonly outcome: "completed" | "failed" | "cancelled" };
+
 /**
  * Run a single agent task to completion.
+ * Returns the outcome so the caller can track stats.
  */
-export const runTask = (task: TaskPayload) =>
+export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LLMClient | HarmonicClient | TaskReporter | Config> =>
   Effect.gen(function* () {
     const llm = yield* LLMClient;
     const harmonic = yield* HarmonicClient;
@@ -107,7 +112,7 @@ export const runTask = (task: TaskPayload) =>
         steps.push(step);
         yield* reporter.step(task.taskRunId, subdomain, [step]).pipe(
           Effect.catchAll((err) => {
-            console.error(`[AgentLoop] Failed to persist step: ${String(err)}`);
+            log.error({ event: "step_persist_failed", taskRunId: task.taskRunId, message: String(err) });
             return Effect.void;
           }),
         );
@@ -214,6 +219,7 @@ export const runTask = (task: TaskPayload) =>
     // Ruby checks `break if @steps.count >= max_steps` BEFORE think()
     let finalMessage: string | undefined;
     let taskOutcome: string | undefined;
+    let wasCancelled = false;
 
     // The main loop is wrapped in an Effect so we can catch unhandled errors
     // (matches Ruby rescue StandardError around run_with_token)
@@ -353,6 +359,9 @@ export const runTask = (task: TaskPayload) =>
           yield* addStep(errorStep({ message: errorMsg }, new Date()));
           finalMessage = `Agent encountered an error: ${errorMsg}`;
           taskOutcome = "exception";
+          if (error !== null && typeof error === "object" && "_tag" in error && (error as { _tag: string })._tag === "TaskCancelledError") {
+            wasCancelled = true;
+          }
         }),
       ),
     );
@@ -374,7 +383,7 @@ export const runTask = (task: TaskPayload) =>
         return addStep(result.step);
       }),
       Effect.catchAll((error) => {
-        console.error(`[AgentLoop] Scratchpad update failed for task ${task.taskRunId}: ${String(error)}`);
+        log.error({ event: "scratchpad_update_failed", taskRunId: task.taskRunId, message: String(error) });
         return addStep(scratchpadUpdateFailedStep({ error: String(error) }, new Date()));
       }),
     );
@@ -390,6 +399,8 @@ export const runTask = (task: TaskPayload) =>
       outputTokens: totalOutputTokens,
       totalTokens: totalInputTokens + totalOutputTokens,
     });
+
+    return { outcome: success ? "completed" : wasCancelled ? "cancelled" : "failed" } as TaskOutcome;
   }).pipe(
     // Last resort: if even the completion/scratchpad fails, try to report failure
     Effect.catchAll((error: AgentLoopError) =>
@@ -398,13 +409,12 @@ export const runTask = (task: TaskPayload) =>
         Effect.flatMap((reporter) =>
           reporter.fail(task.taskRunId, task.tenantSubdomain, error.message ?? String(error)).pipe(
             Effect.catchAll((reportError) => {
-              console.error(
-                `[AgentLoop] Failed to report failure for task ${task.taskRunId}: ${String(reportError)}`,
-              );
+              log.error({ event: "failure_report_failed", taskRunId: task.taskRunId, message: String(reportError) });
               return Effect.void;
             }),
           ),
         ),
+        Effect.map(() => ({ outcome: "failed" }) as TaskOutcome),
       ),
     ),
   );

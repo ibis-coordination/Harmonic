@@ -131,7 +131,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     token = ApiToken.create_internal_token(
       user: @ai_agent,
       tenant: @tenant,
-      ai_agent_task_run: @task_run,
+      context: @task_run,
     )
 
     body = {
