@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { fork } from "node:child_process";
 import { resolve } from "node:path";
 import { createCipheriv, hkdfSync, randomBytes } from "node:crypto";
+import { createServer, type Server } from "node:http";
 
 const TEST_SECRET = "test-secret-for-shutdown-test";
 const HKDF_INFO = "agent-runner-token-encryption";
@@ -17,8 +18,35 @@ function encryptToken(plaintext: string): string {
   return Buffer.concat([iv, authTag, encrypted]).toString("base64");
 }
 
+/**
+ * Start a mock Rails server that delays the first request, then responds
+ * quickly to subsequent ones. The initial delay keeps the task in-flight
+ * long enough for SIGTERM to land; quick follow-ups let the task finish
+ * within the drain window.
+ */
+function startSlowMockServer(firstRequestDelayMs: number): Promise<{ server: Server; port: number }> {
+  return new Promise((resolve) => {
+    let requestCount = 0;
+    const server = createServer((_req, res) => {
+      requestCount++;
+      const delay = requestCount === 1 ? firstRequestDelayMs : 0;
+      setTimeout(() => {
+        // Return 500 for all requests — task will fail quickly after the
+        // initial slow response, rather than proceeding through claim/LLM/etc.
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "mock server" }));
+      }, delay);
+    });
+    server.listen(0, () => {
+      const addr = server.address();
+      const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+      resolve({ server, port });
+    });
+  });
+}
+
 /** Spawn the agent-runner with a unique stream name to avoid test interference. */
-function spawnRunner(streamName: string) {
+function spawnRunner(streamName: string, internalUrl: string) {
   const entryPoint = resolve(import.meta.dirname, "../../dist/index.js");
   const logs: string[] = [];
 
@@ -27,7 +55,7 @@ function spawnRunner(streamName: string) {
       ...process.env,
       AGENT_RUNNER_SECRET: TEST_SECRET,
       REDIS_URL,
-      HARMONIC_INTERNAL_URL: "http://localhost:3000",
+      HARMONIC_INTERNAL_URL: internalUrl,
       HARMONIC_HOSTNAME: "test.local",
       AGENT_TASKS_STREAM: streamName,
     },
@@ -44,7 +72,6 @@ function spawnRunner(streamName: string) {
 
   const waitForEvent = (eventName: string, timeoutMs = 10_000) =>
     new Promise<boolean>((resolve) => {
-      // Check if already in logs
       if (logs.some((l) => l.includes(`"event":"${eventName}"`))) {
         resolve(true);
         return;
@@ -128,7 +155,7 @@ describe("graceful shutdown", () => {
     const stream = `agent_tasks_test_${randomBytes(4).toString("hex")}`;
     streamsToCleanup.push(stream);
 
-    const runner = spawnRunner(stream);
+    const runner = spawnRunner(stream, "http://localhost:3000");
     const started = await runner.waitForEvent("started");
     expect(started).toBe(true);
 
@@ -148,49 +175,46 @@ describe("graceful shutdown", () => {
       return;
     }
 
+    // Start a mock server that delays the first response by 8 seconds.
+    // This must exceed the XREADGROUP BLOCK timeout (5 seconds) so the
+    // task is still in-flight when the main loop unwinds after SIGTERM.
+    // Subsequent requests return 500 immediately so the task fails fast
+    // and the drain completes quickly.
+    const mock = await startSlowMockServer(8_000);
+
     const stream = `agent_tasks_test_${randomBytes(4).toString("hex")}`;
     streamsToCleanup.push(stream);
 
     const { Redis } = await import("ioredis");
     const redis = new Redis(REDIS_URL);
 
-    const runner = spawnRunner(stream);
+    const runner = spawnRunner(stream, `http://localhost:${mock.port}`);
     const started = await runner.waitForEvent("started");
     expect(started).toBe(true);
 
-    // Push 3 tasks. Each takes ~5 seconds (preflight fails → reporter.fail retries
-    // with backoff: 250ms + 1s + 4s). With 3 concurrent tasks, at least one will
-    // still be in-flight when SIGTERM fires, exercising the drain wait.
-    for (let i = 1; i <= 3; i++) {
-      await redis.xadd(
-        stream, "MAXLEN", "~", "10000", "*",
-        "task_run_id", `test-drain-task-${i}`,
-        "encrypted_token", encryptToken(`fake-api-token-for-drain-test-${i}-pad12345`),
-        "task", "Test drain behavior",
-        "max_steps", "5",
-        "model", "",
-        "agent_id", `test-agent-${i}`,
-        "tenant_subdomain", "test",
-        "stripe_customer_stripe_id", "",
-      );
-    }
+    // Push a task. The runner will pick it up and call preflight on our
+    // mock server, which delays 8 seconds — keeping the task in-flight.
+    await redis.xadd(
+      stream, "MAXLEN", "~", "10000", "*",
+      "task_run_id", "test-drain-task-1",
+      "encrypted_token", encryptToken("fake-api-token-for-drain-test-1-pad12345"),
+      "task", "Test drain behavior",
+      "max_steps", "5",
+      "model", "",
+      "agent_id", "test-agent-1",
+      "tenant_subdomain", "test",
+      "stripe_customer_stripe_id", "",
+    );
 
-    // Send SIGTERM as soon as we see the first task_received — tasks are in-flight
-    // with preflight retries taking several seconds.
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => resolve(), 10_000);
-      const check = () => {
-        if (runner.logs.some((l) => l.includes('"event":"task_received"'))) {
-          clearTimeout(timeout);
-          runner.child.kill("SIGTERM");
-          resolve();
-        }
-      };
-      runner.child.stdout?.on("data", check);
-      runner.child.stderr?.on("data", check);
-    });
+    // Wait for the task to be picked up
+    const received = await runner.waitForEvent("task_received", 10_000);
+    expect(received).toBe(true);
 
-    expect(runner.logs.some((l) => l.includes('"event":"task_received"'))).toBe(true);
+    // Small delay to ensure the task fiber has started and is blocked on preflight
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Send SIGTERM — the task is in-flight (blocked on slow preflight)
+    runner.child.kill("SIGTERM");
 
     // The runner should drain — wait for it to exit
     const exitCode = await runner.waitForExit(30_000);
@@ -202,14 +226,14 @@ describe("graceful shutdown", () => {
     expect(eventNames).toContain("task_received");
     expect(eventNames).toContain("shutdown_requested");
 
-    // The shutdown_requested should show activeTasks > 0
+    // shutdown_requested must show activeTasks > 0 (task is blocked on preflight)
     const shutdownEvent = events.find((e) => e.event === "shutdown_requested");
     expect(shutdownEvent?.activeTasks).toBeGreaterThan(0);
 
-    // Should have entered draining mode and waited for tasks to finish
+    // Must have entered draining mode and waited
     expect(eventNames).toContain("draining");
 
-    // Should eventually complete shutdown after task finishes/fails
+    // Should eventually complete shutdown after task finishes
     expect(eventNames).toContain("shutdown_complete");
 
     // shutdown_complete should show activeTasks back to 0
@@ -218,6 +242,8 @@ describe("graceful shutdown", () => {
 
     expect(exitCode).toBe(0);
 
+    // Clean up
     redis.disconnect();
+    mock.server.close();
   }, 60_000);
 });
