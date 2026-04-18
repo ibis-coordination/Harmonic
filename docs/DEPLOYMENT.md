@@ -86,6 +86,24 @@ The script:
 - Returns 503 on `/healthcheck` so load balancers know the app is down
 - Works in both development (with `HOST_MODE=caddy`) and production
 
+### Agent Runner
+
+The agent-runner container handles SIGTERM gracefully: it stops accepting
+new tasks and waits up to 5 minutes for in-flight tasks to complete.
+
+Standard deploys (`docker compose up -d`) trigger this automatically.
+During the drain window, new tasks queue in Redis and are processed by
+the new container once it starts.
+
+If the runner is killed before tasks finish (OOM, timeout), orphaned
+tasks are automatically detected and marked failed:
+- **XAUTOCLAIM** (in the runner) reclaims orphaned stream entries within
+  ~2 minutes of the next startup
+- **OrphanedTaskSweepJob** (Sidekiq, every 10 min) catches any tasks
+  stuck in "running" for >15 minutes
+
+Users see orphaned task failures and can retry.
+
 ### Deployments with Downtime
 
 For schema-changing migrations:

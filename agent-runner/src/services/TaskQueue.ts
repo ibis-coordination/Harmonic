@@ -20,6 +20,12 @@ export interface StreamInfo {
   readonly streamPending: number;
 }
 
+export interface ClaimedEntry {
+  readonly id: string;
+  readonly task: TaskPayload;
+  readonly deliveryCount: number;
+}
+
 export interface TaskQueueService {
   readonly read: () => Effect.Effect<StreamEntry | null, RedisError>;
   readonly ack: (entryId: string) => Effect.Effect<void, RedisError>;
@@ -27,6 +33,8 @@ export interface TaskQueueService {
   readonly ensureGroup: () => Effect.Effect<void, RedisError>;
   readonly publishStats: (stats: Record<string, unknown>) => Effect.Effect<void, RedisError>;
   readonly streamInfo: () => Effect.Effect<StreamInfo, RedisError>;
+  /** Reclaim orphaned stream entries that have been idle for minIdleMs. */
+  readonly autoClaim: (minIdleMs: number) => Effect.Effect<ClaimedEntry[], RedisError>;
   readonly shutdown: () => Effect.Effect<void>;
 }
 
@@ -242,6 +250,55 @@ export const TaskQueueLive = Layer.effect(
           new RedisError({ message: error instanceof Error ? error.message : String(error) }),
       });
 
+    const autoClaim: TaskQueueService["autoClaim"] = (minIdleMs) =>
+      Effect.tryPromise({
+        try: async () => {
+          const r = getRedis();
+          // XAUTOCLAIM <key> <group> <consumer> <min-idle-time> <start> [COUNT count]
+          // Returns [nextStartId, [[entryId, fields], ...], [deletedIds]]
+          const result = await r.call(
+            "XAUTOCLAIM",
+            config.streamName,
+            config.consumerGroup,
+            config.consumerName,
+            String(minIdleMs),
+            "0-0",
+            "COUNT",
+            "10",
+          ) as [string, Array<[string, string[]]>, string[]];
+
+          if (!Array.isArray(result) || !Array.isArray(result[1])) return [];
+
+          const entries: ClaimedEntry[] = [];
+          for (const entry of result[1]) {
+            if (!Array.isArray(entry) || entry.length < 2) continue;
+            const [id, fields] = entry;
+            if (id === undefined || !Array.isArray(fields)) continue;
+            const task = parseStreamEntry(fields);
+            if (task === null) continue;
+
+            // Get delivery count from XPENDING for this specific entry
+            let deliveryCount = 1;
+            try {
+              const pending = await r.call(
+                "XPENDING", config.streamName, config.consumerGroup,
+                id, id, "1",
+              ) as Array<[string, string, number, number]>;
+              if (Array.isArray(pending) && pending.length > 0 && Array.isArray(pending[0])) {
+                deliveryCount = pending[0][3] ?? 1; // 4th element is delivery count
+              }
+            } catch {
+              // If XPENDING fails, proceed with default count
+            }
+
+            entries.push({ id, task, deliveryCount });
+          }
+          return entries;
+        },
+        catch: (error) =>
+          new RedisError({ message: error instanceof Error ? error.message : String(error) }),
+      });
+
     const shutdown: TaskQueueService["shutdown"] = () =>
       Effect.sync(() => {
         if (redis !== null) {
@@ -250,6 +307,6 @@ export const TaskQueueLive = Layer.effect(
         }
       });
 
-    return { read, ack, nack, ensureGroup, publishStats, streamInfo, shutdown };
+    return { read, ack, nack, ensureGroup, publishStats, streamInfo, autoClaim, shutdown };
   }),
 );

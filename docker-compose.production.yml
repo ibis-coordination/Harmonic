@@ -78,6 +78,7 @@ services:
   # leak the Rails master key, Stripe backend key, DB password, etc.
   agent-runner:
     image: ghcr.io/ibis-coordination/harmonic-agent-runner:latest
+    stop_grace_period: 5m
     restart: unless-stopped
     environment:
       - NODE_ENV=production

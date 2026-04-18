@@ -149,3 +149,59 @@ Recommended procedure:
 4. **Expect nonce cache carryover.** Replay protection stores nonces in Redis with a 5-minute TTL; the rotated secret is unrelated, so the cache stays valid across the rotation.
 
 A future version may prepend a 1-byte key-version prefix to encrypted payloads so the runner can decrypt under both the old and new keys during a rolling window. Until then: drain before rotating.
+
+## Ops: Graceful Shutdown & Orphan Recovery
+
+### Graceful Shutdown
+
+On SIGTERM (sent by `docker compose up -d` during deploys), the runner:
+
+1. Stops reading new tasks from the Redis stream
+2. Waits up to 4.5 minutes for in-flight tasks to complete naturally
+3. Disconnects Redis and exits cleanly
+
+Docker's `stop_grace_period` is set to 5 minutes in both compose files.
+Most tasks complete within 1-3 minutes. If the timeout expires, remaining
+tasks become orphans (see below).
+
+### Orphan Recovery
+
+Two mechanisms detect and clean up orphaned tasks:
+
+**XAUTOCLAIM (in the runner):** Every 30 seconds, the runner reclaims
+Redis stream entries that have been pending for >2 minutes without ACK.
+For each reclaimed entry:
+- If the task already reached a terminal state on Rails → ACK and skip
+- If the task is still "running" → mark it failed with
+  `orphaned_after_process_crash` and ACK
+- If claimed 3+ times without completion → dead-letter it as
+  `dead_lettered_after_N_claims` (prevents infinite retry loops)
+
+The runner maintains a Set of active task IDs to avoid reclaiming entries
+for tasks it is currently executing (XAUTOCLAIM's idle timer grows
+continuously from the initial read, not from last activity).
+
+**OrphanedTaskSweepJob (Sidekiq, every 10 min):** Catches cases
+XAUTOCLAIM can't handle (Redis wiped, stream deleted, runner never
+restarted). Finds `AiAgentTaskRun` rows with `status: "running"` and
+`started_at > 15 minutes ago`, marks them failed with `orphaned_timeout`.
+
+### Checking for Orphans
+
+```ruby
+# In Rails console:
+AiAgentTaskRun.unscoped_for_system_job
+  .where(status: "running")
+  .where("started_at < ?", 15.minutes.ago)
+```
+
+The admin page at `/system-admin/agent-runner` shows task runs with their
+status — filter by "failed" to see orphaned tasks (look for error
+messages containing "orphaned" or "dead_lettered").
+
+### Manual Recovery
+
+The `rake agent_runner:redispatch_queued` task still exists as a fallback
+for tasks stuck in "queued" state (dispatched to Redis but never picked
+up). This is rarely needed — the XAUTOCLAIM loop handles most cases
+automatically.
