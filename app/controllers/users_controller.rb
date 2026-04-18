@@ -1,6 +1,10 @@
 # typed: false
 
 class UsersController < ApplicationController
+  include RequiresReverification
+
+  before_action -> { require_reverification(scope: "representation") }, only: [:represent]
+
   def index
     @page_title = 'Users'
     @sidebar_mode = 'minimal'

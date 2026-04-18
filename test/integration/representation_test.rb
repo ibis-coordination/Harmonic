@@ -18,10 +18,33 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
+  # Helper to ensure the current user has 2FA set up
+  def ensure_2fa!(user)
+    identity = user.find_or_create_omni_auth_identity!
+    unless identity.otp_enabled
+      identity.generate_otp_secret!
+      identity.enable_otp!
+    end
+    identity
+  end
+
   # Helper to start representation and handle the flow
   def start_representing
+    # Ensure 2FA is set up before hitting the reverification gate
+    identity = ensure_2fa!(@parent)
+
     post "/u/#{@ai_agent.handle}/represent"
     assert_response :redirect
+
+    # Handle reverification redirect if triggered
+    if URI.parse(response.location).path == "/reverify"
+      totp = ROTP::TOTP.new(identity.otp_secret)
+      post "/reverify", params: { code: totp.now }
+      # Retry the represent action after reverification
+      post "/u/#{@ai_agent.handle}/represent"
+      assert_response :redirect
+    end
+
     # Flow redirects to /representing first
     follow_redirect!
   end
@@ -49,10 +72,10 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(other_ai_agent)
     @collective.add_user!(other_ai_agent)
 
-    sign_in_as(@parent, tenant: @tenant)
+    sign_in_with_reverification(@parent, tenant: @tenant, path: "/u/#{other_ai_agent.handle}/represent", method: :post)
 
+    # The reverification triggers on the first POST, then retries — but the controller rejects
     post "/u/#{other_ai_agent.handle}/represent"
-
     assert_response :forbidden
   end
 
@@ -60,10 +83,9 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     # Archive through tenant_user since archived_at is on TenantUser
     @ai_agent.tenant_user = @tenant.tenant_users.find_by(user: @ai_agent)
     @ai_agent.archive!
-    sign_in_as(@parent, tenant: @tenant)
+    sign_in_with_reverification(@parent, tenant: @tenant, path: "/u/#{@ai_agent.handle}/represent", method: :post)
 
     post "/u/#{@ai_agent.handle}/represent"
-
     assert_response :forbidden
   end
 
@@ -72,7 +94,7 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(other_person)
     @collective.add_user!(other_person)
 
-    sign_in_as(@parent, tenant: @tenant)
+    sign_in_with_reverification(@parent, tenant: @tenant, path: "/u/#{other_person.handle}/represent", method: :post)
 
     post "/u/#{other_person.handle}/represent"
 
@@ -251,10 +273,10 @@ class RepresentationTest < ActionDispatch::IntegrationTest
   end
 
   test "cannot start representation for non-existent user" do
-    sign_in_as(@parent, tenant: @tenant)
+    ensure_2fa!(@parent)
+    sign_in_with_reverification(@parent, tenant: @tenant, path: "/u/#{@ai_agent.handle}/represent", method: :post)
 
     post "/u/nonexistent-handle/represent"
-
     assert_response :not_found
   end
 

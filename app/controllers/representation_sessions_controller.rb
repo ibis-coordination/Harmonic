@@ -5,7 +5,10 @@
 # the collective in OTHER collectives, not within the collective itself. Need to investigate what changed.
 
 class RepresentationSessionsController < ApplicationController
+  include RequiresReverification
+
   before_action :set_sidebar_mode, only: [:index, :show, :represent, :representing]
+  before_action -> { require_reverification(scope: "representation") }, only: [:represent, :start_representing, :start_representing_user]
 
   def index
     @representatives = current_collective.representatives

@@ -1,7 +1,10 @@
 # typed: false
 
 class ApiTokensController < ApplicationController
+  include RequiresReverification
+
   before_action :set_user
+  before_action -> { require_reverification(scope: "api_tokens") }, only: [:new, :create]
   before_action :set_sidebar_mode, only: [:new, :show, :create]
 
   def show

@@ -265,7 +265,7 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
   # created through those routes either.
 
   test "web UI form create ignores internal param" do
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/u/#{@user.handle}/settings/tokens", method: :post)
 
     # Even if someone tries to inject internal: true via form params, it should be ignored
     token_params = {
@@ -286,7 +286,7 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
   end
 
   test "markdown action create ignores internal param" do
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/u/#{@user.handle}/settings/tokens", method: :post)
 
     # The markdown action endpoint also creates tokens
     action_params = {
@@ -348,7 +348,7 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     ai_agent.agent_configuration = { "mode" => "external" }
     ai_agent.save!
 
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/u/#{ai_agent.handle}/settings/tokens", method: :post)
 
     assert_difference "ApiToken.count", 1 do
       post "/u/#{ai_agent.handle}/settings/tokens", params: {
@@ -368,7 +368,7 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     ai_agent.agent_configuration = { "mode" => "internal" }
     ai_agent.save!
 
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/u/#{ai_agent.handle}/settings/tokens", method: :post)
 
     assert_no_difference "ApiToken.count" do
       post "/u/#{ai_agent.handle}/settings/tokens", params: {

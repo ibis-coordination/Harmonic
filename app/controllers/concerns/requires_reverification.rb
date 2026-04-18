@@ -41,7 +41,14 @@ module RequiresReverification
       return # recently verified
     end
 
-    session[:reverification_return_to] = request.original_url
+    # For POST/PATCH/PUT/DELETE, redirect back to the referrer (the form page)
+    # since the browser will follow the redirect as a GET and the POST body is lost.
+    # For GET, use the original URL so the user lands on the page they wanted.
+    session[:reverification_return_to] = if request.get?
+      request.original_url
+    else
+      request.referer || request.original_url
+    end
     session[:reverification_scope] = scope
     redirect_to reverify_path
   end
