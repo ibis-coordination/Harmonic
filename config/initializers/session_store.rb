@@ -22,6 +22,7 @@
 session_options = {
   key: "_harmonic_session",
   same_site: :lax,
+  httponly: true,
 }
 
 unless Rails.env.test?

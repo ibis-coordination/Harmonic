@@ -148,6 +148,21 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", /#{@non_admin_user.display_name || @non_admin_user.name}/
   end
 
+  test "app admin user search escapes LIKE wildcards" do
+    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+
+    # Verify that a normal search finds users
+    get "/app-admin/users", params: { q: "non_admin" }
+    assert_response :success
+    assert_select "code", text: /non_admin@example\.com/
+
+    # "%" as a search query should NOT match any users — LIKE wildcards must be escaped
+    get "/app-admin/users", params: { q: "%" }
+    assert_response :success
+    assert_select "code", { text: /non_admin@example\.com/, count: 0 },
+                  "Query '%' should not match users via LIKE wildcard injection"
+  end
+
   # ==========================================
   # User Suspension Tests
   # ==========================================

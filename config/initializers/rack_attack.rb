@@ -53,6 +53,13 @@ class Rack::Attack
     end
   end
 
+  # Throttle 2FA verification attempts
+  throttle('2fa/ip', limit: 10, period: 15.minutes) do |req|
+    if req.path == '/login/verify-2fa' && req.post?
+      req.ip
+    end
+  end
+
   # Throttle OAuth callback requests
   throttle('oauth-callback/ip', limit: 10, period: 5.minutes) do |req|
     if req.path.start_with?('/auth/') && req.post?

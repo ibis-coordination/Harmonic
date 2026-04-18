@@ -151,6 +151,21 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "tenant admin user search escapes LIKE wildcards" do
+    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+
+    # Verify that a normal search finds users
+    get "/tenant-admin/users", params: { q: "non_admin" }
+    assert_response :success
+    assert_select "code", text: /non_admin@example\.com/
+
+    # "%" as a search query should NOT match any users — LIKE wildcards must be escaped
+    get "/tenant-admin/users", params: { q: "%" }
+    assert_response :success
+    assert_select "code", { text: /non_admin@example\.com/, count: 0 },
+                  "Query '%' should not match users via LIKE wildcard injection"
+  end
+
   test "tenant admin can view user details by handle" do
     sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
 

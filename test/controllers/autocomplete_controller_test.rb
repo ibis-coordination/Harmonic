@@ -170,6 +170,29 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
     assert_equal member_user.id, member_user_result["id"]
   end
 
+  test "search query with SQL LIKE wildcards are escaped" do
+    # Create a user with a percent sign in their display name (unlikely but valid)
+    wildcard_user = create_user(email: "wildcard@example.com", name: "Percent User")
+    @tenant.add_user!(wildcard_user)
+    @collective.add_user!(wildcard_user)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    # A query of just "%" should NOT match all users — LIKE wildcards must be escaped
+    get "/collectives/#{@collective.handle}/autocomplete/users",
+        params: { q: "%" },
+        headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    json_response = JSON.parse(response.body)
+    # "%" is not a substring of any handle or display_name, so no results expected
+    # (unless a user literally has "%" in their handle/name)
+    json_response.each do |u|
+      assert u["handle"].include?("%") || u["display_name"]&.include?("%"),
+             "Query '%' should only match users with literal '%' in handle/display_name, but matched '#{u["handle"]}'"
+    end
+  end
+
   test "excludes current user from autocomplete results" do
     sign_in_as(@user, tenant: @tenant)
 

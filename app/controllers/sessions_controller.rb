@@ -190,7 +190,7 @@ class SessionsController < ApplicationController
     # TODO check if user is allowed to access this tenant
     return redirect_to root_path unless tenant && current_user
     token = encrypt_token(tenant.id, current_user.id)
-    set_shared_domain_cookie(:token, token)
+    set_shared_domain_cookie(:token, token, path: "/login/callback")
     session.delete(:user_id) # auth subdomain should never retain a user session
     url = tenant_domain_callback_url(tenant)
     redirect_to url, allow_other_host: true
@@ -286,22 +286,26 @@ class SessionsController < ApplicationController
     [tenant_id, user_id]
   end
 
-  def set_shared_domain_cookie(key, value)
-    cookies[key] = {
+  def set_shared_domain_cookie(key, value, path: nil)
+    cookie = {
       value: value,
       domain: ".#{ENV['HOSTNAME']}",
       httponly: true,
-      secure: Rails.env.production?,
+      secure: !Rails.env.test? && (Rails.env.production? || ENV["HOST_MODE"] == "caddy"),
       same_site: :lax,
     }
+    cookie[:path] = path if path
+    cookies[key] = cookie
   end
 
-  def delete_shared_domain_cookie(key)
-    cookies.delete(key, domain: ".#{ENV['HOSTNAME']}")
+  def delete_shared_domain_cookie(key, path: nil)
+    opts = { domain: ".#{ENV['HOSTNAME']}" }
+    opts[:path] = path if path
+    cookies.delete(key, **opts)
   end
 
   def delete_token_cookie
-    delete_shared_domain_cookie(:token)
+    delete_shared_domain_cookie(:token, path: "/login/callback")
   end
 
   def delete_redirect_to_subdomain_cookie

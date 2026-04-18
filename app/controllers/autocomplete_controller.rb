@@ -26,7 +26,8 @@ class AutocompleteController < ApplicationController
       .where(archived_at: nil)
 
     if query.present?
-      tenant_users = tenant_users.where("LOWER(handle) LIKE :query OR LOWER(display_name) LIKE :query", query: "%#{query}%")
+      sanitized_query = ActiveRecord::Base.sanitize_sql_like(query)
+      tenant_users = tenant_users.where("LOWER(handle) LIKE :query OR LOWER(display_name) LIKE :query", query: "%#{sanitized_query}%")
     end
 
     tenant_users = tenant_users

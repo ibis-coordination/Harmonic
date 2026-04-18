@@ -105,7 +105,8 @@ class AppAdminController < ApplicationController
     base_scope = User.where.not(user_type: 'trustee')
 
     if @search_query.present?
-      base_scope = base_scope.where("email ILIKE ?", "%#{@search_query}%")
+      sanitized = ActiveRecord::Base.sanitize_sql_like(@search_query)
+      base_scope = base_scope.where("email ILIKE ?", "%#{sanitized}%")
     end
 
     # Get counts for each user type
