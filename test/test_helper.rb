@@ -270,4 +270,25 @@ class ActionDispatch::IntegrationTest
       get "/login/callback"
     end
   end
+
+  # Sign in and complete 2FA reverification for admin access.
+  # Sets up TOTP on the user's OmniAuthIdentity if not already enabled,
+  # then triggers and completes the reverification flow.
+  def sign_in_as_admin(user, tenant: nil, admin_path: "/system-admin")
+    sign_in_as(user, tenant: tenant)
+
+    identity = user.find_or_create_omni_auth_identity!
+    unless identity.otp_enabled
+      identity.generate_otp_secret!
+      identity.enable_otp!
+    end
+
+    # Trigger the reverification redirect to store scope in session
+    get admin_path
+    return unless response.redirect? && URI.parse(response.location).path == "/reverify"
+
+    # Complete reverification
+    totp = ROTP::TOTP.new(identity.otp_secret)
+    post "/reverify", params: { code: totp.now }
+  end
 end

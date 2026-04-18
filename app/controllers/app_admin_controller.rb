@@ -15,8 +15,11 @@
 # - SystemAdminController: Manages system infrastructure (Sidekiq, monitoring)
 # - TenantAdminController: Manages a single tenant's settings and users
 class AppAdminController < ApplicationController
+  include RequiresReverification
+
   before_action :ensure_primary_tenant
   before_action :ensure_app_admin
+  before_action -> { require_reverification(scope: "admin") }
   before_action :set_sidebar_mode
 
   USERS_PER_PAGE = 50

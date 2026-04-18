@@ -197,6 +197,9 @@ Rails.application.routes.draw do
 
   # System Admin (primary tenant only, sys_admin role on User)
   # For system-level operations: Sidekiq, monitoring, etc.
+  get 'reverify' => 'reverification#show', as: 'reverify'
+  post 'reverify' => 'reverification#verify'
+
   get 'system-admin' => 'system_admin#dashboard'
   get 'system-admin/sidekiq' => 'system_admin#sidekiq'
   get 'system-admin/sidekiq/queues/:name' => 'system_admin#sidekiq_show_queue'
