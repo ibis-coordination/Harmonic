@@ -158,7 +158,8 @@ GEM
     globalid (1.3.0)
       activesupport (>= 6.1)
     hashdiff (1.2.1)
-    hashie (5.0.0)
+    hashie (5.1.0)
+      logger
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
     io-console (0.7.1)
@@ -195,6 +196,7 @@ GEM
     minitest (5.27.0)
     msgpack (1.4.4)
     multi_xml (0.6.0)
+    mutex_m (0.3.0)
     net-http (0.9.1)
       uri (>= 0.11.1)
     net-imap (0.4.20)
@@ -224,16 +226,19 @@ GEM
       actionview
       octicons (= 19.12.0)
       railties
-    omniauth (2.1.1)
+    omniauth (2.1.4)
       hashie (>= 3.4.6)
+      logger
       rack (>= 2.2.3)
       rack-protection
     omniauth-github (2.0.1)
       omniauth (~> 2.0)
       omniauth-oauth2 (~> 1.8)
-    omniauth-identity (3.0.9)
-      bcrypt
-      omniauth
+    omniauth-identity (3.1.5)
+      bcrypt (~> 3.1)
+      mutex_m (~> 0.1)
+      omniauth (>= 1)
+      version_gem (~> 1.1, >= 1.1.9)
     omniauth-oauth2 (1.8.0)
       oauth2 (>= 1.4, < 3)
       omniauth (~> 2.0)
@@ -447,7 +452,7 @@ GEM
     unicode-display_width (2.6.0)
     uri (1.1.1)
     useragent (0.16.11)
-    version_gem (1.1.3)
+    version_gem (1.1.9)
     view_component (4.4.0)
       actionview (>= 7.1.0)
       activesupport (>= 7.1.0)
@@ -513,7 +518,7 @@ DEPENDENCIES
   nokogiri (>= 1.18.8)
   octicons_helper
   omniauth-github
-  omniauth-identity
+  omniauth-identity (~> 3.1)
   omniauth-rails_csrf_protection (~> 1.0)
   pg
   puma (~> 6.0)

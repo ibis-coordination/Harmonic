@@ -437,20 +437,74 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
     assert_nil session[:user_id], "Invalid identity login must not establish a session"
   end
 
-  test "identity login with correct credentials sets session" do
-    # This test verifies the identity authentication flow works correctly.
-    # Note: OmniAuth identity provider integration with our OAuth callback
-    # requires specific tenant configuration. This test documents expected behavior.
+  test "identity login with correct credentials completes full authentication flow" do
+    # This test exercises the FULL OmniAuth identity login flow end-to-end,
+    # including the OmniAuth middleware's callback phase which parses request
+    # params via Rack::Request. This catches Rack version incompatibilities
+    # (e.g., Rack 3 removed Rack::Request#[] which omniauth-identity <3.1 uses).
+    host! auth_host
+    cookies[:redirect_to_subdomain] = @tenant.subdomain
 
-    # The identity provider authentication flow:
-    # 1. User submits email/password to /auth/identity/callback
-    # 2. OmniAuth validates against OmniAuthIdentity
-    # 3. If valid, oauth_callback sets session and redirects
-    # 4. If the provider is not enabled for tenant, returns 403
+    # Ensure the tenant accepts identity auth
+    unless @tenant.valid_auth_provider?("identity")
+      @tenant.settings["auth_providers"] ||= []
+      @tenant.settings["auth_providers"] << "identity"
+      @tenant.save!
+    end
 
-    # Verify the OmniAuthIdentity can authenticate
-    assert @identity.authenticate("securepassword123"), "Identity should authenticate with correct password"
-    assert_not @identity.authenticate("wrongpassword"), "Identity should reject wrong password"
+    post "/auth/identity/callback", params: {
+      auth_key: @identity.email,
+      password: "securepassword123",
+    }
+
+    # Should redirect to the tenant callback (successful auth), NOT to /auth/failure
+    assert_response :redirect
+    location_path = URI.parse(response.location).path
+    assert_not_equal "/auth/failure", location_path,
+      "Login with correct credentials should not redirect to /auth/failure — " \
+      "this likely means the OmniAuth middleware crashed (e.g., Rack version incompatibility)"
+  end
+
+  test "identity login with 2FA completes full authentication flow" do
+    # End-to-end test: OmniAuth callback → 2FA redirect → TOTP verify → login complete.
+    # Verifies that session[:pending_2fa_identity_id] set in oauth_callback persists
+    # through to the 2FA verify_submit action (catches session middleware issues).
+    host! auth_host
+    cookies[:redirect_to_subdomain] = @tenant.subdomain
+
+    unless @tenant.valid_auth_provider?("identity")
+      @tenant.settings["auth_providers"] ||= []
+      @tenant.settings["auth_providers"] << "identity"
+      @tenant.save!
+    end
+
+    # Enable 2FA on the identity
+    @identity.generate_otp_secret!
+    @identity.enable_otp!
+    totp = ROTP::TOTP.new(@identity.otp_secret)
+
+    # Step 1: POST credentials through OmniAuth → should redirect to 2FA
+    post "/auth/identity/callback", params: {
+      auth_key: @identity.email,
+      password: "securepassword123",
+    }
+    assert_response :redirect
+    assert_equal "/login/verify-2fa", URI.parse(response.location).path,
+      "Should redirect to 2FA verification when OTP is enabled"
+
+    # Step 2: Follow redirect to 2FA form
+    follow_redirect!
+    assert_response :success
+
+    # Step 3: Submit valid TOTP code
+    post "/login/verify-2fa", params: { code: totp.now }
+
+    # Should redirect to /login/return (successful 2FA), NOT back to /login
+    assert_response :redirect
+    location_path = URI.parse(response.location).path
+    assert_equal "/login/return", location_path,
+      "After valid 2FA code, should redirect to /login/return, not /login — " \
+      "this likely means the session was lost between oauth_callback and verify_submit"
   end
 
   # ============================================================================
