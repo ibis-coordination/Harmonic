@@ -176,7 +176,7 @@
     <% end %>
 
     <% # Two-Factor Authentication Section (only for identity provider users) %>
-    <% identity_for_2fa = OmniAuthIdentity.find_by(email: @settings_user.email) %>
+    <% identity_for_2fa = @settings_user.omni_auth_identity %>
     <% if identity_for_2fa %>
       <%= render 'shared/pulse_accordion', title: 'Two-Factor Authentication' do %>
         <p class="pulse-form-hint" style="margin-bottom:16px;">

@@ -74,7 +74,9 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
 
   test "common password check does not run on existing records without password change" do
     # Create a valid identity first
+    user = create_user(email: "existing@example.com", name: "Existing User")
     identity = OmniAuthIdentity.create!(
+      user: user,
       email: "existing@example.com",
       name: "Existing User",
       password: "myuniquepassword123",
@@ -89,7 +91,9 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
   # === TOTP Code Reuse Tests ===
 
   test "TOTP code cannot be reused after successful verification" do
+    user = create_user(email: "totp-reuse@example.com", name: "TOTP Reuse Test")
     identity = OmniAuthIdentity.create!(
+      user: user,
       email: "totp-reuse@example.com",
       name: "TOTP Reuse Test",
       password: "validpassword123",
@@ -112,7 +116,9 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
   # === Password Reset Token Tests ===
 
   test "generate_reset_password_token! returns raw token and stores hash" do
+    user = create_user(email: "reset@example.com", name: "Reset User")
     identity = OmniAuthIdentity.create!(
+      user: user,
       email: "reset@example.com",
       name: "Reset User",
       password: "validpassword123",
@@ -135,7 +141,9 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
   end
 
   test "find_by_reset_password_token finds identity with valid raw token" do
+    user = create_user(email: "findme@example.com", name: "Find Me")
     identity = OmniAuthIdentity.create!(
+      user: user,
       email: "findme@example.com",
       name: "Find Me",
       password: "validpassword123",
@@ -159,7 +167,9 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
   end
 
   test "reset_password_token_valid? returns true within 2 hours" do
+    user = create_user(email: "valid@example.com", name: "Valid Token")
     identity = OmniAuthIdentity.create!(
+      user: user,
       email: "valid@example.com",
       name: "Valid Token",
       password: "validpassword123",
@@ -171,7 +181,9 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
   end
 
   test "reset_password_token_valid? returns false after 2 hours" do
+    user = create_user(email: "expired@example.com", name: "Expired Token")
     identity = OmniAuthIdentity.create!(
+      user: user,
       email: "expired@example.com",
       name: "Expired Token",
       password: "validpassword123",
@@ -185,7 +197,9 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
   end
 
   test "update_password! clears reset token" do
+    user = create_user(email: "update@example.com", name: "Update Password")
     identity = OmniAuthIdentity.create!(
+      user: user,
       email: "update@example.com",
       name: "Update Password",
       password: "validpassword123",
@@ -199,5 +213,60 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
 
     assert_nil identity.reset_password_token
     assert_nil identity.reset_password_sent_at
+  end
+
+  # === User Association Tests ===
+
+  test "belongs_to user" do
+    user = create_user(email: "assoc-test@example.com", name: "Assoc Test")
+    identity = user.find_or_create_omni_auth_identity!
+
+    assert_equal user.id, identity.user_id
+    assert_equal user, identity.user
+  end
+
+  test "user has_one omni_auth_identity" do
+    user = create_user(email: "has-one-test@example.com", name: "HasOne Test")
+    identity = user.find_or_create_omni_auth_identity!
+
+    assert_equal identity, user.omni_auth_identity
+  end
+
+  test "find_or_create_omni_auth_identity sets user_id on new record" do
+    user = create_user(email: "new-oaid@example.com", name: "New OAID")
+    assert_nil user.omni_auth_identity
+
+    identity = user.find_or_create_omni_auth_identity!
+
+    assert_equal user.id, identity.user_id
+    assert_equal user.email, identity.email
+  end
+
+  test "find_or_create_omni_auth_identity adopts orphaned record from registration" do
+    # Simulates the OmniAuth identity registration flow: the gem creates
+    # an OmniAuthIdentity (no user_id) before a User exists. When the
+    # callback creates the User and calls find_or_create_omni_auth_identity!,
+    # it should adopt the existing record rather than creating a duplicate.
+    user = create_user(email: "adopt-test@example.com", name: "Adopt Test")
+    orphan = OmniAuthIdentity.create!(
+      email: "adopt-test@example.com",
+      name: "Adopt Test",
+      password: "securepassword123",
+      password_confirmation: "securepassword123",
+    )
+    assert_nil orphan.user_id
+
+    adopted = user.find_or_create_omni_auth_identity!
+
+    assert_equal orphan.id, adopted.id
+    assert_equal user.id, adopted.user_id
+  end
+
+  test "find_or_create_omni_auth_identity returns existing record" do
+    user = create_user(email: "existing-oaid@example.com", name: "Existing OAID")
+    first = user.find_or_create_omni_auth_identity!
+    second = user.find_or_create_omni_auth_identity!
+
+    assert_equal first.id, second.id
   end
 end

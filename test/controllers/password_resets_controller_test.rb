@@ -5,7 +5,9 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
     # Use the auth subdomain
     host! "#{ENV.fetch("AUTH_SUBDOMAIN", nil)}.#{ENV.fetch("HOSTNAME", nil)}"
 
+    @user = create_user(email: "test@example.com", name: "Test User")
     @identity = OmniAuthIdentity.create!(
+      user: @user,
       email: "test@example.com",
       name: "Test User",
       password: "verylongpassword123",
@@ -140,12 +142,6 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "successful password update logs security audit event" do
-    # Create a user with the same email as the identity
-    # The controller looks up the user by email to log the password change
-    @tenant = Tenant.create!(subdomain: "pwreset", name: "Password Reset Tenant")
-    @user = User.create!(email: @identity.email, name: "Test User", user_type: "human")
-    @tenant.add_user!(@user)
-
     raw_token = @identity.generate_reset_password_token!
     test_email = @identity.email
 

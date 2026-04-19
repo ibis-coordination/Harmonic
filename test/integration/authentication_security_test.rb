@@ -18,6 +18,7 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
     @identity = OmniAuthIdentity.create!(
+      user: @user,
       email: @user.email,
       name: "Test User",
       password: "securepassword123",

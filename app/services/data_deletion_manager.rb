@@ -65,8 +65,9 @@ class DataDeletionManager
       raise NotImplementedError, "full deletion of users is not implemented yet"
     end
     ActiveRecord::Base.transaction do
-      # OauthIdentities can be completely deleted (no tenant scope)
+      # OauthIdentities and OmniAuthIdentity can be completely deleted (no tenant scope)
       OauthIdentity.where(user_id: user.id).delete_all
+      user.omni_auth_identity&.destroy!
       user.email = "#{SecureRandom.hex(10)}@deleted.user"
       user.name = "Deleted User"
       user.image.purge if user.image.attached?

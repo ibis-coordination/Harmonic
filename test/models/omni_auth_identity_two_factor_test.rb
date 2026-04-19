@@ -2,7 +2,9 @@ require "test_helper"
 
 class OmniAuthIdentityTwoFactorTest < ActiveSupport::TestCase
   setup do
+    @user = create_user(email: "2fa-test@example.com", name: "2FA Test User")
     @identity = OmniAuthIdentity.create!(
+      user: @user,
       email: "2fa-test@example.com",
       name: "2FA Test User",
       password: "validpassword123",

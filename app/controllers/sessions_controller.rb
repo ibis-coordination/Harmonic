@@ -49,7 +49,7 @@ class SessionsController < ApplicationController
 
       # Check if this is an identity provider login with 2FA enabled
       if request.env['omniauth.auth'].provider == 'identity'
-        omni_auth_identity = OmniAuthIdentity.find_by(email: identity.user.email)
+        omni_auth_identity = identity.user.omni_auth_identity
         if omni_auth_identity&.otp_enabled
           # Redirect to 2FA verification instead of completing login
           session[:pending_2fa_identity_id] = omni_auth_identity.id

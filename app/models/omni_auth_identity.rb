@@ -19,6 +19,8 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     T::Set[String]
   )
 
+  belongs_to :user, optional: true # nullable: OmniAuth registration creates the record before a User exists
+
   auth_key :email
   validate :password_valid?
   validate :password_not_common

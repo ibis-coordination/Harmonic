@@ -10,6 +10,7 @@ class TwoFactorAuthControllerTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(@user)
 
     @identity = OmniAuthIdentity.create!(
+      user: @user,
       email: test_email,
       name: "2FA Controller Test User",
       password: "validpassword123",
