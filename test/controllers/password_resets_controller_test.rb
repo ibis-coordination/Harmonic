@@ -75,6 +75,17 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/password has been updated/i, flash[:notice])
   end
 
+  test "show form action URL uses raw token, not hashed token" do
+    raw_token = @identity.generate_reset_password_token!
+
+    get password_reset_path(raw_token)
+    assert_response :success
+
+    # The form should submit to a URL containing the raw token, not the hashed one
+    assert_match(%r{/password/reset/#{Regexp.escape(raw_token)}}, response.body)
+    assert_no_match(/#{Regexp.escape(@identity.reload.reset_password_token)}/, response.body)
+  end
+
   test "should not update password if passwords don't match" do
     raw_token = @identity.generate_reset_password_token!
 

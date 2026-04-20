@@ -12,7 +12,7 @@
     Enter your new password for <strong><%= @identity.email %></strong>
   </p>
 
-  <%= form_with url: password_reset_path(@identity.reset_password_token), method: :patch, data: { turbo: false }, id: "password-reset-form", class: "pulse-auth-form" do |form| %>
+  <%= form_with url: password_reset_path(params[:token]), method: :patch, data: { turbo: false }, id: "password-reset-form", class: "pulse-auth-form" do |form| %>
     <div id="password-feedback" class="password-feedback"></div>
     <%= form.password_field :password, placeholder: 'New password (minimum 14 characters)',
         id: 'password-field',
