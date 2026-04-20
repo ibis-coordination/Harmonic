@@ -383,7 +383,7 @@ class User < ApplicationRecord
   sig { returns(OmniAuthIdentity) }
   def find_or_create_omni_auth_identity!
     # Check association first (by user_id)
-    return omni_auth_identity if omni_auth_identity
+    return T.must(omni_auth_identity) if omni_auth_identity
 
     # Adopt an existing record created by OmniAuth registration (has email but no user_id yet)
     existing = OmniAuthIdentity.find_by(email: email)

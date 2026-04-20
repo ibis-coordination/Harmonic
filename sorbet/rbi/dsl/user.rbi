@@ -410,6 +410,9 @@ class User
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Blob) }
     def build_image_blob(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::OmniAuthIdentity) }
+    def build_omni_auth_identity(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::StripeCustomer) }
     def build_stripe_customer(*args, &blk); end
 
@@ -472,6 +475,12 @@ class User
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Blob) }
     def create_image_blob!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::OmniAuthIdentity) }
+    def create_omni_auth_identity(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::OmniAuthIdentity) }
+    def create_omni_auth_identity!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::StripeCustomer) }
     def create_stripe_customer(*args, &blk); end
@@ -575,6 +584,12 @@ class User
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def oauth_identity_ids=(ids); end
 
+    sig { returns(T.nilable(::OmniAuthIdentity)) }
+    def omni_auth_identity; end
+
+    sig { params(value: T.nilable(::OmniAuthIdentity)).void }
+    def omni_auth_identity=(value); end
+
     sig { returns(T::Array[T.untyped]) }
     def received_trustee_grant_ids; end
 
@@ -598,6 +613,9 @@ class User
     sig { returns(T.nilable(::ActiveStorage::Blob)) }
     def reload_image_blob; end
 
+    sig { returns(T.nilable(::OmniAuthIdentity)) }
+    def reload_omni_auth_identity; end
+
     sig { returns(T.nilable(::StripeCustomer)) }
     def reload_stripe_customer; end
 
@@ -609,6 +627,9 @@ class User
 
     sig { void }
     def reset_image_blob; end
+
+    sig { void }
+    def reset_omni_auth_identity; end
 
     sig { void }
     def reset_stripe_customer; end
@@ -1018,6 +1039,96 @@ class User
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def email_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def email_confirmation_sent_at; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def email_confirmation_sent_at=(value); end
+
+    sig { returns(T::Boolean) }
+    def email_confirmation_sent_at?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def email_confirmation_sent_at_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def email_confirmation_sent_at_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def email_confirmation_sent_at_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def email_confirmation_sent_at_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def email_confirmation_sent_at_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def email_confirmation_sent_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def email_confirmation_sent_at_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def email_confirmation_sent_at_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def email_confirmation_sent_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def email_confirmation_sent_at_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def email_confirmation_sent_at_was; end
+
+    sig { void }
+    def email_confirmation_sent_at_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def email_confirmation_token; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def email_confirmation_token=(value); end
+
+    sig { returns(T::Boolean) }
+    def email_confirmation_token?; end
+
+    sig { returns(T.nilable(::String)) }
+    def email_confirmation_token_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def email_confirmation_token_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def email_confirmation_token_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def email_confirmation_token_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def email_confirmation_token_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def email_confirmation_token_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def email_confirmation_token_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def email_confirmation_token_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def email_confirmation_token_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def email_confirmation_token_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def email_confirmation_token_was; end
+
+    sig { void }
+    def email_confirmation_token_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def email_in_database; end
 
@@ -1307,6 +1418,51 @@ class User
     def pending_billing_setup_will_change!; end
 
     sig { returns(T.nilable(::String)) }
+    def pending_email; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def pending_email=(value); end
+
+    sig { returns(T::Boolean) }
+    def pending_email?; end
+
+    sig { returns(T.nilable(::String)) }
+    def pending_email_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def pending_email_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def pending_email_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def pending_email_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def pending_email_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pending_email_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def pending_email_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def pending_email_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pending_email_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def pending_email_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def pending_email_was; end
+
+    sig { void }
+    def pending_email_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
     def picture_url; end
 
     sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
@@ -1367,6 +1523,12 @@ class User
     def restore_email!; end
 
     sig { void }
+    def restore_email_confirmation_sent_at!; end
+
+    sig { void }
+    def restore_email_confirmation_token!; end
+
+    sig { void }
     def restore_id!; end
 
     sig { void }
@@ -1383,6 +1545,9 @@ class User
 
     sig { void }
     def restore_pending_billing_setup!; end
+
+    sig { void }
+    def restore_pending_email!; end
 
     sig { void }
     def restore_picture_url!; end
@@ -1438,6 +1603,18 @@ class User
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_email?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_email_confirmation_sent_at; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_email_confirmation_sent_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_email_confirmation_token; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_email_confirmation_token?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
 
@@ -1473,6 +1650,12 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_pending_billing_setup?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_pending_email; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_pending_email?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_picture_url; end
@@ -1853,6 +2036,12 @@ class User
     def will_save_change_to_email?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_email_confirmation_sent_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_email_confirmation_token?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1869,6 +2058,9 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_pending_billing_setup?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_pending_email?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_picture_url?(from: T.unsafe(nil), to: T.unsafe(nil)); end
