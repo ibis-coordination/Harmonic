@@ -45,7 +45,9 @@ class RequiresReverificationTest < ActionDispatch::IntegrationTest
     get "/system-admin"
     assert_response :success
 
-    travel 2.hours do
+    # Travel past the reverification timeout (1 hour) but within
+    # the session idle timeout (2 hours) so the session stays active.
+    travel 90.minutes do
       get "/system-admin"
       assert_redirected_to "/reverify"
     end
