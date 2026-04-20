@@ -8,13 +8,27 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
+  private
+
+  # Sign in and complete reverification so the user can start representation.
+  def sign_in_with_representation_reverification(user)
+    sign_in_with_reverification(
+      user,
+      tenant: @tenant,
+      path: "/collectives/#{@collective.handle}/represent",
+      method: :post,
+    )
+  end
+
+  public
+
   # ====================
   # Starting Representation
   # ====================
 
   test "user with representative role can start representation" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
 
@@ -25,7 +39,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "user without representative role cannot start representation" do
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
 
@@ -35,7 +49,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   test "user with any_member_can_represent setting can start representation" do
     @collective.settings['any_member_can_represent'] = true
     @collective.save!
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
 
@@ -46,7 +60,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
   test "must confirm understanding to start representation" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     # First load the represent page
     get "/collectives/#{@collective.handle}/represent"
@@ -63,7 +77,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
   test "cannot start representation if already in active session" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     # Start first session
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
@@ -80,7 +94,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
   test "representation session is created when starting" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     assert_difference 'RepresentationSession.count', 1 do
       post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
@@ -100,7 +114,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
   test "creating note while representing attributes it to identity user" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     # Start representation
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
@@ -121,7 +135,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
   test "activity is recorded in representation session" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     # Start representation
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
@@ -146,7 +160,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
   test "representative can stop their session" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     # Start representation
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
@@ -167,7 +181,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
   test "after stopping representation current_user returns original user" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     # Start representation
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
@@ -275,7 +289,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   test "if representative role is removed during session it ends gracefully" do
     collective_member = @collective.collective_members.find_by(user: @user)
     collective_member.add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     # Start representation
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
@@ -327,7 +341,7 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
 
   test "representation persists across multiple requests" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_representation_reverification(@user)
 
     # Start representation
     post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }

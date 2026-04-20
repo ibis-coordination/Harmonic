@@ -26,7 +26,12 @@ module RequiresReverification
     return if api_token_present?
     return unless @current_user
 
-    identity = @current_user.omni_auth_identity
+    # During representation, @current_user is the represented identity
+    # (e.g., a collective identity user or another human). The session
+    # owner — the person who logged in and is at the keyboard — is
+    # @current_human_user, and they're the one who needs to reverify.
+    session_owner = @current_human_user || @current_user
+    identity = session_owner.omni_auth_identity
     unless identity&.otp_enabled
       flash[:alert] = "Two-factor authentication is required for this action. Please set up 2FA first."
       redirect_to two_factor_setup_path
