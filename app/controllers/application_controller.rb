@@ -485,6 +485,7 @@ class ApplicationController < ActionController::Base
 
   def validate_unauthenticated_access
     return if @current_user || !@current_tenant.require_login? || is_auth_controller?
+    return if token_authenticated_action?
 
     if request.path.include?("/api/") || request.headers["Accept"] == "application/json"
       return render status: :unauthorized,
@@ -940,6 +941,13 @@ class ApplicationController < ActionController::Base
     false
   end
 
+  # Override in controllers that have actions authenticated by a URL token
+  # instead of a session (e.g., email confirmation, password reset).
+  # These actions are exempt from the login requirement.
+  def token_authenticated_action?
+    false
+  end
+
   def check_session_timeout
     return if is_auth_controller?
     return unless session[:user_id].present?
@@ -994,7 +1002,7 @@ class ApplicationController < ActionController::Base
     return if request.path.start_with?("/api/")
 
     # Exempt user settings page
-    return if controller_name == "users" && (action_name == "settings" || action_name == "show" || action_name == "update_profile")
+    return if controller_name == "users" && action_name.in?(%w[settings show update_profile update_email cancel_email_change confirm_email])
 
     redirect_to "/billing"
   end

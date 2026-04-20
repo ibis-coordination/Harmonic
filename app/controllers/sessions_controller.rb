@@ -134,10 +134,8 @@ class SessionsController < ApplicationController
   # <logout>
   def destroy
     SecurityAuditLog.log_logout(user: current_user, ip: request.remote_ip) if current_user
-    session.delete(:user_id)
     clear_representation!
-    # Cookie deletion is not technically necessary,
-    # but it guarantees that the user session does not get into a weird state.
+    reset_session
     delete_token_cookie
     delete_redirect_to_subdomain_cookie
 

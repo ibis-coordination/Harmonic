@@ -84,6 +84,18 @@ class SecurityAuditLog
     )
   end
 
+  sig { params(user: User, old_email: String, ip: String).void }
+  def self.log_email_changed(user:, old_email:, ip:)
+    log_event(
+      event: "email_changed",
+      severity: :info,
+      user_id: user.id,
+      email: user.email,
+      old_email: old_email,
+      ip: ip,
+    )
+  end
+
   # Two-Factor Authentication events
 
   sig { params(identity: OmniAuthIdentity, ip: String).void }

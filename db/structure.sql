@@ -1831,7 +1831,10 @@ CREATE TABLE public.users (
     agent_configuration jsonb DEFAULT '{}'::jsonb,
     stripe_customer_id uuid,
     billing_exempt boolean DEFAULT false NOT NULL,
-    pending_billing_setup boolean DEFAULT false NOT NULL
+    pending_billing_setup boolean DEFAULT false NOT NULL,
+    pending_email character varying,
+    email_confirmation_token character varying,
+    email_confirmation_sent_at timestamp(6) without time zone
 );
 
 
@@ -8541,6 +8544,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260419194756'),
 ('20260419185812'),
 ('20260418182030'),
 ('20260417000000'),

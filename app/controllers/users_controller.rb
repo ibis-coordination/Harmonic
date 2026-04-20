@@ -4,6 +4,7 @@ class UsersController < ApplicationController
   include RequiresReverification
 
   before_action -> { require_reverification(scope: "representation") }, only: [:represent]
+  before_action -> { require_reverification(scope: "email_change") }, only: [:update_email]
 
   def index
     @page_title = 'Users'
@@ -225,6 +226,130 @@ class UsersController < ApplicationController
     redirect_to "#{settings_user.path}/settings"
   end
 
+  # PATCH /u/:handle/settings/email
+  EMAIL_CHANGE_TOKEN_EXPIRY = 24.hours
+
+  def update_email
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: 404 if tu.nil?
+    settings_user = tu.user
+    return render plain: "403 Unauthorized", status: 403 unless current_user.can_edit?(settings_user)
+
+    new_email = params[:email]&.strip&.downcase
+    if new_email.blank? || !new_email.match?(URI::MailTo::EMAIL_REGEXP)
+      flash[:error] = "Please enter a valid email address."
+      return redirect_to "#{settings_user.path}/settings"
+    end
+
+    if new_email == settings_user.email
+      flash[:notice] = "That's already your email address."
+      return redirect_to "#{settings_user.path}/settings"
+    end
+
+    if User.where.not(id: settings_user.id).exists?(email: new_email) ||
+       OmniAuthIdentity.where.not(user_id: settings_user.id).exists?(email: new_email)
+      flash[:error] = "That email address is already in use."
+      return redirect_to "#{settings_user.path}/settings"
+    end
+
+    raw_token = SecureRandom.urlsafe_base64(32)
+    settings_user.update!(
+      pending_email: new_email,
+      email_confirmation_token: Digest::SHA256.hexdigest(raw_token),
+      email_confirmation_sent_at: Time.current,
+    )
+
+    EmailChangeMailer.confirmation(settings_user, raw_token, current_tenant).deliver_later
+    EmailChangeMailer.security_notice(settings_user, current_tenant).deliver_later
+
+    flash[:notice] = "A confirmation email has been sent to #{new_email}. Please check your inbox."
+    redirect_to "#{settings_user.path}/settings"
+  end
+
+  # DELETE /u/:handle/settings/email
+  def cancel_email_change
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: 404 if tu.nil?
+    settings_user = tu.user
+    return render plain: "403 Unauthorized", status: 403 unless current_user.can_edit?(settings_user)
+
+    if settings_user.pending_email.present?
+      settings_user.update!(pending_email: nil, email_confirmation_token: nil, email_confirmation_sent_at: nil)
+      flash[:notice] = "Email change request has been cancelled."
+    end
+    redirect_to "#{settings_user.path}/settings"
+  end
+
+  # GET /u/:handle/settings/email/confirm/:token
+  def confirm_email
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: 404 if tu.nil?
+    user = tu.user
+
+    # Guard: pending_email must exist (handles double-click and stale links)
+    if user.pending_email.blank?
+      flash[:notice] = "This email change has already been confirmed."
+      return redirect_to "#{user.path}/settings"
+    end
+
+    hashed_token = Digest::SHA256.hexdigest(params[:token])
+    unless ActiveSupport::SecurityUtils.secure_compare(user.email_confirmation_token.to_s, hashed_token)
+      SecurityAuditLog.log_event(event: "email_confirmation_failure", severity: :warn,
+        user_id: user.id, ip: request.remote_ip, reason: "invalid_token")
+      flash[:error] = "Invalid or expired confirmation link."
+      return redirect_to "#{user.path}/settings"
+    end
+
+    if user.email_confirmation_sent_at.blank? || user.email_confirmation_sent_at < EMAIL_CHANGE_TOKEN_EXPIRY.ago
+      SecurityAuditLog.log_event(event: "email_confirmation_failure", severity: :warn,
+        user_id: user.id, ip: request.remote_ip, reason: "expired_token")
+      flash[:error] = "This confirmation link has expired. Please request a new email change."
+      return redirect_to "#{user.path}/settings"
+    end
+
+    new_email = user.pending_email
+
+    # Check-and-update in a transaction to prevent race conditions
+    email_changed = false
+    old_email = user.email
+    ActiveRecord::Base.transaction do
+      if User.where.not(id: user.id).exists?(email: new_email) ||
+         OmniAuthIdentity.where.not(user_id: user.id).exists?(email: new_email)
+        raise ActiveRecord::Rollback
+      end
+
+      user.update!(
+        email: new_email,
+        pending_email: nil,
+        email_confirmation_token: nil,
+        email_confirmation_sent_at: nil,
+      )
+      user.omni_auth_identity&.update!(email: new_email)
+      email_changed = true
+    end
+
+    if email_changed
+      SecurityAuditLog.log_email_changed(user: user, old_email: old_email, ip: request.remote_ip)
+
+      # Sync Stripe customer email (non-fatal, outside transaction)
+      if user.stripe_customer&.active?
+        begin
+          Stripe::Customer.update(user.stripe_customer.stripe_id, { email: new_email })
+        rescue Stripe::StripeError => e
+          Rails.logger.warn("[UsersController] Stripe email sync failed: #{e.message}")
+        end
+      end
+
+      flash[:notice] = "Your email address has been updated to #{new_email}."
+    else
+      # Email was claimed by another user — clear the stale pending state
+      user.update!(pending_email: nil, email_confirmation_token: nil, email_confirmation_sent_at: nil)
+      flash[:error] = "That email address has been claimed by another account since your request."
+    end
+
+    redirect_to "#{user.path}/settings"
+  end
+
   # Start representing a user (typically an AI agent).
   # POST /u/:handle/represent
   def represent
@@ -344,6 +469,10 @@ class UsersController < ApplicationController
   end
 
   private
+
+  def token_authenticated_action?
+    action_name == "confirm_email"
+  end
 
   # Load proximity connections for the user profile being viewed
   # Returns a simple sorted list of the most proximate users

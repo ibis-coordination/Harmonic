@@ -50,6 +50,18 @@ module RequiresReverification
       request.referer || request.original_url
     end
     session[:reverification_scope] = scope
+
+    # For non-GET requests, stash the method and params so the request
+    # can be replayed after reverification (the browser follows the
+    # redirect as a GET, losing the original request body).
+    unless request.get?
+      session[:reverification_stashed_request] = {
+        method: request.method,
+        path: request.path,
+        params: request.request_parameters.except("authenticity_token"),
+      }
+    end
+
     redirect_to reverify_path
   end
 end

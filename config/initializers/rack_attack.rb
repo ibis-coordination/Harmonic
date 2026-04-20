@@ -60,6 +60,13 @@ class Rack::Attack
     end
   end
 
+  # Throttle email change requests
+  throttle('email-change/ip', limit: 5, period: 1.hour) do |req|
+    if req.path.match?(%r{/u/[^/]+/settings/email\z}) && req.patch?
+      req.ip
+    end
+  end
+
   # Throttle OAuth callback requests
   throttle('oauth-callback/ip', limit: 10, period: 5.minutes) do |req|
     if req.path.start_with?('/auth/') && req.post?

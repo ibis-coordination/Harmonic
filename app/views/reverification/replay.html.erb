@@ -1,0 +1,17 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-logo">
+    <i class="tri-logo-icon icon-lg"></i>
+  </div>
+  <p class="pulse-auth-subtitle">Completing your request...</p>
+
+  <%# Use a global CSRF token (not per-form) because the form action differs
+      from the page URL. Rails accepts both global and per-form tokens. %>
+  <%= form_tag @stashed_path, method: @stashed_method, authenticity_token: form_authenticity_token(form_options: {}), data: { controller: "auto-submit", turbo: false } do %>
+    <% @stashed_params.each do |key, value| %>
+      <%= hidden_field_tag key, value %>
+    <% end %>
+    <noscript>
+      <%= submit_tag "Continue", class: "pulse-action-btn" %>
+    </noscript>
+  <% end %>
+</div>

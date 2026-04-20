@@ -199,6 +199,7 @@ Rails.application.routes.draw do
   # For system-level operations: Sidekiq, monitoring, etc.
   get 'reverify' => 'reverification#show', as: 'reverify'
   post 'reverify' => 'reverification#verify'
+  get 'reverify/replay' => 'reverification#replay', as: 'reverify_replay'
 
   get 'system-admin' => 'system_admin#dashboard'
   get 'system-admin/sidekiq' => 'system_admin#sidekiq'
@@ -256,6 +257,9 @@ Rails.application.routes.draw do
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
     post 'settings/profile' => 'users#update_profile', on: :member
+    patch 'settings/email' => 'users#update_email', on: :member
+    delete 'settings/email' => 'users#cancel_email_change', on: :member
+    get 'settings/email/confirm/:token' => 'users#confirm_email', on: :member, as: 'confirm_email'
     patch 'image' => 'users#update_image', on: :member
     resources :api_tokens,
               path: 'settings/tokens',

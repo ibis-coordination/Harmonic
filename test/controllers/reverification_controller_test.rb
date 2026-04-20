@@ -72,4 +72,27 @@ class ReverificationControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to "/"
   end
+
+  test "POST /reverify replays stashed non-GET request after successful verification" do
+    sign_in_as(@user, tenant: @tenant)
+    handle = @tenant.tenant_users.find_by(user: @user).handle
+
+    # Trigger reverification by PATCHing a protected endpoint.
+    # The concern stashes the method+params, then redirects to /reverify.
+    patch "/u/#{handle}/settings/email", params: { email: "replayed@example.com" }
+    assert_redirected_to "/reverify"
+
+    # Verify with valid TOTP
+    totp = ROTP::TOTP.new(@identity.otp_secret)
+    post "/reverify", params: { code: totp.now }
+
+    # Should redirect to the replay page
+    assert_redirected_to "/reverify/replay"
+
+    # Follow redirect — replay page renders auto-submit form
+    follow_redirect!
+    assert_response :success
+    assert_match(/replayed@example\.com/, response.body)
+    assert_match(/patch/i, response.body)
+  end
 end

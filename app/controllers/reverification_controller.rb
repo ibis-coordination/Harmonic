@@ -49,6 +49,7 @@ class ReverificationController < ApplicationController
       scope = session.delete(:reverification_scope) || "default"
       session[:"reverified_at_#{scope}"] = Time.current.to_i
       return_to = session.delete(:reverification_return_to) || "/"
+      stashed_request = session.delete(:reverification_stashed_request)
 
       SecurityAuditLog.log_event(
         event: "reverification_success",
@@ -58,7 +59,14 @@ class ReverificationController < ApplicationController
         scope: scope,
       )
 
-      redirect_to return_to
+      if stashed_request && stashed_request["path"]&.start_with?("/")
+        # Store for the GET replay page (the CSRF token must be generated
+        # on a GET response to avoid per-form token mismatches)
+        session[:reverification_replay] = stashed_request
+        redirect_to reverify_replay_path
+      else
+        redirect_to return_to
+      end
     else
       SecurityAuditLog.log_event(
         event: "reverification_failure",
@@ -78,6 +86,18 @@ class ReverificationController < ApplicationController
       @scope = session[:reverification_scope] || "default"
       render :show
     end
+  end
+
+  # GET /reverify/replay — renders auto-submit form for stashed request
+  def replay
+    stashed_request = session.delete(:reverification_replay)
+    unless stashed_request && stashed_request["path"]&.start_with?("/")
+      return redirect_to "/"
+    end
+
+    @stashed_method = stashed_request["method"]
+    @stashed_path = stashed_request["path"]
+    @stashed_params = stashed_request["params"] || {}
   end
 
   private

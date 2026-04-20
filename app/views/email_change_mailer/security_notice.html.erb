@@ -1,0 +1,17 @@
+<p>Hi <%= @user.name %>,</p>
+
+<p>An email change was requested for your account on <%= ENV['HOSTNAME'] %>.</p>
+
+<p>If you made this request, a confirmation email has been sent to your new address. No action is needed here.</p>
+
+<p>If you did <strong>not</strong> request this change:</p>
+<ol>
+  <li><a href="<%= @login_url %>">Log in to your account</a> immediately.</li>
+  <li>Go to Settings > Email and change your email back.</li>
+  <% if @has_password %>
+    <li>Change your password from the login page using "Forgot your password?"</li>
+  <% end %>
+  <% if @external_providers.any? %>
+    <li>Review your <%= @external_providers.to_sentence %> account<%= "s" if @external_providers.many? %> for unauthorized access.</li>
+  <% end %>
+</ol>
