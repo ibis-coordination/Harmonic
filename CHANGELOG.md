@@ -5,10 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.6.0] - 2026-04-20
 
 ### Added
 
+- Scoped 2FA re-verification for sensitive actions (account settings, admin panel access) with configurable expiry.
+- TOTP code replay prevention within the drift window.
+- Email change with verification flow, including reverification replay protection.
+- Credit balance warnings on agent pages and missing markdown views.
+- Agent-runner graceful shutdown and orphan recovery for zero-downtime deploys.
+- Task run detail page and status filter in agent runner admin UI.
+- Date, queue wait, and duration columns in agent runner admin table.
+- Agent-runner outcome breakdown stats and stream info on admin dashboard.
+- Dispatch-time durability and bounded retries for agent runner.
+- Structured JSON logging in agent-runner (replaces `console.log`).
 - Agent-runner service — Node.js service for AI agent task execution. Replaces `AgentQueueProcessorJob` + `AgentNavigator` + `LLMClient` (~1,500 LOC + tests removed). Uses Effect.js fibers over a Redis Streams consumer group; handles hundreds of concurrent tasks per process instead of the 5-thread Sidekiq ceiling.
 - Internal API (`/internal/agent-runner/tasks/:id/*`) for runner ↔ Rails coordination. `Internal::BaseController` provides IP allowlist (raw TCP peer, unspoofable via XFF), HMAC-SHA256 signing over `{nonce}.{timestamp}.{body}`, and Redis-backed nonce tracking for replay protection.
 - `AgentRunnerDispatchService` — validates billing/status, encrypts Bearer token (AES-256-GCM via HKDF-derived key), publishes to Redis Stream.
@@ -23,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `Thread.current` tenant/collective state migrated to `ActiveSupport::CurrentAttributes` (auto-resets between requests, no manual cleanup needed).
+- `ApiToken` converted to polymorphic `tokenable` context (supports both `User` and `AiAgentTaskRun`).
+- `OmniAuthIdentity` linked to `User` via foreign key.
+- Rails test Redis isolated to a dedicated DB to prevent test pollution.
 - Sidekiq 7.1.3 → 8.0.10 for Rails 7.2 compatibility (pulls in rack 3, rack-protection 4, rackup 2, redis-client 0.28).
 - `AutomationContext` chain state is cleared at the top of every HTTP request to prevent cross-request leaks on reused Puma threads (was causing false-positive "loop detected" errors).
 - CI Node runtime bumped 20 → 22 to match the agent-runner Docker image (undici 8.x requires Node 22+).
@@ -35,8 +49,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `harmonic-agent/` — standalone PoC harness superseded by `mcp-server` for external agent use cases.
 - `AgentNavigator`, `AgentQueueProcessorJob`, `LLMClient`, `LLMPricing`, `StripeModelMapper`, `IdentityPromptLeakageDetector` (ported into agent-runner).
 
+### Security
+
+- Fix LIKE injection in login lookups (email/username input was interpolated unsanitized into LIKE clauses).
+- Harden session cookies (secure, httponly, SameSite attributes).
+- Add 2FA rate limiting to prevent brute-force TOTP guessing.
+
 ### Fixed
 
+- Fix Rack 3 login bug by upgrading omniauth-identity to 3.1 (session middleware incompatibility after Sidekiq 8 pulled in rack 3).
+- Fix password reset form submitting double-hashed token.
+- Fix capability check for humans representing AI agents (was incorrectly applying agent restrictions to human users acting on behalf of agents).
+- Fix reverification during representation and update representation tests.
 - Webhook credit-grant race: both the checkout-return handler and the webhook could simultaneously create duplicate credit grants via list-then-create. Replaced with Stripe's native idempotency header.
 - `StripeWebhooksController` test payload now includes `mode`, which Stripe 18.x requires (missing attribute raises NoMethodError).
 - `User#collectives_minus_main` no longer raises `PG::UndefinedTable` under default scopes; switched from `includes(:tenant)` (lazy) to `joins(:tenant)` (explicit JOIN).
@@ -47,6 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dispatch refuses to mark a non-queued task as failed (prevents the redispatch rake from clobbering a task that got picked up between enumeration and dispatch).
 - Incorrect "Creating an agent is free" message on `/ai-agents/new` removed; $3/month seat cost was already shown elsewhere on the same page.
 - `Kernel#fail` no longer shadowed inside `Internal::AgentRunnerController` (action method renamed to `fail_task`).
+
+### Dependencies
+
+- Sidekiq 7.1.3 → 8.0.10 (pulls in rack 3, rack-protection 4, rackup 2, redis-client 0.28)
+- Upgrade omniauth-identity to 3.1 (Rack 3 compatibility)
+- Bump hono from 4.12.12 to 4.12.14 (mcp-server)
 
 ## [1.5.0] - 2026-04-11
 
