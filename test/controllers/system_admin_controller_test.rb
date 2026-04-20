@@ -88,7 +88,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant.add_user!(@sys_admin_user)
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     get "/system-admin"
     assert_response :success
@@ -99,7 +99,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant.add_user!(@sys_admin_user)
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     get "/system-admin/sidekiq"
     assert_response :success
@@ -110,7 +110,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant.add_user!(@sys_admin_user)
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     get "/system-admin/sidekiq/queues/default"
     assert_response :success
@@ -125,7 +125,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant.add_user!(@sys_admin_user)
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     get "/system-admin", headers: { "Accept" => "text/markdown" }
     assert_response :success
@@ -136,7 +136,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant.add_user!(@sys_admin_user)
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     get "/system-admin"
     assert_response :success
@@ -154,7 +154,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant.add_user!(@sys_admin_user)
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     get "/system-admin", headers: { "Accept" => "text/markdown" }
     assert_response :success
@@ -172,7 +172,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     @primary_tenant.add_user!(@sys_admin_user)
 
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     get "/system-admin/sidekiq", headers: { "Accept" => "text/markdown" }
     assert_response :success
@@ -206,7 +206,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
   test "sys_admin can view task run detail page" do
     @primary_tenant.add_user!(@sys_admin_user)
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     # Create a task run to view — need tenant/collective context for agent creation callbacks
     Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
@@ -241,7 +241,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
   test "task run detail page redacts tenant content" do
     @primary_tenant.add_user!(@sys_admin_user)
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
     ai_agent = User.create!(name: "Redact Agent", email: "redact-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
@@ -294,7 +294,7 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
   test "sys_admin can filter task runs by status" do
     @primary_tenant.add_user!(@sys_admin_user)
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
-    sign_in_as(@sys_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
 
     get "/system-admin/agent-runner?status=failed"
     assert_response :success

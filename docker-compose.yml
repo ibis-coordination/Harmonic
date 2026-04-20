@@ -110,6 +110,7 @@ services:
       MAILCATCHER_HTTP_PORT: 1080
     networks:
       - backend
+      - frontend
 
   # Reverse proxy options - set HOST_MODE in .env to "caddy", "ngrok", or "direct"
   caddy:

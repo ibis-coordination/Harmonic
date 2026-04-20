@@ -107,7 +107,7 @@ gem 'sidekiq-cron' # Scheduled/recurring jobs
 
 gem 'omniauth-github'
 gem 'omniauth-rails_csrf_protection', '~> 1.0' # prevents forged authentication requests
-gem 'omniauth-identity'
+gem 'omniauth-identity', '~> 3.1'
 
 # Two-Factor Authentication (TOTP)
 gem 'rotp', '~> 6.3'      # Time-based One-Time Password implementation

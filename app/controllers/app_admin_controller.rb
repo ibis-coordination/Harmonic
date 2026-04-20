@@ -15,8 +15,11 @@
 # - SystemAdminController: Manages system infrastructure (Sidekiq, monitoring)
 # - TenantAdminController: Manages a single tenant's settings and users
 class AppAdminController < ApplicationController
+  include RequiresReverification
+
   before_action :ensure_primary_tenant
   before_action :ensure_app_admin
+  before_action -> { require_reverification(scope: "admin") }
   before_action :set_sidebar_mode
 
   USERS_PER_PAGE = 50
@@ -105,7 +108,8 @@ class AppAdminController < ApplicationController
     base_scope = User.where.not(user_type: 'trustee')
 
     if @search_query.present?
-      base_scope = base_scope.where("email ILIKE ?", "%#{@search_query}%")
+      sanitized = ActiveRecord::Base.sanitize_sql_like(@search_query)
+      base_scope = base_scope.where("email ILIKE ?", "%#{sanitized}%")
     end
 
     # Get counts for each user type

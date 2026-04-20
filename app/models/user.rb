@@ -378,22 +378,26 @@ class User < ApplicationRecord
     oauth_identities.where.not(provider: "identity")
   end
 
-  sig { returns(T.nilable(OmniAuthIdentity)) }
-  def omni_auth_identity
-    OmniAuthIdentity.find_by(email: email)
-  end
+  has_one :omni_auth_identity, dependent: :destroy
 
   sig { returns(OmniAuthIdentity) }
   def find_or_create_omni_auth_identity!
-    oaid = omni_auth_identity
-    if oaid.nil?
-      oaid = OmniAuthIdentity.create!(
-        email: email,
-        name: name,
-        password: SecureRandom.alphanumeric(32)
-      )
+    # Check association first (by user_id)
+    return T.must(omni_auth_identity) if omni_auth_identity
+
+    # Adopt an existing record created by OmniAuth registration (has email but no user_id yet)
+    existing = OmniAuthIdentity.find_by(email: email)
+    if existing
+      existing.update!(user_id: id)
+      return existing
     end
-    oaid
+
+    # Create a new one (OAuth users get a random password as an email-claim placeholder)
+    create_omni_auth_identity!(
+      email: email,
+      name: name,
+      password: SecureRandom.alphanumeric(32),
+    )
   end
 
   # Suspension methods

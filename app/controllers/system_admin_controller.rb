@@ -14,8 +14,11 @@ require 'sidekiq/api'
 # - AppAdminController: Manages tenants and users across all tenants
 # - TenantAdminController: Manages a single tenant's settings and users
 class SystemAdminController < ApplicationController
+  include RequiresReverification
+
   before_action :ensure_primary_tenant
   before_action :ensure_sys_admin
+  before_action -> { require_reverification(scope: "admin") }
   before_action :set_sidebar_mode
 
   # GET /system-admin

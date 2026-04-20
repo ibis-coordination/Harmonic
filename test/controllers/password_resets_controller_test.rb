@@ -5,7 +5,9 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
     # Use the auth subdomain
     host! "#{ENV.fetch("AUTH_SUBDOMAIN", nil)}.#{ENV.fetch("HOSTNAME", nil)}"
 
+    @user = create_user(email: "test@example.com", name: "Test User")
     @identity = OmniAuthIdentity.create!(
+      user: @user,
       email: "test@example.com",
       name: "Test User",
       password: "verylongpassword123",
@@ -71,6 +73,17 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
     assert_nil @identity.reset_password_sent_at
     assert_redirected_to "/login"
     assert_match(/password has been updated/i, flash[:notice])
+  end
+
+  test "show form action URL uses raw token, not hashed token" do
+    raw_token = @identity.generate_reset_password_token!
+
+    get password_reset_path(raw_token)
+    assert_response :success
+
+    # The form should submit to a URL containing the raw token, not the hashed one
+    assert_match(%r{/password/reset/#{Regexp.escape(raw_token)}}, response.body)
+    assert_no_match(/#{Regexp.escape(@identity.reload.reset_password_token)}/, response.body)
   end
 
   test "should not update password if passwords don't match" do
@@ -140,12 +153,6 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "successful password update logs security audit event" do
-    # Create a user with the same email as the identity
-    # The controller looks up the user by email to log the password change
-    @tenant = Tenant.create!(subdomain: "pwreset", name: "Password Reset Tenant")
-    @user = User.create!(email: @identity.email, name: "Test User", user_type: "human")
-    @tenant.add_user!(@user)
-
     raw_token = @identity.generate_reset_password_token!
     test_email = @identity.email
 

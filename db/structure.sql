@@ -707,7 +707,9 @@ CREATE TABLE public.omni_auth_identities (
     otp_enabled_at timestamp(6) without time zone,
     otp_recovery_codes jsonb DEFAULT '[]'::jsonb,
     otp_failed_attempts integer DEFAULT 0 NOT NULL,
-    otp_locked_until timestamp(6) without time zone
+    otp_locked_until timestamp(6) without time zone,
+    last_otp_at integer,
+    user_id uuid
 );
 
 
@@ -1829,7 +1831,10 @@ CREATE TABLE public.users (
     agent_configuration jsonb DEFAULT '{}'::jsonb,
     stripe_customer_id uuid,
     billing_exempt boolean DEFAULT false NOT NULL,
-    pending_billing_setup boolean DEFAULT false NOT NULL
+    pending_billing_setup boolean DEFAULT false NOT NULL,
+    pending_email character varying,
+    email_confirmation_token character varying,
+    email_confirmation_sent_at timestamp(6) without time zone
 );
 
 
@@ -3709,6 +3714,13 @@ CREATE UNIQUE INDEX index_omni_auth_identities_on_email ON public.omni_auth_iden
 --
 
 CREATE UNIQUE INDEX index_omni_auth_identities_on_reset_password_token ON public.omni_auth_identities USING btree (reset_password_token);
+
+
+--
+-- Name: index_omni_auth_identities_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_omni_auth_identities_on_user_id ON public.omni_auth_identities USING btree (user_id);
 
 
 --
@@ -7734,6 +7746,14 @@ ALTER TABLE ONLY public.ai_agent_task_run_resources
 
 
 --
+-- Name: omni_auth_identities fk_rails_17235d7b06; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.omni_auth_identities
+    ADD CONSTRAINT fk_rails_17235d7b06 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: automation_rules fk_rails_175ea68c06; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8524,6 +8544,9 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260419194756'),
+('20260419185812'),
+('20260418182030'),
 ('20260417000000'),
 ('20260413000000'),
 ('20260410000001'),

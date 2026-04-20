@@ -157,6 +157,41 @@
     <% end %>
   <% end %>
 
+  <% if is_own_settings && @settings_user.human? %>
+    <%# Email Section %>
+    <%= render 'shared/pulse_accordion', title: 'Email' do %>
+      <div class="pulse-form-section">
+        <label class="pulse-form-label">Current Email</label>
+        <p style="font-size: 14px;"><%= @settings_user.email %></p>
+      </div>
+
+      <% if @settings_user.pending_email.present? %>
+        <div class="pulse-alert" style="margin-bottom: 16px; background: var(--color-attention-subtle);">
+          A confirmation email has been sent to <strong><%= @settings_user.pending_email %></strong>. Please check your inbox to complete the change. The link expires in 24 hours.
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <%= form_with url: "/u/#{@settings_user.handle}/settings/email", method: :patch, style: "display: inline;" do |form| %>
+            <%= form.hidden_field :email, value: @settings_user.pending_email %>
+            <%= form.submit 'Resend Confirmation', class: 'pulse-action-btn' %>
+          <% end %>
+          <%= form_with url: "/u/#{@settings_user.handle}/settings/email", method: :delete, style: "display: inline;" do |form| %>
+            <%= form.submit 'Cancel', class: 'pulse-action-btn' %>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%= form_with url: "/u/#{@settings_user.handle}/settings/email", method: :patch, class: 'pulse-form' do |form| %>
+        <div class="pulse-form-section">
+          <label class="pulse-form-label" for="email"><%= @settings_user.pending_email.present? ? 'Change to a Different Email' : 'New Email' %></label>
+          <%= form.email_field :email, placeholder: 'Enter new email address', class: 'pulse-input' %>
+        </div>
+        <div class="pulse-form-actions">
+          <%= form.submit 'Change Email', class: 'pulse-action-btn-primary' %>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+
   <% if is_own_settings %>
     <% if @settings_user.external_oauth_identities.any? %>
       <%# Connected Accounts Section %>
@@ -176,7 +211,7 @@
     <% end %>
 
     <% # Two-Factor Authentication Section (only for identity provider users) %>
-    <% identity_for_2fa = OmniAuthIdentity.find_by(email: @settings_user.email) %>
+    <% identity_for_2fa = @settings_user.omni_auth_identity %>
     <% if identity_for_2fa %>
       <%= render 'shared/pulse_accordion', title: 'Two-Factor Authentication' do %>
         <p class="pulse-form-hint" style="margin-bottom:16px;">

@@ -284,6 +284,19 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/login/, response.location)
   end
 
+  # === Token Cookie Security Tests ===
+
+  test "internal callback processes token and redirects successfully" do
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+    token = generate_test_token(@tenant, @user)
+    cookies[:token] = token
+
+    get "/login/callback"
+    assert_response :redirect
+    # User should be logged in after processing
+    assert_equal @user.id, session[:user_id]
+  end
+
   private
 
   def generate_test_token(tenant, user)

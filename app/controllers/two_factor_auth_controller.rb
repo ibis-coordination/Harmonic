@@ -204,8 +204,7 @@ class TwoFactorAuthController < ApplicationController
     return @current_identity if defined?(@current_identity)
     return @current_identity = nil unless current_user
 
-    # Find OmniAuthIdentity associated with current user's email
-    @current_identity = OmniAuthIdentity.find_by(email: current_user.email)
+    @current_identity = current_user.omni_auth_identity
   end
 
   def complete_2fa_login

@@ -42,7 +42,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin can access dashboard on primary tenant" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin"
 
@@ -51,7 +51,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can access dashboard on secondary tenant" do
-    sign_in_as(@secondary_admin, tenant: @secondary_tenant)
+    sign_in_as_admin(@secondary_admin, tenant: @secondary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin"
 
@@ -73,7 +73,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin can view settings" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin/settings"
 
@@ -82,7 +82,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can update settings" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     post "/tenant-admin/settings", params: { name: "Updated Tenant Name" }
 
@@ -92,7 +92,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can update allowed attachment categories" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     # Form posts the hidden empty marker plus only the categories the admin
     # left checked. Here only "images" and "pdfs" are checked; "text" is not.
@@ -106,7 +106,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can disable all attachment categories" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     # Hidden empty marker only — no boxes checked.
     post "/tenant-admin/settings", params: {
@@ -119,7 +119,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin settings update ignores unknown attachment categories" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     post "/tenant-admin/settings", params: {
       allowed_attachment_categories: ["", "images", "audio", "executables"],
@@ -135,7 +135,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin can view users list" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin/users"
 
@@ -144,15 +144,30 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can search users by email" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin/users", params: { q: @non_admin_user.email }
 
     assert_response :success
   end
 
+  test "tenant admin user search escapes LIKE wildcards" do
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+
+    # Verify that a normal search finds users
+    get "/tenant-admin/users", params: { q: "non_admin" }
+    assert_response :success
+    assert_select "code", text: /non_admin@example\.com/
+
+    # "%" as a search query should NOT match any users — LIKE wildcards must be escaped
+    get "/tenant-admin/users", params: { q: "%" }
+    assert_response :success
+    assert_select "code", { text: /non_admin@example\.com/, count: 0 },
+                  "Query '%' should not match users via LIKE wildcard injection"
+  end
+
   test "tenant admin can view user details by handle" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin/users/#{@non_admin_tenant_user.handle}"
 
@@ -165,7 +180,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin cannot access suspend user route (only app admins can suspend)" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     # The route should not exist for tenant admins - only app admins can suspend users
     assert_raises(ActionController::RoutingError) do
@@ -177,7 +192,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     # First suspend the user via direct model update
     @non_admin_user.update!(suspended_at: Time.current, suspended_reason: "Test")
 
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     # The route should not exist for tenant admins - only app admins can unsuspend users
     assert_raises(ActionController::RoutingError) do
@@ -186,7 +201,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin cannot access describe suspend user route" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     assert_raises(ActionController::RoutingError) do
       get "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user"
@@ -196,7 +211,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   test "tenant admin cannot access describe unsuspend user route" do
     @non_admin_user.update!(suspended_at: Time.current, suspended_reason: "Test")
 
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     assert_raises(ActionController::RoutingError) do
       get "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
@@ -208,7 +223,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin dashboard responds to markdown format" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin", headers: { "Accept" => "text/markdown" }
 
@@ -217,7 +232,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "settings responds to markdown format" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin/settings", headers: { "Accept" => "text/markdown" }
 
@@ -226,7 +241,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "users list responds to markdown format" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin/users", headers: { "Accept" => "text/markdown" }
 
@@ -235,7 +250,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "user show responds to markdown format" do
-    sign_in_as(@tenant_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
     get "/tenant-admin/users/#{@non_admin_tenant_user.handle}", headers: { "Accept" => "text/markdown" }
 

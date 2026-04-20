@@ -49,7 +49,7 @@ class SessionsController < ApplicationController
 
       # Check if this is an identity provider login with 2FA enabled
       if request.env['omniauth.auth'].provider == 'identity'
-        omni_auth_identity = OmniAuthIdentity.find_by(email: identity.user.email)
+        omni_auth_identity = identity.user.omni_auth_identity
         if omni_auth_identity&.otp_enabled
           # Redirect to 2FA verification instead of completing login
           session[:pending_2fa_identity_id] = omni_auth_identity.id
@@ -134,10 +134,8 @@ class SessionsController < ApplicationController
   # <logout>
   def destroy
     SecurityAuditLog.log_logout(user: current_user, ip: request.remote_ip) if current_user
-    session.delete(:user_id)
     clear_representation!
-    # Cookie deletion is not technically necessary,
-    # but it guarantees that the user session does not get into a weird state.
+    reset_session
     delete_token_cookie
     delete_redirect_to_subdomain_cookie
 
@@ -190,7 +188,7 @@ class SessionsController < ApplicationController
     # TODO check if user is allowed to access this tenant
     return redirect_to root_path unless tenant && current_user
     token = encrypt_token(tenant.id, current_user.id)
-    set_shared_domain_cookie(:token, token)
+    set_shared_domain_cookie(:token, token, path: "/login/callback")
     session.delete(:user_id) # auth subdomain should never retain a user session
     url = tenant_domain_callback_url(tenant)
     redirect_to url, allow_other_host: true
@@ -286,22 +284,26 @@ class SessionsController < ApplicationController
     [tenant_id, user_id]
   end
 
-  def set_shared_domain_cookie(key, value)
-    cookies[key] = {
+  def set_shared_domain_cookie(key, value, path: nil)
+    cookie = {
       value: value,
       domain: ".#{ENV['HOSTNAME']}",
       httponly: true,
-      secure: Rails.env.production?,
+      secure: !Rails.env.test? && (Rails.env.production? || ENV["HOST_MODE"] == "caddy"),
       same_site: :lax,
     }
+    cookie[:path] = path if path
+    cookies[key] = cookie
   end
 
-  def delete_shared_domain_cookie(key)
-    cookies.delete(key, domain: ".#{ENV['HOSTNAME']}")
+  def delete_shared_domain_cookie(key, path: nil)
+    opts = { domain: ".#{ENV['HOSTNAME']}" }
+    opts[:path] = path if path
+    cookies.delete(key, **opts)
   end
 
   def delete_token_cookie
-    delete_shared_domain_cookie(:token)
+    delete_shared_domain_cookie(:token, path: "/login/callback")
   end
 
   def delete_redirect_to_subdomain_cookie

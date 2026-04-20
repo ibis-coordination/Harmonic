@@ -56,6 +56,19 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert_equal 0, CommitmentParticipant.where(commitment: @commitment).count
   end
 
+  test "DataDeletionManager destroys OmniAuthIdentity when deleting user" do
+    user = create_user(email: "delete-oaid-#{SecureRandom.hex(4)}@example.com", name: "Delete OAID User")
+    @tenant.add_user!(user)
+    identity = user.find_or_create_omni_auth_identity!
+    identity_id = identity.id
+
+    ddm = DataDeletionManager.new(user: user)
+    ddm.delete_user!(user: user, confirmation_token: ddm.confirmation_token)
+
+    assert_nil OmniAuthIdentity.find_by(id: identity_id),
+      "OmniAuthIdentity should be destroyed when user is deleted"
+  end
+
   test "DataDeletionManager deletes user PII and marks user as deleted with correct confirmation_token" do
     confirmation_token = @ddm.confirmation_token
     user_email = @user.email

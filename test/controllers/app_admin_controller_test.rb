@@ -40,7 +40,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "app admin can access dashboard on primary tenant" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin"
 
@@ -83,7 +83,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "app admin can view tenants list" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/tenants"
 
@@ -91,7 +91,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "app admin can view new tenant form" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/tenants/new"
 
@@ -100,7 +100,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "app admin can create a new tenant" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     assert_difference "Tenant.count", 1 do
       post "/app-admin/tenants", params: { tenant: { name: "Test Tenant", subdomain: "testtenant" } }
@@ -111,7 +111,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "app admin can view tenant details" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/tenants/#{@secondary_tenant.subdomain}"
 
@@ -124,7 +124,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "app admin can view all users across tenants" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/users"
 
@@ -132,7 +132,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "app admin can search users by email" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/users", params: { q: @non_admin_user.email }
 
@@ -140,7 +140,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "app admin can view user details by user ID" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/users/#{@non_admin_user.id}"
 
@@ -148,12 +148,27 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", /#{@non_admin_user.display_name || @non_admin_user.name}/
   end
 
+  test "app admin user search escapes LIKE wildcards" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    # Verify that a normal search finds users
+    get "/app-admin/users", params: { q: "non_admin" }
+    assert_response :success
+    assert_select "code", text: /non_admin@example\.com/
+
+    # "%" as a search query should NOT match any users — LIKE wildcards must be escaped
+    get "/app-admin/users", params: { q: "%" }
+    assert_response :success
+    assert_select "code", { text: /non_admin@example\.com/, count: 0 },
+                  "Query '%' should not match users via LIKE wildcard injection"
+  end
+
   # ==========================================
   # User Suspension Tests
   # ==========================================
 
   test "app admin can suspend another user" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     post "/app-admin/users/#{@non_admin_user.id}/actions/suspend_user", params: { reason: "Test suspension" }
 
@@ -164,7 +179,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "app admin cannot suspend themselves" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     post "/app-admin/users/#{@app_admin_user.id}/actions/suspend_user", params: { reason: "Self-suspension" }
 
@@ -177,7 +192,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     # First suspend the user
     @non_admin_user.update!(suspended_at: Time.current, suspended_reason: "Test")
 
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     post "/app-admin/users/#{@non_admin_user.id}/actions/unsuspend_user"
 
@@ -191,7 +206,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "app admin can view security dashboard" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/security"
 
@@ -204,7 +219,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "app admin dashboard responds to markdown format" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin", headers: { "Accept" => "text/markdown" }
 
@@ -213,7 +228,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenants list responds to markdown format" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/tenants", headers: { "Accept" => "text/markdown" }
 
@@ -222,7 +237,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "users list responds to markdown format" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/users", headers: { "Accept" => "text/markdown" }
 
@@ -231,7 +246,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "user show responds to markdown format" do
-    sign_in_as(@app_admin_user, tenant: @primary_tenant)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     get "/app-admin/users/#{@non_admin_user.id}", headers: { "Accept" => "text/markdown" }
 

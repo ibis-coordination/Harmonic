@@ -270,4 +270,37 @@ class ActionDispatch::IntegrationTest
       get "/login/callback"
     end
   end
+
+  # Sign in and complete 2FA reverification for a protected area.
+  # Sets up TOTP on the user's OmniAuthIdentity if not already enabled,
+  # then triggers and completes the reverification flow.
+  #
+  # Usage:
+  #   sign_in_as_admin(user, tenant: t)                          # default: /system-admin
+  #   sign_in_as_admin(user, tenant: t, admin_path: "/app-admin") # app admin
+  #   sign_in_with_reverification(user, tenant: t, path: "/u/handle/settings/tokens", scope: "api_tokens")
+  def sign_in_as_admin(user, tenant: nil, admin_path: "/system-admin")
+    sign_in_with_reverification(user, tenant: tenant, path: admin_path)
+  end
+
+  # General-purpose: sign in and complete reverification for any protected path.
+  # For GET-protected paths, pass the path directly.
+  # For POST-protected paths, pass the POST path — it will trigger the redirect.
+  def sign_in_with_reverification(user, tenant: nil, path:, method: :get)
+    sign_in_as(user, tenant: tenant)
+
+    identity = user.find_or_create_omni_auth_identity!
+    unless identity.otp_enabled
+      identity.generate_otp_secret!
+      identity.enable_otp!
+    end
+
+    # Trigger the reverification redirect to store scope in session
+    send(method, path)
+    return unless response.redirect? && URI.parse(response.location).path == "/reverify"
+
+    # Complete reverification
+    totp = ROTP::TOTP.new(identity.otp_secret)
+    post "/reverify", params: { code: totp.now }
+  end
 end
