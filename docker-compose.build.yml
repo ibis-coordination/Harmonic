@@ -1,0 +1,27 @@
+# Build overlay — attaches build contexts to production service definitions.
+#
+# Used for local builds when CI is unavailable (e.g., security hotfix deploys).
+# Image names and tags come from docker-compose.production.yml; this file only
+# adds the source context so `docker compose build` knows what to build.
+#
+# Usage:
+#   docker compose -f docker-compose.production.yml -f docker-compose.build.yml build
+#   docker compose -f docker-compose.production.yml -f docker-compose.build.yml push
+#
+# See docs/DEPLOYMENT.md "Security Hotfix Workflow" for the full process.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+
+  sidekiq:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+
+  agent-runner:
+    build:
+      context: ./agent-runner
+      dockerfile: Dockerfile

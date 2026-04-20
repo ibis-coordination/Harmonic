@@ -216,6 +216,71 @@ docker compose -f docker-compose.production.yml logs web --tail 200
 docker compose -f docker-compose.production.yml exec web env | grep -E "(DATABASE|REDIS|SECRET)"
 ```
 
+## Security Hotfix Workflow
+
+When a vulnerability is reported privately and needs to ship to production before the fix becomes public:
+
+### 1. Create a Security Advisory
+
+Go to **Settings > Security > Advisories > New draft advisory** on the GitHub repo. Describe the vulnerability and affected versions. This stays private to maintainers.
+
+### 2. Develop the Fix in a Private Fork
+
+From the advisory page, click **"Start a temporary private fork"**. GitHub creates a private clone where you can:
+
+- Push branches and open PRs (visible only to advisory collaborators)
+- Iterate on the fix with code review
+
+> **Note:** GitHub Actions do not run on private advisory forks. The workflow files are present in the code but GitHub won't trigger them. The build overlay (`docker-compose.build.yml`) is the only build path for these images — test thoroughly before deploying.
+
+Clone the private fork locally:
+
+```bash
+# GitHub provides the clone URL on the advisory page
+git clone https://github.com/ibis-coordination/Harmonic-ghsa-XXXX-XXXX-XXXX.git
+cd Harmonic-ghsa-XXXX-XXXX-XXXX
+```
+
+### 3. Build and Deploy from the Private Fork
+
+Log in to the container registry, build, and push. Image names come from `docker-compose.production.yml` — the same file used for normal deploys.
+
+```bash
+# Set token without leaking to shell history
+read -rs GITHUB_TOKEN && export GITHUB_TOKEN
+echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$(git config user.email)" --password-stdin
+
+# Build and push
+docker compose -f docker-compose.production.yml -f docker-compose.build.yml build
+docker compose -f docker-compose.production.yml -f docker-compose.build.yml push
+```
+
+Then deploy on the production server:
+
+```bash
+docker compose -f docker-compose.production.yml pull
+docker compose -f docker-compose.production.yml up -d
+```
+
+### 4. Verify the Fix in Production
+
+Confirm the vulnerability is patched. Run any relevant smoke tests.
+
+### 5. Merge to Public and Publish
+
+Once production is safe:
+
+1. **Publish the advisory** — this merges the private fork into the public repo and makes the advisory visible. Optionally request a CVE and assign a severity (CVSS score).
+2. **Tag a release** on the public repo (e.g., `v1.6.1`) — tag on the merged main branch so CI rebuilds the images through the normal pipeline.
+3. **Notify affected users** if the vulnerability could have been exploited before the fix.
+
+### Notes
+
+- The private fork is deleted automatically when the advisory is published
+- The merge commit on `main` will show the fix but not the private fork history
+- `docker-compose.build.yml` adds build contexts to the same image definitions in `docker-compose.production.yml` — if you add a new service to production, add its build context to the overlay too
+- See [SECURITY.md](../SECURITY.md) for the vulnerability reporting policy
+
 ## Related Documentation
 
 - [MONITORING.md](MONITORING.md) - Monitoring and alerting setup
