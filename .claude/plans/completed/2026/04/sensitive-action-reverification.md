@@ -2,7 +2,13 @@
 
 ## Status
 
-In progress. First consumer: admin panel access hardening.
+Complete. Core infrastructure shipped with five scoped consumers:
+- `admin` — system, app, and tenant admin panels
+- `email_change` — email update flow
+- `representation` — starting representation sessions
+- `api_tokens` — API token creation
+Replay mechanism for POST/PATCH reverification added during implementation.
+Remaining future consumers (2FA disable, account deletion) can be added incrementally.
 
 ## Problem
 
