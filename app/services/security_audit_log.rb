@@ -307,6 +307,7 @@ class SecurityAuditLog
     payload = {
       timestamp: Time.current.iso8601(3),
       event: event,
+      severity: severity.to_s,
       environment: Rails.env,
       **data.compact,
     }.to_json

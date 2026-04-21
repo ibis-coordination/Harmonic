@@ -183,6 +183,53 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
     assert_equal "blocklist", entry["matched"]
   end
 
+  test "log_event persists severity in JSON payload" do
+    unique_path = "/severity-test-#{SecureRandom.hex(4)}"
+
+    SecurityAuditLog.log_event(
+      event: "test_severity",
+      severity: :warn,
+      request_path: unique_path
+    )
+
+    entries = find_log_entries(event: "test_severity", request_path: unique_path)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "warn", entry["severity"], "severity should be persisted in the JSON payload"
+  end
+
+  test "log_event persists default info severity" do
+    unique_path = "/severity-default-#{SecureRandom.hex(4)}"
+
+    SecurityAuditLog.log_event(
+      event: "test_default_severity",
+      request_path: unique_path
+    )
+
+    entries = find_log_entries(event: "test_default_severity", request_path: unique_path)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "info", entry["severity"], "default severity should be info"
+  end
+
+  test "log_event persists error severity" do
+    unique_path = "/severity-error-#{SecureRandom.hex(4)}"
+
+    SecurityAuditLog.log_event(
+      event: "test_error_severity",
+      severity: :error,
+      request_path: unique_path
+    )
+
+    entries = find_log_entries(event: "test_error_severity", request_path: unique_path)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "error", entry["severity"], "error severity should be persisted"
+  end
+
   test "log entries contain ISO8601 timestamp" do
     unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
 

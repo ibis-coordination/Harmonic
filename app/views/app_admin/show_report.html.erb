@@ -1,0 +1,130 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['App Admin', '/app-admin'],
+  ['Reports', '/app-admin/reports'],
+  "Report ##{@content_report.id[0..7]}"
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'report', height: 24 %>
+    Report #<%= @content_report.id[0..7] %>
+  </h1>
+</div>
+
+<div class="pulse-card" style="margin-bottom: 1rem;">
+  <table class="pulse-table">
+    <tbody>
+      <tr>
+        <td><strong>Status</strong></td>
+        <td>
+          <%
+            status_class = case @content_report.status
+            when "pending" then "pulse-badge-warning"
+            when "actioned" then "pulse-badge-danger"
+            when "dismissed" then "pulse-badge-muted"
+            else "pulse-badge-muted"
+            end
+          %>
+          <span class="pulse-badge <%= status_class %>"><%= @content_report.status %></span>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Reason</strong></td>
+        <td><span class="pulse-badge pulse-badge-warning"><%= @content_report.reason %></span></td>
+      </tr>
+      <tr>
+        <td><strong>Reporter</strong></td>
+        <td>
+          <a href="<%= app_admin_user_path(@content_report.reporter) %>" class="pulse-link">
+            <%= @content_report.reporter.display_name || @content_report.reporter.name %>
+          </a>
+          (<%= @content_report.reporter.email %>)
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Reported Content</strong></td>
+        <td>
+          <% if @content_report.reportable.present? %>
+            <span class="pulse-badge pulse-badge-muted"><%= @content_report.reportable_type %></span>
+            <% if @content_report.reportable.respond_to?(:text) %>
+              <p style="margin-top: 0.5rem;"><%= truncate(@content_report.reportable.text, length: 500) %></p>
+            <% elsif @content_report.reportable.respond_to?(:question) %>
+              <p style="margin-top: 0.5rem;"><%= truncate(@content_report.reportable.question, length: 500) %></p>
+            <% end %>
+            <% if @content_report.reportable.respond_to?(:created_by) && @content_report.reportable.created_by.present? %>
+              <p class="pulse-body-text-muted">
+                By: <a href="<%= app_admin_user_path(@content_report.reportable.created_by) %>" class="pulse-link">
+                  <%= @content_report.reportable.created_by.display_name || @content_report.reportable.created_by.name %>
+                </a>
+              </p>
+            <% end %>
+          <% else %>
+            <span class="pulse-body-text-muted">[Content has been deleted]</span>
+          <% end %>
+        </td>
+      </tr>
+      <% if @content_report.description.present? %>
+        <tr>
+          <td><strong>Reporter's Description</strong></td>
+          <td><%= @content_report.description %></td>
+        </tr>
+      <% end %>
+      <tr>
+        <td><strong>Submitted</strong></td>
+        <td><%= timeago(@content_report.created_at) %></td>
+      </tr>
+      <% if @content_report.reviewed_by.present? %>
+        <tr>
+          <td><strong>Reviewed By</strong></td>
+          <td><%= @content_report.reviewed_by.display_name || @content_report.reviewed_by.name %> at <%= timeago(@content_report.reviewed_at) %></td>
+        </tr>
+        <% if @content_report.admin_notes.present? %>
+          <tr>
+            <td><strong>Admin Notes</strong></td>
+            <td><%= @content_report.admin_notes %></td>
+          </tr>
+        <% end %>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<% if @content_report.status == "pending" %>
+  <div class="pulse-card">
+    <h3>Review This Report</h3>
+    <%= form_tag "/app-admin/reports/#{@content_report.id}/review", method: :post, class: "pulse-form" do %>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Decision</label>
+        <select name="status" class="pulse-form-select" required>
+          <option value="">Select...</option>
+          <option value="dismissed">Dismiss (not a real issue)</option>
+          <option value="actioned">Action Taken</option>
+          <option value="reviewed">Reviewed (no action needed)</option>
+        </select>
+      </div>
+
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Admin Notes</label>
+        <textarea name="admin_notes" class="pulse-form-textarea" rows="3"
+                  placeholder="Internal notes about this review decision..."></textarea>
+      </div>
+
+      <div class="pulse-form-actions">
+        <button type="submit" class="pulse-btn pulse-btn-primary">Submit Review</button>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
+<% if @content_report.reportable.present? && @content_report.reportable.respond_to?(:created_by) && @content_report.reportable.created_by.present? %>
+  <div class="pulse-card" style="margin-top: 1rem;">
+    <h3>Actions on Reported User</h3>
+    <p>
+      <a href="<%= app_admin_user_path(@content_report.reportable.created_by) %>" class="pulse-btn">
+        <%= octicon 'person', height: 14 %>
+        View User: <%= @content_report.reportable.created_by.display_name || @content_report.reportable.created_by.name %>
+      </a>
+    </p>
+  </div>
+<% end %>

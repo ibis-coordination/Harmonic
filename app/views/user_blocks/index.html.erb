@@ -1,0 +1,37 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  'Blocked Users'
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'blocked', height: 20 %>
+    Blocked Users
+  </h1>
+</div>
+
+<% if @user_blocks.any? %>
+  <div class="pulse-home-list">
+    <% @user_blocks.each do |user_block| %>
+      <div class="pulse-home-list-item">
+        <div class="pulse-home-list-link" style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div class="pulse-default-icon pulse-home-list-icon">
+              <%= octicon 'person', height: 14 %>
+            </div>
+            <span class="pulse-home-list-name"><%= user_block.blocked.display_name || user_block.blocked.name %></span>
+            <code class="pulse-code"><%= user_block.blocked.email %></code>
+            <% if user_block.reason.present? %>
+              <span class="pulse-body-text-muted"><%= user_block.reason %></span>
+            <% end %>
+          </div>
+          <div>
+            <%= button_to "Unblock", user_block_path(user_block), method: :delete, class: "pulse-btn pulse-btn-sm" %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <p class="pulse-empty-message">You haven't blocked anyone.</p>
+<% end %>

@@ -1,0 +1,39 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  'Report Content'
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'report', height: 20 %>
+    Report Content
+  </h1>
+</div>
+
+<div class="pulse-form-container">
+  <%= form_tag content_reports_path, method: :post, class: "pulse-form" do %>
+    <%= hidden_field_tag :reportable_type, @reportable_type %>
+    <%= hidden_field_tag :reportable_id, @reportable_id %>
+
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Reason</label>
+      <select name="reason" class="pulse-form-select" required>
+        <option value="">Select a reason...</option>
+        <% ContentReport::REASONS.each do |reason| %>
+          <option value="<%= reason %>"><%= reason.titleize %></option>
+        <% end %>
+      </select>
+    </div>
+
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Additional details (optional)</label>
+      <textarea name="description" class="pulse-form-textarea" rows="4"
+                placeholder="Provide any additional context about why you're reporting this content..."></textarea>
+    </div>
+
+    <div class="pulse-form-actions">
+      <button type="submit" class="pulse-btn pulse-btn-primary">Submit Report</button>
+      <a href="javascript:history.back()" class="pulse-btn">Cancel</a>
+    </div>
+  <% end %>
+</div>

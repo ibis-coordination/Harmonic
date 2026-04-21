@@ -741,6 +741,23 @@ class ApplicationController < ActionController::Base
     super
   end
 
+  # Central logout method. Clears all session state, representation, and cross-subdomain cookies.
+  # Use this instead of calling reset_session directly when logging a user out.
+  def logout_user!
+    clear_representation!
+    reset_session
+    delete_shared_domain_cookie(:token, path: "/login/callback")
+    delete_shared_domain_cookie(:redirect_to_subdomain)
+    delete_shared_domain_cookie(:redirect_to_resource)
+    delete_shared_domain_cookie(:collective_invite_code)
+  end
+
+  def delete_shared_domain_cookie(key, path: nil)
+    opts = { domain: ".#{ENV['HOSTNAME']}" }
+    opts[:path] = path if path
+    cookies.delete(key, **opts)
+  end
+
   def clear_participant_uid_cookie
     cookies.delete(:decision_participant_uid)
   end
@@ -955,16 +972,27 @@ class ApplicationController < ActionController::Base
     # Absolute timeout: session expires after fixed time from login (default 24 hours)
     if session[:logged_in_at].present? && Time.at(session[:logged_in_at]) < SESSION_ABSOLUTE_TIMEOUT.ago
       SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "session_absolute_timeout") if current_human_user
-      reset_session
+      logout_user!
       flash[:alert] = "Your session has expired. Please log in again."
       redirect_to "/login"
       return
     end
 
+    # Session revocation: admin has revoked all sessions for this user
+    if session[:logged_in_at].present? && current_human_user&.sessions_revoked_at.present?
+      if Time.at(session[:logged_in_at]) < current_human_user.sessions_revoked_at
+        SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "sessions_revoked")
+        logout_user!
+        flash[:alert] = "Your session has been revoked. Please log in again."
+        redirect_to "/login"
+        return
+      end
+    end
+
     # Idle timeout: session expires after inactivity (default 2 hours)
     if session[:last_activity_at].present? && Time.at(session[:last_activity_at]) < SESSION_IDLE_TIMEOUT.ago
       SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "session_idle_timeout") if current_human_user
-      reset_session
+      logout_user!
       flash[:alert] = "Your session has expired due to inactivity. Please log in again."
       redirect_to "/login"
       return
@@ -982,7 +1010,7 @@ class ApplicationController < ActionController::Base
     return unless user&.suspended?
 
     SecurityAuditLog.log_suspended_login_attempt(user: user, ip: request.remote_ip)
-    reset_session
+    logout_user!
     flash[:alert] = "Your account has been suspended."
     redirect_to "/login"
   end

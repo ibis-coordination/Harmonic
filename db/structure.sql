@@ -347,6 +347,27 @@ CREATE TABLE public.commitments (
 
 
 --
+-- Name: content_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.content_reports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reporter_id uuid NOT NULL,
+    reportable_type character varying NOT NULL,
+    reportable_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    reason character varying NOT NULL,
+    description text,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    reviewed_by_id uuid,
+    reviewed_at timestamp(6) without time zone,
+    admin_notes text,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: cycle_data_commitments; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -1435,6 +1456,21 @@ CREATE TABLE public.trustee_grants (
 
 
 --
+-- Name: user_blocks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_blocks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    blocker_id uuid NOT NULL,
+    blocked_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    reason text,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: user_item_status; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1834,7 +1870,8 @@ CREATE TABLE public.users (
     pending_billing_setup boolean DEFAULT false NOT NULL,
     pending_email character varying,
     email_confirmation_token character varying,
-    email_confirmation_sent_at timestamp(6) without time zone
+    email_confirmation_sent_at timestamp(6) without time zone,
+    sessions_revoked_at timestamp(6) without time zone
 );
 
 
@@ -2208,6 +2245,14 @@ ALTER TABLE ONLY public.commitments
 
 
 --
+-- Name: content_reports content_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.content_reports
+    ADD CONSTRAINT content_reports_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: decision_participants decision_participants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2533,6 +2578,14 @@ ALTER TABLE ONLY public.tenants
 
 ALTER TABLE ONLY public.trustee_grants
     ADD CONSTRAINT trustee_permissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_blocks user_blocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_blocks
+    ADD CONSTRAINT user_blocks_pkey PRIMARY KEY (id);
 
 
 --
@@ -3339,6 +3392,48 @@ CREATE INDEX index_commitments_on_updated_by_id ON public.commitments USING btre
 
 
 --
+-- Name: index_content_reports_on_reportable_type_and_reportable_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_content_reports_on_reportable_type_and_reportable_id ON public.content_reports USING btree (reportable_type, reportable_id);
+
+
+--
+-- Name: index_content_reports_on_reporter_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_content_reports_on_reporter_id ON public.content_reports USING btree (reporter_id);
+
+
+--
+-- Name: index_content_reports_on_reviewed_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_content_reports_on_reviewed_by_id ON public.content_reports USING btree (reviewed_by_id);
+
+
+--
+-- Name: index_content_reports_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_content_reports_on_tenant_id ON public.content_reports USING btree (tenant_id);
+
+
+--
+-- Name: index_content_reports_on_tenant_id_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_content_reports_on_tenant_id_and_status ON public.content_reports USING btree (tenant_id, status);
+
+
+--
+-- Name: index_content_reports_unique_per_reporter_and_reportable; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_content_reports_unique_per_reporter_and_reportable ON public.content_reports USING btree (reporter_id, reportable_type, reportable_id, tenant_id);
+
+
+--
 -- Name: index_decision_participants_on_collective_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3896,6 +3991,41 @@ CREATE UNIQUE INDEX index_trustee_grants_on_truncated_id ON public.trustee_grant
 --
 
 CREATE INDEX index_trustee_grants_on_trustee_user_id ON public.trustee_grants USING btree (trustee_user_id);
+
+
+--
+-- Name: index_user_blocks_on_blocked_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_blocks_on_blocked_id ON public.user_blocks USING btree (blocked_id);
+
+
+--
+-- Name: index_user_blocks_on_blocked_id_and_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_blocks_on_blocked_id_and_tenant_id ON public.user_blocks USING btree (blocked_id, tenant_id);
+
+
+--
+-- Name: index_user_blocks_on_blocker_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_blocks_on_blocker_id ON public.user_blocks USING btree (blocker_id);
+
+
+--
+-- Name: index_user_blocks_on_blocker_id_and_blocked_id_and_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_user_blocks_on_blocker_id_and_blocked_id_and_tenant_id ON public.user_blocks USING btree (blocker_id, blocked_id, tenant_id);
+
+
+--
+-- Name: index_user_blocks_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_blocks_on_tenant_id ON public.user_blocks USING btree (tenant_id);
 
 
 --
@@ -8170,11 +8300,27 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
+-- Name: user_blocks fk_rails_9457ce6a10; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_blocks
+    ADD CONSTRAINT fk_rails_9457ce6a10 FOREIGN KEY (blocked_id) REFERENCES public.users(id);
+
+
+--
 -- Name: active_storage_variant_records fk_rails_993965df05; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.active_storage_variant_records
     ADD CONSTRAINT fk_rails_993965df05 FOREIGN KEY (blob_id) REFERENCES public.active_storage_blobs(id);
+
+
+--
+-- Name: user_blocks fk_rails_9a0ec7e5a7; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_blocks
+    ADD CONSTRAINT fk_rails_9a0ec7e5a7 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8258,11 +8404,35 @@ ALTER TABLE ONLY public.webhook_deliveries
 
 
 --
+-- Name: content_reports fk_rails_b25d672583; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.content_reports
+    ADD CONSTRAINT fk_rails_b25d672583 FOREIGN KEY (reporter_id) REFERENCES public.users(id);
+
+
+--
 -- Name: ai_agent_task_runs fk_rails_b553b9912c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ai_agent_task_runs
     ADD CONSTRAINT fk_rails_b553b9912c FOREIGN KEY (ai_agent_id) REFERENCES public.users(id);
+
+
+--
+-- Name: content_reports fk_rails_baa9328cf7; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.content_reports
+    ADD CONSTRAINT fk_rails_baa9328cf7 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: content_reports fk_rails_bf51a023b7; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.content_reports
+    ADD CONSTRAINT fk_rails_bf51a023b7 FOREIGN KEY (reviewed_by_id) REFERENCES public.users(id);
 
 
 --
@@ -8343,6 +8513,14 @@ ALTER TABLE ONLY public.api_tokens
 
 ALTER TABLE ONLY public.automation_rules
     ADD CONSTRAINT fk_rails_cf6a0dd51b FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: user_blocks fk_rails_d1bf232861; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_blocks
+    ADD CONSTRAINT fk_rails_d1bf232861 FOREIGN KEY (blocker_id) REFERENCES public.users(id);
 
 
 --
@@ -8544,6 +8722,9 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260421012815'),
+('20260421011455'),
+('20260421010459'),
 ('20260419194756'),
 ('20260419185812'),
 ('20260418182030'),

@@ -155,6 +155,12 @@ Rails.application.routes.draw do
   get 'trio' => 'trio#index'
   post 'trio' => 'trio#create'
 
+  # User blocks
+  resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"
+
+  # Content reports
+  resources :content_reports, only: [:new, :create], path: "content-reports"
+
   # Notifications
   get 'notifications' => 'notifications#index'
   get 'notifications/new' => 'notifications#new'
@@ -232,6 +238,10 @@ Rails.application.routes.draw do
   post 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#execute_unsuspend_user'
   get 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_billing_exempt'
   post 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_billing_exempt'
+  post 'app-admin/users/:id/actions/account_security_reset' => 'app_admin#execute_account_security_reset'
+  get 'app-admin/reports' => 'app_admin#reports'
+  get 'app-admin/reports/:id' => 'app_admin#show_report', as: 'app_admin_report'
+  post 'app-admin/reports/:id/review' => 'app_admin#execute_review_report'
   get 'app-admin/security' => 'app_admin#security_dashboard'
   get 'app-admin/security/events/:line_number' => 'app_admin#security_event'
 

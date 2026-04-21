@@ -672,4 +672,27 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
     assert_match(/suspended/i, response.body)
     assert_nil session[:user_id], "Suspended user should not be logged in"
   end
+
+  # ==========================================
+  # Session Revocation Tests
+  # ==========================================
+
+  test "session revocation forces logout on next request" do
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+
+    sign_in_as(@user, tenant: @tenant)
+
+    # Verify user is logged in
+    get "/"
+    assert session[:user_id].present?, "User should be logged in"
+
+    # Admin revokes all sessions
+    @user.update!(sessions_revoked_at: Time.current)
+
+    # Next request should force logout
+    get "/"
+
+    assert_redirected_to "/login"
+    assert_match(/revoked/i, flash[:alert])
+  end
 end

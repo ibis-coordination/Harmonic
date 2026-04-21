@@ -276,7 +276,92 @@ class AppAdminController < ApplicationController
     end
   end
 
+  # POST /app-admin/users/:id/actions/account_security_reset
+  def execute_account_security_reset
+    user = User.find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless user
+
+    # 1. Revoke all sessions and delete API tokens (user + child AI agents)
+    user.revoke_all_sessions!
+
+    # 2. Invalidate password and send reset email (if user has a password identity)
+    identity = OmniAuthIdentity.find_by(user_id: user.id)
+    if identity
+      random_password = SecureRandom.hex(32)
+      identity.password = random_password
+      identity.password_confirmation = random_password
+      identity.save!
+
+      raw_token = identity.generate_reset_password_token!
+      begin
+        PasswordResetMailer.reset_password_instructions(identity, raw_token).deliver_later
+      rescue StandardError => e
+        Rails.logger.error("Failed to send password reset email during account security reset: #{e.message}")
+      end
+    end
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "account_security_reset",
+      target_user_id: user.id,
+      details: { email: user.email, had_password_identity: identity.present? },
+    )
+
+    flash[:notice] = "Account security reset complete for #{user.display_name || user.name}."
+    redirect_to "/app-admin/users/#{user.id}"
+  end
+
   # ============================================================================
+  # Reports
+  # ============================================================================
+
+  # GET /app-admin/reports
+  def reports
+    @page_title = "Reports"
+    @filter_status = params[:status] || "pending"
+    @content_reports = ContentReport.unscoped_for_admin(@current_user)
+    @content_reports = @content_reports.where(status: @filter_status) if @filter_status != "all"
+    @content_reports = @content_reports.order(created_at: :desc).limit(100).includes(:reporter, :reportable, :reviewed_by)
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # GET /app-admin/reports/:id
+  def show_report
+    @content_report = ContentReport.unscoped_for_admin(@current_user).find(params[:id])
+    @page_title = "Report ##{@content_report.id[0..7]}"
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # POST /app-admin/reports/:id/review
+  def execute_review_report
+    report = ContentReport.unscoped_for_admin(@current_user).find(params[:id])
+    report.review!(
+      admin: @current_user,
+      status: params[:status],
+      notes: params[:admin_notes],
+    )
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "review_report",
+      target_user_id: report.reporter_id,
+      details: { report_id: report.id, status: params[:status] },
+    )
+
+    flash[:notice] = "Report marked as #{params[:status]}."
+    redirect_to "/app-admin/reports/#{report.id}"
+  end
+
   # Security Audit
   # ============================================================================
 

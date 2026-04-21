@@ -1,0 +1,79 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['App Admin', '/app-admin'],
+  'Reports'
+] %>
+
+<div class="pulse-page-header">
+  <h1 class="pulse-page-title">
+    <%= octicon 'report', height: 24 %>
+    Reports
+  </h1>
+</div>
+
+<div style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
+  <% %w[pending all dismissed actioned reviewed].each do |status| %>
+    <a href="/app-admin/reports?status=<%= status %>"
+       class="pulse-btn pulse-btn-sm <%= 'pulse-btn-primary' if @filter_status == status %>">
+      <%= status.titleize %>
+    </a>
+  <% end %>
+</div>
+
+<% if @content_reports.any? %>
+  <div class="pulse-table-wrapper">
+    <table class="pulse-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Reporter</th>
+          <th>Content</th>
+          <th>Reason</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @content_reports.each do |report| %>
+          <tr>
+            <td><%= timeago(report.created_at) %></td>
+            <td>
+              <a href="<%= app_admin_user_path(report.reporter) %>" class="pulse-link">
+                <%= report.reporter.display_name || report.reporter.name %>
+              </a>
+            </td>
+            <td>
+              <% if report.reportable.present? %>
+                <span class="pulse-badge pulse-badge-muted"><%= report.reportable_type %></span>
+                <% if report.reportable.respond_to?(:truncated_id) %>
+                  <code class="pulse-code"><%= report.reportable.truncated_id %></code>
+                <% end %>
+              <% else %>
+                <span class="pulse-body-text-muted">[deleted]</span>
+              <% end %>
+            </td>
+            <td>
+              <span class="pulse-badge pulse-badge-warning"><%= report.reason %></span>
+            </td>
+            <td>
+              <%
+                status_class = case report.status
+                when "pending" then "pulse-badge-warning"
+                when "actioned" then "pulse-badge-danger"
+                when "dismissed" then "pulse-badge-muted"
+                else "pulse-badge-muted"
+                end
+              %>
+              <span class="pulse-badge <%= status_class %>"><%= report.status %></span>
+            </td>
+            <td>
+              <a href="/app-admin/reports/<%= report.id %>" class="pulse-link">View</a>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% else %>
+  <p class="pulse-empty-message">No <%= @filter_status %> reports.</p>
+<% end %>

@@ -134,10 +134,7 @@ class SessionsController < ApplicationController
   # <logout>
   def destroy
     SecurityAuditLog.log_logout(user: current_user, ip: request.remote_ip) if current_user
-    clear_representation!
-    reset_session
-    delete_token_cookie
-    delete_redirect_to_subdomain_cookie
+    logout_user!
 
     redirect_to '/logout-success'
   end
@@ -294,12 +291,6 @@ class SessionsController < ApplicationController
     }
     cookie[:path] = path if path
     cookies[key] = cookie
-  end
-
-  def delete_shared_domain_cookie(key, path: nil)
-    opts = { domain: ".#{ENV['HOSTNAME']}" }
-    opts[:path] = path if path
-    cookies.delete(key, **opts)
   end
 
   def delete_token_cookie

@@ -46,7 +46,13 @@ class PasswordResetsController < ApplicationController
 
     if params[:password].present? && params[:password] == params[:password_confirmation]
       if params[:password].length >= 14
-        @identity.update_password!(params[:password])
+        begin
+          @identity.update_password!(params[:password])
+        rescue ActiveRecord::RecordInvalid => e
+          flash.now[:alert] = e.record.errors.full_messages.join(", ")
+          render :show
+          return
+        end
         user = User.find_by(email: @identity.email)
         SecurityAuditLog.log_password_changed(user: user, ip: request.remote_ip) if user
         flash[:notice] = "Your password has been updated successfully. You can now log in."

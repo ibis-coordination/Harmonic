@@ -8,7 +8,7 @@
 | Time | Event Type | User | Details |
 |------|------------|------|---------|
 <% @security_events.each do |event| -%>
-| <%= time_ago_in_words(event[:timestamp]) %> ago | <%= event[:event_type] %> | <%= event[:user_email] || '-' %> | <%= event[:details] %> |
+| <%= time_ago_in_words(event[:timestamp]) %> ago | <%= event[:event] || event["event"] %> | <%= event[:email] || event["email"] || '-' %> | <%= event[:reason] || event["reason"] || event[:admin_action] || event["admin_action"] || event[:request_path] || event["request_path"] || event[:details] || event["details"] %> |
 <% end -%>
 <% else -%>
 *No recent security events.*

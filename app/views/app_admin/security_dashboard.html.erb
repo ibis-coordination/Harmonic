@@ -36,15 +36,32 @@
                 <% end %>
               </td>
               <td>
-                <% event_type = event[:event_type] || event["event_type"] %>
+                <% event_name = event[:event] || event["event"] %>
                 <% severity = event[:severity] || event["severity"] %>
-                <span class="pulse-badge <%= severity == 'high' ? 'pulse-badge-danger' : 'pulse-badge-warning' %>">
-                  <%= event_type %>
+                <%
+                  badge_class = case severity
+                  when "error" then "pulse-badge-danger"
+                  when "warn" then "pulse-badge-warning"
+                  when "info" then "pulse-badge-muted"
+                  else
+                    # Derive from event type for old entries without severity
+                    case event_name
+                    when "login_failure", "ip_blocked", "2fa_lockout", "rate_limited"
+                      "pulse-badge-warning"
+                    when "user_suspended", "permission_denied"
+                      "pulse-badge-danger"
+                    else
+                      "pulse-badge-muted"
+                    end
+                  end
+                %>
+                <span class="pulse-badge <%= badge_class %>">
+                  <%= event_name %>
                 </span>
               </td>
               <td>
                 <% user_id = event[:user_id] || event["user_id"] %>
-                <% user_email = event[:user_email] || event["email"] %>
+                <% user_email = event[:email] || event["email"] %>
                 <% if user_id.present? %>
                   <a href="/app-admin/users/<%= user_id %>" class="pulse-link"><%= user_email %></a>
                 <% elsif user_email.present? %>
@@ -53,7 +70,16 @@
                   <span class="pulse-body-text-muted">-</span>
                 <% end %>
               </td>
-              <td><%= event[:details] || event["details"] || event[:message] || event["message"] %></td>
+              <td>
+                <%
+                  details = event[:reason] || event["reason"] ||
+                    event[:admin_action] || event["admin_action"] ||
+                    event[:request_path] || event["request_path"] ||
+                    event[:details] || event["details"] ||
+                    event[:message] || event["message"]
+                %>
+                <%= details %>
+              </td>
             </tr>
           <% end %>
         </tbody>
