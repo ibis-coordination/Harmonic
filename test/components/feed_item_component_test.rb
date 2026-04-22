@@ -250,6 +250,44 @@ class FeedItemComponentTest < ViewComponent::TestCase
     assert_text "Original Author"
   end
 
+  # --- Blocking ---
+
+  test "renders nothing when block exists between current user and author" do
+    note = build_note(text: "Blocked content")
+    author = build_user(display_name: "Blocked Author", handle: "blocked")
+    viewer = build_user(display_name: "Viewer", handle: "viewer")
+
+    render_inline(FeedItemComponent.new(
+      item: note,
+      type: "Note",
+      created_by: author,
+      created_at: 1.hour.ago,
+      current_user: viewer,
+      block_related_user_ids: Set.new([author.id]),
+    ))
+
+    assert_no_selector ".pulse-feed-item"
+    assert_no_text "Blocked content"
+  end
+
+  test "renders normally when no block exists" do
+    note = build_note(text: "Normal content")
+    author = build_user(display_name: "Author", handle: "author")
+    viewer = build_user(display_name: "Viewer", handle: "viewer")
+
+    render_inline(FeedItemComponent.new(
+      item: note,
+      type: "Note",
+      created_by: author,
+      created_at: 1.hour.ago,
+      current_user: viewer,
+      block_related_user_ids: Set.new,
+    ))
+
+    assert_selector ".pulse-feed-item"
+    assert_text "Normal content"
+  end
+
   # --- Anonymous ---
 
   test "renders anonymous when no author" do

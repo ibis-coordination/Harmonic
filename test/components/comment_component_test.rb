@@ -192,4 +192,39 @@ class CommentComponentTest < ViewComponent::TestCase
                   ))
     assert_no_selector ".pulse-comment-reply-context"
   end
+
+  # --- Blocking ---
+
+  test "renders collapsed placeholder when author is blocked" do
+    author = build_user(display_name: "Blocked Author", handle: "blocked")
+    comment = build_note(text: "Hidden comment", created_by: author)
+
+    render_inline(CommentComponent.new(
+      comment: comment,
+      show_reply_context: false,
+      root_comment_id: "root123",
+      current_user: build_user(display_name: "Viewer", handle: "viewer"),
+      blocked_user_ids: Set.new([author.id]),
+    ))
+
+    assert_selector ".pulse-comment-blocked-placeholder"
+    assert_text "This comment is from a user you have blocked"
+    assert_no_text "Hidden comment"
+  end
+
+  test "renders normally when author is not blocked" do
+    author = build_user(display_name: "Normal Author", handle: "normal")
+    comment = build_note(text: "Visible comment", created_by: author)
+
+    render_inline(CommentComponent.new(
+      comment: comment,
+      show_reply_context: false,
+      root_comment_id: "root123",
+      current_user: build_user(display_name: "Viewer", handle: "viewer"),
+      blocked_user_ids: Set.new,
+    ))
+
+    assert_no_selector ".pulse-comment-blocked-placeholder"
+    assert_text "Visible comment"
+  end
 end

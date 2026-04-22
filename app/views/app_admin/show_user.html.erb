@@ -98,6 +98,17 @@
   <% end %>
 <% end %>
 
+<%= render 'shared/pulse_accordion', title: 'User Blocks', icon: 'blocked' do %>
+  <div style="display: flex; gap: 24px;">
+    <div>
+      <strong>Blocks given:</strong> <%= @showing_user.user_blocks_given.count %>
+    </div>
+    <div>
+      <strong>Blocks received:</strong> <%= @showing_user.user_blocks_received.count %>
+    </div>
+  </div>
+<% end %>
+
 <%= render 'shared/pulse_accordion', title: 'Actions', icon: 'zap', open: true do %>
   <div class="pulse-form-actions" style="flex-direction: column; align-items: flex-start; gap: 16px;">
     <% if @showing_user.suspended? %>

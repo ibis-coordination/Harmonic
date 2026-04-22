@@ -2,6 +2,10 @@
 ## Backlinks
 
 <% resource.backlinks.each do |r| -%>
+<% if r.respond_to?(:created_by_id) && blocked_user_ids.include?(r.created_by_id) -%>
+* *[Link from a user you have blocked]*
+<% else -%>
 * <%= r.class.to_s %>: [<%= r.title %>](<%= r.path %>)
+<% end -%>
 <% end -%>
 <% end -%>

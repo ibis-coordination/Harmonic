@@ -1,4 +1,10 @@
-<div class="pulse-comment" id="n-<%= @comment.truncated_id %>">
+<div class="pulse-comment<%= " pulse-comment-blocked" if author_blocked? %>" id="n-<%= @comment.truncated_id %>">
+  <% if author_blocked? %>
+    <div class="pulse-comment-blocked-placeholder">
+      <span class="pulse-body-text-muted"><%= helpers.octicon 'blocked', height: 12 %> This comment is from a user you have blocked</span>
+      <a href="<%= @comment.path %>" class="pulse-link pulse-body-text-muted">Show</a>
+    </div>
+  <% else %>
   <div class="pulse-comment-header">
     <% if representation? %>
       <%# Representation: show "Alice on behalf of Bob" %>
@@ -74,4 +80,5 @@
       </button>
     <% end %>
   </div>
+  <% end %>
 </div>

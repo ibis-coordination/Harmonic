@@ -146,6 +146,7 @@ class ApiHelper
   def create_note(commentable: nil)
     note = T.let(nil, T.nilable(Note))
     ActiveRecord::Base.transaction do
+      check_not_blocked_for_comment!(commentable) if commentable
       note = Note.create!(
         title: params[:title],
         text: params[:text],
@@ -221,6 +222,7 @@ class ApiHelper
   def join_commitment
     commitment = T.must(current_commitment)
     raise "Commitment is closed" if commitment.closed?
+    check_not_blocked!(commitment, action: "join")
 
     participant = T.let(nil, T.nilable(CommitmentParticipant))
     ActiveRecord::Base.transaction do
@@ -284,6 +286,7 @@ class ApiHelper
     raise "Expected resource model Note, not #{note.class}" unless note.is_a?(Note)
     history_event = T.let(nil, T.nilable(NoteHistoryEvent))
     ActiveRecord::Base.transaction do
+      check_not_blocked_for_comment!(note) if note.created_by
       history_event = note.confirm_read!(current_user)
       track_task_run_resource(history_event, action_type: "confirm")
       if current_representation_session
@@ -354,6 +357,7 @@ class ApiHelper
   sig { returns(Vote) }
   def vote
     raise ArgumentError, "current_option is required" if current_option.blank?
+    check_not_blocked!(T.must(current_decision), action: "vote on")
 
     associations = {
       tenant: current_tenant,
@@ -385,6 +389,7 @@ class ApiHelper
     votes_param = params[:votes]
     raise ArgumentError, "votes parameter is required" if votes_param.blank?
     raise ArgumentError, "votes must be an array" unless votes_param.is_a?(Array)
+    check_not_blocked!(T.must(current_decision), action: "vote on")
 
     votes = T.let([], T::Array[Vote])
     ActiveRecord::Base.transaction do
@@ -830,6 +835,22 @@ class ApiHelper
       commitment&.path
     else
       nil
+    end
+  end
+
+  def check_not_blocked_for_comment!(commentable)
+    check_not_blocked!(commentable, action: "comment on")
+  end
+
+  def check_not_blocked!(resource, action: "interact with")
+    content_author = resource.respond_to?(:created_by) ? resource.created_by : nil
+    return unless content_author
+
+    if UserBlock.between?(current_user, content_author)
+      record = resource.is_a?(ActiveRecord::Base) ? resource : Note.new
+      raise ActiveRecord::RecordInvalid.new(
+        record.class.new.tap { |r| r.errors.add(:base, "You cannot #{action} this content because of a user block") }
+      )
     end
   end
 

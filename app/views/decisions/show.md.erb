@@ -11,6 +11,9 @@
 <%= @decision.description %>
 <% end -%>
 <% unless @decision.closed? -%>
+<% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) -%>
+*Voting is unavailable because <% if @current_user.blocked?(@decision.created_by) %>you have blocked the author<% else %>you have been blocked by the author<% end %> of this decision.*
+<% else -%>
 ## Options
 
 <% if @decision.options.empty? -%>
@@ -21,6 +24,7 @@ Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 <% @decision.options.order(:created_at).each do |option| -%>
 <% vote = @votes.where(option: option).first || Vote.new(accepted: 0) -%>
 * [<%= vote.accepted == 1 ? '✅' : ' ' %>] [<%= vote.preferred == 1 ? '⭐️' : ' ' %>] <%= option.title %>
+<% end -%>
 <% end -%>
 <% end -%>
 <% end -%>

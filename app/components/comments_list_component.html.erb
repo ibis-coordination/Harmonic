@@ -9,6 +9,7 @@
         show_reply_context: false,
         root_comment_id: comment.truncated_id,
         current_user: @current_user,
+        blocked_user_ids: helpers.blocked_user_ids,
       ) %>
 
       <%# All descendants flattened %>
@@ -33,13 +34,14 @@
               show_reply_context: show_context,
               root_comment_id: comment.truncated_id,
               current_user: @current_user,
+              blocked_user_ids: helpers.blocked_user_ids,
             ) %>
           <% end %>
         </div>
       <% end %>
 
-      <%# Reply form for this thread (hidden by default) %>
-      <% if @current_user %>
+      <%# Reply form for this thread (hidden by default, hidden if block exists) %>
+      <% if @current_user && !UserBlock.between?(@current_user, comment.created_by) %>
         <div class="pulse-reply-form-container" id="reply-form-<%= comment.truncated_id %>" hidden>
           <%= helpers.form_with url: "#{comment.path}/comments", method: :post, local: true,
                         data: { action: "submit->comment-thread#submitReply", turbo: "false" },

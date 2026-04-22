@@ -21,14 +21,39 @@
         <span class="pulse-badge" title="This is an AI agent managed by <%= @showing_user.parent&.display_name %>">AI agent</span>
       <% end %>
     </div>
-    <% if @current_user.can_edit?(@showing_user) %>
-      <div class="pulse-user-actions">
+    <div class="pulse-user-actions">
+      <% if @current_user.can_edit?(@showing_user) %>
         <a href="<%= @showing_user.path %>/settings" class="pulse-action-btn">
           <%= octicon 'gear', height: 14 %>
           Settings
         </a>
-      </div>
-    <% end %>
+      <% end %>
+      <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.ai_agent? %>
+        <% if @current_user.blocked?(@showing_user) %>
+          <% existing_block = @current_user.user_blocks_given.find_by(blocked: @showing_user) %>
+          <% if existing_block %>
+            <%= button_to "Unblock", user_block_path(existing_block), method: :delete, class: "pulse-action-btn" %>
+          <% end %>
+        <% else %>
+          <span style="display: inline-flex; align-items: center; gap: 4px;">
+            <%= button_to user_blocks_path(blocked_id: @showing_user.id), method: :post, class: "pulse-action-btn" do %>
+              <%= octicon 'blocked', height: 14 %>
+              Block
+            <% end %>
+            <%= render TooltipComponent.new do %>
+              <strong>What blocking does:</strong><br>
+              Their content will be collapsed in your feed (with an option to view it).<br>
+              They won't be able to comment on your content or @mention you.<br>
+              Notifications from them will be suppressed.<br><br>
+              <strong>What blocking does not do:</strong><br>
+              They can still view your profile and content. Your content is not affected in their feed.<br>
+              They can still vote on your decisions and join your commitments.<br>
+              They will not be notified that you blocked them.
+            <% end %>
+          </span>
+        <% end %>
+      <% end %>
+    </div>
   </header>
 
   <% if @showing_user.ai_agent? && @showing_user.parent %>
@@ -94,6 +119,8 @@
             created_by: feed_item[:created_by],
             created_at: feed_item[:created_at],
             current_user: @current_user,
+            blocked_user_ids: blocked_user_ids,
+            block_related_user_ids: block_related_user_ids,
           ) %>
         <% end %>
       </div>

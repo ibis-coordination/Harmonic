@@ -21,6 +21,7 @@ Viewing: <%= @cycle.name.titleize %> | [Back to current cycle](<%= @current_coll
 No activity in this cycle yet.
 <% else -%>
 <% @feed_items.first(20).each do |feed_item| -%>
+<% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
 * **<%= feed_item[:type] %>**: [<%= feed_item[:item].title %>](<%= feed_item[:item].path %>) by <%= user_link_md(feed_item[:created_by]) %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago)
 <% end -%>
 <% end -%>

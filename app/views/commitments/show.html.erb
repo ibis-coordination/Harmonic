@@ -49,14 +49,27 @@
 
   <%# Join Section (shown when commitment is open) %>
   <% unless @commitment.closed? %>
-    <div class="pulse-join-section">
-      <div class="pulse-section-label">
-        Join
+    <% if @current_user && @commitment.created_by && UserBlock.between?(@current_user, @commitment.created_by) %>
+      <div class="pulse-join-section">
+        <p class="pulse-body-text-muted" style="padding: 12px 0;">
+          <%= octicon 'blocked', height: 14 %>
+          <% if @current_user.blocked?(@commitment.created_by) %>
+            Joining is unavailable because you have blocked the author of this commitment.
+          <% else %>
+            Joining is unavailable because you have been blocked by the author of this commitment.
+          <% end %>
+        </p>
       </div>
-      <div data-commitment-target="joinSection">
-        <%= render 'join' %>
+    <% else %>
+      <div class="pulse-join-section">
+        <div class="pulse-section-label">
+          Join
+        </div>
+        <div data-commitment-target="joinSection">
+          <%= render 'join' %>
+        </div>
       </div>
-    </div>
+    <% end %>
   <% end %>
 
   <%# Participants List %>

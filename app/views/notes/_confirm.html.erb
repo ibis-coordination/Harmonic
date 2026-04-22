@@ -1,4 +1,15 @@
-<% if @current_user %>
+<% if @current_user && @note.created_by && UserBlock.between?(@current_user, @note.created_by) %>
+  <p class="pulse-body-text-muted" style="margin-bottom: 16px;">
+    <%= octicon 'blocked', height: 14 %>
+    <% if @current_user.blocked?(@note.created_by) %>
+      Confirm read and commenting are unavailable because you have blocked the author of this note.
+    <% else %>
+      Confirm read and commenting are unavailable because you have been blocked by the author of this note.
+    <% end %>
+  </p>
+  <%= render 'shared/pulse_comments', commentable: @note %>
+  <%= render 'shared/pulse_backlinks', resource: @note %>
+<% elsif @current_user %>
   <% if @note_reader.confirmed_read_but_note_updated? %>
     <div class="pulse-section-label">
       <%= octicon 'book', height: 14 %>

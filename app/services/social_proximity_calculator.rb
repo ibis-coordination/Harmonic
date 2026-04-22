@@ -25,6 +25,7 @@ class SocialProximityCalculator
     @group_members = T.let({}, T::Hash[String, T::Array[String]])
     # Structure: { group_key => member_count }
     @group_sizes = T.let({}, T::Hash[String, Integer])
+    @blocked_ids = T.let(Set.new, T::Set[String])
   end
 
   sig { returns(T::Hash[String, Float]) }
@@ -38,11 +39,25 @@ class SocialProximityCalculator
 
   sig { void }
   def preload_graph_data
+    load_blocked_user_ids
     load_collective_memberships
     load_note_reader_groups
     load_decision_voter_groups
     load_commitment_joiner_groups
     load_heartbeat_groups
+  end
+
+  sig { void }
+  def load_blocked_user_ids
+    # Blocked users (either direction) are excluded from the graph entirely.
+    # They cannot serve as bridges connecting the source to other users.
+    @blocked_ids = Set.new(
+      UserBlock
+        .where("blocker_id = :uid OR blocked_id = :uid", uid: @source.id)
+        .where(tenant_id: @tenant_id)
+        .pluck(:blocker_id, :blocked_id)
+        .flatten
+    ) - Set[@source.id]
   end
 
   sig { void }
@@ -265,9 +280,11 @@ class SocialProximityCalculator
     @group_members[group_key] ||= []
   end
 
-  # Helper to add a user to a group
+  # Helper to add a user to a group (skips blocked users)
   sig { params(user_id: String, group_key: String).void }
   def add_user_to_group(user_id, group_key)
+    return if @blocked_ids.include?(user_id)
+
     user_groups_for(user_id) << group_key
     group_members_for(group_key) << user_id
   end

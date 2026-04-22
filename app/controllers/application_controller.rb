@@ -561,6 +561,34 @@ class ApplicationController < ActionController::Base
                          end
   end
 
+  def blocked_user_ids
+    return @blocked_user_ids if defined?(@blocked_user_ids)
+
+    @blocked_user_ids = if @current_user
+      Set.new(UserBlock.where(blocker: @current_user).pluck(:blocked_id))
+    else
+      Set.new
+    end
+  end
+  helper_method :blocked_user_ids
+
+  # Bidirectional: all user IDs involved in a block with the current user (either direction).
+  # Used by feed items which are hidden in both directions.
+  def block_related_user_ids
+    return @block_related_user_ids if defined?(@block_related_user_ids)
+
+    @block_related_user_ids = if @current_user
+      ids = UserBlock
+        .where("blocker_id = :uid OR blocked_id = :uid", uid: @current_user.id)
+        .pluck(:blocker_id, :blocked_id)
+        .flatten - [@current_user.id]
+      Set.new(ids)
+    else
+      Set.new
+    end
+  end
+  helper_method :block_related_user_ids
+
   def load_unread_notification_count
     return @unread_notification_count if defined?(@unread_notification_count)
 

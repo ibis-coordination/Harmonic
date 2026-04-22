@@ -2,7 +2,11 @@
 
 <% if resource.backlinks.any? -%>
 <% resource.backlinks.each do |r| -%>
+<% if r.respond_to?(:created_by_id) && blocked_user_ids.include?(r.created_by_id) -%>
+* *[Link from a user you have blocked]*
+<% else -%>
 * <%= r.class.name %>: [<%= r.respond_to?(:title) ? r.title : "#{r.class.name} #{r.truncated_id}" %>](<%= r.path %>)
+<% end -%>
 <% end -%>
 <% else -%>
 No backlinks yet.

@@ -11,6 +11,7 @@
     <p class="no-comments">No comments yet.</p>
   <% end %>
 
+  <% if @current_user && !(commentable.respond_to?(:created_by) && commentable.created_by && UserBlock.between?(@current_user, commentable.created_by)) %>
   <div class="comment-form">
     <%= form_with url: "#{commentable.path}/comments", method: :post, local: true, class: "new-comment-form" do |form| %>
       <div class="form-group mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
@@ -22,4 +23,5 @@
       </div>
     <% end %>
   </div>
+  <% end %>
 <% end %>

@@ -44,11 +44,24 @@
 
   <%# Voting Options Section (shown when decision is open) %>
   <% unless @decision.closed? %>
-    <div class="pulse-acceptance-voting-section">
-      <%= render 'shared/pulse_accordion', title: @options_header, open: true do %>
-        <%= render 'options_section' %>
-      <% end %>
-    </div>
+    <% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) %>
+      <div class="pulse-acceptance-voting-section">
+        <p class="pulse-body-text-muted" style="padding: 12px 0;">
+          <%= octicon 'blocked', height: 14 %>
+          <% if @current_user.blocked?(@decision.created_by) %>
+            Voting is unavailable because you have blocked the author of this decision.
+          <% else %>
+            Voting is unavailable because you have been blocked by the author of this decision.
+          <% end %>
+        </p>
+      </div>
+    <% else %>
+      <div class="pulse-acceptance-voting-section">
+        <%= render 'shared/pulse_accordion', title: @options_header, open: true do %>
+          <%= render 'options_section' %>
+        <% end %>
+      </div>
+    <% end %>
   <% end %>
 
   <%# Results Section %>

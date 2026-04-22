@@ -328,3 +328,12 @@
 .pulse-commitment-progress {
   margin-top: 12px;
 }
+
+/* Blocked content placeholders */
+.pulse-comment-blocked-placeholder {
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}

@@ -14,6 +14,8 @@
             created_by: feed_item[:created_by],
             created_at: feed_item[:created_at],
             current_user: @current_user,
+            blocked_user_ids: blocked_user_ids,
+            block_related_user_ids: block_related_user_ids,
           ) %>
         <% end %>
       </div>

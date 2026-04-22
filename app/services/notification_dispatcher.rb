@@ -333,6 +333,9 @@ class NotificationDispatcher
   # rubocop:disable Metrics/ParameterLists
   def self.notify_user(event:, recipient:, notification_type:, title:, body: nil, url: nil)
     # rubocop:enable Metrics/ParameterLists
+    # Suppress notifications when recipient has blocked the actor
+    return if event.actor_id && T.unsafe(event).actor && UserBlock.between?(recipient, T.unsafe(event).actor)
+
     channels = channels_for_user(recipient, notification_type)
     return if channels.empty?
 
