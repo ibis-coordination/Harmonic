@@ -182,12 +182,11 @@ class NotesController < ApplicationController
   def actions_index_show
     @note = current_note
     @page_title = "Actions | #{@note.title}"
-    render_actions_index({
-                           actions: [{
-                             name: "confirm_read",
-                             params_string: "()",
-                           }],
-                         })
+    route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/n/:note_id")
+    actions = (route_info&.dig(:actions) || []).select do |action|
+      ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @note })
+    end
+    render_actions_index({ actions: actions })
   end
 
   def settings

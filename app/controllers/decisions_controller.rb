@@ -264,8 +264,13 @@ class DecisionsController < ApplicationController
   end
 
   def actions_index_show
-    @page_title = "Actions | #{current_decision.question}"
-    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/d/:decision_id'))
+    @decision = current_decision
+    @page_title = "Actions | #{@decision.question}"
+    route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/d/:decision_id")
+    actions = (route_info&.dig(:actions) || []).select do |action|
+      ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @decision })
+    end
+    render_actions_index({ actions: actions })
   end
 
   def describe_create_decision

@@ -122,7 +122,38 @@ module ActionAuthorization
     # Then check trustee grant restrictions
     return false unless trustee_authorized?(user, action_name, context)
 
+    # Then check user block restrictions
+    return false if blocked_from_action?(user, action_name, context)
+
     true
+  end
+
+  # Actions that require interaction with a resource author and should
+  # be denied when a block exists between the user and the author.
+  BLOCK_CHECKED_ACTIONS = T.let(%w[
+    confirm_read add_comment
+    vote add_options
+    join_commitment
+  ].freeze, T::Array[String])
+
+  # Check if a user is blocked from performing an action on a resource.
+  # Permissive when no resource is in context (for action listings without a specific resource).
+  sig do
+    params(
+      user: T.untyped,
+      action_name: String,
+      context: T::Hash[Symbol, T.untyped]
+    ).returns(T::Boolean)
+  end
+  def self.blocked_from_action?(user, action_name, context)
+    return false unless BLOCK_CHECKED_ACTIONS.include?(action_name)
+    return false unless user
+
+    resource = context[:resource]
+    return false unless resource
+    return false unless resource.respond_to?(:created_by) && resource.created_by
+
+    UserBlock.between?(user, resource.created_by)
   end
 
   # Check if a trustee user is authorized for this action.

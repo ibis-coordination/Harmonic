@@ -105,8 +105,13 @@ class CommitmentsController < ApplicationController
   end
 
   def actions_index_show
-    @page_title = "Actions | #{current_commitment.title}"
-    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/c/:commitment_id'))
+    @commitment = current_commitment
+    @page_title = "Actions | #{@commitment.title}"
+    route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/c/:commitment_id")
+    actions = (route_info&.dig(:actions) || []).select do |action|
+      ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @commitment })
+    end
+    render_actions_index({ actions: actions })
   end
 
   def describe_create_commitment
