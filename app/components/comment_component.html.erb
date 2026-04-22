@@ -38,7 +38,7 @@
     <div class="pulse-comment-reply-context">
       <%= helpers.octicon "reply", height: 12 %>
       Replying to
-      <a href="#n-<%= @comment.commentable.truncated_id %>">@<%= @comment.commentable.created_by.handle %></a>
+      <a href="#n-<%= @comment.commentable.truncated_id %>">@<%= @comment.commentable.created_by&.handle || "unknown" %></a>
       <span class="pulse-reply-quote"><%= helpers.truncate(@comment.commentable.text, length: 60) %></span>
     </div>
   <% end %>
