@@ -30,7 +30,7 @@
       <% end %>
       <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.ai_agent? %>
         <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
-          <summary class="pulse-action-btn" style="cursor: pointer; list-style: none;" title="More actions">
+          <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
             <%= octicon 'kebab-horizontal', height: 14 %>
           </summary>
           <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">

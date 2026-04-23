@@ -21,18 +21,34 @@
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      <%= render 'shared/pulse_pin_button', resource: @decision, is_pinned: @is_pinned %>
       <% if @decision.can_edit_settings?(@current_user) %>
         <%= link_to "#{@decision.path}/settings", class: 'pulse-action-btn' do %>
           <%= octicon 'gear', height: 14 %>
           Settings
         <% end %>
       <% end %>
-      <% if @current_user && @decision.created_by_id != @current_user.id && !@already_reported %>
-        <%= link_to "#{@decision.path}/report", class: 'pulse-action-btn-secondary' do %>
-          <%= octicon 'report', height: 14 %>
-          Report
-        <% end %>
+      <% show_pin = @current_user %>
+      <% show_report = @current_user && @decision.created_by_id != @current_user.id && !@already_reported %>
+      <% if show_pin || show_report %>
+        <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
+          <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
+            <%= octicon 'kebab-horizontal', height: 14 %>
+          </summary>
+          <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
+            <ul>
+              <% if show_pin %>
+                <li><%= render 'shared/pulse_pin_button', resource: @decision, is_pinned: @is_pinned %></li>
+              <% end %>
+              <% if show_report %>
+                <li>
+                  <%= link_to "#{@decision.path}/report" do %>
+                    <%= octicon 'report', height: 14 %> Report
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </details>
       <% end %>
     <% end
   end %>

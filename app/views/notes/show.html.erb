@@ -26,20 +26,34 @@
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      <% unless @current_collective.is_main_collective? %>
-        <%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %>
-      <% end %>
       <% if @note.user_can_edit?(@current_user) %>
         <%= link_to "#{@note.path}/edit", class: 'pulse-action-btn' do %>
           <%= octicon 'pencil', height: 14 %>
           Edit
         <% end %>
       <% end %>
-      <% if @current_user && @note.created_by_id != @current_user.id && !@already_reported %>
-        <%= link_to "#{@note.path}/report", class: 'pulse-action-btn-secondary' do %>
-          <%= octicon 'report', height: 14 %>
-          Report
-        <% end %>
+      <% show_pin = @current_user && !@current_collective.is_main_collective? %>
+      <% show_report = @current_user && @note.created_by_id != @current_user.id && !@already_reported %>
+      <% if show_pin || show_report %>
+        <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
+          <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
+            <%= octicon 'kebab-horizontal', height: 14 %>
+          </summary>
+          <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
+            <ul>
+              <% if show_pin %>
+                <li><%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %></li>
+              <% end %>
+              <% if show_report %>
+                <li>
+                  <%= link_to "#{@note.path}/report" do %>
+                    <%= octicon 'report', height: 14 %> Report
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </details>
       <% end %>
     <% end
   end %>
