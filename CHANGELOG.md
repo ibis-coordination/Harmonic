@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-04-23
+
+### Added
+
+- User blocking — users can block/unblock others from profile pages. Blocked users' content is hidden, interactions (comments, @mentions, votes, joins) are prevented. Blocks are tenant-wide. Manage blocks from user settings.
+- Content deletion — soft delete with text scrubbing for notes, decisions, and commitments via `SoftDeletable` concern. Deleted content shows a tombstone. Creators and admins can delete.
+- Content reporting — users can report harmful content (notes, decisions, commitments) for moderator review. Reports follow the actions pattern with `report_content` action on each resource controller. Content snapshot preserved at report time. "Also block" option on report form.
+- Admin moderation queue at `/app-admin/reports` — report detail with content snapshot, reporter info, author report history, review form, and delete-from-report. Pending report count on app admin dashboard.
+- Account security reset — combined admin action: force password reset, revoke all sessions, delete API tokens. For compromised account response.
+- Session revocation via `sessions_revoked_at` timestamp on users. Existing sessions older than the timestamp are force-logged-out on next request.
+- `AdminAccessControlTest` — route-enumerating access control tests that automatically cover any new routes added to admin controllers, enforcing strict sys_admin/app_admin/tenant_admin boundaries.
+- `delete_note`, `delete_decision`, `delete_commitment`, `report_content` added to `AI_AGENT_GRANTABLE_ACTIONS` in capability check.
+- Kebab menu on content show pages (notes, decisions, commitments) for pin and report actions.
+- Security policy (`SECURITY.md`), build overlay, and hotfix workflow.
+- Safety documentation (`docs/SAFETY.md`) covering the user safety feature set and moderation tools.
+
+### Changed
+
+- Pin and report buttons moved behind kebab dropdown menu on content show pages, matching the block button pattern on user profiles.
+- Kebab menu buttons use secondary style (`pulse-action-btn-secondary`) for consistency with adjacent action buttons.
+- `pulse-action-btn-secondary` style reset when inside `top-menu` dropdown (no border/padding).
+- Security audit log dashboard fixed: event type column, badge colors, and details column now display correctly.
+- API base controller returns proper 404 JSON for nil resources instead of raising `NoMethodError`.
+
+### Security
+
+- Admin controller boundaries enforced as inviolable: `AppAdminController` (app_admin only), `SystemAdminController` (sys_admin only), `TenantAdminController` (tenant admin only). No exceptions to `ensure_*_admin` before_actions.
+- Block enforcement returns 404 (not 403) to avoid revealing block existence.
+- Content snapshots preserved at report time so evidence survives edits and deletions.
+- All admin moderation queries use `unscoped_for_admin` or `tenant_scoped_only` (no raw `.unscoped`).
+
 ## [1.6.0] - 2026-04-20
 
 ### Added
