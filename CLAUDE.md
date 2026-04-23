@@ -1,246 +1,119 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
-## Quick Reference
+## Related Docs
 
-**For design philosophy and decisions**: Read [PHILOSOPHY.md](PHILOSOPHY.md)
-**For architecture details**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-**For detailed AI agent context**: Read [AGENTS.md](AGENTS.md)
-**For agent-runner service**: Read [docs/AGENT_RUNNER.md](docs/AGENT_RUNNER.md)
-**For automation system setup**: Read [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md)
-**For codebase patterns comparison**: Read [docs/CODEBASE_PATTERNS.md](docs/CODEBASE_PATTERNS.md)
-**For UI styling patterns**: Read [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md)
+- [PHILOSOPHY.md](PHILOSOPHY.md) — Design philosophy and decisions
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Architecture details
+- [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) — UI styling patterns (live reference at `/dev/styleguide`)
+- [docs/AGENT_RUNNER.md](docs/AGENT_RUNNER.md) — Agent-runner service
+- [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md) — Automation system
 
 ## Common Commands
 
-All commands run inside Docker containers. The app must be running first.
+All commands run inside Docker containers. The app must be running first (`./scripts/start.sh` / `./scripts/stop.sh`).
 
 ```bash
-# Start/stop the app
-./scripts/start.sh
-./scripts/stop.sh
+# Tests
+./scripts/run-tests.sh                                                    # All tests
+docker compose exec web bundle exec rails test test/models/note_test.rb   # Single file
+docker compose exec web bundle exec rails test test/models/note_test.rb:42  # Specific test
+docker compose exec js npm test                                           # Frontend tests
 
-# Run all tests
-./scripts/run-tests.sh
+# Code quality
+docker compose exec web bundle exec rubocop          # Linter (rubocop -a to auto-fix)
+docker compose exec web bundle exec srb tc            # Sorbet type checker
+docker compose exec js npm run typecheck              # TypeScript type checker
 
-# Run a single test file
-docker compose exec web bundle exec rails test test/models/note_test.rb
+# Utilities
+./scripts/rails-c.sh                                  # Rails console
+./scripts/generate-erd.sh                             # ERD diagram
 
-# Run a specific test by line number
-docker compose exec web bundle exec rails test test/models/note_test.rb:42
-
-# Run a specific test by name
-docker compose exec web bundle exec rails test test/models/note_test.rb -n test_method_name
-
-# Run tests with coverage report
-docker compose exec web env COVERAGE=true bundle exec rails test
-
-# Rails console
-./scripts/rails-c.sh
-
-# Run RuboCop linter
-docker compose exec web bundle exec rubocop
-
-# Auto-fix RuboCop issues
-docker compose exec web bundle exec rubocop -a
-
-# Run Sorbet type checker
-docker compose exec web bundle exec srb tc
-
-# Run TypeScript type checker
-docker compose exec js npm run typecheck
-
-# Run frontend tests
-docker compose exec js npm test
-
-# Agent-runner (run from agent-runner/ directory)
-cd agent-runner && npm test        # Run tests
-cd agent-runner && npm run typecheck  # Type check
-cd agent-runner && npm run build   # Build
-
-# Generate ERD diagram
-./scripts/generate-erd.sh
+# Agent-runner (from agent-runner/ directory)
+cd agent-runner && npm test && npm run typecheck && npm run build
 ```
 
-## Code Style
+## Code Style (Ruby)
 
-### Ruby (Backend)
-- **Strings**: Use double quotes (`"string"`)
-- **Arrays/Hashes**: Use trailing commas in multiline literals
-- **Line length**: Max 150 characters
-- **Linter**: RuboCop with configuration in `.rubocop.yml`
+- Double quotes, trailing commas in multiline literals, max 150 char lines
+- RuboCop config in `.rubocop.yml`
 
-## Architecture Overview
+## Architecture
 
 **Tech stack**: Rails 7.2, Ruby 3.3.7, PostgreSQL, Redis/Sidekiq, Hotwire (Turbo + Stimulus)
 
-### Multi-Tenancy Pattern
+### Multi-Tenancy
 
-Subdomain-based multi-tenancy using thread-local variables:
-- `Tenant.current_id` and `Collective.current_id` are set via thread-local variables
-- Models use `default_scope { where(tenant_id: Tenant.current_id, collective_id: Collective.current_id) }` pattern in `ApplicationRecord`
-- New records auto-populate `tenant_id` and `collective_id` via `before_validation`
+Subdomain-based multi-tenancy via thread-local `Tenant.current_id` and `Collective.current_id`. Models auto-scope queries and auto-populate IDs on new records via `ApplicationRecord`.
 
-### Tenant Safety: Banned `.unscoped` Usage
+**Direct `.unscoped` calls are banned.** Use safe alternatives:
 
-**Direct `.unscoped` calls are banned** to prevent accidental cross-tenant data leaks. Use these safe alternatives:
+| Method | Use Case |
+|--------|----------|
+| `Model.tenant_scoped_only(tenant_id)` | Cross-collective access within a tenant |
+| `Model.unscoped_for_admin(user)` | Admin operations (requires admin role) |
+| `Model.unscoped_for_system_job` | Background jobs (requires nil tenant) |
+| `Model.for_user_across_tenants(user)` | User's own data across tenants |
 
-| Method | Use Case | Runtime Check |
-|--------|----------|---------------|
-| `Model.tenant_scoped_only(tenant_id)` | Cross-collective access within a tenant | Requires non-nil tenant_id (defaults to `Tenant.current_id`) |
-| `Model.unscoped_for_admin(user)` | Admin operations | Requires `app_admin?` or `sys_admin?` |
-| `Model.unscoped_for_system_job` | Background jobs | Requires `Tenant.current_id.nil?` |
-| `Model.for_user_across_tenants(user)` | User's own data across tenants | Requires model has `user_id` column |
+Models without tenant scoping: `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`, `StripeCustomer`
 
-**Models without tenant scoping** (no restrictions): `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`, `StripeCustomer`
+### Authentication
 
-**Static analysis**: Run `./scripts/check-tenant-safety.sh` to detect banned usage. This runs automatically in pre-commit hooks and CI.
+Configured via `AUTH_MODE` env var: `oauth` (production) or `honor_system` (development only — blocked in production). Session timeouts: 24-hour absolute, 2-hour idle (configurable via `SESSION_ABSOLUTE_TIMEOUT`, `SESSION_IDLE_TIMEOUT`). TOTP 2FA available for email/password users. User types: `human`, `ai_agent`, `collective_identity` (see [docs/USER_TYPES.md](docs/USER_TYPES.md)).
 
+### Core Domain Models
 
-### Core Domain Models (OODA Loop)
+| Model | Purpose | | Model | Purpose |
+|-------|---------|--|-------|---------|
+| `Note` | Posts/content | | `Cycle` | Time-bounded activity windows |
+| `Decision` | Acceptance voting | | `Link` | Bidirectional references |
+| `Commitment` | Action pledges with critical mass | | | |
 
-| Model | Purpose | OODA Phase |
-|-------|---------|------------|
-| `Note` | Posts/content | Observe |
-| `Decision` | Acceptance voting | Decide |
-| `Commitment` | Action pledges with critical mass | Act |
-| `Cycle` | Time-bounded activity windows | Orient |
-| `Link` | Bidirectional references | Orient |
+Shared concerns: `HasTruncatedId`, `Linkable`, `Pinnable`, `Attachable`, `Commentable`
 
-### Shared Model Concerns
+### Dual Interface
 
-- `HasTruncatedId` - Short 8-char IDs for URLs (e.g., `/n/a1b2c3d4`)
-- `Linkable` - Bidirectional linking between content
-- `Pinnable` - Content can be pinned to collective
-- `Attachable` - File attachments
-- `Commentable` - Comments (which are Notes)
-
-### Key Services
-
-- `ApiHelper` (app/services/api_helper.rb) - Central business logic for CRUD operations
-- `DecisionParticipantManager` / `CommitmentParticipantManager` - Participation logic
-
-### Dual Interface Pattern
-
-The app serves two parallel interfaces:
-1. HTML/browser UI for humans
-2. Markdown + API actions for LLMs (same routes with `Accept: text/markdown`)
+The app serves HTML for humans and Markdown + API actions for LLMs (same routes, `Accept: text/markdown`). RESTful JSON API at `/api/v1/` with token-based auth (scopes: `read`, `write`).
 
 ## Testing
 
-### Backend (Ruby)
-- Framework: Minitest
-- Coverage threshold: 45% line, 25% branch (CI enforces this)
-- Test helpers: `create_tenant_collective_user`, `create_note`, `create_decision`, etc. in `test/test_helper.rb`
-- Integration tests use `sign_in_as(user, tenant:)` helper
-
-### Frontend (TypeScript)
-- Framework: Vitest with jsdom
-- Test files: `app/javascript/**/*.test.ts`
-- Run tests: `docker compose exec js npm test`
-- Watch mode: `docker compose exec js npm run test:watch`
-
-### End-to-End (Playwright)
-- Framework: Playwright
-- Test files: `e2e/tests/**/*.spec.ts`
-- Requires: App running with `AUTH_MODE=honor_system`
-- Run tests: `npm run test:e2e` or `./scripts/run-e2e.sh`
-- Run with UI: `npm run test:e2e:ui`
-- Run headed: `npm run test:e2e:headed`
-- Run specific test: `npm run test:e2e -- e2e/tests/auth/login.spec.ts`
-- Install browsers: `npm run playwright:install`
-
-### Manual testing
-- Framework: checklists
-- Instruction/checklist files: `test/manual/**/*.manual_test.md`
-- Run tests: use MCP server to connect to the app's markdown UI, follow instructions in test file, verify checklist items
+- **Backend**: Minitest. Helpers in `test/test_helper.rb` (`create_tenant_collective_user`, `sign_in_as`, etc.). Coverage: 45% line / 25% branch minimum.
+- **Frontend**: Vitest with jsdom. Files: `app/javascript/**/*.test.ts`
+- **E2E**: Playwright. Files: `e2e/tests/**/*.spec.ts`. Run: `./scripts/run-e2e.sh`
+- **Manual**: Checklists in `test/manual/**/*.manual_test.md`
 
 ### Playwright MCP Browser Testing
-When using the Playwright MCP tools to interact with the app in a browser:
-- **Base URL**: Always use `https://app.harmonic.local` as the base domain
-- The app uses subdomain-based multi-tenancy, so `localhost:3000` will not work
-- **Do NOT use honor_system auth mode** - the e2e tests show how to properly log in
 
-**Setup (run once if needed):**
+Base URL: `https://app.harmonic.local` (not localhost — subdomain-based tenancy).
+
+**Setup:** `docker compose exec web bundle exec rake e2e:setup`
+
+**Login:** Navigate to `/login`, fill `input[name="auth_key"]` with `e2e-test@example.com`, `input[name="password"]` with `e2e-test-password-14chars`, click Log in. See `e2e/helpers/auth.ts` for reference.
+
+## Static Analysis
+
+These run in pre-commit hooks and CI:
+
 ```bash
-docker compose exec web bundle exec rake e2e:setup
+./scripts/check-tenant-safety.sh    # Banned .unscoped usage
+./scripts/check-debug-code.sh       # Debug code (binding.pry, console.log, etc.)
+./scripts/check-secrets.sh          # Potential secrets/API keys
+./scripts/check-style-guide.sh      # Hardcoded colors / naming in Pulse CSS
+./scripts/check-job-inheritance.sh  # Job base class inheritance
 ```
-This creates a test user with identity provider authentication.
-
-**Login credentials:**
-- Email: `e2e-test@example.com` (or `E2E_TEST_EMAIL` env var)
-- Password: `e2e-test-password-14chars` (or `E2E_TEST_PASSWORD` env var)
-
-**Login flow:**
-1. Navigate to `https://app.harmonic.local/login`
-2. Wait for redirect to auth subdomain
-3. Fill `input[name="auth_key"]` with email
-4. Fill `input[name="password"]` with password
-5. Click the Log in button
-6. Wait for redirect back to app subdomain
-
-**Reference:** See `e2e/helpers/auth.ts` for the canonical login implementation and `e2e/tests/` for examples.
 
 ## Environment Variables
 
-Key variables (see `.env.example`):
-- `AUTH_MODE`: `oauth` (production) or `honor_system` (development)
-- `HOSTNAME`: Base domain
-- `PRIMARY_SUBDOMAIN`: Main tenant subdomain
-
-## Static Analysis Checks
-
-These checks run in pre-commit hooks and CI:
-
-```bash
-# Check for banned .unscoped usage (tenant safety)
-./scripts/check-tenant-safety.sh
-
-# Check only staged files (used by pre-commit hook)
-./scripts/check-tenant-safety.sh --staged
-
-# Check for debug code (binding.pry, console.log, etc.)
-./scripts/check-debug-code.sh
-
-# Check for potential secrets/API keys
-./scripts/check-secrets.sh
-
-# Check for style guide violations in Pulse CSS
-./scripts/check-style-guide.sh
-```
-
-## TODO Management
-
-When modifying TODO comments, update `docs/TODO_INDEX.md`:
-```bash
-./scripts/check-todo-index.sh --list   # See all TODOs
-./scripts/check-todo-index.sh --all    # Check sync status
-```
+See `.env.example`. Key vars: `AUTH_MODE` (oauth/honor_system), `HOSTNAME`, `PRIMARY_SUBDOMAIN`.
 
 ## Plan Documents
 
-When creating implementation plans, store them in `.claude/plans/` with descriptive names:
-- Active plans: `.claude/plans/PLAN_NAME.md`
-- Completed plans: `.claude/plans/completed/YYYY/MM/PLAN_NAME.md`
-- Plans should document goals, architecture decisions, and implementation phases
-- When a plan is completed, move it to the appropriate `completed/YYYY/MM/` subdirectory
+Store in `.claude/plans/`. Move completed plans to `.claude/plans/completed/YYYY/MM/`.
 
 ## Destructive Operations
 
-**NEVER delete the database or Docker volumes without explicit user confirmation.** This includes:
-- `docker compose down -v` (removes all volumes including database)
-- `docker volume rm` on `pg_data` or similar database volumes
-- `rails db:drop` or `rails db:reset`
-- Any command that would destroy persistent data
-
-If you need to fix a volume issue (e.g., stale gems), target only the specific volume:
-```bash
-docker volume rm harmonicteam_gem_cache  # OK - only removes gems
-docker compose down -v                    # DANGEROUS - removes database too
-```
-
-Always ask the user before running destructive commands.
+**NEVER delete the database or Docker volumes without explicit user confirmation.** This includes `docker compose down -v`, `docker volume rm` on database volumes, and `rails db:drop`. Target specific volumes when fixing issues (e.g., `docker volume rm harmonicteam_gem_cache`).
 
 ## Other
 

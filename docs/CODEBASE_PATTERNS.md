@@ -40,7 +40,7 @@ This document compares the patterns in this codebase to common patterns seen in 
 - Strong typing (Sorbet + TypeScript strict mode)
 - Consistent code style
 - Thorough test helpers
-- Good documentation (CLAUDE.md, PHILOSOPHY.md, AGENTS.md)
+- Good documentation (CLAUDE.md, PHILOSOPHY.md)
 
 **Common challenges**:
 - Large controller (`ApplicationController` at ~600 lines)
