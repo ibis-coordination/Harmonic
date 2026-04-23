@@ -329,7 +329,7 @@ class CommitmentsController < ApplicationController
     begin
       api_helper.delete_commitment
       redirect_to(@current_collective.path || "/", notice: "Commitment deleted.")
-    rescue ActiveRecord::RecordInvalid => e
+    rescue ActiveRecord::RecordInvalid
       render 'shared/403', status: :forbidden
     end
   end

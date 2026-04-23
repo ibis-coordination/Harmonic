@@ -292,7 +292,7 @@ class NotesController < ApplicationController
       else
         redirect_to(@current_collective.path || "/", notice: "Note deleted.")
       end
-    rescue ActiveRecord::RecordInvalid => e
+    rescue ActiveRecord::RecordInvalid
       render "shared/403", status: :forbidden
     end
   end

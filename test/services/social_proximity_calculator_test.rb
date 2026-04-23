@@ -526,6 +526,7 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
     # Without block: user2 reachable via user1 as bridge
     calc_before = SocialProximityCalculator.new(@user, tenant_id: @tenant.id)
     scores_before = calc_before.compute
+    assert scores_before[user2.id].present?, "User2 should be reachable via bridge before block"
 
     # Block user1 — now user2 should be unreachable
     UserBlock.create!(blocker: @user, blocked: user1, tenant: @tenant)

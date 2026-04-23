@@ -336,7 +336,7 @@ class DecisionsController < ApplicationController
     begin
       api_helper.delete_decision
       redirect_to(@current_collective.path || "/", notice: "Decision deleted.")
-    rescue ActiveRecord::RecordInvalid => e
+    rescue ActiveRecord::RecordInvalid
       render 'shared/403', status: :forbidden
     end
   end

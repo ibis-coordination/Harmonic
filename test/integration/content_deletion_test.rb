@@ -108,8 +108,8 @@ class ContentDeletionTest < ActionDispatch::IntegrationTest
 
   test "pulse feed renders without error when comment parent is deleted" do
     parent = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Parent")
-    comment = create_note(tenant: @tenant, collective: @collective, created_by: @other_user,
-                          text: "Orphaned comment", commentable: parent)
+    create_note(tenant: @tenant, collective: @collective, created_by: @other_user,
+                text: "Orphaned comment", commentable: parent)
     parent.soft_delete!(by: @user)
 
     get "/collectives/#{@collective.handle}",
