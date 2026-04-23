@@ -298,6 +298,25 @@ class ApiHelper
     perform_soft_delete!(commitment)
   end
 
+  def report_content(resource)
+    report = ContentReport.new(
+      reporter: current_user,
+      reportable: resource,
+      reason: params[:reason],
+      description: params[:description],
+      content_snapshot: resource.content_snapshot.to_json,
+    )
+    report.save!
+
+    if params[:also_block] == "1"
+      unless UserBlock.where(blocker: current_user, blocked: resource.created_by, tenant_id: Tenant.current_id).exists?
+        UserBlock.create!(blocker: current_user, blocked: resource.created_by, tenant_id: Tenant.current_id)
+      end
+    end
+
+    report
+  end
+
   sig { returns(NoteHistoryEvent) }
   def confirm_read
     note = current_resource

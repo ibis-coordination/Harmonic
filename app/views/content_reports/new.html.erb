@@ -11,9 +11,36 @@
 </div>
 
 <div class="pulse-form-container">
-  <%= form_tag content_reports_path, method: :post, class: "pulse-form" do %>
-    <%= hidden_field_tag :reportable_type, @reportable_type %>
-    <%= hidden_field_tag :reportable_id, @reportable_id %>
+  <% if @reportable %>
+    <div class="pulse-card" style="margin-bottom: 1rem;">
+      <table class="pulse-table">
+        <tbody>
+          <tr>
+            <td><strong>Type</strong></td>
+            <td><span class="pulse-badge pulse-badge-muted"><%= @reportable_type %></span></td>
+          </tr>
+          <tr>
+            <td><strong>Author</strong></td>
+            <td><%= @reportable.created_by.name %></td>
+          </tr>
+          <tr>
+            <td><strong>Content</strong></td>
+            <td>
+              <% if @reportable.respond_to?(:text) && @reportable.text.present? %>
+                <%= truncate(@reportable.text, length: 500) %>
+              <% elsif @reportable.respond_to?(:question) %>
+                <%= truncate(@reportable.question, length: 500) %>
+              <% elsif @reportable.respond_to?(:title) %>
+                <%= truncate(@reportable.title, length: 500) %>
+              <% end %>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+
+  <%= form_tag "#{@reportable.path}/actions/report_content", method: :post, class: "pulse-form" do %>
 
     <div class="pulse-form-group">
       <label class="pulse-form-label">Reason</label>
@@ -30,6 +57,18 @@
       <textarea name="description" class="pulse-form-textarea" rows="4"
                 placeholder="Provide any additional context about why you're reporting this content..."></textarea>
     </div>
+
+    <% if @reportable && @reportable.created_by_id != @current_user&.id %>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">
+          <input type="checkbox" name="also_block" value="1">
+          Also block @<%= @reportable.created_by.handle %>
+        </label>
+        <p class="pulse-body-text-muted" style="margin-top: 0.25rem;">
+          Blocking hides their content from your view.
+        </p>
+      </div>
+    <% end %>
 
     <div class="pulse-form-actions">
       <button type="submit" class="pulse-btn pulse-btn-primary">Submit Report</button>

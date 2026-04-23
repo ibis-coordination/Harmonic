@@ -846,6 +846,18 @@ class ApplicationController < ActionController::Base
     }
   end
 
+  def set_report_vars(resource)
+    @already_reported = current_user && ContentReport.where(reporter: current_user, reportable: resource).exists?
+  end
+
+  def report_content_flash
+    if params[:also_block] == "1"
+      "Thank you for your report. The author has been blocked and our moderators will review the reported content."
+    else
+      "Thank you for reporting. Our moderators will review it."
+    end
+  end
+
   def set_pin_vars
     @pinnable = current_resource
     pin_destination = current_collective == current_tenant.main_collective ? "your profile" : "the collective homepage"

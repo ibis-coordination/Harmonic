@@ -35,5 +35,11 @@ Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
 <%= render 'shared/backlinks', resource: @note %>
 <%= render 'shared/attachments_section', resource: @note %>
 <%= render 'shared/comments_section', resource: @note %>
+<% if @current_user && @note.created_by_id != @current_user.id && !@already_reported %>
+
+---
+
+[Report this <%= @note.is_comment? ? "comment" : "note" %>](<%= @note.path %>/report)
+<% end %>
 <% end %>
 

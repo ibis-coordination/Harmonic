@@ -50,4 +50,10 @@ No participants yet.
 <%= render 'shared/backlinks', resource: @commitment %>
 <%= render 'shared/attachments_section', resource: @commitment %>
 <%= render 'shared/comments_section', resource: @commitment %>
+<% if @current_user && @commitment.created_by_id != @current_user.id && !@already_reported %>
+
+---
+
+[Report this commitment](<%= @commitment.path %>/report)
+<% end %>
 <% end %>

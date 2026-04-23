@@ -365,7 +365,8 @@ CREATE TABLE public.content_reports (
     reviewed_at timestamp(6) without time zone,
     admin_notes text,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    content_snapshot text
 );
 
 
@@ -8749,6 +8750,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260423034320'),
 ('20260422205804'),
 ('20260421012815'),
 ('20260421011455'),

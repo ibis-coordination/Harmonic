@@ -36,6 +36,17 @@
   </div>
 <% end %>
 
+<%= render 'shared/pulse_accordion', title: 'Reports', icon: 'report', count: @pending_reports_count, open: @pending_reports_count > 0 do %>
+  <p class="pulse-form-hint" style="margin-bottom: 16px;">
+    Review content reports from users. <%= @pending_reports_count %> pending.
+  </p>
+  <div class="pulse-form-actions">
+    <a href="/app-admin/reports" class="pulse-action-btn">
+      <%= octicon 'report', height: 14 %> View Reports
+    </a>
+  </div>
+<% end %>
+
 <%= render 'shared/pulse_accordion', title: 'Security', icon: 'shield', open: false do %>
   <p class="pulse-form-hint" style="margin-bottom: 16px;">
     Security audit logs and monitoring.

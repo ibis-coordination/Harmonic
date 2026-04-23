@@ -94,7 +94,9 @@ module MarkdownHelper
       current_heartbeat: instance_variable_get(:@current_heartbeat),
       user: instance_variable_get(:@current_user),
       tenant: instance_variable_get(:@current_tenant),
-      resource: instance_variable_get(:@resource),
+      resource: instance_variable_get(:@note) ||
+                instance_variable_get(:@decision) ||
+                instance_variable_get(:@commitment),
     }
   end
 end

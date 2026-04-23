@@ -452,4 +452,222 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
   end
+
+  # === Phase 5: Admin enhancements ===
+
+  test "dashboard shows pending report count" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Reported", created_by: @non_admin_user)
+    ContentReport.create!(reporter: @primary_user, reportable: note, tenant: @primary_tenant, reason: "spam")
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin"
+
+    assert_response :success
+    assert_match "Reports", response.body
+    assert_match "1", response.body
+  end
+
+  test "report detail shows content snapshot" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Original bad content", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "spam",
+      content_snapshot: note.content_snapshot.to_json,
+    )
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/reports/#{report.id}"
+
+    assert_response :success
+    assert_match "Content at time of report", response.body
+    assert_match "Original bad content", response.body
+  end
+
+  test "report detail shows snapshot when content has been deleted" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Content that will be deleted", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "harassment",
+      content_snapshot: note.content_snapshot.to_json,
+    )
+    note.soft_delete!(by: @app_admin_user)
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/reports/#{report.id}"
+
+    assert_response :success
+    assert_match "Content at time of report", response.body
+    assert_match "Content that will be deleted", response.body
+  end
+
+  # === Delete from report detail ===
+
+  test "admin can delete content from report detail" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Content to delete", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "harassment",
+      content_snapshot: note.content_snapshot.to_json,
+    )
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    post "/app-admin/reports/#{report.id}/delete-content"
+
+    assert_response :redirect
+    note.reload
+    assert note.deleted?
+    assert_equal @app_admin_user.id, note.deleted_by_id
+  end
+
+  test "delete content button shown on report detail when content not deleted" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Reported content", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "spam",
+    )
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/reports/#{report.id}"
+
+    assert_response :success
+    assert_match "Delete this content", response.body
+  end
+
+  test "delete content button not shown when content already deleted" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Already deleted", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "spam",
+      content_snapshot: note.content_snapshot.to_json,
+    )
+    note.soft_delete!(by: @app_admin_user)
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/reports/#{report.id}"
+
+    assert_response :success
+    assert_no_match(/Delete this content/, response.body)
+  end
+
+  # === Admin UI gaps ===
+
+  test "report detail links to the reported content" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Linked content", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "spam",
+    )
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/reports/#{report.id}"
+
+    assert_response :success
+    assert_match note.path, response.body
+    assert_match "View content", response.body
+  end
+
+  test "report detail shows which collective the content belongs to" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Content in collective", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "spam",
+    )
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/reports/#{report.id}"
+
+    assert_response :success
+    assert_match @primary_collective.name, response.body
+  end
+
+  test "report detail shows other report count for the reported user" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note1 = create_note(text: "First offense", created_by: @non_admin_user)
+    note2 = create_note(text: "Second offense", created_by: @non_admin_user)
+    note3 = create_note(text: "Third offense", created_by: @non_admin_user)
+    ContentReport.create!(reporter: @primary_user, reportable: note1, tenant: @primary_tenant, reason: "spam")
+    ContentReport.create!(reporter: @primary_user, reportable: note2, tenant: @primary_tenant, reason: "harassment")
+    report = ContentReport.create!(reporter: @app_admin_user, reportable: note3, tenant: @primary_tenant, reason: "inappropriate")
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/reports/#{report.id}"
+
+    assert_response :success
+    # Should show that this user has other reports against them
+    assert_match "3 reports", response.body
+  end
+
+  test "report detail allows re-review of already-reviewed report" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Reviewed content", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "spam",
+    )
+    report.review!(admin: @app_admin_user, status: "reviewed", notes: "No action needed")
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/reports/#{report.id}"
+
+    assert_response :success
+    assert_match "Update Review", response.body
+  end
+
+  test "admin can re-review a previously reviewed report" do
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)
+    note = create_note(text: "Escalated content", created_by: @non_admin_user)
+    report = ContentReport.create!(
+      reporter: @primary_user,
+      reportable: note,
+      tenant: @primary_tenant,
+      reason: "harassment",
+    )
+    report.review!(admin: @app_admin_user, status: "reviewed", notes: "No action needed")
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    post "/app-admin/reports/#{report.id}/review", params: {
+      status: "actioned",
+      admin_notes: "Escalated after further investigation",
+    }
+
+    assert_response :redirect
+    report.reload
+    assert_equal "actioned", report.status
+    assert_equal "Escalated after further investigation", report.admin_notes
+  end
 end

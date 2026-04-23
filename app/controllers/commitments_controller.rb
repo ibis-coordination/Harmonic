@@ -58,6 +58,20 @@ class CommitmentsController < ApplicationController
     @commitment_participant_name = current_user&.name
     @participants_list_limit = 10
     set_pin_vars
+    set_report_vars(@commitment)
+  end
+
+  def report
+    @commitment = current_commitment
+    return render "404", status: :not_found unless @commitment
+    return redirect_to("/login") unless @current_user
+
+    @reportable = @commitment
+    @reportable_type = "Commitment"
+    @reportable_id = @commitment.id
+    @page_title = "Report Content"
+    @sidebar_mode = "resource"
+    render "content_reports/new"
   end
 
   def status_partial
@@ -136,6 +150,25 @@ class CommitmentsController < ApplicationController
         action_name: 'create_commitment',
         error: e.message,
       })
+    end
+  end
+
+  def describe_report_content
+    render_action_description(ActionsHelper.action_description("report_content", resource: current_commitment))
+  end
+
+  def report_content_action
+    return render "404", status: :not_found unless current_commitment
+
+    api_helper.report_content(current_commitment)
+    respond_to do |format|
+      format.html { redirect_to current_commitment.path, notice: report_content_flash }
+      format.md { render_action_success({ action_name: "report_content", resource: current_commitment, result: report_content_flash }) }
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    respond_to do |format|
+      format.html { redirect_to current_commitment.path, alert: e.record.errors.full_messages.join(", ") }
+      format.md { render_action_error({ action_name: "report_content", resource: current_commitment, error: e.message }) }
     end
   end
 

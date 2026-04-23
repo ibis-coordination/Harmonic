@@ -85,6 +85,20 @@ class DecisionsController < ApplicationController
     @votes = current_votes
     set_results_view_vars
     set_pin_vars
+    set_report_vars(@decision)
+  end
+
+  def report
+    @decision = current_decision
+    return render "404", status: :not_found unless @decision
+    return redirect_to("/login") unless @current_user
+
+    @reportable = @decision
+    @reportable_type = "Decision"
+    @reportable_id = @decision.id
+    @page_title = "Report Content"
+    @sidebar_mode = "resource"
+    render "content_reports/new"
   end
 
   def settings
@@ -282,6 +296,25 @@ class DecisionsController < ApplicationController
     @page_title = 'Create Decision'
     @page_description = 'Create a new decision'
     render_action_description(ActionsHelper.action_description("create_decision"))
+  end
+
+  def describe_report_content
+    render_action_description(ActionsHelper.action_description("report_content", resource: current_decision))
+  end
+
+  def report_content_action
+    return render "404", status: :not_found unless current_decision
+
+    api_helper.report_content(current_decision)
+    respond_to do |format|
+      format.html { redirect_to current_decision.path, notice: report_content_flash }
+      format.md { render_action_success({ action_name: "report_content", resource: current_decision, result: report_content_flash }) }
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    respond_to do |format|
+      format.html { redirect_to current_decision.path, alert: e.record.errors.full_messages.join(", ") }
+      format.md { render_action_error({ action_name: "report_content", resource: current_decision, error: e.message }) }
+    end
   end
 
   def describe_add_options

@@ -61,4 +61,10 @@ No voters yet.
 <%= render 'shared/backlinks', resource: @decision %>
 <%= render 'shared/attachments_section', resource: @decision %>
 <%= render 'shared/comments_section', resource: @decision %>
+<% if @current_user && @decision.created_by_id != @current_user.id && !@already_reported %>
+
+---
+
+[Report this decision](<%= @decision.path %>/report)
+<% end %>
 <% end %>

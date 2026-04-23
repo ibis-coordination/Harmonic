@@ -35,6 +35,12 @@
           Edit
         <% end %>
       <% end %>
+      <% if @current_user && @note.created_by_id != @current_user.id && !@already_reported %>
+        <%= link_to "#{@note.path}/report", class: 'pulse-action-btn-secondary' do %>
+          <%= octicon 'report', height: 14 %>
+          Report
+        <% end %>
+      <% end %>
     <% end
   end %>
 

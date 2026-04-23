@@ -158,9 +158,6 @@ Rails.application.routes.draw do
   # User blocks
   resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"
 
-  # Content reports
-  resources :content_reports, only: [:new, :create], path: "content-reports"
-
   # Notifications
   get 'notifications' => 'notifications#index'
   get 'notifications/new' => 'notifications#new'
@@ -242,6 +239,7 @@ Rails.application.routes.draw do
   get 'app-admin/reports' => 'app_admin#reports'
   get 'app-admin/reports/:id' => 'app_admin#show_report', as: 'app_admin_report'
   post 'app-admin/reports/:id/review' => 'app_admin#execute_review_report'
+  post 'app-admin/reports/:id/delete-content' => 'app_admin#execute_delete_reported_content'
   get 'app-admin/security' => 'app_admin#security_dashboard'
   get 'app-admin/security/events/:line_number' => 'app_admin#security_event'
 
@@ -403,9 +401,12 @@ Rails.application.routes.draw do
     get "#{prefix}/note/actions/create_note" => 'notes#describe_create_note'
     post "#{prefix}/note/actions/create_note" => 'notes#create_note'
     resources :notes, only: [:show], path: "#{prefix}/n" do
+      get '/report' => 'notes#report'
       get '/actions' => 'notes#actions_index_show'
       get '/actions/confirm_read' => 'notes#describe_confirm_read'
       post '/actions/confirm_read' => 'notes#confirm_read'
+      get '/actions/report_content' => 'notes#describe_report_content'
+      post '/actions/report_content' => 'notes#report_content_action'
       get '/actions/add_comment' => 'notes#describe_add_comment'
       post '/actions/add_comment' => 'notes#add_comment'
       post '/comments' => 'notes#create_comment'
@@ -441,6 +442,7 @@ Rails.application.routes.draw do
     get "#{prefix}/decide/actions/create_decision" => 'decisions#describe_create_decision'
     post "#{prefix}/decide/actions/create_decision" => 'decisions#create_decision'
     resources :decisions, only: [:show], path: "#{prefix}/d" do
+      get '/report' => 'decisions#report'
       get '/actions' => 'decisions#actions_index_show'
       get '/actions/add_options' => 'decisions#describe_add_options'
       post '/actions/add_options' => 'decisions#add_options'
@@ -448,6 +450,8 @@ Rails.application.routes.draw do
       post '/actions/vote' => 'decisions#vote'
       get '/actions/add_comment' => 'decisions#describe_add_comment'
       post '/actions/add_comment' => 'decisions#add_comment'
+      get '/actions/report_content' => 'decisions#describe_report_content'
+      post '/actions/report_content' => 'decisions#report_content_action'
       post '/comments' => 'decisions#create_comment'
       get '/comments.html' => 'decisions#comments_partial'
       get '/metric' => 'decisions#metric'
@@ -482,11 +486,14 @@ Rails.application.routes.draw do
     get "#{prefix}/commit/actions/create_commitment" => 'commitments#describe_create_commitment'
     post "#{prefix}/commit/actions/create_commitment" => 'commitments#create_commitment_action'
     resources :commitments, only: [:show], path: "#{prefix}/c" do
+      get '/report' => 'commitments#report'
       get '/actions' => 'commitments#actions_index_show'
       get '/actions/join_commitment' => 'commitments#describe_join_commitment'
       post '/actions/join_commitment' => 'commitments#join_commitment'
       get '/actions/add_comment' => 'commitments#describe_add_comment'
       post '/actions/add_comment' => 'commitments#add_comment'
+      get '/actions/report_content' => 'commitments#describe_report_content'
+      post '/actions/report_content' => 'commitments#report_content_action'
       get '/metric' => 'commitments#metric'
       get '/status.html' => 'commitments#status_partial'
       get '/participants.html' => 'commitments#participants_list_items_partial'

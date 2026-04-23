@@ -14,6 +14,7 @@ class NotesController < ApplicationController
     return if @note.deleted?
 
     set_pin_vars
+    set_report_vars(@note)
     @note_reader = NoteReader.new(note: @note, user: current_user)
   end
 
@@ -26,6 +27,19 @@ class NotesController < ApplicationController
     @note = Note.new(
       title: params[:title]
     )
+  end
+
+  def report
+    @note = current_note
+    return render "404", status: :not_found unless @note
+    return redirect_to("/login") unless @current_user
+
+    @reportable = @note
+    @reportable_type = "Note"
+    @reportable_id = @note.id
+    @page_title = "Report Content"
+    @sidebar_mode = "resource"
+    render "content_reports/new"
   end
 
   def edit
@@ -126,6 +140,25 @@ class NotesController < ApplicationController
       format.json { render json: { success: false, error: e.message }, status: :unprocessable_entity }
       format.html { render_confirm_read_error(e.message) }
       format.md { render_confirm_read_error(e.message) }
+    end
+  end
+
+  def describe_report_content
+    render_action_description(ActionsHelper.action_description("report_content", resource: current_note))
+  end
+
+  def report_content_action
+    return render "404", status: :not_found unless current_note
+
+    api_helper.report_content(current_note)
+    respond_to do |format|
+      format.html { redirect_to current_note.path, notice: report_content_flash }
+      format.md { render_action_success({ action_name: "report_content", resource: current_note, result: report_content_flash }) }
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    respond_to do |format|
+      format.html { redirect_to current_note.path, alert: e.record.errors.full_messages.join(", ") }
+      format.md { render_action_error({ action_name: "report_content", resource: current_note, error: e.message }) }
     end
   end
 

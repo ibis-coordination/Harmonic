@@ -47,6 +47,7 @@
         <td>
           <% if @content_report.reportable.present? %>
             <span class="pulse-badge pulse-badge-muted"><%= @content_report.reportable_type %></span>
+            in <strong><%= @content_report.reportable.collective.name %></strong>
             <% if @content_report.reportable.respond_to?(:text) %>
               <p style="margin-top: 0.5rem;"><%= truncate(@content_report.reportable.text, length: 500) %></p>
             <% elsif @content_report.reportable.respond_to?(:question) %>
@@ -59,11 +60,29 @@
                 </a>
               </p>
             <% end %>
+            <p style="margin-top: 0.5rem;">
+              <a href="<%= @content_report.reportable.path %>" class="pulse-link">
+                <%= octicon 'link-external', height: 12 %> View content
+              </a>
+            </p>
           <% else %>
             <span class="pulse-body-text-muted">[Content has been deleted]</span>
           <% end %>
         </td>
       </tr>
+      <% if @content_report.content_snapshot.present? %>
+        <tr>
+          <td><strong>Content at time of report</strong></td>
+          <td>
+            <% snapshot = JSON.parse(@content_report.content_snapshot) rescue {} %>
+            <% snapshot.each do |key, value| %>
+              <% if value.present? %>
+                <p><strong><%= key.titleize %>:</strong> <%= truncate(value.to_s, length: 500) %></p>
+              <% end %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
       <% if @content_report.description.present? %>
         <tr>
           <td><strong>Reporter's Description</strong></td>
@@ -90,30 +109,44 @@
   </table>
 </div>
 
-<% if @content_report.status == "pending" %>
-  <div class="pulse-card">
-    <h3>Review This Report</h3>
-    <%= form_tag "/app-admin/reports/#{@content_report.id}/review", method: :post, class: "pulse-form" do %>
-      <div class="pulse-form-group">
-        <label class="pulse-form-label">Decision</label>
-        <select name="status" class="pulse-form-select" required>
-          <option value="">Select...</option>
-          <option value="dismissed">Dismiss (not a real issue)</option>
-          <option value="actioned">Action Taken</option>
-          <option value="reviewed">Reviewed (no action needed)</option>
-        </select>
-      </div>
+<div class="pulse-card">
+  <h3><%= @content_report.status == "pending" ? "Review This Report" : "Update Review" %></h3>
+  <%= form_tag "/app-admin/reports/#{@content_report.id}/review", method: :post, class: "pulse-form" do %>
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Decision</label>
+      <select name="status" class="pulse-form-select" required>
+        <option value="">Select...</option>
+        <option value="dismissed" <%= "selected" if @content_report.status == "dismissed" %>>Dismiss (not a real issue)</option>
+        <option value="actioned" <%= "selected" if @content_report.status == "actioned" %>>Action Taken</option>
+        <option value="reviewed" <%= "selected" if @content_report.status == "reviewed" %>>Reviewed (no action needed)</option>
+      </select>
+    </div>
 
-      <div class="pulse-form-group">
-        <label class="pulse-form-label">Admin Notes</label>
-        <textarea name="admin_notes" class="pulse-form-textarea" rows="3"
-                  placeholder="Internal notes about this review decision..."></textarea>
-      </div>
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Admin Notes</label>
+      <textarea name="admin_notes" class="pulse-form-textarea" rows="3"
+                placeholder="Internal notes about this review decision..."><%= @content_report.admin_notes %></textarea>
+    </div>
 
-      <div class="pulse-form-actions">
-        <button type="submit" class="pulse-btn pulse-btn-primary">Submit Review</button>
-      </div>
-    <% end %>
+    <div class="pulse-form-actions">
+      <button type="submit" class="pulse-btn pulse-btn-primary">
+        <%= @content_report.status == "pending" ? "Submit Review" : "Update Review" %>
+      </button>
+    </div>
+  <% end %>
+</div>
+
+<% if @content_report.reportable.present? && !@content_report.reportable.deleted? %>
+  <div class="pulse-card" style="margin-top: 1rem;">
+    <h3>Actions on Reported Content</h3>
+    <p>
+      <%= form_tag "/app-admin/reports/#{@content_report.id}/delete-content", method: :post, style: "display:inline;" do %>
+        <button type="submit" class="pulse-btn pulse-btn-danger" onclick="return confirm('Are you sure you want to delete this content? This will scrub the text and cannot be undone.')">
+          <%= octicon 'trash', height: 14 %>
+          Delete this content
+        </button>
+      <% end %>
+    </p>
   </div>
 <% end %>
 
@@ -126,5 +159,10 @@
         View User: <%= @content_report.reportable.created_by.display_name || @content_report.reportable.created_by.name %>
       </a>
     </p>
+    <% if @reports_against_user_count && @reports_against_user_count > 0 %>
+      <p class="pulse-body-text-muted" style="margin-top: 0.5rem;">
+        This user has <%= @reports_against_user_count %> <%= @reports_against_user_count == 1 ? "report" : "reports" %> against their content.
+      </p>
+    <% end %>
   </div>
 <% end %>

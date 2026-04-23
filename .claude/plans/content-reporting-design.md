@@ -1,206 +1,105 @@
 # Plan: Content Reporting — Design & Implementation
 
+**Status: Implemented**
+
 ## Context
 
-The `ContentReport` model, controller, admin review queue, and routes are already in place (backend skeleton). This plan covers the **UX integration, reporter experience, and moderation workflow** needed to make reporting a real feature.
+Content reporting allows users to flag harmful content for moderator review. It builds on two prerequisites:
+1. **User blocking** — immediate self-protection
+2. **Content deletion** — soft delete with text scrubbing via `SoftDeletable` concern
 
-**Prerequisites (must be implemented first):**
-1. **User blocking** — users can block other users for immediate self-protection
-2. **Content deletion** — soft delete with text scrubbing, so admins have a tool to remove content
+When a user encounters harmful content, they can block the author (immediate, self-service) and report the content (escalation to admin). The admin can then soft-delete the content, suspend the user, or do an account security reset.
 
-Reporting builds on both: when a user encounters harmful content, they can block the author (immediate, self-service) and report the content (escalation to admin). The admin can then soft-delete the content, suspend the user, or do an account security reset.
+## Architecture
 
-## Research: Established Patterns
+### Reporting follows the actions pattern
 
-### Where the report button lives (every major platform)
-Report is always in a **contextual menu on the content itself** — close to what's being reported. Never in global nav or settings.
-- Reddit: "Report" link below each post
-- Twitter/X: three-dot menu → "Report post"
-- Discord: right-click message → "Report Message"
+Reporting is implemented as a `report_content` action on each resource controller (notes, decisions, commitments), consistent with all other user-facing operations in Harmonic. There is no standalone `ContentReportsController` — all reporting goes through the resource controllers.
 
-### Reporter feedback
-- Every platform shows immediate confirmation ("Thanks for reporting")
-- Some (Instagram, YouTube) notify the reporter when the report is resolved
-- Content stays visible while under review — premature hiding enables abuse of the report system
+**Routes:**
+- `GET /n/:id/report` — report form (HTML), rendered from `content_reports/new.html.erb`
+- `GET /n/:id/actions/report_content` — action description (markdown/actions API)
+- `POST /n/:id/actions/report_content` — submit report (HTML redirects, markdown renders action result)
+- Same pattern for `/d/:id/` (decisions) and `/c/:id/` (commitments)
 
-### Category design
-- 4–6 clear categories + "Other" with a text field is the sweet spot
-- Too many (Reddit's 14) creates decision paralysis; too few gives moderators nothing to work with
+**Business logic** is centralized in `ApiHelper#report_content(resource)`, which:
+- Creates the `ContentReport` with a `content_snapshot` (preserves reported text)
+- Optionally creates a `UserBlock` when `also_block` param is set
+- Validates via model (duplicate prevention, self-report prevention)
 
-### Procedural fairness (ACM research)
-Users perceive greater fairness when:
-1. Community guidelines are shown alongside the report form
-2. A text box for open-ended feedback is included (gives the reporter "voice")
-3. Enforcement is consistent
+### Action visibility uses conditional_actions
+
+The `report_content` action appears in the actions list only when:
+- User is authenticated
+- User is not the content author
+- User has not already reported this content
+
+This is implemented via `REPORT_CONTENT_CONDITION` lambda in `ActionsHelper`, used as a `conditional_actions` entry on all three resource show page route definitions.
+
+### Admin moderation
+
+Reports are managed at `/app-admin/reports` — **app admins only**. This follows the strict admin controller separation:
+- `SystemAdminController` — sys_admin role only
+- `AppAdminController` — app_admin role only
+- `TenantAdminController` — tenant admin role only
+
+No exceptions. Access control invariants are enforced by `AdminAccessControlTest`, which enumerates all routes for each admin controller and verifies unauthorized users are blocked.
+
+**Admin report detail page shows:**
+- Report status, reason, reporter (linked to admin user page)
+- Reported content with collective name, content preview, and "View content" link
+- Content snapshot from time of report (preserved even if content is later edited or deleted)
+- Reporter's description
+- Count of total reports against the content author
+- Review form (always visible — admins can update reviews, not just create them)
+- "Delete this content" button (soft-deletes via `SoftDeletable`, logged to `SecurityAuditLog`)
+- Link to reported user's admin page (suspend, security reset)
+
+**Pending report count** is shown on the app admin dashboard.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `app/services/api_helper.rb` | `report_content` method — business logic |
+| `app/services/actions_helper.rb` | Action definition + `REPORT_CONTENT_CONDITION` |
+| `app/models/content_report.rb` | Model with validations, reasons, statuses |
+| `app/controllers/notes_controller.rb` | `report`, `describe_report_content`, `report_content_action` |
+| `app/controllers/decisions_controller.rb` | Same pattern |
+| `app/controllers/commitments_controller.rb` | Same pattern |
+| `app/controllers/app_admin_controller.rb` | Admin queue, detail, review, delete-from-report |
+| `app/views/content_reports/new.html.erb` | Shared report form (rendered by each resource controller) |
+| `app/views/content_reports/new.md.erb` | Markdown report form |
+| `app/views/app_admin/show_report.html.erb` | Admin report detail |
+| `app/views/app_admin/reports.html.erb` | Admin report queue |
+| `app/helpers/markdown_helper.rb` | `build_condition_context` fix for conditional actions |
+| `db/migrate/20260423034320_add_content_snapshot_to_content_reports.rb` | Added `content_snapshot` column |
 
 ## Design Decisions
 
-### 1. Where the report button lives
+### Report button location
+In the `ResourceHeaderComponent` action bar on show pages, alongside Copy/Pin/Edit/Settings. Also in markdown show views as a link at the bottom.
 
-**On content pages** (notes, decisions, commitments): in the `ResourceHeaderComponent` action bar, alongside Copy/Pin/Edit/Settings. Shown as a link with the report octicon.
+### Not shown on comments (V1)
+If a comment is problematic, report the parent content or block the user.
 
-**Conditions for showing:**
-- User is logged in
-- Content was not created by the current user
-- Content is not already deleted
-- User has not already reported this content (prevent duplicate noise)
+### Content stays visible while under review
+Nothing happens to reported content while pending review. This prevents weaponizing reports to censor content. The reporter can block the author for immediate personal relief.
 
-**Not shown on comments (V1).** If a comment is problematic, report the parent content or block the user. Comments are lightweight — adding report to every comment adds visual noise.
+### Report form lives at `/n/:id/report` (not a standalone route)
+The form is a sub-route of the content being reported, not a standalone `/content-reports/new?reportable_type=...` route. This is cleaner and consistent with the resource-scoped routing pattern.
 
-### 2. The report form
+### Content snapshot preserved at report time
+`content_snapshot` captures the content text when the report is filed, using the same `content_snapshot` method from `SoftDeletable`. This preserves evidence even if content is edited or deleted before review.
 
-**Location:** `/content-reports/new` (already implemented). Navigating away from the content is intentional — it's a deliberate, considered action.
+### "Also block" checkbox on report form
+Single form submission creates both report and block. Respects that most reporters want both: escalation (report) and immediate protection (block).
 
-**Content snapshot:** When the report is created, a snapshot of the reported content's text is stored on the `ContentReport` record in a `content_snapshot` text field. This preserves what the reporter saw at report time — the content may be edited or deleted before an admin reviews it. This requires a migration to add the column and a controller change to populate it at creation time.
+### Admin controller boundaries are inviolable
+App admin routes are only accessible to app admins. No `except:` clauses on `ensure_app_admin`. Tenant admin report access, if needed in the future, belongs in `TenantAdminController`, not as an exception in `AppAdminController`.
 
-**Form fields:**
-- **Content preview** — show a truncated preview of the reported content at the top so the reporter confirms they're reporting the right thing
-- **Reason** (required select, 5 options — already implemented):
-  - Harassment
-  - Spam
-  - Inappropriate
-  - Misinformation
-  - Other
-- **Description** (optional textarea — already implemented): free-text context for moderators
-- **"Also block this user" checkbox** (default unchecked): creates a UserBlock alongside the report, so the reporter gets immediate protection without a separate action
+## Future Work
 
-### 3. Feedback to the reporter
-
-**Immediately:** Flash — "Thank you for your report. Our moderators will review it."
-
-If the "Also block" checkbox was checked: "Thank you for your report. @handle has been blocked and our moderators will review the reported content."
-
-**After review (V2):** Notification to the reporter when resolved. Not in V1.
-
-### 4. What happens to reported content
-
-**Nothing — while pending review.** Content stays visible. This prevents weaponizing reports to censor content. The reporter can block the author for immediate personal relief.
-
-**After admin review**, the admin can:
-- **Dismiss** — false alarm
-- **Reviewed** — acknowledged, no action needed
-- **Actioned** — admin took action. From the report detail page, the admin can:
-  - Navigate to the content and **soft-delete** it (uses content deletion feature)
-  - Navigate to the user and **suspend**, **account security reset**, or just note the incident
-  - Both, for serious cases
-
-### 5. Admin moderation workflow
-
-**Already implemented:**
-- `/app-admin/reports` — queue with status filtering
-- `/app-admin/reports/:id` — detail view with content preview, reporter info, review form
-- Review action with status + admin notes
-- Security audit logging
-
-**Add in this phase:**
-- Pending report count on the app admin dashboard
-- Direct "Delete this content" button on the report detail page (calls soft-delete, saves a navigation step)
-- Direct "Block reporter's account" shortcut? No — admin actions (suspend, security reset) are more appropriate than user-level blocks.
-
-### 6. Combined "report and block"
-
-The report form includes an "Also block this user" checkbox. When checked, the controller:
-1. Creates the `ContentReport` (existing logic)
-2. Creates a `UserBlock` for the reporter → content author (if not already blocked)
-3. Returns a combined flash message
-
-This is a single form submission, not two separate actions. It respects that most reporters want both: escalation (report) and immediate protection (block).
-
-### 7. Tenant admin access (self-hosted instances)
-
-Currently only app admins can see the report queue. For self-hosted instances, there are no app admins. This plan adds:
-- Tenant admins can access `/app-admin/reports` (scoped to their tenant's reports)
-- Requires extending the `ensure_app_admin` check to also allow tenant admins for report-related actions
-
-This is a narrow scope change — tenant admins only get report access, not full app admin powers.
-
-## Implementation
-
-### Phase 1: Report button on content pages
-
-Add "Report" link to:
-- `app/views/notes/show.html.erb` — in `header.with_actions` block
-- `app/views/decisions/show.html.erb` — same
-- `app/views/commitments/show.html.erb` — same
-
-Conditions: logged in, not own content, not deleted, not already reported.
-
-For the "already reported" check: query `ContentReport.where(reporter: current_user, reportable: resource).exists?`. Cache this in the controller to avoid N+1 on feed pages (only needed on show pages, not feeds).
-
-### Phase 2: Improve report form
-
-**Content preview:** At the top of the form, show the type, author, and truncated text of the content being reported. Requires passing the reportable to the view (controller already loads it via `find_reportable`).
-
-**"Also block this user" checkbox:** Add to the form. Controller handles both actions in a single request.
-
-### Phase 3: Content snapshot on report creation
-
-**Migration:** Add `content_snapshot` (text, nullable) to `content_reports` table.
-
-**Controller:** In `ContentReportsController#create`, after loading the reportable, capture its text via `content_snapshot` (same method used by the deletion audit trail) and store it on the report:
-
-```ruby
-report = ContentReport.new(
-  reporter: current_user,
-  reportable: reportable,
-  reason: params[:reason],
-  description: params[:description],
-  content_snapshot: reportable.content_snapshot.to_json,
-)
-```
-
-**Admin view:** On `show_report.html.erb`, show the snapshot alongside the live content (or in place of it if the content has been deleted). Label clearly: "Content at time of report."
-
-### Phase 4: Combined report + block
-
-Update `ContentReportsController#create`:
-- After creating the report, check `params[:also_block]`
-- If checked and no existing block, create `UserBlock.create(blocker: current_user, blocked: reportable.created_by)`
-- Adjust flash message to mention both actions
-
-### Phase 5: Admin dashboard + delete from report
-
-**Pending count:** Add pending report count to the app admin dashboard page.
-
-**Delete from report detail:** Add a "Delete this content" button on `show_report.html.erb` that calls the soft-delete action on the reportable. Only shown when the content is not already deleted.
-
-### Phase 6: Tenant admin access to reports
-
-Extend report access to tenant admins:
-- In `app_admin_controller.rb`, allow tenant admin access to `reports`, `show_report`, and `execute_review_report` actions
-- Scope the report query to the current tenant for tenant admins (app admins see all)
-
-### Phase 7: Tests
-
-**Report button:**
-- Shows on other users' content
-- Hidden on own content
-- Hidden on deleted content
-- Hidden if already reported
-
-**Combined report + block:**
-- Report with "also block" creates both records
-- Report without checkbox creates only report
-- Flash message reflects which actions were taken
-- Block not duplicated if already blocked
-
-**Admin workflow:**
-- Report → admin reviews → marks as actioned
-- Report → admin deletes content from report detail page
-- Tenant admin can access reports for their tenant
-- Tenant admin cannot access other tenants' reports
-
-## Open Questions
-
-1. **Should there be a way to report a user (not content)?** V1 says no — report content, block users. If a user's pattern of behavior is the issue, the admin can see who has the most reports against them. Formal "report user" is a V2 consideration.
-
-2. **Rate limiting on reports?** One report per user per content item is already enforced by uniqueness constraint. Rack::Attack handles general POST rate limiting. Probably sufficient for V1.
-
-3. **AI agent content?** Reports on AI-generated content work the same way. Admin can delete the content and/or suspend the agent.
-
-## References
-
-- [Flagging & Reporting UI Pattern](https://ui-patterns.com/patterns/flagging-and-reporting)
-- [Personalizing Content Moderation (ACM)](https://dl.acm.org/doi/10.1145/3610080)
-- [Procedural Fairness in Flag Submissions (ACM)](https://dl.acm.org/doi/10.1145/3797820)
-- [Content Moderation Trends 2026](https://getstream.io/blog/content-moderation-trends/)
+- **Collective-level moderation** — collective admins moderating reports for their collective's content (separate feature, not an exception in app admin)
+- **Reporter notification** — notify the reporter when their report is resolved
+- **Report-a-user** — report a user's pattern of behavior, not just individual content

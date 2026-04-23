@@ -29,6 +29,7 @@ class AppAdminController < ApplicationController
     @page_title = 'App Admin'
     @total_tenants = Tenant.count
     @total_users = User.where.not(user_type: 'trustee').count
+    @pending_reports_count = ContentReport.unscoped_for_admin(@current_user).where(status: "pending").count
     respond_to do |format|
       format.html
       format.md
@@ -335,6 +336,16 @@ class AppAdminController < ApplicationController
     @content_report = ContentReport.unscoped_for_admin(@current_user).find(params[:id])
     @page_title = "Report ##{@content_report.id[0..7]}"
 
+    if @content_report.reportable.present? && @content_report.reportable.respond_to?(:created_by_id)
+      author_id = @content_report.reportable.created_by_id
+      @reports_against_user_count = ContentReport.unscoped_for_admin(@current_user).where(
+        id: ContentReport.where(reportable_type: "Note", reportable_id: Note.unscope_collective.where(created_by_id: author_id).select(:id))
+          .or(ContentReport.where(reportable_type: "Decision", reportable_id: Decision.unscope_collective.where(created_by_id: author_id).select(:id)))
+          .or(ContentReport.where(reportable_type: "Commitment", reportable_id: Commitment.unscope_collective.where(created_by_id: author_id).select(:id)))
+          .select(:id)
+      ).count
+    end
+
     respond_to do |format|
       format.html
       format.md
@@ -359,6 +370,31 @@ class AppAdminController < ApplicationController
     )
 
     flash[:notice] = "Report marked as #{params[:status]}."
+    redirect_to "/app-admin/reports/#{report.id}"
+  end
+
+  # POST /app-admin/reports/:id/delete-content
+  def execute_delete_reported_content
+    report = ContentReport.unscoped_for_admin(@current_user).find(params[:id])
+    content = report.reportable
+
+    if content.nil? || content.deleted?
+      flash[:alert] = "Content has already been deleted."
+      redirect_to "/app-admin/reports/#{report.id}"
+      return
+    end
+
+    snapshot = content.content_snapshot
+    content.soft_delete!(by: @current_user)
+
+    SecurityAuditLog.log_content_deleted(
+      content: content,
+      deleted_by: @current_user,
+      ip: request.remote_ip,
+      snapshot: snapshot,
+    )
+
+    flash[:notice] = "Content has been deleted."
     redirect_to "/app-admin/reports/#{report.id}"
   end
 
