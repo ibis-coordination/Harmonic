@@ -10,7 +10,16 @@
 
   <%= render 'shared/pulse_comments_list', commentable: commentable %>
 
-  <% if @current_user %>
+  <% if @current_user && commentable.respond_to?(:created_by_id) && commentable.created_by && UserBlock.between?(@current_user, commentable.created_by) %>
+    <p class="pulse-body-text-muted" style="margin-top: 8px;">
+      <%= octicon 'blocked', height: 12 %>
+      <% if @current_user.blocked?(commentable.created_by) %>
+        Commenting is unavailable because you have blocked the author of this <%= commentable.class.name.downcase %>.
+      <% else %>
+        Commenting is unavailable because you have been blocked by the author of this <%= commentable.class.name.downcase %>.
+      <% end %>
+    </p>
+  <% elsif @current_user %>
     <div class="pulse-comment-form">
       <%= form_with url: "#{commentable.path}/comments", method: :post, local: true, class: "pulse-new-comment-form", data: { comments_target: "form", action: "submit->comments#submit", turbo: "false" } do |form| %>
         <div class="pulse-form-group mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">

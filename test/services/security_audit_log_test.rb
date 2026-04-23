@@ -183,6 +183,53 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
     assert_equal "blocklist", entry["matched"]
   end
 
+  test "log_event persists severity in JSON payload" do
+    unique_path = "/severity-test-#{SecureRandom.hex(4)}"
+
+    SecurityAuditLog.log_event(
+      event: "test_severity",
+      severity: :warn,
+      request_path: unique_path
+    )
+
+    entries = find_log_entries(event: "test_severity", request_path: unique_path)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "warn", entry["severity"], "severity should be persisted in the JSON payload"
+  end
+
+  test "log_event persists default info severity" do
+    unique_path = "/severity-default-#{SecureRandom.hex(4)}"
+
+    SecurityAuditLog.log_event(
+      event: "test_default_severity",
+      request_path: unique_path
+    )
+
+    entries = find_log_entries(event: "test_default_severity", request_path: unique_path)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "info", entry["severity"], "default severity should be info"
+  end
+
+  test "log_event persists error severity" do
+    unique_path = "/severity-error-#{SecureRandom.hex(4)}"
+
+    SecurityAuditLog.log_event(
+      event: "test_error_severity",
+      severity: :error,
+      request_path: unique_path
+    )
+
+    entries = find_log_entries(event: "test_error_severity", request_path: unique_path)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "error", entry["severity"], "error severity should be persisted"
+  end
+
   test "log entries contain ISO8601 timestamp" do
     unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
 
@@ -194,6 +241,57 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
     entry = entries.first
     # ISO8601 timestamp with milliseconds: 2024-01-15T12:34:56.789Z
     assert_match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}/, entry["timestamp"])
+  end
+
+  test "log_content_deleted logs admin content deletion with snapshot" do
+    tenant = create_tenant
+    admin = create_user
+    author = create_user
+    collective = create_collective(tenant: tenant, created_by: admin)
+    Tenant.current_id = tenant.id
+    note = create_note(tenant: tenant, collective: collective, created_by: author, title: "Bad Post", text: "Offensive content")
+    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+
+    SecurityAuditLog.log_content_deleted(
+      content: note,
+      deleted_by: admin,
+      ip: unique_ip,
+      snapshot: note.content_snapshot,
+    )
+
+    entries = find_log_entries(event: "content_deleted", ip: unique_ip)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "warn", entry["severity"]
+    assert_equal "Note", entry["content_type"]
+    assert_equal note.id, entry["content_id"]
+    assert_equal note.truncated_id, entry["content_truncated_id"]
+    assert_equal admin.id, entry["deleted_by_id"]
+    assert_equal admin.email, entry["deleted_by_email"]
+    assert_equal "Bad Post", entry.dig("snapshot", "title")
+    assert_equal "Offensive content", entry.dig("snapshot", "text")
+  end
+
+  test "log_content_deleted truncates long snapshot values" do
+    tenant = create_tenant
+    admin = create_user
+    collective = create_collective(tenant: tenant, created_by: admin)
+    Tenant.current_id = tenant.id
+    long_text = "x" * 3000
+    note = create_note(tenant: tenant, collective: collective, created_by: admin, text: long_text)
+    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+
+    SecurityAuditLog.log_content_deleted(
+      content: note,
+      deleted_by: admin,
+      ip: unique_ip,
+      snapshot: note.content_snapshot,
+    )
+
+    entries = find_log_entries(event: "content_deleted", ip: unique_ip)
+    entry = entries.first
+    assert_equal 2000, entry.dig("snapshot", "text").length
   end
 
   test "nil optional fields are excluded from log entry" do

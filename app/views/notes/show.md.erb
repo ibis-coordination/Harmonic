@@ -1,3 +1,11 @@
+<% if @note.deleted? %>
+# Note [deleted]
+
+This <%= @note.is_comment? ? "comment" : "note" %> has been deleted<%= " by the author" if @note.deleted_by_id == @note.created_by_id %>.
+
+| created_by | @<%= @note.created_by.handle %> |
+| created_at | <%= @note.created_at %> |
+<% else %>
 # Note: <%= @note.title %>
 
 | created_at | <%= @note.created_at %> |
@@ -5,8 +13,11 @@
 | deadline | <%= @note.deadline %> |
 
 <%= render 'shared/automation_attribution', resource: @note %>
-<% if @note.is_comment? -%>
+<% if @note.is_comment? && @note.commentable -%>
 Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated_id %>](<%= @note.commentable.path %>)
+
+<% elsif @note.is_comment? -%>
+Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
 
 <% end -%>
 ## Text
@@ -24,4 +35,11 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 <%= render 'shared/backlinks', resource: @note %>
 <%= render 'shared/attachments_section', resource: @note %>
 <%= render 'shared/comments_section', resource: @note %>
+<% if @current_user && @note.created_by_id != @current_user.id && !@already_reported %>
+
+---
+
+[Report this <%= @note.is_comment? ? "comment" : "note" %>](<%= @note.path %>/report)
+<% end %>
+<% end %>
 

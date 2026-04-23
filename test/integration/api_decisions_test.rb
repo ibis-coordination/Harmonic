@@ -45,10 +45,8 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
   end
 
   test "show returns 404 for non-existent decision" do
-    # Note: The controller raises RecordNotFound which Rails converts to 404 in production
-    assert_raises(ActiveRecord::RecordNotFound) do
-      get api_path("/nonexistent"), headers: @headers
-    end
+    get api_path("/nonexistent"), headers: @headers
+    assert_response :not_found
   end
 
   test "show with include=options returns options" do

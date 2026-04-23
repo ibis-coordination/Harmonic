@@ -29,6 +29,7 @@ class AppAdminController < ApplicationController
     @page_title = 'App Admin'
     @total_tenants = Tenant.count
     @total_users = User.where.not(user_type: 'trustee').count
+    @pending_reports_count = ContentReport.unscoped_for_admin(@current_user).where(status: "pending").count
     respond_to do |format|
       format.html
       format.md
@@ -276,7 +277,127 @@ class AppAdminController < ApplicationController
     end
   end
 
+  # POST /app-admin/users/:id/actions/account_security_reset
+  def execute_account_security_reset
+    user = User.find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless user
+
+    # 1. Revoke all sessions and delete API tokens (user + child AI agents)
+    user.revoke_all_sessions!
+
+    # 2. Invalidate password and send reset email (if user has a password identity)
+    identity = OmniAuthIdentity.find_by(user_id: user.id)
+    if identity
+      random_password = SecureRandom.hex(32)
+      identity.password = random_password
+      identity.password_confirmation = random_password
+      identity.save!
+
+      raw_token = identity.generate_reset_password_token!
+      begin
+        PasswordResetMailer.reset_password_instructions(identity, raw_token).deliver_later
+      rescue StandardError => e
+        Rails.logger.error("Failed to send password reset email during account security reset: #{e.message}")
+      end
+    end
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "account_security_reset",
+      target_user_id: user.id,
+      details: { email: user.email, had_password_identity: identity.present? },
+    )
+
+    flash[:notice] = "Account security reset complete for #{user.display_name || user.name}."
+    redirect_to "/app-admin/users/#{user.id}"
+  end
+
   # ============================================================================
+  # Reports
+  # ============================================================================
+
+  # GET /app-admin/reports
+  def reports
+    @page_title = "Reports"
+    @filter_status = params[:status] || "pending"
+    @content_reports = ContentReport.unscoped_for_admin(@current_user)
+    @content_reports = @content_reports.where(status: @filter_status) if @filter_status != "all"
+    @content_reports = @content_reports.order(created_at: :desc).limit(100).includes(:reporter, :reportable, :reviewed_by)
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # GET /app-admin/reports/:id
+  def show_report
+    @content_report = ContentReport.unscoped_for_admin(@current_user).find(params[:id])
+    @page_title = "Report ##{@content_report.id[0..7]}"
+
+    if @content_report.reportable.present? && @content_report.reportable.respond_to?(:created_by_id)
+      author_id = @content_report.reportable.created_by_id
+      @reports_against_user_count = ContentReport.unscoped_for_admin(@current_user).where(
+        id: ContentReport.where(reportable_type: "Note", reportable_id: Note.unscope_collective.where(created_by_id: author_id).select(:id))
+          .or(ContentReport.where(reportable_type: "Decision", reportable_id: Decision.unscope_collective.where(created_by_id: author_id).select(:id)))
+          .or(ContentReport.where(reportable_type: "Commitment", reportable_id: Commitment.unscope_collective.where(created_by_id: author_id).select(:id)))
+          .select(:id)
+      ).count
+    end
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # POST /app-admin/reports/:id/review
+  def execute_review_report
+    report = ContentReport.unscoped_for_admin(@current_user).find(params[:id])
+    report.review!(
+      admin: @current_user,
+      status: params[:status],
+      notes: params[:admin_notes],
+    )
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "review_report",
+      target_user_id: report.reporter_id,
+      details: { report_id: report.id, status: params[:status] },
+    )
+
+    flash[:notice] = "Report marked as #{params[:status]}."
+    redirect_to "/app-admin/reports/#{report.id}"
+  end
+
+  # POST /app-admin/reports/:id/delete-content
+  def execute_delete_reported_content
+    report = ContentReport.unscoped_for_admin(@current_user).find(params[:id])
+    content = report.reportable
+
+    if content.nil? || content.deleted?
+      flash[:alert] = "Content has already been deleted."
+      redirect_to "/app-admin/reports/#{report.id}"
+      return
+    end
+
+    snapshot = content.content_snapshot
+    content.soft_delete!(by: @current_user)
+
+    SecurityAuditLog.log_content_deleted(
+      content: content,
+      deleted_by: @current_user,
+      ip: request.remote_ip,
+      snapshot: snapshot,
+    )
+
+    flash[:notice] = "Content has been deleted."
+    redirect_to "/app-admin/reports/#{report.id}"
+  end
+
   # Security Audit
   # ============================================================================
 

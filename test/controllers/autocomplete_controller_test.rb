@@ -207,4 +207,38 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
     current_user_result = json_response.find { |u| u["id"] == @user.id }
     assert_nil current_user_result, "Current user should not appear in autocomplete results"
   end
+
+  # === Block Filtering Tests ===
+
+  test "blocked user does not appear in autocomplete results" do
+    blocked_user = create_user(email: "blocked-ac-#{SecureRandom.hex(4)}@example.com", name: "Blocked Person")
+    @tenant.add_user!(blocked_user)
+    @collective.add_user!(blocked_user)
+
+    UserBlock.create!(blocker: @user, blocked: blocked_user, tenant: @tenant)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/autocomplete/users", params: { q: "" }, headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    json_response = JSON.parse(response.body)
+    blocked_result = json_response.find { |u| u["id"] == blocked_user.id }
+    assert_nil blocked_result, "Blocked user should not appear in autocomplete"
+  end
+
+  test "user who has blocked current user does not appear in autocomplete results" do
+    blocker_user = create_user(email: "blocker-ac-#{SecureRandom.hex(4)}@example.com", name: "Blocker Person")
+    @tenant.add_user!(blocker_user)
+    @collective.add_user!(blocker_user)
+
+    UserBlock.create!(blocker: blocker_user, blocked: @user, tenant: @tenant)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/autocomplete/users", params: { q: "" }, headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    json_response = JSON.parse(response.body)
+    blocker_result = json_response.find { |u| u["id"] == blocker_user.id }
+    assert_nil blocker_result, "User who blocked current user should not appear in autocomplete"
+  end
 end

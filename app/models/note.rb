@@ -12,6 +12,7 @@ class Note < ApplicationRecord
   include InvalidatesSearchIndex
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
+  include SoftDeletable
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -227,7 +228,16 @@ class Note < ApplicationRecord
   # Used by search_index_items to avoid reindexing non-searchable parents.
   SEARCHABLE_COMMENTABLE_TYPES = ["Note", "Decision", "Commitment"].freeze
 
+  def content_snapshot
+    { title: persisted_title, text: text }
+  end
+
   private
+
+  def scrub_content!
+    self.title = "[deleted]"
+    self.text = "[deleted]"
+  end
 
   # When a comment is created/destroyed, reindex the parent to update comment_count.
   #

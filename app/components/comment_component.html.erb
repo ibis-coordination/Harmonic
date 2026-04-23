@@ -1,4 +1,10 @@
-<div class="pulse-comment" id="n-<%= @comment.truncated_id %>">
+<div class="pulse-comment<%= " pulse-comment-blocked" if author_blocked? %>" id="n-<%= @comment.truncated_id %>">
+  <% if author_blocked? %>
+    <div class="pulse-comment-blocked-placeholder">
+      <span class="pulse-body-text-muted"><%= helpers.octicon 'blocked', height: 12 %> This comment is from a user you have blocked</span>
+      <a href="<%= @comment.path %>" class="pulse-link pulse-body-text-muted">Show</a>
+    </div>
+  <% else %>
   <div class="pulse-comment-header">
     <% if representation? %>
       <%# Representation: show "Alice on behalf of Bob" %>
@@ -32,14 +38,20 @@
     <div class="pulse-comment-reply-context">
       <%= helpers.octicon "reply", height: 12 %>
       Replying to
-      <a href="#n-<%= @comment.commentable.truncated_id %>">@<%= @comment.commentable.created_by.handle %></a>
+      <a href="#n-<%= @comment.commentable.truncated_id %>">@<%= @comment.commentable.created_by&.handle || "unknown" %></a>
       <span class="pulse-reply-quote"><%= helpers.truncate(@comment.commentable.text, length: 60) %></span>
     </div>
   <% end %>
 
-  <div class="pulse-comment-body">
-    <%= helpers.markdown_inline(@comment.text) %>
-  </div>
+  <% if @comment.deleted? %>
+    <div class="pulse-comment-body pulse-body-text-muted">
+      <em>[deleted]</em>
+    </div>
+  <% else %>
+    <div class="pulse-comment-body">
+      <%= helpers.markdown_inline(@comment.text) %>
+    </div>
+  <% end %>
 
   <div class="pulse-comment-actions">
     <% if @current_user %>
@@ -64,7 +76,7 @@
         <span class="pulse-confirm-count"><%= @comment.confirmed_reads %></span>
       </span>
     <% end %>
-    <% if @show_reply_button && @current_user %>
+    <% if @show_reply_button && @current_user && !@comment.deleted? %>
       <button type="button"
               class="pulse-comment-reply-btn"
               data-action="click->comment-thread#showReplyForm"
@@ -74,4 +86,5 @@
       </button>
     <% end %>
   </div>
+  <% end %>
 </div>

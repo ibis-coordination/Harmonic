@@ -12,6 +12,8 @@ class Api::V1::BaseController < ApplicationController
   end
 
   def show
+    return render_404 unless current_resource
+
     render json: current_resource.api_json(include: includes_param)
   end
 

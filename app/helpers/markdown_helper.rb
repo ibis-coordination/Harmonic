@@ -16,9 +16,12 @@ module MarkdownHelper
     # Combine static actions with conditional actions that pass their condition
     all_actions = (route_info[:actions] || []) + evaluate_conditional_actions(route_info)
 
-    # Filter by capability for ai_agents
+    # Filter through ActionAuthorization (handles role checks, capabilities, trustee grants, and blocks)
     current_user = instance_variable_get(:@current_user)
-    all_actions = all_actions.select { |a| CapabilityCheck.allowed?(current_user, a[:name]) } if current_user&.ai_agent?
+    context = build_authorization_context
+    all_actions = all_actions.select do |action|
+      ActionAuthorization.authorized?(action[:name], current_user, context)
+    end
 
     # Build full action info with path and params
     all_actions.map do |action|
@@ -71,6 +74,18 @@ module MarkdownHelper
     end
   end
 
+  # Build authorization context for ActionAuthorization.authorized?
+  def build_authorization_context
+    {
+      collective: instance_variable_get(:@current_collective),
+      resource: instance_variable_get(:@note) ||
+                instance_variable_get(:@decision) ||
+                instance_variable_get(:@commitment),
+      target_user: instance_variable_get(:@showing_user),
+      representation_session: instance_variable_get(:@current_representation_session),
+    }
+  end
+
   # Build a context hash from instance variables for conditional action evaluation.
   # Add commonly needed variables here as the conditional actions system grows.
   def build_condition_context
@@ -79,7 +94,9 @@ module MarkdownHelper
       current_heartbeat: instance_variable_get(:@current_heartbeat),
       user: instance_variable_get(:@current_user),
       tenant: instance_variable_get(:@current_tenant),
-      resource: instance_variable_get(:@resource),
+      resource: instance_variable_get(:@note) ||
+                instance_variable_get(:@decision) ||
+                instance_variable_get(:@commitment),
     }
   end
 end

@@ -1,3 +1,11 @@
+<% if @decision.deleted? %>
+# Decision [deleted]
+
+This decision has been deleted<%= " by the author" if @decision.deleted_by_id == @decision.created_by_id %>.
+
+| created_by | @<%= @decision.created_by.handle %> |
+| created_at | <%= @decision.created_at %> |
+<% else %>
 # Decision: <%= @decision.question %>
 
 | created_at | <%= @decision.created_at %> |
@@ -11,6 +19,9 @@
 <%= @decision.description %>
 <% end -%>
 <% unless @decision.closed? -%>
+<% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) -%>
+*Voting is unavailable because <% if @current_user.blocked?(@decision.created_by) %>you have blocked the author<% else %>you have been blocked by the author<% end %> of this decision.*
+<% else -%>
 ## Options
 
 <% if @decision.options.empty? -%>
@@ -21,6 +32,7 @@ Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 <% @decision.options.order(:created_at).each do |option| -%>
 <% vote = @votes.where(option: option).first || Vote.new(accepted: 0) -%>
 * [<%= vote.accepted == 1 ? '✅' : ' ' %>] [<%= vote.preferred == 1 ? '⭐️' : ' ' %>] <%= option.title %>
+<% end -%>
 <% end -%>
 <% end -%>
 <% end -%>
@@ -49,4 +61,10 @@ No voters yet.
 <%= render 'shared/backlinks', resource: @decision %>
 <%= render 'shared/attachments_section', resource: @decision %>
 <%= render 'shared/comments_section', resource: @decision %>
+<% if @current_user && @decision.created_by_id != @current_user.id && !@already_reported %>
 
+---
+
+[Report this decision](<%= @decision.path %>/report)
+<% end %>
+<% end %>

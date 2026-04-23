@@ -11,11 +11,23 @@ No comments yet.
   threads = comment_data[:threads]
 -%>
 <% top_level_comments.each do |comment| -%>
+<% if comment.deleted? -%>
+* *[deleted]* (<%= time_ago_in_words(comment.created_at) %> ago)
+<% elsif comment.created_by && blocked_user_ids.include?(comment.created_by.id) -%>
+* *[Comment from a user you have blocked]*
+<% else -%>
 * <%= comment.created_by ? user_link_md(comment.created_by) : 'Unknown' %> (<%= time_ago_in_words(comment.created_at) %> ago): [<%= comment.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= comment.path %>)
+<% end -%>
 <% descendants = threads[comment.id] || [] -%>
 <% descendants.each do |reply| -%>
 <% show_context = reply.commentable_id != comment.id -%>
-  * <% if show_context && reply.commentable.present? -%>↳ Replying to @<%= reply.commentable.created_by.handle %>: <% end -%><%= reply.created_by ? user_link_md(reply.created_by) : 'Unknown' %> (<%= time_ago_in_words(reply.created_at) %> ago): [<%= reply.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= reply.path %>)
+<% if reply.deleted? -%>
+  * *[deleted]* (<%= time_ago_in_words(reply.created_at) %> ago)
+<% elsif reply.created_by && blocked_user_ids.include?(reply.created_by.id) -%>
+  * *[Reply from a user you have blocked]*
+<% else -%>
+  * <% if show_context && reply.commentable.present? && reply.commentable.created_by.present? -%>↳ Replying to @<%= reply.commentable.created_by.handle %>: <% end -%><%= reply.created_by ? user_link_md(reply.created_by) : 'Unknown' %> (<%= time_ago_in_words(reply.created_at) %> ago): [<%= reply.text.to_s.gsub(/\n+/, ' ').truncate(100) %>](<%= reply.path %>)
+<% end -%>
 <% end -%>
 <% end -%>
 <% end -%>

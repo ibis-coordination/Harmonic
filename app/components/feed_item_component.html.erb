@@ -1,3 +1,4 @@
+<% unless block_exists_with_author? %>
 <article class="pulse-feed-item<%= " pulse-feed-item-#{item_status}" if item_status %>" data-pulse-filter-target="feedItem" data-item-type="<%= @type %>">
   <div class="pulse-feed-item-header">
     <div class="pulse-feed-item-type">
@@ -24,7 +25,7 @@
     </div>
   </div>
   <div class="pulse-feed-item-body">
-    <% if is_comment? %>
+    <% if is_comment? && T.unsafe(@item).commentable %>
       <div class="pulse-feed-item-reply">
         <%= helpers.octicon 'reply' %>
         <span>Replying to</span>
@@ -119,3 +120,4 @@
     <% end %>
   </div>
 </article>
+<% end %>

@@ -227,6 +227,14 @@
   fill: currentColor;
 }
 
+.top-menu ul li .pulse-action-btn-secondary {
+  border: none;
+  padding: 0;
+  background: transparent;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
 /* Notification Icon */
 .notification-icon {
   position: relative;

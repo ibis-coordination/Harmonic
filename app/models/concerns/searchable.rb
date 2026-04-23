@@ -11,6 +11,8 @@ module Searchable
   private
 
   def enqueue_search_reindex
+    return if respond_to?(:deleted?) && deleted?
+
     ReindexSearchJob.perform_later(
       item_type: self.class.name,
       item_id: id,

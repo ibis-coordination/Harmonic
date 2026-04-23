@@ -463,4 +463,79 @@ class SocialProximityCalculatorTest < ActiveSupport::TestCase
       assert diff < avg * 0.3, "scores should be relatively stable across runs"
     end
   end
+
+  # =========================================================================
+  # Block exclusion tests
+  # =========================================================================
+
+  test "blocked user is excluded from proximity results" do
+    user1 = create_user(email: "block_prox1@example.com")
+    user2 = create_user(email: "block_prox2@example.com")
+
+    small_collective = create_collective(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Block Test Collective",
+      handle: "block-test-#{SecureRandom.hex(4)}"
+    )
+
+    [@user, user1, user2].each do |u|
+      CollectiveMember.create!(tenant: @tenant, collective: small_collective, user: u)
+    end
+
+    # Block user1
+    UserBlock.create!(blocker: @user, blocked: user1, tenant: @tenant)
+
+    calc = SocialProximityCalculator.new(@user, tenant_id: @tenant.id)
+    scores = calc.compute
+
+    assert_nil scores[user1.id], "Blocked user should not appear in proximity results"
+    # user2 should still appear (they share the collective)
+    assert scores[user2.id].present?, "Non-blocked user should appear in proximity results" if scores.any?
+  end
+
+  test "blocked user cannot serve as bridge to other users" do
+    # Setup: user -> user1 (blocked) -> user2 (only connected via user1's collective)
+    user1 = create_user(email: "bridge_block1@example.com")
+    user2 = create_user(email: "bridge_block2@example.com")
+
+    shared_collective = create_collective(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Shared Collective",
+      handle: "shared-#{SecureRandom.hex(4)}"
+    )
+
+    bridge_collective = create_collective(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Bridge Collective",
+      handle: "bridge-#{SecureRandom.hex(4)}"
+    )
+
+    # user and user1 share shared_collective
+    [@user, user1].each do |u|
+      CollectiveMember.create!(tenant: @tenant, collective: shared_collective, user: u)
+    end
+
+    # user1 and user2 share bridge_collective (user is NOT in bridge_collective)
+    [user1, user2].each do |u|
+      CollectiveMember.create!(tenant: @tenant, collective: bridge_collective, user: u)
+    end
+
+    # Without block: user2 reachable via user1 as bridge
+    calc_before = SocialProximityCalculator.new(@user, tenant_id: @tenant.id)
+    scores_before = calc_before.compute
+    assert scores_before[user2.id].present?, "User2 should be reachable via bridge before block"
+
+    # Block user1 — now user2 should be unreachable
+    UserBlock.create!(blocker: @user, blocked: user1, tenant: @tenant)
+
+    calc_after = SocialProximityCalculator.new(@user, tenant_id: @tenant.id)
+    scores_after = calc_after.compute
+
+    assert_nil scores_after[user1.id], "Blocked bridge user should not appear"
+    # user2's score should be zero or absent (no path without the bridge)
+    assert_nil scores_after[user2.id], "User reachable only through blocked bridge should not appear"
+  end
 end

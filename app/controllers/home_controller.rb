@@ -14,9 +14,9 @@ class HomeController < ApplicationController
     scores = @current_user.proximity_scores(tenant_id: tid)
 
     @feed_items = FeedBuilder.new(
-      notes_scope: Note.tenant_scoped_only(tid).where(collective_id: main_cid),
-      decisions_scope: Decision.tenant_scoped_only(tid).where(collective_id: main_cid),
-      commitments_scope: Commitment.tenant_scoped_only(tid).where(collective_id: main_cid),
+      notes_scope: Note.unscope_collective.where(collective_id: main_cid),
+      decisions_scope: Decision.unscope_collective.where(collective_id: main_cid),
+      commitments_scope: Commitment.unscope_collective.where(collective_id: main_cid),
       proximity_scores: scores,
     ).feed_items
   end

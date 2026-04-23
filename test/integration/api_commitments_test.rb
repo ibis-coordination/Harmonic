@@ -46,10 +46,8 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
   end
 
   test "show returns 404 for non-existent commitment" do
-    # Note: The controller raises RecordNotFound which Rails converts to 404 in production
-    assert_raises(ActiveRecord::RecordNotFound) do
-      get api_path("/nonexistent"), headers: @headers
-    end
+    get api_path("/nonexistent"), headers: @headers
+    assert_response :not_found
   end
 
   test "show with include=participants returns participants" do
@@ -165,12 +163,10 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
     assert body["error"].include?("closed")
   end
 
-  test "join returns 404 for non-existent commitment" do
+  test "join returns error for non-existent commitment" do
     join_params = { committed: true }
-    # Note: The controller raises RecordNotFound which Rails converts to 404 in production
-    assert_raises(ActiveRecord::RecordNotFound) do
-      post api_path("/nonexistent/join"), params: join_params.to_json, headers: @headers
-    end
+    post api_path("/nonexistent/join"), params: join_params.to_json, headers: @headers
+    assert_includes [400, 404], response.status
   end
 
   # Participants

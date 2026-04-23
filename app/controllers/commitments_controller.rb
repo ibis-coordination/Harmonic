@@ -45,16 +45,33 @@ class CommitmentsController < ApplicationController
   end
 
   def show
-    @commitment = current_commitment
+    @commitment = current_commitment || find_deleted_commitment
     return render '404', status: 404 unless @commitment
-    @commitment_participant = current_commitment_participant
-    @commitment_participant_name = current_user&.name
-    @participants_list_limit = 10
+
     @page_title = @commitment.title
     @page_description = "Coordinate with your team"
     @sidebar_mode = 'resource'
     @team = @current_collective.team
+    return if @commitment.deleted?
+
+    @commitment_participant = current_commitment_participant
+    @commitment_participant_name = current_user&.name
+    @participants_list_limit = 10
     set_pin_vars
+    set_report_vars(@commitment)
+  end
+
+  def report
+    @commitment = current_commitment
+    return render "404", status: :not_found unless @commitment
+    return redirect_to("/login") unless @current_user
+
+    @reportable = @commitment
+    @reportable_type = "Commitment"
+    @reportable_id = @commitment.id
+    @page_title = "Report Content"
+    @sidebar_mode = "resource"
+    render "content_reports/new"
   end
 
   def status_partial
@@ -105,8 +122,13 @@ class CommitmentsController < ApplicationController
   end
 
   def actions_index_show
-    @page_title = "Actions | #{current_commitment.title}"
-    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/c/:commitment_id'))
+    @commitment = current_commitment
+    @page_title = "Actions | #{@commitment.title}"
+    route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/c/:commitment_id")
+    actions = (route_info&.dig(:actions) || []).select do |action|
+      ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @commitment })
+    end
+    render_actions_index({ actions: actions })
   end
 
   def describe_create_commitment
@@ -128,6 +150,25 @@ class CommitmentsController < ApplicationController
         action_name: 'create_commitment',
         error: e.message,
       })
+    end
+  end
+
+  def describe_report_content
+    render_action_description(ActionsHelper.action_description("report_content", resource: current_commitment))
+  end
+
+  def report_content_action
+    return render "404", status: :not_found unless current_commitment
+
+    api_helper.report_content(current_commitment)
+    respond_to do |format|
+      format.html { redirect_to current_commitment.path, notice: report_content_flash }
+      format.md { render_action_success({ action_name: "report_content", resource: current_commitment, result: report_content_flash }) }
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    respond_to do |format|
+      format.html { redirect_to current_commitment.path, alert: e.record.errors.full_messages.join(", ") }
+      format.md { render_action_error({ action_name: "report_content", resource: current_commitment, error: e.message }) }
     end
   end
 
@@ -202,6 +243,9 @@ class CommitmentsController < ApplicationController
     else
       actions << { name: 'pin_commitment', params_string: '()' }
     end
+    if @current_user&.id == @commitment.created_by_id || @current_user&.collective_member&.is_admin? || @current_user&.app_admin?
+      actions << { name: 'delete_commitment', params_string: '()' }
+    end
     render_actions_index({ actions: actions })
   end
 
@@ -274,6 +318,22 @@ class CommitmentsController < ApplicationController
     end
   end
 
+  def describe_delete_commitment
+    render_action_description(ActionsHelper.action_description("delete_commitment", resource: current_commitment))
+  end
+
+  def execute_delete_commitment
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
+
+    begin
+      api_helper.delete_commitment
+      redirect_to(@current_collective.path || "/", notice: "Commitment deleted.")
+    rescue ActiveRecord::RecordInvalid
+      render 'shared/403', status: :forbidden
+    end
+  end
+
   private
 
   def current_app
@@ -282,5 +342,16 @@ class CommitmentsController < ApplicationController
     @current_app_title = 'Coordinated Team'
     @current_app_description = 'fast group coordination'
     @current_app
+  end
+
+  def find_deleted_commitment
+    commitment_id = params[:id] || params[:commitment_id]
+    return nil unless commitment_id
+
+    if commitment_id.to_s.length == 8
+      Commitment.with_deleted.find_by(truncated_id: commitment_id)
+    else
+      Commitment.with_deleted.find_by(id: commitment_id)
+    end
   end
 end

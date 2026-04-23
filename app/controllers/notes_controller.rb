@@ -4,14 +4,17 @@ class NotesController < ApplicationController
   include AttachmentActions
 
   def show
-    @note = current_note
+    @note = current_note || find_deleted_note
     return render "404", status: :not_found unless @note
 
     @page_title = @note.title.presence || "Note #{@note.truncated_id}"
     @page_description = "Note page"
     @sidebar_mode = "resource"
     @team = @current_collective.team
+    return if @note.deleted?
+
     set_pin_vars
+    set_report_vars(@note)
     @note_reader = NoteReader.new(note: @note, user: current_user)
   end
 
@@ -24,6 +27,19 @@ class NotesController < ApplicationController
     @note = Note.new(
       title: params[:title]
     )
+  end
+
+  def report
+    @note = current_note
+    return render "404", status: :not_found unless @note
+    return redirect_to("/login") unless @current_user
+
+    @reportable = @note
+    @reportable_type = "Note"
+    @reportable_id = @note.id
+    @page_title = "Report Content"
+    @sidebar_mode = "resource"
+    render "content_reports/new"
   end
 
   def edit
@@ -55,27 +71,6 @@ class NotesController < ApplicationController
     @note = Note.new(title: model_params[:title], text: model_params[:text])
     render :new
   end
-
-  private
-
-  def render_confirm_read_success
-    render_action_success({
-                            action_name: "confirm_read",
-                            resource: current_note,
-                            params: [],
-                            result: "You have successfully confirmed that you have read this note.",
-                          })
-  end
-
-  def render_confirm_read_error(message)
-    render_action_error({
-                          action_name: "confirm_read",
-                          resource: current_note,
-                          error: message,
-                        })
-  end
-
-  public
 
   def create_note
     note = api_helper.create_note
@@ -148,6 +143,25 @@ class NotesController < ApplicationController
     end
   end
 
+  def describe_report_content
+    render_action_description(ActionsHelper.action_description("report_content", resource: current_note))
+  end
+
+  def report_content_action
+    return render "404", status: :not_found unless current_note
+
+    api_helper.report_content(current_note)
+    respond_to do |format|
+      format.html { redirect_to current_note.path, notice: report_content_flash }
+      format.md { render_action_success({ action_name: "report_content", resource: current_note, result: report_content_flash }) }
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    respond_to do |format|
+      format.html { redirect_to current_note.path, alert: e.record.errors.full_messages.join(", ") }
+      format.md { render_action_error({ action_name: "report_content", resource: current_note, error: e.message }) }
+    end
+  end
+
   def describe_confirm_read
     render_action_description(ActionsHelper.action_description("confirm_read", resource: current_note))
   end
@@ -182,12 +196,11 @@ class NotesController < ApplicationController
   def actions_index_show
     @note = current_note
     @page_title = "Actions | #{@note.title}"
-    render_actions_index({
-                           actions: [{
-                             name: "confirm_read",
-                             params_string: "()",
-                           }],
-                         })
+    route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/n/:note_id")
+    actions = (route_info&.dig(:actions) || []).select do |action|
+      ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @note })
+    end
+    render_actions_index({ actions: actions })
   end
 
   def settings
@@ -210,6 +223,9 @@ class NotesController < ApplicationController
                else
                  { name: "pin_note", params_string: "()" }
                end
+    if @current_user&.id == @note.created_by_id || @current_user&.collective_member&.is_admin? || @current_user&.app_admin?
+      actions << { name: "delete_note", params_string: "()" }
+    end
     render_actions_index({ actions: actions })
   end
 
@@ -258,6 +274,56 @@ class NotesController < ApplicationController
                             resource: @note,
                             error: e.message,
                           })
+    end
+  end
+
+  def describe_delete_note
+    render_action_description(ActionsHelper.action_description("delete_note", resource: current_note))
+  end
+
+  def execute_delete_note
+    @note = current_note
+    return render "404", status: :not_found unless @note
+
+    begin
+      api_helper.delete_note
+      if @note.is_comment? && @note.commentable
+        redirect_to @note.commentable.path, notice: "Comment deleted."
+      else
+        redirect_to(@current_collective.path || "/", notice: "Note deleted.")
+      end
+    rescue ActiveRecord::RecordInvalid
+      render "shared/403", status: :forbidden
+    end
+  end
+
+  private
+
+  def render_confirm_read_success
+    render_action_success({
+                            action_name: "confirm_read",
+                            resource: current_note,
+                            params: [],
+                            result: "You have successfully confirmed that you have read this note.",
+                          })
+  end
+
+  def render_confirm_read_error(message)
+    render_action_error({
+                          action_name: "confirm_read",
+                          resource: current_note,
+                          error: message,
+                        })
+  end
+
+  def find_deleted_note
+    note_id = params[:id] || params[:note_id]
+    return nil unless note_id
+
+    if note_id.to_s.length == 8
+      Note.with_deleted.find_by(truncated_id: note_id)
+    else
+      Note.with_deleted.find_by(id: note_id)
     end
   end
 end

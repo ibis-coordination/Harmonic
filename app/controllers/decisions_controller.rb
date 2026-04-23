@@ -71,18 +71,34 @@ class DecisionsController < ApplicationController
   end
 
   def show
-    @decision = current_decision
+    @decision = current_decision || find_deleted_decision
     return render '404', status: 404 unless @decision
-    @participant = current_decision_participant
+
     @page_title = @decision.question
     @page_description = "Decide as a group with Harmonic Team"
     @sidebar_mode = 'resource'
     @team = @current_collective.team
-    @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
+    return if @decision.deleted?
 
+    @participant = current_decision_participant
+    @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
     @votes = current_votes
     set_results_view_vars
     set_pin_vars
+    set_report_vars(@decision)
+  end
+
+  def report
+    @decision = current_decision
+    return render "404", status: :not_found unless @decision
+    return redirect_to("/login") unless @current_user
+
+    @reportable = @decision
+    @reportable_type = "Decision"
+    @reportable_id = @decision.id
+    @page_title = "Report Content"
+    @sidebar_mode = "resource"
+    render "content_reports/new"
   end
 
   def settings
@@ -127,6 +143,9 @@ class DecisionsController < ApplicationController
       actions << { name: 'unpin_decision', params_string: '()' }
     else
       actions << { name: 'pin_decision', params_string: '()' }
+    end
+    if @current_user&.id == @decision.created_by_id || @current_user&.collective_member&.is_admin? || @current_user&.app_admin?
+      actions << { name: 'delete_decision', params_string: '()' }
     end
     render_actions_index({ actions: actions })
   end
@@ -264,8 +283,13 @@ class DecisionsController < ApplicationController
   end
 
   def actions_index_show
-    @page_title = "Actions | #{current_decision.question}"
-    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/d/:decision_id'))
+    @decision = current_decision
+    @page_title = "Actions | #{@decision.question}"
+    route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/d/:decision_id")
+    actions = (route_info&.dig(:actions) || []).select do |action|
+      ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @decision })
+    end
+    render_actions_index({ actions: actions })
   end
 
   def describe_create_decision
@@ -274,12 +298,47 @@ class DecisionsController < ApplicationController
     render_action_description(ActionsHelper.action_description("create_decision"))
   end
 
+  def describe_report_content
+    render_action_description(ActionsHelper.action_description("report_content", resource: current_decision))
+  end
+
+  def report_content_action
+    return render "404", status: :not_found unless current_decision
+
+    api_helper.report_content(current_decision)
+    respond_to do |format|
+      format.html { redirect_to current_decision.path, notice: report_content_flash }
+      format.md { render_action_success({ action_name: "report_content", resource: current_decision, result: report_content_flash }) }
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    respond_to do |format|
+      format.html { redirect_to current_decision.path, alert: e.record.errors.full_messages.join(", ") }
+      format.md { render_action_error({ action_name: "report_content", resource: current_decision, error: e.message }) }
+    end
+  end
+
   def describe_add_options
     render_action_description(ActionsHelper.action_description("add_options", resource: current_decision))
   end
 
   def describe_vote
     render_action_description(ActionsHelper.action_description("vote", resource: current_decision))
+  end
+
+  def describe_delete_decision
+    render_action_description(ActionsHelper.action_description("delete_decision", resource: current_decision))
+  end
+
+  def execute_delete_decision
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+
+    begin
+      api_helper.delete_decision
+      redirect_to(@current_collective.path || "/", notice: "Decision deleted.")
+    rescue ActiveRecord::RecordInvalid
+      render 'shared/403', status: :forbidden
+    end
   end
 
   private
@@ -302,5 +361,16 @@ class DecisionsController < ApplicationController
     @current_app_title = 'Harmonic Team'
     @current_app_description = 'fast group decision-making'
     @current_app
+  end
+
+  def find_deleted_decision
+    decision_id = params[:id] || params[:decision_id]
+    return nil unless decision_id
+
+    if decision_id.to_s.length == 8
+      Decision.with_deleted.find_by(truncated_id: decision_id)
+    else
+      Decision.with_deleted.find_by(id: decision_id)
+    end
   end
 end

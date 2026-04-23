@@ -9,19 +9,33 @@ class FeedItemComponent < ViewComponent::Base
       type: String,
       created_by: T.nilable(User),
       created_at: ActiveSupport::TimeWithZone,
-      current_user: T.nilable(User)
+      current_user: T.nilable(User),
+      blocked_user_ids: T::Set[String],
+      block_related_user_ids: T::Set[String]
     ).void
   end
-  def initialize(item:, type:, created_by:, created_at:, current_user: nil)
+  def initialize(item:, type:, created_by:, created_at:, current_user: nil, blocked_user_ids: Set.new, block_related_user_ids: Set.new)
     super()
     @item = item
     @type = type
     @created_by = created_by
     @created_at = created_at
     @current_user = current_user
+    @blocked_user_ids = blocked_user_ids
+    @block_related_user_ids = block_related_user_ids
   end
 
   private
+
+  sig { returns(T::Boolean) }
+  def author_blocked?
+    @created_by.present? && @blocked_user_ids.include?(@created_by.id)
+  end
+
+  sig { returns(T::Boolean) }
+  def block_exists_with_author?
+    @created_by.present? && @block_related_user_ids.include?(@created_by.id)
+  end
 
   sig { returns(T::Boolean) }
   def is_comment?

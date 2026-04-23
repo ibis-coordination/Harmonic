@@ -11,6 +11,7 @@ class Decision < ApplicationRecord
   include Searchable
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
+  include SoftDeletable
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -176,7 +177,16 @@ class Decision < ApplicationRecord
     'd'
   end
 
+  def content_snapshot
+    { question: question, description: description }
+  end
+
   private
+
+  def scrub_content!
+    self.question = "[deleted]"
+    self.description = "[deleted]"
+  end
 
   # Track the creator of this decision
   def user_item_status_updates

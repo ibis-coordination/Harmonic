@@ -110,6 +110,18 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/at least 14 characters/i, flash[:alert])
   end
 
+  test "should show flash error for common password" do
+    raw_token = @identity.generate_reset_password_token!
+
+    patch password_reset_path(raw_token), params: {
+      password: "password12345678",
+      password_confirmation: "password12345678",
+    }
+
+    assert_response :success
+    assert_match(/too common/i, flash[:alert])
+  end
+
   # === Security Audit Logging Tests ===
   #
   # Note: These tests verify that security events are logged by checking the log file.

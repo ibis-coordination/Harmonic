@@ -17,6 +17,13 @@ class AutocompleteController < ApplicationController
       .where.not(user_id: @current_user.id)
       .pluck(:user_id)
 
+    # Exclude users involved in blocks (either direction) — single query
+    block_ids = UserBlock
+      .where("blocker_id = :uid OR blocked_id = :uid", uid: @current_user.id)
+      .pluck(:blocker_id, :blocked_id)
+      .flatten.uniq - [@current_user.id]
+    collective_member_ids -= block_ids if block_ids.any?
+
     return render json: [] if collective_member_ids.empty?
 
     # Search tenant users by handle or display_name, limited to collective members

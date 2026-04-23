@@ -561,6 +561,34 @@ class ApplicationController < ActionController::Base
                          end
   end
 
+  def blocked_user_ids
+    return @blocked_user_ids if defined?(@blocked_user_ids)
+
+    @blocked_user_ids = if @current_user
+      Set.new(UserBlock.where(blocker: @current_user).pluck(:blocked_id))
+    else
+      Set.new
+    end
+  end
+  helper_method :blocked_user_ids
+
+  # Bidirectional: all user IDs involved in a block with the current user (either direction).
+  # Used by feed items which are hidden in both directions.
+  def block_related_user_ids
+    return @block_related_user_ids if defined?(@block_related_user_ids)
+
+    @block_related_user_ids = if @current_user
+      ids = UserBlock
+        .where("blocker_id = :uid OR blocked_id = :uid", uid: @current_user.id)
+        .pluck(:blocker_id, :blocked_id)
+        .flatten - [@current_user.id]
+      Set.new(ids)
+    else
+      Set.new
+    end
+  end
+  helper_method :block_related_user_ids
+
   def load_unread_notification_count
     return @unread_notification_count if defined?(@unread_notification_count)
 
@@ -612,7 +640,11 @@ class ApplicationController < ActionController::Base
                   end
     return @current_decision = nil unless decision_id
 
-    @current_decision = Decision.find(decision_id)
+    @current_decision = begin
+      Decision.find(decision_id)
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
   end
 
   def current_decision_participant
@@ -647,7 +679,11 @@ class ApplicationController < ActionController::Base
                     end
     return @current_commitment = nil unless commitment_id
 
-    @current_commitment = Commitment.find(commitment_id)
+    @current_commitment = begin
+      Commitment.find(commitment_id)
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
   end
 
   def current_commitment_participant
@@ -676,7 +712,11 @@ class ApplicationController < ActionController::Base
               end
     return @current_note = nil unless note_id
 
-    @current_note = Note.find(note_id)
+    @current_note = begin
+      Note.find(note_id)
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
   end
 
   def current_cycle
@@ -741,6 +781,23 @@ class ApplicationController < ActionController::Base
     super
   end
 
+  # Central logout method. Clears all session state, representation, and cross-subdomain cookies.
+  # Use this instead of calling reset_session directly when logging a user out.
+  def logout_user!
+    clear_representation!
+    reset_session
+    delete_shared_domain_cookie(:token, path: "/login/callback")
+    delete_shared_domain_cookie(:redirect_to_subdomain)
+    delete_shared_domain_cookie(:redirect_to_resource)
+    delete_shared_domain_cookie(:collective_invite_code)
+  end
+
+  def delete_shared_domain_cookie(key, path: nil)
+    opts = { domain: ".#{ENV['HOSTNAME']}" }
+    opts[:path] = path if path
+    cookies.delete(key, **opts)
+  end
+
   def clear_participant_uid_cookie
     cookies.delete(:decision_participant_uid)
   end
@@ -787,6 +844,18 @@ class ApplicationController < ActionController::Base
       pinned: @is_pinned,
       click_title: @pin_click_title,
     }
+  end
+
+  def set_report_vars(resource)
+    @already_reported = current_user && ContentReport.where(reporter: current_user, reportable: resource).exists?
+  end
+
+  def report_content_flash
+    if params[:also_block] == "1"
+      "Thank you for your report. The author has been blocked and our moderators will review the reported content."
+    else
+      "Thank you for reporting. Our moderators will review it."
+    end
   end
 
   def set_pin_vars
@@ -955,16 +1024,27 @@ class ApplicationController < ActionController::Base
     # Absolute timeout: session expires after fixed time from login (default 24 hours)
     if session[:logged_in_at].present? && Time.at(session[:logged_in_at]) < SESSION_ABSOLUTE_TIMEOUT.ago
       SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "session_absolute_timeout") if current_human_user
-      reset_session
+      logout_user!
       flash[:alert] = "Your session has expired. Please log in again."
       redirect_to "/login"
       return
     end
 
+    # Session revocation: admin has revoked all sessions for this user
+    if session[:logged_in_at].present? && current_human_user&.sessions_revoked_at.present?
+      if Time.at(session[:logged_in_at]) < current_human_user.sessions_revoked_at
+        SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "sessions_revoked")
+        logout_user!
+        flash[:alert] = "Your session has been revoked. Please log in again."
+        redirect_to "/login"
+        return
+      end
+    end
+
     # Idle timeout: session expires after inactivity (default 2 hours)
     if session[:last_activity_at].present? && Time.at(session[:last_activity_at]) < SESSION_IDLE_TIMEOUT.ago
       SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "session_idle_timeout") if current_human_user
-      reset_session
+      logout_user!
       flash[:alert] = "Your session has expired due to inactivity. Please log in again."
       redirect_to "/login"
       return
@@ -982,7 +1062,7 @@ class ApplicationController < ActionController::Base
     return unless user&.suspended?
 
     SecurityAuditLog.log_suspended_login_attempt(user: user, ip: request.remote_ip)
-    reset_session
+    logout_user!
     flash[:alert] = "Your account has been suspended."
     redirect_to "/login"
   end

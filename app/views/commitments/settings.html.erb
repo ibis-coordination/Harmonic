@@ -63,5 +63,25 @@
         <a href="<%= @commitment.path %>" class="pulse-action-btn">Cancel</a>
       </section>
     <% end %>
+
+    <% if @current_user.id == @commitment.created_by_id || @current_user.collective_member&.is_admin? || @current_user.app_admin? %>
+      <section class="pulse-settings-section">
+        <details>
+          <summary class="pulse-section-title" style="cursor: pointer; color: var(--color-danger-fg);">
+            <%= octicon 'trash', height: 14 %> Delete this commitment
+          </summary>
+          <div style="margin-top: 12px;">
+            <p class="pulse-body-text-muted" style="margin-bottom: 12px;">
+              This will delete your commitment. Participant records and comments from others will be preserved.
+            </p>
+            <%= button_to "#{@commitment.path}/settings/actions/delete_commitment", method: :post,
+                data: { turbo_confirm: "Delete this commitment?" },
+                class: "pulse-action-btn pulse-action-btn-danger" do %>
+              <%= octicon 'trash', height: 14 %> Delete Commitment
+            <% end %>
+          </div>
+        </details>
+      </section>
+    <% end %>
   </div>
 </article>

@@ -36,4 +36,24 @@
       <%= link_to 'Cancel', @note.path, class: 'pulse-action-btn-secondary' %>
     </div>
   <% end %>
+
+  <% if @current_user.id == @note.created_by_id || @current_user.collective_member&.is_admin? || @current_user.app_admin? %>
+    <section class="pulse-settings-section" style="margin-top: 32px;">
+      <details>
+        <summary class="pulse-section-title" style="cursor: pointer; color: var(--color-danger-fg);">
+          <%= octicon 'trash', height: 14 %> Delete this <%= @note.is_comment? ? "comment" : "note" %>
+        </summary>
+        <div style="margin-top: 12px;">
+          <p class="pulse-body-text-muted" style="margin-bottom: 12px;">
+            This will delete your <%= @note.is_comment? ? "comment" : "note" %>.<% unless @note.is_comment? %> Comments from others will be preserved.<% end %>
+          </p>
+          <%= button_to "#{@note.path}/settings/actions/delete_note", method: :post,
+              data: { turbo_confirm: "Delete this #{@note.is_comment? ? 'comment' : 'note'}?" },
+              class: "pulse-action-btn pulse-action-btn-danger" do %>
+            <%= octicon 'trash', height: 14 %> Delete <%= @note.is_comment? ? "Comment" : "Note" %>
+          <% end %>
+        </div>
+      </details>
+    </section>
+  <% end %>
 </article>

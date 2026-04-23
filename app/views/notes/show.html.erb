@@ -4,6 +4,19 @@
   (@note.is_comment? ? 'Comment' : 'Note')
 ] %>
 
+<% if @note.deleted? %>
+<article class="pulse-resource-detail">
+  <div class="pulse-resource-body" style="padding: 24px;">
+    <p><%= octicon 'trash', height: 16 %> This <%= @note.is_comment? ? "comment" : "note" %> has been deleted<%= " by the author" if @note.deleted_by_id == @note.created_by_id %>.</p>
+    <% if @note.is_comment? && @note.commentable %>
+      <p style="margin-top: 16px;">
+        <a href="<%= @note.commentable.path %>" class="pulse-link"><%= octicon 'arrow-left', height: 12 %> Back to parent</a>
+      </p>
+    <% end %>
+  </div>
+</article>
+<% else %>
+
 <article class="pulse-resource-detail">
   <%= render ResourceHeaderComponent.new(
     type_label: @note.is_comment? ? "Comment" : "Note",
@@ -13,23 +26,48 @@
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      <% unless @current_collective.is_main_collective? %>
-        <%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %>
-      <% end %>
       <% if @note.user_can_edit?(@current_user) %>
         <%= link_to "#{@note.path}/edit", class: 'pulse-action-btn' do %>
           <%= octicon 'pencil', height: 14 %>
           Edit
         <% end %>
       <% end %>
+      <% show_pin = @current_user && !@current_collective.is_main_collective? %>
+      <% show_report = @current_user && @note.created_by_id != @current_user.id && !@already_reported %>
+      <% if show_pin || show_report %>
+        <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
+          <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
+            <%= octicon 'kebab-horizontal', height: 14 %>
+          </summary>
+          <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
+            <ul>
+              <% if show_pin %>
+                <li><%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %></li>
+              <% end %>
+              <% if show_report %>
+                <li>
+                  <%= link_to "#{@note.path}/report" do %>
+                    <%= octicon 'report', height: 14 %> Report
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </details>
+      <% end %>
     <% end
   end %>
 
-  <% if @note.is_comment? %>
+  <% if @note.is_comment? && @note.commentable %>
     <div class="pulse-reply-context" onclick="location.href='<%= @note.commentable.path %>'" style="cursor:pointer;">
       <%= octicon 'reply', height: 14 %>
       Replying to
       <%= render 'shared/pulse_resource_link', resource: @note.commentable %>
+    </div>
+  <% elsif @note.is_comment? %>
+    <div class="pulse-reply-context">
+      <%= octicon 'reply', height: 14 %>
+      Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
     </div>
   <% end %>
 
@@ -56,4 +94,5 @@
     <%= render 'confirm' %>
   </div>
 </article>
+<% end %>
 </span>

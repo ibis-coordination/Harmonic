@@ -4,6 +4,14 @@
   'Decision'
 ] %>
 
+<% if @decision.deleted? %>
+<article class="pulse-resource-detail">
+  <div class="pulse-resource-body" style="padding: 24px;">
+    <p><%= octicon 'trash', height: 16 %> This decision has been deleted<%= " by the author" if @decision.deleted_by_id == @decision.created_by_id %>.</p>
+  </div>
+</article>
+<% else %>
+
 <article class="pulse-resource-detail">
   <%= render ResourceHeaderComponent.new(
     type_label: "Decision",
@@ -13,12 +21,34 @@
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      <%= render 'shared/pulse_pin_button', resource: @decision, is_pinned: @is_pinned %>
       <% if @decision.can_edit_settings?(@current_user) %>
         <%= link_to "#{@decision.path}/settings", class: 'pulse-action-btn' do %>
           <%= octicon 'gear', height: 14 %>
           Settings
         <% end %>
+      <% end %>
+      <% show_pin = @current_user %>
+      <% show_report = @current_user && @decision.created_by_id != @current_user.id && !@already_reported %>
+      <% if show_pin || show_report %>
+        <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
+          <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
+            <%= octicon 'kebab-horizontal', height: 14 %>
+          </summary>
+          <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
+            <ul>
+              <% if show_pin %>
+                <li><%= render 'shared/pulse_pin_button', resource: @decision, is_pinned: @is_pinned %></li>
+              <% end %>
+              <% if show_report %>
+                <li>
+                  <%= link_to "#{@decision.path}/report" do %>
+                    <%= octicon 'report', height: 14 %> Report
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </details>
       <% end %>
     <% end
   end %>
@@ -44,11 +74,24 @@
 
   <%# Voting Options Section (shown when decision is open) %>
   <% unless @decision.closed? %>
-    <div class="pulse-acceptance-voting-section">
-      <%= render 'shared/pulse_accordion', title: @options_header, open: true do %>
-        <%= render 'options_section' %>
-      <% end %>
-    </div>
+    <% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) %>
+      <div class="pulse-acceptance-voting-section">
+        <p class="pulse-body-text-muted" style="padding: 12px 0;">
+          <%= octicon 'blocked', height: 14 %>
+          <% if @current_user.blocked?(@decision.created_by) %>
+            Voting is unavailable because you have blocked the author of this decision.
+          <% else %>
+            Voting is unavailable because you have been blocked by the author of this decision.
+          <% end %>
+        </p>
+      </div>
+    <% else %>
+      <div class="pulse-acceptance-voting-section">
+        <%= render 'shared/pulse_accordion', title: @options_header, open: true do %>
+          <%= render 'options_section' %>
+        <% end %>
+      </div>
+    <% end %>
   <% end %>
 
   <%# Results Section %>
@@ -76,4 +119,5 @@
   <%= render 'shared/pulse_comments', commentable: @decision %>
   <%= render 'shared/pulse_backlinks', resource: @decision %>
 </article>
+<% end %>
 </span>

@@ -155,6 +155,9 @@ Rails.application.routes.draw do
   get 'trio' => 'trio#index'
   post 'trio' => 'trio#create'
 
+  # User blocks
+  resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"
+
   # Notifications
   get 'notifications' => 'notifications#index'
   get 'notifications/new' => 'notifications#new'
@@ -232,6 +235,11 @@ Rails.application.routes.draw do
   post 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#execute_unsuspend_user'
   get 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_billing_exempt'
   post 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_billing_exempt'
+  post 'app-admin/users/:id/actions/account_security_reset' => 'app_admin#execute_account_security_reset'
+  get 'app-admin/reports' => 'app_admin#reports'
+  get 'app-admin/reports/:id' => 'app_admin#show_report', as: 'app_admin_report'
+  post 'app-admin/reports/:id/review' => 'app_admin#execute_review_report'
+  post 'app-admin/reports/:id/delete-content' => 'app_admin#execute_delete_reported_content'
   get 'app-admin/security' => 'app_admin#security_dashboard'
   get 'app-admin/security/events/:line_number' => 'app_admin#security_event'
 
@@ -393,9 +401,12 @@ Rails.application.routes.draw do
     get "#{prefix}/note/actions/create_note" => 'notes#describe_create_note'
     post "#{prefix}/note/actions/create_note" => 'notes#create_note'
     resources :notes, only: [:show], path: "#{prefix}/n" do
+      get '/report' => 'notes#report'
       get '/actions' => 'notes#actions_index_show'
       get '/actions/confirm_read' => 'notes#describe_confirm_read'
       post '/actions/confirm_read' => 'notes#confirm_read'
+      get '/actions/report_content' => 'notes#describe_report_content'
+      post '/actions/report_content' => 'notes#report_content_action'
       get '/actions/add_comment' => 'notes#describe_add_comment'
       post '/actions/add_comment' => 'notes#add_comment'
       post '/comments' => 'notes#create_comment'
@@ -421,6 +432,8 @@ Rails.application.routes.draw do
       post '/settings/actions/pin_note' => 'notes#pin_note_action'
       get '/settings/actions/unpin_note' => 'notes#describe_unpin_note'
       post '/settings/actions/unpin_note' => 'notes#unpin_note_action'
+      get '/settings/actions/delete_note' => 'notes#describe_delete_note'
+      post '/settings/actions/delete_note' => 'notes#execute_delete_note'
     end
 
     get "#{prefix}/decide" => 'decisions#new'
@@ -429,6 +442,7 @@ Rails.application.routes.draw do
     get "#{prefix}/decide/actions/create_decision" => 'decisions#describe_create_decision'
     post "#{prefix}/decide/actions/create_decision" => 'decisions#create_decision'
     resources :decisions, only: [:show], path: "#{prefix}/d" do
+      get '/report' => 'decisions#report'
       get '/actions' => 'decisions#actions_index_show'
       get '/actions/add_options' => 'decisions#describe_add_options'
       post '/actions/add_options' => 'decisions#add_options'
@@ -436,6 +450,8 @@ Rails.application.routes.draw do
       post '/actions/vote' => 'decisions#vote'
       get '/actions/add_comment' => 'decisions#describe_add_comment'
       post '/actions/add_comment' => 'decisions#add_comment'
+      get '/actions/report_content' => 'decisions#describe_report_content'
+      post '/actions/report_content' => 'decisions#report_content_action'
       post '/comments' => 'decisions#create_comment'
       get '/comments.html' => 'decisions#comments_partial'
       get '/metric' => 'decisions#metric'
@@ -460,6 +476,8 @@ Rails.application.routes.draw do
       post '/settings/actions/unpin_decision' => 'decisions#unpin_decision_action'
       get '/settings/actions/add_attachment' => 'decisions#describe_add_attachment'
       post '/settings/actions/add_attachment' => 'decisions#add_attachment'
+      get '/settings/actions/delete_decision' => 'decisions#describe_delete_decision'
+      post '/settings/actions/delete_decision' => 'decisions#execute_delete_decision'
     end
 
     get "#{prefix}/commit" => 'commitments#new'
@@ -468,11 +486,14 @@ Rails.application.routes.draw do
     get "#{prefix}/commit/actions/create_commitment" => 'commitments#describe_create_commitment'
     post "#{prefix}/commit/actions/create_commitment" => 'commitments#create_commitment_action'
     resources :commitments, only: [:show], path: "#{prefix}/c" do
+      get '/report' => 'commitments#report'
       get '/actions' => 'commitments#actions_index_show'
       get '/actions/join_commitment' => 'commitments#describe_join_commitment'
       post '/actions/join_commitment' => 'commitments#join_commitment'
       get '/actions/add_comment' => 'commitments#describe_add_comment'
       post '/actions/add_comment' => 'commitments#add_comment'
+      get '/actions/report_content' => 'commitments#describe_report_content'
+      post '/actions/report_content' => 'commitments#report_content_action'
       get '/metric' => 'commitments#metric'
       get '/status.html' => 'commitments#status_partial'
       get '/participants.html' => 'commitments#participants_list_items_partial'
@@ -495,6 +516,8 @@ Rails.application.routes.draw do
       post '/settings/actions/unpin_commitment' => 'commitments#unpin_commitment_action'
       get '/settings/actions/add_attachment' => 'commitments#describe_add_attachment'
       post '/settings/actions/add_attachment' => 'commitments#add_attachment'
+      get '/settings/actions/delete_commitment' => 'commitments#describe_delete_commitment'
+      post '/settings/actions/delete_commitment' => 'commitments#execute_delete_commitment'
     end
 
     namespace :api, path: "#{prefix}/api" do

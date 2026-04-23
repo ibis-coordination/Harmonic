@@ -26,6 +26,10 @@ class User < ApplicationRecord
   # For AI agents: which StripeCustomer pays for this agent's usage
   belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
 
+  # User block associations
+  has_many :user_blocks_given, class_name: "UserBlock", foreign_key: "blocker_id", dependent: :destroy
+  has_many :user_blocks_received, class_name: "UserBlock", foreign_key: "blocked_id", dependent: :destroy
+
   # Trustee grant associations
   # granted_trustee_grants: grants where this user is the granting party (e.g., an AI agent granting authority)
   has_many :granted_trustee_grants, class_name: "TrusteeGrant",
@@ -405,6 +409,26 @@ class User < ApplicationRecord
   sig { returns(T::Boolean) }
   def suspended?
     suspended_at.present?
+  end
+
+  sig { params(other_user: User).returns(T::Boolean) }
+  def blocked?(other_user)
+    T.unsafe(self).user_blocks_given.where(blocked: other_user).exists?
+  end
+
+  sig { params(other_user: User).returns(T::Boolean) }
+  def blocked_by?(other_user)
+    T.unsafe(self).user_blocks_received.where(blocker: other_user).exists?
+  end
+
+  sig { void }
+  def revoke_all_sessions!
+    T.unsafe(self).update!(sessions_revoked_at: Time.current)
+    ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!)
+    # Also delete API tokens for child AI agents (attacker could have created tokens on them)
+    T.unsafe(self).ai_agents.find_each do |ai_agent|
+      ApiToken.for_user_across_tenants(ai_agent).where(deleted_at: nil).find_each(&:delete!)
+    end
   end
 
   sig { params(by: User, reason: String, skip_billing_sync: T::Boolean).void }

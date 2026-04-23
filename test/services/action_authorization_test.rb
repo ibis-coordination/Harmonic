@@ -371,4 +371,85 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("create_ai_agent", other_user, ai_agent_context)
     refute ActionAuthorization.authorized?("create_api_token", other_user, ai_agent_context)
   end
+
+  # ==========================================
+  # User Block Tests
+  # ==========================================
+
+  test "confirm_read denied when block exists between user and note author" do
+    author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+    note = create_note(text: "Test note", created_by: author)
+    UserBlock.create!(blocker: author, blocked: @user, tenant: @tenant)
+
+    context = { collective: @collective, resource: note }
+    refute ActionAuthorization.authorized?("confirm_read", @user, context)
+  end
+
+  test "vote denied when block exists between user and decision author" do
+    author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+    decision = create_decision(question: "Test?", created_by: author)
+    UserBlock.create!(blocker: @user, blocked: author, tenant: @tenant)
+
+    context = { collective: @collective, resource: decision }
+    refute ActionAuthorization.authorized?("vote", @user, context)
+  end
+
+  test "add_comment denied when block exists" do
+    author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+    note = create_note(text: "Test note", created_by: author)
+    UserBlock.create!(blocker: @user, blocked: author, tenant: @tenant)
+
+    context = { collective: @collective, resource: note }
+    refute ActionAuthorization.authorized?("add_comment", @user, context)
+  end
+
+  test "join_commitment denied when block exists" do
+    author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+    commitment = create_commitment(title: "Test", created_by: author)
+    UserBlock.create!(blocker: author, blocked: @user, tenant: @tenant)
+
+    context = { collective: @collective, resource: commitment }
+    refute ActionAuthorization.authorized?("join_commitment", @user, context)
+  end
+
+  test "add_options denied when block exists" do
+    author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+    decision = create_decision(question: "Test?", created_by: author)
+    UserBlock.create!(blocker: @user, blocked: author, tenant: @tenant)
+
+    context = { collective: @collective, resource: decision }
+    refute ActionAuthorization.authorized?("add_options", @user, context)
+  end
+
+  test "create_note NOT denied when block exists (creation actions unaffected)" do
+    author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+    UserBlock.create!(blocker: @user, blocked: author, tenant: @tenant)
+
+    context = { collective: @collective }
+    assert ActionAuthorization.authorized?("create_note", @user, context)
+  end
+
+  test "block check permissive when no resource in context" do
+    author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+    UserBlock.create!(blocker: @user, blocked: author, tenant: @tenant)
+
+    # No resource in context — should still show the action (for global listings)
+    context = { collective: @collective }
+    assert ActionAuthorization.authorized?("confirm_read", @user, context)
+    assert ActionAuthorization.authorized?("vote", @user, context)
+  end
 end

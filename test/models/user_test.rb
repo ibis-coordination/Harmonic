@@ -1068,5 +1068,56 @@ class UserTest < ActiveSupport::TestCase
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
   end
+
+  # ==========================================
+  # Session Revocation Tests
+  # ==========================================
+
+  test "revoke_all_sessions! sets sessions_revoked_at" do
+    user = create_user(email: "revoke-test-#{SecureRandom.hex(4)}@example.com", name: "Revoke Test")
+
+    assert_nil user.sessions_revoked_at
+
+    user.revoke_all_sessions!
+    user.reload
+
+    assert_not_nil user.sessions_revoked_at
+    assert_in_delta Time.current, user.sessions_revoked_at, 5
+  end
+
+  test "revoke_all_sessions! deletes all API tokens" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    # Create API tokens for the user
+    token1 = ApiToken.create!(user: user, name: "Token 1", tenant: tenant, scopes: ["read:all"])
+    token2 = ApiToken.create!(user: user, name: "Token 2", tenant: tenant, scopes: ["read:all"])
+
+    user.revoke_all_sessions!
+
+    token1.reload
+    token2.reload
+    assert_not_nil token1.deleted_at
+    assert_not_nil token2.deleted_at
+  end
+
+  test "revoke_all_sessions! deletes child AI agent tokens" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    ai_agent = User.create!(
+      email: "agent-#{SecureRandom.hex(4)}@example.com",
+      name: "Child Agent",
+      user_type: "ai_agent",
+      parent_id: user.id,
+    )
+    tenant.add_user!(ai_agent)
+    agent_token = ApiToken.create!(user: ai_agent, name: "Agent Token", tenant: tenant, scopes: ["read:all"])
+
+    user.revoke_all_sessions!
+
+    agent_token.reload
+    assert_not_nil agent_token.deleted_at
+  end
 end
 

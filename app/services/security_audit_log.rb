@@ -258,6 +258,24 @@ class SecurityAuditLog
     )
   end
 
+  # Content deletion events (admin-only)
+
+  sig { params(content: T.untyped, deleted_by: User, ip: String, snapshot: T::Hash[Symbol, T.untyped]).void }
+  def self.log_content_deleted(content:, deleted_by:, ip:, snapshot:)
+    truncated_snapshot = snapshot.transform_values { |v| v&.truncate(2000) }
+    log_event(
+      event: "content_deleted",
+      severity: :warn,
+      content_type: content.class.name,
+      content_id: content.id,
+      content_truncated_id: content.truncated_id,
+      deleted_by_id: deleted_by.id,
+      deleted_by_email: deleted_by.email,
+      ip: ip,
+      snapshot: truncated_snapshot,
+    )
+  end
+
   # Rate limiting events
 
   sig { params(ip: String, matched: String, request_path: String).void }
@@ -307,6 +325,7 @@ class SecurityAuditLog
     payload = {
       timestamp: Time.current.iso8601(3),
       event: event,
+      severity: severity.to_s,
       environment: Rails.env,
       **data.compact,
     }.to_json

@@ -173,6 +173,22 @@ class ActionsHelper
       params: [],
       authorization: :collective_member,
     },
+    "delete_note" => {
+      description: "Delete this note. Comments from others will be preserved.",
+      params_string: "()",
+      params: [],
+      authorization: [:resource_owner, :collective_admin, :app_admin],
+    },
+    "report_content" => {
+      description: "Report this content for moderator review",
+      params_string: "(reason, description, also_block)",
+      params: [
+        { name: "reason", type: "string", description: "Reason for reporting: harassment, spam, inappropriate, misinformation, or other" },
+        { name: "description", type: "string", description: "Additional context for moderators (optional)" },
+        { name: "also_block", type: "string", description: 'Set to "1" to also block the author (optional)' },
+      ],
+      authorization: :authenticated,
+    },
 
     # Decision actions
     "create_decision" => {
@@ -225,6 +241,12 @@ class ActionsHelper
       params: [],
       authorization: :collective_member,
     },
+    "delete_decision" => {
+      description: "Delete this decision. Votes and comments from others will be preserved.",
+      params_string: "()",
+      params: [],
+      authorization: [:resource_owner, :collective_admin, :app_admin],
+    },
 
     # Commitment actions
     "create_commitment" => {
@@ -266,6 +288,12 @@ class ActionsHelper
       params_string: "()",
       params: [],
       authorization: :collective_member,
+    },
+    "delete_commitment" => {
+      description: "Delete this commitment. Participant records and comments from others will be preserved.",
+      params_string: "()",
+      params: [],
+      authorization: [:resource_owner, :collective_admin, :app_admin],
     },
 
     # Comment action (shared across notes, decisions, commitments)
@@ -561,6 +589,17 @@ class ActionsHelper
   #
   # The controller_actions mapping is the single source of truth for route pattern resolution.
   # MarkdownHelper.build_route_pattern_from_request uses this to look up route patterns.
+
+  # Shared condition for report_content conditional action.
+  # Shows the action only when the user is not the content author and hasn't already reported it.
+  REPORT_CONTENT_CONDITION = ->(context) {
+    user = context[:user]
+    resource = context[:resource]
+    user && resource && resource.respond_to?(:created_by_id) &&
+      resource.created_by_id != user.id &&
+      !ContentReport.where(reporter: user, reportable: resource).exists?
+  }
+
   @@actions_by_route = {
     "/" => {
       controller_actions: ["home#index"],
@@ -658,6 +697,14 @@ class ActionsHelper
         { name: "confirm_read", params_string: ACTION_DEFINITIONS["confirm_read"][:params_string], description: ACTION_DEFINITIONS["confirm_read"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
+      conditional_actions: [
+        {
+          name: "report_content",
+          params_string: ACTION_DEFINITIONS["report_content"][:params_string],
+          description: ACTION_DEFINITIONS["report_content"][:description],
+          condition: REPORT_CONTENT_CONDITION,
+        },
+      ],
     },
     "/collectives/:collective_handle/n/:note_id/attachments/:attachment_id" => {
       controller_actions: ["attachments#show"],
@@ -689,6 +736,14 @@ class ActionsHelper
         { name: "vote", params_string: ACTION_DEFINITIONS["vote"][:params_string], description: ACTION_DEFINITIONS["vote"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
+      conditional_actions: [
+        {
+          name: "report_content",
+          params_string: ACTION_DEFINITIONS["report_content"][:params_string],
+          description: ACTION_DEFINITIONS["report_content"][:description],
+          condition: REPORT_CONTENT_CONDITION,
+        },
+      ],
     },
     "/collectives/:collective_handle/d/:decision_id/attachments/:attachment_id" => {
       controller_actions: ["attachments#show"],
@@ -714,6 +769,14 @@ class ActionsHelper
       actions: [
         { name: "join_commitment", params_string: ACTION_DEFINITIONS["join_commitment"][:params_string], description: ACTION_DEFINITIONS["join_commitment"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
+      ],
+      conditional_actions: [
+        {
+          name: "report_content",
+          params_string: ACTION_DEFINITIONS["report_content"][:params_string],
+          description: ACTION_DEFINITIONS["report_content"][:description],
+          condition: REPORT_CONTENT_CONDITION,
+        },
       ],
     },
     "/collectives/:collective_handle/c/:commitment_id/attachments/:attachment_id" => {

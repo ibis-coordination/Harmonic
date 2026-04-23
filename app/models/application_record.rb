@@ -40,8 +40,17 @@ class ApplicationRecord < ActiveRecord::Base
     self.column_names.include?("collective_id")
   end
 
-  # Query with only tenant scoping (bypasses collective scope).
-  # Use this instead of `unscoped` when you need cross-collective access within a tenant.
+  # Remove collective scoping while preserving all other default scopes (tenant, soft-delete, etc.).
+  # Use this when you need cross-collective access but still want normal filtering behavior.
+  sig { returns(T.untyped) }
+  def self.unscope_collective
+    unscope(where: :collective_id)
+  end
+
+  # Query with only tenant scoping (bypasses ALL other default scopes including soft-delete).
+  # Use this instead of `unscoped` when you need cross-collective access within a tenant
+  # AND you need to find records regardless of deletion status (e.g., audit trails, path lookups).
+  # For feed/listing queries, prefer `unscope_collective` which preserves soft-delete filtering.
   # In request context, tenant_id defaults to Tenant.current_id.
   # In background jobs, pass tenant_id explicitly.
   sig { params(tenant_id: T.nilable(String)).returns(T.untyped) }

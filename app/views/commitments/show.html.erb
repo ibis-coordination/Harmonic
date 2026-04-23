@@ -4,6 +4,14 @@
   'Commitment'
 ] %>
 
+<% if @commitment.deleted? %>
+<article class="pulse-resource-detail">
+  <div class="pulse-resource-body" style="padding: 24px;">
+    <p><%= octicon 'trash', height: 16 %> This commitment has been deleted<%= " by the author" if @commitment.deleted_by_id == @commitment.created_by_id %>.</p>
+  </div>
+</article>
+<% else %>
+
 <article class="pulse-resource-detail">
   <%= render ResourceHeaderComponent.new(
     type_label: "Commitment",
@@ -13,12 +21,34 @@
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      <%= render 'shared/pulse_pin_button', resource: @commitment, is_pinned: @is_pinned %>
       <% if @commitment.can_edit_settings?(@current_user) %>
         <%= link_to "#{@commitment.path}/settings", class: 'pulse-action-btn' do %>
           <%= octicon 'gear', height: 14 %>
           Settings
         <% end %>
+      <% end %>
+      <% show_pin = @current_user %>
+      <% show_report = @current_user && @commitment.created_by_id != @current_user.id && !@already_reported %>
+      <% if show_pin || show_report %>
+        <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
+          <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
+            <%= octicon 'kebab-horizontal', height: 14 %>
+          </summary>
+          <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
+            <ul>
+              <% if show_pin %>
+                <li><%= render 'shared/pulse_pin_button', resource: @commitment, is_pinned: @is_pinned %></li>
+              <% end %>
+              <% if show_report %>
+                <li>
+                  <%= link_to "#{@commitment.path}/report" do %>
+                    <%= octicon 'report', height: 14 %> Report
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </details>
       <% end %>
     <% end
   end %>
@@ -49,14 +79,27 @@
 
   <%# Join Section (shown when commitment is open) %>
   <% unless @commitment.closed? %>
-    <div class="pulse-join-section">
-      <div class="pulse-section-label">
-        Join
+    <% if @current_user && @commitment.created_by && UserBlock.between?(@current_user, @commitment.created_by) %>
+      <div class="pulse-join-section">
+        <p class="pulse-body-text-muted" style="padding: 12px 0;">
+          <%= octicon 'blocked', height: 14 %>
+          <% if @current_user.blocked?(@commitment.created_by) %>
+            Joining is unavailable because you have blocked the author of this commitment.
+          <% else %>
+            Joining is unavailable because you have been blocked by the author of this commitment.
+          <% end %>
+        </p>
       </div>
-      <div data-commitment-target="joinSection">
-        <%= render 'join' %>
+    <% else %>
+      <div class="pulse-join-section">
+        <div class="pulse-section-label">
+          Join
+        </div>
+        <div data-commitment-target="joinSection">
+          <%= render 'join' %>
+        </div>
       </div>
-    </div>
+    <% end %>
   <% end %>
 
   <%# Participants List %>
@@ -70,4 +113,5 @@
   <%= render 'shared/pulse_comments', commentable: @commitment %>
   <%= render 'shared/pulse_backlinks', resource: @commitment %>
 </article>
+<% end %>
 </span>

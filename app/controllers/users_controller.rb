@@ -66,11 +66,11 @@ class UsersController < ApplicationController
     tid = @current_tenant.id
     main_cid = @current_tenant.main_collective_id
     @feed_items = FeedBuilder.new(
-      notes_scope: Note.tenant_scoped_only(tid)
+      notes_scope: Note.unscope_collective
         .where(collective_id: main_cid, created_by_id: @showing_user.id),
-      decisions_scope: Decision.tenant_scoped_only(tid)
+      decisions_scope: Decision.unscope_collective
         .where(collective_id: main_cid, created_by_id: @showing_user.id),
-      commitments_scope: Commitment.tenant_scoped_only(tid)
+      commitments_scope: Commitment.unscope_collective
         .where(collective_id: main_cid, created_by_id: @showing_user.id),
     ).feed_items
 

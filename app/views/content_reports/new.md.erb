@@ -1,0 +1,19 @@
+# Report Content
+
+Report content that violates community guidelines. Our moderators will review your report.
+
+<% if @reportable %>
+## Content being reported
+
+| Type | <%= @reportable_type %> |
+| Author | @<%= @reportable.created_by.handle %> |
+<% if @reportable.respond_to?(:text) && @reportable.text.present? %>
+| Content | <%= truncate(@reportable.text, length: 200) %> |
+<% elsif @reportable.respond_to?(:question) %>
+| Content | <%= truncate(@reportable.question, length: 200) %> |
+<% elsif @reportable.respond_to?(:title) %>
+| Content | <%= truncate(@reportable.title, length: 200) %> |
+<% end %>
+
+To submit a report, use the `report_content` action on this content's page.
+<% end %>

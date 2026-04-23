@@ -6,7 +6,15 @@
   <ul>
     <% resource.backlinks.each do |r| %>
       <li>
-        <%= render 'shared/inline_resource_item', resource: r %>
+        <% if r.respond_to?(:created_by_id) && blocked_user_ids.include?(r.created_by_id) %>
+          <span class="pulse-body-text-muted">
+            <%= octicon 'blocked', height: 12 %>
+            A link from a user you have blocked
+            <a href="<%= r.path %>" class="pulse-link pulse-body-text-muted">Show</a>
+          </span>
+        <% else %>
+          <%= render 'shared/inline_resource_item', resource: r %>
+        <% end %>
       </li>
     <% end %>
   </ul>
