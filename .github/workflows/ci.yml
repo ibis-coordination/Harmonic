@@ -27,6 +27,9 @@ jobs:
       - name: Check tenant safety (no banned .unscoped)
         run: ./scripts/check-tenant-safety.sh
 
+      - name: Check style guide (Pulse CSS)
+        run: ./scripts/check-style-guide.sh --diff main
+
       - name: Check Sorbet coverage
         run: bundle exec spoom srb coverage
 

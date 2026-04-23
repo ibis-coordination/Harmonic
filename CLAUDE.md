@@ -205,6 +205,9 @@ These checks run in pre-commit hooks and CI:
 
 # Check for potential secrets/API keys
 ./scripts/check-secrets.sh
+
+# Check for style guide violations in Pulse CSS
+./scripts/check-style-guide.sh
 ```
 
 ## TODO Management

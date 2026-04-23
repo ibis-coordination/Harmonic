@@ -8,8 +8,8 @@ class DevController < ApplicationController
     nil
   end
 
-  def pulse_components
-    @page_title = "Pulse Component Library"
+  def styleguide
+    @page_title = "Style Guide"
     @sidebar_mode = "none"
     setup_dummy_data
   end

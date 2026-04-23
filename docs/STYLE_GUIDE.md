@@ -1,423 +1,120 @@
-# Harmonic Style Guide
+# Harmonic Style Guide (Pulse Design System)
 
-This guide documents the visual design patterns used in the Harmonic application.
+The Pulse design system provides the UI layer for Harmonic. All pages use `layout "pulse"`.
 
-## Color System
+**Live reference:** Visit `/dev/styleguide` in development to see all components rendered with current styles. That page is the source of truth for how components look — this document covers structure, conventions, and where to find things.
 
-Harmonic uses a GitHub-inspired color system with CSS custom properties for light/dark mode support.
+**Static analysis:** Run `./scripts/check-style-guide.sh` to check for violations. This runs automatically in pre-commit hooks.
 
-### Light Mode Colors
+## Color Tokens
 
-| Variable | Value | Usage |
-|----------|-------|-------|
-| `--color-fg-default` | #24292f | Primary text |
-| `--color-fg-muted` | #57606a | Secondary text |
-| `--color-fg-subtle` | #6e7781 | Tertiary text |
-| `--color-canvas-default` | #ffffff | Primary background |
-| `--color-canvas-subtle` | #f6f8fa | Secondary background |
-| `--color-border-default` | #d0d7de | Standard borders |
-| `--color-border-muted` | hsla(210,18%,87%,1) | Subtle borders |
-| `--color-accent-fg` | #0969da | Links, interactive elements |
-| `--color-attention-subtle` | #fff8c5 | Warnings, alerts |
-| `--color-danger-fg` | #cf222e | Errors, destructive actions |
-| `--color-neutral-muted` | rgba(175,184,193,0.2) | Neutral backgrounds |
+Defined in `app/assets/stylesheets/root_variables.css`. Light/dark mode adapts automatically via `prefers-color-scheme` — no manual toggle.
 
-### Dark Mode Colors
-
-| Variable | Value | Usage |
-|----------|-------|-------|
-| `--color-fg-default` | #c9d1d9 | Primary text |
-| `--color-canvas-default` | #0d1117 | Primary background |
-| `--color-canvas-subtle` | #161b22 | Secondary background |
-| `--color-border-default` | #30363d | Standard borders |
-| `--color-accent-fg` | #58a6ff | Links, interactive elements |
-| `--color-attention-subtle` | rgba(187,128,9,0.15) | Warnings, alerts |
-
----
+Key token families: `--color-fg-*` (text), `--color-canvas-*` (backgrounds), `--color-border-*` (borders), `--color-accent-*` (interactive), `--color-danger-*` / `--color-success-*` / `--color-attention-*` (status), `--color-neutral-*` (utility). Always use these variables — never hardcode colors.
 
 ## Typography
 
-### Font Stacks
+**Font stack:** `-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`
+**Monospace:** `"Source Code Pro", "Lucida Console", monospace`
+**Line height:** 1.5
 
-**Primary (sans-serif):**
-```css
--apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"
-```
-
-**Monospace:**
-```css
-"Source Code Pro", "Lucida Console", monospace
-```
-
-### Base Settings
-
-- Font size: 16px
-- Line height: 1.5
-- Word wrap: break-word
-
-### Headings
-
-| Level | Size | Weight | Notes |
-|-------|------|--------|-------|
-| h1 | 2em | 600 | Bottom border |
-| h2 | 1.5em | 600 | - |
-| h3 | 1.25em | 600 | - |
-| h4-h6 | Scale down | 600 | - |
-
----
+| Element | Size | Weight |
+|---------|------|--------|
+| Page title | 20px | 600 |
+| Body text | 14px | 400 |
+| Tiny text | 13px | 400 |
+| Small text | 12px | 400 |
+| Section label | 11px | 400, uppercase, letter-spacing: 0.5px |
 
 ## Spacing
 
-### Common Values
+4px grid with common increments of 8px: `4 / 6 / 8 / 12 / 16 / 24px`.
 
-| Size | Pixels | Usage |
-|------|--------|-------|
-| XS | 2-4px | Tight gaps |
-| SM | 5-10px | Component padding |
-| MD | 12-16px | Section spacing |
-| LG | 24-40px | Major sections |
-| XL | 46px+ | Page margins |
+Key values: sidebar sections 16px, feed items 16px horizontal / 12px vertical, buttons 8px 16px, content max-width `min(88vw, 800px)`, form inputs max 600px.
 
-### Layout Widths
+## Layout
 
-- Content max-width: `min(88vw, 800px)`
-- Form inputs: max 600px
-- Mobile breakpoint: 768px
-
----
-
-## Components
-
-### Buttons
-
-**Standard Button:**
-```css
-button {
-  background: var(--color-fg-default);
-  color: var(--color-canvas-default);
-  padding: 5px 10px;
-  border: 1px solid var(--color-canvas-subtle);
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
-}
+```
+┌─────────────────────────────────────────────────┐
+│  Header (56px)                                  │
+├──────────────┬──────────────────────────────────┤
+│  Sidebar     │  Main Content                    │
+│  (280px)     │  (flex: 1)                       │
+├──────────────┴──────────────────────────────────┤
+│  Footer (motto)                                 │
+└─────────────────────────────────────────────────┘
 ```
 
-**Text Button:**
-```css
-.text-only-button {
-  color: var(--color-accent-fg);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-```
+### Sidebar Modes
 
-**Danger Button:**
-```css
-.button-danger {
-  background-color: #cf222e;
-  color: white;
-  border-color: #cf222e;
-}
-.button-danger:hover {
-  background-color: #a40e26;
-}
-```
+Set `@sidebar_mode` in the controller:
 
-### Form Inputs
+| Mode | Partial | Use Case |
+|------|---------|----------|
+| `full` (default) | `pulse/sidebar` | Studio page — cycle, heartbeats, nav, pinned items |
+| `resource` | `pulse/sidebar_resource` | Note/Decision/Commitment detail pages |
+| `minimal` | `pulse/sidebar_minimal` | User profile, settings, notifications |
+| `none` | (no sidebar) | Auth pages, centered forms |
 
-**Text Input / Textarea:**
-```css
-input[type="text"], textarea {
-  min-width: 66%;
-  max-width: 600px;
-  font-size: 16px;
-}
+### Key CSS Classes
 
-textarea {
-  height: 6em;
-  font-family: inherit;
-}
-```
-
-**Select:**
-```css
-select {
-  background-color: var(--color-canvas-subtle);
-  border: 1px solid var(--color-fg-subtle);
-  padding: 5px;
-  border-radius: 4px;
-  font-size: 16px;
-}
-```
-
-**Focus States:**
-```css
-input:focus, select:focus {
-  outline: 2px solid var(--color-accent-fg);
-  outline-offset: -2px;
-}
-```
-
-### Cards & Containers
-
-**Basic Card:**
-```css
-.card {
-  background-color: var(--color-canvas-default);
-  border: 1px solid var(--color-border-default);
-  padding: 16px;
-  margin-bottom: 16px;
-}
-```
-
-**Flex Card:**
-```css
-.ai_agent-card {
-  display: flex;
-  gap: 16px;
-  border: 1px solid var(--color-border-default);
-  padding: 16px;
-  background-color: var(--color-canvas-default);
-}
-```
-
-### Alerts & Notices
-
-```css
-.alert, .notice {
-  padding: 10px;
-  background-color: var(--color-neutral-muted);
-  border: 1px solid var(--color-border-default);
-  margin-bottom: 12px;
-}
-
-.alert-danger {
-  background-color: var(--color-attention-subtle);
-  border-color: var(--color-danger-fg);
-}
-```
-
-### Dropdown Menus
-
-```css
-.dropdown-menu {
-  position: absolute;
-  background-color: var(--color-canvas-default);
-  border: 1px solid var(--color-border-default);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  padding: 8px;
-  z-index: 100;
-}
-```
-
-### Badges
-
-```css
-.notification-badge {
-  position: absolute;
-  top: -4px;
-  right: -6px;
-  background-color: var(--color-accent-fg);
-  width: 16px;
-  height: 16px;
-  line-height: 16px;
-  font-size: 11px;
-  font-weight: bold;
-  border-radius: 50%;
-  text-align: center;
-}
-```
-
-### Lists
-
-**Attachments / Tags:**
-```css
-.attachments-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.attachments-list li {
-  display: inline-block;
-  padding: 5px 10px;
-  border: 1px solid var(--color-border-default);
-  border-radius: 5px;
-  background-color: var(--color-canvas-subtle);
-}
-```
-
----
+- `.pulse-container` / `.pulse-container.no-sidebar` — main wrapper
+- `.pulse-sidebar` with `[data-mode="resource"|"minimal"]` — sidebar variants
+- `.pulse-main` — main content area
+- `.pulse-feed-item` with `-header` / `-body` / `-footer` — feed cards
+- `.pulse-action-btn` / `.pulse-feed-action-btn` — buttons
+- `.pulse-avatar` — 32px circular avatars (stack with negative margin)
+- `.pulse-nav-item` — sidebar navigation links
+- `.pulse-progress-bar` / `.pulse-progress-fill` — progress indicators
 
 ## Icons
 
-Harmonic uses [GitHub Octicons](https://primer.style/octicons/) via the `octicons_helper` gem.
+Uses [GitHub Octicons](https://primer.style/octicons/) via `octicon` helper, plus custom SVGs in `/public/resource-icons/` for note, decision, and commitment icons.
 
-### Usage
+Sizes: 16px (inline default), 22-24px (medium), 31-36px (large).
 
-```erb
-<%= octicon 'icon-name', height: 16 %>
+## Naming Conventions
+
+- **New classes must use the `pulse-` prefix** (e.g., `.pulse-feed-item`). Enforced by `check-style-guide.sh`.
+- Other components: `.component-name`, `.component-element`, `.component-state`
+- Resource types: `.note-icon`, `.resource-link-note`, etc.
+
+## Responsive
+
+Mobile breakpoint at 768px: sidebar collapses to full-width horizontal layout. Styles live in `pulse/_responsive.css`.
+
+## File Organization
+
+```
+app/assets/stylesheets/
+├── root_variables.css          # Color tokens (light/dark)
+├── pulse.css                   # Manifest importing modular components
+├── pulse/
+│   ├── _base.css               # Reset, typography, links, tooltips
+│   ├── _layout.css             # Container, sidebar, main, header, footer
+│   ├── _components.css         # Buttons, avatars, progress bars
+│   ├── _sidebar.css            # Cycle, heartbeat, nav, pinned, links
+│   ├── _feed.css               # Feed items, action buttons, cards
+│   ├── _heartbeat.css          # Heartbeat section, animations
+│   └── _responsive.css         # Mobile breakpoints
+└── application.css             # Legacy styles
 ```
 
-### Common Icons
+Key view directories: `app/views/pulse/` (layout partials, feed items), `app/views/shared/` (reusable partials like `_pulse_author`, `_pulse_comments`, `_pulse_accordion`, `_pulse_breadcrumb`).
 
-| Icon | Usage |
-|------|-------|
-| `note` | Notes |
-| `check-circle` | Decisions |
-| `heart` | Commitments |
-| `plus` | Add actions |
-| `pencil` | Edit |
-| `gear` | Settings |
-| `pin` | Pinned items |
-| `link` | Links/references |
-| `comment` | Comments |
-| `kebab-horizontal` | More menu |
+## Adding a New Page
 
-### Icon Sizes
+1. Set `layout "pulse"` in the controller
+2. Set `@sidebar_mode` if not using the default full sidebar
+3. Use `pulse-` prefixed CSS classes and `--color-*` variables
+4. Add styles to the appropriate file in `pulse/` (components, feed, sidebar, or layout)
+5. Test light mode, dark mode, and the 768px mobile breakpoint
+6. Check the live style guide at `/dev/styleguide` for reference
 
-- Default: 16px (inline)
-- Medium: 22-24px
-- Large: 31-36px
+## Migrating an Existing Page
 
----
-
-## Layout Patterns
-
-### Page Container
-
-```css
-.page-container {
-  max-width: min(88vw, 800px);
-  margin: 0 auto;
-}
-```
-
-### Flex Row
-
-```css
-.flex-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.flex-row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-```
-
-### Collapsible Sections
-
-```html
-<div class="collapsible">
-  <div class="collapsible-header">
-    <!-- Toggle icon + title -->
-  </div>
-  <div class="collapsible-body">
-    <!-- Content -->
-  </div>
-</div>
-```
-
----
-
-## Class Naming Conventions
-
-### Component Classes
-
-| Pattern | Example | Usage |
-|---------|---------|-------|
-| Component name | `.mention-dropdown` | Main container |
-| Component-element | `.mention-item` | Child elements |
-| Component-state | `.mention-item-selected` | State variants |
-
-### Utility Classes
-
-- `.text-only-button` - Text-styled button
-- `.markdown-body` - GitHub markdown wrapper
-- `.user-generated-markdown` - User content styling
-
-### Resource Type Classes
-
-- `.note-icon`, `.decision-icon`, `.commitment-icon`
-- `.resource-link-note`, `.resource-link-decision`, `.resource-link-commitment`
-
----
-
-## Animations & Transitions
-
-### Button Transitions
-
-```css
-button {
-  transition: background-color 0.3s ease;
-}
-```
-
-### Menu Transitions
-
-```css
-.menu {
-  transition: opacity 0.15s ease;
-}
-```
-
-### Spinner Animation
-
-```css
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.spinner {
-  animation: spin 0.8s linear infinite;
-}
-```
-
----
-
-## Accessibility
-
-### Focus States
-
-All interactive elements must have visible focus states:
-
-```css
-:focus {
-  outline: 2px solid var(--color-accent-fg);
-  outline-offset: -2px;
-}
-
-:focus-visible {
-  outline: 2px solid var(--color-accent-fg);
-  outline-offset: -2px;
-}
-```
-
-### Disabled States
-
-```css
-button:disabled {
-  background-color: var(--color-border-default);
-  cursor: not-allowed;
-}
-```
-
----
-
-## Quick Reference
-
-| Element | Background | Border | Text | Padding |
-|---------|------------|--------|------|---------|
-| Button | `--color-fg-default` | 1px subtle | `--color-canvas-default` | 5px 10px |
-| Card | `--color-canvas-default` | 1px default | inherit | 16px |
-| Input | inherit | 1px subtle | inherit | 5px |
-| Alert | `--color-neutral-muted` | 1px default | inherit | 10px |
-| Dropdown | `--color-canvas-default` | 1px + shadow | inherit | 8px |
+1. Change layout to `pulse`
+2. Replace `markdown-body` wrapper with Pulse structure
+3. Update CSS classes to `pulse-` prefixed versions
+4. Replace hardcoded colors with `--color-*` variables
+5. Test light/dark mode and mobile
