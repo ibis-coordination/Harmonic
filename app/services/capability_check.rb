@@ -61,18 +61,21 @@ module CapabilityCheck
   AI_AGENT_GRANTABLE_ACTIONS = [
     "create_note",
     "update_note",
+    "delete_note",
     "pin_note",
     "unpin_note",
     "confirm_read",
     "add_comment",
     "create_decision",
     "update_decision_settings",
+    "delete_decision",
     "pin_decision",
     "unpin_decision",
     "vote",
     "add_options",
     "create_commitment",
     "update_commitment_settings",
+    "delete_commitment",
     "join_commitment",
     "pin_commitment",
     "unpin_commitment",
@@ -90,6 +93,8 @@ module CapabilityCheck
     # so the agent's owner can opt in per agent.
     "start_representation",
     "end_representation",
+    # Content reporting
+    "report_content",
   ].freeze
 
   # Check if a user has capability for an action

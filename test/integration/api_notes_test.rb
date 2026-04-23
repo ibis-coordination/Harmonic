@@ -46,11 +46,8 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
   end
 
   test "show returns 404 for non-existent note" do
-    # Note: The controller raises RecordNotFound which Rails converts to 404 in production
-    # In test, we see the exception - this is expected behavior
-    assert_raises(ActiveRecord::RecordNotFound) do
-      get api_path("/nonexistent"), headers: @headers
-    end
+    get api_path("/nonexistent"), headers: @headers
+    assert_response :not_found
   end
 
   test "show with include=backlinks returns backlinks" do
@@ -127,12 +124,10 @@ class ApiNotesTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "update returns 404 for non-existent note" do
+  test "update returns error for non-existent note" do
     update_params = { title: "Updated" }
-    # Note: The controller raises RecordNotFound which Rails converts to 404 in production
-    assert_raises(ActiveRecord::RecordNotFound) do
-      put api_path("/nonexistent"), params: update_params.to_json, headers: @headers
-    end
+    put api_path("/nonexistent"), params: update_params.to_json, headers: @headers
+    assert_includes [400, 404], response.status
   end
 
   # Confirm read
