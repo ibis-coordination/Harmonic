@@ -243,5 +243,4 @@ puts service.navigate("/")[:content]
 
 ## See Also
 
-- [Full API Documentation](../plans/MARKDOWN_UI_SERVICE_PLAN.md)
 - [Architecture Overview](../ARCHITECTURE.md)
