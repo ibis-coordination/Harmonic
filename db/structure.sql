@@ -342,7 +342,9 @@ CREATE TABLE public.commitments (
     created_by_id uuid,
     updated_by_id uuid,
     collective_id uuid,
-    "limit" integer
+    "limit" integer,
+    deleted_at timestamp(6) without time zone,
+    deleted_by_id uuid
 );
 
 
@@ -543,7 +545,9 @@ CREATE TABLE public.decisions (
     tenant_id uuid NOT NULL,
     created_by_id uuid,
     updated_by_id uuid,
-    collective_id uuid
+    collective_id uuid,
+    deleted_at timestamp(6) without time zone,
+    deleted_by_id uuid
 );
 
 
@@ -650,7 +654,9 @@ CREATE TABLE public.notes (
     updated_by_id uuid,
     collective_id uuid,
     commentable_type character varying,
-    commentable_id uuid
+    commentable_id uuid,
+    deleted_at timestamp(6) without time zone,
+    deleted_by_id uuid
 );
 
 
@@ -3371,6 +3377,13 @@ CREATE INDEX index_commitments_on_created_by_id ON public.commitments USING btre
 
 
 --
+-- Name: index_commitments_on_deleted_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_commitments_on_deleted_at ON public.commitments USING btree (deleted_at);
+
+
+--
 -- Name: index_commitments_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3473,6 +3486,13 @@ CREATE INDEX index_decisions_on_collective_id ON public.decisions USING btree (c
 --
 
 CREATE INDEX index_decisions_on_created_by_id ON public.decisions USING btree (created_by_id);
+
+
+--
+-- Name: index_decisions_on_deleted_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_decisions_on_deleted_at ON public.decisions USING btree (deleted_at);
 
 
 --
@@ -3683,6 +3703,13 @@ CREATE INDEX index_notes_on_commentable ON public.notes USING btree (commentable
 --
 
 CREATE INDEX index_notes_on_created_by_id ON public.notes USING btree (created_by_id);
+
+
+--
+-- Name: index_notes_on_deleted_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notes_on_deleted_at ON public.notes USING btree (deleted_at);
 
 
 --
@@ -8722,6 +8749,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260422205804'),
 ('20260421012815'),
 ('20260421011455'),
 ('20260421010459'),

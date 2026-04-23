@@ -71,15 +71,17 @@ class DecisionsController < ApplicationController
   end
 
   def show
-    @decision = current_decision
+    @decision = current_decision || find_deleted_decision
     return render '404', status: 404 unless @decision
-    @participant = current_decision_participant
+
     @page_title = @decision.question
     @page_description = "Decide as a group with Harmonic Team"
     @sidebar_mode = 'resource'
     @team = @current_collective.team
-    @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
+    return if @decision.deleted?
 
+    @participant = current_decision_participant
+    @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
     @votes = current_votes
     set_results_view_vars
     set_pin_vars
@@ -127,6 +129,9 @@ class DecisionsController < ApplicationController
       actions << { name: 'unpin_decision', params_string: '()' }
     else
       actions << { name: 'pin_decision', params_string: '()' }
+    end
+    if @current_user&.id == @decision.created_by_id || @current_user&.collective_member&.is_admin? || @current_user&.app_admin?
+      actions << { name: 'delete_decision', params_string: '()' }
     end
     render_actions_index({ actions: actions })
   end
@@ -287,6 +292,22 @@ class DecisionsController < ApplicationController
     render_action_description(ActionsHelper.action_description("vote", resource: current_decision))
   end
 
+  def describe_delete_decision
+    render_action_description(ActionsHelper.action_description("delete_decision", resource: current_decision))
+  end
+
+  def execute_delete_decision
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+
+    begin
+      api_helper.delete_decision
+      redirect_to(@current_collective.path || "/", notice: "Decision deleted.")
+    rescue ActiveRecord::RecordInvalid => e
+      render 'shared/403', status: :forbidden
+    end
+  end
+
   private
 
   def decision_params
@@ -307,5 +328,16 @@ class DecisionsController < ApplicationController
     @current_app_title = 'Harmonic Team'
     @current_app_description = 'fast group decision-making'
     @current_app
+  end
+
+  def find_deleted_decision
+    decision_id = params[:id] || params[:decision_id]
+    return nil unless decision_id
+
+    if decision_id.to_s.length == 8
+      Decision.with_deleted.find_by(truncated_id: decision_id)
+    else
+      Decision.with_deleted.find_by(id: decision_id)
+    end
   end
 end

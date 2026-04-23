@@ -640,7 +640,11 @@ class ApplicationController < ActionController::Base
                   end
     return @current_decision = nil unless decision_id
 
-    @current_decision = Decision.find(decision_id)
+    @current_decision = begin
+      Decision.find(decision_id)
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
   end
 
   def current_decision_participant
@@ -675,7 +679,11 @@ class ApplicationController < ActionController::Base
                     end
     return @current_commitment = nil unless commitment_id
 
-    @current_commitment = Commitment.find(commitment_id)
+    @current_commitment = begin
+      Commitment.find(commitment_id)
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
   end
 
   def current_commitment_participant
@@ -704,7 +712,11 @@ class ApplicationController < ActionController::Base
               end
     return @current_note = nil unless note_id
 
-    @current_note = Note.find(note_id)
+    @current_note = begin
+      Note.find(note_id)
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
   end
 
   def current_cycle

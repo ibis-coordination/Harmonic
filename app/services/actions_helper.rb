@@ -173,6 +173,12 @@ class ActionsHelper
       params: [],
       authorization: :collective_member,
     },
+    "delete_note" => {
+      description: "Delete this note. Comments from others will be preserved.",
+      params_string: "()",
+      params: [],
+      authorization: [:resource_owner, :collective_admin, :app_admin],
+    },
 
     # Decision actions
     "create_decision" => {
@@ -225,6 +231,12 @@ class ActionsHelper
       params: [],
       authorization: :collective_member,
     },
+    "delete_decision" => {
+      description: "Delete this decision. Votes and comments from others will be preserved.",
+      params_string: "()",
+      params: [],
+      authorization: [:resource_owner, :collective_admin, :app_admin],
+    },
 
     # Commitment actions
     "create_commitment" => {
@@ -266,6 +278,12 @@ class ActionsHelper
       params_string: "()",
       params: [],
       authorization: :collective_member,
+    },
+    "delete_commitment" => {
+      description: "Delete this commitment. Participant records and comments from others will be preserved.",
+      params_string: "()",
+      params: [],
+      authorization: [:resource_owner, :collective_admin, :app_admin],
     },
 
     # Comment action (shared across notes, decisions, commitments)

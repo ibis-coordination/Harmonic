@@ -1,3 +1,11 @@
+<% if @commitment.deleted? %>
+# Commitment [deleted]
+
+This commitment has been deleted<%= " by the author" if @commitment.deleted_by_id == @commitment.created_by_id %>.
+
+| created_by | @<%= @commitment.created_by.handle %> |
+| created_at | <%= @commitment.created_at %> |
+<% else %>
 # Commitment: [<%= @commitment.title %>](<%= @commitment.path %>)
 
 | created_at | <%= @commitment.created_at %> |
@@ -42,4 +50,4 @@ No participants yet.
 <%= render 'shared/backlinks', resource: @commitment %>
 <%= render 'shared/attachments_section', resource: @commitment %>
 <%= render 'shared/comments_section', resource: @commitment %>
-
+<% end %>

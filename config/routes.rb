@@ -431,6 +431,8 @@ Rails.application.routes.draw do
       post '/settings/actions/pin_note' => 'notes#pin_note_action'
       get '/settings/actions/unpin_note' => 'notes#describe_unpin_note'
       post '/settings/actions/unpin_note' => 'notes#unpin_note_action'
+      get '/settings/actions/delete_note' => 'notes#describe_delete_note'
+      post '/settings/actions/delete_note' => 'notes#execute_delete_note'
     end
 
     get "#{prefix}/decide" => 'decisions#new'
@@ -470,6 +472,8 @@ Rails.application.routes.draw do
       post '/settings/actions/unpin_decision' => 'decisions#unpin_decision_action'
       get '/settings/actions/add_attachment' => 'decisions#describe_add_attachment'
       post '/settings/actions/add_attachment' => 'decisions#add_attachment'
+      get '/settings/actions/delete_decision' => 'decisions#describe_delete_decision'
+      post '/settings/actions/delete_decision' => 'decisions#execute_delete_decision'
     end
 
     get "#{prefix}/commit" => 'commitments#new'
@@ -505,6 +509,8 @@ Rails.application.routes.draw do
       post '/settings/actions/unpin_commitment' => 'commitments#unpin_commitment_action'
       get '/settings/actions/add_attachment' => 'commitments#describe_add_attachment'
       post '/settings/actions/add_attachment' => 'commitments#add_attachment'
+      get '/settings/actions/delete_commitment' => 'commitments#describe_delete_commitment'
+      post '/settings/actions/delete_commitment' => 'commitments#execute_delete_commitment'
     end
 
     namespace :api, path: "#{prefix}/api" do

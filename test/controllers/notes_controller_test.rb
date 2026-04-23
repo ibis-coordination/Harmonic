@@ -101,13 +101,9 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
   test "returns 404 for non-existent note" do
     sign_in_as(@user, tenant: @tenant)
-    # RecordNotFound is raised and caught by the controller to render 404
-    # The controller has: return render '404', status: 404 unless @note
-    # But the find happens before that check, so we get exception
-    # In production, Rails rescues this and renders 404
-    assert_raises(ActiveRecord::RecordNotFound) do
-      get "/collectives/#{@collective.handle}/n/nonexistent123"
-    end
+    get "/collectives/#{@collective.handle}/n/nonexist",
+        headers: { "HTTP_HOST" => "#{@tenant.subdomain}.#{ENV['HOSTNAME']}" }
+    assert_response :not_found
   end
 
   # === Edit Note Tests ===

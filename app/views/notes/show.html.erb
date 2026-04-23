@@ -4,6 +4,19 @@
   (@note.is_comment? ? 'Comment' : 'Note')
 ] %>
 
+<% if @note.deleted? %>
+<article class="pulse-resource-detail">
+  <div class="pulse-resource-body" style="padding: 24px;">
+    <p><%= octicon 'trash', height: 16 %> This <%= @note.is_comment? ? "comment" : "note" %> has been deleted<%= " by the author" if @note.deleted_by_id == @note.created_by_id %>.</p>
+    <% if @note.is_comment? && @note.commentable %>
+      <p style="margin-top: 16px;">
+        <a href="<%= @note.commentable.path %>" class="pulse-link"><%= octicon 'arrow-left', height: 12 %> Back to parent</a>
+      </p>
+    <% end %>
+  </div>
+</article>
+<% else %>
+
 <article class="pulse-resource-detail">
   <%= render ResourceHeaderComponent.new(
     type_label: @note.is_comment? ? "Comment" : "Note",
@@ -25,11 +38,16 @@
     <% end
   end %>
 
-  <% if @note.is_comment? %>
+  <% if @note.is_comment? && @note.commentable %>
     <div class="pulse-reply-context" onclick="location.href='<%= @note.commentable.path %>'" style="cursor:pointer;">
       <%= octicon 'reply', height: 14 %>
       Replying to
       <%= render 'shared/pulse_resource_link', resource: @note.commentable %>
+    </div>
+  <% elsif @note.is_comment? %>
+    <div class="pulse-reply-context">
+      <%= octicon 'reply', height: 14 %>
+      Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
     </div>
   <% end %>
 
@@ -56,4 +74,5 @@
     <%= render 'confirm' %>
   </div>
 </article>
+<% end %>
 </span>

@@ -25,7 +25,7 @@
     </div>
   </div>
   <div class="pulse-feed-item-body">
-    <% if is_comment? %>
+    <% if is_comment? && T.unsafe(@item).commentable %>
       <div class="pulse-feed-item-reply">
         <%= helpers.octicon 'reply' %>
         <span>Replying to</span>

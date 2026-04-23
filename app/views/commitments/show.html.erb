@@ -4,6 +4,14 @@
   'Commitment'
 ] %>
 
+<% if @commitment.deleted? %>
+<article class="pulse-resource-detail">
+  <div class="pulse-resource-body" style="padding: 24px;">
+    <p><%= octicon 'trash', height: 16 %> This commitment has been deleted<%= " by the author" if @commitment.deleted_by_id == @commitment.created_by_id %>.</p>
+  </div>
+</article>
+<% else %>
+
 <article class="pulse-resource-detail">
   <%= render ResourceHeaderComponent.new(
     type_label: "Commitment",
@@ -83,4 +91,5 @@
   <%= render 'shared/pulse_comments', commentable: @commitment %>
   <%= render 'shared/pulse_backlinks', resource: @commitment %>
 </article>
+<% end %>
 </span>

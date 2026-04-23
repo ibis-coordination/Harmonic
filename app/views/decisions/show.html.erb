@@ -4,6 +4,14 @@
   'Decision'
 ] %>
 
+<% if @decision.deleted? %>
+<article class="pulse-resource-detail">
+  <div class="pulse-resource-body" style="padding: 24px;">
+    <p><%= octicon 'trash', height: 16 %> This decision has been deleted<%= " by the author" if @decision.deleted_by_id == @decision.created_by_id %>.</p>
+  </div>
+</article>
+<% else %>
+
 <article class="pulse-resource-detail">
   <%= render ResourceHeaderComponent.new(
     type_label: "Decision",
@@ -89,4 +97,5 @@
   <%= render 'shared/pulse_comments', commentable: @decision %>
   <%= render 'shared/pulse_backlinks', resource: @decision %>
 </article>
+<% end %>
 </span>

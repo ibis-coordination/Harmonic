@@ -280,6 +280,24 @@ class ApiHelper
     note
   end
 
+  def delete_note
+    note = T.must(current_note)
+    authorize_delete!(note)
+    perform_soft_delete!(note)
+  end
+
+  def delete_decision
+    decision = T.must(current_decision)
+    authorize_delete!(decision)
+    perform_soft_delete!(decision)
+  end
+
+  def delete_commitment
+    commitment = T.must(current_commitment)
+    authorize_delete!(commitment)
+    perform_soft_delete!(commitment)
+  end
+
   sig { returns(NoteHistoryEvent) }
   def confirm_read
     note = current_resource
@@ -759,6 +777,34 @@ class ApiHelper
   end
 
   private
+
+  def authorize_delete!(content)
+    return if content.created_by_id == current_user.id
+    # Collective admin can delete content in their collective
+    cm = current_user.collective_member
+    return if cm&.is_admin?
+    # App admin can delete any content
+    return if current_user.app_admin?
+
+    record = content.class.new
+    record.errors.add(:base, "You are not authorized to delete this content")
+    raise ActiveRecord::RecordInvalid, record
+  end
+
+  def perform_soft_delete!(content)
+    admin_deleting = (content.created_by_id != current_user.id)
+    snapshot = content.content_snapshot if admin_deleting
+    content.soft_delete!(by: current_user)
+    if admin_deleting && snapshot
+      ip = @request&.respond_to?(:remote_ip) ? @request.remote_ip : "unknown"
+      SecurityAuditLog.log_content_deleted(
+        content: content,
+        deleted_by: current_user,
+        ip: ip,
+        snapshot: snapshot,
+      )
+    end
+  end
 
   # Track resources created during an AiAgentTaskRun or AutomationRuleRun for traceability.
   #

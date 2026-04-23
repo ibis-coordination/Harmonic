@@ -45,15 +45,18 @@ class CommitmentsController < ApplicationController
   end
 
   def show
-    @commitment = current_commitment
+    @commitment = current_commitment || find_deleted_commitment
     return render '404', status: 404 unless @commitment
-    @commitment_participant = current_commitment_participant
-    @commitment_participant_name = current_user&.name
-    @participants_list_limit = 10
+
     @page_title = @commitment.title
     @page_description = "Coordinate with your team"
     @sidebar_mode = 'resource'
     @team = @current_collective.team
+    return if @commitment.deleted?
+
+    @commitment_participant = current_commitment_participant
+    @commitment_participant_name = current_user&.name
+    @participants_list_limit = 10
     set_pin_vars
   end
 
@@ -207,6 +210,9 @@ class CommitmentsController < ApplicationController
     else
       actions << { name: 'pin_commitment', params_string: '()' }
     end
+    if @current_user&.id == @commitment.created_by_id || @current_user&.collective_member&.is_admin? || @current_user&.app_admin?
+      actions << { name: 'delete_commitment', params_string: '()' }
+    end
     render_actions_index({ actions: actions })
   end
 
@@ -279,6 +285,22 @@ class CommitmentsController < ApplicationController
     end
   end
 
+  def describe_delete_commitment
+    render_action_description(ActionsHelper.action_description("delete_commitment", resource: current_commitment))
+  end
+
+  def execute_delete_commitment
+    @commitment = current_commitment
+    return render '404', status: 404 unless @commitment
+
+    begin
+      api_helper.delete_commitment
+      redirect_to(@current_collective.path || "/", notice: "Commitment deleted.")
+    rescue ActiveRecord::RecordInvalid => e
+      render 'shared/403', status: :forbidden
+    end
+  end
+
   private
 
   def current_app
@@ -287,5 +309,16 @@ class CommitmentsController < ApplicationController
     @current_app_title = 'Coordinated Team'
     @current_app_description = 'fast group coordination'
     @current_app
+  end
+
+  def find_deleted_commitment
+    commitment_id = params[:id] || params[:commitment_id]
+    return nil unless commitment_id
+
+    if commitment_id.to_s.length == 8
+      Commitment.with_deleted.find_by(truncated_id: commitment_id)
+    else
+      Commitment.with_deleted.find_by(id: commitment_id)
+    end
   end
 end

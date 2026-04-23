@@ -43,9 +43,15 @@
     </div>
   <% end %>
 
-  <div class="pulse-comment-body">
-    <%= helpers.markdown_inline(@comment.text) %>
-  </div>
+  <% if @comment.deleted? %>
+    <div class="pulse-comment-body pulse-body-text-muted">
+      <em>[deleted]</em>
+    </div>
+  <% else %>
+    <div class="pulse-comment-body">
+      <%= helpers.markdown_inline(@comment.text) %>
+    </div>
+  <% end %>
 
   <div class="pulse-comment-actions">
     <% if @current_user %>
@@ -70,7 +76,7 @@
         <span class="pulse-confirm-count"><%= @comment.confirmed_reads %></span>
       </span>
     <% end %>
-    <% if @show_reply_button && @current_user %>
+    <% if @show_reply_button && @current_user && !@comment.deleted? %>
       <button type="button"
               class="pulse-comment-reply-btn"
               data-action="click->comment-thread#showReplyForm"
