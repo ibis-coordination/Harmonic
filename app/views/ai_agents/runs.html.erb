@@ -72,7 +72,7 @@
             <div class="pulse-feed-item-body">
               <div class="pulse-feed-item-title">
                 <a href="<%= ai_agent_run_path(@ai_agent.handle, task_run.id) %>">
-                  <%= task_run.task_summary %>
+                  <% if task_run.mode == "chat_turn" %><%= octicon 'comment-discussion', height: 12 %> <% end %><%= task_run.task_summary %>
                 </a>
               </div>
               <% if task_run.final_message.present? %>

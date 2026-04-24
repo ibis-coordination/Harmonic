@@ -109,6 +109,7 @@ module Internal
         completed_at: Time.current,
       )
 
+      save_chat_navigation_state(task_run)
       destroy_task_token(task_run)
       task_run.notify_parent_automation_runs!
       auto_dispatch_next_chat_turn(task_run)
@@ -178,7 +179,7 @@ module Internal
         }
       end
 
-      render json: { messages: messages }
+      render json: { messages: messages, current_state: chat_session.current_state }
     end
 
     # POST /internal/agent-runner/tasks/:id/fail
@@ -314,6 +315,25 @@ module Internal
       false
     end
 
+    # Persist the agent's final navigation state so the next turn can resume there
+    sig { params(task_run: AiAgentTaskRun).void }
+    def save_chat_navigation_state(task_run)
+      return unless task_run.mode == "chat_turn"
+
+      chat_session = task_run.chat_session
+      return unless chat_session
+
+      current_state_param = params[:current_state]
+      return unless current_state_param.is_a?(ActionController::Parameters) || current_state_param.is_a?(Hash)
+
+      state = chat_session.current_state || {}
+      state["current_path"] = current_state_param[:current_path] if current_state_param[:current_path].present?
+
+      chat_session.update!(current_state: state)
+    rescue StandardError => e
+      Rails.logger.error("[Internal::AgentRunner] Failed to save chat navigation state: #{e.message}")
+    end
+
     sig { params(task_run: AiAgentTaskRun, step_record: AgentSessionStep).void }
     def broadcast_chat_message(task_run, step_record)
       chat_session = task_run.chat_session
@@ -334,7 +354,7 @@ module Internal
       return unless task_run.mode == "chat_turn"
 
       chat_session = task_run.chat_session
-      return unless chat_session&.active?
+      return unless chat_session
 
       # Find the last agent message in this turn
       last_agent_step = task_run.agent_session_steps

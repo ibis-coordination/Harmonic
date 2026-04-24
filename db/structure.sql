@@ -296,9 +296,9 @@ CREATE TABLE public.chat_sessions (
     tenant_id uuid NOT NULL,
     ai_agent_id uuid NOT NULL,
     initiated_by_id uuid NOT NULL,
-    status character varying DEFAULT 'active'::character varying NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    current_state jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 
@@ -2808,13 +2808,6 @@ CREATE INDEX idx_members_collective_id ON public.collective_members USING btree 
 --
 
 CREATE UNIQUE INDEX idx_members_tenant_collective_user ON public.collective_members USING btree (tenant_id, collective_id, user_id);
-
-
---
--- Name: idx_on_ai_agent_id_initiated_by_id_status_c0cb0c55a1; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_on_ai_agent_id_initiated_by_id_status_c0cb0c55a1 ON public.chat_sessions USING btree (ai_agent_id, initiated_by_id, status);
 
 
 --
@@ -8911,6 +8904,8 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260424192439'),
+('20260424164824'),
 ('20260424042036'),
 ('20260424035014'),
 ('20260424035013'),

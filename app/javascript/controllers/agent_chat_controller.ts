@@ -48,6 +48,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
   private subscription: ReturnType<ReturnType<typeof createConsumer>["subscriptions"]["create"]> | null = null
   private pollTimer: number | null = null
   private lastTimestamp: string = new Date().toISOString()
+  private waitingForResponse = false
 
   connect(): void {
     this.scrollToBottom()
@@ -98,6 +99,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
       false,
     )
     this.lastTimestamp = data.timestamp
+    this.waitingForResponse = false
+    this.stopPolling()
     this.scrollToBottom()
   }
 
@@ -117,6 +120,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
     const messageEl = this.appendMessage(message, "You", true)
     this.lastTimestamp = new Date().toISOString()
+    this.waitingForResponse = true
     this.scrollToBottom()
 
     try {
@@ -128,6 +132,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
       if (!response.ok) {
         const text = await response.text()
         this.markMessageFailed(messageEl, text || response.statusText)
+        this.waitingForResponse = false
       } else {
         this.startPolling()
       }
@@ -158,7 +163,10 @@ export default class AgentChatController extends Controller<HTMLElement> {
   }
 
   private async pollForMessages(): Promise<void> {
-    if (!this.pollUrlValue) return
+    if (!this.pollUrlValue || !this.waitingForResponse) {
+      this.stopPolling()
+      return
+    }
 
     try {
       const url = `${this.pollUrlValue}?after=${encodeURIComponent(this.lastTimestamp)}`
@@ -169,13 +177,10 @@ export default class AgentChatController extends Controller<HTMLElement> {
       if (!response.ok) return
 
       const data = await response.json() as { messages: ChatMessage[] }
-      if (data.messages.length > 0) {
-        for (const msg of data.messages) {
-          if (msg.is_agent) {
-            this.handleAgentMessage(msg)
-          }
+      for (const msg of data.messages) {
+        if (msg.is_agent) {
+          this.handleAgentMessage(msg)
         }
-        this.stopPolling()
       }
     } catch {
       // Silent fail — polling is best-effort

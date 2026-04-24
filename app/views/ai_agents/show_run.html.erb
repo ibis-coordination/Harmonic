@@ -125,6 +125,15 @@
         Triggered by: <a href="<%= @task_run.automation_rule.path %>"><%= octicon 'zap', height: 12 %> <%= @task_run.automation_rule.name %></a>
       </div>
     <% end %>
+    <% if @task_run.mode == "chat_turn" && @task_run.chat_session_id.present? %>
+      <div style="margin-bottom: 8px;">
+        <% human_message = @task_run.agent_session_steps.where(step_type: "message").order(:position).first %>
+        <% anchor = human_message ? "#msg-#{human_message.id}" : "" %>
+        <a href="<%= ai_agent_chat_path(@ai_agent.handle, @task_run.chat_session_id) %><%= anchor %>" class="pulse-feed-action-link">
+          <%= octicon 'comment-discussion', height: 12 %> View in chat
+        </a>
+      </div>
+    <% end %>
     <div style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; margin-bottom: 24px;">
       <pre style="margin: 0; white-space: pre-wrap; font-size: 13px;"><%= @task_run.task %></pre>
     </div>

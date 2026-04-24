@@ -9,20 +9,6 @@ class ChatSession < ApplicationRecord
 
   has_many :task_runs, class_name: "AiAgentTaskRun", dependent: :nullify
 
-  validates :status, presence: true, inclusion: { in: %w[active ended] }
-
-  scope :active, -> { where(status: "active") }
-
-  sig { returns(T::Boolean) }
-  def active?
-    status == "active"
-  end
-
-  sig { returns(T::Boolean) }
-  def ended?
-    status == "ended"
-  end
-
   sig { returns(T.untyped) }
   def messages
     AgentSessionStep.where(

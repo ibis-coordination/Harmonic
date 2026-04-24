@@ -128,7 +128,9 @@ Contents:
 | 4 | Chat sessions + controller + routes + views + Stimulus | ✅ Committed |
 | 5 | Agent-runner: chat_turn mode, history, respond_to_human, ActionCable broadcast, auto-dispatch, polling fallback | 🚧 Built, needs commit |
 | 6 | Navigation state persistence (`current_state` on ChatSession) | 🚧 Planned |
-| 7 | Polish: typing indicators, error states, remove `steps_data` | Pending |
+| 7 | Remove "ended" session status — sessions are always resumable | 🚧 In progress |
+| 8 | Chat routes restructured: index + permalinks per session | 🚧 In progress |
+| 9 | Polish: in-progress turn visibility, busy-agent indicator, error states, remove `steps_data` | Pending |
 
 ## Design decisions made during implementation
 
@@ -140,6 +142,9 @@ Contents:
 6. **Auto-dispatch on completion** — when a chat turn completes, Rails checks for queued human messages and auto-dispatches the next turn. This handles the case where the human sends a follow-up while the agent is still working.
 7. **`ChatMessagePresenter`** — shared service object that formats chat messages for both ActionCable broadcasts and the polling endpoint (`GET /chat/messages?after=<timestamp>`). Ensures both delivery paths return identical data structures.
 8. **Polling fallback** — the Stimulus controller polls `GET /chat/messages?after=<timestamp>` every 3 seconds after sending a message, as a fallback when ActionCable doesn't deliver. Standard degraded-transport pattern. Stops polling when a new message arrives (via either ActionCable or poll).
+9. **No "ended" session status** — sessions are always resumable. Users start new sessions for fresh context. The sliding window + summary strategy (future) handles unbounded history within a session.
+10. **Chat sessions have permalinks** — `/ai-agents/:handle/chat/:session_id`. The index at `/ai-agents/:handle/chat` lists all sessions. Task run pages link back to the specific session and message that triggered them.
+11. **Each agent can only run one task at a time** — the agent-runner's per-agent lock ensures this. When an agent is busy (in any session), new turns queue in the Redis Stream. The chat UI should show when an agent is busy in another session and link to the active task run (Phase 9).
 
 ## Verification
 
@@ -149,4 +154,7 @@ Contents:
 | 3-4 | 21 controller + model tests, manual chat UI verification | ✅ |
 | 5 | 48 controller tests + 3 presenter tests + 142 agent-runner tests, manual E2E chat | 🚧 |
 | 6 | Navigation continuity: agent remembers location across turns | Pending |
-| 7 | Typing indicators, error states | Pending |
+| 7 | Remove ended status, restructure routes | 🚧 |
+| 8 | In-progress turn visibility (condensed step feed inline in chat) | Pending |
+| 9 | Busy-agent indicator (cross-session awareness, link to active task) | Pending |
+| 10 | Agent concurrency documentation | Pending |

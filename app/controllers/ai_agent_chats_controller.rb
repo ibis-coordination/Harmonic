@@ -5,40 +5,34 @@ class AiAgentChatsController < ApplicationController
 
   before_action :require_human_user
   before_action :find_ai_agent
+  before_action :find_chat_session, only: [:show, :send_message, :poll_messages]
 
   # GET /ai-agents/:handle/chat
-  def show
-    @chat_session = active_chat_session
-    @messages = @chat_session ? @chat_session.messages.includes(:sender) : []
+  def index
+    @chat_sessions = ChatSession.where(ai_agent: @ai_agent, initiated_by: current_user)
+      .order(created_at: :desc)
     @page_title = "Chat - #{@ai_agent.display_name}"
   end
 
   # POST /ai-agents/:handle/chat
   def create
-    # Reuse existing active session if one exists
-    existing = active_chat_session
-    if existing
-      redirect_to ai_agent_chat_path(@ai_agent.handle)
-      return
-    end
-
-    ChatSession.create!(
+    session = ChatSession.create!(
       tenant: current_tenant,
       ai_agent: @ai_agent,
       initiated_by: current_user,
     )
 
-    redirect_to ai_agent_chat_path(@ai_agent.handle)
+    redirect_to ai_agent_chat_path(@ai_agent.handle, session.id)
   end
 
-  # POST /ai-agents/:handle/chat/message
-  def send_message
-    @chat_session = active_chat_session
-    unless @chat_session
-      head :not_found
-      return
-    end
+  # GET /ai-agents/:handle/chat/:session_id
+  def show
+    @messages = @chat_session.messages.includes(:sender)
+    @page_title = "Chat - #{@ai_agent.display_name}"
+  end
 
+  # POST /ai-agents/:handle/chat/:session_id/message
+  def send_message
     message_text = params[:message].to_s.strip.truncate(MAX_MESSAGE_LENGTH)
     if message_text.blank?
       render plain: "Message cannot be empty", status: :unprocessable_entity
@@ -70,16 +64,9 @@ class AiAgentChatsController < ApplicationController
     head :ok
   end
 
-  # GET /ai-agents/:handle/chat/messages?after=<iso8601>
+  # GET /ai-agents/:handle/chat/:session_id/messages?after=<iso8601>
   # Polling endpoint — returns the same data format as ActionCable broadcasts.
-  # Client sends the timestamp of the last message it has; server returns anything newer.
   def poll_messages
-    @chat_session = active_chat_session
-    unless @chat_session
-      render json: { messages: [] }
-      return
-    end
-
     after = begin
       params[:after].present? ? Time.parse(params[:after]) : Time.at(0)
     rescue ArgumentError
@@ -92,20 +79,6 @@ class AiAgentChatsController < ApplicationController
       .map { |step| ChatMessagePresenter.format(step, @chat_session) }
 
     render json: { messages: new_messages }
-  end
-
-  # POST /ai-agents/:handle/chat/end
-  def end_session
-    @chat_session = active_chat_session
-    if @chat_session
-      # Cancel any in-progress turns
-      @chat_session.task_runs.where(status: %w[queued running]).find_each do |run|
-        run.update!(status: "cancelled", completed_at: Time.current)
-      end
-      @chat_session.update!(status: "ended")
-    end
-
-    redirect_to ai_agent_chat_path(@ai_agent.handle)
   end
 
   private
@@ -129,11 +102,13 @@ class AiAgentChatsController < ApplicationController
     render status: :not_found, plain: "404 Not Found" unless @ai_agent
   end
 
-  def active_chat_session
-    ChatSession.where(ai_agent: @ai_agent, initiated_by: current_user)
-      .active
-      .order(created_at: :desc)
-      .first
+  def find_chat_session
+    @chat_session = ChatSession.find_by(
+      id: params[:session_id],
+      ai_agent: @ai_agent,
+      initiated_by: current_user,
+    )
+    render status: :not_found, plain: "404 Not Found" unless @chat_session
   end
 
   def turn_in_progress?

@@ -94,7 +94,7 @@
 
     <p class="pulse-action-row">
       <% unless @ai_agent.archived? || @ai_agent.suspended? %>
-        <a href="<%= ai_agent_chat_path(@ai_agent.handle) %>" class="pulse-action-btn pulse-action-btn-primary">
+        <a href="<%= ai_agent_chats_path(@ai_agent.handle) %>" class="pulse-action-btn pulse-action-btn-primary">
           <%= octicon 'comment-discussion' %> Chat
         </a>
         <a href="<%= ai_agent_run_task_path(@ai_agent.handle) %>" class="pulse-action-btn">

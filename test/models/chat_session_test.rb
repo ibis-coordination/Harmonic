@@ -18,12 +18,10 @@ class ChatSessionTest < ActiveSupport::TestCase
   test "valid chat session with required fields" do
     session = ChatSession.new(
       tenant: @tenant,
-
       ai_agent: @ai_agent,
       initiated_by: @user,
     )
     assert session.valid?
-    assert_equal "active", session.status
   end
 
   test "auto-sets tenant_id from thread context" do
@@ -31,7 +29,6 @@ class ChatSessionTest < ActiveSupport::TestCase
       ai_agent: @ai_agent,
       initiated_by: @user,
     )
-    # ApplicationRecord auto-sets tenant_id, so validate it's being set
     assert session.valid?
     assert_equal @tenant.id, session.tenant_id
   end
@@ -39,7 +36,6 @@ class ChatSessionTest < ActiveSupport::TestCase
   test "requires ai_agent" do
     session = ChatSession.new(
       tenant: @tenant,
-
       initiated_by: @user,
     )
     assert_not session.valid?
@@ -48,49 +44,9 @@ class ChatSessionTest < ActiveSupport::TestCase
   test "requires initiated_by" do
     session = ChatSession.new(
       tenant: @tenant,
-
       ai_agent: @ai_agent,
     )
     assert_not session.valid?
-  end
-
-  test "status defaults to active" do
-    session = ChatSession.create!(
-      tenant: @tenant,
-
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
-    assert_equal "active", session.status
-    assert session.active?
-    assert_not session.ended?
-  end
-
-  test "rejects invalid status" do
-    session = ChatSession.new(
-      tenant: @tenant,
-
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      status: "paused",
-    )
-    assert_not session.valid?
-    assert_includes session.errors[:status], "is not included in the list"
-  end
-
-  test "active? and ended? helpers" do
-    session = ChatSession.create!(
-      tenant: @tenant,
-
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
-    assert session.active?
-    assert_not session.ended?
-
-    session.update!(status: "ended")
-    assert_not session.active?
-    assert session.ended?
   end
 
   test "has_many task_runs via chat_session_id" do
@@ -144,6 +100,26 @@ class ChatSessionTest < ActiveSupport::TestCase
     messages = session.messages
     assert_equal 4, messages.count
     assert messages.all? { |s| s.step_type == "message" }
+  end
+
+  test "current_state defaults to empty hash" do
+    session = ChatSession.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      initiated_by: @user,
+    )
+    assert_equal({}, session.current_state)
+  end
+
+  test "current_state persists navigation path" do
+    session = ChatSession.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      initiated_by: @user,
+    )
+    session.update!(current_state: { "current_path" => "/collectives/team/n/abc" })
+    session.reload
+    assert_equal "/collectives/team/n/abc", session.current_state["current_path"]
   end
 
   test "scoped to tenant" do

@@ -53,6 +53,7 @@ export interface TaskResult {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly totalTokens: number;
+  readonly currentState?: Record<string, unknown> | undefined;
 }
 
 export interface TaskReporterService {
@@ -142,6 +143,7 @@ export const TaskReporterLive = Layer.effect(
           input_tokens: result.inputTokens,
           output_tokens: result.outputTokens,
           total_tokens: result.totalTokens,
+          current_state: result.currentState,
         }),
       ).pipe(Effect.asVoid);
 

@@ -561,37 +561,75 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Also check the decisions", new_run.task
   end
 
-  test "complete does not auto-dispatch when session is ended" do
-    with_tenant_scope do
-      chat_session = ChatSession.create!(
+  test "complete saves current_state for chat_turn tasks" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(
         tenant: @tenant,
         ai_agent: @ai_agent,
         initiated_by: @user,
-        status: "ended",
       )
-
       @task_run.update!(
         status: "running", started_at: Time.current,
-        mode: "chat_turn", chat_session: chat_session,
+        mode: "chat_turn", chat_session: cs,
       )
-      @task_run.agent_session_steps.create!(
-        position: 0, step_type: "message",
-        detail: { content: "Agent response" }, sender: @ai_agent,
-      )
-      @task_run.agent_session_steps.create!(
-        position: 1, step_type: "message",
-        detail: { content: "Human follow-up" }, sender: @user,
-      )
+      cs
     end
 
     body = {
-      success: true, final_message: "Done",
-      input_tokens: 100, output_tokens: 50, total_tokens: 150,
+      success: true,
+      final_message: "Done",
+      input_tokens: 100,
+      output_tokens: 50,
+      total_tokens: 150,
+      current_state: { current_path: "/collectives/chariot/n/abc123" },
     }.to_json
 
-    assert_no_difference "AiAgentTaskRun.count" do
-      post complete_url, params: body, headers: signed_headers(body)
+    post complete_url, params: body, headers: signed_headers(body)
+    assert_response :success
+
+    chat_session.reload
+    assert_equal "/collectives/chariot/n/abc123", chat_session.current_state["current_path"]
+  end
+
+  test "complete does not save current_state for regular task mode" do
+    @task_run.update!(status: "running", started_at: Time.current, mode: "task")
+
+    body = {
+      success: true,
+      final_message: "Done",
+      input_tokens: 100,
+      output_tokens: 50,
+      total_tokens: 150,
+      current_state: { current_path: "/somewhere" },
+    }.to_json
+
+    post complete_url, params: body, headers: signed_headers(body)
+    assert_response :success
+    # No chat session to update
+  end
+
+  test "chat_history returns current_state" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(
+        tenant: @tenant,
+        ai_agent: @ai_agent,
+        initiated_by: @user,
+        current_state: { "current_path" => "/collectives/chariot" },
+      )
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Hello", max_steps: 30, status: "completed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
+      cs
     end
+
+    get chat_history_url(chat_session.id), headers: signed_headers("")
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal "/collectives/chariot", body["current_state"]["current_path"]
   end
 
   test "complete does not auto-dispatch for regular task mode" do

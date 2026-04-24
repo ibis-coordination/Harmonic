@@ -1,7 +1,7 @@
 <% is_human = step.sender_id != @ai_agent.id %>
 <% sender_name = is_human ? "You" : @ai_agent.name %>
 
-<div data-chat-message style="display: flex; margin-bottom: 12px; justify-content: <%= is_human ? 'flex-end' : 'flex-start' %>;">
+<div id="msg-<%= step.id %>" data-chat-message style="display: flex; margin-bottom: 12px; justify-content: <%= is_human ? 'flex-end' : 'flex-start' %>;">
   <div style="max-width: 75%; padding: 10px 14px; border-radius: 12px; background: <%= is_human ? 'var(--color-accent-subtle)' : 'var(--color-canvas-subtle)' %>;">
     <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px; color: var(--color-fg-muted);">
       <%= sender_name %>

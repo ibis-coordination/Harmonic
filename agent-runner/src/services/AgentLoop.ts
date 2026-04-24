@@ -224,24 +224,37 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         }),
       );
 
-    // Step 4: Navigate to /whoami (matches Ruby: start by navigating to whoami)
-    const whoamiResult = yield* navigateTo("/whoami");
-    const leakageDetector = extractCanary(whoamiResult.content);
+    // Step 4: Build context and initial messages
+    let leakageDetector: ReturnType<typeof extractCanary>;
 
-    // Extract scratchpad from identity page if present
-    const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
-    const scratchpad = scratchpadMatch?.[1]?.trim();
-
-    // Build initial messages — chat mode prepends conversation history
     if (isChatTurn && task.chatSessionId !== undefined) {
-      const history = yield* harmonic.fetchChatHistory(task.chatSessionId, subdomain).pipe(
+      // Chat mode: fetch history (includes current_state), restore navigation
+      const emptyResponse: import("./HarmonicClient.js").ChatHistoryResponse = {
+        messages: [],
+        current_state: {},
+      };
+      const historyResponse = yield* harmonic.fetchChatHistory(task.chatSessionId, subdomain).pipe(
         Effect.catchAll((err) => {
           log.error({ event: "chat_history_fetch_failed", taskRunId: task.taskRunId, message: String(err) });
-          return Effect.succeed([] as const);
+          return Effect.succeed(emptyResponse);
         }),
       );
+      const history = historyResponse.messages;
+      const savedPath = historyResponse.current_state.current_path;
 
-      // Compute time since last message for context
+      // Always fetch /whoami for fresh identity content (scratchpad, prompt may change)
+      const whoamiResult = yield* navigateTo("/whoami");
+      leakageDetector = extractCanary(whoamiResult.content);
+
+      // Navigate to saved path if different from /whoami
+      if (savedPath && savedPath !== "/whoami") {
+        yield* navigateTo(savedPath);
+      }
+
+      const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
+      const scratchpad = scratchpadMatch?.[1]?.trim();
+
+      // Compute time since last message
       let timeSinceLastMessage: string | undefined;
       if (history.length > 0) {
         const lastTimestamp = history[history.length - 1]?.timestamp;
@@ -256,22 +269,26 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       const chatSystemPrompt = buildChatSystemPrompt(whoamiResult.content, scratchpad, timeSinceLastMessage);
       const chatMessages: Message[] = [systemMessage(chatSystemPrompt)];
 
-      // Add prior conversation as user/assistant/system messages
       for (const msg of history) {
         if (msg.role === "user") {
           chatMessages.push(userMessage(msg.content));
         } else if (msg.role === "assistant") {
           chatMessages.push(assistantMessage(msg.content, undefined));
         } else if (msg.role === "system") {
-          // Action summaries injected between messages
           chatMessages.push(userMessage(msg.content));
         }
       }
 
-      // The current turn's human message is the task prompt
       chatMessages.push(userMessage(task.task));
       messages = chatMessages;
     } else {
+      // Task mode: always start at /whoami
+      const whoamiResult = yield* navigateTo("/whoami");
+      leakageDetector = extractCanary(whoamiResult.content);
+
+      const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
+      const scratchpad = scratchpadMatch?.[1]?.trim();
+
       messages = buildInitialMessages(task, whoamiResult.content, scratchpad);
     }
 
@@ -473,6 +490,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
       totalTokens: totalInputTokens + totalOutputTokens,
+      currentState: isChatTurn ? { current_path: currentPath ?? undefined } : undefined,
     });
 
     return { outcome: success ? "completed" : wasCancelled ? "cancelled" : "failed" } as TaskOutcome;

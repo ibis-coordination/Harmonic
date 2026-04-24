@@ -40,6 +40,13 @@ export interface ChatHistoryMessage {
   readonly timestamp: string;
 }
 
+export interface ChatHistoryResponse {
+  readonly messages: readonly ChatHistoryMessage[];
+  readonly current_state: {
+    readonly current_path?: string;
+  };
+}
+
 export interface HarmonicClientService {
   readonly navigate: (path: string, token: string, subdomain: string) => Effect.Effect<NavigateResult, HarmonicApiError>;
   readonly executeAction: (
@@ -49,7 +56,7 @@ export interface HarmonicClientService {
     token: string,
     subdomain: string,
   ) => Effect.Effect<ActionResult, HarmonicApiError>;
-  readonly fetchChatHistory: (chatSessionId: string, subdomain: string) => Effect.Effect<readonly ChatHistoryMessage[], HarmonicApiError>;
+  readonly fetchChatHistory: (chatSessionId: string, subdomain: string) => Effect.Effect<ChatHistoryResponse, HarmonicApiError>;
 }
 
 export class HarmonicClient extends Context.Tag("HarmonicClient")<HarmonicClient, HarmonicClientService>() {}
@@ -185,8 +192,8 @@ export const HarmonicClientLive = Layer.effect(
           if (response.statusCode < 200 || response.statusCode >= 300) {
             throw new Error(`Chat history fetch failed: HTTP ${response.statusCode} - ${text.slice(0, 500)}`);
           }
-          const data = JSON.parse(text) as { messages: ChatHistoryMessage[] };
-          return data.messages;
+          const data = JSON.parse(text) as ChatHistoryResponse;
+          return data;
         },
         catch: (error) =>
           new HarmonicApiError({

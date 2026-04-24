@@ -82,8 +82,10 @@ Rails.application.configure do
   # Annotate rendered view with file names.
   # config.action_view.annotate_rendered_view_with_filenames = true
 
-  # Uncomment if you wish to allow Action Cable access from any origin.
-  # config.action_cable.disable_request_forgery_protection = true
+  # Allow Action Cable connections from all subdomains
+  config.action_cable.allowed_request_origins = [
+    %r{https?://.*\.#{ENV.fetch("HOSTNAME", "harmonic.local")}},
+  ]
 
   # Add Docker container IP subnet to the list of allowed networks
   config.web_console.allowed_ips = ['127.0.0.0/8', '::1', '172.16.0.0/12']

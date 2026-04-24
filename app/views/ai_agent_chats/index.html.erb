@@ -1,0 +1,67 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['My AI Agents', ai_agents_path],
+  [@ai_agent.name, ai_agent_path(@ai_agent.handle)],
+  'Chat'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'comment-discussion', height: 14, class: 'pulse-resource-icon' %>
+        Chat Sessions
+      </span>
+      <div style="margin-left: auto;">
+        <%= button_to ai_agent_chat_create_path(@ai_agent.handle),
+              method: :post,
+              class: "pulse-action-btn pulse-action-btn-primary" do %>
+          <%= octicon 'plus', height: 14 %> New Chat
+        <% end %>
+      </div>
+    </div>
+    <h1 class="pulse-resource-title">Chat with <%= @ai_agent.name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @chat_sessions.empty? %>
+      <p class="pulse-muted" style="text-align: center; margin-top: 40px;">
+        No chat sessions yet. Start a new conversation.
+      </p>
+    <% else %>
+      <div class="pulse-feed">
+        <% @chat_sessions.each do |session| %>
+          <% all_messages = session.messages.to_a %>
+          <% first_message = all_messages.first %>
+          <% last_message = all_messages.last %>
+          <% message_count = all_messages.length %>
+          <article class="pulse-feed-item">
+            <div class="pulse-feed-item-header">
+              <div class="pulse-feed-item-type">
+                <%= octicon 'comment-discussion', height: 14 %>
+                Chat
+              </div>
+              <div class="pulse-feed-item-meta">
+                <span><%= message_count %> messages</span>
+                <span>&middot;</span>
+                <span><%= timeago(session.created_at) %></span>
+              </div>
+            </div>
+            <div class="pulse-feed-item-body">
+              <div class="pulse-feed-item-title">
+                <a href="<%= ai_agent_chat_path(@ai_agent.handle, session.id) %>">
+                  <%= first_message ? first_message.detail&.dig("content").to_s.truncate(80) : "Empty session" %>
+                </a>
+              </div>
+              <% if last_message && last_message != first_message %>
+                <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 13px;">
+                  Last: <%= last_message.detail&.dig("content").to_s.truncate(100) %>
+                </p>
+              <% end %>
+            </div>
+          </article>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</article>
