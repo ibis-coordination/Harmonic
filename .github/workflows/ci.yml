@@ -30,6 +30,25 @@ jobs:
       - name: Check style guide (Pulse CSS)
         run: ./scripts/check-style-guide.sh --diff main
 
+      - name: Check all test directories are covered by CI matrix
+        run: |
+          # Directories that contain runnable tests (have *_test.rb files)
+          TEST_DIRS=$(find test -mindepth 2 -name '*_test.rb' | sed 's|test/\([^/]*\)/.*|\1|' | sort -u)
+          # Directories covered by the CI matrix (keep in sync with rails-tests matrix)
+          COVERED="components controllers helpers integration jobs mailers models services"
+          MISSING=""
+          for dir in $TEST_DIRS; do
+            if ! echo "$COVERED" | grep -qw "$dir"; then
+              MISSING="$MISSING $dir"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::Test directories not covered by CI matrix:$MISSING"
+            echo "Add them to the rails-tests matrix in .github/workflows/ci.yml"
+            exit 1
+          fi
+          echo "✓ All test directories covered by CI matrix"
+
       - name: Check Sorbet coverage
         run: bundle exec spoom srb coverage
 
