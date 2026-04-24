@@ -105,12 +105,12 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   # --- Step ---
 
-  test "step appends to steps_data" do
+  test "step appends to steps_data and creates agent_session_step rows" do
     @task_run.update!(status: "running", started_at: Time.current, steps_data: [])
 
     body = {
       steps: [
-        { type: "navigate", detail: "/notifications", timestamp: Time.current.iso8601 },
+        { type: "navigate", detail: { path: "/notifications" }, timestamp: Time.current.iso8601 },
       ],
     }.to_json
 
@@ -118,9 +118,45 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     @task_run.reload
+    # Dual-write: both JSON and rows
     assert_equal 1, @task_run.steps_count
     assert_equal 1, @task_run.steps_data.length
     assert_equal "navigate", @task_run.steps_data.first["type"]
+
+    # Rows created
+    assert_equal 1, @task_run.agent_session_steps.count
+    step_row = @task_run.agent_session_steps.first
+    assert_equal 0, step_row.position
+    assert_equal "navigate", step_row.step_type
+    assert_equal({ "path" => "/notifications" }, step_row.detail)
+  end
+
+  test "step assigns sequential positions across multiple calls" do
+    @task_run.update!(status: "running", started_at: Time.current, steps_data: [])
+
+    # First step call
+    body1 = {
+      steps: [
+        { type: "navigate", detail: { path: "/a" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+    post step_url, params: body1, headers: signed_headers(body1)
+    assert_response :success
+
+    # Second step call with two steps
+    body2 = {
+      steps: [
+        { type: "think", detail: { step_number: 0 }, timestamp: Time.current.iso8601 },
+        { type: "execute", detail: { action: "create_note" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+    post step_url, params: body2, headers: signed_headers(body2)
+    assert_response :success
+
+    @task_run.reload
+    assert_equal 3, @task_run.agent_session_steps.count
+    positions = @task_run.agent_session_steps.pluck(:position)
+    assert_equal [0, 1, 2], positions
   end
 
   # --- Complete ---
@@ -156,6 +192,57 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
     # Token should be destroyed
     assert_nil ApiToken.unscope(where: :internal).find_by(id: token.id)
+  end
+
+  test "complete syncs steps_data to rows when rows are missing" do
+    @task_run.update!(status: "running", started_at: Time.current)
+
+    body = {
+      success: true,
+      final_message: "Done",
+      input_tokens: 100,
+      output_tokens: 50,
+      total_tokens: 150,
+      steps_data: [
+        { type: "navigate", detail: { path: "/home" }, timestamp: Time.current.iso8601 },
+        { type: "done", detail: { message: "Done" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+
+    post complete_url, params: body, headers: signed_headers(body)
+    assert_response :success
+
+    @task_run.reload
+    assert_equal 2, @task_run.agent_session_steps.count
+    assert_equal "navigate", @task_run.agent_session_steps.first.step_type
+    assert_equal "done", @task_run.agent_session_steps.last.step_type
+  end
+
+  test "complete does not duplicate rows when steps were already reported incrementally" do
+    @task_run.update!(status: "running", started_at: Time.current)
+
+    # Simulate steps already reported via the step endpoint
+    @task_run.agent_session_steps.create!(position: 0, step_type: "navigate", detail: { path: "/home" }, tenant: @tenant)
+    @task_run.agent_session_steps.create!(position: 1, step_type: "done", detail: { message: "Done" }, tenant: @tenant)
+
+    body = {
+      success: true,
+      final_message: "Done",
+      input_tokens: 100,
+      output_tokens: 50,
+      total_tokens: 150,
+      steps_data: [
+        { type: "navigate", detail: { path: "/home" }, timestamp: Time.current.iso8601 },
+        { type: "done", detail: { message: "Done" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+
+    post complete_url, params: body, headers: signed_headers(body)
+    assert_response :success
+
+    @task_run.reload
+    # Should still be 2, not 4
+    assert_equal 2, @task_run.agent_session_steps.count
   end
 
   # --- Fail ---

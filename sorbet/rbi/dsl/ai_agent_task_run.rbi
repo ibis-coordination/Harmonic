@@ -410,6 +410,20 @@ class AiAgentTaskRun
   end
 
   module GeneratedAssociationMethods
+    sig { returns(T::Array[T.untyped]) }
+    def agent_session_step_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def agent_session_step_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `AiAgentTaskRun` class because it declared `has_many :agent_session_steps`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AgentSessionStep::PrivateCollectionProxy) }
+    def agent_session_steps; end
+
+    sig { params(value: T::Enumerable[::AgentSessionStep]).void }
+    def agent_session_steps=(value); end
+
     sig { returns(T.nilable(::User)) }
     def ai_agent; end
 

@@ -1,6 +1,8 @@
-# typed: false
+# typed: true
 
 class AiAgentTaskRun < ApplicationRecord
+  extend T::Sig
+
   DEFAULT_MAX_STEPS = 30
 
   belongs_to :tenant
@@ -10,6 +12,7 @@ class AiAgentTaskRun < ApplicationRecord
   # Immutable billing attribution — stamped at run creation, never changed
   belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
 
+  has_many :agent_session_steps, -> { order(:position) }, dependent: :destroy
   has_many :ai_agent_task_run_resources, dependent: :destroy
   has_many :api_tokens, as: :context, dependent: :destroy
 
@@ -23,39 +26,40 @@ class AiAgentTaskRun < ApplicationRecord
   scope :with_usage, -> { where.not(total_tokens: 0) }
   scope :in_period, ->(start_date, end_date) { where(completed_at: start_date..end_date) }
 
-  # Calculate total cost for completed tasks in a date range
-  #
-  # @param start_date [Date, Time] Start of the period
-  # @param end_date [Date, Time] End of the period
-  # @return [BigDecimal] Total cost in USD
+  sig { params(start_date: T.any(Date, Time, ActiveSupport::TimeWithZone), end_date: T.any(Date, Time, ActiveSupport::TimeWithZone)).returns(T.any(Integer, Float, BigDecimal)) }
   def self.total_cost_for_period(start_date, end_date)
     completed.in_period(start_date, end_date).sum(:estimated_cost_usd)
   end
 
   # Thread-local context management for tracking which task run is currently executing
   class << self
+    extend T::Sig
+
+    sig { returns(T.nilable(String)) }
     def current_id
       Current.ai_agent_task_run_id
     end
 
+    sig { params(id: T.nilable(String)).void }
     def current_id=(id)
       Current.ai_agent_task_run_id = id
     end
 
+    sig { void }
     def clear_thread_scope
       Current.ai_agent_task_run_id = nil
     end
 
-    # Factory method for creating queued task runs with proper defaults.
-    # Centralizes the logic for extracting model from AI agent config.
-    #
-    # @param ai_agent [User] The AI agent to run the task
-    # @param tenant [Tenant] The tenant context
-    # @param initiated_by [User] The user who initiated the task
-    # @param task [String] The task description/prompt
-    # @param max_steps [Integer, nil] Optional max steps override
-    # @param automation_rule [AutomationRule, nil] Optional automation rule that triggered this task
-    # @return [AiAgentTaskRun] The created task run
+    sig do
+      params(
+        ai_agent: User,
+        tenant: Tenant,
+        initiated_by: User,
+        task: String,
+        max_steps: T.nilable(Integer),
+        automation_rule: T.nilable(AutomationRule),
+      ).returns(AiAgentTaskRun)
+    end
     def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil, automation_rule: nil)
       model = ai_agent.agent_configuration&.dig("model") || "default"
 
@@ -67,55 +71,60 @@ class AiAgentTaskRun < ApplicationRecord
         max_steps: max_steps || DEFAULT_MAX_STEPS,
         model: model,
         status: "queued",
-        automation_rule: automation_rule
+        automation_rule: automation_rule,
       )
     end
   end
 
-  # Convenience methods for querying created resources
+  sig { returns(Note::PrivateRelation) }
   def created_notes
     Note.where(id: ai_agent_task_run_resources.where(resource_type: "Note", action_type: "create").select(:resource_id))
   end
 
+  sig { returns(Decision::PrivateRelation) }
   def created_decisions
     Decision.where(id: ai_agent_task_run_resources.where(resource_type: "Decision", action_type: "create").select(:resource_id))
   end
 
+  sig { returns(Commitment::PrivateRelation) }
   def created_commitments
     Commitment.where(id: ai_agent_task_run_resources.where(resource_type: "Commitment", action_type: "create").select(:resource_id))
   end
 
+  sig { returns(T::Array[T.untyped]) }
   def all_resources
     ai_agent_task_run_resources.includes(:resource).map(&:resource)
   end
 
+  sig { returns(T::Boolean) }
   def queued?
     status == "queued"
   end
 
+  sig { returns(T::Boolean) }
   def running?
     status == "running"
   end
 
+  sig { returns(T::Boolean) }
   def completed?
     status == "completed"
   end
 
+  sig { returns(T::Boolean) }
   def failed?
     status == "failed"
   end
 
+  sig { returns(T::Boolean) }
   def triggered_by_automation?
     automation_rule_id.present?
   end
 
-  # Notify any parent automation rule runs that this task has reached a terminal state.
-  # Called after task completion/failure to update the run's aggregate status.
+  sig { void }
   def notify_parent_automation_runs!
     return unless triggered_by_automation?
 
-    # Find any AutomationRuleRun records that reference this task run
-    # either via the belongs_to association or via actions_executed array
     parent_runs = find_parent_automation_runs
     parent_runs.each do |run|
       next unless run.running?
@@ -126,32 +135,30 @@ class AiAgentTaskRun < ApplicationRecord
     end
   end
 
+  sig { returns(T.nilable(String)) }
   def formatted_duration
     format_seconds(duration)
   end
 
-  # Format the estimated cost for display
-  #
-  # @return [String, nil] Formatted cost (e.g., "$0.0035") or nil if no cost
+  sig { returns(T.nilable(String)) }
   def formatted_cost
     return nil unless estimated_cost_usd&.positive?
 
-    if estimated_cost_usd < 0.01
+    if T.must(estimated_cost_usd) < 0.01
       "< $0.01"
     else
       "$#{format("%.4f", estimated_cost_usd)}"
     end
   end
 
-  # Format the total tokens with commas for display
-  #
-  # @return [String, nil] Formatted tokens (e.g., "12,345") or nil if no tokens
+  sig { returns(T.nilable(String)) }
   def formatted_tokens
     return nil unless total_tokens&.positive?
 
     total_tokens.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
   end
 
+  sig { params(max_length: Integer).returns(String) }
   def task_summary(max_length = 80)
     if task.length > max_length
       "#{task[0...max_length]}..."
@@ -160,6 +167,7 @@ class AiAgentTaskRun < ApplicationRecord
     end
   end
 
+  sig { returns(String) }
   def status_badge_class
     case status
     when "completed"
@@ -175,12 +183,14 @@ class AiAgentTaskRun < ApplicationRecord
     end
   end
 
+  sig { returns(T.nilable(String)) }
   def formatted_queue_wait
     format_seconds(queue_wait)
   end
 
   private
 
+  sig { params(total: T.nilable(Numeric)).returns(T.nilable(String)) }
   def format_seconds(total)
     return nil unless total
 
@@ -197,15 +207,13 @@ class AiAgentTaskRun < ApplicationRecord
     end
   end
 
+  sig { returns(T::Array[AutomationRuleRun]) }
   def find_parent_automation_runs
     runs = []
 
-    # For agent rules: AutomationRuleRun.ai_agent_task_run_id = self.id
     direct_run = AutomationRuleRun.find_by(ai_agent_task_run_id: id)
     runs << direct_run if direct_run
 
-    # For general rules with trigger_agent actions: actions_executed contains task_run_id
-    # This is more complex - we need to search JSON
     AutomationRuleRun.where(status: "running").find_each do |run|
       actions = run.actions_executed || []
       has_this_task = actions.any? do |action|
@@ -218,12 +226,14 @@ class AiAgentTaskRun < ApplicationRecord
     runs.uniq
   end
 
+  sig { returns(T.nilable(Float)) }
   def duration
     return nil unless started_at && completed_at
 
-    completed_at - started_at
+    T.must(completed_at) - T.must(started_at)
   end
 
+  sig { returns(T.nilable(Float)) }
   def queue_wait
     end_of_wait = started_at || completed_at
     return nil unless end_of_wait && created_at

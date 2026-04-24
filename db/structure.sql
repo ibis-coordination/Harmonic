@@ -91,6 +91,22 @@ CREATE TABLE public.active_storage_variant_records (
 
 
 --
+-- Name: agent_session_steps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.agent_session_steps (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    ai_agent_task_run_id uuid NOT NULL,
+    "position" integer NOT NULL,
+    step_type character varying NOT NULL,
+    sender_id uuid,
+    detail jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    tenant_id uuid NOT NULL
+);
+
+
+--
 -- Name: ai_agent_task_run_resources; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2180,6 +2196,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 
 --
+-- Name: agent_session_steps agent_session_steps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT agent_session_steps_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: api_tokens api_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2962,6 +2986,27 @@ CREATE UNIQUE INDEX index_active_storage_blobs_on_key ON public.active_storage_b
 --
 
 CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON public.active_storage_variant_records USING btree (blob_id, variation_digest);
+
+
+--
+-- Name: index_agent_session_steps_on_ai_agent_task_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_session_steps_on_ai_agent_task_run_id ON public.agent_session_steps USING btree (ai_agent_task_run_id);
+
+
+--
+-- Name: index_agent_session_steps_on_ai_agent_task_run_id_and_position; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_agent_session_steps_on_ai_agent_task_run_id_and_position ON public.agent_session_steps USING btree (ai_agent_task_run_id, "position");
+
+
+--
+-- Name: index_agent_session_steps_on_sender_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_session_steps_on_sender_id ON public.agent_session_steps USING btree (sender_id);
 
 
 --
@@ -7880,6 +7925,14 @@ ALTER TABLE ONLY public.votes
 
 
 --
+-- Name: agent_session_steps fk_rails_1063c3ae76; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT fk_rails_1063c3ae76 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: options fk_rails_129a008786; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8296,6 +8349,14 @@ ALTER TABLE ONLY public.automation_rule_runs
 
 
 --
+-- Name: agent_session_steps fk_rails_8ff9d34dd4; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT fk_rails_8ff9d34dd4 FOREIGN KEY (sender_id) REFERENCES public.users(id);
+
+
+--
 -- Name: representation_session_events fk_rails_901c70e333; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8704,6 +8765,14 @@ ALTER TABLE ONLY public.decision_participants
 
 
 --
+-- Name: agent_session_steps fk_rails_fa323452dc; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT fk_rails_fa323452dc FOREIGN KEY (ai_agent_task_run_id) REFERENCES public.ai_agent_task_runs(id);
+
+
+--
 -- Name: collectives fk_rails_fbb5f3e2b8; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8750,6 +8819,9 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260424032435'),
+('20260424023730'),
+('20260424023356'),
 ('20260423034320'),
 ('20260422205804'),
 ('20260421012815'),

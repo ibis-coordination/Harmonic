@@ -1,4 +1,9 @@
-<% steps_data = task_run.steps_data || [] %>
+<%# Read from agent_session_steps rows; fall back to steps_data JSON for older runs %>
+<% if task_run.agent_session_steps.loaded? ? task_run.agent_session_steps.any? : task_run.agent_session_steps.exists? %>
+  <% steps_data = task_run.agent_session_steps.map(&:to_step_hash) %>
+<% else %>
+  <% steps_data = task_run.steps_data || [] %>
+<% end %>
 <% show_debug = defined?(debug) && debug %>
 <% is_redacted = defined?(redacted) && redacted %>
 

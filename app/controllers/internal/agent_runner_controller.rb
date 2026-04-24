@@ -34,19 +34,33 @@ module Internal
         return
       end
 
-      current_steps = task_run.steps_data || []
-      new_steps = steps.map do |s|
-        {
-          type: s[:type],
-          detail: s[:detail],
-          timestamp: s[:timestamp],
-        }
+      # Determine the next position (0-based).
+      # The unique index on (ai_agent_task_run_id, position) guards against
+      # concurrent inserts producing duplicate positions.
+      next_position = task_run.agent_session_steps.maximum(:position)&.+(1) || 0
+
+      new_step_hashes = []
+      steps.each_with_index do |s, i|
+        step_type = s[:type]
+        timestamp = s[:timestamp].present? ? Time.parse(s[:timestamp]) : Time.current
+
+        task_run.agent_session_steps.create!(
+          position: next_position + i,
+          step_type: step_type,
+          detail: s[:detail] || {},
+          created_at: timestamp,
+        )
+
+        new_step_hashes << { type: step_type, detail: s[:detail], timestamp: s[:timestamp] }
       end
 
+      # Dual-write to steps_data for backwards compatibility during transition
+      current_steps = task_run.steps_data || []
       task_run.update!(
-        steps_data: current_steps + new_steps,
-        steps_count: (task_run.steps_count || 0) + new_steps.length,
+        steps_data: current_steps + new_step_hashes,
+        steps_count: (task_run.steps_count || 0) + new_step_hashes.length,
       )
+
       render json: { status: "ok" }
     end
 
@@ -61,13 +75,30 @@ module Internal
       total_tokens = nonneg_int_param(:total_tokens)
       steps_count = nonneg_int_param(:steps_count)
 
+      # Sync authoritative steps to rows if agent-runner sent them and rows are missing
+      # (during transition, steps may have been reported only via complete, not incrementally)
+      if params[:steps_data].is_a?(Array) && task_run.agent_session_steps.none?
+        params[:steps_data].each_with_index do |s, i|
+          s = s.is_a?(Hash) ? s : s.to_unsafe_h
+          timestamp = s["timestamp"].present? ? Time.parse(s["timestamp"]) : Time.current
+          task_run.agent_session_steps.create!(
+            position: i,
+            step_type: s["type"],
+            detail: s["detail"] || {},
+            created_at: timestamp,
+          )
+        rescue StandardError => e
+          Rails.logger.warn("[Internal::AgentRunner] Skipping step sync #{i} for task #{task_run.id}: #{e.message}")
+        end
+      end
+
       task_run.update!(
         status: params[:success] ? "completed" : "failed",
         success: params[:success] || false,
         final_message: params[:final_message],
         error: params[:error],
         steps_data: params[:steps_data].is_a?(Array) ? params[:steps_data] : task_run.steps_data,
-        steps_count: steps_count.nil? ? task_run.steps_count : steps_count,
+        steps_count: steps_count.nil? ? task_run.agent_session_steps.count : steps_count,
         input_tokens: input_tokens,
         output_tokens: output_tokens,
         total_tokens: total_tokens,
