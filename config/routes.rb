@@ -46,6 +46,12 @@ Rails.application.routes.draw do
   get 'ai-agents/:handle/settings/actions' => 'ai_agents#settings_actions_index'
   get 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#describe_update_ai_agent'
   post 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#execute_update_ai_agent'
+  # AI Agent chat
+  get  'ai-agents/:handle/chat'         => 'ai_agent_chats#show', as: 'ai_agent_chat'
+  post 'ai-agents/:handle/chat'         => 'ai_agent_chats#create', as: 'ai_agent_chat_create'
+  post 'ai-agents/:handle/chat/message' => 'ai_agent_chats#send_message', as: 'ai_agent_chat_message'
+  post 'ai-agents/:handle/chat/end'     => 'ai_agent_chats#end_session', as: 'ai_agent_chat_end'
+
   get 'ai-agents/:handle/run' => 'ai_agents#run_task', as: 'ai_agent_run_task'
   post 'ai-agents/:handle/run' => 'ai_agents#execute_task', as: 'ai_agent_execute_task'
   get 'ai-agents/:handle/runs' => 'ai_agents#runs', as: 'ai_agent_runs'

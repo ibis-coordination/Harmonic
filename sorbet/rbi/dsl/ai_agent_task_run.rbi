@@ -497,11 +497,26 @@ class AiAgentTaskRun
     sig { params(args: T.untyped, blk: T.untyped).returns(::StripeCustomer) }
     def build_billing_customer(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::ChatSession) }
+    def build_chat_session(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_initiated_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
+
+    sig { returns(T.nilable(::ChatSession)) }
+    def chat_session; end
+
+    sig { params(value: T.nilable(::ChatSession)).void }
+    def chat_session=(value); end
+
+    sig { returns(T::Boolean) }
+    def chat_session_changed?; end
+
+    sig { returns(T::Boolean) }
+    def chat_session_previously_changed?; end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_ai_agent(*args, &blk); end
@@ -520,6 +535,12 @@ class AiAgentTaskRun
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::StripeCustomer) }
     def create_billing_customer!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::ChatSession) }
+    def create_chat_session(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::ChatSession) }
+    def create_chat_session!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_initiated_by(*args, &blk); end
@@ -554,6 +575,9 @@ class AiAgentTaskRun
     sig { returns(T.nilable(::StripeCustomer)) }
     def reload_billing_customer; end
 
+    sig { returns(T.nilable(::ChatSession)) }
+    def reload_chat_session; end
+
     sig { returns(T.nilable(::User)) }
     def reload_initiated_by; end
 
@@ -568,6 +592,9 @@ class AiAgentTaskRun
 
     sig { void }
     def reset_billing_customer; end
+
+    sig { void }
+    def reset_chat_session; end
 
     sig { void }
     def reset_initiated_by; end
@@ -842,6 +869,51 @@ class AiAgentTaskRun
 
     sig { void }
     def automation_rule_id_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def chat_session_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def chat_session_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def chat_session_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def chat_session_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def chat_session_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def chat_session_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def chat_session_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def chat_session_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def chat_session_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def chat_session_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def chat_session_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def chat_session_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def chat_session_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def chat_session_id_was; end
+
+    sig { void }
+    def chat_session_id_will_change!; end
 
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
     def completed_at; end
@@ -1293,6 +1365,51 @@ class AiAgentTaskRun
     sig { void }
     def max_steps_will_change!; end
 
+    sig { returns(::String) }
+    def mode; end
+
+    sig { params(value: ::String).returns(::String) }
+    def mode=(value); end
+
+    sig { returns(T::Boolean) }
+    def mode?; end
+
+    sig { returns(T.nilable(::String)) }
+    def mode_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def mode_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def mode_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def mode_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def mode_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def mode_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def mode_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def mode_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def mode_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def mode_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def mode_was; end
+
+    sig { void }
+    def mode_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def model; end
 
@@ -1390,6 +1507,9 @@ class AiAgentTaskRun
     def restore_automation_rule_id!; end
 
     sig { void }
+    def restore_chat_session_id!; end
+
+    sig { void }
     def restore_completed_at!; end
 
     sig { void }
@@ -1418,6 +1538,9 @@ class AiAgentTaskRun
 
     sig { void }
     def restore_max_steps!; end
+
+    sig { void }
+    def restore_mode!; end
 
     sig { void }
     def restore_model!; end
@@ -1466,6 +1589,12 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_automation_rule_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_chat_session_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_chat_session_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_completed_at; end
@@ -1526,6 +1655,12 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_max_steps?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_mode; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_mode?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_model; end
@@ -2056,6 +2191,9 @@ class AiAgentTaskRun
     def will_save_change_to_automation_rule_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_chat_session_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_completed_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2084,6 +2222,9 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_max_steps?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_mode?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_model?(from: T.unsafe(nil), to: T.unsafe(nil)); end
