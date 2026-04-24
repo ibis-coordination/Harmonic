@@ -36,10 +36,11 @@ interface PollResponse {
 
 /**
  * AgentChatController handles the chat interface for AI agent conversations.
- * Sends messages via AJAX, appends them to the DOM optimistically,
- * subscribes to ActionCable for agent responses (with polling fallback),
- * and auto-scrolls. Handles status/activity/error events for real-time
- * turn visibility.
+ *
+ * Transport strategy: ActionCable is the primary transport. Polling is a
+ * fallback that only activates when the WebSocket connection is lost.
+ * The two never run simultaneously, avoiding race conditions from
+ * duplicate/stale data.
  */
 export default class AgentChatController extends Controller<HTMLElement> {
   static values = {
@@ -75,13 +76,15 @@ export default class AgentChatController extends Controller<HTMLElement> {
   private lastTimestamp: string = new Date().toISOString()
   private waitingForResponse = false
   private indicatorEl: HTMLElement | null = null
+  private cableConnected = false
 
   connect(): void {
     this.scrollToBottom()
     this.subscribeToChannel()
 
     // If a turn is already running (e.g., page reload), show the indicator
-    // and start polling so we pick up the result.
+    // and start polling as a bootstrap transport. ActionCable hasn't completed
+    // its handshake yet, so we poll until connected() fires and stops it.
     if (this.turnRunningValue) {
       this.waitingForResponse = true
       this.showIndicator("Thinking...")
@@ -107,6 +110,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
     this.sendMessage()
   }
 
+  // --- ActionCable (primary transport) ---
+
   private subscribeToChannel(): void {
     if (!this.sessionIdValue) return
 
@@ -116,6 +121,19 @@ export default class AgentChatController extends Controller<HTMLElement> {
     this.subscription = consumer.subscriptions.create(
       { channel: "ChatSessionChannel", session_id: this.sessionIdValue },
       {
+        connected() {
+          controller.cableConnected = true
+          controller.stopPolling()
+        },
+
+        disconnected() {
+          controller.cableConnected = false
+          // Fall back to polling only while waiting for a response
+          if (controller.waitingForResponse) {
+            controller.startPolling()
+          }
+        },
+
         received(data: CableEvent) {
           switch (data.type) {
             case "message":
@@ -135,6 +153,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
     )
   }
 
+  // --- Event handlers (shared by both transports) ---
+
   private handleStatusEvent(data: StatusEvent): void {
     switch (data.status) {
       case "working":
@@ -143,13 +163,11 @@ export default class AgentChatController extends Controller<HTMLElement> {
       case "completed":
         this.removeIndicator()
         this.waitingForResponse = false
-        this.stopPolling()
         break
       case "error":
         this.removeIndicator()
         this.showError(data.error || "Something went wrong. Please try again.")
         this.waitingForResponse = false
-        this.stopPolling()
         break
     }
   }
@@ -167,9 +185,10 @@ export default class AgentChatController extends Controller<HTMLElement> {
     )
     this.lastTimestamp = data.timestamp
     this.waitingForResponse = false
-    this.stopPolling()
     this.scrollToBottom()
   }
+
+  // --- Message sending ---
 
   private async sendMessage(): Promise<void> {
     if (this.isSubmitting) return
@@ -202,7 +221,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
         this.removeIndicator()
         this.markMessageFailed(messageEl, text || response.statusText)
         this.waitingForResponse = false
-      } else {
+      } else if (!this.cableConnected) {
+        // ActionCable is down — fall back to polling
         this.startPolling()
       }
     } catch {
@@ -265,8 +285,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
     this.scrollToBottom()
   }
 
-  // Polling fallback: check for new messages via the poll endpoint
-  // if ActionCable doesn't deliver them.
+  // --- Polling (fallback transport, only active when ActionCable is disconnected) ---
+
   private startPolling(): void {
     if (this.pollTimer !== null) return
 
@@ -288,6 +308,12 @@ export default class AgentChatController extends Controller<HTMLElement> {
       return
     }
 
+    // ActionCable reconnected — stop polling, it will take over
+    if (this.cableConnected) {
+      this.stopPolling()
+      return
+    }
+
     try {
       const url = `${this.pollUrlValue}?after=${encodeURIComponent(this.lastTimestamp)}`
       const response = await fetch(url, {
@@ -298,14 +324,12 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
       const data = await response.json() as PollResponse
 
-      // Handle messages
       for (const msg of data.messages) {
         if (msg.is_agent) {
           this.handleAgentMessage(msg)
         }
       }
 
-      // Handle turn status from polling (fallback for ActionCable)
       if (data.turn_status === "failed" && this.waitingForResponse) {
         this.removeIndicator()
         this.showError(data.turn_error || "Something went wrong. Please try again.")
@@ -318,6 +342,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
       // Silent fail — polling is best-effort
     }
   }
+
+  // --- DOM helpers ---
 
   private appendMessage(content: string, senderName: string, isHuman: boolean): HTMLElement {
     const time = new Date().toLocaleTimeString("en-US", {
