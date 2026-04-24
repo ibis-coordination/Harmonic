@@ -1558,9 +1558,6 @@ class AiAgentTaskRun
     def restore_steps_count!; end
 
     sig { void }
-    def restore_steps_data!; end
-
-    sig { void }
     def restore_stripe_customer_id!; end
 
     sig { void }
@@ -1691,12 +1688,6 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_steps_count?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def saved_change_to_steps_data; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_steps_data?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_stripe_customer_id; end
@@ -1868,51 +1859,6 @@ class AiAgentTaskRun
 
     sig { void }
     def steps_count_will_change!; end
-
-    sig { returns(T.untyped) }
-    def steps_data; end
-
-    sig { params(value: T.untyped).returns(T.untyped) }
-    def steps_data=(value); end
-
-    sig { returns(T::Boolean) }
-    def steps_data?; end
-
-    sig { returns(T.untyped) }
-    def steps_data_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def steps_data_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def steps_data_came_from_user?; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def steps_data_change; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def steps_data_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def steps_data_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.untyped) }
-    def steps_data_in_database; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def steps_data_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def steps_data_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.untyped) }
-    def steps_data_previously_was; end
-
-    sig { returns(T.untyped) }
-    def steps_data_was; end
-
-    sig { void }
-    def steps_data_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def stripe_customer_id; end
@@ -2240,9 +2186,6 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_steps_count?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_steps_data?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_stripe_customer_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

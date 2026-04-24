@@ -220,10 +220,10 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
       max_steps: 10,
       status: "failed",
       error: "LLM error: connection timeout",
-      steps_data: [{ "type" => "error", "timestamp" => Time.current.iso8601, "detail" => { "message" => "LLM error" } }],
       steps_count: 1,
       completed_at: Time.current,
     )
+    task_run.agent_session_steps.create!(position: 0, step_type: "error", detail: { "message" => "LLM error" })
 
     get system_admin_task_run_path(task_run.id)
     assert_response :success
@@ -255,21 +255,19 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
       status: "completed",
       success: true,
       final_message: "SENSITIVE_FINAL_MESSAGE",
-      steps_data: [
-        { "type" => "navigate", "timestamp" => Time.current.iso8601,
-          "detail" => { "path" => "/collectives/test", "content_preview" => "SENSITIVE_PAGE_CONTENT" } },
-        { "type" => "think", "timestamp" => Time.current.iso8601,
-          "detail" => { "step_number" => 0, "prompt_preview" => "SENSITIVE_PROMPT", "response_preview" => "SENSITIVE_LLM_RESPONSE" } },
-        { "type" => "execute", "timestamp" => Time.current.iso8601,
-          "detail" => { "action" => "create_note", "params" => { "text" => "SENSITIVE_PARAMS" }, "success" => true, "content_preview" => "SENSITIVE_RESULT" } },
-        { "type" => "done", "timestamp" => Time.current.iso8601,
-          "detail" => { "message" => "SENSITIVE_DONE_MESSAGE" } },
-        { "type" => "scratchpad_update", "timestamp" => Time.current.iso8601,
-          "detail" => { "content" => "SENSITIVE_SCRATCHPAD" } },
-      ],
       steps_count: 5,
       completed_at: Time.current,
     )
+    task_run.agent_session_steps.create!(position: 0, step_type: "navigate",
+      detail: { "path" => "/collectives/test", "content_preview" => "SENSITIVE_PAGE_CONTENT" })
+    task_run.agent_session_steps.create!(position: 1, step_type: "think",
+      detail: { "step_number" => 0, "prompt_preview" => "SENSITIVE_PROMPT", "response_preview" => "SENSITIVE_LLM_RESPONSE" })
+    task_run.agent_session_steps.create!(position: 2, step_type: "execute",
+      detail: { "action" => "create_note", "params" => { "text" => "SENSITIVE_PARAMS" }, "success" => true, "content_preview" => "SENSITIVE_RESULT" })
+    task_run.agent_session_steps.create!(position: 3, step_type: "done",
+      detail: { "message" => "SENSITIVE_DONE_MESSAGE" })
+    task_run.agent_session_steps.create!(position: 4, step_type: "scratchpad_update",
+      detail: { "content" => "SENSITIVE_SCRATCHPAD" })
 
     get system_admin_task_run_path(task_run.id)
     assert_response :success

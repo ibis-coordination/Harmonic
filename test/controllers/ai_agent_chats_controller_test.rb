@@ -192,6 +192,119 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     assert_equal true, messages[0]["is_agent"]
   end
 
+  test "poll_messages returns turn_status when a turn is running" do
+    session = create_chat_session
+    with_tenant_scope do
+      AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Hello", max_steps: 30, status: "running",
+        mode: "chat_turn", chat_session: session,
+        started_at: Time.current,
+      )
+    end
+
+    get "/ai-agents/#{@agent_handle}/chat/#{session.id}/messages?after=#{1.minute.ago.iso8601}"
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal "running", body["turn_status"]
+  end
+
+  test "poll_messages returns turn_status failed with error" do
+    session = create_chat_session
+    with_tenant_scope do
+      AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Hello", max_steps: 30, status: "failed",
+        mode: "chat_turn", chat_session: session,
+        error: "LLM API error",
+        completed_at: Time.current,
+      )
+    end
+
+    get "/ai-agents/#{@agent_handle}/chat/#{session.id}/messages?after=#{1.minute.ago.iso8601}"
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal "failed", body["turn_status"]
+    assert_equal "LLM API error", body["turn_error"]
+  end
+
+  test "poll_messages returns null turn_status when no active turn" do
+    session = create_chat_session
+
+    get "/ai-agents/#{@agent_handle}/chat/#{session.id}/messages?after=#{1.minute.ago.iso8601}"
+    assert_response :success
+
+    body = response.parsed_body
+    assert_nil body["turn_status"]
+  end
+
+  test "poll_messages returns latest activity for running turn" do
+    session = create_chat_session
+    with_tenant_scope do
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Hello", max_steps: 30, status: "running",
+        mode: "chat_turn", chat_session: session,
+        started_at: Time.current,
+      )
+      run.agent_session_steps.create!(
+        position: 0, step_type: "message",
+        detail: { content: "Hello" }, sender: @user,
+      )
+      run.agent_session_steps.create!(
+        position: 1, step_type: "think",
+        detail: { step_number: 0 },
+      )
+      run.agent_session_steps.create!(
+        position: 2, step_type: "navigate",
+        detail: { path: "/collectives/team" },
+      )
+    end
+
+    get "/ai-agents/#{@agent_handle}/chat/#{session.id}/messages?after=#{1.minute.ago.iso8601}"
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal "Navigating to /collectives/team", body["activity"]
+  end
+
+  # --- busy agent ---
+
+  test "show sets agent_busy when agent has running task in another session" do
+    session = create_chat_session
+    other_session = create_chat_session
+    with_tenant_scope do
+      AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Working on something", max_steps: 30, status: "running",
+        mode: "chat_turn", chat_session: other_session,
+        started_at: Time.current,
+      )
+    end
+
+    get "/ai-agents/#{@agent_handle}/chat/#{session.id}"
+    assert_response :success
+    assert_match(/currently working/, response.body)
+  end
+
+  test "show does not show busy indicator when agent is working in this session" do
+    session = create_chat_session
+    with_tenant_scope do
+      AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Working here", max_steps: 30, status: "running",
+        mode: "chat_turn", chat_session: session,
+        started_at: Time.current,
+      )
+    end
+
+    get "/ai-agents/#{@agent_handle}/chat/#{session.id}"
+    assert_response :success
+    assert_no_match(/currently working/, response.body)
+  end
+
   test "poll_messages returns empty array when no new messages" do
     session = with_tenant_scope do
       cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)

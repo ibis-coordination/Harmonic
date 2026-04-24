@@ -29,6 +29,8 @@ class AiAgentChatsController < ApplicationController
   def show
     @messages = @chat_session.messages.includes(:sender)
     @page_title = "Chat - #{@ai_agent.display_name}"
+    @turn_running = @chat_session.task_runs.where(status: %w[queued running]).exists?
+    check_agent_busy
   end
 
   # POST /ai-agents/:handle/chat/:session_id/message
@@ -65,7 +67,8 @@ class AiAgentChatsController < ApplicationController
   end
 
   # GET /ai-agents/:handle/chat/:session_id/messages?after=<iso8601>
-  # Polling endpoint — returns the same data format as ActionCable broadcasts.
+  # Polling endpoint — returns the same data format as ActionCable broadcasts,
+  # plus turn status and latest activity for fallback transport.
   def poll_messages
     after = begin
       params[:after].present? ? Time.parse(params[:after]) : Time.at(0)
@@ -78,7 +81,32 @@ class AiAgentChatsController < ApplicationController
       .includes(:sender)
       .map { |step| ChatMessagePresenter.format(step, @chat_session) }
 
-    render json: { messages: new_messages }
+    latest_turn = @chat_session.task_runs.order(created_at: :desc).first
+    turn_status = latest_turn&.status
+    # Only report meaningful statuses — "queued" and "running" both mean "running" to the UI
+    turn_status = "running" if turn_status == "queued"
+    # Only report status if there's actually something going on (not completed turns from long ago)
+    turn_status = nil if turn_status == "completed"
+
+    response_data = { messages: new_messages, turn_status: turn_status }
+    response_data[:turn_error] = latest_turn&.error if turn_status == "failed"
+
+    # Include latest activity text for running turns (only steps after setup).
+    # Setup navigations (/whoami, saved path) always precede the first think step,
+    # so we only show activity from steps positioned after the first think.
+    if turn_status == "running" && latest_turn
+      first_think_position = latest_turn.agent_session_steps.where(step_type: "think").minimum(:position)
+      if first_think_position
+        latest_activity_step = latest_turn.agent_session_steps
+          .where(step_type: %w[navigate execute])
+          .where("position > ?", first_think_position)
+          .order(position: :desc)
+          .first
+        response_data[:activity] = format_activity_text(latest_activity_step) if latest_activity_step
+      end
+    end
+
+    render json: response_data
   end
 
   private
@@ -133,5 +161,26 @@ class AiAgentChatsController < ApplicationController
     AgentRunnerDispatchService.dispatch(task_run)
   rescue StandardError => e
     Rails.logger.error("[AiAgentChats] Failed to dispatch chat turn #{task_run.id}: #{e.message}")
+  end
+
+  def format_activity_text(step)
+    case step.step_type
+    when "navigate"
+      path = step.detail&.dig("path")
+      "Navigating to #{path}" if path.present?
+    when "execute"
+      action = step.detail&.dig("action")
+      "Executing #{action}" if action.present?
+    end
+  end
+
+  def check_agent_busy
+    # where.not with a non-nil value excludes NULLs in SQL, so we need to
+    # explicitly include NULL chat_session_id (regular task runs).
+    @agent_busy_run = AiAgentTaskRun
+      .where(ai_agent: @ai_agent, status: %w[queued running])
+      .where("chat_session_id IS DISTINCT FROM ?", @chat_session.id)
+      .order(created_at: :desc)
+      .first
   end
 end

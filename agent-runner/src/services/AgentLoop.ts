@@ -486,7 +486,6 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       success,
       finalMessage,
       error: errorMsg,
-      stepsData: steps,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
       totalTokens: totalInputTokens + totalOutputTokens,

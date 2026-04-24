@@ -208,13 +208,7 @@ class AiAgentsController < ApplicationController
         @page_title = "Task Run - #{@ai_agent.display_name}"
       end
       format.json do
-        # Read from agent_session_steps rows; fall back to steps_data JSON for older runs
-        session_steps = @task_run.agent_session_steps.load
-        steps = if session_steps.any?
-          session_steps.map(&:to_step_hash)
-        else
-          @task_run.steps_data || []
-        end
+        steps = @task_run.agent_session_steps.map(&:to_step_hash)
 
         render json: {
           status: @task_run.status,

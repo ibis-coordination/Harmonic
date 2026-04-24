@@ -12,11 +12,34 @@ interface ChatMessage {
   is_agent: boolean
 }
 
+interface StatusEvent {
+  type: "status"
+  status: "working" | "completed" | "error"
+  error?: string
+  task_run_id?: string
+}
+
+interface ActivityEvent {
+  type: "activity"
+  text: string
+  task_run_id?: string
+}
+
+type CableEvent = ChatMessage | StatusEvent | ActivityEvent
+
+interface PollResponse {
+  messages: ChatMessage[]
+  turn_status: string | null
+  turn_error: string | null
+  activity: string | null
+}
+
 /**
  * AgentChatController handles the chat interface for AI agent conversations.
  * Sends messages via AJAX, appends them to the DOM optimistically,
  * subscribes to ActionCable for agent responses (with polling fallback),
- * and auto-scrolls.
+ * and auto-scrolls. Handles status/activity/error events for real-time
+ * turn visibility.
  */
 export default class AgentChatController extends Controller<HTMLElement> {
   static values = {
@@ -24,6 +47,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
     agentName: String,
     sessionId: String,
     pollUrl: String,
+    turnRunning: Boolean,
   }
 
   static targets = [
@@ -37,6 +61,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
   declare agentNameValue: string
   declare sessionIdValue: string
   declare pollUrlValue: string
+  declare turnRunningValue: boolean
 
   declare readonly messagesTarget: HTMLElement
   declare readonly inputTarget: HTMLTextAreaElement
@@ -49,10 +74,19 @@ export default class AgentChatController extends Controller<HTMLElement> {
   private pollTimer: number | null = null
   private lastTimestamp: string = new Date().toISOString()
   private waitingForResponse = false
+  private indicatorEl: HTMLElement | null = null
 
   connect(): void {
     this.scrollToBottom()
     this.subscribeToChannel()
+
+    // If a turn is already running (e.g., page reload), show the indicator
+    // and start polling so we pick up the result.
+    if (this.turnRunningValue) {
+      this.waitingForResponse = true
+      this.showIndicator("Thinking...")
+      this.startPolling()
+    }
   }
 
   disconnect(): void {
@@ -82,17 +116,50 @@ export default class AgentChatController extends Controller<HTMLElement> {
     this.subscription = consumer.subscriptions.create(
       { channel: "ChatSessionChannel", session_id: this.sessionIdValue },
       {
-        received(data: ChatMessage) {
-          if (data.type === "message" && data.is_agent) {
-            controller.stopPolling()
-            controller.handleAgentMessage(data)
+        received(data: CableEvent) {
+          switch (data.type) {
+            case "message":
+              if (data.is_agent) {
+                controller.handleAgentMessage(data)
+              }
+              break
+            case "status":
+              controller.handleStatusEvent(data)
+              break
+            case "activity":
+              controller.handleActivityEvent(data)
+              break
           }
         },
       },
     )
   }
 
+  private handleStatusEvent(data: StatusEvent): void {
+    switch (data.status) {
+      case "working":
+        this.showIndicator("Thinking...")
+        break
+      case "completed":
+        this.removeIndicator()
+        this.waitingForResponse = false
+        this.stopPolling()
+        break
+      case "error":
+        this.removeIndicator()
+        this.showError(data.error || "Something went wrong. Please try again.")
+        this.waitingForResponse = false
+        this.stopPolling()
+        break
+    }
+  }
+
+  private handleActivityEvent(data: ActivityEvent): void {
+    this.showIndicator(data.text)
+  }
+
   private handleAgentMessage(data: ChatMessage): void {
+    this.removeIndicator()
     this.appendMessage(
       data.content || "",
       data.sender_name || this.agentNameValue,
@@ -121,6 +188,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
     const messageEl = this.appendMessage(message, "You", true)
     this.lastTimestamp = new Date().toISOString()
     this.waitingForResponse = true
+    this.showIndicator("Thinking...")
     this.scrollToBottom()
 
     try {
@@ -131,18 +199,70 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
       if (!response.ok) {
         const text = await response.text()
+        this.removeIndicator()
         this.markMessageFailed(messageEl, text || response.statusText)
         this.waitingForResponse = false
       } else {
         this.startPolling()
       }
     } catch {
+      this.removeIndicator()
       this.markMessageFailed(messageEl, "Failed to send. Please try again.")
     } finally {
       this.isSubmitting = false
       this.submitButtonTarget.disabled = false
       this.inputTarget.focus()
     }
+  }
+
+  // --- Indicator (typing / activity) ---
+
+  private showIndicator(text: string): void {
+    if (!this.indicatorEl) {
+      this.indicatorEl = document.createElement("div")
+      this.indicatorEl.setAttribute("data-chat-indicator", "")
+      this.indicatorEl.style.cssText = "display: flex; margin-bottom: 12px; justify-content: flex-start;"
+
+      const bubble = document.createElement("div")
+      bubble.style.cssText = "max-width: 75%; padding: 10px 14px; border-radius: 12px; background: var(--color-canvas-subtle);"
+      bubble.innerHTML = `
+        <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px; color: var(--color-fg-muted);">
+          ${this.escapeHtml(this.agentNameValue)}
+        </div>
+        <div data-indicator-text style="font-size: 13px; color: var(--color-fg-muted); font-style: italic;"></div>
+      `
+      this.indicatorEl.appendChild(bubble)
+      this.messagesTarget.appendChild(this.indicatorEl)
+    }
+
+    const textEl = this.indicatorEl.querySelector("[data-indicator-text]")
+    if (textEl) {
+      textEl.textContent = text
+    }
+    this.scrollToBottom()
+  }
+
+  private removeIndicator(): void {
+    if (this.indicatorEl) {
+      this.indicatorEl.remove()
+      this.indicatorEl = null
+    }
+  }
+
+  // --- Error display ---
+
+  private showError(message: string): void {
+    const wrapper = document.createElement("div")
+    wrapper.setAttribute("data-chat-error", "")
+    wrapper.style.cssText = "display: flex; margin-bottom: 12px; justify-content: center;"
+
+    const errorBubble = document.createElement("div")
+    errorBubble.style.cssText = "padding: 8px 14px; border-radius: 8px; background: var(--color-danger-subtle); color: var(--color-danger-fg); font-size: 13px; max-width: 90%; text-align: center;"
+    errorBubble.textContent = message
+
+    wrapper.appendChild(errorBubble)
+    this.messagesTarget.appendChild(wrapper)
+    this.scrollToBottom()
   }
 
   // Polling fallback: check for new messages via the poll endpoint
@@ -176,11 +296,23 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
       if (!response.ok) return
 
-      const data = await response.json() as { messages: ChatMessage[] }
+      const data = await response.json() as PollResponse
+
+      // Handle messages
       for (const msg of data.messages) {
         if (msg.is_agent) {
           this.handleAgentMessage(msg)
         }
+      }
+
+      // Handle turn status from polling (fallback for ActionCable)
+      if (data.turn_status === "failed" && this.waitingForResponse) {
+        this.removeIndicator()
+        this.showError(data.turn_error || "Something went wrong. Please try again.")
+        this.waitingForResponse = false
+        this.stopPolling()
+      } else if (data.activity && this.waitingForResponse) {
+        this.showIndicator(data.activity)
       }
     } catch {
       // Silent fail — polling is best-effort

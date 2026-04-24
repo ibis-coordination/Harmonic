@@ -140,7 +140,6 @@ CREATE TABLE public.ai_agent_task_runs (
     final_message text,
     error text,
     steps_count integer DEFAULT 0,
-    steps_data jsonb DEFAULT '[]'::jsonb,
     started_at timestamp(6) without time zone,
     completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
@@ -8904,6 +8903,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260424210631'),
 ('20260424192439'),
 ('20260424164824'),
 ('20260424042036'),

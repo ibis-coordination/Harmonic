@@ -76,7 +76,7 @@ interface MockState {
   preflightCalled: boolean;
   claimCalled: boolean;
   completeCalled: boolean;
-  completeResult: { success: boolean; finalMessage: string | undefined; error: string | undefined; stepsData: readonly StepRecord[] } | null;
+  completeResult: { success: boolean; finalMessage: string | undefined; error: string | undefined } | null;
   failCalled: boolean;
   failError: string | null;
   stepsCalled: StepRecord[];
@@ -170,7 +170,7 @@ function buildTestLayers(
       state.stepsCalled.push(...steps);
       return Effect.void;
     },
-    complete: (_id: string, _sub: string, result: { success: boolean; finalMessage: string | undefined; error: string | undefined; stepsData: readonly StepRecord[] }) => {
+    complete: (_id: string, _sub: string, result: { success: boolean; finalMessage: string | undefined; error: string | undefined }) => {
       state.completeCalled = true;
       state.completeResult = result;
       return Effect.void;
@@ -689,11 +689,9 @@ describe("AgentLoop", () => {
       { "create_note": { content: "Created", success: true } },
     );
 
-    // The complete call should contain ALL steps as authoritative data
-    const completedSteps = state.completeResult?.stepsData;
-    expect(completedSteps).toBeDefined();
-    expect(completedSteps!.length).toBeGreaterThanOrEqual(4); // navigate, think, execute, think, done, scratchpad
-    const stepTypes = completedSteps!.map((s) => s.type);
+    // Steps are reported incrementally via the step endpoint
+    expect(state.stepsCalled.length).toBeGreaterThanOrEqual(4); // navigate, think, execute, think, done, scratchpad
+    const stepTypes = state.stepsCalled.map((s) => s.type);
     expect(stepTypes).toContain("navigate");
     expect(stepTypes).toContain("think");
     expect(stepTypes).toContain("execute");

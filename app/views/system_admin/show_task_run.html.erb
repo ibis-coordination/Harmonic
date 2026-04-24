@@ -82,7 +82,7 @@
   <%= octicon 'list-ordered', height: 12 %> Execution Steps (<%= @task_run.steps_count %>)
 </div>
 
-<% if @task_run.agent_session_steps.any? || @task_run.steps_data.present? %>
+<% if @task_run.agent_session_steps.any? %>
   <%= render 'shared/task_run_steps_timeline', task_run: @task_run, debug: false, redacted: true %>
 <% else %>
   <p class="pulse-text-secondary">No step data recorded.</p>
