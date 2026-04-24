@@ -29,9 +29,9 @@ Rails.application.routes.draw do
   post 'billing/reactivate_collective/:collective_handle' => 'billing#reactivate_collective', as: 'billing_reactivate_collective'
   post 'billing/topup' => 'billing#topup', as: 'billing_topup'
 
-  # Development tools - Pulse styleguide (only available in development)
+  # Development tools - styleguide (only available in development)
   if Rails.env.development?
-    get 'dev/pulse' => 'dev#pulse_components'
+    get "dev/styleguide" => "dev#styleguide"
   end
 
   # AI Agents management - consolidated under /ai-agents

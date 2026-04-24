@@ -9,8 +9,100 @@ on:
       - main
 
 jobs:
-  test:
+  static-analysis:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: '.ruby-version'
+          bundler-cache: true
+
+      - name: Run Sorbet type check
+        run: bundle exec srb tc
+
+      - name: Check tenant safety (no banned .unscoped)
+        run: ./scripts/check-tenant-safety.sh
+
+      - name: Check style guide (Pulse CSS)
+        run: ./scripts/check-style-guide.sh --diff main
+
+      - name: Check all test directories are covered by CI matrix
+        run: |
+          # Directories that contain runnable tests (have *_test.rb files)
+          TEST_DIRS=$(find test -mindepth 2 -name '*_test.rb' | sed 's|test/\([^/]*\)/.*|\1|' | sort -u)
+          # Directories covered by the CI matrix (keep in sync with rails-tests matrix)
+          COVERED="components controllers helpers integration jobs mailers models services"
+          MISSING=""
+          for dir in $TEST_DIRS; do
+            if ! echo "$COVERED" | grep -qw "$dir"; then
+              MISSING="$MISSING $dir"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::Test directories not covered by CI matrix:$MISSING"
+            echo "Add them to the rails-tests matrix in .github/workflows/ci.yml"
+            exit 1
+          fi
+          echo "✓ All test directories covered by CI matrix"
+
+      - name: Check Sorbet coverage
+        run: bundle exec spoom srb coverage
+
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run TypeScript type check
+        run: npm run typecheck
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Build JavaScript assets
+        run: npm run build
+
+      - name: Build and test MCP server
+        run: |
+          cd mcp-server
+          npm install
+          npm run build
+          npm test
+
+      - name: Build and test agent-runner
+        run: |
+          cd agent-runner
+          npm install
+          npm run build
+          npm run typecheck
+          npm test
+
+  rails-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group:
+          - name: models
+            paths: test/models test/components test/helpers test/mailers
+          - name: services
+            paths: test/services test/jobs
+          - name: integration
+            paths: test/controllers test/integration
 
     services:
       db:
@@ -26,6 +118,7 @@ jobs:
         ports:
           - 6379:6379
 
+    name: rails-tests (${{ matrix.group.name }})
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -47,6 +140,9 @@ jobs:
           bundle install
           npm install
 
+      - name: Build JavaScript assets
+        run: npm run build
+
       - name: Set up database
         env:
           RAILS_ENV: test
@@ -60,52 +156,7 @@ jobs:
           bin/rails db:create
           bin/rails db:schema:load
 
-      - name: Run Sorbet type check
-        run: bundle exec srb tc
-
-      - name: Check tenant safety (no banned .unscoped)
-        run: ./scripts/check-tenant-safety.sh
-
-      - name: Check Sorbet coverage
-        run: bundle exec spoom srb coverage
-
-      - name: Run TypeScript type check
-        run: npm run typecheck
-
-      - name: Run frontend tests
-        run: npm test
-
-      - name: Build JavaScript assets
-        run: npm run build
-
-      - name: Build MCP server
-        run: |
-          cd mcp-server
-          npm install
-          npm run build
-
-      - name: Run MCP server tests
-        run: |
-          cd mcp-server
-          npm test
-
-      - name: Build agent-runner
-        run: |
-          cd agent-runner
-          npm install
-          npm run build
-
-      - name: Run agent-runner type check
-        run: |
-          cd agent-runner
-          npm run typecheck
-
-      - name: Run agent-runner tests
-        run: |
-          cd agent-runner
-          npm test
-
-      - name: Run tests with coverage
+      - name: Run tests
         env:
           RAILS_ENV: test
           DB_HOST: localhost
@@ -115,16 +166,71 @@ jobs:
           AUTH_SUBDOMAIN: auth
           REDIS_URL: redis://localhost:6379/0
           COVERAGE: true
-        run: bundle exec rails test
+        run: bundle exec rails test ${{ matrix.group.paths }}
 
-      - name: Check coverage threshold
+      - name: Upload coverage results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.group.name }}
+          path: coverage/.resultset.json
+          include-hidden-files: true
+          retention-days: 1
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: rails-tests
+    if: always() && needs.rails-tests.result != 'cancelled'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: '.ruby-version'
+          bundler-cache: true
+
+      - name: Download all coverage results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage-parts
+
+      - name: Merge coverage and check threshold
         run: |
-          COVERAGE=$(cat coverage/.last_run.json | jq '.result.line')
-          THRESHOLD=45
-          echo "Coverage: $COVERAGE%"
-          echo "Threshold: $THRESHOLD%"
-          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
-            echo "::error::Coverage $COVERAGE% is below threshold $THRESHOLD%"
+          RESULT_FILES=$(find coverage-parts -name '.resultset.json' 2>/dev/null)
+          if [ -z "$RESULT_FILES" ]; then
+            echo "::error::No coverage result files found"
             exit 1
           fi
-          echo "✓ Coverage meets threshold"
+          echo "Found coverage files:"
+          echo "$RESULT_FILES"
+
+          bundle exec ruby -e '
+            require "simplecov"
+            require "simplecov-json"
+
+            SimpleCov.collate Dir["coverage-parts/**/.resultset.json"] do
+              enable_coverage :branch
+
+              formatter SimpleCov::Formatter::MultiFormatter.new([
+                SimpleCov::Formatter::HTMLFormatter,
+                SimpleCov::Formatter::JSONFormatter
+              ])
+
+              minimum_coverage line: 45, branch: 25
+            end
+          '
+
+      - name: Report coverage
+        if: always()
+        run: |
+          if [ -f coverage/.last_run.json ]; then
+            LINE=$(cat coverage/.last_run.json | jq '.result.line')
+            BRANCH=$(cat coverage/.last_run.json | jq '.result.branch')
+            echo "Line coverage: $LINE%"
+            echo "Branch coverage: $BRANCH%"
+          else
+            echo "::warning::Coverage results not available"
+          fi

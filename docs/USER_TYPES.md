@@ -123,4 +123,4 @@ Returns true if this user can add a ai_agent to a collective:
 ## Related Documentation
 
 - [REPRESENTATION.md](REPRESENTATION.md) - How representation sessions work
-- [AGENTS.md](../AGENTS.md) - AI agent integration patterns
+- [CLAUDE.md](../CLAUDE.md) - AI coding assistant guidelines

@@ -316,7 +316,7 @@ Components:
 - `ResourceLoader` - loads resources based on routes
 - `ActionExecutor` - executes actions via ApiHelper
 
-See [docs/plans/MARKDOWN_UI_SERVICE_PLAN.md](plans/MARKDOWN_UI_SERVICE_PLAN.md) for full documentation.
+See [guides/MARKDOWN_UI_SERVICE_USAGE.md](guides/MARKDOWN_UI_SERVICE_USAGE.md) for usage examples.
 
 ### Other Services
 - `LinkParser` - parses content for links to other content
@@ -590,11 +590,8 @@ See [README.md](../README.md) for setup instructions.
 
 ## Known Technical Debt
 
-1. **Large files**: `ApplicationController` (587 lines) and `ApiHelper` (421 lines) should be refactored
-2. **Limited test coverage**: Many controllers untested
-3. **Webhook system**: Stubbed but not implemented (`app/services/webhook_services/`)
-4. **~50 TODO comments** throughout codebase
-5. **Cycle model**: Not a database table, computed on-the-fly - could benefit from caching
+1. **Large files**: `ApplicationController` and `ApiHelper` are large and could be refactored
+2. **Cycle model**: Not a database table, computed on-the-fly - could benefit from caching
 
 ## Extension Points
 

@@ -6,9 +6,10 @@
 # 1. Scans for accidentally committed secrets/API keys
 # 2. Checks for debug code (binding.pry, console.log, etc.)
 # 3. Checks for banned .unscoped usage (tenant safety)
-# 4. Runs Sorbet type checking
-# 5. Runs TypeScript type checking
-# 6. Checks if TODO comments were changed and reminds to update TODO_INDEX.md
+# 4. Checks for job base class inheritance
+# 5. Checks for style guide violations in Pulse CSS
+# 6. Runs Sorbet type checking
+# 7. Runs TypeScript type checking
 #
 # To install: ./scripts/setup-hooks.sh
 # To bypass: git commit --no-verify
@@ -34,6 +35,11 @@ if [[ -x "./scripts/check-job-inheritance.sh" ]]; then
     ./scripts/check-job-inheritance.sh --staged || exit 1
 fi
 
+# Check for style guide violations in Pulse CSS (blocks commit if found)
+if [[ -x "./scripts/check-style-guide.sh" ]]; then
+    ./scripts/check-style-guide.sh --staged || exit 1
+fi
+
 # Run Sorbet type check (blocks commit if types fail)
 echo "Running Sorbet type check..."
 if docker compose exec -T web bundle exec srb tc > /dev/null 2>&1; then
@@ -50,9 +56,4 @@ if docker compose exec -T web npm run typecheck > /dev/null 2>&1; then
 else
     echo "✗ TypeScript type check failed. Run 'docker compose exec web npm run typecheck' for details."
     exit 1
-fi
-
-# Run TODO index check (advisory only)
-if [[ -x "./scripts/check-todo-index.sh" ]]; then
-    ./scripts/check-todo-index.sh
 fi

@@ -27,8 +27,10 @@ if ENV['COVERAGE'] || ENV['CI']
       SimpleCov::Formatter::JSONFormatter
     ])
 
-    # Minimum coverage threshold - baseline is 47.12%, set slightly below
-    minimum_coverage line: 45, branch: 25
+    # Minimum coverage threshold (skip in CI — the coverage merge job enforces this)
+    unless ENV['CI']
+      minimum_coverage line: 45, branch: 25
+    end
   end
 end
 

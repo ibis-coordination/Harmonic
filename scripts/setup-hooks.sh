@@ -22,11 +22,11 @@ if [[ -f "$SCRIPTS_HOOKS_DIR/pre-commit" ]]; then
 fi
 
 # Make check scripts executable
-chmod +x scripts/check-todo-index.sh 2>/dev/null || true
-chmod +x scripts/generate-todo-index.sh 2>/dev/null || true
 chmod +x scripts/check-debug-code.sh 2>/dev/null || true
 chmod +x scripts/check-secrets.sh 2>/dev/null || true
 chmod +x scripts/check-tenant-safety.sh 2>/dev/null || true
+chmod +x scripts/check-job-inheritance.sh 2>/dev/null || true
+chmod +x scripts/check-style-guide.sh 2>/dev/null || true
 
 echo ""
 echo "Git hooks installed successfully!"
@@ -35,9 +35,9 @@ echo "Hooks will:"
 echo "  - Block commits containing potential secrets/API keys"
 echo "  - Block commits containing debug code (binding.pry, console.log, etc.)"
 echo "  - Block commits containing banned .unscoped usage (tenant safety)"
+echo "  - Block commits with incorrect job base class inheritance"
+echo "  - Block commits with style guide violations in Pulse CSS"
 echo "  - Run Sorbet type checking"
-echo "  - Run TypeScript type checking (V1 legacy)"
-echo "  - Run V2 React client lint-staged (ESLint with functional programming rules)"
-echo "  - Warn when TODO comments are added/removed without updating docs/TODO_INDEX.md"
+echo "  - Run TypeScript type checking"
 echo ""
 echo "To bypass hooks: git commit --no-verify"
