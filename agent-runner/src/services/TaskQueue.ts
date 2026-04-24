@@ -71,6 +71,8 @@ function parseStreamEntry(fields: string[]): TaskPayload | null {
 
   const model = map.get("model");
   const stripeCustomerStripeId = map.get("stripe_customer_stripe_id");
+  const mode = map.get("mode");
+  const chatSessionId = map.get("chat_session_id");
 
   return {
     taskRunId,
@@ -81,6 +83,8 @@ function parseStreamEntry(fields: string[]): TaskPayload | null {
     agentId,
     tenantSubdomain,
     stripeCustomerStripeId: stripeCustomerStripeId !== undefined && stripeCustomerStripeId !== "" ? stripeCustomerStripeId : undefined,
+    mode: mode === "chat_turn" ? "chat_turn" : "task",
+    chatSessionId: chatSessionId !== undefined && chatSessionId !== "" ? chatSessionId : undefined,
   };
 }
 

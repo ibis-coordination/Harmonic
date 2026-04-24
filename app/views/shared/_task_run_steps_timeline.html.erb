@@ -30,6 +30,8 @@
             <%= octicon 'alert', height: 14 %>
           <% when "security_warning" %>
             <%= octicon 'shield', height: 14 %>
+          <% when "message" %>
+            <%= octicon 'comment', height: 14 %>
           <% else %>
             <%= octicon 'dot', height: 14 %>
           <% end %>
@@ -135,6 +137,13 @@
               </div>
             </details>
           <% end %>
+
+        <% when "message" %>
+          <% sender_name = step[:sender_id] ? ((@message_senders ||= {})[step[:sender_id]] ||= User.find_by(id: step[:sender_id])&.name) : nil %>
+          <div class="pulse-feed-item-content">
+            <strong><%= sender_name || "Unknown" %>:</strong>
+            <%= detail[:content] %>
+          </div>
 
         <% when "done" %>
           <div class="pulse-feed-item-content" style="color: var(--color-success-fg);">

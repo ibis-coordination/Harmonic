@@ -42,6 +42,8 @@
     <div data-controller="agent-chat"
          data-agent-chat-url-value="<%= ai_agent_chat_message_path(@ai_agent.handle) %>"
          data-agent-chat-agent-name-value="<%= @ai_agent.name %>"
+         data-agent-chat-session-id-value="<%= @chat_session.id %>"
+         data-agent-chat-poll-url-value="<%= ai_agent_chat_poll_path(@ai_agent.handle) %>"
          style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
 
       <%# Message list %>

@@ -70,6 +70,30 @@ class AiAgentChatsController < ApplicationController
     head :ok
   end
 
+  # GET /ai-agents/:handle/chat/messages?after=<iso8601>
+  # Polling endpoint — returns the same data format as ActionCable broadcasts.
+  # Client sends the timestamp of the last message it has; server returns anything newer.
+  def poll_messages
+    @chat_session = active_chat_session
+    unless @chat_session
+      render json: { messages: [] }
+      return
+    end
+
+    after = begin
+      params[:after].present? ? Time.parse(params[:after]) : Time.at(0)
+    rescue ArgumentError
+      Time.at(0)
+    end
+
+    new_messages = @chat_session.messages
+      .where("created_at > ?", after)
+      .includes(:sender)
+      .map { |step| ChatMessagePresenter.format(step, @chat_session) }
+
+    render json: { messages: new_messages }
+  end
+
   # POST /ai-agents/:handle/chat/end
   def end_session
     @chat_session = active_chat_session

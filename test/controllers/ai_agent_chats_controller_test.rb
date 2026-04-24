@@ -168,6 +168,88 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # --- poll_messages ---
+
+  test "poll_messages returns new messages after timestamp" do
+    session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Hello", max_steps: 30, status: "completed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run.agent_session_steps.create!(
+        position: 0, step_type: "message",
+        detail: { content: "Hello" }, sender: @user,
+        created_at: 10.seconds.ago,
+      )
+      run.agent_session_steps.create!(
+        position: 1, step_type: "message",
+        detail: { content: "Hi there!" }, sender: @ai_agent,
+        created_at: 5.seconds.ago,
+      )
+      cs
+    end
+
+    # Ask for messages after the first one
+    get "/ai-agents/#{@agent_handle}/chat/messages?after=#{8.seconds.ago.iso8601}"
+    assert_response :success
+
+    messages = response.parsed_body["messages"]
+    assert_equal 1, messages.length
+    assert_equal "Hi there!", messages[0]["content"]
+    assert_equal true, messages[0]["is_agent"]
+    assert_equal "message", messages[0]["type"]
+  end
+
+  test "poll_messages returns empty array when no new messages" do
+    with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Hello", max_steps: 30, status: "completed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run.agent_session_steps.create!(
+        position: 0, step_type: "message",
+        detail: { content: "Hello" }, sender: @user,
+      )
+    end
+
+    get "/ai-agents/#{@agent_handle}/chat/messages?after=#{1.minute.from_now.iso8601}"
+    assert_response :success
+    assert_equal 0, response.parsed_body["messages"].length
+  end
+
+  test "poll_messages returns same format as ActionCable broadcast" do
+    session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Test", max_steps: 30, status: "completed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run.agent_session_steps.create!(
+        position: 0, step_type: "message",
+        detail: { content: "Agent says hi" }, sender: @ai_agent,
+      )
+      cs
+    end
+
+    get "/ai-agents/#{@agent_handle}/chat/messages?after=#{1.hour.ago.iso8601}"
+    assert_response :success
+
+    msg = response.parsed_body["messages"][0]
+    # Verify all fields that ActionCable would send are present
+    assert_equal "message", msg["type"]
+    assert_not_nil msg["id"]
+    assert_not_nil msg["sender_id"]
+    assert_not_nil msg["sender_name"]
+    assert_equal "Agent says hi", msg["content"]
+    assert_not_nil msg["timestamp"]
+    assert_equal true, msg["is_agent"]
+  end
+
   # --- end_session ---
 
   test "end_session marks session as ended" do

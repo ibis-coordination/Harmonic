@@ -44,14 +44,18 @@ module Internal
         step_type = s[:type]
         timestamp = s[:timestamp].present? ? Time.parse(s[:timestamp]) : Time.current
 
-        task_run.agent_session_steps.create!(
+        step_record = task_run.agent_session_steps.create!(
           position: next_position + i,
           step_type: step_type,
           detail: s[:detail] || {},
           created_at: timestamp,
+          sender_id: s[:sender_id],
         )
 
         new_step_hashes << { type: step_type, detail: s[:detail], timestamp: s[:timestamp] }
+
+        # Broadcast message steps to the chat session channel
+        broadcast_chat_message(task_run, step_record) if step_type == "message"
       end
 
       # Dual-write to steps_data for backwards compatibility during transition
@@ -107,8 +111,74 @@ module Internal
 
       destroy_task_token(task_run)
       task_run.notify_parent_automation_runs!
+      auto_dispatch_next_chat_turn(task_run)
 
       render json: { status: "ok" }
+    end
+
+    # GET /internal/agent-runner/chat/:chat_session_id/history
+    #
+    # Returns conversation history for the agent-runner to rebuild LLM context.
+    # Includes messages AND action summaries so the agent knows what it did
+    # between messages (which pages it visited, what actions it took).
+    sig { void }
+    def chat_history
+      chat_session = ChatSession.find_by(id: params[:chat_session_id])
+      unless chat_session
+        render json: { error: "Chat session not found" }, status: :not_found
+        return
+      end
+
+      # Get ALL steps across all turns, ordered chronologically
+      all_steps = AgentSessionStep
+        .where(ai_agent_task_run_id: chat_session.task_runs.select(:id))
+        .includes(:sender)
+        .order(:created_at, :position)
+
+      messages = []
+      action_buffer = []
+
+      all_steps.each do |step|
+        case step.step_type
+        when "message"
+          # Flush any accumulated action summary before the message
+          if action_buffer.any?
+            messages << {
+              content: "[Actions taken: #{action_buffer.join(", ")}]",
+              role: "system",
+              timestamp: step.created_at.iso8601,
+            }
+            action_buffer = []
+          end
+
+          messages << {
+            content: step.detail&.dig("content"),
+            sender_id: step.sender_id,
+            sender_name: step.sender&.name,
+            role: step.sender_id == chat_session.ai_agent_id ? "assistant" : "user",
+            timestamp: step.created_at.iso8601,
+          }
+        when "navigate"
+          path = step.detail&.dig("path")
+          action_buffer << "navigated to #{path}" if path.present?
+        when "execute"
+          action = step.detail&.dig("action")
+          success = step.detail&.dig("success")
+          action_buffer << "#{action} (#{success ? "success" : "failed"})" if action.present?
+        end
+        # Skip think, done, scratchpad, error, security_warning steps
+      end
+
+      # Flush any trailing action summary
+      if action_buffer.any?
+        messages << {
+          content: "[Actions taken: #{action_buffer.join(", ")}]",
+          role: "system",
+          timestamp: all_steps.last&.created_at&.iso8601,
+        }
+      end
+
+      render json: { messages: messages }
     end
 
     # POST /internal/agent-runner/tasks/:id/fail
@@ -242,6 +312,63 @@ module Internal
       )
       render json: { error: "Task is in terminal state: #{task_run.status}" }, status: :conflict
       false
+    end
+
+    sig { params(task_run: AiAgentTaskRun, step_record: AgentSessionStep).void }
+    def broadcast_chat_message(task_run, step_record)
+      chat_session = task_run.chat_session
+      return unless chat_session
+
+      ChatSessionChannel.broadcast_to(
+        chat_session,
+        ChatMessagePresenter.format(step_record, chat_session),
+      )
+    rescue StandardError => e
+      Rails.logger.error("[Internal::AgentRunner] Failed to broadcast chat message: #{e.message}")
+    end
+
+    # After a chat_turn completes, check if the human sent any messages while the
+    # turn was running. If so, auto-dispatch a new turn with the latest message.
+    sig { params(task_run: AiAgentTaskRun).void }
+    def auto_dispatch_next_chat_turn(task_run)
+      return unless task_run.mode == "chat_turn"
+
+      chat_session = task_run.chat_session
+      return unless chat_session&.active?
+
+      # Find the last agent message in this turn
+      last_agent_step = task_run.agent_session_steps
+        .where(step_type: "message")
+        .where.not(sender_id: chat_session.initiated_by_id)
+        .order(position: :desc)
+        .first
+
+      # Find human messages that arrived after the last agent message
+      scope = task_run.agent_session_steps.where(
+        step_type: "message",
+        sender_id: chat_session.initiated_by_id,
+      )
+      scope = scope.where("position > ?", last_agent_step.position) if last_agent_step
+
+      pending_human_message = scope.order(position: :desc).first
+      return unless pending_human_message
+
+      # Create and dispatch a new turn
+      new_run = AiAgentTaskRun.create!(
+        tenant: task_run.tenant,
+        ai_agent: task_run.ai_agent,
+        initiated_by: chat_session.initiated_by,
+        task: pending_human_message.detail&.dig("content") || "",
+        max_steps: 30,
+        status: "queued",
+        mode: "chat_turn",
+        chat_session: chat_session,
+        model: task_run.model || "default",
+      )
+
+      AgentRunnerDispatchService.dispatch(new_run)
+    rescue StandardError => e
+      Rails.logger.error("[Internal::AgentRunner] Failed to auto-dispatch chat turn: #{e.message}")
     end
 
     # Pulls an integer param, coerces, and caps to a sane ceiling to prevent

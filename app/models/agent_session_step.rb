@@ -27,11 +27,13 @@ class AgentSessionStep < ApplicationRecord
 
   sig { returns(T::Hash[String, T.untyped]) }
   def to_step_hash
-    {
+    hash = {
       "type" => step_type,
       "detail" => detail || {},
       "timestamp" => created_at.iso8601,
     }
+    hash["sender_id"] = sender_id if sender_id.present?
+    hash
   end
 
 end

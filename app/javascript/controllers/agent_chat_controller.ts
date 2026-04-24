@@ -1,24 +1,29 @@
 import { Controller } from "@hotwired/stimulus"
+import { createConsumer } from "@rails/actioncable"
 import { fetchWithCsrf } from "../utils/csrf"
+
+interface ChatMessage {
+  type: "message"
+  id: string
+  sender_id: string
+  sender_name: string
+  content: string
+  timestamp: string
+  is_agent: boolean
+}
 
 /**
  * AgentChatController handles the chat interface for AI agent conversations.
- * Sends messages via AJAX, appends them to the DOM optimistically, and
- * auto-scrolls to the latest message.
- *
- * Usage:
- * <div data-controller="agent-chat"
- *      data-agent-chat-url-value="/ai-agents/handle/chat/message"
- *      data-agent-chat-agent-name-value="AgentName">
- *   <div data-agent-chat-target="messages">...</div>
- *   <textarea data-agent-chat-target="input"></textarea>
- *   <button data-agent-chat-target="submitButton">Send</button>
- * </div>
+ * Sends messages via AJAX, appends them to the DOM optimistically,
+ * subscribes to ActionCable for agent responses (with polling fallback),
+ * and auto-scrolls.
  */
 export default class AgentChatController extends Controller<HTMLElement> {
   static values = {
     url: String,
     agentName: String,
+    sessionId: String,
+    pollUrl: String,
   }
 
   static targets = [
@@ -30,6 +35,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
   declare urlValue: string
   declare agentNameValue: string
+  declare sessionIdValue: string
+  declare pollUrlValue: string
 
   declare readonly messagesTarget: HTMLElement
   declare readonly inputTarget: HTMLTextAreaElement
@@ -38,9 +45,19 @@ export default class AgentChatController extends Controller<HTMLElement> {
   declare readonly emptyStateTarget: HTMLElement
 
   private isSubmitting = false
+  private subscription: ReturnType<ReturnType<typeof createConsumer>["subscriptions"]["create"]> | null = null
+  private pollTimer: number | null = null
+  private lastTimestamp: string = new Date().toISOString()
 
   connect(): void {
     this.scrollToBottom()
+    this.subscribeToChannel()
+  }
+
+  disconnect(): void {
+    this.subscription?.unsubscribe()
+    this.subscription = null
+    this.stopPolling()
   }
 
   keydown(event: KeyboardEvent): void {
@@ -55,6 +72,35 @@ export default class AgentChatController extends Controller<HTMLElement> {
     this.sendMessage()
   }
 
+  private subscribeToChannel(): void {
+    if (!this.sessionIdValue) return
+
+    const consumer = createConsumer()
+    const controller = this
+
+    this.subscription = consumer.subscriptions.create(
+      { channel: "ChatSessionChannel", session_id: this.sessionIdValue },
+      {
+        received(data: ChatMessage) {
+          if (data.type === "message" && data.is_agent) {
+            controller.stopPolling()
+            controller.handleAgentMessage(data)
+          }
+        },
+      },
+    )
+  }
+
+  private handleAgentMessage(data: ChatMessage): void {
+    this.appendMessage(
+      data.content || "",
+      data.sender_name || this.agentNameValue,
+      false,
+    )
+    this.lastTimestamp = data.timestamp
+    this.scrollToBottom()
+  }
+
   private async sendMessage(): Promise<void> {
     if (this.isSubmitting) return
 
@@ -65,13 +111,12 @@ export default class AgentChatController extends Controller<HTMLElement> {
     this.inputTarget.value = ""
     this.submitButtonTarget.disabled = true
 
-    // Remove empty state
     if (this.hasEmptyStateTarget) {
       this.emptyStateTarget.remove()
     }
 
-    // Optimistically append the message to the UI
     const messageEl = this.appendMessage(message, "You", true)
+    this.lastTimestamp = new Date().toISOString()
     this.scrollToBottom()
 
     try {
@@ -83,6 +128,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
       if (!response.ok) {
         const text = await response.text()
         this.markMessageFailed(messageEl, text || response.statusText)
+      } else {
+        this.startPolling()
       }
     } catch {
       this.markMessageFailed(messageEl, "Failed to send. Please try again.")
@@ -90,6 +137,48 @@ export default class AgentChatController extends Controller<HTMLElement> {
       this.isSubmitting = false
       this.submitButtonTarget.disabled = false
       this.inputTarget.focus()
+    }
+  }
+
+  // Polling fallback: check for new messages via the poll endpoint
+  // if ActionCable doesn't deliver them.
+  private startPolling(): void {
+    if (this.pollTimer !== null) return
+
+    this.pollTimer = window.setInterval(() => {
+      this.pollForMessages()
+    }, 3000)
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer)
+      this.pollTimer = null
+    }
+  }
+
+  private async pollForMessages(): Promise<void> {
+    if (!this.pollUrlValue) return
+
+    try {
+      const url = `${this.pollUrlValue}?after=${encodeURIComponent(this.lastTimestamp)}`
+      const response = await fetch(url, {
+        credentials: "same-origin",
+      })
+
+      if (!response.ok) return
+
+      const data = await response.json() as { messages: ChatMessage[] }
+      if (data.messages.length > 0) {
+        for (const msg of data.messages) {
+          if (msg.is_agent) {
+            this.handleAgentMessage(msg)
+          }
+        }
+        this.stopPolling()
+      }
+    } catch {
+      // Silent fail — polling is best-effort
     }
   }
 
@@ -101,6 +190,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
     })
 
     const wrapper = document.createElement("div")
+    wrapper.setAttribute("data-chat-message", "")
     wrapper.style.cssText = `display: flex; margin-bottom: 12px; justify-content: ${isHuman ? "flex-end" : "flex-start"};`
 
     const bubble = document.createElement("div")

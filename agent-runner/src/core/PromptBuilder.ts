@@ -30,6 +30,8 @@ export interface TaskPayload {
   readonly agentId: string;
   readonly tenantSubdomain: string;
   readonly stripeCustomerStripeId: string | undefined;
+  readonly mode: "task" | "chat_turn";
+  readonly chatSessionId: string | undefined;
 }
 
 /**

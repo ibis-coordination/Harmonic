@@ -123,6 +123,8 @@ class AgentRunnerDispatchService
       agent_id: T.must(@task_run.ai_agent).id,
       tenant_subdomain: T.must(@task_run.tenant).subdomain,
       stripe_customer_stripe_id: billing_customer&.stripe_id || "",
+      mode: @task_run.mode,
+      chat_session_id: @task_run.chat_session_id || "",
     }
     redis.xadd(STREAM_NAME, payload, maxlen: 10_000, approximate: true)
   ensure

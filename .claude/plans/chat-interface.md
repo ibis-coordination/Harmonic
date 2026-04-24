@@ -8,295 +8,145 @@ Before building chat, we first refactor the existing task run infrastructure to 
 
 ---
 
-## Part A: Refactor Task Run Steps into Individual Records
+## Part A: Refactor Task Run Steps into Individual Records ✅
 
-### Why
+**Status: Complete** (committed as `a79a9b3`)
 
-`AiAgentTaskRun.steps_data` stores all steps as a JSONB array. Every append rewrites the entire column. The Stimulus controller polls for the full array and diffs client-side. This works for tasks (max 50 steps), but:
-
-- Can't efficiently query individual steps or stream them over ActionCable
-- The `complete` endpoint overwrites the entire array as an "authoritative write"
-- Chat conversations would grow unboundedly in a single JSONB column
-- Can't broadcast individual new steps via Turbo Streams
-
-### New table: `agent_session_steps`
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| ai_agent_task_run_id | uuid FK | NOT NULL |
-| position | integer | NOT NULL, sequential within the task run |
-| step_type | varchar | NOT NULL — existing types: `navigate`, `think`, `execute`, `done`, `error`, `security_warning`, `scratchpad_update`, `scratchpad_update_failed`. Chat adds: `message` |
-| sender_id | uuid FK → users | nullable — set on `message` steps to identify who sent it. NULL for non-message steps (navigate, think, etc.) |
-| detail | jsonb | NOT NULL, default `{}` — same structure as today's step detail objects |
-| created_at | timestamp | replaces the `timestamp` field currently inside each step |
-
-Index: `(ai_agent_task_run_id, position)` unique.
-
-### Migration strategy
-
-1. Create the `agent_session_steps` table
-2. Keep `steps_data` column temporarily (don't remove yet)
-3. Data migration: copy existing `steps_data` arrays into individual rows
-4. Update internal API `step` endpoint to INSERT rows instead of appending JSON
-5. Update `complete` endpoint to stop overwriting `steps_data`
-6. Update `show_run` JSON endpoint to build steps from the relation
-7. Update `_task_run_steps_timeline.html.erb` to read from the relation
-8. Remove `steps_data` column in a follow-up migration
-
-### Files to create/modify
-
-**New:**
-- `db/migrate/YYYYMMDD_create_agent_session_steps.rb`
-- `app/models/agent_session_step.rb` — `belongs_to :ai_agent_task_run`, validations, scopes
-
-**Modified:**
-- `app/models/ai_agent_task_run.rb` — add `has_many :agent_session_steps, -> { order(:position) }`
-- `app/controllers/internal/agent_runner_controller.rb` — `step` action inserts rows; `complete` stops overwriting steps_data
-- `app/controllers/ai_agents_controller.rb` — `show_run` JSON format reads from relation
-- `app/views/shared/_task_run_steps_timeline.html.erb` — iterate `task_run.agent_session_steps` instead of `task_run.steps_data`
-- `app/javascript/controllers/task_run_status_controller.ts` — poll by position offset instead of full array diff
-
-### Agent-runner impact
-
-Minimal. The agent-runner already reports steps incrementally via `POST /internal/agent-runner/tasks/:id/step` with `steps: [...]`. The contract stays the same — Rails just handles receipt differently.
-
-The `complete` call currently sends `stepsData` as an authoritative overwrite. After refactor, `complete` only sends token totals and final status. Minor update to `TaskReporter.complete()` to drop the `stepsData` field (or Rails ignores it).
+- Created `agent_session_steps` table with `position`, `step_type`, `sender_id`, `tenant_id`, `detail` (JSONB)
+- Dual-write: internal API writes to both rows and JSON during transition
+- Views/JSON endpoints read from rows with fallback to JSON for older runs
+- Backfill migration for all existing task runs
+- Full type signatures on `AiAgentTaskRun`, Sorbet RBIs generated
+- 65 tests, 0 Sorbet errors
 
 ---
 
-## Part B: Add Chat Mode
+## Part B: Add Chat Mode ✅ (Phase 3-4) + 🚧 (Phase 5-6)
 
 ### Core insight: each turn is a short-lived task
 
-A chat session is **not** a persistent agent-runner fiber waiting for human input. That design can't survive process restarts, wastes memory while idle, and holds the per-agent lock indefinitely.
+Each human message triggers a **new short-lived task dispatch**. The conversation history lives in the database (`agent_session_steps` rows), not in agent-runner memory. The agent-runner is stateless between turns — sessions survive process restarts with no resources held while idle.
 
-Instead: each human message triggers a **new short-lived task dispatch**. The conversation history lives in the database (`agent_session_steps` rows), not in agent-runner memory. The agent-runner is stateless between turns.
+### What's built (committed as `ea9e397`)
 
-### How a chat turn works
+**Models:**
+- `ChatSession` — groups turns into a conversation, tenant-scoped (no collective scoping — agents navigate across collectives)
+- `mode` column on `AiAgentTaskRun` (`task` | `chat_turn`)
+- `chat_session_id` FK on `AiAgentTaskRun`
+- Single `message` step type with `sender_id` (generalizable to human-to-human chat in the future)
 
-1. Human sends message → Rails inserts `message` step, dispatches a fresh task with `mode: "chat_turn"` and a fresh ephemeral token
-2. Agent-runner picks up task, fetches conversation history from Rails via internal API, rebuilds LLM context
-3. Agent navigates, executes actions, calls LLM — same as a regular task
-4. Agent responds → reports `message` step → task completes, fiber exits, token is destroyed
-5. Human comes back whenever — a minute, a day, a year — sends another message → new dispatch, new token, new fiber
+**Controller (`AiAgentChatsController`):**
+- `show` — renders chat page with message history
+- `create` — starts session (idempotent)
+- `send_message` — creates message step, dispatches task if no turn running, queues message if turn in progress
+- `end_session` — cancels running turns, marks session ended
+- Message length capped at 10,000 characters
 
-**What this gives us:**
-- Survives agent-runner restarts and deployments — no state to lose
-- No token refresh needed — each turn gets a fresh short-lived token
-- No memory leak — conversation history is in the DB, not in a growing array
-- No long-held agent lock — lock is held only during each turn's execution
-- Same billing, orphan recovery, and dispatch infrastructure as regular tasks
+**ActionCable:**
+- `Connection` authenticates via `session[:user_id]` and sets tenant context from subdomain
+- `ChatSessionChannel` streams per session, verifies ownership
 
-### Model changes
+**Frontend:**
+- Stimulus `agent_chat_controller` — AJAX message sending, optimistic append with error marking, ActionCable subscription for agent responses, auto-scroll, Enter to send
+- Chat bubble UI with sender alignment
+- `@rails/actioncable` npm package + type declarations
 
-Add `mode` column to `ai_agent_task_runs`:
+**Routes:** `/ai-agents/:handle/chat`, `/chat/message`, `/chat/end`
 
-```
-mode: varchar, NOT NULL, default "task". Values: "task", "chat_turn"
-```
+### What's built (uncommitted — Phase 5)
 
-Add `chat_session_id` column to `ai_agent_task_runs`:
+**Internal API:**
+- `GET /internal/agent-runner/chat/:chat_session_id/history` — returns curated conversation history including messages AND action summaries (navigate/execute steps summarized between messages so the agent knows what it did in prior turns)
+- `complete` endpoint auto-dispatches next chat turn when queued human messages exist
+- `step` endpoint broadcasts `message` steps via ActionCable
 
-```
-chat_session_id: uuid, nullable. Groups multiple chat_turn task runs into one conversation.
-```
+**Agent-runner:**
+- `TaskPayload` extended with `mode` and `chatSessionId`
+- `TaskQueue` parses `mode` and `chat_session_id` from Redis Stream
+- `HarmonicClient.fetchChatHistory()` — fetches conversation history via HMAC-authenticated internal API
+- `AgentContext` — `respond_to_human` tool definition + `buildChatSystemPrompt()` with conversation-mode instructions, time gap awareness, capability listing
+- `AgentLoop` — in `chat_turn` mode: fetches history, builds chat system prompt with prior messages + action summaries, includes `respond_to_human` tool, handles `respond_to_human` action (reports message step + ends turn). Falls back to reporting message step when agent uses `done` instead of `respond_to_human`.
+- `ActionParser` — handles `respond_to_human` tool call parsing
 
-New step type: `message` (with `sender_id` to identify who sent it)
+**Dispatch:**
+- `AgentRunnerDispatchService` includes `mode` and `chat_session_id` in Redis Stream payload
 
-### New table: `chat_sessions`
-
-Lightweight container that groups chat turns into a conversation:
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| tenant_id | uuid FK | NOT NULL |
-| collective_id | uuid FK | NOT NULL |
-| ai_agent_id | uuid FK → users | NOT NULL |
-| initiated_by_id | uuid FK → users | NOT NULL |
-| status | varchar | `active`, `ended` (default: `active`) |
-| created_at / updated_at | timestamps | |
-
-Token/cost tracking lives on the individual `AiAgentTaskRun` records (one per turn) — no need to duplicate it on the session. The session is just a grouping key.
-
-### Architecture
-
-```
-Browser                    Rails                     Redis                   Agent-Runner
-  |                          |                         |                         |
-  |-- POST /chat ----------->| create ChatSession      |                         |
-  |<- redirect to chat page -|                         |                         |
-  |                          |                         |                         |
-  |== ActionCable subscribe =>|                        |                         |
-  |                          |                         |                         |
-  |-- POST /chat/message --->| insert message    |                         |
-  |                          | create TaskRun(chat_turn)|                        |
-  |                          |-- XADD ----------------->|                        |
-  |<= turbo_stream append ===|                         |---- stream pickup ----->|
-  |                          |                         |                         |
-  |                          |                         |<- GET internal/chat/:id/history
-  |                          |<- return step rows -----|                         |
-  |                          |                         |                         |
-  |                          |                         |      LLM + tools        |
-  |                          |                         |                         |
-  |                          |<- POST internal/step (message) -------------|
-  |<= ActionCable broadcast =| INSERT step row         |                         |
-  |                          |                         |                         |
-  |                          |<- POST internal/complete -------------------------|
-  |                          | task done, token destroyed|    fiber exits         |
-  |                          |                         |                         |
-  |   (human sends next msg) |                         |                         |
-  |-- POST /chat/message --->| insert message    |                         |
-  |                          | create new TaskRun      |                         |
-  |                          |-- XADD ----------------->|---- new pickup ------->|
-  |                          |                         |      (repeat)           |
-```
-
-**Transport:**
-- **Redis Streams** for dispatching each chat turn (reuses existing pattern exactly)
-- **ActionCable** for agent→browser streaming (Turbo Streams for new messages)
-- **Internal HTTP API** for agent-runner→Rails (existing HMAC pattern)
-- **No Redis pub/sub needed** — there's no persistent fiber to notify
-
-### Conversation history management
-
-The agent-runner fetches history via a new internal API endpoint: `GET /internal/agent-runner/chat/:chat_session_id/history`. Rails returns `agent_session_steps` rows for that chat session.
-
-**What to include in history:** The history endpoint should return a curated view, not a raw step dump. The agent needs:
-- `message` steps — the conversational thread (use `sender_id` to distinguish human vs agent)
-- A summary of `navigate` and `execute` steps — what the agent did (not raw content previews or think steps, which would bloat context)
-- The endpoint should produce a structured response that separates messages from action summaries, so the agent-runner can build the LLM context intelligently
-
-**Time awareness:** The system prompt for each chat turn should include the current timestamp and, if the previous message is more than a few minutes old, explicitly note the gap: "The last message in this conversation was 3 days ago." This lets the agent re-orient naturally — check if things have changed, re-read pages it acted on previously — rather than picking up mid-thought as if no time has passed.
-
-**For long conversations**, the agent-runner applies a **sliding window + summary** strategy:
-- If history exceeds ~50 messages, ask the LLM to summarize older context
-- Send: summary + last N messages + new human message
-- This keeps LLM context bounded regardless of conversation length
-
-**Scratchpad updates per turn:** The existing scratchpad update runs at end of task. For chat, this should run at end of each turn, so the agent builds up memory across the conversation. This is especially valuable for long-running conversations with gaps — the scratchpad persists even if the conversation history gets summarized.
-
-### ActionCable setup
-
-- `app/channels/application_cable/connection.rb` — add auth via `session[:user_id]` (mirrors `ApplicationController#load_session_user`)
-- `app/channels/chat_session_channel.rb` (new) — streams for a chat session, verifies `initiated_by_id == current_user.id`
-
-### Routes
-
-```ruby
-get  'ai-agents/:handle/chat'         => 'ai_agent_chats#show'
-post 'ai-agents/:handle/chat'         => 'ai_agent_chats#create'
-post 'ai-agents/:handle/chat/message' => 'ai_agent_chats#send_message'
-post 'ai-agents/:handle/chat/end'     => 'ai_agent_chats#end_session'
-
-# Internal API:
-get  'internal/agent-runner/chat/:chat_session_id/history' => 'internal/agent_runner#chat_history'
-```
-
-### Controller: `AiAgentChatsController`
-
-- **`show`** — renders chat page. Loads active chat session for this agent (if any), with its message history. Otherwise shows "Start Chat" state.
-- **`create`** — billing checks, creates `ChatSession`, redirects to show.
-- **`send_message`** — inserts `AgentSessionStep(step_type: "message")` on the chat session, creates a new `AiAgentTaskRun(mode: "chat_turn", chat_session_id: ...)`, dispatches via Redis Stream. Returns turbo_stream to append human message to UI.
-- **`end_session`** — marks chat session as ended.
-
-### Internal API extensions
-
-Extend `Internal::AgentRunnerController`:
-- **`chat_history`** — returns message steps for a chat session (for LLM context rebuilding)
-- Existing `step` endpoint handles `message` steps — broadcasts via ActionCable when the step belongs to a chat session
-- Existing `complete` endpoint works unchanged
-
-### Agent-runner changes
-
-No separate `ChatLoop` needed. The existing `AgentLoop` handles `chat_turn` mode with minor modifications:
-
-**Modified files:**
-- `agent-runner/src/core/PromptBuilder.ts` — add `mode` and `chatSessionId` to `TaskPayload`. When `mode === "chat_turn"`: fetch history, build conversation-mode system prompt, include prior messages in context
-- `agent-runner/src/services/TaskQueue.ts` — parse `mode` and `chat_session_id` from stream entry
-- `agent-runner/src/services/HarmonicClient.ts` — add `fetchChatHistory(chatSessionId, token, subdomain)` method
-- `agent-runner/src/services/AgentLoop.ts` — at startup, if `mode === "chat_turn"`: fetch history, prepend to messages. Add `respond_to_human` tool. When agent calls `respond_to_human`, report `message` step and end the task (instead of waiting).
-
-**`respond_to_human` tool in chat mode**: Instead of pausing (old design), it signals "I'm done with this turn." The agent reports its response as a `message` step and the task completes normally. The next human message will trigger a new task.
-
-### Agent experience: system prompt guidance
-
-The chat system prompt should give the agent clear operational context:
-
-- **Capabilities:** Explicitly list what the agent can and cannot do. "You can navigate pages, create notes/decisions/commitments, vote, comment, and read content. You cannot modify user settings, manage collectives, or access admin pages." Avoids trial-and-error failures that feel bad in a conversational context.
-- **Conversation mode:** "You are in a conversation with a human. After completing actions or when you need clarification, use `respond_to_human` to reply. You can chain multiple navigations and actions before responding — do your work first, then summarize what you did."
-- **Asking questions:** "If a request is ambiguous, ask a clarifying question rather than guessing. Use `respond_to_human` to ask."
-- **Time gaps:** Include current timestamp and time since last message. The agent should re-orient after gaps rather than assuming continuity.
-
-### Frontend
-
-**`app/views/ai_agent_chats/show.html.erb`** — full-height chat layout:
-- Agent info header (avatar, name, status indicator)
-- Scrollable message list (renders `agent_session_steps` where type is `message`, using `sender_id` to style each side)
-- Fixed-bottom input bar (textarea + send button)
-- "Agent is thinking..." indicator while a chat_turn task is running
-
-**`app/views/ai_agent_chats/_message.html.erb`** — message partial
-
-**`app/javascript/controllers/agent_chat_controller.ts`** — Stimulus controller:
-- ActionCable subscription for the chat session — receives new agent messages as Turbo Stream appends
-- Message sending via fetch POST
-- Auto-scroll, typing/thinking indicators
-- Enter to send, Shift+Enter for newline
-
-### In-progress turn visibility
-
-While a turn is running, the UI should show more than just "Agent is thinking..." — show a live activity feed of what the agent is doing (navigating to X, executing Y), similar to the existing step timeline but rendered inline in the chat as a collapsible activity block. This uses the same ActionCable broadcast for step rows — the UI just renders `navigate` and `execute` steps differently than `message` steps.
-
-### Mid-turn human messages
-
-The input should **not** be disabled while a turn is in progress. The human should be able to queue a follow-up or correction ("actually, skip the third one"). When the current turn completes, Rails checks for any queued `message` steps that arrived after the turn was dispatched and immediately dispatches a new turn with that message. This preserves the simplicity of the stateless turn model while giving the human the ability to course-correct.
-
-Implementation: `send_message` always inserts the `message` step. If a `chat_turn` task is currently `running` or `queued` for this session, it skips dispatching a new task — the step just sits in the DB. When the current turn completes (the `complete` internal API call), Rails checks for un-processed human `message` steps (by `sender_id`) after the last agent `message` step and auto-dispatches a new turn.
-
-**Modified:** `app/views/ai_agents/show.html.erb` — add "Chat" link
-
-### Billing + dispatch
-
-- `app/services/agent_runner_dispatch_service.rb` — accept `mode: "chat_turn"` and `chat_session_id` in the Redis Stream payload
-- Same billing pre-checks as task dispatch (run on each turn)
-- Each turn is a separate `AiAgentTaskRun` with its own token tracking
-- Session-level cost = sum of all turns' costs (query via `chat_session_id`)
+**Step timeline:**
+- `_task_run_steps_timeline.html.erb` renders `message` step type with sender name and comment icon
+- `to_step_hash` includes `sender_id`
 
 ---
 
-## Implementation Order
+## Part C: Navigation State Persistence 🚧
 
-| Phase | What | Depends on |
-|-------|------|------------|
-| 1 | `agent_session_steps` table + model + data migration | — |
-| 2 | Switch internal API + views to use step rows | Phase 1 |
-| 3 | ActionCable auth + `ChatSessionChannel` | — (can parallel with 1-2) |
-| 4 | `chat_sessions` table + model + chat controller + routes + views | Phases 2, 3 |
-| 5 | Agent-runner: chat_turn mode, history fetching, `respond_to_human` | Phase 4 |
-| 6 | Polish: typing indicators, reconnection, error states, remove `steps_data` | Phase 5 |
+### Problem
 
-## Key reusable code
+Each chat turn starts at `/whoami` — the agent has no memory of where it was at the end of the last turn. If the human says "navigate to this note" and the agent does, then the human says "add a comment," the agent doesn't know which note they're talking about without re-navigating. The human expects locational continuity.
 
-| What | File |
-|------|------|
-| Billing pre-checks | `app/services/agent_runner_dispatch_service.rb` |
-| HMAC internal API base | `app/controllers/internal/base_controller.rb` |
-| Redis Stream dispatch | `AgentRunnerDispatchService#dispatch` |
-| Token encryption | `AgentRunnerCrypto` / `TokenCrypto` |
-| Ephemeral API tokens | `ApiToken.create_internal_token` |
-| AgentLoop (extend, not replace) | `agent-runner/src/services/AgentLoop.ts` |
-| Step building | `agent-runner/src/core/StepBuilder.ts` |
-| System prompt | `app/services/concerns/harmonic_assistant.rb` |
-| Session auth pattern | `ApplicationController#load_session_user` via `session[:user_id]` |
+### Solution
+
+Add `current_state` JSONB column to `chat_sessions`:
+
+```
+current_state: jsonb, NOT NULL, default '{}'
+```
+
+Contents:
+```json
+{
+  "current_path": "/collectives/chariot/n/abc123",
+  "identity_content": "..."
+}
+```
+
+**End of turn:** The agent-runner reports its final `currentPath` to Rails. Rails updates `chat_session.current_state["current_path"]`. The `/whoami` identity content can also be cached here on the first turn.
+
+**Start of turn:** Instead of always navigating to `/whoami`, the agent-runner:
+1. Fetches `current_state` from the chat history endpoint (include it in the response)
+2. If `current_state.identity_content` exists, uses it for the system prompt (skip `/whoami` navigation)
+3. If `current_state.current_path` exists, navigates there instead of `/whoami`
+4. Falls back to `/whoami` on first turn or if no state is cached
+
+**Internal API change:** The `complete` endpoint (or a new field on `chat_history` response) accepts/returns `current_state`. The agent-runner sends `{ current_path: currentPath }` on completion.
+
+**Files to modify:**
+- `db/migrate/YYYYMMDD_add_current_state_to_chat_sessions.rb` (new)
+- `app/models/chat_session.rb` — accessor helpers
+- `app/controllers/internal/agent_runner_controller.rb` — `complete` saves state, `chat_history` returns state
+- `agent-runner/src/services/AgentLoop.ts` — restore state on chat_turn start, report state on completion
+- `agent-runner/src/services/HarmonicClient.ts` — `ChatHistoryResponse` includes `current_state`
+
+---
+
+## Implementation Status
+
+| Phase | What | Status |
+|-------|------|--------|
+| 1 | `agent_session_steps` table + model + data migration | ✅ Committed |
+| 2 | Switch internal API + views to use step rows | ✅ Committed |
+| 3 | ActionCable auth + `ChatSessionChannel` | ✅ Committed |
+| 4 | Chat sessions + controller + routes + views + Stimulus | ✅ Committed |
+| 5 | Agent-runner: chat_turn mode, history, respond_to_human, ActionCable broadcast, auto-dispatch, polling fallback | 🚧 Built, needs commit |
+| 6 | Navigation state persistence (`current_state` on ChatSession) | 🚧 Planned |
+| 7 | Polish: typing indicators, error states, remove `steps_data` | Pending |
+
+## Design decisions made during implementation
+
+1. **No collective scoping on ChatSession** — agents navigate across collectives, so tying a chat to one collective would hide it when the user switches. Tenant-scoped only.
+2. **`typed: false` for controllers** — all existing controllers are `typed: false` because Rails route helpers aren't in Sorbet RBIs. Models are `typed: true`.
+3. **Action summaries in history** — the chat history endpoint returns messages interleaved with `[Actions taken: navigated to X, created Y]` system messages so the agent knows what it did between messages. Without this, the agent loses context about its prior navigation/actions.
+4. **`done` step is generic in chat mode** — when the agent responds (via `respond_to_human` or the "no tool calls" fallback), a `message` step is created with the full response (broadcast via ActionCable), and a separate `done` step with "Chat turn complete" marks task completion. This avoids duplicate content in the step timeline.
+5. **`resource_model?` override** — `AiAgentChatsController` overrides `resource_model?` to return `false` because `AiAgentChat` model doesn't exist (it's `ChatSession`).
+6. **Auto-dispatch on completion** — when a chat turn completes, Rails checks for queued human messages and auto-dispatches the next turn. This handles the case where the human sends a follow-up while the agent is still working.
+7. **`ChatMessagePresenter`** — shared service object that formats chat messages for both ActionCable broadcasts and the polling endpoint (`GET /chat/messages?after=<timestamp>`). Ensures both delivery paths return identical data structures.
+8. **Polling fallback** — the Stimulus controller polls `GET /chat/messages?after=<timestamp>` every 3 seconds after sending a message, as a fallback when ActionCable doesn't deliver. Standard degraded-transport pattern. Stops polling when a new message arrives (via either ActionCable or poll).
 
 ## Verification
 
-| Phase | Test approach |
-|-------|---------------|
-| 1-2 | Existing task run tests pass, step data renders identically from rows |
-| 3 | Manual: ActionCable connects, test broadcast appears |
-| 4 | Manual: chat UI renders, human messages append, turn tasks are dispatched |
-| 5 | Full E2E: send message → agent navigates → responds → human replies → agent gets history |
-| 5 | Playwright MCP: automated chat flow |
+| Phase | Test approach | Status |
+|-------|---------------|--------|
+| 1-2 | 65 tests pass, step data renders identically from rows | ✅ |
+| 3-4 | 21 controller + model tests, manual chat UI verification | ✅ |
+| 5 | 48 controller tests + 3 presenter tests + 142 agent-runner tests, manual E2E chat | 🚧 |
+| 6 | Navigation continuity: agent remembers location across turns | Pending |
+| 7 | Typing indicators, error states | Pending |
