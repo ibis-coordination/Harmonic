@@ -207,7 +207,7 @@ jobs:
           echo "Found coverage files:"
           echo "$RESULT_FILES"
 
-          ruby -e '
+          bundle exec ruby -e '
             require "simplecov"
             require "simplecov-json"
 
