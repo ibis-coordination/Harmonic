@@ -6,11 +6,11 @@ class AiAgentChatsController < ApplicationController
   before_action :require_human_user
   before_action :find_ai_agent
   before_action :find_chat_session, only: [:show, :send_message, :poll_messages]
+  before_action :set_sidebar_mode, only: [:index, :show]
+  before_action :load_chat_sessions, only: [:index, :show]
 
   # GET /ai-agents/:handle/chat
   def index
-    @chat_sessions = ChatSession.where(ai_agent: @ai_agent, initiated_by: current_user)
-      .order(created_at: :desc)
     @page_title = "Chat - #{@ai_agent.display_name}"
   end
 
@@ -171,6 +171,42 @@ class AiAgentChatsController < ApplicationController
     when "execute"
       action = step.detail&.dig("action")
       "Executing #{action}" if action.present?
+    end
+  end
+
+  def set_sidebar_mode
+    @sidebar_mode = "chat"
+  end
+
+  def load_chat_sessions
+    @chat_sessions = ChatSession.where(ai_agent: @ai_agent, initiated_by: current_user)
+      .order(created_at: :desc)
+    # Pre-load first message per session to avoid N+1 in sidebar
+    preload_first_messages
+  end
+
+  def preload_first_messages
+    session_ids = @chat_sessions.map(&:id)
+    return @first_messages = {} if session_ids.empty?
+
+    # Single query: get all message steps for these sessions' task runs,
+    # then pick the earliest per session in Ruby.
+    task_runs_by_session = AiAgentTaskRun
+      .where(chat_session_id: session_ids)
+      .pluck(:id, :chat_session_id)
+    run_to_session = task_runs_by_session.to_h { |run_id, session_id| [run_id, session_id] }
+    run_ids = run_to_session.keys
+
+    return @first_messages = {} if run_ids.empty?
+
+    steps = AgentSessionStep
+      .where(ai_agent_task_run_id: run_ids, step_type: "message")
+      .order(:created_at, :position)
+
+    @first_messages = {}
+    steps.each do |step|
+      session_id = run_to_session[step.ai_agent_task_run_id]
+      @first_messages[session_id] ||= step
     end
   end
 

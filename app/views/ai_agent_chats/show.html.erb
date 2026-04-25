@@ -1,75 +1,46 @@
-<%= render 'shared/pulse_breadcrumb', items: [
-  ['Home', '/'],
-  ['My AI Agents', ai_agents_path],
-  [@ai_agent.name, ai_agent_path(@ai_agent.handle)],
-  ['Chat', ai_agent_chats_path(@ai_agent.handle)],
-] %>
+<div data-controller="agent-chat"
+     data-agent-chat-url-value="<%= ai_agent_chat_message_path(@ai_agent.handle, @chat_session.id) %>"
+     data-agent-chat-agent-name-value="<%= @ai_agent.name %>"
+     data-agent-chat-session-id-value="<%= @chat_session.id %>"
+     data-agent-chat-poll-url-value="<%= ai_agent_chat_poll_path(@ai_agent.handle, @chat_session.id) %>"
+     data-agent-chat-turn-running-value="<%= @turn_running %>"
+     style="display: flex; flex-direction: column; height: calc(100vh - 60px);">
 
-<article class="pulse-resource-detail" style="display: flex; flex-direction: column; height: calc(100vh - 200px);">
-  <header class="pulse-resource-header">
-    <div class="pulse-resource-header-top">
-      <span class="pulse-resource-type-label">
-        <%= octicon 'comment-discussion', height: 14, class: 'pulse-resource-icon' %>
-        Chat
-      </span>
-      <div style="margin-left: auto; display: flex; gap: 12px;">
-        <a href="<%= ai_agent_chats_path(@ai_agent.handle) %>" class="pulse-feed-action-link">
-          <%= octicon 'history', height: 14 %> All Sessions
-        </a>
-        <%= button_to ai_agent_chat_create_path(@ai_agent.handle),
-              method: :post,
-              class: "pulse-feed-action-link" do %>
-          <%= octicon 'plus', height: 14 %> New Chat
-        <% end %>
-      </div>
+  <% if @agent_busy_run %>
+    <div class="pulse-flash pulse-flash-warning" style="margin: 8px 16px 0; padding: 8px 12px; font-size: 13px;">
+      <%= octicon 'clock', height: 14 %>
+      This agent is currently working on another task.
+      <a href="<%= ai_agent_run_path(@ai_agent.handle, @agent_busy_run.id) %>" class="pulse-link">View task</a>
     </div>
-    <h1 class="pulse-resource-title">Chat with <%= @ai_agent.name %></h1>
-  </header>
+  <% end %>
 
-  <div data-controller="agent-chat"
-       data-agent-chat-url-value="<%= ai_agent_chat_message_path(@ai_agent.handle, @chat_session.id) %>"
-       data-agent-chat-agent-name-value="<%= @ai_agent.name %>"
-       data-agent-chat-session-id-value="<%= @chat_session.id %>"
-       data-agent-chat-poll-url-value="<%= ai_agent_chat_poll_path(@ai_agent.handle, @chat_session.id) %>"
-       data-agent-chat-turn-running-value="<%= @turn_running %>"
-       style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
-
-    <% if @agent_busy_run %>
-      <div class="pulse-flash pulse-flash-warning" style="margin: 8px 16px 0; padding: 8px 12px; font-size: 13px;">
-        <%= octicon 'clock', height: 14 %>
-        This agent is currently working on another task.
-        <a href="<%= ai_agent_run_path(@ai_agent.handle, @agent_busy_run.id) %>" class="pulse-link">View task</a>
-      </div>
+  <%# Message list %>
+  <div data-agent-chat-target="messages" id="chat-messages" style="flex: 1; overflow-y: auto; padding: 16px;">
+    <% @messages.each do |step| %>
+      <%= render 'ai_agent_chats/message', step: step %>
     <% end %>
 
-    <%# Message list %>
-    <div data-agent-chat-target="messages" id="chat-messages" style="flex: 1; overflow-y: auto; padding: 16px;">
-      <% @messages.each do |step| %>
-        <%= render 'ai_agent_chats/message', step: step %>
-      <% end %>
-
-      <% if @messages.empty? %>
-        <p data-agent-chat-target="emptyState" style="text-align: center; margin-top: 40px; color: var(--color-fg-muted);">
-          Send a message to start the conversation.
-        </p>
-      <% end %>
-    </div>
-
-    <%# Input bar %>
-    <div style="border-top: 1px solid var(--color-border-default); padding: 12px 16px;">
-      <form data-action="submit->agent-chat#submit" style="display: flex; gap: 8px;">
-        <textarea
-          data-agent-chat-target="input"
-          data-action="keydown->agent-chat#keydown"
-          rows="1"
-          class="pulse-form-textarea"
-          placeholder="Type a message..."
-          style="flex: 1; resize: none;"
-        ></textarea>
-        <button type="submit" data-agent-chat-target="submitButton" class="pulse-action-btn" style="align-self: flex-end;">
-          <%= octicon 'paper-airplane', height: 14 %> Send
-        </button>
-      </form>
-    </div>
+    <% if @messages.empty? %>
+      <p data-agent-chat-target="emptyState" style="text-align: center; margin-top: 40px; color: var(--color-fg-muted);">
+        Send a message to start the conversation.
+      </p>
+    <% end %>
   </div>
-</article>
+
+  <%# Input bar %>
+  <div style="border-top: 1px solid var(--color-border-default); padding: 12px 16px;">
+    <form data-action="submit->agent-chat#submit" style="display: flex; gap: 8px;">
+      <textarea
+        data-agent-chat-target="input"
+        data-action="keydown->agent-chat#keydown"
+        rows="1"
+        class="pulse-form-textarea"
+        placeholder="Type a message..."
+        style="flex: 1; resize: none;"
+      ></textarea>
+      <button type="submit" data-agent-chat-target="submitButton" class="pulse-action-btn" style="align-self: flex-end;">
+        <%= octicon 'paper-airplane', height: 14 %> Send
+      </button>
+    </form>
+  </div>
+</div>
