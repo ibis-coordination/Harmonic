@@ -8,6 +8,7 @@ interface ChatMessage {
   sender_id: string
   sender_name: string
   content: string
+  content_html: string | null
   timestamp: string
   is_agent: boolean
 }
@@ -192,6 +193,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
       data.content || "",
       data.sender_name || this.agentNameValue,
       false,
+      data.content_html,
     )
     this.lastTimestamp = data.timestamp
     this.waitingForResponse = false
@@ -355,7 +357,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
   // --- DOM helpers ---
 
-  private appendMessage(content: string, senderName: string, isHuman: boolean): HTMLElement {
+  private appendMessage(content: string, senderName: string, isHuman: boolean, contentHtml?: string | null): HTMLElement {
     const time = new Date().toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
@@ -369,11 +371,16 @@ export default class AgentChatController extends Controller<HTMLElement> {
     const bubble = document.createElement("div")
     bubble.style.cssText = `max-width: 75%; padding: 10px 14px; border-radius: 12px; background: ${isHuman ? "var(--color-accent-subtle)" : "var(--color-canvas-subtle)"};`
 
+    // Agent messages use server-rendered markdown HTML; human messages use escaped plain text
+    const bodyHtml = !isHuman && contentHtml
+      ? `<div class="pulse-markdown-content" style="font-size: 14px;">${contentHtml}</div>`
+      : `<div style="font-size: 14px; white-space: pre-wrap;">${this.escapeHtml(content)}</div>`
+
     bubble.innerHTML = `
       <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px; color: var(--color-fg-muted);">
         ${this.escapeHtml(senderName)}
       </div>
-      <div style="font-size: 14px; white-space: pre-wrap;">${this.escapeHtml(content)}</div>
+      ${bodyHtml}
       <div style="font-size: 11px; color: var(--color-fg-muted); margin-top: 4px;">
         ${time}
       </div>

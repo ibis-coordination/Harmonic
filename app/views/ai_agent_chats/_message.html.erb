@@ -6,7 +6,11 @@
     <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px; color: var(--color-fg-muted);">
       <%= sender_name %>
     </div>
-    <div style="font-size: 14px; white-space: pre-wrap;"><%= step.detail&.dig("content") %></div>
+    <% if is_human %>
+      <div style="font-size: 14px; white-space: pre-wrap;"><%= step.detail&.dig("content") %></div>
+    <% else %>
+      <div class="pulse-markdown-content" style="font-size: 14px;"><%= MarkdownRenderer.render(step.detail&.dig("content").to_s, shift_headers: false, display_references: false).html_safe %></div>
+    <% end %>
     <div style="font-size: 11px; color: var(--color-fg-muted); margin-top: 4px;">
       <%= step.created_at.strftime("%-I:%M %p") %>
     </div>
