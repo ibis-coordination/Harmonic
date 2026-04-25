@@ -61,10 +61,6 @@ function simulateCableReceived(data: unknown) {
   mockSubscription.received?.(data)
 }
 
-function messagesContainer(): HTMLElement {
-  return document.getElementById("chat-messages")!
-}
-
 function inputField(): HTMLTextAreaElement {
   return document.querySelector("[data-agent-chat-target='input']") as HTMLTextAreaElement
 }
@@ -402,7 +398,7 @@ describe("AgentChatController", () => {
       expect(hasIndicator()).toBe(true)
     })
 
-    it("does not start polling after send when cable is connected", async () => {
+    it("does not poll after send when cable is connected", async () => {
       const mockFetch = vi.fn()
       vi.stubGlobal("fetch", mockFetch)
 

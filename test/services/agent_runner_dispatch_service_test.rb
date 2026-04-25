@@ -2,6 +2,8 @@
 require "test_helper"
 
 class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
+  include ActionCable::TestHelper
+
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
     @tenant.enable_feature_flag!("ai_agents")
@@ -105,6 +107,39 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     @task_run.reload
     assert_equal "failed", @task_run.status
     assert_includes @task_run.error, "pending billing setup"
+  end
+
+  test "broadcasts error to chat session when dispatch fails for chat_turn" do
+    @ai_agent.update!(pending_billing_setup: true)
+
+    chat_session = ChatSession.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      initiated_by: @user,
+    )
+    @task_run.update!(mode: "chat_turn", chat_session: chat_session)
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcast_on(stream, {
+      "type" => "status",
+      "status" => "error",
+      "error" => "Agent is pending billing setup. Set up billing at /billing to activate this agent.",
+      "task_run_id" => @task_run.id,
+    }) do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+  end
+
+  test "does not broadcast when regular task dispatch fails" do
+    @ai_agent.update!(pending_billing_setup: true)
+
+    # No chat session, regular task mode
+    AgentRunnerDispatchService.dispatch(@task_run)
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    # No error raised = no broadcast attempted for non-chat task
   end
 
   test "fails task when stripe billing enabled but not active" do

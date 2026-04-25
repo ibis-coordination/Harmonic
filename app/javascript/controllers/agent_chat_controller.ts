@@ -134,6 +134,13 @@ export default class AgentChatController extends Controller<HTMLElement> {
           }
         },
 
+        rejected() {
+          controller.cableConnected = false
+          if (controller.waitingForResponse) {
+            controller.startPolling()
+          }
+        },
+
         received(data: CableEvent) {
           switch (data.type) {
             case "message":
@@ -156,6 +163,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
   // --- Event handlers (shared by both transports) ---
 
   private handleStatusEvent(data: StatusEvent): void {
+
     switch (data.status) {
       case "working":
         this.showIndicator("Thinking...")
@@ -173,10 +181,12 @@ export default class AgentChatController extends Controller<HTMLElement> {
   }
 
   private handleActivityEvent(data: ActivityEvent): void {
+
     this.showIndicator(data.text)
   }
 
   private handleAgentMessage(data: ChatMessage): void {
+
     this.removeIndicator()
     this.appendMessage(
       data.content || "",

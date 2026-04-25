@@ -756,6 +756,35 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "fail_task broadcasts error for queued chat_turn (preflight failure)" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "queued",
+        mode: "chat_turn", chat_session: cs,
+      )
+      cs
+    end
+
+    body = { error: "Billing is not set up" }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcast_on(stream, {
+      "type" => "status",
+      "status" => "error",
+      "error" => "Billing is not set up",
+      "task_run_id" => @task_run.id,
+    }) do
+      post fail_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_equal "Billing is not set up", @task_run.error
+  end
+
   test "complete does not auto-dispatch when no queued human messages" do
     with_tenant_scope do
       chat_session = ChatSession.create!(
