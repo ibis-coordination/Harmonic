@@ -139,7 +139,7 @@ class AutomationRule < ApplicationRecord
       "/ai-agents/#{agent_tu&.handle}/automations/#{truncated_id}"
     elsif collective_id.present?
       c = Collective.tenant_scoped_only(tenant_id).find_by(id: collective_id)
-      "/collectives/#{c&.handle}/settings/automations/#{truncated_id}"
+      "#{c&.path}/settings/automations/#{truncated_id}"
     else
       tu = TenantUser.find_by(tenant_id: tenant_id, user_id: user_id)
       "/u/#{tu&.handle}/settings/automations/#{truncated_id}"

@@ -1043,7 +1043,10 @@ class ActionsHelper
 
   sig { params(route: String).returns(T.nilable(T::Hash[Symbol, T.untyped])) }
   def self.actions_for_route(route)
-    @@actions_by_route[route]
+    # Normalize /workspace/ to /collectives/ — hash keys use /collectives/ but
+    # both prefixes map to the same controllers and action definitions.
+    normalized = route.sub(%r{^/workspace/}, "/collectives/")
+    @@actions_by_route[normalized]
   end
 
   # Get the route pattern for a controller#action.

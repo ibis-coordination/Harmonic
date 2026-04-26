@@ -118,7 +118,7 @@ class AutomationInternalActionService
     tenant = @rule.tenant
 
     # Build the path to the action
-    collective_path = "/collectives/#{@collective&.handle}#{config[:path_suffix]}"
+    collective_path = "#{@collective&.path}#{config[:path_suffix]}"
 
     # Create the markdown UI service with the identity user
     service = MarkdownUiService.new(

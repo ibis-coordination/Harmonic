@@ -330,4 +330,78 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
     commitment.reload
     assert_equal 1, commitment.critical_mass, "Critical mass should remain 1 in private workspace"
   end
+
+  # =========================================================================
+  # Workspace URL path
+  # =========================================================================
+
+  test "private workspace path uses /workspace/ prefix" do
+    workspace = @alice.private_workspace
+    assert workspace.path.start_with?("/workspace/"), "Expected path to start with /workspace/, got #{workspace.path}"
+    assert_equal "/workspace/#{workspace.handle}", workspace.path
+  end
+
+  test "standard collective path still uses /collectives/ prefix" do
+    assert @collective.path.start_with?("/collectives/"), "Expected path to start with /collectives/, got #{@collective.path}"
+  end
+
+  test "navigating to /workspace/ path works" do
+    sign_in_as(@alice, tenant: @tenant)
+    workspace = @alice.private_workspace
+    get workspace.path
+    assert_response :success
+    assert_includes response.body, ERB::Util.html_escape(workspace.name)
+  end
+
+  test "navigating to /workspace/ path via markdown API works" do
+    @tenant.enable_api!
+    workspace = @alice.private_workspace
+    workspace.enable_api!
+    api_token = ApiToken.create!(
+      user: @alice,
+      tenant: @tenant,
+      name: "Test Token",
+      scopes: ApiToken.valid_scopes,
+    )
+
+    get workspace.path, headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+    assert_includes response.body, workspace.name
+  end
+
+  test "whoami workspace link uses /workspace/ prefix" do
+    sign_in_as(@alice, tenant: @tenant)
+    get "/whoami"
+    assert_response :success
+    workspace = @alice.private_workspace
+    assert_includes response.body, "/workspace/#{workspace.handle}"
+  end
+
+  test "workspace actions page lists actions with /workspace/ paths" do
+    @tenant.enable_api!
+    workspace = @alice.private_workspace
+    workspace.enable_api!
+    Heartbeat.create!(tenant: @tenant, collective: workspace, user: @alice, expires_at: 1.day.from_now)
+
+    api_token = ApiToken.create!(
+      user: @alice,
+      tenant: @tenant,
+      name: "Test Token",
+      scopes: ApiToken.valid_scopes,
+    )
+
+    get "#{workspace.path}/actions", headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+    # Action paths in the response should use /workspace/, not /collectives/
+    refute_includes response.body, "/collectives/",
+      "Actions page should not contain /collectives/ paths for a workspace"
+    assert_includes response.body, "/workspace/",
+      "Actions page should contain /workspace/ paths"
+  end
 end

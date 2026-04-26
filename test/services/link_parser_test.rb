@@ -418,4 +418,78 @@ class LinkParserTest < ActiveSupport::TestCase
     link = Link.find_by(from_linkable: commitment, to_linkable: note)
     assert_not_nil link
   end
+
+  # =========================================================================
+  # /workspace/ path prefix support
+  # =========================================================================
+
+  test "parse finds note via /workspace/ path-only link" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    text = "Check out [this note](/workspace/#{@collective.handle}/n/#{note.truncated_id})"
+    found = []
+    LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
+      found << record
+    end
+    assert_equal 1, found.count
+    assert_equal note, found.first
+  end
+
+  test "parse finds note via /workspace/ full URL" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    text = "See https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/workspace/#{@collective.handle}/n/#{note.truncated_id}"
+    found = []
+    LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
+      found << record
+    end
+    assert_equal 1, found.count
+    assert_equal note, found.first
+  end
+
+  test "parse_path resolves /workspace/ path" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    record = LinkParser.parse_path("/workspace/#{@collective.handle}/n/#{note.truncated_id}")
+    assert_equal note, record
+  end
+
+  test "parse deduplicates when same note linked via both /collectives/ and /workspace/ prefixes" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    text = "[note](/collectives/#{@collective.handle}/n/#{note.truncated_id}) and [same](/workspace/#{@collective.handle}/n/#{note.truncated_id})"
+    found = []
+    LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: @collective.handle) do |record|
+      found << record
+    end
+    assert_equal 1, found.count, "Same note linked via both prefixes should be yielded only once"
+  end
+
+  # =========================================================================
+  # Main collective (no collective_handle) link parsing
+  # =========================================================================
+
+  test "parse finds note via full URL on main collective (no collective_handle)" do
+    main = @tenant.main_collective
+    Collective.set_thread_context(main)
+    note = create_note(tenant: @tenant, collective: main, created_by: @user)
+
+    text = "See https://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/n/#{note.truncated_id}"
+    found = []
+    LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: nil) do |record|
+      found << record
+    end
+    assert_equal 1, found.count, "Should find note via full URL on main collective"
+    assert_equal note, found.first
+  end
+
+  test "parse finds note via path-only link on main collective (no collective_handle)" do
+    main = @tenant.main_collective
+    Collective.set_thread_context(main)
+    note = create_note(tenant: @tenant, collective: main, created_by: @user)
+
+    text = "Check [this note](/n/#{note.truncated_id})"
+    found = []
+    LinkParser.parse(text, subdomain: @tenant.subdomain, collective_handle: nil) do |record|
+      found << record
+    end
+    assert_equal 1, found.count, "Should find note via path-only link on main collective"
+    assert_equal note, found.first
+  end
 end

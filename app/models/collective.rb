@@ -436,7 +436,7 @@ class Collective < ApplicationRecord
 
   sig { returns(String) }
   def path_prefix
-    "collectives"
+    private_workspace? ? "workspace" : "collectives"
   end
 
   sig { returns(T.nilable(String)) }

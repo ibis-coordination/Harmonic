@@ -327,4 +327,25 @@ class ActionsHelperTest < ActiveSupport::TestCase
       end
     end
   end
+
+  # =========================================================================
+  # Workspace path normalization
+  # =========================================================================
+
+  test "actions_for_route normalizes /workspace/ to /collectives/" do
+    # The hash keys use /collectives/, but /workspace/ should resolve to the same actions
+    collectives_result = ActionsHelper.actions_for_route("/collectives/:collective_handle")
+    workspace_result = ActionsHelper.actions_for_route("/workspace/:collective_handle")
+    assert collectives_result, "Should find actions for /collectives/ route"
+    assert workspace_result, "Should find actions for /workspace/ route"
+    assert_equal collectives_result, workspace_result
+  end
+
+  test "actions_for_route normalizes /workspace/ for content routes" do
+    collectives_result = ActionsHelper.actions_for_route("/collectives/:collective_handle/n/:note_id")
+    workspace_result = ActionsHelper.actions_for_route("/workspace/:collective_handle/n/:note_id")
+    assert collectives_result, "Should find actions for /collectives/ note route"
+    assert workspace_result, "Should find actions for /workspace/ note route"
+    assert_equal collectives_result, workspace_result
+  end
 end
