@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-04-25
+
+### Added
+
+- Chat interface for human-AI agent conversations — real-time back-and-forth chat where agents navigate the app, take actions, and respond conversationally.
+- `agent_session_steps` table — individual DB rows replace the `steps_data` JSONB array for task run step storage. Backfill migration for existing data. `steps_data` column dropped.
+- `chat_sessions` table — groups chat turns into conversations with `current_state` JSONB for navigation continuity between turns.
+- ActionCable integration — `ChatSessionChannel` with authenticated subscriptions, real-time broadcasts for status (working/completed/error), activity (navigating/executing), and messages.
+- Polling fallback — activates only when WebSocket disconnects, stops when it reconnects. The two transports never run simultaneously.
+- Chat sidebar layout with session list, active state highlighting, "New Chat" button, and "Back to agent" link.
+- Markdown rendering for agent messages using `MarkdownRenderer` (same sanitization as notes). Server-side pre-rendering ensures consistent output across ActionCable and polling.
+- Busy-agent indicator when the agent is working in another session, with link to the active task run.
+- Error display in chat UI for all failure paths — dispatch-time failures (billing, suspended agent), agent-runner failures (LLM errors), and preflight failures.
+- `respond_to_human` tool in agent-runner for ending chat turns with a message.
+- Chat history endpoint returning messages interleaved with action summaries so the agent retains context across turns.
+- Auto-dispatch — when a chat turn completes, Rails checks for queued human messages and dispatches the next turn.
+- 20 frontend tests (Vitest) covering ActionCable transport, polling fallback, rejected subscription, message sending, and indicator lifecycle.
+- `ChatSessionChannel` tests — subscription authorization, rejection for unauthorized/nonexistent sessions.
+- Security tests — agent ownership, send/poll authorization, XSS sanitization, non-human user rejection.
+
+### Changed
+
+- Task run steps now stored exclusively in `agent_session_steps` rows. All views, JSON endpoints, and markdown templates read from rows instead of the JSONB column.
+- `AgentRunnerDispatchService#fail_task!` broadcasts error status to ActionCable so dispatch-time failures (billing, agent status) are visible in the chat UI.
+- System admin task run detail page eager-loads `agent_session_steps` for the timeline partial.
+- Parallelized CI test runs and Docker builds.
+- Consolidated style guides, renamed dev route, added CSS static analysis check.
+- Folded `AGENTS.md` into `CLAUDE.md` and simplified documentation.
+- Added CI check to catch test directories missing from the matrix.
+
+### Removed
+
+- `steps_data` JSONB column on `ai_agent_task_runs` — replaced by `agent_session_steps` table. Dual-write, sync-on-complete, and view fallback logic all removed.
+- Stale unimplemented plans, TODO index system, and broken doc references.
+
 ## [1.7.0] - 2026-04-23
 
 ### Added
