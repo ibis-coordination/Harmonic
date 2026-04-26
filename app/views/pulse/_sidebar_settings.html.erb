@@ -6,7 +6,7 @@
   <nav class="pulse-nav">
     <a href="<%= @current_collective.path %>" class="pulse-nav-item">
       <%= octicon 'arrow-left', height: 16 %>
-      <span>Back to Collective</span>
+      <span>Back to <%= @current_collective.private_workspace? ? "Workspace" : "Collective" %></span>
     </a>
   </nav>
 </aside>

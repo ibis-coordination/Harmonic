@@ -102,6 +102,32 @@ class ActiveSupport::TestCase
     AiAgentTaskRun.clear_thread_scope
   end
 
+  # Safely destroy a user and all associated records that could cause FK violations.
+  # Use this in ensure blocks instead of manual delete_all chains.
+  # Uses unscoped queries to work even when thread-local scopes are cleared.
+  def destroy_user!(user)
+    return unless user
+
+    # Delete workspace collective and its members (created_by_id FK on collective points to user)
+    Collective.unscoped.where(created_by_id: user.id, collective_type: "private_workspace").each do |workspace|
+      CollectiveMember.unscoped.where(collective_id: workspace.id).delete_all
+      workspace.delete
+    end
+
+    # Delete other collective memberships
+    CollectiveMember.unscoped.where(user_id: user.id).delete_all
+
+    # Delete trustee grants
+    TrusteeGrant.unscoped.where(granting_user_id: user.id).delete_all
+    TrusteeGrant.unscoped.where(trustee_user_id: user.id).delete_all
+
+    # Delete tenant users and API tokens
+    ApiToken.unscoped.where(user_id: user.id).delete_all
+    TenantUser.unscoped.where(user_id: user.id).delete_all
+
+    user.delete
+  end
+
   def create_tenant(subdomain: "test", name: "Test Tenant")
     Tenant.create!(subdomain: subdomain, name: name)
   end

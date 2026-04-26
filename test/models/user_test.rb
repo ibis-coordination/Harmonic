@@ -1119,5 +1119,107 @@ class UserTest < ActiveSupport::TestCase
     agent_token.reload
     assert_not_nil agent_token.deleted_at
   end
+
+  # =========================================================================
+  # Private Workspace tests
+  # =========================================================================
+
+  test "human user gets private workspace when added to tenant" do
+    tenant = create_tenant(subdomain: "pw-human-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+
+    workspace = user.private_workspace
+    assert workspace, "Human user should have a private workspace"
+    assert workspace.private_workspace?
+    assert workspace.user_is_member?(user)
+    assert_equal "#{user.name}'s Workspace", workspace.name
+  end
+
+  test "ai_agent gets private workspace when added to tenant" do
+    tenant = create_tenant(subdomain: "pw-agent-#{SecureRandom.hex(4)}")
+    parent = create_user
+    tenant.add_user!(parent)
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+
+    agent = create_ai_agent(parent: parent, name: "Memory Agent")
+    tenant.add_user!(agent)
+
+    workspace = agent.private_workspace
+    assert workspace, "AI agent should have a private workspace"
+    assert workspace.private_workspace?
+    assert workspace.user_is_member?(agent)
+    # Parent should NOT be a member
+    assert_not workspace.user_is_member?(parent)
+  end
+
+  test "collective_identity user does not get private workspace" do
+    tenant = create_tenant(subdomain: "pw-ci-#{SecureRandom.hex(4)}")
+    user = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Identity Test",
+      handle: "ci-test-#{SecureRandom.hex(4)}",
+    )
+    identity_user = collective.identity_user
+    assert identity_user.collective_identity?
+    assert_nil identity_user.private_workspace
+  end
+
+  test "private_workspace returns nil for collective_identity users" do
+    user = create_user(user_type: "collective_identity")
+    assert_nil user.private_workspace
+  end
+
+  test "archiving user archives private workspace" do
+    tenant = create_tenant(subdomain: "pw-archive-#{SecureRandom.hex(4)}")
+    user = create_user
+    tu = tenant.add_user!(user)
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    user.tenant_user = tu
+
+    workspace = user.private_workspace
+    assert workspace
+    assert_not workspace.archived?
+
+    user.archive!
+    workspace.reload
+    assert workspace.archived?, "Workspace should be archived when user is archived"
+  end
+
+  test "unarchiving user unarchives private workspace" do
+    tenant = create_tenant(subdomain: "pw-unarch-#{SecureRandom.hex(4)}")
+    user = create_user
+    tu = tenant.add_user!(user)
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    user.tenant_user = tu
+
+    user.archive!
+    workspace = user.reload.private_workspace
+    assert workspace.archived?
+
+    user.unarchive!
+    workspace.reload
+    assert_not workspace.archived?, "Workspace should be unarchived when user is unarchived"
+  end
+
+  test "private workspace not counted in billable_quantity" do
+    # @user already has a workspace from setup
+    # Workspace is billing_exempt, so it should not be counted
+    workspace = @user.private_workspace
+    assert workspace, "User should have a workspace"
+    assert workspace.billing_exempt?
+
+    count = @user.active_billable_collective_count
+    workspace_in_count = Collective.for_user_across_tenants(@user).not_private_workspace.where(
+      tenant_id: @user.billing_tenant_ids,
+      archived_at: nil,
+      billing_exempt: false,
+    ).count
+    # The workspace should not appear in either the explicit query or the billable count
+    assert_equal workspace_in_count, count
+  end
 end
 

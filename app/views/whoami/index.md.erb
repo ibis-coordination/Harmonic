@@ -64,7 +64,13 @@ Your scratchpad contains information that you chose to retain from previous sess
 _Your scratchpad is empty. Use the `update_scratchpad` action to save notes for your future self._
 <% end %>
 <% end -%>
-<% user_collectives = @current_user.collectives.where.not(id: @current_tenant.main_collective_id) %>
+<% if !@current_representation_session && (workspace = @current_user.private_workspace) %>
+
+## Your Workspace
+
+[<%= workspace.name %>](<%= workspace.path %>) — your private workspace for personal notes and drafts.
+<% end %>
+<% user_collectives = @current_user.collectives.not_private_workspace.where.not(id: @current_tenant.main_collective_id) %>
 
 ## Your Collectives
 

@@ -451,6 +451,13 @@ class ApplicationController < ActionController::Base
 
     # Check grant collective scope for user representation sessions
     if @current_representation_session&.user_representation? && !current_collective.is_main_collective?
+      # Private workspaces are never accessible during representation
+      if current_collective.private_workspace?
+        flash[:alert] = "Private workspaces cannot be accessed during representation."
+        redirect_to "/representing"
+        return
+      end
+
       grant = @current_representation_session.trustee_grant
       unless grant&.allows_collective?(current_collective)
         flash[:alert] = "This collective is not included in your representation grant."

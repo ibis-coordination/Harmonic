@@ -1,4 +1,4 @@
-# Collective Settings
+# <%= @current_collective.private_workspace? ? "Workspace" : "Collective" %> Settings
 
 <% if @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
 <% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id %>
@@ -18,8 +18,10 @@ Current settings for **<%= @current_collective.name %>**:
 | Timezone | <%= @current_collective.timezone %> |
 | Tempo | <%= @current_collective.tempo %> |
 | Synchronization Mode | <%= @current_collective.synchronization_mode %> |
+<% unless @current_collective.private_workspace? %>
 | Invitations | <%= @current_collective.all_members_can_invite? ? 'All members can invite' : 'Only admins can invite' %> |
 | Representation | <%= @current_collective.any_member_can_represent? ? 'Any member can represent' : 'Only representatives' %> |
+<% end %>
 <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) && FeatureFlagService.flag_metadata(f).fetch("collective_level", false) } %>
 <% if available_flags.any? %>
 
@@ -33,7 +35,7 @@ Current settings for **<%= @current_collective.name %>**:
 | <%= metadata['name'] %> | <%= collective_enabled_locally ? 'Yes' : 'No' %> |
 <% end %>
 <% end %>
-<% if @current_collective.feature_enabled?('api') && @collective_ai_agents.present? %>
+<% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? && @collective_ai_agents.present? %>
 
 ## AI Agents in this Collective
 

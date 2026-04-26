@@ -246,11 +246,45 @@ class Tenant < ApplicationRecord
 
   sig { params(user: User).returns(TenantUser) }
   def add_user!(user)
-    tenant_users.create!(
+    tu = tenant_users.create!(
       user: user,
       display_name: user.name,
-      handle: user.name.parameterize
+      handle: user.name.parameterize,
     )
+    create_private_workspace_for!(user, tu) unless user.collective_identity?
+    tu
+  end
+
+  sig { params(user: User, tenant_user: TenantUser).void }
+  private def create_private_workspace_for!(user, tenant_user)
+    handle = "#{tenant_user.handle}-workspace"
+    unless Collective.handle_available?(handle)
+      handle = "#{handle}-#{SecureRandom.hex(3)}"
+    end
+
+    previous_collective_id = Collective.current_id
+    previous_collective_handle = Collective.current_handle
+    begin
+      collective = collectives.create!(
+        name: "#{user.name}'s Workspace",
+        handle: handle,
+        created_by: user,
+        collective_type: "private_workspace",
+        billing_exempt: true,
+      )
+
+      # Temporarily set collective scope for add_user! (creates CollectiveMember)
+      Collective.set_thread_context(collective)
+      collective.add_user!(user, roles: ["admin"])
+    ensure
+      # Restore previous collective scope
+      if previous_collective_id
+        Current.collective_id = previous_collective_id
+        Current.collective_handle = previous_collective_handle
+      else
+        Collective.clear_thread_scope
+      end
+    end
   end
 
   sig { returns(T.nilable(String)) }

@@ -521,4 +521,52 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     )
     assert second_permission.persisted?
   end
+
+  # =========================================================================
+  # Private Workspace privacy enforcement
+  # =========================================================================
+
+  test "allows_collective? returns false for private workspaces regardless of grant scope" do
+    # Create a grant with mode: "all" (allows all collectives)
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @granting_user,
+      trustee_user: @trustee_user,
+      permissions: TrusteeGrant::GRANTABLE_ACTIONS.index_with { true },
+      studio_scope: { "mode" => "all" },
+      accepted_at: Time.current,
+    )
+
+    workspace = @granting_user.private_workspace
+    assert workspace, "User should have a private workspace"
+
+    # Even with mode: "all", private workspace should be blocked
+    assert_not grant.allows_collective?(workspace), "allows_collective? should return false for private workspaces"
+
+    # But standard collectives should still be allowed
+    assert grant.allows_collective?(@collective), "allows_collective? should return true for standard collectives"
+  end
+
+  test "for_user_across_tenants returns grants where user is granting or trustee party" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @granting_user,
+      trustee_user: @trustee_user,
+      permissions: {},
+      accepted_at: Time.current,
+    )
+
+    # Found when querying by granting user
+    results = TrusteeGrant.for_user_across_tenants(@granting_user)
+    assert_includes results, grant
+
+    # Found when querying by trustee user
+    results = TrusteeGrant.for_user_across_tenants(@trustee_user)
+    assert_includes results, grant
+
+    # Not found for unrelated user
+    other = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other")
+    results = TrusteeGrant.for_user_across_tenants(other)
+    assert_not_includes results, grant
+  end
 end

@@ -630,7 +630,7 @@ class ActionsHelper
           condition: ->(context) {
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            collective && !collective.is_main_collective? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
           },
         },
       ],
@@ -644,7 +644,7 @@ class ActionsHelper
           condition: ->(context) {
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            collective && !collective.is_main_collective? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
           },
         },
       ],
@@ -672,7 +672,7 @@ class ActionsHelper
           condition: ->(context) {
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            collective && !collective.is_main_collective? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
           },
         },
       ],

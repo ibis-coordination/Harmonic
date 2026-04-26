@@ -1,10 +1,10 @@
-# Collective: <%= @current_collective.name %>
+# <%= @current_collective.private_workspace? ? "Workspace" : "Collective" %>: <%= @current_collective.name %>
 
-<% if !@current_collective.is_main_collective? && @current_user && @current_heartbeat.nil? -%>
+<% if !@current_collective.is_main_collective? && !@current_collective.private_workspace? && @current_user && @current_heartbeat.nil? -%>
 ## Heartbeat Required
 
 You must send a heartbeat to access this collective for the current cycle.
-<% elsif @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil? -%>
+<% elsif !@current_collective.private_workspace? && @current_user && !@is_viewing_current_cycle && @current_heartbeat.nil? -%>
 ## Heartbeat Required
 
 You must send a heartbeat to view past cycles.

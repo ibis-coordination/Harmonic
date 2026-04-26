@@ -12,12 +12,13 @@
 
 Representation allows this collective (<%= @current_collective.name %>) to act as an individual member of other collectives.
 
-<% if @current_collective.identity_user.collectives.empty? %>
+<% identity_collectives = @current_collective.identity_user&.collectives&.not_private_workspace || [] %>
+<% if identity_collectives.empty? %>
 <%= @current_collective.name %> is not currently a member of any other collectives.
 <% else %>
 <%= @current_collective.name %> is currently a member of the following collectives:
 
-<% @current_collective.identity_user.collectives.each do |collective| %>
+<% identity_collectives.each do |collective| %>
 * [<%= collective.name %>](<%= collective.path %>)
 <% end %>
 <% end %>

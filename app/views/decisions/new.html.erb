@@ -21,7 +21,7 @@
       <label class="pulse-form-label">Description <span class="pulse-form-label-optional">(optional)</span></label>
       <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
         <%= form.text_area :description,
-            placeholder: "Add context or background for this decision... (use @ to mention users)",
+            placeholder: @current_collective.private_workspace? ? "Add context or background for this decision..." : "Add context or background for this decision... (use @ to mention users)",
             value: @decision.description,
             class: "pulse-form-textarea",
             rows: 4,
@@ -32,6 +32,7 @@
 
     <%= render 'shared/multi_file_select', form: form %>
 
+    <% unless @current_collective.private_workspace? %>
     <section class="pulse-form-section">
       <h2 class="pulse-section-title">Options</h2>
       <p class="pulse-section-description">Who can add options to this decision?</p>
@@ -42,6 +43,7 @@
             class: 'pulse-form-select pulse-form-select-narrow' %>
       </div>
     </section>
+    <% end %>
 
     <section class="pulse-form-section">
       <h2 class="pulse-section-title">Deadline</h2>
@@ -55,6 +57,9 @@
         <% if @current_collective.id == @current_tenant.main_collective_id %>
           <%= octicon 'eye', height: 14 %>
           This decision will be publicly visible.
+        <% elsif @current_collective.private_workspace? %>
+          <%= octicon 'lock', height: 14 %>
+          Only you can access this decision.
         <% else %>
           <%= octicon 'lock', height: 14 %>
           Only members of this collective can access this decision.

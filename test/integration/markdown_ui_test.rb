@@ -745,11 +745,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert response.content_type.starts_with?("text/markdown"), "403 page should return markdown format"
     assert_match(/403 Forbidden/, response.body, "Should show 403 message")
   ensure
-    CollectiveMember.where(user: other_user).delete_all if other_user
-    TenantUser.where(user: other_user).delete_all if other_user
     Event.where(actor_id: other_user&.id).delete_all if other_user
     note&.destroy
-    other_user&.destroy
+    destroy_user!(other_user)
   end
 
   # User profile page tests
@@ -1104,8 +1102,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     ai_agent = User.find_by(name: ai_agent_name)
     if ai_agent
-      TenantUser.where(user: ai_agent).delete_all
-      ai_agent.destroy
+      destroy_user!(ai_agent)
     end
   end
 
@@ -1125,9 +1122,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # cleared by CurrentAttributes auto-reset after the request.
     ai_agent = User.find_by(name: ai_agent_name)
     if ai_agent
-      ApiToken.unscoped.where(user: ai_agent).delete_all
-      TenantUser.where(user: ai_agent).delete_all
-      ai_agent.destroy
+      destroy_user!(ai_agent)
     end
   end
 
@@ -1167,8 +1162,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     CollectiveMember.where(collective: second_collective).delete_all if second_collective
     second_collective&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "POST remove_ai_agent_from_collective action removes ai_agent from collective" do
@@ -1210,8 +1204,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     CollectiveMember.where(collective: second_collective).delete_all if second_collective
     second_collective&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "Collective settings markdown shows add_ai_agent_to_collective action when ai_agents exist" do
@@ -1233,8 +1226,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/add_ai_agent_to_collective/, response.body, "Should show add_ai_agent_to_collective action")
   ensure
     collective_member&.remove_role!('admin')
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   # === Security Tests: AiAgent Restrictions ===
@@ -1273,8 +1265,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/capabilities do not include.*create_ai_agent/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "AiAgents cannot access create ai_agent page via API token - returns 403" do
@@ -1306,8 +1297,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/Only human accounts can create AI agents/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "AiAgents cannot create their own API tokens via API token - returns 403" do
@@ -1342,8 +1332,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/capabilities do not include.*create_api_token/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "AiAgents cannot access create API token page via API token - returns 403" do
@@ -1375,8 +1364,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/Only human accounts can create API tokens/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "Parents can still create API tokens for their ai_agents" do
@@ -1401,8 +1389,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert token, "Token should have been created for ai_agent"
   ensure
     ApiToken.where(user: ai_agent).delete_all if ai_agent
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "AiAgents cannot execute add_ai_agent_to_collective via API token - returns 403" do
@@ -1444,10 +1431,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/capabilities do not include.*add_ai_agent_to_collective/, response.body)
   ensure
     token&.destroy
-    CollectiveMember.where(user: [acting_ai_agent, other_ai_agent]).delete_all
-    TenantUser.where(user: [acting_ai_agent, other_ai_agent]).delete_all
-    acting_ai_agent&.destroy
-    other_ai_agent&.destroy
+    destroy_user!(acting_ai_agent)
+    destroy_user!(other_ai_agent)
   end
 
   test "AiAgents cannot execute remove_ai_agent_from_collective via API token - returns 403" do
@@ -1490,10 +1475,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/capabilities do not include.*remove_ai_agent_from_collective/, response.body)
   ensure
     token&.destroy
-    CollectiveMember.where(user: [acting_ai_agent, other_ai_agent]).delete_all
-    TenantUser.where(user: [acting_ai_agent, other_ai_agent]).delete_all
-    acting_ai_agent&.destroy
-    other_ai_agent&.destroy
+    destroy_user!(acting_ai_agent)
+    destroy_user!(other_ai_agent)
   end
 
   # === Phase 3: Admin Panel Markdown API ===
@@ -1583,8 +1566,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "AiAgent admin cannot access admin pages when parent is NOT admin" do
@@ -1618,8 +1600,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/AI agent admin access requires both AI agent and parent to be admins/, response.body)
   ensure
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "AiAgent cannot access admin pages when ai_agent is NOT admin even if parent is" do
@@ -1655,8 +1636,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   # === Admin Panel Security: AiAgent Production Write Restrictions ===
@@ -1698,8 +1678,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "AiAgent admin cannot perform write operations in production environment" do
@@ -1740,8 +1719,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "AiAgent admin can still read admin pages in production environment" do
@@ -1784,8 +1762,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   test "Person admin can still perform write operations in production environment" do
@@ -1856,8 +1833,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     parent_tu&.remove_role!('admin')
     token&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 
   # === Phase 4: File Attachments Markdown API ===
@@ -2099,9 +2075,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     NotificationRecipient.where(notification: notification).delete_all if notification
     notification&.destroy
     event&.destroy
-    CollectiveMember.where(user: other_user).delete_all if other_user
-    TenantUser.where(user: other_user).delete_all if other_user
-    other_user&.destroy
+    destroy_user!(other_user)
   end
 
   test "markdown UI displays zero notification count when no unread notifications" do
@@ -2164,9 +2138,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     NotificationRecipient.where(notification: notification).delete_all if notification
     notification&.destroy
     event&.destroy
-    CollectiveMember.where(user: other_user).delete_all if other_user
-    TenantUser.where(user: other_user).delete_all if other_user
-    other_user&.destroy
+    destroy_user!(other_user)
   end
 
   # === Threaded Comments in Markdown UI ===
@@ -2342,7 +2314,6 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_no_match(/"type":\s*"navigate"/, response.body, "Should not include JSON action")
   ensure
     task_run&.destroy
-    TenantUser.where(user: ai_agent).delete_all if ai_agent
-    ai_agent&.destroy
+    destroy_user!(ai_agent)
   end
 end

@@ -1221,6 +1221,24 @@ class Collective
     sig { void }
     def billing_exempt_will_change!; end
 
+    sig { returns(::String) }
+    def collective_type; end
+
+    sig { params(value: ::String).returns(::String) }
+    def collective_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_type?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_type_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def collective_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_type_was; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 

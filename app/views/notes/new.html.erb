@@ -11,7 +11,7 @@
     <div class="pulse-form-group">
       <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
         <%= form.text_area :text,
-            placeholder: "Write your note here... (use @ to mention users)",
+            placeholder: @current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)",
             autofocus: true,
             value: @note.text,
             class: "pulse-form-textarea",
@@ -29,6 +29,9 @@
         <% if @current_collective.id == @current_tenant.main_collective_id %>
           <%= octicon 'eye', height: 14 %>
           This note will be publicly visible.
+        <% elsif @current_collective.private_workspace? %>
+          <%= octicon 'lock', height: 14 %>
+          Only you will see this note.
         <% else %>
           <%= octicon 'lock', height: 14 %>
           Only members of this collective will see this note.

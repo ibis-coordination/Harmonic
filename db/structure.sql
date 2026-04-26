@@ -336,7 +336,8 @@ CREATE TABLE public.collectives (
     internal boolean DEFAULT false NOT NULL,
     archived_at timestamp(6) without time zone,
     billing_exempt boolean DEFAULT false NOT NULL,
-    pending_billing_setup boolean DEFAULT false NOT NULL
+    pending_billing_setup boolean DEFAULT false NOT NULL,
+    collective_type character varying DEFAULT 'standard'::character varying NOT NULL
 );
 
 
@@ -3388,6 +3389,13 @@ CREATE INDEX index_collective_members_on_tenant_id ON public.collective_members 
 --
 
 CREATE INDEX index_collective_members_on_user_id ON public.collective_members USING btree (user_id);
+
+
+--
+-- Name: index_collectives_on_collective_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_collectives_on_collective_type ON public.collectives USING btree (collective_type);
 
 
 --
@@ -8903,6 +8911,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260425000001'),
 ('20260424210631'),
 ('20260424192439'),
 ('20260424164824'),

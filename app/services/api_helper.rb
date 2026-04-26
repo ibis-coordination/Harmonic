@@ -198,7 +198,7 @@ class ApiHelper
         title: params[:title],
         description: params[:description],
         deadline: params[:deadline],
-        critical_mass: params[:critical_mass],
+        critical_mass: current_collective.private_workspace? ? 1 : params[:critical_mass],
         created_by: current_user,
       )
       # Handle close_at_critical_mass option
@@ -575,6 +575,7 @@ class ApiHelper
 
   sig { params(invite: T.nilable(Invite)).returns(CollectiveMember) }
   def join_collective(invite: nil)
+    raise 'Cannot join a private workspace' if current_collective.private_workspace?
     raise 'User is already a member of this collective' if current_user.collectives.include?(current_collective)
 
     collective_member = T.let(nil, T.nilable(CollectiveMember))
@@ -602,12 +603,14 @@ class ApiHelper
       current_collective.tempo = params[:tempo] if params[:tempo].present?
       current_collective.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
 
-      # Handle settings stored in JSON column
-      if params.has_key?(:invitations)
-        current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
-      end
-      if params.has_key?(:representation)
-        current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+      # Handle settings stored in JSON column (skip for private workspaces — enforced settings)
+      unless current_collective.private_workspace?
+        if params.has_key?(:invitations)
+          current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+        end
+        if params.has_key?(:representation)
+          current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+        end
       end
       if params.has_key?(:file_uploads)
         # Use unified feature flag system
@@ -680,7 +683,7 @@ class ApiHelper
       commitment.title = params[:title] if params[:title].present?
       commitment.description = params[:description] if params[:description].present?
 
-      if params[:critical_mass].present?
+      if params[:critical_mass].present? && !current_collective.private_workspace?
         new_cm = params[:critical_mass].to_i
         if new_cm < commitment.critical_mass.to_i && commitment.participant_count > 0
           raise 'Cannot lower critical mass after participants have joined'
