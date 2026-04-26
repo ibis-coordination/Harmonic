@@ -13,8 +13,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  AGENT_RUNNER_IMAGE_NAME: ${{ github.repository }}-agent-runner
+  # Hardcoded lowercase — github.repository preserves case ("Harmonic")
+  # but Docker tags must be lowercase.
+  IMAGE_NAME: ibis-coordination/harmonic
+  AGENT_RUNNER_IMAGE_NAME: ibis-coordination/harmonic-agent-runner
 
 jobs:
   build-amd64:
