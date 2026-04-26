@@ -1634,7 +1634,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       user_type: "ai_agent",
       parent_id: @user.id,
     )
-    ai_agent_tu = @tenant.add_user!(ai_agent)
+    @tenant.add_user!(ai_agent)
     # NOT adding admin role to ai_agent
     token = ApiToken.create!(
       user: ai_agent,

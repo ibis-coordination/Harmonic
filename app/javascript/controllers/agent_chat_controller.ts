@@ -30,7 +30,7 @@ type CableEvent = ChatMessage | StatusEvent | ActivityEvent
 
 interface PollResponse {
   messages: ChatMessage[]
-  turn_status: string | null
+  turn_status: "running" | "failed" | null
   turn_error: string | null
   activity: string | null
 }
@@ -164,7 +164,6 @@ export default class AgentChatController extends Controller<HTMLElement> {
   // --- Event handlers (shared by both transports) ---
 
   private handleStatusEvent(data: StatusEvent): void {
-
     switch (data.status) {
       case "working":
         this.showIndicator("Thinking...")
@@ -182,12 +181,10 @@ export default class AgentChatController extends Controller<HTMLElement> {
   }
 
   private handleActivityEvent(data: ActivityEvent): void {
-
     this.showIndicator(data.text)
   }
 
   private handleAgentMessage(data: ChatMessage): void {
-
     this.removeIndicator()
     this.appendMessage(
       data.content || "",

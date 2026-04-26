@@ -47,6 +47,28 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
   end
 
+  test "index returns 404 for agent not owned by current user" do
+    other_user = create_user(email: "other-owner-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+
+    other_agent = create_ai_agent(parent: other_user, name: "Other Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_agent)
+    @collective.add_user!(other_agent)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_agent).handle
+
+    get "/ai-agents/#{other_handle}/chat"
+    assert_response :not_found
+  end
+
+  test "index rejects non-human users" do
+    # AI agent users can't establish a session — they get redirected to login,
+    # which is the first line of defense. require_human_user is defense-in-depth.
+    sign_in_as(@ai_agent, tenant: @tenant)
+    get "/ai-agents/#{@agent_handle}/chat"
+    assert_response :redirect
+  end
+
   # --- create ---
 
   test "create starts a new chat session and redirects to it" do
@@ -121,6 +143,19 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     assert_equal session.id, task_run.chat_session_id
   end
 
+  test "send_message returns 404 for other user's session" do
+    session = create_chat_session
+    other_user = create_user(email: "other-send-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    sign_in_as(other_user, tenant: @tenant)
+
+    assert_no_difference "AgentSessionStep.count" do
+      post "/ai-agents/#{@agent_handle}/chat/#{session.id}/message",
+        params: { message: "Injected message" }
+    end
+    assert_response :not_found
+  end
+
   test "send_message rejects empty message" do
     session = create_chat_session
 
@@ -190,6 +225,16 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, messages.length
     assert_equal "Hi there!", messages[0]["content"]
     assert_equal true, messages[0]["is_agent"]
+  end
+
+  test "poll_messages returns 404 for other user's session" do
+    session = create_chat_session
+    other_user = create_user(email: "other-poll-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    sign_in_as(other_user, tenant: @tenant)
+
+    get "/ai-agents/#{@agent_handle}/chat/#{session.id}/messages?after=#{1.minute.ago.iso8601}"
+    assert_response :not_found
   end
 
   test "poll_messages returns turn_status when a turn is running" do

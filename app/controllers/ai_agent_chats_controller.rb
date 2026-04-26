@@ -43,10 +43,13 @@ class AiAgentChatsController < ApplicationController
 
     # If a turn is already running, attach the message to it (queued for next turn).
     # Otherwise, create a new task run and dispatch it.
-    if turn_in_progress?
-      task_run = @chat_session.task_runs.where(status: %w[queued running]).order(created_at: :desc).first!
-      next_position = task_run.agent_session_steps.maximum(:position)&.+(1) || 0
-      task_run.agent_session_steps.create!(
+    # Use a single query instead of check-then-act to avoid TOCTOU race
+    # where a turn completes between the exists? check and the find.
+    active_run = @chat_session.task_runs.where(status: %w[queued running]).order(created_at: :desc).first
+
+    if active_run
+      next_position = active_run.agent_session_steps.maximum(:position)&.+(1) || 0
+      active_run.agent_session_steps.create!(
         position: next_position,
         step_type: "message",
         detail: { "content" => message_text },
@@ -139,10 +142,6 @@ class AiAgentChatsController < ApplicationController
     render status: :not_found, plain: "404 Not Found" unless @chat_session
   end
 
-  def turn_in_progress?
-    @chat_session.task_runs.where(status: %w[queued running]).exists?
-  end
-
   def create_chat_turn(message_text)
     AiAgentTaskRun.create!(
       tenant: current_tenant,
@@ -189,18 +188,25 @@ class AiAgentChatsController < ApplicationController
     session_ids = @chat_sessions.map(&:id)
     return @first_messages = {} if session_ids.empty?
 
-    # Single query: get all message steps for these sessions' task runs,
-    # then pick the earliest per session in Ruby.
-    task_runs_by_session = AiAgentTaskRun
+    # Get the earliest task run per session (the one containing the first message).
+    # Use MIN(created_at) since MIN(uuid) is not supported in PostgreSQL.
+    earliest_times = AiAgentTaskRun
       .where(chat_session_id: session_ids)
+      .group(:chat_session_id)
+      .minimum(:created_at)
+
+    return @first_messages = {} if earliest_times.empty?
+
+    first_runs = AiAgentTaskRun
+      .where(chat_session_id: earliest_times.keys)
+      .where(created_at: earliest_times.values)
       .pluck(:id, :chat_session_id)
-    run_to_session = task_runs_by_session.to_h { |run_id, session_id| [run_id, session_id] }
-    run_ids = run_to_session.keys
 
-    return @first_messages = {} if run_ids.empty?
+    run_to_session = first_runs.to_h { |run_id, session_id| [run_id, session_id] }
 
+    # Get only the first message step from each of those runs
     steps = AgentSessionStep
-      .where(ai_agent_task_run_id: run_ids, step_type: "message")
+      .where(ai_agent_task_run_id: run_to_session.keys, step_type: "message")
       .order(:created_at, :position)
 
     @first_messages = {}

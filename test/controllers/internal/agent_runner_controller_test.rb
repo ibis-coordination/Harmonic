@@ -175,7 +175,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "step broadcasts message steps via ActionCable for chat sessions" do
-    chat_session = with_tenant_scope do
+    with_tenant_scope do
       cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
       @task_run.update!(
         status: "running", started_at: Time.current,
@@ -842,7 +842,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     "/internal/agent-runner/chat/#{chat_session_id}/history"
   end
 
-  def with_tenant_scope(&block)
+  def with_tenant_scope
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     yield
   ensure

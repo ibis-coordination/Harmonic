@@ -103,7 +103,11 @@ Each human message triggers a **new short-lived task dispatch**. The conversatio
 | 6 | Navigation state persistence (`current_state` on ChatSession) | ✅ `fc78fd4` |
 | 7 | Remove "ended" session status — sessions are always resumable | ✅ `fc78fd4` |
 | 8 | Chat routes restructured: index + permalinks per session | ✅ `fc78fd4` |
-| 9 | Polish: in-progress turn visibility, busy-agent indicator, error states, remove `steps_data` | ✅ Built |
+| 9 | Polish: in-progress turn visibility, busy-agent indicator, error states, remove `steps_data` | ✅ `958f66e` |
+| 10 | Transport refactor: ActionCable primary, polling fallback only on disconnect | ✅ `5c93517` |
+| 11 | Fix dispatch-time errors broadcasting to chat UI | ✅ `0fdfbb6` |
+| 12 | Markdown rendering for agent messages | ✅ `a136375` |
+| 13 | Chat sidebar layout with session list, full-width chat area | ✅ `597366a` |
 
 ## Design decisions made during implementation
 
@@ -114,12 +118,15 @@ Each human message triggers a **new short-lived task dispatch**. The conversatio
 5. **`resource_model?` override** — `AiAgentChatsController` overrides `resource_model?` to return `false` because `AiAgentChat` model doesn't exist (it's `ChatSession`).
 6. **Auto-dispatch on completion** — when a chat turn completes, Rails checks for queued human messages and auto-dispatches the next turn. This handles the case where the human sends a follow-up while the agent is still working.
 7. **`ChatMessagePresenter`** — shared service object that formats chat messages for both ActionCable broadcasts and the polling endpoint (`GET /chat/messages?after=<timestamp>`). Ensures both delivery paths return identical data structures.
-8. **Polling fallback** — the Stimulus controller polls `GET /chat/:session_id/messages?after=<timestamp>` every 3 seconds after sending a message, as a fallback when ActionCable doesn't deliver. Standard degraded-transport pattern. Controlled by `waitingForResponse` flag — only polls when actively waiting for an agent response, stops when a new message arrives (via either ActionCable or poll).
+8. **ActionCable primary, polling fallback on disconnect** — ActionCable is the sole active transport. Polling only activates when the WebSocket connection drops (`disconnected` callback) and stops when it reconnects (`connected` callback). The `rejected` callback handles subscription rejection (e.g., tenant mismatch) by falling back to polling. The two transports never run simultaneously.
 9. **No "ended" session status** — sessions are always resumable. Users start new sessions for fresh context. The sliding window + summary strategy (future) handles unbounded history within a session.
 10. **Chat sessions have permalinks** — `/ai-agents/:handle/chat/:session_id`. The index at `/ai-agents/:handle/chat` lists all sessions. Task run pages link back to the specific session and message that triggered them.
 11. **Each agent can only run one task at a time** — the agent-runner's per-agent lock ensures this. When an agent is busy (in any session), new turns queue in the Redis Stream. The chat UI shows a warning when the agent is busy in another session with a link to the active task run.
-12. **Real-time turn visibility** — ActionCable broadcasts three event types: `status` (working/completed/error), `activity` (navigating to X, executing Y), and `message` (existing). The polling fallback also returns `turn_status`, `turn_error`, and `activity` fields.
+12. **Real-time turn visibility** — ActionCable broadcasts three event types: `status` (working/completed/error), `activity` (navigating to X, executing Y), and `message` (existing). Activity broadcasts are suppressed during setup (before the first think step) to hide `/whoami` and saved-path restoration. The polling fallback also returns `turn_status`, `turn_error`, and `activity` fields.
 13. **`steps_data` removed** — the JSONB column on `ai_agent_task_runs` was a transition artifact from when steps were stored inline. All step data now lives exclusively in `agent_session_steps` rows. The dual-write, sync-on-complete, and view fallback logic were all removed.
+14. **Dispatch-time errors broadcast to chat** — `AgentRunnerDispatchService#fail_task!` broadcasts error status to ActionCable so billing errors, suspended agents, etc. are visible in the chat UI without waiting for the agent-runner.
+15. **Markdown rendering** — Agent messages render through `MarkdownRenderer` (same sanitization as notes). The `ChatMessagePresenter` pre-renders HTML server-side so both the server-rendered partial and ActionCable delivery use identical sanitized output. Human messages remain escaped plain text.
+16. **Chat sidebar layout** — Custom sidebar with agent name, "New Chat" button, and session list with active state highlighting. Chat fills the full main area with the input fixed at the bottom. First messages pre-loaded in 2 queries to avoid N+1.
 
 ## Verification
 
@@ -130,3 +137,4 @@ Each human message triggers a **new short-lived task dispatch**. The conversatio
 | 5 | 48 controller tests + 3 presenter tests + 142 agent-runner tests, manual E2E chat | ✅ |
 | 6-8 | Navigation state persistence, route restructuring, no "ended" status — 114 Rails tests / 278 assertions, 142 agent-runner tests | ✅ |
 | 9 | In-progress turn visibility, busy-agent indicator, error states, remove `steps_data` — 81 Rails tests / 275 assertions, 142 agent-runner tests | ✅ |
+| 10-13 | Transport refactor (19 frontend tests), dispatch error broadcasts, markdown rendering, sidebar layout | ✅ |

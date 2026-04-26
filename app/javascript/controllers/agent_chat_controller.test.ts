@@ -7,6 +7,7 @@ import AgentChatController from "./agent_chat_controller"
 interface MockSubscription {
   connected?: () => void
   disconnected?: () => void
+  rejected?: () => void
   received?: (data: unknown) => void
   unsubscribe: ReturnType<typeof vi.fn>
 }
@@ -55,6 +56,10 @@ function simulateCableConnected() {
 
 function simulateCableDisconnected() {
   mockSubscription.disconnected?.()
+}
+
+function simulateCableRejected() {
+  mockSubscription.rejected?.()
 }
 
 function simulateCableReceived(data: unknown) {
@@ -201,27 +206,6 @@ describe("AgentChatController", () => {
   // --- Polling fallback ---
 
   describe("polling fallback", () => {
-    it("does not poll when ActionCable is connected", async () => {
-      const mockFetch = vi.fn()
-      vi.stubGlobal("fetch", mockFetch)
-
-      simulateCableConnected()
-
-      // Simulate sending a message (with cable connected, should not start polling)
-      const fetchWithCsrf = vi.fn().mockResolvedValue({ ok: true })
-      vi.stubGlobal("fetch", fetchWithCsrf)
-
-      // Advance timers — no poll should fire
-      await vi.advanceTimersByTimeAsync(10000)
-
-      // Only the message send fetch, not any poll fetches
-      // (fetchWithCsrf is used for sends, plain fetch for polls)
-      const pollCalls = fetchWithCsrf.mock.calls.filter(
-        (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("/messages?after="),
-      )
-      expect(pollCalls).toHaveLength(0)
-    })
-
     it("starts polling when ActionCable disconnects while waiting", async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -489,6 +473,72 @@ describe("AgentChatController", () => {
 
       expect(hasIndicator()).toBe(true)
       expect(indicatorText()).toBe("Thinking...")
+    })
+  })
+
+  // --- Rejected subscription ---
+
+  describe("rejected subscription", () => {
+    it("falls back to polling when subscription is rejected while waiting", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          messages: [],
+          turn_status: "failed",
+          turn_error: "Billing is not set up",
+          activity: null,
+        }),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      // Set waiting state before rejection
+      const controller = application.getControllerForElementAndIdentifier(
+        document.querySelector("[data-controller='agent-chat']")!,
+        "agent-chat",
+      ) as unknown as { waitingForResponse: boolean }
+      controller.waitingForResponse = true
+
+      simulateCableRejected()
+
+      await vi.advanceTimersByTimeAsync(3500)
+
+      const pollCalls = mockFetch.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("/messages?after="),
+      )
+      expect(pollCalls.length).toBeGreaterThan(0)
+    })
+  })
+
+  // --- Failed send ---
+
+  describe("failed send", () => {
+    it("marks message as failed when server returns error", async () => {
+      const { fetchWithCsrf } = await import("../utils/csrf")
+      vi.mocked(fetchWithCsrf).mockResolvedValueOnce({
+        ok: false,
+        statusText: "Unprocessable Entity",
+        text: () => Promise.resolve("Message cannot be empty"),
+      } as unknown as Response)
+
+      simulateCableConnected()
+      inputField().value = "Test message"
+
+      const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+      inputField().dispatchEvent(event)
+
+      await vi.waitFor(() => {
+        expect(messageTexts()).toContain("Test message")
+      })
+
+      // Wait for the fetch to resolve with error
+      await vi.advanceTimersByTimeAsync(0)
+      await Promise.resolve()
+      await Promise.resolve()
+
+      // Should show error on the message and remove indicator
+      expect(hasIndicator()).toBe(false)
+      const messageEl = document.querySelector("[data-chat-message]")!
+      expect(messageEl.textContent).toContain("Message cannot be empty")
     })
   })
 })
