@@ -24,8 +24,8 @@
 
 ## Execution Steps
 
-<% @task_run.steps_data.each_with_index do |step, index| -%>
-<% step = step.with_indifferent_access -%>
+<% @task_run.agent_session_steps.each_with_index do |step_record, index| -%>
+<% step = step_record.to_step_hash.with_indifferent_access -%>
 <% detail = step[:detail].is_a?(Hash) ? step[:detail].with_indifferent_access : {} -%>
 ### Step <%= index + 1 %>: <%= step[:type].upcase %>
 

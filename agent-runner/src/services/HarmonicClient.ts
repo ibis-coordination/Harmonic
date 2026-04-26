@@ -18,6 +18,8 @@
 
 import { Context, Effect, Layer } from "effect";
 import { HarmonicApiError } from "../errors/Errors.js";
+import { Config } from "../config/Config.js";
+import { buildHeaders } from "./HmacSigner.js";
 import { RailsHttp } from "./RailsHttp.js";
 
 export interface NavigateResult {
@@ -30,6 +32,21 @@ export interface ActionResult {
   readonly success: boolean;
 }
 
+export interface ChatHistoryMessage {
+  readonly content: string;
+  readonly sender_id?: string;
+  readonly sender_name?: string;
+  readonly role: "user" | "assistant" | "system";
+  readonly timestamp: string;
+}
+
+export interface ChatHistoryResponse {
+  readonly messages: readonly ChatHistoryMessage[];
+  readonly current_state: {
+    readonly current_path?: string;
+  };
+}
+
 export interface HarmonicClientService {
   readonly navigate: (path: string, token: string, subdomain: string) => Effect.Effect<NavigateResult, HarmonicApiError>;
   readonly executeAction: (
@@ -39,6 +56,7 @@ export interface HarmonicClientService {
     token: string,
     subdomain: string,
   ) => Effect.Effect<ActionResult, HarmonicApiError>;
+  readonly fetchChatHistory: (chatSessionId: string, subdomain: string) => Effect.Effect<ChatHistoryResponse, HarmonicApiError>;
 }
 
 export class HarmonicClient extends Context.Tag("HarmonicClient")<HarmonicClient, HarmonicClientService>() {}
@@ -94,6 +112,7 @@ export const HarmonicClientLive = Layer.effect(
   HarmonicClient,
   Effect.gen(function* () {
     const railsHttp = yield* RailsHttp;
+    const config = yield* Config;
 
     const navigate: HarmonicClientService["navigate"] = (path, token, subdomain) =>
       Effect.tryPromise({
@@ -155,6 +174,35 @@ export const HarmonicClientLive = Layer.effect(
           }),
       });
 
-    return { navigate, executeAction };
+    const fetchChatHistory: HarmonicClientService["fetchChatHistory"] = (chatSessionId, subdomain) => {
+      const path = `/internal/agent-runner/chat/${chatSessionId}/history`;
+      const hmacHeaders = buildHeaders("", config.agentRunnerSecret);
+
+      return Effect.tryPromise({
+        try: async () => {
+          const response = await railsHttp.request({
+            method: "GET",
+            subdomain,
+            path,
+            headers: { ...hmacHeaders },
+            timeoutMs: 10_000,
+          });
+
+          const text = await response.text();
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            throw new Error(`Chat history fetch failed: HTTP ${response.statusCode} - ${text.slice(0, 500)}`);
+          }
+          const data = JSON.parse(text) as ChatHistoryResponse;
+          return data;
+        },
+        catch: (error) =>
+          new HarmonicApiError({
+            message: error instanceof Error ? error.message : String(error),
+            path,
+          }),
+      });
+    };
+
+    return { navigate, executeAction, fetchChatHistory };
   }),
 );

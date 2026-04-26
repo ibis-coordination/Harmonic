@@ -22,9 +22,12 @@ import {
   buildInitialMessages,
   buildToolResultMessages,
   assistantMessage,
+  systemMessage,
+  userMessage,
   getToolDefinitions,
 } from "../core/PromptBuilder.js";
 import { parseToolCalls, validateAction } from "../core/ActionParser.js";
+import { RESPOND_TO_HUMAN_TOOL, buildChatSystemPrompt } from "../core/AgentContext.js";
 import { extractCanary, checkLeakage } from "../core/LeakageDetector.js";
 import {
   navigateStep,
@@ -104,7 +107,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     let lastActionResult: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
-    const tools = getToolDefinitions();
+    const isChatTurn = task.mode === "chat_turn";
+    const tools = isChatTurn
+      ? [...getToolDefinitions(), RESPOND_TO_HUMAN_TOOL]
+      : getToolDefinitions();
 
     // Helper to add a step and report it to Rails (matches Ruby add_step + persist_step)
     const addStep = (step: StepRecord) =>
@@ -204,16 +210,87 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         }
       });
 
-    // Step 4: Navigate to /whoami (matches Ruby: start by navigating to whoami)
-    const whoamiResult = yield* navigateTo("/whoami");
-    const leakageDetector = extractCanary(whoamiResult.content);
+    // Helper: report a chat message step to Rails (broadcasts via ActionCable)
+    const reportChatMessage = (message: string) =>
+      reporter.step(task.taskRunId, subdomain, [{
+        type: "message",
+        detail: { content: message },
+        timestamp: new Date().toISOString(),
+        sender_id: task.agentId,
+      } as unknown as StepRecord]).pipe(
+        Effect.catchAll((err) => {
+          log.error({ event: "chat_message_persist_failed", taskRunId: task.taskRunId, message: String(err) });
+          return Effect.void;
+        }),
+      );
 
-    // Extract scratchpad from identity page if present
-    const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
-    const scratchpad = scratchpadMatch?.[1]?.trim();
+    // Step 4: Build context and initial messages
+    let leakageDetector: ReturnType<typeof extractCanary>;
 
-    // Build initial messages
-    messages = buildInitialMessages(task, whoamiResult.content, scratchpad);
+    if (isChatTurn && task.chatSessionId !== undefined) {
+      // Chat mode: fetch history (includes current_state), restore navigation
+      const emptyResponse: import("./HarmonicClient.js").ChatHistoryResponse = {
+        messages: [],
+        current_state: {},
+      };
+      const historyResponse = yield* harmonic.fetchChatHistory(task.chatSessionId, subdomain).pipe(
+        Effect.catchAll((err) => {
+          log.error({ event: "chat_history_fetch_failed", taskRunId: task.taskRunId, message: String(err) });
+          return Effect.succeed(emptyResponse);
+        }),
+      );
+      const history = historyResponse.messages;
+      const savedPath = historyResponse.current_state.current_path;
+
+      // Always fetch /whoami for fresh identity content (scratchpad, prompt may change)
+      const whoamiResult = yield* navigateTo("/whoami");
+      leakageDetector = extractCanary(whoamiResult.content);
+
+      // Navigate to saved path if different from /whoami
+      if (savedPath && savedPath !== "/whoami") {
+        yield* navigateTo(savedPath);
+      }
+
+      const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
+      const scratchpad = scratchpadMatch?.[1]?.trim();
+
+      // Compute time since last message
+      let timeSinceLastMessage: string | undefined;
+      if (history.length > 0) {
+        const lastTimestamp = history[history.length - 1]?.timestamp;
+        if (lastTimestamp) {
+          const elapsed = Date.now() - new Date(lastTimestamp).getTime();
+          if (elapsed > 24 * 60 * 60 * 1000) timeSinceLastMessage = `${Math.round(elapsed / (24 * 60 * 60 * 1000))} days`;
+          else if (elapsed > 60 * 60 * 1000) timeSinceLastMessage = `${Math.round(elapsed / (60 * 60 * 1000))} hours`;
+          else if (elapsed > 5 * 60 * 1000) timeSinceLastMessage = `${Math.round(elapsed / (60 * 1000))} minutes`;
+        }
+      }
+
+      const chatSystemPrompt = buildChatSystemPrompt(whoamiResult.content, scratchpad, timeSinceLastMessage);
+      const chatMessages: Message[] = [systemMessage(chatSystemPrompt)];
+
+      for (const msg of history) {
+        if (msg.role === "user") {
+          chatMessages.push(userMessage(msg.content));
+        } else if (msg.role === "assistant") {
+          chatMessages.push(assistantMessage(msg.content, undefined));
+        } else if (msg.role === "system") {
+          chatMessages.push(userMessage(msg.content));
+        }
+      }
+
+      chatMessages.push(userMessage(task.task));
+      messages = chatMessages;
+    } else {
+      // Task mode: always start at /whoami
+      const whoamiResult = yield* navigateTo("/whoami");
+      leakageDetector = extractCanary(whoamiResult.content);
+
+      const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
+      const scratchpad = scratchpadMatch?.[1]?.trim();
+
+      messages = buildInitialMessages(task, whoamiResult.content, scratchpad);
+    }
 
     // Step 5: Main agent loop
     // Ruby checks `break if @steps.count >= max_steps` BEFORE think()
@@ -291,7 +368,13 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         // If no tool calls (done), handle it
         if (actions.length === 1 && actions[0]?.type === "done") {
           finalMessage = actions[0].content;
-          yield* addStep(doneStep({ message: finalMessage }, new Date()));
+          // In chat mode, report the response as a message step so it gets broadcast
+          if (isChatTurn && finalMessage !== "") {
+            yield* reportChatMessage(finalMessage);
+            yield* addStep(doneStep({ message: "Chat turn complete" }, new Date()));
+          } else {
+            yield* addStep(doneStep({ message: finalMessage }, new Date()));
+          }
           taskOutcome = "completed";
           break;
         }
@@ -322,6 +405,15 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
               finalMessage = action.message;
               taskOutcome = "error";
               toolResults.push(`Error: ${action.message}`);
+              taskDone = true;
+              break;
+            }
+            case "respond_to_human": {
+              yield* reportChatMessage(action.message);
+              finalMessage = action.message;
+              yield* addStep(doneStep({ message: "Chat turn complete" }, new Date()));
+              taskOutcome = "completed";
+              toolResults.push("Message sent to human. Turn complete.");
               taskDone = true;
               break;
             }
@@ -394,10 +486,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       success,
       finalMessage,
       error: errorMsg,
-      stepsData: steps,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
       totalTokens: totalInputTokens + totalOutputTokens,
+      currentState: isChatTurn ? { current_path: currentPath ?? undefined } : undefined,
     });
 
     return { outcome: success ? "completed" : wasCancelled ? "cancelled" : "failed" } as TaskOutcome;

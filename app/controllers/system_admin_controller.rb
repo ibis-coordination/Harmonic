@@ -162,6 +162,7 @@ class SystemAdminController < ApplicationController
   def show_task_run
     @page_title = "Task Run"
     @task_run = AiAgentTaskRun.unscoped_for_admin(@current_user).find(params[:id])
+    @task_run.agent_session_steps.load
 
     respond_to do |format|
       format.html

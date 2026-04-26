@@ -197,19 +197,23 @@ class AiAgentsController < ApplicationController
         @created_resources = @task_run.ai_agent_task_run_resources
           .includes(:resource_collective)
           .order(:created_at)
+        @task_run.agent_session_steps.load # eager load for the timeline partial
         @page_title = "Task Run - #{@ai_agent.display_name}"
       end
       format.md do
         @created_resources = @task_run.ai_agent_task_run_resources
           .includes(:resource_collective)
           .order(:created_at)
+        @task_run.agent_session_steps.load # eager load for the timeline partial
         @page_title = "Task Run - #{@ai_agent.display_name}"
       end
       format.json do
+        steps = @task_run.agent_session_steps.map(&:to_step_hash)
+
         render json: {
           status: @task_run.status,
-          steps_count: @task_run.steps_count,
-          steps: @task_run.steps_data,
+          steps_count: steps.length,
+          steps: steps,
           final_message: @task_run.final_message,
           error: @task_run.error,
         }

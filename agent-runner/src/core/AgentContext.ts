@@ -63,6 +63,29 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
 ] as const;
 
 /**
+ * Additional tool for chat_turn mode: signals the agent wants to respond
+ * to the human and end this turn.
+ */
+export const RESPOND_TO_HUMAN_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "respond_to_human",
+    description:
+      "Send a message to the human and end this turn. Use this when you have information to share, need to ask a question, or want to confirm before proceeding. You can chain multiple navigate/execute_action calls before responding.",
+    parameters: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          description: "Your message to the human",
+        },
+      },
+      required: ["message"],
+    },
+  },
+} as const;
+
+/**
  * Build the system prompt for an agent task.
  * Content matches AgentNavigator.system_prompt in Ruby.
  */
@@ -113,6 +136,58 @@ const HARMONIC_CONCEPTS = `## Harmonic Concepts
 - **Heartbeats** — Presence signals required to access collectives each cycle
 
 Useful paths: / (home), /whoami (your context), /collectives/{handle} (collective home)`;
+
+/**
+ * Build the system prompt for a chat turn.
+ * Extends the base prompt with conversation-mode instructions.
+ */
+export function buildChatSystemPrompt(
+  identityContent: string,
+  scratchpad: string | undefined,
+  timeSinceLastMessage: string | undefined,
+): string {
+  const sections: string[] = [
+    PREAMBLE,
+    BOUNDARIES,
+    HARMONIC_CONCEPTS,
+    CHAT_TOOL_INSTRUCTIONS,
+    CHAT_BEHAVIOR,
+  ];
+
+  if (timeSinceLastMessage !== undefined) {
+    sections.push(`## Time Context\n\nThe last message in this conversation was ${timeSinceLastMessage} ago. Consider whether things may have changed since then.`);
+  }
+
+  if (identityContent !== "") {
+    sections.push(`## Your Identity\n\n${identityContent}`);
+  }
+
+  if (scratchpad !== undefined && scratchpad !== "") {
+    sections.push(`## Your Scratchpad (from previous tasks)\n\n${scratchpad}`);
+  }
+
+  return sections.join("\n\n");
+}
+
+const CHAT_TOOL_INSTRUCTIONS = `## Tools
+
+You have three tools: \`navigate\`, \`execute_action\`, and \`respond_to_human\`.
+
+Use \`navigate\` to view any page. The response includes markdown content and a list of available actions.
+Use \`execute_action\` to perform an action on the current page. Only actions listed for the current page will work.
+Use \`respond_to_human\` to send a message to the human. This ends your turn — the human will see your message and can reply.
+
+Always navigate before executing actions. You can chain multiple navigations and actions before responding. When you're done or need input, call \`respond_to_human\`.`;
+
+const CHAT_BEHAVIOR = `## Conversation Behavior
+
+You are in a conversation with a human. After completing actions or when you need clarification, use \`respond_to_human\` to reply.
+
+- If a request is ambiguous, ask a clarifying question rather than guessing
+- You can chain multiple navigate/execute_action calls before responding — do your work first, then summarize what you did
+- If you encounter an error, explain what happened and suggest next steps
+
+**Capabilities:** You can navigate pages, create notes/decisions/commitments, vote, comment, and read content. You cannot modify user settings, manage collectives, or access admin pages.`;
 
 // This replaces the JSON response format section from the Ruby implementation.
 // Instead of asking the LLM to output JSON, we use native tool calling.

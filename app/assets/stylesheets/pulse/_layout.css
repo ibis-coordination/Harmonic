@@ -18,6 +18,11 @@
   background: var(--color-canvas-default);
 }
 
+/* Chat sidebar: main content fills edge-to-edge */
+.pulse-sidebar[data-mode="chat"] ~ .pulse-main {
+  padding: 0;
+}
+
 /* Sidebar variants via data attribute */
 .pulse-sidebar[data-mode="minimal"] {
   /* Hide collective-specific sections in minimal mode */

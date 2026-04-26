@@ -49,10 +49,10 @@ export interface TaskResult {
   readonly success: boolean;
   readonly finalMessage: string | undefined;
   readonly error: string | undefined;
-  readonly stepsData: readonly StepRecord[];
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly totalTokens: number;
+  readonly currentState?: Record<string, unknown> | undefined;
 }
 
 export interface TaskReporterService {
@@ -137,11 +137,10 @@ export const TaskReporterLive = Layer.effect(
           success: result.success,
           final_message: result.finalMessage,
           error: result.error,
-          steps_data: result.stepsData,
-          steps_count: result.stepsData.length,
           input_tokens: result.inputTokens,
           output_tokens: result.outputTokens,
           total_tokens: result.totalTokens,
+          current_state: result.currentState,
         }),
       ).pipe(Effect.asVoid);
 

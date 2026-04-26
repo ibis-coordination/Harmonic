@@ -7,6 +7,7 @@ import type { ToolCall } from "./PromptBuilder.js";
 export type AgentAction =
   | { readonly type: "navigate"; readonly path: string }
   | { readonly type: "execute_action"; readonly action: string; readonly params: Record<string, unknown> | undefined }
+  | { readonly type: "respond_to_human"; readonly message: string }
   | { readonly type: "done"; readonly content: string }
   | { readonly type: "error"; readonly message: string };
 
@@ -52,6 +53,13 @@ function parseToolCall(toolCall: ToolCall): AgentAction {
         ? args["params"] as Record<string, unknown>
         : undefined;
       return { type: "execute_action", action, params };
+    }
+    case "respond_to_human": {
+      const message = args["message"];
+      if (typeof message !== "string" || message === "") {
+        return { type: "error", message: "respond_to_human requires a non-empty 'message' string" };
+      }
+      return { type: "respond_to_human", message };
     }
     default:
       return { type: "error", message: `Unknown tool: ${name}` };

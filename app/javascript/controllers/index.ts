@@ -42,6 +42,7 @@ import PulseFilterController from "./pulse_filter_controller"
 import RecoveryCodesController from "./recovery_codes_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
 import SecretRevealController from "./secret_reveal_controller"
+import AgentChatController from "./agent_chat_controller"
 import AiAgentManagerController from "./ai_agent_manager_controller"
 import AiAgentModeController from "./ai_agent_mode_controller"
 import AiAgentCollectiveAdderController from "./ai_agent_collective_adder_controller"
@@ -87,6 +88,7 @@ application.register("pulse-filter", PulseFilterController)
 application.register("recovery-codes", RecoveryCodesController)
 application.register("scratchpad-links", ScratchpadLinksController)
 application.register("secret-reveal", SecretRevealController)
+application.register("agent-chat", AgentChatController)
 application.register("ai_agent-manager", AiAgentManagerController)
 application.register("ai_agent-mode", AiAgentModeController)
 application.register("ai_agent-collective-adder", AiAgentCollectiveAdderController)

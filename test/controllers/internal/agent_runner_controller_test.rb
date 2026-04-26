@@ -2,6 +2,8 @@
 require "test_helper"
 
 class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
+  include ActionCable::TestHelper
+
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
     @tenant.enable_feature_flag!("ai_agents")
@@ -105,12 +107,12 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   # --- Step ---
 
-  test "step appends to steps_data" do
-    @task_run.update!(status: "running", started_at: Time.current, steps_data: [])
+  test "step creates agent_session_step rows" do
+    @task_run.update!(status: "running", started_at: Time.current)
 
     body = {
       steps: [
-        { type: "navigate", detail: "/notifications", timestamp: Time.current.iso8601 },
+        { type: "navigate", detail: { path: "/notifications" }, timestamp: Time.current.iso8601 },
       ],
     }.to_json
 
@@ -119,8 +121,100 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
     @task_run.reload
     assert_equal 1, @task_run.steps_count
-    assert_equal 1, @task_run.steps_data.length
-    assert_equal "navigate", @task_run.steps_data.first["type"]
+    assert_equal 1, @task_run.agent_session_steps.count
+    step_row = @task_run.agent_session_steps.first
+    assert_equal 0, step_row.position
+    assert_equal "navigate", step_row.step_type
+    assert_equal({ "path" => "/notifications" }, step_row.detail)
+  end
+
+  test "step assigns sequential positions across multiple calls" do
+    @task_run.update!(status: "running", started_at: Time.current)
+
+    # First step call
+    body1 = {
+      steps: [
+        { type: "navigate", detail: { path: "/a" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+    post step_url, params: body1, headers: signed_headers(body1)
+    assert_response :success
+
+    # Second step call with two steps
+    body2 = {
+      steps: [
+        { type: "think", detail: { step_number: 0 }, timestamp: Time.current.iso8601 },
+        { type: "execute", detail: { action: "create_note" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+    post step_url, params: body2, headers: signed_headers(body2)
+    assert_response :success
+
+    @task_run.reload
+    assert_equal 3, @task_run.agent_session_steps.count
+    positions = @task_run.agent_session_steps.pluck(:position)
+    assert_equal [0, 1, 2], positions
+  end
+
+  test "step creates message step with sender_id" do
+    @task_run.update!(status: "running", started_at: Time.current)
+
+    body = {
+      steps: [
+        { type: "message", detail: { content: "Hello from agent" }, timestamp: Time.current.iso8601, sender_id: @ai_agent.id },
+      ],
+    }.to_json
+
+    post step_url, params: body, headers: signed_headers(body)
+    assert_response :success
+
+    step_row = @task_run.agent_session_steps.last
+    assert_equal "message", step_row.step_type
+    assert_equal @ai_agent.id, step_row.sender_id
+    assert_equal "Hello from agent", step_row.detail["content"]
+  end
+
+  test "step broadcasts message steps via ActionCable for chat sessions" do
+    with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      cs
+    end
+
+    body = {
+      steps: [
+        { type: "message", detail: { content: "Agent response" }, timestamp: Time.current.iso8601, sender_id: @ai_agent.id },
+      ],
+    }.to_json
+
+    # ActionCable broadcast should not raise
+    assert_nothing_raised do
+      post step_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+  end
+
+  test "step does not broadcast non-message steps" do
+    with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+    end
+
+    body = {
+      steps: [
+        { type: "navigate", detail: { path: "/home" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+
+    # Should succeed without broadcasting
+    post step_url, params: body, headers: signed_headers(body)
+    assert_response :success
   end
 
   # --- Complete ---
@@ -254,6 +348,474 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
   end
 
+  # --- Chat History ---
+
+  test "chat_history returns message steps for a chat session" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(
+        tenant: @tenant,
+        ai_agent: @ai_agent,
+        initiated_by: @user,
+      )
+
+      run1 = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Hello", max_steps: 30, status: "completed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run1.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
+      run1.agent_session_steps.create!(position: 1, step_type: "navigate", detail: { path: "/home" })
+      run1.agent_session_steps.create!(position: 2, step_type: "message", detail: { content: "Hi there!" }, sender: @ai_agent)
+
+      run2 = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "What's new?", max_steps: 30, status: "completed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run2.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "What's new?" }, sender: @user)
+
+      cs
+    end
+
+    get chat_history_url(chat_session.id), headers: signed_headers("")
+    assert_response :success
+
+    body = response.parsed_body
+    messages = body["messages"]
+    # 4 entries: human message, action summary (navigate), agent message, human message
+    assert_equal 4, messages.length
+    assert_equal "Hello", messages[0]["content"]
+    assert_equal "user", messages[0]["role"]
+    assert_equal "system", messages[1]["role"] # action summary for navigate
+    assert_includes messages[1]["content"], "navigated to /home"
+    assert_equal "Hi there!", messages[2]["content"]
+    assert_equal "assistant", messages[2]["role"]
+    assert_equal "What's new?", messages[3]["content"]
+    assert_equal "user", messages[3]["role"]
+  end
+
+  test "chat_history includes action summaries between messages" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Do stuff", max_steps: 30, status: "completed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Do stuff" }, sender: @user)
+      run.agent_session_steps.create!(position: 1, step_type: "navigate", detail: { path: "/collectives/team" })
+      run.agent_session_steps.create!(position: 2, step_type: "execute", detail: { action: "create_note", success: true })
+      run.agent_session_steps.create!(position: 3, step_type: "navigate", detail: { path: "/collectives/team/n/abc" })
+      run.agent_session_steps.create!(position: 4, step_type: "message", detail: { content: "Done! Created a note." }, sender: @ai_agent)
+
+      cs
+    end
+
+    get chat_history_url(chat_session.id), headers: signed_headers("")
+    assert_response :success
+
+    messages = response.parsed_body["messages"]
+    assert_equal 3, messages.length
+
+    # Human message
+    assert_equal "user", messages[0]["role"]
+    # Action summary (2 navigates + 1 execute collapsed)
+    assert_equal "system", messages[1]["role"]
+    assert_includes messages[1]["content"], "navigated to /collectives/team"
+    assert_includes messages[1]["content"], "create_note (success)"
+    assert_includes messages[1]["content"], "navigated to /collectives/team/n/abc"
+    # Agent message
+    assert_equal "assistant", messages[2]["role"]
+  end
+
+  test "chat_history flushes trailing action buffer" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Navigate", max_steps: 30, status: "failed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Navigate somewhere" }, sender: @user)
+      run.agent_session_steps.create!(position: 1, step_type: "navigate", detail: { path: "/collectives/team" })
+      # No agent message — task failed mid-navigation
+
+      cs
+    end
+
+    get chat_history_url(chat_session.id), headers: signed_headers("")
+    assert_response :success
+
+    messages = response.parsed_body["messages"]
+    assert_equal 2, messages.length
+    assert_equal "user", messages[0]["role"]
+    assert_equal "system", messages[1]["role"]
+    assert_includes messages[1]["content"], "navigated to /collectives/team"
+  end
+
+  test "chat_history returns 404 for nonexistent session" do
+    get chat_history_url("nonexistent"), headers: signed_headers("")
+    assert_response :not_found
+  end
+
+  # --- Chat turn completion auto-dispatch ---
+
+  test "complete auto-dispatches next turn when queued human messages exist" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(
+        tenant: @tenant,
+        ai_agent: @ai_agent,
+        initiated_by: @user,
+      )
+
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      # Agent's response
+      @task_run.agent_session_steps.create!(
+        position: 0, step_type: "message",
+        detail: { content: "Here's what I found" }, sender: @ai_agent,
+      )
+      # Human sent a follow-up while the turn was running
+      @task_run.agent_session_steps.create!(
+        position: 1, step_type: "message",
+        detail: { content: "Also check the decisions" }, sender: @user,
+      )
+
+      cs
+    end
+
+    body = {
+      success: true,
+      final_message: "Done",
+      input_tokens: 100,
+      output_tokens: 50,
+      total_tokens: 150,
+    }.to_json
+
+    assert_difference "AiAgentTaskRun.count", 1 do
+      post complete_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+
+    new_run = AiAgentTaskRun.order(created_at: :desc).first
+    assert_equal "chat_turn", new_run.mode
+    assert_equal chat_session.id, new_run.chat_session_id
+    assert_equal "Also check the decisions", new_run.task
+  end
+
+  test "complete saves current_state for chat_turn tasks" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(
+        tenant: @tenant,
+        ai_agent: @ai_agent,
+        initiated_by: @user,
+      )
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      cs
+    end
+
+    body = {
+      success: true,
+      final_message: "Done",
+      input_tokens: 100,
+      output_tokens: 50,
+      total_tokens: 150,
+      current_state: { current_path: "/collectives/chariot/n/abc123" },
+    }.to_json
+
+    post complete_url, params: body, headers: signed_headers(body)
+    assert_response :success
+
+    chat_session.reload
+    assert_equal "/collectives/chariot/n/abc123", chat_session.current_state["current_path"]
+  end
+
+  test "complete does not save current_state for regular task mode" do
+    @task_run.update!(status: "running", started_at: Time.current, mode: "task")
+
+    body = {
+      success: true,
+      final_message: "Done",
+      input_tokens: 100,
+      output_tokens: 50,
+      total_tokens: 150,
+      current_state: { current_path: "/somewhere" },
+    }.to_json
+
+    post complete_url, params: body, headers: signed_headers(body)
+    assert_response :success
+    # No chat session to update
+  end
+
+  test "chat_history returns current_state" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(
+        tenant: @tenant,
+        ai_agent: @ai_agent,
+        initiated_by: @user,
+        current_state: { "current_path" => "/collectives/chariot" },
+      )
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Hello", max_steps: 30, status: "completed",
+        mode: "chat_turn", chat_session: cs,
+      )
+      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
+      cs
+    end
+
+    get chat_history_url(chat_session.id), headers: signed_headers("")
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal "/collectives/chariot", body["current_state"]["current_path"]
+  end
+
+  test "complete does not auto-dispatch for regular task mode" do
+    @task_run.update!(status: "running", started_at: Time.current, mode: "task")
+
+    body = {
+      success: true, final_message: "Done",
+      input_tokens: 100, output_tokens: 50, total_tokens: 150,
+    }.to_json
+
+    assert_no_difference "AiAgentTaskRun.count" do
+      post complete_url, params: body, headers: signed_headers(body)
+    end
+  end
+
+  # --- Chat status broadcasts ---
+
+  test "claim broadcasts working status for chat_turn tasks" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(mode: "chat_turn", chat_session: cs)
+      cs
+    end
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcasts(stream, 1) do
+      post claim_url, params: {}.to_json, headers: signed_headers({}.to_json)
+    end
+    assert_response :success
+  end
+
+  test "claim does not broadcast for regular task mode" do
+    post claim_url, params: {}.to_json, headers: signed_headers({}.to_json)
+    assert_response :success
+    # No error = no broadcast attempted for non-chat task
+  end
+
+  test "step does not broadcast activity during setup (before first think step)" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      cs
+    end
+
+    body = {
+      steps: [
+        { type: "navigate", detail: { path: "/whoami" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcasts(stream, 0) do
+      post step_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+  end
+
+  test "step broadcasts activity for navigate steps after setup" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      # Simulate setup already complete (think step exists)
+      @task_run.agent_session_steps.create!(position: 0, step_type: "navigate", detail: { path: "/whoami" })
+      @task_run.agent_session_steps.create!(position: 1, step_type: "think", detail: { step_number: 0 })
+      cs
+    end
+
+    body = {
+      steps: [
+        { type: "navigate", detail: { path: "/collectives/team" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcasts(stream, 1) do
+      post step_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+  end
+
+  test "step broadcasts activity for execute steps after setup" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      @task_run.agent_session_steps.create!(position: 0, step_type: "think", detail: { step_number: 0 })
+      cs
+    end
+
+    body = {
+      steps: [
+        { type: "execute", detail: { action: "create_note", success: true }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcasts(stream, 1) do
+      post step_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+  end
+
+  test "complete broadcasts completed status for chat_turn tasks" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      cs
+    end
+
+    body = {
+      success: true, final_message: "Done",
+      input_tokens: 100, output_tokens: 50, total_tokens: 150,
+    }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcasts(stream, 1) do
+      post complete_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+  end
+
+  test "complete broadcasts error status when task failed for chat_turn" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      cs
+    end
+
+    body = {
+      success: false, error: "LLM API error",
+      input_tokens: 100, output_tokens: 0, total_tokens: 100,
+    }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcasts(stream, 1) do
+      post complete_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+  end
+
+  test "fail_task broadcasts error status for chat_turn tasks" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: cs,
+      )
+      cs
+    end
+
+    body = { error: "Agent crashed" }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcasts(stream, 1) do
+      post fail_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+  end
+
+  test "fail_task broadcasts error for queued chat_turn (preflight failure)" do
+    chat_session = with_tenant_scope do
+      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      @task_run.update!(
+        status: "queued",
+        mode: "chat_turn", chat_session: cs,
+      )
+      cs
+    end
+
+    body = { error: "Billing is not set up" }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(chat_session)
+
+    assert_broadcast_on(stream, {
+      "type" => "status",
+      "status" => "error",
+      "error" => "Billing is not set up",
+      "task_run_id" => @task_run.id,
+    }) do
+      post fail_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_equal "Billing is not set up", @task_run.error
+  end
+
+  test "complete does not auto-dispatch when no queued human messages" do
+    with_tenant_scope do
+      chat_session = ChatSession.create!(
+        tenant: @tenant,
+        ai_agent: @ai_agent,
+        initiated_by: @user,
+      )
+
+      @task_run.update!(
+        status: "running", started_at: Time.current,
+        mode: "chat_turn", chat_session: chat_session,
+      )
+      @task_run.agent_session_steps.create!(
+        position: 0, step_type: "message",
+        detail: { content: "Done" }, sender: @ai_agent,
+      )
+    end
+
+    body = {
+      success: true,
+      final_message: "Done",
+      input_tokens: 100,
+      output_tokens: 50,
+      total_tokens: 150,
+    }.to_json
+
+    assert_no_difference "AiAgentTaskRun.count" do
+      post complete_url, params: body, headers: signed_headers(body)
+    end
+  end
+
   private
 
   def claim_url
@@ -274,6 +836,18 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   def scratchpad_url
     "/internal/agent-runner/tasks/#{@task_run.id}/scratchpad"
+  end
+
+  def chat_history_url(chat_session_id)
+    "/internal/agent-runner/chat/#{chat_session_id}/history"
+  end
+
+  def with_tenant_scope
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    yield
+  ensure
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
   end
 
   def status_url

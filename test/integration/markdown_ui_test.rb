@@ -1634,7 +1634,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       user_type: "ai_agent",
       parent_id: @user.id,
     )
-    ai_agent_tu = @tenant.add_user!(ai_agent)
+    @tenant.add_user!(ai_agent)
     # NOT adding admin role to ai_agent
     token = ApiToken.create!(
       user: ai_agent,
@@ -2321,26 +2321,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       success: true,
       final_message: "Task completed successfully",
       steps_count: 2,
-      steps_data: [
-        {
-          type: "think",
-          timestamp: Time.current.iso8601,
-          detail: {
-            step_number: 0,
-            response_preview: think_response_with_json,
-          },
-        },
-        {
-          type: "done",
-          timestamp: Time.current.iso8601,
-          detail: {
-            message: "Task completed successfully",
-          },
-        },
-      ],
       started_at: 1.minute.ago,
       completed_at: Time.current,
     )
+    task_run.agent_session_steps.create!(position: 0, step_type: "think",
+      detail: { "step_number" => 0, "response_preview" => think_response_with_json })
+    task_run.agent_session_steps.create!(position: 1, step_type: "done",
+      detail: { "message" => "Task completed successfully" })
 
     get "/ai-agents/#{ai_agent.handle}/runs/#{task_run.id}", headers: @headers
     assert_equal 200, response.status

@@ -91,6 +91,22 @@ CREATE TABLE public.active_storage_variant_records (
 
 
 --
+-- Name: agent_session_steps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.agent_session_steps (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    ai_agent_task_run_id uuid NOT NULL,
+    "position" integer NOT NULL,
+    step_type character varying NOT NULL,
+    sender_id uuid,
+    detail jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    tenant_id uuid NOT NULL
+);
+
+
+--
 -- Name: ai_agent_task_run_resources; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -124,7 +140,6 @@ CREATE TABLE public.ai_agent_task_runs (
     final_message text,
     error text,
     steps_count integer DEFAULT 0,
-    steps_data jsonb DEFAULT '[]'::jsonb,
     started_at timestamp(6) without time zone,
     completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
@@ -135,7 +150,9 @@ CREATE TABLE public.ai_agent_task_runs (
     total_tokens integer DEFAULT 0,
     estimated_cost_usd numeric(10,6),
     automation_rule_id uuid,
-    stripe_customer_id uuid
+    stripe_customer_id uuid,
+    mode character varying DEFAULT 'task'::character varying NOT NULL,
+    chat_session_id uuid
 );
 
 
@@ -266,6 +283,21 @@ CREATE TABLE public.automation_rules (
     updated_at timestamp(6) without time zone NOT NULL,
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
     updated_by_id uuid
+);
+
+
+--
+-- Name: chat_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.chat_sessions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    ai_agent_id uuid NOT NULL,
+    initiated_by_id uuid NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    current_state jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 
@@ -2180,6 +2212,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 
 --
+-- Name: agent_session_steps agent_session_steps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT agent_session_steps_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: api_tokens api_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2233,6 +2273,14 @@ ALTER TABLE ONLY public.automation_rule_runs
 
 ALTER TABLE ONLY public.automation_rules
     ADD CONSTRAINT automation_rules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: chat_sessions chat_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_sessions
+    ADD CONSTRAINT chat_sessions_pkey PRIMARY KEY (id);
 
 
 --
@@ -2965,6 +3013,27 @@ CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON public.ac
 
 
 --
+-- Name: index_agent_session_steps_on_ai_agent_task_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_session_steps_on_ai_agent_task_run_id ON public.agent_session_steps USING btree (ai_agent_task_run_id);
+
+
+--
+-- Name: index_agent_session_steps_on_ai_agent_task_run_id_and_position; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_agent_session_steps_on_ai_agent_task_run_id_and_position ON public.agent_session_steps USING btree (ai_agent_task_run_id, "position");
+
+
+--
+-- Name: index_agent_session_steps_on_sender_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_session_steps_on_sender_id ON public.agent_session_steps USING btree (sender_id);
+
+
+--
 -- Name: index_ai_agent_task_run_resources_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2990,6 +3059,13 @@ CREATE INDEX index_ai_agent_task_runs_on_ai_agent_id_and_created_at ON public.ai
 --
 
 CREATE INDEX index_ai_agent_task_runs_on_automation_rule_id ON public.ai_agent_task_runs USING btree (automation_rule_id);
+
+
+--
+-- Name: index_ai_agent_task_runs_on_chat_session_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_ai_agent_task_runs_on_chat_session_id ON public.ai_agent_task_runs USING btree (chat_session_id);
 
 
 --
@@ -3277,6 +3353,27 @@ CREATE INDEX index_automation_run_resources_on_resource ON public.automation_rul
 --
 
 CREATE INDEX index_automation_run_resources_on_tenant_and_resource ON public.automation_rule_run_resources USING btree (tenant_id, resource_type, resource_id);
+
+
+--
+-- Name: index_chat_sessions_on_ai_agent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_chat_sessions_on_ai_agent_id ON public.chat_sessions USING btree (ai_agent_id);
+
+
+--
+-- Name: index_chat_sessions_on_initiated_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_chat_sessions_on_initiated_by_id ON public.chat_sessions USING btree (initiated_by_id);
+
+
+--
+-- Name: index_chat_sessions_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_chat_sessions_on_tenant_id ON public.chat_sessions USING btree (tenant_id);
 
 
 --
@@ -7880,6 +7977,14 @@ ALTER TABLE ONLY public.votes
 
 
 --
+-- Name: agent_session_steps fk_rails_1063c3ae76; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT fk_rails_1063c3ae76 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: options fk_rails_129a008786; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8064,6 +8169,14 @@ ALTER TABLE ONLY public.commitment_participants
 
 
 --
+-- Name: ai_agent_task_runs fk_rails_441667f34c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_agent_task_runs
+    ADD CONSTRAINT fk_rails_441667f34c FOREIGN KEY (chat_session_id) REFERENCES public.chat_sessions(id);
+
+
+--
 -- Name: automation_rule_runs fk_rails_489983b9e8; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8208,6 +8321,14 @@ ALTER TABLE ONLY public.notes
 
 
 --
+-- Name: chat_sessions fk_rails_6f2fcf3e6f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_sessions
+    ADD CONSTRAINT fk_rails_6f2fcf3e6f FOREIGN KEY (initiated_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: notifications fk_rails_78f4b5a537; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8293,6 +8414,14 @@ ALTER TABLE ONLY public.representation_session_events
 
 ALTER TABLE ONLY public.automation_rule_runs
     ADD CONSTRAINT fk_rails_8dea201cdb FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: agent_session_steps fk_rails_8ff9d34dd4; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT fk_rails_8ff9d34dd4 FOREIGN KEY (sender_id) REFERENCES public.users(id);
 
 
 --
@@ -8389,6 +8518,14 @@ ALTER TABLE ONLY public.attachments
 
 ALTER TABLE ONLY public.notification_recipients
     ADD CONSTRAINT fk_rails_a8704dfb21 FOREIGN KEY (notification_id) REFERENCES public.notifications(id);
+
+
+--
+-- Name: chat_sessions fk_rails_a931f5e48c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_sessions
+    ADD CONSTRAINT fk_rails_a931f5e48c FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8552,6 +8689,14 @@ ALTER TABLE ONLY public.user_blocks
 
 
 --
+-- Name: chat_sessions fk_rails_d915015e52; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_sessions
+    ADD CONSTRAINT fk_rails_d915015e52 FOREIGN KEY (ai_agent_id) REFERENCES public.users(id);
+
+
+--
 -- Name: representation_sessions fk_rails_d99c283120; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8704,6 +8849,14 @@ ALTER TABLE ONLY public.decision_participants
 
 
 --
+-- Name: agent_session_steps fk_rails_fa323452dc; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT fk_rails_fa323452dc FOREIGN KEY (ai_agent_task_run_id) REFERENCES public.ai_agent_task_runs(id);
+
+
+--
 -- Name: collectives fk_rails_fbb5f3e2b8; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8750,6 +8903,15 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260424210631'),
+('20260424192439'),
+('20260424164824'),
+('20260424042036'),
+('20260424035014'),
+('20260424035013'),
+('20260424032435'),
+('20260424023730'),
+('20260424023356'),
 ('20260423034320'),
 ('20260422205804'),
 ('20260421012815'),

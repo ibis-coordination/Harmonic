@@ -34,6 +34,16 @@ docker compose exec js npm run typecheck              # TypeScript type checker
 cd agent-runner && npm test && npm run typecheck && npm run build
 ```
 
+## Development Strategy
+
+**Red-green TDD is the core development workflow.** Write failing tests first, then write the code to make them pass. This applies to new features, bug fixes, and refactors:
+
+1. **Red**: Write a test that describes the desired behavior. Run it — it should fail.
+2. **Green**: Write the minimum code to make the test pass.
+3. **Refactor**: Clean up while keeping tests green.
+
+Do not write implementation code without corresponding tests. Do not defer tests to a later step — write them alongside or before the implementation.
+
 ## Code Style (Ruby)
 
 - Double quotes, trailing commas in multiline literals, max 150 char lines
