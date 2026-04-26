@@ -405,8 +405,8 @@ class ApiHelper
     }
     # If the vote already exists, update it. Otherwise, create a new one.
     vote = Vote.find_by(associations) || Vote.new(associations)
-    vote.accepted = params[:accepted] if params[:accepted].present?
-    vote.preferred = params[:preferred] if params[:preferred].present?
+    vote.accepted = ActiveModel::Type::Boolean.new.cast(params[:accepted]) ? 1 : 0 if params.key?(:accepted)
+    vote.preferred = ActiveModel::Type::Boolean.new.cast(params[:preferred]) ? 1 : 0 if params.key?(:preferred)
     vote.save!
     track_task_run_resource(vote, action_type: "vote")
 
