@@ -35,7 +35,7 @@ jobs:
           # Directories that contain runnable tests (have *_test.rb files)
           TEST_DIRS=$(find test -mindepth 2 -name '*_test.rb' | sed 's|test/\([^/]*\)/.*|\1|' | sort -u)
           # Directories covered by the CI matrix (keep in sync with rails-tests matrix)
-          COVERED="components controllers helpers integration jobs mailers models services"
+          COVERED="channels components controllers helpers integration jobs mailers models services"
           MISSING=""
           for dir in $TEST_DIRS; do
             if ! echo "$COVERED" | grep -qw "$dir"; then
@@ -100,7 +100,7 @@ jobs:
           - name: models
             paths: test/models test/components test/helpers test/mailers
           - name: services
-            paths: test/services test/jobs
+            paths: test/services test/jobs test/channels
           - name: integration
             paths: test/controllers test/integration
 

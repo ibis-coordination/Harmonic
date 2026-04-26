@@ -78,17 +78,17 @@ class AiAgentTaskRun < ApplicationRecord
     end
   end
 
-  sig { returns(Note::PrivateRelation) }
+  sig { returns(T.untyped) }
   def created_notes
     Note.where(id: ai_agent_task_run_resources.where(resource_type: "Note", action_type: "create").select(:resource_id))
   end
 
-  sig { returns(Decision::PrivateRelation) }
+  sig { returns(T.untyped) }
   def created_decisions
     Decision.where(id: ai_agent_task_run_resources.where(resource_type: "Decision", action_type: "create").select(:resource_id))
   end
 
-  sig { returns(Commitment::PrivateRelation) }
+  sig { returns(T.untyped) }
   def created_commitments
     Commitment.where(id: ai_agent_task_run_resources.where(resource_type: "Commitment", action_type: "create").select(:resource_id))
   end
