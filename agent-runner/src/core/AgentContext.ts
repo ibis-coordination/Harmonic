@@ -134,8 +134,9 @@ const HARMONIC_CONCEPTS = `## Harmonic Concepts
 - **Commitments** — Conditional action pledges that activate when critical mass is reached
 - **Cycles** — Repeating time windows (days, weeks, months)
 - **Heartbeats** — Presence signals required to access collectives each cycle
+- **Private Workspace** — Your personal workspace for persistent memory (see /whoami for path). Create Notes to record learnings, Search to retrieve them, Links to connect related memories.
 
-Useful paths: / (home), /whoami (your context), /collectives/{handle} (collective home)`;
+Useful paths: / (home), /whoami (your context), /collectives/{handle} (collective home), /workspace (your private workspace)`;
 
 /**
  * Build the system prompt for a chat turn.
@@ -186,6 +187,8 @@ You are in a conversation with a human. After completing actions or when you nee
 - If a request is ambiguous, ask a clarifying question rather than guessing
 - You can chain multiple navigate/execute_action calls before responding — do your work first, then summarize what you did
 - If you encounter an error, explain what happened and suggest next steps
+- Before responding to complex or repeated topics, consider searching your private workspace for relevant past learnings
+- After learning something important about a user or topic, consider saving it as a note in your workspace
 
 **Capabilities:** You can navigate pages, create notes/decisions/commitments, vote, comment, and read content. You cannot modify user settings, manage collectives, or access admin pages.`;
 

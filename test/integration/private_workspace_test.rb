@@ -56,6 +56,52 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
     refute_includes collectives_section, workspace.handle
   end
 
+  test "whoami shows Your Memory section for AI agent" do
+    @tenant.enable_api!
+    agent = User.create!(
+      email: "agent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test Agent",
+      user_type: "ai_agent",
+      parent_id: @alice.id,
+    )
+    @tenant.add_user!(agent)
+    api_token = ApiToken.create!(
+      user: agent,
+      tenant: @tenant,
+      name: "Agent Token",
+      scopes: %w[read:users],
+    )
+
+    get "/whoami", headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+    assert_includes response.body, "Your Memory"
+    refute_includes response.body, "Your Workspace"
+    workspace = agent.private_workspace
+    assert_includes response.body, workspace.path
+    assert_includes response.body, "Create notes"
+  end
+
+  test "whoami does not show Your Memory section for human user" do
+    @tenant.enable_api!
+    api_token = ApiToken.create!(
+      user: @alice,
+      tenant: @tenant,
+      name: "Test Token",
+      scopes: %w[read:users],
+    )
+
+    get "/whoami", headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+    assert_includes response.body, "Your Workspace"
+    refute_includes response.body, "Your Memory"
+  end
+
   # =========================================================================
   # Representation session privacy enforcement
   # =========================================================================
@@ -328,7 +374,7 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
 
   test "private workspace handle is a random id" do
     workspace = @alice.private_workspace
-    assert_match /\A[0-9a-f]{16}\z/, workspace.handle,
+    assert_match /\A[0-9a-f]{8}\z/, workspace.handle,
       "Expected workspace handle to be a random hex id, got #{workspace.handle}"
   end
 

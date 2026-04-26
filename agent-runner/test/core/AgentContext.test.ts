@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, AGENT_TOOLS } from "../../src/core/AgentContext.js";
+import { buildSystemPrompt, buildChatSystemPrompt, AGENT_TOOLS } from "../../src/core/AgentContext.js";
 
 describe("buildSystemPrompt", () => {
   it("includes preamble", () => {
@@ -63,6 +63,27 @@ describe("buildSystemPrompt", () => {
   it("excludes scratchpad section when empty", () => {
     const prompt = buildSystemPrompt("", undefined);
     expect(prompt).not.toContain("Scratchpad");
+  });
+
+  it("includes private workspace concept", () => {
+    const prompt = buildSystemPrompt("", undefined);
+    expect(prompt).toContain("Private Workspace");
+    expect(prompt).toContain("persistent memory");
+    expect(prompt).toContain("/workspace");
+  });
+});
+
+describe("buildChatSystemPrompt", () => {
+  it("includes memory guidance in chat behavior", () => {
+    const prompt = buildChatSystemPrompt("", undefined, undefined);
+    expect(prompt).toContain("searching your private workspace");
+    expect(prompt).toContain("saving it as a note in your workspace");
+  });
+
+  it("includes private workspace concept", () => {
+    const prompt = buildChatSystemPrompt("", undefined, undefined);
+    expect(prompt).toContain("Private Workspace");
+    expect(prompt).toContain("/workspace");
   });
 });
 
