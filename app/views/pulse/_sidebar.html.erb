@@ -2,7 +2,9 @@
   <%= render 'pulse/sidebar_collective_info' %>
   <%= render 'pulse/sidebar_pinned' %>
   <%= render 'pulse/sidebar_cycle' %>
-  <%= render 'pulse/sidebar_heartbeats' %>
+  <% unless @current_collective&.private_workspace? %>
+    <%= render 'pulse/sidebar_heartbeats' %>
+  <% end %>
   <%= render 'pulse/sidebar_nav' %>
   <%= render 'pulse/sidebar_links' %>
 </aside>

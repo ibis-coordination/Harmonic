@@ -14,7 +14,7 @@
       </a>
       <% if @current_collective.private_workspace? -%>
       <div class="pulse-collective-meta">
-        <span class="pulse-member-link"><%= octicon 'lock', height: 12 %> Private</span>
+        <span title="All content in this workspace is private. Only you can access this workspace." style="cursor: default;"><%= octicon 'lock', height: 12 %> Private</span>
       </div>
       <% elsif @team -%>
       <div class="pulse-collective-meta">

@@ -257,16 +257,13 @@ class Tenant < ApplicationRecord
 
   sig { params(user: User, tenant_user: TenantUser).void }
   private def create_private_workspace_for!(user, tenant_user)
-    handle = "#{tenant_user.handle}-workspace"
-    unless Collective.handle_available?(handle)
-      handle = "#{handle}-#{SecureRandom.hex(3)}"
-    end
+    handle = SecureRandom.hex(4)
 
     previous_collective_id = Collective.current_id
     previous_collective_handle = Collective.current_handle
     begin
       collective = collectives.create!(
-        name: "#{user.name}'s Workspace",
+        name: "Private Workspace",
         handle: handle,
         created_by: user,
         collective_type: "private_workspace",

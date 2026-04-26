@@ -181,21 +181,12 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
   # Settings page
   # =========================================================================
 
-  test "private workspace settings page hides invitation and representation sections" do
+  test "private workspace settings page redirects to workspace" do
     sign_in_as(@alice, tenant: @tenant)
 
     workspace = @alice.private_workspace
-    # Navigate to the workspace first to set collective context
-    Collective.scope_thread_to_collective(handle: workspace.handle, subdomain: @tenant.subdomain)
-    @alice.reload
-    # Alice is admin of her workspace
     get "#{workspace.path}/settings"
-    assert_response :success
-
-    refute_includes response.body, "Who can invite new members",
-      "Private workspace settings should not show invitation settings"
-    refute_includes response.body, "Who can act as a representative",
-      "Private workspace settings should not show representation settings"
+    assert_redirected_to workspace.path
   end
 
   # =========================================================================
@@ -334,6 +325,24 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
   # =========================================================================
   # Workspace URL path
   # =========================================================================
+
+  test "private workspace handle is a random id" do
+    workspace = @alice.private_workspace
+    assert_match /\A[0-9a-f]{16}\z/, workspace.handle,
+      "Expected workspace handle to be a random hex id, got #{workspace.handle}"
+  end
+
+  test "bare /workspace redirects to current user workspace" do
+    sign_in_as(@alice, tenant: @tenant)
+    get "/workspace"
+    workspace = @alice.private_workspace
+    assert_redirected_to workspace.path
+  end
+
+  test "bare /workspace redirects to login when not authenticated" do
+    get "/workspace"
+    assert_redirected_to "/login"
+  end
 
   test "private workspace path uses /workspace/ prefix" do
     workspace = @alice.private_workspace

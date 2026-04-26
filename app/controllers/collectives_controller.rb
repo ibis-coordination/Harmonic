@@ -32,6 +32,20 @@ class CollectivesController < ApplicationController
     end
   end
 
+  def redirect_to_workspace
+    if current_user.nil?
+      redirect_to "/login"
+      return
+    end
+
+    workspace = current_user.private_workspace
+    if workspace
+      redirect_to workspace.path
+    else
+      redirect_to "/collectives", alert: "No workspace found."
+    end
+  end
+
   def actions_index
     @page_title = "Actions | Collectives"
     render_actions_index({
@@ -179,6 +193,11 @@ class CollectivesController < ApplicationController
   end
 
   def settings
+    if @current_collective.private_workspace?
+      redirect_to @current_collective.path, alert: "Settings are not available for workspaces."
+      return
+    end
+
     if @current_user.collective_member.is_admin?
       @page_title = 'Collective Settings'
 
@@ -206,6 +225,9 @@ class CollectivesController < ApplicationController
   end
 
   def update_settings
+    if @current_collective.private_workspace?
+      return render status: 403, plain: 'Settings cannot be changed for workspaces.'
+    end
     if !@current_user.collective_member.is_admin?
       return render status: 403, plain: '403 Unauthorized'
     end

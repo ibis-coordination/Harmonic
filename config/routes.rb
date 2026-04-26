@@ -328,6 +328,8 @@ Rails.application.routes.draw do
   post "collectives/new/actions/create_collective" => 'collectives#create_collective'
   get "collectives/available" => 'collectives#handle_available'
   post "collectives" => "collectives#create"
+  # Bare /workspace redirects to the current user's private workspace
+  get "workspace" => "collectives#redirect_to_workspace"
   # Routes for collective-scoped pages. Both /collectives/ and /workspace/ prefixes map to
   # the same controllers — private workspaces use /workspace/ while standard collectives use /collectives/.
   ['collectives', 'workspace'].each do |scope_prefix|

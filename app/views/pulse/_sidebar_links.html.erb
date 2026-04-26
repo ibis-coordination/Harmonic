@@ -18,7 +18,7 @@
       </a>
     </li>
     <% end %>
-    <% if @current_user&.collective_member&.can_edit_settings? %>
+    <% if !@current_collective.private_workspace? && @current_user&.collective_member&.can_edit_settings? %>
       <li>
         <a href="<%= @current_collective.path %>/settings">
           <%= octicon 'gear', height: 14 %> Settings

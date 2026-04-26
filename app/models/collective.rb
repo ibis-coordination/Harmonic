@@ -128,12 +128,22 @@ class Collective < ApplicationRecord
       self.settings["invite_only"] = true
       self.settings["all_members_can_invite"] = false
       self.settings["any_member_can_represent"] = false
+      self.settings["tempo"] = "weekly"
     end
   end
 
   sig { returns(T::Boolean) }
   def private_workspace?
     collective_type == "private_workspace"
+  end
+
+  sig { returns(String) }
+  def image_path
+    if private_workspace?
+      created_by&.image_url || super
+    else
+      super
+    end
   end
 
   sig { returns(T::Boolean) }
