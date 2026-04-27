@@ -12,6 +12,8 @@ class Commitment < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
   include SoftDeletable
+  SUBTYPES = %w[action calendar_event policy].freeze
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -23,12 +25,29 @@ class Commitment < ApplicationRecord
   validates :title, presence: true
   validates :critical_mass, presence: true, numericality: { greater_than: 0 }
   validates :deadline, presence: true
+  validates :subtype, inclusion: { in: SUBTYPES }
+
+  sig { returns(T::Boolean) }
+  def is_action?
+    subtype == "action"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_calendar_event?
+    subtype == "calendar_event"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_policy?
+    subtype == "policy"
+  end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
   def api_json(include: [])
     response = {
       id: id,
       truncated_id: truncated_id,
+      subtype: subtype,
       title: title,
       description: description,
       deadline: deadline,

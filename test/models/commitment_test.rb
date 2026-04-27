@@ -347,4 +347,91 @@ class CommitmentTest < ActiveSupport::TestCase
     assert commitment.critical_mass_achieved?
     assert_equal 100, commitment.progress_percentage
   end
+
+  # Subtype tests
+
+  test "Commitment defaults to action subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Default subtype",
+      description: "Test description",
+      critical_mass: 3,
+      deadline: 1.week.from_now,
+    )
+
+    assert_equal "action", commitment.subtype
+    assert commitment.is_action?
+    assert_not commitment.is_calendar_event?
+    assert_not commitment.is_policy?
+  end
+
+  test "Commitment can be created with explicit subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    Commitment::SUBTYPES.each do |subtype|
+      commitment = Commitment.create!(
+        tenant: tenant,
+        collective: collective,
+        created_by: user,
+        updated_by: user,
+        title: "#{subtype} commitment",
+        description: "Test description",
+        critical_mass: 3,
+        deadline: 1.week.from_now,
+        subtype: subtype,
+      )
+
+      assert_equal subtype, commitment.subtype
+    end
+  end
+
+  test "Commitment rejects invalid subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Invalid subtype",
+      critical_mass: 3,
+      deadline: 1.week.from_now,
+      subtype: "invalid",
+    )
+
+    assert_not commitment.valid?
+    assert_includes commitment.errors[:subtype], "is not included in the list"
+  end
+
+  test "Commitment api_json includes subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Calendar event",
+      description: "Test description",
+      critical_mass: 5,
+      deadline: 1.week.from_now,
+      subtype: "calendar_event",
+    )
+
+    json = commitment.api_json
+    assert_equal "calendar_event", json[:subtype]
+  end
 end
