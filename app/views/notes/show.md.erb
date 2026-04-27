@@ -20,11 +20,14 @@ Replying to <%= @note.commentable.class.to_s %> [<%= @note.commentable.truncated
 Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
 
 <% end -%>
+<% truncated_text = truncate_content(@note.text) %>
 ## Text
 
 ```markdown
-<%= @note.text.gsub(/```/, '\\`\\`\\`') %>
+<%= truncated_text.gsub(/```/, '\\`\\`\\`') %>
 ```
+<% notice = markdown_truncation_notice(@note.text, truncated_text, url: @note.path) %>
+<%= notice if notice %>
 
 ## History
 
