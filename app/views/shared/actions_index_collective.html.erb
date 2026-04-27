@@ -1,6 +1,6 @@
 <h1>Actions</h1>
 
-<% if !@current_collective.is_main_collective? && @current_heartbeat.nil? %>
+<% if !@current_collective.is_main_collective? && !@current_collective.private_workspace? && @current_heartbeat.nil? %>
 <ul>
   <li>
     <a href="<%= @current_collective.path %>/actions/send_heartbeat">send_heartbeat()</a> - Send a heartbeat to confirm your presence

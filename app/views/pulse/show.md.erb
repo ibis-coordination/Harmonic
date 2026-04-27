@@ -18,7 +18,11 @@ Viewing: <%= @cycle.name.titleize %> | [Back to current cycle](<%= @current_coll
 ## Activity Feed
 
 <% if @feed_items.empty? -%>
+<% if @current_collective.private_workspace? -%>
+No notes yet. Create a note at [<%= @current_collective.path %>/note](<%= @current_collective.path %>/note).
+<% else -%>
 No activity in this cycle yet.
+<% end -%>
 <% else -%>
 <% @feed_items.first(20).each do |feed_item| -%>
 <% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
@@ -41,6 +45,7 @@ No activity in this cycle yet.
 No pinned items yet.
 <% end -%>
 
+<% unless @current_collective.private_workspace? %>
 ## Team
 
 <% if @team.any? -%>
@@ -49,6 +54,7 @@ No pinned items yet.
 <% end -%>
 <% else -%>
 No team members yet.
+<% end -%>
 <% end -%>
 
 <% end -%>

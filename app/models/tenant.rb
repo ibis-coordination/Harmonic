@@ -273,6 +273,7 @@ class Tenant < ApplicationRecord
       # Temporarily set collective scope for add_user! (creates CollectiveMember)
       Collective.set_thread_context(collective)
       collective.add_user!(user, roles: ["admin"])
+      collective.enable_api!
     ensure
       # Restore previous collective scope
       if previous_collective_id

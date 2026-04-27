@@ -19,22 +19,8 @@ namespace :private_workspaces do
           next
         end
 
-        handle = "#{tu.handle}-workspace"
-        unless Collective.handle_available?(handle)
-          handle = "#{handle}-#{SecureRandom.hex(3)}"
-        end
-
         begin
-          collective = tenant.collectives.create!(
-            name: "#{user.name}'s Workspace",
-            handle: handle,
-            created_by: user,
-            collective_type: "private_workspace",
-            billing_exempt: true,
-          )
-
-          Collective.scope_thread_to_collective(handle: collective.handle, subdomain: tenant.subdomain)
-          collective.add_user!(user, roles: ["admin"])
+          tenant.send(:create_private_workspace_for!, user, tu)
           created += 1
           print "."
         rescue => e
@@ -47,5 +33,18 @@ namespace :private_workspaces do
     end
 
     puts "\nDone. Created: #{created}, Skipped: #{skipped}, Errors: #{errors}"
+  end
+
+  desc "Enable API on all existing private workspaces"
+  task enable_api: :environment do
+    updated = 0
+    Collective.where(collective_type: "private_workspace").find_each do |workspace|
+      unless workspace.feature_enabled?("api")
+        workspace.enable_api!
+        updated += 1
+        print "."
+      end
+    end
+    puts "\nDone. Enabled API on #{updated} workspaces."
   end
 end
