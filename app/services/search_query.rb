@@ -204,6 +204,11 @@ class SearchQuery
     @params[:scope].presence
   end
 
+  sig { returns(T.nilable(String)) }
+  def exclude_scope
+    @params[:exclude_scope].presence
+  end
+
   # Options for UI dropdowns
 
   sig { returns(T::Array[T::Array[String]]) }
@@ -363,15 +368,34 @@ class SearchQuery
       main_id = @tenant.main_collective_id
       member_ids << main_id if main_id.present? && !member_ids.include?(main_id)
 
+      # Workspace IDs for scope filtering
+      workspace_ids = @current_user.collectives
+        .where(tenant_id: @tenant.id, collective_type: "private_workspace")
+        .pluck(:id)
+
       # Apply scope filter
-      case scope
+      ids = case scope
       when "public"
         [main_id].compact
+      when "shared"
+        member_ids - [main_id].compact - workspace_ids
       when "private"
-        member_ids - [main_id].compact
+        workspace_ids
       else
         member_ids
       end
+
+      # Apply negated scope filter
+      case exclude_scope
+      when "public"
+        ids -= [main_id].compact
+      when "shared"
+        ids &= [main_id].compact + workspace_ids
+      when "private"
+        ids -= workspace_ids
+      end
+
+      ids
     else
       # Unauthenticated users can only see the main collective
       [@tenant.main_collective_id].compact

@@ -25,7 +25,7 @@
       <section class="pulse-settings-section">
         <label for="description" class="pulse-label">Description</label>
         <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-          <%= form.text_area :description, placeholder: 'Description (markdown supported, use @ to mention users)', value: @commitment.description, class: "pulse-form-input", data: { mention_autocomplete_target: "input" } %>
+          <%= form.text_area :description, placeholder: @current_collective.private_workspace? ? 'Description (markdown supported)' : 'Description (markdown supported, use @ to mention users)', value: @commitment.description, class: "pulse-form-input", data: { mention_autocomplete_target: "input" } %>
           <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
         </div>
       </section>
@@ -34,6 +34,7 @@
         <%= render 'shared/multi_file_select', form: form %>
       </section>
 
+      <% unless @current_collective.private_workspace? %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Critical Mass</h2>
         <div class="pulse-notice">
@@ -52,6 +53,7 @@
           At least <%= form.number_field :critical_mass, value: @commitment.critical_mass, class: "pulse-form-input", style: 'width:64px;' %> participant(s) required for this commitment to take effect.
         </p>
       </section>
+      <% end %>
 
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Deadline</h2>

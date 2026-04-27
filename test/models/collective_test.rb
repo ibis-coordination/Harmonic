@@ -521,4 +521,144 @@ class CollectiveTest < ActiveSupport::TestCase
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
   end
+
+  # =========================================================================
+  # Private Workspace tests
+  # =========================================================================
+
+  test "private_workspace? returns true for private_workspace collective_type" do
+    tenant = create_tenant(subdomain: "pw-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    workspace = user.private_workspace
+    assert workspace, "User should have a private workspace after being added to tenant"
+    assert workspace.private_workspace?
+  end
+
+  test "private_workspace? returns false for standard collectives" do
+    tenant = create_tenant(subdomain: "pw-std-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Standard Collective",
+      handle: "standard-#{SecureRandom.hex(4)}",
+    )
+    assert_not collective.private_workspace?
+  end
+
+  test "private workspace has no identity user" do
+    tenant = create_tenant(subdomain: "pw-ident-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    workspace = user.private_workspace
+    assert_nil workspace.identity_user
+  end
+
+  test "standard collective has identity user" do
+    tenant = create_tenant(subdomain: "pw-std-id-#{SecureRandom.hex(4)}")
+    user = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Identity Test",
+      handle: "identity-test-#{SecureRandom.hex(4)}",
+    )
+    assert collective.identity_user.present?
+    assert_equal "collective_identity", collective.identity_user.user_type
+  end
+
+  test "private workspace enforces settings" do
+    tenant = create_tenant(subdomain: "pw-settings-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    workspace = user.private_workspace
+    assert workspace.settings["unlisted"]
+    assert workspace.settings["invite_only"]
+    assert_not workspace.settings["all_members_can_invite"]
+    assert_not workspace.settings["any_member_can_represent"]
+  end
+
+  test "private workspace is billing_exempt" do
+    tenant = create_tenant(subdomain: "pw-billing-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    workspace = user.private_workspace
+    assert workspace.billing_exempt?
+  end
+
+  test "collective_type cannot be changed after creation" do
+    tenant = create_tenant(subdomain: "pw-immut-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    workspace = user.private_workspace
+    workspace.collective_type = "standard"
+    assert_raises(ActiveRecord::RecordInvalid) do
+      workspace.save!
+    end
+    # Verify the workspace is still a private workspace in the DB
+    workspace.reload
+    assert workspace.private_workspace?
+  end
+
+  test "not_private_workspace scope excludes private workspaces" do
+    tenant = create_tenant(subdomain: "pw-scope-#{SecureRandom.hex(4)}")
+    user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    tenant.add_user!(user)
+    Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Visible Collective",
+      handle: "visible-#{SecureRandom.hex(4)}",
+    )
+
+    all = Collective.where(tenant_id: tenant.id)
+    filtered = Collective.where(tenant_id: tenant.id).not_private_workspace
+
+    # All includes the workspace + the standard collective + main (if any)
+    assert all.count > filtered.count, "Unfiltered should include more collectives than filtered"
+    assert filtered.where(collective_type: "private_workspace").count == 0
+  end
+
+  test "find_or_create_shareable_invite raises for private workspaces" do
+    tenant = create_tenant(subdomain: "pw-invite-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    workspace = user.private_workspace
+    assert_raises(RuntimeError, "Cannot create invites for private workspaces") do
+      workspace.find_or_create_shareable_invite(user)
+    end
+  end
+
+  test "add_user! raises when adding non-owner to private workspace" do
+    tenant = create_tenant(subdomain: "pw-add-#{SecureRandom.hex(4)}")
+    owner = create_user(name: "Owner")
+    other = create_user(name: "Other")
+    tenant.add_user!(owner)
+    tenant.add_user!(other)
+
+    workspace = owner.private_workspace
+    assert workspace
+
+    assert_raises(RuntimeError, "Cannot add other users to a private workspace") do
+      workspace.add_user!(other)
+    end
+    assert_not workspace.user_is_member?(other)
+  end
+
+  test "add_user! allows re-adding owner to private workspace" do
+    tenant = create_tenant(subdomain: "pw-readd-#{SecureRandom.hex(4)}")
+    owner = create_user(name: "Owner")
+    tenant.add_user!(owner)
+
+    workspace = owner.private_workspace
+    assert workspace
+    assert workspace.user_is_member?(owner)
+
+    # Re-adding the owner should not raise
+    workspace.add_user!(owner, roles: ["admin"])
+    assert workspace.user_is_member?(owner)
+  end
 end

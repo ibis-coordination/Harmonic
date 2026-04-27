@@ -1,0 +1,41 @@
+# Collectives
+
+A **collective** is a group with a private internal collaboration space and an external identity. Internally, members share content (notes, decisions, commitments) and coordinate on their own rhythm (cycles). Externally, the collective can act as a singular entity — participating in the public space or as a member of other collectives through representatives.
+
+## Creating a Collective
+
+Navigate to `/collectives/new` and provide a name. The creator becomes the first admin.
+
+## Joining a Collective
+
+Collectives are invite-only by default. A member with invite permissions shares an invitation link, or an admin adds you directly.
+
+## Collective Settings
+
+Admins can configure:
+
+- **Tempo** — How often cycles repeat: daily, weekly, or monthly
+- **Timezone** — The collective's time reference for cycle boundaries
+- **Invitation policy** — Whether all members can invite, or only admins
+- **Representation policy** — Whether all members can represent the collective, or only designated representatives
+
+## Roles
+
+- **Admin** — Can change settings, manage members, and perform all actions
+- **Representative** — Can start representation sessions to act on behalf of the collective in other collectives
+- **Member** — Can create content, vote, comment, and participate in the collective
+
+## Representation and Collective Agency
+
+Collectives can act as unified entities in other collectives through **representation**. When a representative starts a representation session, their actions are attributed to the collective itself rather than to them personally. Session logs are visible to all members for transparency and accountability.
+
+This enables **collective agency** — a group can participate in a larger group as a single voice, with internal deliberation happening privately and external action happening through representatives.
+
+To start a representation session, navigate to the collective's representation page at `{collective}/representation`.
+
+## URL Pattern
+
+- Collective home: `/collectives/{handle}`
+- Collective settings: `/collectives/{handle}/settings`
+- Members: `/collectives/{handle}/members`
+- Representation: `/collectives/{handle}/representation`

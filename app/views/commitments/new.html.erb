@@ -20,7 +20,7 @@
       <label class="pulse-form-label">Description <span class="pulse-form-label-optional">(optional)</span></label>
       <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
         <%= form.text_area :description,
-            placeholder: "Describe what participants are committing to... (markdown supported, use @ to mention users)",
+            placeholder: @current_collective.private_workspace? ? "Describe what you are committing to... (markdown supported)" : "Describe what participants are committing to... (markdown supported, use @ to mention users)",
             class: "pulse-form-textarea",
             rows: 4,
             data: { mention_autocomplete_target: "input" } %>
@@ -30,6 +30,9 @@
 
     <%= render 'shared/multi_file_select', form: form %>
 
+    <% if @current_collective.private_workspace? %>
+      <%= form.hidden_field :critical_mass, value: 1 %>
+    <% else %>
     <section class="pulse-form-section">
       <h2 class="pulse-section-title">Critical Mass</h2>
       <p class="pulse-section-description">
@@ -43,10 +46,11 @@
         </div>
       </div>
     </section>
+    <% end %>
 
     <section class="pulse-form-section">
       <h2 class="pulse-section-title">Deadline</h2>
-      <p class="pulse-section-description">When must critical mass be reached?</p>
+      <p class="pulse-section-description"><%= @current_collective.private_workspace? ? "When does this commitment expire?" : "When must critical mass be reached?" %></p>
       <%= render 'shared/pulse_deadline_input_fields', form: form, deadline: Time.current + 1.week, close_at_critical_mass_option: true %>
     </section>
 
@@ -56,6 +60,9 @@
         <% if @current_collective.id == @current_tenant.main_collective_id %>
           <%= octicon 'eye', height: 14 %>
           This commitment will be publicly visible.
+        <% elsif @current_collective.private_workspace? %>
+          <%= octicon 'lock', height: 14 %>
+          Only you can access this commitment.
         <% else %>
           <%= octicon 'lock', height: 14 %>
           Only members of this collective can access this commitment.

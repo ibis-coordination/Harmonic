@@ -2,9 +2,11 @@
 <% if @current_user %>
   <%# Only auto-populate search filter for non-main collectives %>
   <% search_collective = @current_collective&.id != @current_tenant&.main_collective_id ? @current_collective : nil %>
+  <% search_is_workspace = search_collective&.private_workspace? %>
   <div data-controller="header-search"
-       data-header-search-collective-handle-value="<%= search_collective&.handle %>"
-       data-header-search-collective-name-value="<%= search_collective&.name %>"
+       data-header-search-collective-handle-value="<%= search_is_workspace ? '' : search_collective&.handle %>"
+       data-header-search-collective-name-value="<%= search_is_workspace ? '' : search_collective&.name %>"
+       data-header-search-workspace-value="<%= search_is_workspace ? 'true' : '' %>"
        class="header-search-wrapper">
     <button type="button"
             class="header-search-toggle"
@@ -71,6 +73,10 @@
           <% if (pending_grants = @current_user.pending_trustee_grant_requests.count) > 0 %>
             <span class="notification-badge-count" style="position:relative;top:-2px;margin-left:4px;"><%= pending_grants %></span>
           <% end %>
+        </li>
+        <li>
+          <%= octicon 'question' %>
+          <a href="/help">Help</a>
         </li>
         <% if @current_tenant.is_admin?(@current_user) %>
           <li>

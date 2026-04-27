@@ -42,7 +42,7 @@
         <% @ai_agents.each do |ai_agent| %>
           <% active_collective_members = ai_agent.collective_members.reject(&:archived?) %>
           <% all_ai_agent_collectives = active_collective_members.map(&:collective) %>
-          <% ai_agent_collectives = all_ai_agent_collectives.reject { |s| s == @current_tenant.main_collective } %>
+          <% ai_agent_collectives = all_ai_agent_collectives.reject { |s| s == @current_tenant.main_collective || s.private_workspace? } %>
 
           <div class="pulse-ai-agent-card">
             <div class="pulse-ai-agent-header">

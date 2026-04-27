@@ -21,7 +21,7 @@
       <label class="pulse-form-label">Content</label>
       <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
         <%= form.text_area :text,
-            placeholder: "Write your note here... (use @ to mention users)",
+            placeholder: @current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)",
             value: @note.text,
             class: "pulse-form-textarea",
             rows: 12,

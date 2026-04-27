@@ -11,12 +11,14 @@
         <%= octicon 'link', height: 14 %> Backlinks
       </a>
     </li>
+    <% unless @current_collective.private_workspace? %>
     <li>
       <a href="<%= @current_collective.path %>/representation">
         <%= octicon 'people', height: 14 %> Representation
       </a>
     </li>
-    <% if @current_user&.collective_member&.can_edit_settings? %>
+    <% end %>
+    <% if !@current_collective.private_workspace? && @current_user&.collective_member&.can_edit_settings? %>
       <li>
         <a href="<%= @current_collective.path %>/settings">
           <%= octicon 'gear', height: 14 %> Settings
@@ -24,7 +26,7 @@
       </li>
     <% end %>
   </ul>
-  <% if @current_user&.collective_member&.can_invite? %>
+  <% if !@current_collective.private_workspace? && @current_user&.collective_member&.can_invite? %>
     <div class="pulse-invite-section">
       <a href="<%= @current_collective.path %>/invite" class="pulse-invite-btn">
         <%= octicon 'person-add', height: 14 %> Invite Member

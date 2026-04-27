@@ -90,6 +90,10 @@
   color: var(--color-fg-muted);
 }
 
+.pulse-collective-meta .octicon {
+  vertical-align: -1px;
+}
+
 .pulse-collective-info-row {
   display: flex;
   align-items: center;

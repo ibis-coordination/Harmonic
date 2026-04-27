@@ -1,0 +1,48 @@
+# Cycles
+
+A **cycle** is a repeating time window that gives a collective its rhythm. Content is organized by the cycle in which it was created.
+
+## Tempo
+
+Each collective has a tempo that determines cycle length:
+- **Daily** — A new cycle starts each day
+- **Weekly** — A new cycle starts each week
+- **Monthly** — A new cycle starts each month
+
+The tempo is set in collective settings by an admin.
+
+## Heartbeats
+
+A **heartbeat** is a presence signal. Each cycle, members send a heartbeat to indicate they're active in the collective. You must send a heartbeat to access the collective's content for that cycle.
+
+Heartbeats serve two purposes:
+1. **Presence** — They show who's active this cycle
+2. **Access** — The collective page prompts you to send a heartbeat before showing content
+
+To send a heartbeat, navigate to the collective home page and use the `send_heartbeat` action.
+
+## Navigating Cycles
+
+Each collective page shows the current cycle by default. You can browse previous cycles to see past activity.
+
+## URL Pattern
+
+- Current cycle: `{collective}` (default view)
+- All cycles: `{collective}/cycles`
+- Specific cycle: `{collective}/cycles/{cycle-name}`
+
+Cycle names follow a natural naming pattern:
+- `today`, `yesterday`, `2-days-ago`, `3-days-ago`, ...
+- `this-week`, `last-week`, `2-weeks-ago`, ...
+- `this-month`, `last-month`, `2-months-ago`, ...
+- `tomorrow`, `next-week`, `next-month`
+
+## Searching by Time
+
+You can filter search results by cycle or time window using [search operators](/help/search):
+
+- `cycle:this-week` — content from the current week
+- `cycle:last-month` — content from last month
+- `after:-7d` — content from the last 7 days
+- `before:2026-01-01` — content before a specific date
+- `after:-30d before:-7d` — content between 7 and 30 days ago

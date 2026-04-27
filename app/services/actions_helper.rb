@@ -630,7 +630,7 @@ class ActionsHelper
           condition: ->(context) {
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            collective && !collective.is_main_collective? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
           },
         },
       ],
@@ -644,7 +644,7 @@ class ActionsHelper
           condition: ->(context) {
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            collective && !collective.is_main_collective? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
           },
         },
       ],
@@ -672,7 +672,7 @@ class ActionsHelper
           condition: ->(context) {
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
-            collective && !collective.is_main_collective? && current_heartbeat.nil?
+            collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
           },
         },
       ],
@@ -1043,7 +1043,10 @@ class ActionsHelper
 
   sig { params(route: String).returns(T.nilable(T::Hash[Symbol, T.untyped])) }
   def self.actions_for_route(route)
-    @@actions_by_route[route]
+    # Normalize /workspace/ to /collectives/ — hash keys use /collectives/ but
+    # both prefixes map to the same controllers and action definitions.
+    normalized = route.sub(%r{^/workspace/}, "/collectives/")
+    @@actions_by_route[normalized]
   end
 
   # Get the route pattern for a controller#action.

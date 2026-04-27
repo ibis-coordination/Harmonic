@@ -1,12 +1,12 @@
 <%= form_with url: "#{@current_collective.path}/note" do |form| %>
   <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-    <%= form.text_area :text, placeholder: "Note (use @ to mention users)", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', data: { mention_autocomplete_target: "input" } %>
+    <%= form.text_area :text, placeholder: @current_collective.private_workspace? ? "Note" : "Note (use @ to mention users)", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', data: { mention_autocomplete_target: "input" } %>
     <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
   </div>
   <%= render 'shared/multi_file_select', form: form %>
   <%= form.submit 'Post' %>
   <span>
     <%= octicon 'lock' %>
-    Notes posted in collectives are only visible to members of the collective.
+    <%= @current_collective.private_workspace? ? "Only you will see this note." : "Notes posted in collectives are only visible to members of the collective." %>
   </span>
 <% end %>

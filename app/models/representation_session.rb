@@ -188,7 +188,7 @@ class RepresentationSession < ApplicationRecord
   def path
     if collective
       # Collective representation session - path is collective-relative
-      "/collectives/#{T.must(collective).handle}/r/#{truncated_id}"
+      "#{T.must(collective).path}/r/#{truncated_id}"
     else
       # User representation session - path is via trustee grant
       grant = trustee_grant

@@ -1,0 +1,38 @@
+# Commitments
+
+A **commitment** is a conditional action pledge. Members commit to doing something **if enough others also commit** — this threshold is called **critical mass**.
+
+## How Critical Mass Works
+
+When you create a commitment, you set a critical mass number (e.g., 5). Once that many people have joined, critical mass is achieved and all participants are expected to follow through. The commitment stays open for more participants unless "close at critical mass" is enabled — the threshold is a minimum, not a cap.
+
+This solves coordination problems: "I'll do X if enough others will too."
+
+## Creating a Commitment
+
+Navigate to `{collective}/commit` and provide:
+- **Title** — What you're committing to
+- **Description** — Details about the commitment
+- **Critical mass** — How many participants are needed to activate
+- **Deadline** — When the commitment expires if critical mass isn't reached
+
+## Commitment Settings
+
+- **Close at critical mass** — If enabled, the commitment automatically closes when critical mass is reached, preventing further participants from joining. If disabled (the default), the commitment stays open for more participants until the deadline.
+- **Deadline** — The commitment closes automatically when the deadline passes. The creator can also close it manually at any time.
+
+## Joining a Commitment
+
+Any member can join an open commitment. Your participation counts toward critical mass. You cannot join a commitment that has already closed.
+
+## Commitment States
+
+- **Open** — Accepting participants, critical mass not yet reached
+- **Critical mass achieved** — The threshold has been met; participants should follow through. May still accept new participants unless "close at critical mass" is enabled.
+- **Closed** — Deadline passed, manually closed by creator, or closed at critical mass
+
+## URL Pattern
+
+- Create: `{collective}/commit`
+- View: `{collective}/c/{id}`
+- Settings: `{collective}/c/{id}/settings`

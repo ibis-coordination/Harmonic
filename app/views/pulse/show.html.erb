@@ -1,4 +1,4 @@
-<% if @current_user && @current_heartbeat.nil? %>
+<% if @current_user && @current_heartbeat.nil? && !@current_collective.private_workspace? %>
   <div class="pulse-heartbeat-section" data-controller="heartbeat">
     <button
       class="pulse-heartbeat-btn"
@@ -35,7 +35,7 @@
   </button>
 </div>
 
-<div class="pulse-feed<%= ' pulse-blur-if-no-heartbeat' if @current_user %><%= ' no-heartbeat' if @current_user && !@current_heartbeat %>">
+<div class="pulse-feed<%= ' pulse-blur-if-no-heartbeat' if @current_user && !@current_collective.private_workspace? %><%= ' no-heartbeat' if @current_user && !@current_heartbeat && !@current_collective.private_workspace? %>">
   <% if @feed_items.empty? %>
     <div class="pulse-feed-empty">
       <% if @is_viewing_current_cycle %>

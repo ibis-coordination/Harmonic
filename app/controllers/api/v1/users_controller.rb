@@ -63,7 +63,9 @@ module Api::V1
     end
 
     def destroy
-      # Users can only delete AI agent users with no associated data
+      # Delete a user with no associated data (notes, decisions, etc.).
+      # If the user has content (including in their private workspace), deletion
+      # fails and the caller should archive instead.
       user = current_tenant.users.find_by(id: params[:id])
       return render json: { error: 'User not found' }, status: 404 unless user
       return render json: { error: 'Unauthorized' }, status: 401 unless current_user.can_edit?(user)
@@ -73,6 +75,14 @@ module Api::V1
       destroyed = false
 
       ActiveRecord::Base.transaction do
+        # Clean up private workspace and its members
+        Collective.for_user_across_tenants(user).where(collective_type: "private_workspace").each do |workspace|
+          CollectiveMember.tenant_scoped_only(workspace.tenant_id).where(collective_id: workspace.id).delete_all
+          workspace.delete
+        end
+        # Clean up user's other collective memberships and trustee grants
+        CollectiveMember.for_user_across_tenants(user).delete_all
+        TrusteeGrant.for_user_across_tenants(user).delete_all
         user.tenant_user.destroy!
         ApiToken.where(user: user).destroy_all
         user.destroy!

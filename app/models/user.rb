@@ -55,6 +55,7 @@ class User < ApplicationRecord
     remove_instance_variable(:@collective_member) if defined?(@collective_member)
     remove_instance_variable(:@identity_collective) if defined?(@identity_collective)
     remove_instance_variable(:@collectives) if defined?(@collectives)
+    remove_instance_variable(:@private_workspace) if defined?(@private_workspace)
     super
   end
 
@@ -135,6 +136,15 @@ class User < ApplicationRecord
     @identity_collective = Collective.where(identity_user: self).first
   end
 
+  # Returns the user's private workspace collective in the current tenant, if any.
+  sig { returns(T.nilable(Collective)) }
+  def private_workspace
+    return nil if collective_identity?
+    return @private_workspace if defined?(@private_workspace)
+
+    @private_workspace = Collective.find_by(created_by_id: id, collective_type: "private_workspace")
+  end
+
   # Check if this user is authorized to use the given identity user.
   # Used to validate that an identity_user_id in the session is legitimate.
   #
@@ -209,11 +219,17 @@ class User < ApplicationRecord
 
     # Revoke all API tokens for this user (same as suspension)
     ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!) if ai_agent?
+
+    # Archive private workspace
+    private_workspace&.archive!
   end
 
   sig { void }
   def unarchive!
     T.must(tenant_user).unarchive!
+
+    # Unarchive private workspace
+    private_workspace&.unarchive!
   end
 
   sig { returns(T::Boolean) }
@@ -557,7 +573,7 @@ class User < ApplicationRecord
 
     main_collective_ids = Tenant.where(id: tenant_ids).pluck(:main_collective_id).compact
 
-    scope = Collective.for_user_across_tenants(self).where(
+    scope = Collective.for_user_across_tenants(self).not_private_workspace.where(
       tenant_id: tenant_ids,
       archived_at: nil,
       billing_exempt: false,

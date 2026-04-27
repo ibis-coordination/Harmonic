@@ -7,6 +7,7 @@ class CollectivesController < ApplicationController
     @page_title = "Collectives"
     if current_user
       all_collectives = current_user.collectives
+        .not_private_workspace
         .joins(
           "LEFT JOIN heartbeats ON heartbeats.collective_id = collectives.id AND " +
           "heartbeats.user_id = '#{current_user.id}' AND " +
@@ -28,6 +29,20 @@ class CollectivesController < ApplicationController
     respond_to do |format|
       format.html
       format.md
+    end
+  end
+
+  def redirect_to_workspace
+    if current_user.nil?
+      redirect_to "/login"
+      return
+    end
+
+    workspace = current_user.private_workspace
+    if workspace
+      redirect_to workspace.path
+    else
+      redirect_to "/collectives", alert: "No workspace found."
     end
   end
 
@@ -178,6 +193,11 @@ class CollectivesController < ApplicationController
   end
 
   def settings
+    if @current_collective.private_workspace?
+      redirect_to @current_collective.path, alert: "Settings are not available for workspaces."
+      return
+    end
+
     if @current_user.collective_member.is_admin?
       @page_title = 'Collective Settings'
 
@@ -205,6 +225,9 @@ class CollectivesController < ApplicationController
   end
 
   def update_settings
+    if @current_collective.private_workspace?
+      return render status: 403, plain: 'Settings cannot be changed for workspaces.'
+    end
     if !@current_user.collective_member.is_admin?
       return render status: 403, plain: '403 Unauthorized'
     end
@@ -218,8 +241,10 @@ class CollectivesController < ApplicationController
     @current_collective.timezone = params[:timezone]
     @current_collective.tempo = params[:tempo]
     @current_collective.synchronization_mode = params[:synchronization_mode]
-    @current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
-    @current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+    unless @current_collective.private_workspace?
+      @current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
+      @current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+    end
     unless ENV['SAAS_MODE'] == 'true'
       @current_collective.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
     end
@@ -243,6 +268,9 @@ class CollectivesController < ApplicationController
   end
 
   def add_ai_agent
+    if @current_collective.private_workspace?
+      return render status: 403, json: { error: 'Cannot add agents to a private workspace' }
+    end
     unless @current_user.collective_member&.is_admin?
       return render status: 403, json: { error: 'Unauthorized' }
     end

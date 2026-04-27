@@ -1,0 +1,73 @@
+# Decisions
+
+A **decision** is a question posed to the group, answered through **acceptance voting**. Members evaluate each proposed answer independently, then indicate their preference among acceptable options.
+
+## How Acceptance Voting Works
+
+1. **Accept or reject** — For each option, mark it as acceptable ✅ or leave it unchecked
+2. **Prefer** — Among your accepted options, star ⭐ the ones you prefer
+
+This is different from simple polling. You evaluate each option on its own merits first, then express your preference. An option can be acceptable to everyone but preferred by no one, or preferred by some but unacceptable to others.
+
+## Results
+
+Results are sorted by three factors in order:
+
+1. **Acceptances ✅** — Options with more acceptances rank higher
+2. **Preferences ⭐** — Among options with equal acceptances, more preferences rank higher
+3. **Random digits 🎲** — If still tied, a random number assigned to each option breaks the tie
+
+The random digits ensure there is always a clear ordering, even when votes are identical. They are only displayed in the results table when they are the deciding factor.
+
+### Example
+
+Suppose 3 people vote on a decision with 4 options:
+
+|   | Option | ✅ | ⭐ | 🎲 |
+|---|--------|----|----|-----|
+| 1 | Option A | 3 | 2 |  |
+| 2 | Option B | 3 | 1 |  |
+| 3 | Option C | 1 | 1 | 847... |
+| 4 | Option D | 1 | 1 | 231... |
+
+Options A and B both have 3 acceptances, so preferences break the tie (A wins with 2 vs 1). Options C and D are tied on both acceptances and preferences, so random digits decide (C's 847 beats D's 231).
+
+## Creating a Decision
+
+Navigate to `{collective}/decide` and provide:
+- **Question** — The question this decision will answer
+- **Description** (optional) — Context or background for the decision
+- **Options policy** — Whether everyone or just the creator can add options
+- **Deadline** — When voting closes
+
+Options are added after the decision is created.
+
+## Adding Options
+
+Once a decision is created, members add options as proposed answers to the question. If the options policy is set to "Everyone," any member can add options. Otherwise, only the creator can.
+
+Options can be added at any time while the decision is open — even after voting has begun.
+
+## Voting
+
+To vote, navigate to the decision page and mark your choices:
+- Check ✅ each option you would accept
+- Star ⭐ your preferred options among those you accepted
+
+You can update or change your vote at any time while the decision is open. The results table updates in real time as votes come in.
+
+The decision displays who has voted, but individual votes are not visible to other members — only the aggregate counts appear in the results.
+
+## Closing a Decision
+
+A decision closes in one of two ways:
+
+- **Deadline passes** — If a deadline was set during creation, the decision closes automatically when the deadline is reached. No more votes can be cast after closing.
+- **Manually** — The decision creator can close the decision at any time from the decision settings page by selecting "Close now." The creator can also change the deadline or remove it entirely ("No deadline"), in which case the decision stays open until manually closed.
+
+When a decision is closed, the top-ranked option in the results is highlighted as the winner.
+
+## URL Pattern
+
+- Create: `{collective}/decide`
+- View: `{collective}/d/{id}`

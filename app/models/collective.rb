@@ -10,7 +10,7 @@ class Collective < ApplicationRecord
   belongs_to :tenant
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
-  belongs_to :identity_user, class_name: "User"
+  belongs_to :identity_user, class_name: "User", optional: true
   before_validation :create_identity_user!
   before_create :set_defaults
   tables = ActiveRecord::Base.connection.tables - [
@@ -26,8 +26,13 @@ class Collective < ApplicationRecord
   end
   has_many :users, through: :collective_members
 
+  scope :standard, -> { where(collective_type: "standard") }
+  scope :private_workspaces, -> { where(collective_type: "private_workspace") }
+  scope :not_private_workspace, -> { where.not(collective_type: "private_workspace") }
+
   validate :handle_is_valid
   validate :creator_is_not_collective_identity, on: :create
+  validate :collective_type_immutable, on: :update
 
   # NOTE: This is commented out because there is a bug where
   # the corresponding note history event is not created
@@ -116,6 +121,29 @@ class Collective < ApplicationRecord
     ).merge(
       settings || {}
     )
+
+    # Private workspaces enforce specific settings regardless of defaults
+    if private_workspace?
+      self.settings["unlisted"] = true
+      self.settings["invite_only"] = true
+      self.settings["all_members_can_invite"] = false
+      self.settings["any_member_can_represent"] = false
+      self.settings["tempo"] = "weekly"
+    end
+  end
+
+  sig { returns(T::Boolean) }
+  def private_workspace?
+    collective_type == "private_workspace"
+  end
+
+  sig { returns(String) }
+  def image_path
+    if private_workspace?
+      created_by&.image_url || super
+    else
+      super
+    end
   end
 
   sig { returns(T::Boolean) }
@@ -142,6 +170,11 @@ class Collective < ApplicationRecord
   sig { void }
   def creator_is_not_collective_identity
     errors.add(:created_by, "cannot be a collective identity") if created_by&.collective_identity?
+  end
+
+  sig { void }
+  def collective_type_immutable
+    errors.add(:collective_type, "cannot be changed") if collective_type_changed?
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
@@ -358,6 +391,7 @@ class Collective < ApplicationRecord
 
   sig { void }
   def create_identity_user!
+    return if private_workspace?
     return if identity_user
 
     identity = User.create!(
@@ -412,7 +446,7 @@ class Collective < ApplicationRecord
 
   sig { returns(String) }
   def path_prefix
-    "collectives"
+    private_workspace? ? "workspace" : "collectives"
   end
 
   sig { returns(T.nilable(String)) }
@@ -440,6 +474,10 @@ class Collective < ApplicationRecord
 
   sig { params(user: User, roles: T::Array[String]).returns(CollectiveMember) }
   def add_user!(user, roles: [])
+    if private_workspace? && user != created_by
+      raise "Cannot add other users to a private workspace"
+    end
+
     existing_cm = collective_members.find_by(user: user)
     if existing_cm
       existing_cm.unarchive! if existing_cm.archived?
@@ -503,6 +541,8 @@ class Collective < ApplicationRecord
 
   sig { params(created_by: User).returns(Invite) }
   def find_or_create_shareable_invite(created_by)
+    raise "Cannot create invites for private workspaces" if private_workspace?
+
     invite = Invite.where(
       collective: self,
       invited_user: nil

@@ -6,15 +6,16 @@ class LinkParser
   sig { params(text: String, subdomain: T.nilable(String), collective_handle: T.nilable(String), block: T.proc.params(record: T.untyped).void).returns(String) }
   def self.parse(text, subdomain: nil, collective_handle: nil, &block)
     models = { 'n' => Note, 'c' => Commitment, 'd' => Decision, 'r' => RepresentationSession }
-    domain = "#{subdomain}.#{ENV['HOSTNAME']}" + (collective_handle ? "/collectives/#{collective_handle}" : '')
+    # Support both /collectives/ and /workspace/ path prefixes
+    scope_prefix = collective_handle ? "(?:collectives|workspace)/#{collective_handle}/" : ''
     prefixes = models.keys.join
 
-    # Pattern for full URLs: https://subdomain.hostname/collectives/handle/n/id
-    full_url_pattern = Regexp.new("https://#{domain}/([#{prefixes}])/([0-9a-f-]+)")
+    # Pattern for full URLs: https://subdomain.hostname/collectives/handle/n/id (or /workspace/)
+    full_url_pattern = Regexp.new("https://#{Regexp.escape(subdomain.to_s)}\\.#{Regexp.escape(T.must(ENV['HOSTNAME']))}/#{scope_prefix}([#{prefixes}])/([0-9a-f-]+)")
 
-    # Pattern for path-only markdown links: [text](/collectives/handle/n/id)
-    path_prefix = collective_handle ? "/collectives/#{collective_handle}" : ''
-    path_only_pattern = Regexp.new("\\]\\(#{path_prefix}/([#{prefixes}])/([0-9a-f-]+)\\)")
+    # Pattern for path-only markdown links: [text](/collectives/handle/n/id) (or /workspace/)
+    path_prefix = collective_handle ? "/#{scope_prefix}" : '/'
+    path_only_pattern = Regexp.new("\\]\\(#{path_prefix}([#{prefixes}])/([0-9a-f-]+)\\)")
 
     memo = {}
 

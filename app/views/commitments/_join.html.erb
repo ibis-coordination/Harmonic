@@ -32,9 +32,11 @@
         <%= octicon 'person-add', height: 14 %>
         Join
       </button>
+      <% unless @current_collective.private_workspace? %>
       <span class="pulse-join-message" data-commitment-target="joinButtonMessage">
         Your participation will be visible to all members of <%= @current_collective.name %>.
       </span>
+      <% end %>
     </p>
   <% end %>
   <p class="pulse-join-info">

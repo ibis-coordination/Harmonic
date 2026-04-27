@@ -1,0 +1,72 @@
+# Search
+
+Search lets you find content across all your collectives by keyword, with powerful filtering, sorting, and grouping operators.
+
+## How to Search
+
+Navigate to `/search?q={query}` to search. Plain text searches content. Use `"quotes"` for exact phrase matching. Prefix any term or operator with `-` to negate it.
+
+## What's Searchable
+
+- **Notes** — Title and body text
+- **Decisions** — Title and option text
+- **Commitments** — Title and description
+
+## Search Operators
+
+Use operators in your query to filter, sort, and group results.
+
+### Filtering
+
+| Operator | Values | Example |
+|----------|--------|---------|
+| `scope:` | public, shared, private | `scope:shared` |
+| `collective:` | collective handle | `collective:my-team` |
+| `type:` | note, decision, commitment | `type:note` |
+| `subtype:` | comment | `subtype:comment` |
+| `status:` | open, closed | `status:open` |
+| `creator:` | @handle | `creator:@alice` |
+| `read-by:` | @handle | `read-by:@alice` |
+| `voter:` | @handle | `voter:@alice` |
+| `participant:` | @handle | `participant:@alice` |
+| `mentions:` | @handle | `mentions:@bob` |
+| `replying-to:` | @handle | `replying-to:@alice` |
+| `critical-mass-achieved:` | true, false | `critical-mass-achieved:true` |
+
+### Numeric Filters
+
+Use `min-` and `max-` prefixes with these fields:
+
+| Field | Example |
+|-------|---------|
+| `links` | `min-links:3` |
+| `backlinks` | `min-backlinks:1` |
+| `comments` | `max-comments:10` |
+| `readers` | `min-readers:5` |
+| `voters` | `min-voters:3` |
+| `participants` | `min-participants:2` |
+
+### Date Filters
+
+| Operator | Values | Example |
+|----------|--------|---------|
+| `cycle:` | today, this-week, last-month, etc. | `cycle:this-week` |
+| `after:` | YYYY-MM-DD or relative (-Nd/-Nw/-Nm/-Ny) | `after:-7d` |
+| `before:` | YYYY-MM-DD or relative (+Nd/+Nw/+Nm/+Ny) | `before:2026-01-01` |
+
+### Sorting and Grouping
+
+| Operator | Values |
+|----------|--------|
+| `sort:` | newest, oldest, updated, deadline, relevance |
+| `group:` | collective, creator, type, status, date, week, month, none |
+| `limit:` | 1-100 |
+
+## Examples
+
+- `type:decision status:open` — All open decisions
+- `creator:@alice sort:newest` — Alice's content, newest first
+- `"project update" type:note after:-7d` — Notes containing "project update" from the last 7 days
+- `collective:my-team group:type` — All content in my-team, grouped by type
+- `scope:private` — Only content in your private workspace
+- `-scope:private` — Everything except your private workspace

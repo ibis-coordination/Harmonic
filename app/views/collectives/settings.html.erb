@@ -12,7 +12,7 @@
         Settings
       </span>
     </div>
-    <h1 class="pulse-resource-title">Collective Settings</h1>
+    <h1 class="pulse-resource-title"><%= @current_collective.private_workspace? ? "Workspace" : "Collective" %> Settings</h1>
   </header>
 
   <div class="pulse-settings-form">
@@ -53,20 +53,20 @@
     <% else %>
 
     <section class="pulse-settings-section">
-      <h2 class="pulse-section-title">Collective Image</h2>
+      <h2 class="pulse-section-title"><%= @current_collective.private_workspace? ? "Workspace" : "Collective" %> Image</h2>
       <%= render 'shared/profile_image_upload', resource: @current_collective, size: 83 %>
     </section>
 
     <%= form_with(url: "#{@current_collective.path}/settings", id: "collective-settings-form", class: "pulse-form", data: { controller: "form-tracker", action: "change->form-tracker#trackChange input->form-tracker#trackChange" }) do |form| %>
       <section class="pulse-settings-section">
-        <h2 class="pulse-section-title">Collective Name</h2>
+        <h2 class="pulse-section-title"><%= @current_collective.private_workspace? ? "Workspace" : "Collective" %> Name</h2>
         <div class="pulse-form-group">
-          <%= form.text_field :name, placeholder: 'Collective Name', value: @current_collective.name, class: 'pulse-form-input' %>
+          <%= form.text_field :name, placeholder: @current_collective.private_workspace? ? 'Workspace Name' : 'Collective Name', value: @current_collective.name, class: 'pulse-form-input' %>
         </div>
       </section>
 
       <section class="pulse-settings-section">
-        <h2 class="pulse-section-title">Collective Description</h2>
+        <h2 class="pulse-section-title"><%= @current_collective.private_workspace? ? "Workspace" : "Collective" %> Description</h2>
         <div class="pulse-form-group">
           <%= form.text_area :description, placeholder: 'Description (markdown supported)', value: @current_collective.description, class: 'pulse-form-textarea', rows: 4 %>
         </div>
@@ -110,6 +110,7 @@
         </fieldset>
       </section>
 
+      <% unless @current_collective.private_workspace? %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Invitations</h2>
         <fieldset class="pulse-radio-group">
@@ -139,6 +140,7 @@
           </label>
         </fieldset>
       </section>
+      <% end %>
 
       <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) && FeatureFlagService.flag_metadata(f).fetch("collective_level", false) } %>
       <% if available_flags.any? %>
@@ -176,7 +178,7 @@
       </div>
     <% end %>
 
-    <% if @current_collective.feature_enabled?('api') %>
+    <% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? %>
       <section class="pulse-settings-section" data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="<%= @current_collective.path %>/settings/remove_ai_agent">
         <h2 class="pulse-section-title">AI Agents in this Collective</h2>
         <p class="pulse-section-description">

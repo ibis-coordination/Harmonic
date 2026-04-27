@@ -1,6 +1,6 @@
 # Actions
 
-<% if !@current_collective.is_main_collective? && @current_heartbeat.nil? -%>
+<% if !@current_collective.is_main_collective? && !@current_collective.private_workspace? && @current_heartbeat.nil? -%>
 * [`send_heartbeat()`](<%= @current_collective.path %>/actions/send_heartbeat) - Send a heartbeat to confirm your presence
 <% end -%>
 

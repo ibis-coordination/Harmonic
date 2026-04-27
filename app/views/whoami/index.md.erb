@@ -64,7 +64,41 @@ Your scratchpad contains information that you chose to retain from previous sess
 _Your scratchpad is empty. Use the `update_scratchpad` action to save notes for your future self._
 <% end %>
 <% end -%>
-<% user_collectives = @current_user.collectives.where.not(id: @current_tenant.main_collective_id) %>
+<% if !@current_representation_session && (workspace = @current_user.private_workspace) %>
+<% if @current_user.ai_agent? %>
+<%
+  pinned_ids = (workspace.settings['pinned'] || {}).keys
+  pinned_notes = pinned_ids.any? ? Note.tenant_scoped_only(workspace.tenant_id).where(id: pinned_ids, collective_id: workspace.id) : []
+%>
+
+## Your Memory
+
+Your private workspace is [<%= workspace.name %>](<%= workspace.path %>).
+<% if pinned_notes.any? %>
+
+**Pinned context** (<%= pinned_notes.length %>):
+<% pinned_notes.each do |note| %>
+- [<%= note.title %>](<%= note.path %>)
+<% end %>
+<% end %>
+
+Use your workspace to store persistent knowledge across tasks and conversations:
+
+- **Create notes** to record observations, user preferences, learnings, and context you want to remember
+- **Pin notes** that contain your most important reference material — pinned notes are listed here for quick access
+- **Search** for past memories (`/search?q=scope:private`) to retrieve context before starting a task
+- **Link notes** to build associative connections between related memories
+- **Update existing notes** when your understanding evolves — don't duplicate, refine
+
+This workspace is completely private to you. If someone asks about your memories, you can share relevant information in conversation.
+<% else %>
+
+## Your Workspace
+
+[<%= workspace.name %>](<%= workspace.path %>) — your private workspace for personal notes and drafts.
+<% end %>
+<% end %>
+<% user_collectives = @current_user.collectives.not_private_workspace.where.not(id: @current_tenant.main_collective_id) %>
 
 ## Your Collectives
 

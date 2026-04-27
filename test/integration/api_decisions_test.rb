@@ -235,6 +235,24 @@ class ApiDecisionsTest < ActionDispatch::IntegrationTest
     assert_equal 0, body["accepted"]
   end
 
+  test "uncheck vote sets accepted and preferred to 0" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    option = create_option(tenant: @tenant, collective: @collective, created_by: @user, decision: decision)
+    # First, cast a vote
+    post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: { accepted: 1, preferred: 1 }.to_json, headers: @headers
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal 1, body["accepted"]
+    assert_equal 1, body["preferred"]
+
+    # Then uncheck it by sending false values (as the frontend does)
+    post api_path("/#{decision.truncated_id}/options/#{option.id}/votes"), params: { accepted: false, preferred: false }.to_json, headers: @headers
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal 0, body["accepted"], "accepted should be 0 after unchecking"
+    assert_equal 0, body["preferred"], "preferred should be 0 after unchecking"
+  end
+
   # Results
   test "get results returns voting results" do
     decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)

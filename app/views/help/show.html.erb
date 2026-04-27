@@ -1,6 +1,7 @@
+<% topic_name = @page_title.sub('Help — ', '') %>
 <%= render 'shared/pulse_breadcrumb', items: [
   ['Home', '/'],
-  'Help'
+  *(topic_name == 'Help' ? ['Help'] : [['Help', '/help'], topic_name])
 ] %>
 
 <article class="pulse-resource-detail">
@@ -11,10 +12,9 @@
         Help
       </span>
     </div>
-    <h1 class="pulse-resource-title">Help</h1>
   </header>
 
   <div class="pulse-resource-body pulse-prose">
-    <p>Help documentation will be added here. In the meantime, check out the <a href="/learn" class="pulse-link">Learn</a> section for educational content about how Harmonic works.</p>
+    <%= @help_html.html_safe %>
   </div>
 </article>

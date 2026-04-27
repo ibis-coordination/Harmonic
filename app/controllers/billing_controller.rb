@@ -363,22 +363,22 @@ class BillingController < ApplicationController
       .where("tenant_users.archived_at IS NOT NULL OR users.suspended_at IS NOT NULL")
       .order(:name)
 
-    # Active collectives on billing-enabled tenants: not archived, not pending, not main
-    @active_collectives = Collective.for_user_across_tenants(current_user).where(
+    # Active collectives on billing-enabled tenants: not archived, not pending, not main, not private workspace
+    @active_collectives = Collective.for_user_across_tenants(current_user).not_private_workspace.where(
       tenant_id: billing_tenant_ids,
       archived_at: nil,
       pending_billing_setup: false,
     ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 
     # Pending collectives on billing-enabled tenants
-    @pending_collectives = Collective.for_user_across_tenants(current_user).where(
+    @pending_collectives = Collective.for_user_across_tenants(current_user).not_private_workspace.where(
       tenant_id: billing_tenant_ids,
       archived_at: nil,
       pending_billing_setup: true,
     ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 
     # Inactive collectives on billing-enabled tenants: archived, not main
-    @inactive_collectives = Collective.for_user_across_tenants(current_user).where(
+    @inactive_collectives = Collective.for_user_across_tenants(current_user).not_private_workspace.where(
       tenant_id: billing_tenant_ids,
     ).where.not(archived_at: nil).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 

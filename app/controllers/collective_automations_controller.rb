@@ -457,11 +457,11 @@ class CollectiveAutomationsController < ApplicationController
   end
 
   def automations_index_path
-    "/collectives/#{@current_collective.handle}/settings/automations"
+    "#{@current_collective.path}/settings/automations"
   end
 
   def automation_path(rule)
-    "/collectives/#{@current_collective.handle}/settings/automations/#{rule.truncated_id}"
+    "#{@current_collective.path}/settings/automations/#{rule.truncated_id}"
   end
 
   def default_template

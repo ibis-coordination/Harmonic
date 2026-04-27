@@ -26,7 +26,8 @@
 
 <p>Representation allows this collective (<%= @current_collective.name %>) to act as an individual member of other collectives.</p>
 
-<% if @current_collective.identity_user.collectives.empty? %>
+<% identity_collectives = @current_collective.identity_user&.collectives&.not_private_workspace || [] %>
+<% if identity_collectives.empty? %>
   <p class="pulse-muted">
     <%= @current_collective.name %> is not currently a member of any other collectives.
   </p>
@@ -35,7 +36,7 @@
     <%= @current_collective.name %> is currently a member of the following collectives:
   </p>
   <ul class="pulse-list">
-    <% @current_collective.identity_user.collectives.each do |collective| %>
+    <% identity_collectives.each do |collective| %>
       <li class="pulse-list-item">
         <a href="<%= collective.path %>" class="pulse-link"><%= collective.name %></a>
       </li>

@@ -118,6 +118,9 @@ class TrusteeGrant < ApplicationRecord
 
   sig { params(collective: Collective).returns(T::Boolean) }
   def allows_collective?(collective)
+    # Private workspaces are never accessible during representation
+    return false if collective.private_workspace?
+
     # Note: reads from studio_scope DB column (to be renamed in a future migration)
     scope = studio_scope || { "mode" => "all" }
     case scope["mode"]
@@ -135,6 +138,16 @@ class TrusteeGrant < ApplicationRecord
   # =========================================================================
   # SCOPES
   # =========================================================================
+
+  # All grants involving a user (as either granting or trustee party).
+  # Overrides ApplicationRecord.for_user_across_tenants since TrusteeGrant has
+  # non-standard FK names (granting_user_id, trustee_user_id instead of user_id).
+  sig { params(user: User).returns(T.untyped) }
+  def self.for_user_across_tenants(user)
+    unscoped.where(granting_user_id: user.id).or( # unscoped-allowed - user's own data
+      unscoped.where(trustee_user_id: user.id),    # unscoped-allowed - user's own data
+    )
+  end
 
   scope :pending, -> { where(accepted_at: nil, declined_at: nil, revoked_at: nil) }
   scope :active, lambda {

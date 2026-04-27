@@ -1,0 +1,37 @@
+# Links
+
+**Links** are bidirectional references between content in Harmonic. When one piece of content references another by URL, a link is automatically created in both directions.
+
+## How Links Are Created
+
+Include the URL of a note, decision, or commitment in the body of another piece of content. The system scans the text on every save and automatically creates (or removes) links.
+
+Two URL formats are recognized:
+
+- **Full URL** — `https://subdomain.harmonic.social/collectives/my-team/n/abc12345`
+- **Path in a markdown link** — `[my note](/collectives/my-team/n/abc12345)`
+
+The path prefixes that create links are:
+- `/n/{id}` — links to a note
+- `/d/{id}` — links to a decision
+- `/c/{id}` — links to a commitment
+
+Links are created from the body text of **notes** and the description field of **decisions** and **commitments**.
+
+Links do not cross collective boundaries — a link is only created if both items are in the same collective. If you reference content from a different collective, the URL will still be clickable but no link record is created and no backlink will appear on the referenced item's page.
+
+## Bidirectional
+
+If Note A contains the URL of Note B, then:
+- Note A shows a link to Note B
+- Note B shows a **backlink** from Note A
+
+If you later edit Note A and remove the URL, the link is automatically removed from both sides.
+
+## Backlinks
+
+Navigate to any note, decision, or commitment to see its backlinks — everything that references it. This is useful for discovering related discussions and context.
+
+## Collective Backlinks
+
+Navigate to `{collective}/backlinks` to see all backlinks within a collective — a map of how content is connected.
