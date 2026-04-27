@@ -30,6 +30,7 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
   static values = {
     collectiveHandle: String,
     collectiveName: String,
+    workspace: String,
   }
 
   declare readonly formTarget: HTMLFormElement
@@ -37,6 +38,7 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
   declare readonly hasToggleTarget: boolean
   declare collectiveHandleValue: string
   declare collectiveNameValue: string
+  declare workspaceValue: string
 
   private hasAutoPopulated = false
   private boundClickOutside: ((event: Event) => void) | null = null
@@ -53,10 +55,14 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
   }
 
   /**
-   * Build the auto-populated prefix based on collective handle.
-   * Returns `collective:handle`.
+   * Build the auto-populated prefix based on context.
+   * Returns `scope:private` for workspaces, `collective:handle` for collectives.
    */
   private buildPrefix(): string | null {
+    if (this.workspaceValue) {
+      return "scope:private"
+    }
+
     const handle = this.collectiveHandleValue
 
     if (!handle) {
