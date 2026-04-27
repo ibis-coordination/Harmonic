@@ -359,4 +359,214 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     json_response = JSON.parse(response.body)
     assert_equal 2, json_response["confirmed_reads"]
   end
+
+  # === Table Note Action Tests ===
+
+  def create_table_note
+    Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      subtype: "table",
+      title: "Test Table",
+      text: "",
+      table_data: {
+        "columns" => [
+          { "name" => "Status", "type" => "text" },
+          { "name" => "Due", "type" => "date" },
+        ],
+        "rows" => [],
+      },
+    )
+  end
+
+  test "add_row action adds a row to table note" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_row",
+      params: { values: { "Status" => "done", "Due" => "2026-05-01" } },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    note.reload
+    assert_equal 1, note.table_data["rows"].length
+    assert_equal "done", note.table_data["rows"].first["Status"]
+  end
+
+  test "update_row action updates a row in table note" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "pending", "Due" => "2026-05-01" }, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/update_row",
+      params: { row_id: row["_id"], values: { "Status" => "done" } },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    note.reload
+    assert_equal "done", note.table_data["rows"].first["Status"]
+  end
+
+  test "delete_row action removes a row from table note" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/delete_row",
+      params: { row_id: row["_id"] },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    note.reload
+    assert_equal 0, note.table_data["rows"].length
+  end
+
+  test "query_rows action returns filtered results" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
+    table.add_row!({ "Status" => "pending", "Due" => "2026-05-02" }, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/query_rows",
+      params: { where: { "Status" => "done" } },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "1 rows match"
+    assert_includes response.body, "done"
+    refute_includes response.body, "pending"
+  end
+
+  test "summarize action returns aggregation result" do
+    sign_in_as(@user, tenant: @tenant)
+    note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      subtype: "table", title: "Numbers", text: "",
+      table_data: { "columns" => [{ "name" => "Amount", "type" => "number" }], "rows" => [] },
+    )
+    table = NoteTableService.new(note)
+    table.add_row!({ "Amount" => "10" }, created_by: @user)
+    table.add_row!({ "Amount" => "20" }, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/summarize",
+      params: { operation: "sum", column: "Amount" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "30.0"
+  end
+
+  test "add_table_column action adds a column" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_table_column",
+      params: { name: "Priority", type: "text" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    note.reload
+    assert_equal 3, note.table_data["columns"].length
+  end
+
+  test "remove_table_column action removes a column" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/remove_table_column",
+      params: { name: "Due" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    note.reload
+    assert_equal 1, note.table_data["columns"].length
+  end
+
+  test "update_table_description action updates description" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/update_table_description",
+      params: { description: "New description" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    note.reload
+    assert_equal "New description", note.table_data["description"]
+  end
+
+  test "batch_table_update applies multiple operations in one save" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/batch_table_update",
+      params: {
+        operations: [
+          { action: "add_row", values: { "Status" => "a", "Due" => "2026-05-01" } },
+          { action: "add_row", values: { "Status" => "b", "Due" => "2026-05-02" } },
+          { action: "add_row", values: { "Status" => "c", "Due" => "2026-05-03" } },
+        ],
+      },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "3 operations applied"
+    note.reload
+    assert_equal 3, note.table_data["rows"].length
+    # Batch should create only 1 update history event
+    assert_equal 1, note.note_history_events.where(event_type: "update").count
+  end
+
+  test "table note markdown view includes table actions in available actions" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "add_row"
+    assert_includes response.body, "update_row"
+    assert_includes response.body, "delete_row"
+    assert_includes response.body, "query_rows"
+    assert_includes response.body, "summarize"
+    assert_includes response.body, "batch_table_update"
+  end
+
+  test "regular note markdown view does not include table actions" do
+    sign_in_as(@user, tenant: @tenant)
+    note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      text: "Regular note",
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    refute_includes response.body, "add_row"
+    refute_includes response.body, "query_rows"
+    refute_includes response.body, "batch_table_update"
+    # Should still have standard note actions
+    assert_includes response.body, "confirm_read"
+  end
+
+  test "table actions are not available on non-table notes" do
+    sign_in_as(@user, tenant: @tenant)
+    note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      text: "Regular note",
+    )
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_row",
+      params: { values: { "Col" => "val" } },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "Not a table note"
+  end
 end
