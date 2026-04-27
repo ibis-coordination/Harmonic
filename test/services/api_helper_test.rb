@@ -320,4 +320,160 @@ class ApiHelperTest < ActiveSupport::TestCase
     end
   end
 
+  # === Table Note Operations ===
+
+  def create_table_note_for_api
+    Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      subtype: "table",
+      title: "API Test Table",
+      text: "",
+      table_data: {
+        "columns" => [
+          { "name" => "Status", "type" => "text" },
+          { "name" => "Amount", "type" => "number" },
+        ],
+        "rows" => [],
+      },
+    )
+  end
+
+  def table_api_helper(note, params: {})
+    ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource_model: Note,
+      current_resource: note,
+      current_note: note,
+      params: params,
+    )
+  end
+
+  test "add_row adds a row to table note" do
+    note = create_table_note_for_api
+    helper = table_api_helper(note, params: { values: { "Status" => "done", "Amount" => "42" } })
+
+    row = helper.add_row
+
+    assert row["_id"].present?
+    assert_equal "done", row["Status"]
+    assert_equal "42", row["Amount"]
+    assert_equal 1, note.reload.table_data["rows"].length
+  end
+
+  test "update_row updates specific cells" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "pending", "Amount" => "10" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { row_id: row["_id"], values: { "Status" => "done" } })
+    updated = helper.update_row
+
+    assert_equal "done", updated["Status"]
+    assert_equal "10", updated["Amount"]
+  end
+
+  test "delete_row removes a row" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { row_id: row["_id"] })
+    helper.delete_row
+
+    assert_equal 0, note.reload.table_data["rows"].length
+  end
+
+  test "query_rows filters and paginates" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
+    table.add_row!({ "Status" => "pending", "Amount" => "20" }, created_by: @user)
+    table.add_row!({ "Status" => "done", "Amount" => "30" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { where: { "Status" => "done" }, limit: 10 })
+    result = helper.query_rows
+
+    assert_equal 2, result[:total]
+    assert_equal 2, result[:rows].length
+  end
+
+  test "summarize_table computes aggregation" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
+    table.add_row!({ "Status" => "done", "Amount" => "20" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { operation: "sum", column: "Amount" })
+    assert_equal 30.0, helper.summarize_table
+  end
+
+  test "batch_table_update applies multiple operations" do
+    note = create_table_note_for_api
+    helper = table_api_helper(note)
+
+    helper.batch_table_update do |t|
+      t.add_row!({ "Status" => "a", "Amount" => "1" }, created_by: @user)
+      t.add_row!({ "Status" => "b", "Amount" => "2" }, created_by: @user)
+    end
+
+    assert_equal 2, note.reload.table_data["rows"].length
+    assert_equal 1, note.note_history_events.where(event_type: "update").count
+  end
+
+  test "add_table_column adds a column" do
+    note = create_table_note_for_api
+    helper = table_api_helper(note, params: { name: "Priority", type: "text" })
+    helper.add_table_column
+
+    table = NoteTableService.new(note.reload)
+    assert_equal 3, table.columns.length
+    assert_includes table.column_names, "Priority"
+  end
+
+  test "remove_table_column removes a column" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { name: "Amount" })
+    helper.remove_table_column
+
+    table_after = NoteTableService.new(note.reload)
+    assert_equal 1, table_after.columns.length
+    refute_includes table_after.column_names, "Amount"
+  end
+
+  test "update_table_description updates description" do
+    note = create_table_note_for_api
+    helper = table_api_helper(note, params: { description: "Updated description" })
+    helper.update_table_description
+
+    table = NoteTableService.new(note.reload)
+    assert_equal "Updated description", table.description
+  end
+
+  test "add_table_column requires resource owner" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    @collective.add_user!(other_user)
+    note = create_table_note_for_api
+
+    helper = ApiHelper.new(
+      current_user: other_user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource_model: Note,
+      current_resource: note,
+      current_note: note,
+      params: { name: "New Col", type: "text" },
+    )
+
+    assert_raises(RuntimeError, "Unauthorized") do
+      helper.add_table_column
+    end
+  end
 end

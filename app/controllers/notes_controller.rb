@@ -281,6 +281,136 @@ class NotesController < ApplicationController
     render_action_description(ActionsHelper.action_description("delete_note", resource: current_note))
   end
 
+  # Table note actions
+
+  def describe_add_row
+    render_action_description(ActionsHelper.action_description("add_row", resource: current_note))
+  end
+
+  def execute_add_row
+    row = api_helper.add_row
+    render_action_success({ action_name: "add_row", resource: current_note, result: "Row added (id: #{row['_id']})." })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "add_row", resource: current_note, error: e.message })
+  end
+
+  def describe_update_row
+    render_action_description(ActionsHelper.action_description("update_row", resource: current_note))
+  end
+
+  def execute_update_row
+    api_helper.update_row
+    render_action_success({ action_name: "update_row", resource: current_note, result: "Row updated." })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "update_row", resource: current_note, error: e.message })
+  end
+
+  def describe_delete_row
+    render_action_description(ActionsHelper.action_description("delete_row", resource: current_note))
+  end
+
+  def execute_delete_row
+    api_helper.delete_row
+    render_action_success({ action_name: "delete_row", resource: current_note, result: "Row deleted." })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "delete_row", resource: current_note, error: e.message })
+  end
+
+  def describe_add_table_column
+    render_action_description(ActionsHelper.action_description("add_table_column", resource: current_note))
+  end
+
+  def execute_add_table_column
+    api_helper.add_table_column
+    render_action_success({ action_name: "add_table_column", resource: current_note, result: "Column '#{params[:name]}' added." })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "add_table_column", resource: current_note, error: e.message })
+  end
+
+  def describe_remove_table_column
+    render_action_description(ActionsHelper.action_description("remove_table_column", resource: current_note))
+  end
+
+  def execute_remove_table_column
+    api_helper.remove_table_column
+    render_action_success({ action_name: "remove_table_column", resource: current_note, result: "Column '#{params[:name]}' removed." })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "remove_table_column", resource: current_note, error: e.message })
+  end
+
+  def describe_query_rows
+    render_action_description(ActionsHelper.action_description("query_rows", resource: current_note))
+  end
+
+  def execute_query_rows
+    result = api_helper.query_rows
+    table = api_helper.table_service
+    markdown = NoteTableFormatter.to_markdown({
+      "columns" => table.columns,
+      "rows" => result[:rows],
+    })
+    render_action_success({
+      action_name: "query_rows",
+      resource: current_note,
+      result: "#{result[:total]} rows match (showing #{result[:rows].length}):\n\n#{markdown}",
+    })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "query_rows", resource: current_note, error: e.message })
+  end
+
+  def describe_summarize
+    render_action_description(ActionsHelper.action_description("summarize", resource: current_note))
+  end
+
+  def execute_summarize
+    value = api_helper.summarize_table
+    render_action_success({ action_name: "summarize", resource: current_note, result: "#{params[:operation]} = #{value}" })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "summarize", resource: current_note, error: e.message })
+  end
+
+  def describe_update_table_description
+    render_action_description(ActionsHelper.action_description("update_table_description", resource: current_note))
+  end
+
+  def execute_update_table_description
+    api_helper.update_table_description
+    render_action_success({ action_name: "update_table_description", resource: current_note, result: "Table description updated." })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "update_table_description", resource: current_note, error: e.message })
+  end
+
+  def describe_batch_table_update
+    render_action_description(ActionsHelper.action_description("batch_table_update", resource: current_note))
+  end
+
+  def execute_batch_table_update
+    operations = params[:operations] || []
+    api_helper.batch_table_update do |t|
+      operations.each do |op|
+        case op[:action]
+        when "add_row"
+          t.add_row!(op[:values]&.to_unsafe_h || {}, created_by: @current_user)
+        when "update_row"
+          t.update_row!(op[:row_id], op[:values]&.to_unsafe_h || {})
+        when "delete_row"
+          t.delete_row!(op[:row_id])
+        when "add_table_column"
+          t.add_column!(op[:name], op[:type])
+        when "remove_table_column"
+          t.remove_column!(op[:name])
+        when "update_table_description"
+          t.update_description!(op[:description])
+        else
+          raise "Unknown operation '#{op[:action]}'"
+        end
+      end
+    end
+    render_action_success({ action_name: "batch_table_update", resource: current_note, result: "#{operations.length} operations applied." })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "batch_table_update", resource: current_note, error: e.message })
+  end
+
   def execute_delete_note
     @note = current_note
     return render "404", status: :not_found unless @note

@@ -289,6 +289,83 @@ class ApiHelper
     perform_soft_delete!(note)
   end
 
+  # Table note operations
+
+  sig { returns(NoteTableService) }
+  def table_service
+    NoteTableService.new(T.must(current_note))
+  end
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  def add_row
+    table = table_service
+    table.add_row!(hash_param(:values), created_by: current_user)
+  end
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  def update_row
+    table = table_service
+    table.update_row!(params[:row_id], hash_param(:values))
+  end
+
+  sig { void }
+  def delete_row
+    table = table_service
+    table.delete_row!(params[:row_id])
+  end
+
+  sig { void }
+  def add_table_column
+    note = T.must(current_note)
+    raise "Unauthorized" unless note.user_can_edit?(current_user)
+    table = table_service
+    table.add_column!(params[:name], params[:type])
+  end
+
+  sig { void }
+  def remove_table_column
+    note = T.must(current_note)
+    raise "Unauthorized" unless note.user_can_edit?(current_user)
+    table = table_service
+    table.remove_column!(params[:name])
+  end
+
+  sig { returns(T::Hash[Symbol, T.untyped]) }
+  def query_rows
+    table = table_service
+    table.query_rows(
+      where: hash_param(:where),
+      order_by: params[:order_by],
+      order: params[:order] || "asc",
+      limit: (params[:limit] || 20).to_i,
+      offset: (params[:offset] || 0).to_i,
+    )
+  end
+
+  sig { returns(T.untyped) }
+  def summarize_table
+    table = table_service
+    table.summarize(
+      operation: params[:operation],
+      column: params[:column],
+      where: hash_param(:where),
+    )
+  end
+
+  sig { void }
+  def update_table_description
+    note = T.must(current_note)
+    raise "Unauthorized" unless note.user_can_edit?(current_user)
+    table = table_service
+    table.update_description!(params[:description])
+  end
+
+  sig { params(block: T.proc.params(arg0: NoteTableService).void).void }
+  def batch_table_update(&block)
+    table = table_service
+    table.batch_update!(&block)
+  end
+
   def delete_decision
     decision = T.must(current_decision)
     authorize_delete!(decision)
@@ -803,6 +880,14 @@ class ApiHelper
   end
 
   private
+
+  # Safely converts an ActionController::Parameters value to a plain hash.
+  # Returns empty hash if the param is nil.
+  def hash_param(key)
+    value = params[key]
+    return {} if value.nil?
+    value.respond_to?(:to_unsafe_h) ? value.to_unsafe_h : value.to_h
+  end
 
   def authorize_delete!(content)
     return if content.created_by_id == current_user.id
