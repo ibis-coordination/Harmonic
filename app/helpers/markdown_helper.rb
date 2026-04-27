@@ -44,6 +44,28 @@ module MarkdownHelper
     end
   end
 
+  MARKDOWN_CONTENT_TRUNCATION_LIMIT = 2_000
+
+  # Truncates content at a line boundary to reduce agent token usage.
+  # Returns the original content if under the limit or if full_text=true is passed.
+  # Use with markdown_truncation_notice to display the truncation message outside
+  # the code fence that wraps user-generated content.
+  def truncate_content(content)
+    return content if content.blank?
+    return content if params[:full_text] == "true"
+    return content if content.length <= MARKDOWN_CONTENT_TRUNCATION_LIMIT
+
+    cut_at = content.rindex("\n", MARKDOWN_CONTENT_TRUNCATION_LIMIT) || MARKDOWN_CONTENT_TRUNCATION_LIMIT
+    content[0...cut_at]
+  end
+
+  # Returns a truncation notice if content was truncated, nil otherwise.
+  def markdown_truncation_notice(original_content, truncated_content, url:)
+    return nil if original_content == truncated_content
+
+    "... (showing #{truncated_content.length} of #{original_content.length} characters)\nTo view full content, navigate to: #{url}?full_text=true"
+  end
+
   private
 
   # Build the route pattern from the current request.
